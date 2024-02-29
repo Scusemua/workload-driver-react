@@ -43,7 +43,7 @@ import {
   ToolbarToggleGroup,
 } from '@patternfly/react-core';
 
-import { DistributedJupyterKernel } from 'src/app/Data/Kernel';
+import { DistributedJupyterKernel } from '@data/Kernel';
 import CubeIcon from '@patternfly/react-icons/dist/esm/icons/cube-icon';
 import StopCircle from '@patternfly/react-icons/dist/esm/icons/stop-circle-icon';
 import CheckCircleIcon from '@patternfly/react-icons/dist/esm/icons/check-circle-icon';

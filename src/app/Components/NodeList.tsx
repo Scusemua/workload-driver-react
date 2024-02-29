@@ -35,8 +35,8 @@ import {
   ToolbarToggleGroup,
 } from '@patternfly/react-core';
 
-import GpuIcon from 'src/app/Icons/GpuIcon';
-import { KubernetesNode } from 'src/app/Data/Kubernetes';
+import GpuIcon from '@icons/GpuIcon';
+import { KubernetesNode } from '@data/Kubernetes';
 import CubeIcon from '@patternfly/react-icons/dist/esm/icons/cube-icon';
 import FilterIcon from '@patternfly/react-icons/dist/esm/icons/filter-icon';
 import { CpuIcon, MemoryIcon } from '@patternfly/react-icons';

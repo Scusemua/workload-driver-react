@@ -14,7 +14,7 @@ import {
   Title,
 } from '@patternfly/react-core';
 
-import { KernelSpec } from 'src/app/Data/Kernel';
+import { KernelSpec } from '@data/Kernel';
 
 const kernelSpecs: KernelSpec[] = [
   {
