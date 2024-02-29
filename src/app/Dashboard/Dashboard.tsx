@@ -5,7 +5,7 @@ import { Grid, GridItem, PageSection, Title } from '@patternfly/react-core';
 
 import { KernelList } from '@app/Components/KernelList';
 import { KubernetesNodeList } from '@app/Components/NodeList';
-import { KernelSpecList } from '@app/Components/KernelSpecList'
+import { KernelSpecList } from '@app/Components/KernelSpecList';
 
 const Dashboard: React.FunctionComponent = () => (
   <PageSection>

@@ -44,12 +44,17 @@ import {
 } from '@patternfly/react-core';
 
 import { DistributedJupyterKernel } from '@data/Kernel';
-import CubeIcon from '@patternfly/react-icons/dist/esm/icons/cube-icon';
-import StopCircle from '@patternfly/react-icons/dist/esm/icons/stop-circle-icon';
-import CheckCircleIcon from '@patternfly/react-icons/dist/esm/icons/check-circle-icon';
-import ExclamationTriangleIcon from '@patternfly/react-icons/dist/esm/icons/exclamation-triangle-icon';
-import FilterIcon from '@patternfly/react-icons/dist/esm/icons/filter-icon';
-import { HourglassHalfIcon, RebootingIcon, SkullIcon, SpinnerIcon } from '@patternfly/react-icons';
+import {
+  CheckCircleIcon,
+  CubeIcon,
+  ExclamationTriangleIcon,
+  FilterIcon,
+  HourglassHalfIcon,
+  RebootingIcon,
+  SkullIcon,
+  SpinnerIcon,
+  StopCircleIcon,
+} from '@patternfly/react-icons';
 
 // Map from kernel status to the associated icon.
 const kernelStatusIcons = {
@@ -57,7 +62,7 @@ const kernelStatusIcons = {
   starting: <SpinnerIcon className="loading-icon-spin-pulse" />,
   idle: <CheckCircleIcon />,
   busy: <HourglassHalfIcon />,
-  terminating: <StopCircle />,
+  terminating: <StopCircleIcon />,
   restarting: <RebootingIcon className="loading-icon-spin" />,
   autorestarting: <RebootingIcon className="loading-icon-spin" />,
   dead: <SkullIcon />,
