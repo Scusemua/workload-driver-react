@@ -1,0 +1,243 @@
+syntax = "proto3";
+
+option go_package = "github.com/zhangjyr/distributed-notebook/common/gateway";
+option java_multiple_files = true;
+option java_package = "com.github.zhangjyr.distributed-notebook.common.gateway";
+option java_outer_classname = "GatewayProto";
+
+package gateway;
+
+service ClusterGateway {
+  // ID returns the cluster gateway id and can be used to test connectivity.
+  rpc ID(Void) returns (ProvisionerId) {}
+
+  // RemoveHost removes a local gateway from the cluster.
+  rpc RemoveHost(HostId) returns (Void) {}
+
+  // MigrateKernelReplica selects a qualified host and adds a kernel replica to the replica set.
+  // Unlike StartKernelReplica, a new replica is added to the replica set and a training task may
+  // need to start immediately after replica started, e.g., preempting a training task.
+  // 
+  // The function will simply remove the replica from the kernel without stopping it.
+  // The caller should stop the replica after confirmed that the new replica is ready.
+  rpc MigrateKernelReplica(MigrationRequest) returns (MigrateKernelResponse) {}
+
+  // Notify the Gateway that a distributed kernel replica has started somewhere.
+  rpc NotifyKernelRegistered(KernelRegistrationNotification) returns (KernelRegistrationNotificationResponse) {}
+
+  rpc SmrReady(SmrReadyNotification) returns (Void) {}
+
+  rpc SmrNodeAdded(ReplicaInfo) returns (Void) {}
+
+  // Return a list of all of the current kernel IDs.
+  rpc ListKernels(Void) returns (ListKernelsResponse) {}
+
+  // Return a list of the Kubernetes nodes available within the Kubernetes cluster.
+  // rpc GetKubernetesNodes(Void) returns (GetKubernetesNodesResponse) {}
+}
+
+message JupyterKernelReplica {
+  string kernelId = 1;
+  int32 replicaId = 2;
+  string podId = 3;
+  string nodeId = 4;
+}
+
+message DistributedJupyterKernel {
+  string kernelId = 1;
+  int32 numReplicas = 2;
+  string status = 3;
+  string aggregateBusyStatus = 4;
+  repeated JupyterKernelReplica replicas = 5;
+}
+
+message ListKernelsResponse {
+  int32 numKernels = 1;
+  repeated DistributedJupyterKernel kernels = 2;
+}
+
+message ProvisionerId {
+  string id = 1;
+}
+
+message HostSpec {
+  string ip = 1;
+  int32 port = 2;
+}
+
+message HostId {
+  string id = 1;
+}
+
+// The juypter gateway service for host local kernels.
+service LocalGateway {
+  // SetID sets the local gatway id and return old id for failure tolerance.
+  rpc SetID(HostId) returns (HostId) {}
+
+  // StartKernel a kernel or kernel replica.
+  rpc StartKernel(KernelSpec) returns (KernelConnectionInfo) {}
+
+  // StartKernelReplica starts a kernel replica on the local host.
+  rpc StartKernelReplica(KernelReplicaSpec) returns (KernelConnectionInfo) {}
+
+  // GetKernelStatus returns the status of a kernel.
+  rpc GetKernelStatus(KernelId) returns (KernelStatus) {}
+
+  // KillKernel kills a kernel.
+  rpc KillKernel(KernelId) returns (Void) {}
+
+  // StopKernel stops a kernel gracefully and return immediately.
+  rpc StopKernel(KernelId) returns (Void) {}
+
+  // WaitKernel waits for a kernel to stop and return status.
+  rpc WaitKernel(KernelId) returns (KernelStatus) {}
+
+  // SetClose request the gateway to close all kernels and stop.
+  rpc SetClose(Void) returns (Void) {}
+
+  // Used to instruct a set of kernel replicas to add a new node to their SMR cluster.
+  rpc AddReplica(ReplicaInfoWithAddr) returns (Void) {}
+
+  // Used to instruct a set of kernel replicas to update the peer address of a particular node.
+  // This is primarily used during migrations.
+  rpc UpdateReplicaAddr(ReplicaInfoWithAddr) returns (Void) {}
+
+  // Used to instruct a specific kernel replica to prepare to be migrated to a new node.
+  // This involves writing the contents of the etcd-raft data directory to HDFS so that
+  // it can be read back from HDFS by the new replica.
+  rpc PrepareToMigrate(ReplicaInfo) returns (PrepareToMigrateResponse) {}
+}
+
+// message GetKubernetesNodesResponse {
+//   repeated KubernetesNode nodes = 1;
+// }
+
+// message KubernetesNode {
+//   string nodeId = 1;
+//   repeated string pods = 2;
+//   float allocatableCPU = 3;
+//   float allocatableMemory = 4;
+//   float allocatableGPUs = 5;
+//   float allocatableVGPUs = 6;
+//   float allocatedCPU = 7;
+//   float allocatedMemory = 8;
+//   float allocatedGPUs = 9;
+//   float allocatedVGPUs = 10;
+// }
+
+// The input for starting a kernel replica.
+message KernelReplicaSpec {
+  KernelSpec kernel = 1;
+  int32 replicaId = 2;
+  int32 numReplicas = 3;
+  repeated string replicas = 4;
+  bool join = 5;
+  optional string persistentId = 6;
+}
+
+message ResourceSpec {
+  int32 cpu = 1;  // In 1/100 core.
+  int32 memory = 2; // In MB.
+  int32 gpu = 3; // In 1/100 core.
+}
+
+// The kernel id.
+message KernelId {
+  string id = 1;
+  optional bool restart = 2;
+  optional string persistentId = 3;
+}
+
+// The paramters for migration
+message ReplicaInfo {
+  string kernelId = 1;
+  int32 replicaId = 2;
+  string persistentId = 3;
+}
+
+message MigrationRequest {
+  ReplicaInfo targetReplica = 1;
+  optional string targetNodeId = 2;
+  string persistentId = 3;
+}
+
+message SmrReadyNotification {
+  string kernelId = 1;
+  int32 replicaId = 2;
+  string persistentId = 3;
+  string address = 4;
+}
+
+// The replica id.
+message ReplicaId {
+  int32 id = 1;
+}
+
+message PrepareToMigrateResponse {
+  int32 id = 1;
+  string kernelId = 2;
+  string dataDir = 3;
+}
+
+message MigrateKernelResponse {
+  int32 id = 1;
+  string hostname = 2;
+}
+
+// Similar to ReplicaInfo, but instead of a persistentId field, this has a hostname field.
+message ReplicaInfoWithAddr {
+  int32 id = 1;
+  string hostname = 2;
+  string kernelId = 3;
+}
+
+// The kernel spec.
+message KernelSpec {
+  string id = 1;  // The kernel id.
+  string session = 2; // The id of session associated with the kernel manager.
+  repeated string argv = 3;
+	string signatureScheme = 4; // The signature scheme to use.
+  string key = 5; // The key to use for signing messages.
+  ResourceSpec resource = 6;
+}
+
+// The connection info for a kernel.
+message KernelConnectionInfo {
+	string ip = 1; // The IP address of the kernel.
+  string transport = 2; // The transport protocol to use.
+  int32 controlPort = 3; // The port for control messages.
+	int32 shellPort = 4; // The port for shell messages.
+	int32 stdinPort = 5; // The port for stdin messages.
+	int32 hbPort = 6; // The port for heartbeat messages.
+	int32 iopubPort = 7; // The port for iopub messages (for the pub socket).
+	int32 iosubPort = 8; // The port for iopub messages (for the sub socket).
+	string signatureScheme = 9; // The signature scheme to use.
+	string key = 10;  // The key to use for signing messages.
+}
+
+// Used as an argument to the Cluster Gateway's NotifyKernelRegistered RPC.
+message KernelRegistrationNotification {
+  KernelConnectionInfo connectionInfo = 1; // Connection information of the kernel.
+  string kernelId = 2; // ID of the Kernel.
+  string sessionId = 3; // ID of the associated Session.
+  string hostId = 4; // The ID of the HostScheduler associated with this Host. It's basically the ID of the LocalDaemon.
+  int32 replicaId = 5; // The SMR replica ID.
+  string kernelIp = 6; // The hostname of the kernel itself (not its LocalDaemon).
+  string podName = 7; // The name of the Pod hosting the kernel container.
+}
+
+// Returned by the Cluster Gateway for the NotifyKernelRegistered RPC.
+message KernelRegistrationNotificationResponse {
+  int32 id = 1;
+  map<int32,string> replicas = 2;
+  optional string persistentId = 3;
+  int32 smrPort = 4;
+  optional string dataDirectory = 5;
+}
+
+// The status of a kernel.
+message KernelStatus {
+  int32 status = 1;
+}
+
+message Void{}
