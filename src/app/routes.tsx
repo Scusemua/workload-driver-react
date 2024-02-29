@@ -1,9 +1,6 @@
 import * as React from 'react';
 import { Route, RouteComponentProps, Switch, useLocation } from 'react-router-dom';
 import { Dashboard } from '@app/Dashboard/Dashboard';
-import { Support } from '@app/Support/Support';
-import { GeneralSettings } from '@app/Settings/General/GeneralSettings';
-import { ProfileSettings } from '@app/Settings/Profile/ProfileSettings';
 import { NotFound } from '@app/NotFound/NotFound';
 import { useDocumentTitle } from '@app/utils/useDocumentTitle';
 
@@ -34,32 +31,32 @@ const routes: AppRouteConfig[] = [
     path: '/',
     title: 'Workload Driver | Main Dashboard',
   },
-  {
-    component: Support,
-    exact: true,
-    label: 'Support',
-    path: '/support',
-    title: 'Workload Driver | Support Page',
-  },
-  {
-    label: 'Settings',
-    routes: [
-      {
-        component: GeneralSettings,
-        exact: true,
-        label: 'General',
-        path: '/settings/general',
-        title: 'Workload Driver | General Settings',
-      },
-      {
-        component: ProfileSettings,
-        exact: true,
-        label: 'Profile',
-        path: '/settings/profile',
-        title: 'Workload Driver | Profile Settings',
-      },
-    ],
-  },
+  // {
+  //   component: Support,
+  //   exact: true,
+  //   label: 'Support',
+  //   path: '/support',
+  //   title: 'Workload Driver | Support Page',
+  // },
+  // {
+  //   label: 'Settings',
+  //   routes: [
+  //     {
+  //       component: GeneralSettings,
+  //       exact: true,
+  //       label: 'General',
+  //       path: '/settings/general',
+  //       title: 'Workload Driver | General Settings',
+  //     },
+  //     {
+  //       component: ProfileSettings,
+  //       exact: true,
+  //       label: 'Profile',
+  //       path: '/settings/profile',
+  //       title: 'Workload Driver | Profile Settings',
+  //     },
+  //   ],
+  // },
 ];
 
 // a custom hook for sending focus to the primary content container

@@ -203,27 +203,6 @@ export const KernelList: React.FunctionComponent = () => {
   const statusMenuRef = React.useRef<HTMLDivElement>(null);
   const statusContainerRef = React.useRef<HTMLDivElement>(null);
 
-  const onFilter = (repo: DistributedJupyterKernel) => {
-    // Search name with search value
-    let searchValueInput: RegExp;
-    try {
-      searchValueInput = new RegExp(searchValue, 'i');
-    } catch (err) {
-      searchValueInput = new RegExp(searchValue.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-    }
-    const matchesSearchValue = repo.kernelId.search(searchValueInput) >= 0;
-
-    // Search status with status selection
-    let matchesStatusValue = false;
-    statusSelections.forEach(function (selectedStatus) {
-      const match = repo.status.toLowerCase() === selectedStatus.toLowerCase();
-      matchesStatusValue = matchesStatusValue || match;
-    });
-
-    return (searchValue === '' || matchesSearchValue) && (statusSelections.length === 0 || matchesStatusValue);
-  };
-  const filteredKernels = kernels.filter(onFilter);
-
   // Set up name search input
   const searchInput = (
     <SearchInput
@@ -271,6 +250,27 @@ export const KernelList: React.FunctionComponent = () => {
         : [itemStr, ...statusSelections],
     );
   }
+
+  const onFilter = (repo: DistributedJupyterKernel) => {
+    // Search name with search value
+    let searchValueInput: RegExp;
+    try {
+      searchValueInput = new RegExp(searchValue, 'i');
+    } catch (err) {
+      searchValueInput = new RegExp(searchValue.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    }
+    const matchesSearchValue = repo.kernelId.search(searchValueInput) >= 0;
+
+    // Search status with status selection
+    let matchesStatusValue = false;
+    statusSelections.forEach(function (selectedStatus) {
+      const match = repo.status.toLowerCase() === selectedStatus.toLowerCase();
+      matchesStatusValue = matchesStatusValue || match;
+    });
+
+    return (searchValue === '' || matchesSearchValue) && (statusSelections.length === 0 || matchesStatusValue);
+  };
+  const filteredKernels = kernels.filter(onFilter);
 
   const statusMenu = (
     <Menu ref={statusMenuRef} id="mixed-group-status-menu" onSelect={onStatusMenuSelect} selected={statusSelections}>

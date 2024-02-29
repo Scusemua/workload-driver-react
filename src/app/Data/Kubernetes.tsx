@@ -18,6 +18,7 @@ interface KubernetesPod {
   PodPhase: string;
   PodAge: string;
   PodIP: string;
+  Valid: boolean;
 }
 
 export type { KubernetesPod as KubernetesPod };

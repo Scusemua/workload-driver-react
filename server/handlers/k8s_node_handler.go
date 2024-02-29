@@ -192,6 +192,22 @@ func (h *KubeNodeHttpHandler) HandleRequest(c *gin.Context) {
 		kubernetesNodes[nodeName] = kubeNode
 	}
 
-	h.Logger.Info("Sending nodes back to client now.")
-	c.JSON(http.StatusOK, kubernetesNodes)
+	var resp []*domain.KubernetesNode = make([]*domain.KubernetesNode, 0, len(kubernetesNodes))
+	for _, node := range kubernetesNodes {
+		if node == nil {
+			continue
+		}
+
+		resp = append(resp, node)
+	}
+
+	if len(resp) > 0 {
+		// This could be more efficient (converting from map to slice and then sorting; I could just do it in a single step).
+		sort.Slice(resp, func(i, j int) bool {
+			return resp[i].NodeId < resp[j].NodeId
+		})
+	}
+
+	h.Logger.Info("Sending nodes back to client now.", zap.Int("num-nodes", len(resp)))
+	c.JSON(http.StatusOK, resp)
 }

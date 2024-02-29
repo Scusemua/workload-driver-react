@@ -12,4 +12,4 @@ build-server:
 
 run-server:
 	@echo Running backend server now.
-	go run ./server/cmd/main.go --in-cluster=false --spoof-cluster=true 
+	go run ./server/cmd/main.go --in-cluster=false --spoof-cluster=true --server-port=8000

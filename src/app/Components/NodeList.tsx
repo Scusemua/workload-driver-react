@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   Button,
   ButtonVariant,
@@ -40,29 +40,29 @@ import { KubernetesNode } from '@data/Kubernetes';
 import { CpuIcon, CubeIcon, FilterIcon, MemoryIcon } from '@patternfly/react-icons';
 
 // Hard-coded, dummy data.
-const kubeNodes: KubernetesNode[] = [
-  {
-    NodeId: 'distributed-notebook-worker',
-    Pods: [
-      {
-        PodName: '62677bbf-359a-4f0b-96e7-6baf7ac65545-7ad16',
-        PodPhase: 'running',
-        PodAge: '127h2m45s',
-        PodIP: '10.0.0.1',
-      },
-    ],
-    Age: '147h4m53s',
-    IP: '172.20.0.3',
-    CapacityCPU: 64,
-    CapacityMemory: 64000,
-    CapacityGPUs: 8,
-    CapacityVGPUs: 72,
-    AllocatedCPU: 0.24,
-    AllocatedMemory: 1557.1,
-    AllocatedGPUs: 2,
-    AllocatedVGPUs: 4,
-  },
-];
+// const kubeNodes: KubernetesNode[] = [
+//     {
+//         NodeId: 'distributed-notebook-worker',
+//         Pods: [
+//             {
+//                 PodName: '62677bbf-359a-4f0b-96e7-6baf7ac65545-7ad16',
+//                 PodPhase: 'running',
+//                 PodAge: '127h2m45s',
+//                 PodIP: '10.0.0.1',
+//             },
+//         ],
+//         Age: '147h4m53s',
+//         IP: '172.20.0.3',
+//         CapacityCPU: 64,
+//         CapacityMemory: 64000,
+//         CapacityGPUs: 8,
+//         CapacityVGPUs: 72,
+//         AllocatedCPU: 0.24,
+//         AllocatedMemory: 1557.1,
+//         AllocatedGPUs: 2,
+//         AllocatedVGPUs: 4,
+//     },
+// ];
 
 export const KubernetesNodeList: React.FunctionComponent = () => {
   const [isDrawerExpanded, setIsDrawerExpanded] = React.useState(false);
@@ -91,7 +91,7 @@ export const KubernetesNodeList: React.FunctionComponent = () => {
   // Set up name search input
   const searchInput = (
     <SearchInput
-      placeholder="Filter by kubeNode name"
+      placeholder="Filter by node ID"
       value={searchValue}
       onChange={(_event, value) => onSearchChange(value)}
       onClear={() => onSearchChange('')}
@@ -144,6 +144,52 @@ export const KubernetesNodeList: React.FunctionComponent = () => {
     </DrawerPanelContent>
   );
 
+  const [nodes, setNodes] = React.useState<KubernetesNode[]>([]);
+  useEffect(() => {
+    let ignore = false;
+
+    async function fetchKubernetesNodes() {
+      try {
+        console.log('Fetching nodes.');
+
+        // Make a network request to the backend. The server infrastructure handles proxying/routing the request to the correct host.
+        // We're specifically targeting the API endpoint I setup called "nodes".
+        const response = await fetch('/api/node');
+
+        // Get the response, which will be in JSON format, and decode it into an array of KubernetesNode (which is a TypeScript interface that I defined).
+        const respNodes: KubernetesNode[] = await response.json();
+
+        console.log('Received nodes: ' + JSON.stringify(respNodes));
+
+        if (!ignore) {
+          setNodes(respNodes);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    fetchKubernetesNodes();
+
+    return () => {
+      ignore = true;
+    };
+  }, []);
+
+  const onFilter = (repo: KubernetesNode) => {
+    // Search name with search value
+    let searchValueInput: RegExp;
+    try {
+      searchValueInput = new RegExp(searchValue, 'i');
+    } catch (err) {
+      searchValueInput = new RegExp(searchValue.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
+    }
+    const matchesSearchValue = repo.NodeId.search(searchValueInput) >= 0;
+
+    return searchValue === '' || matchesSearchValue;
+  };
+  const filteredNodes = nodes.filter(onFilter);
+
   const drawerContent = (
     <React.Fragment>
       <Toolbar id="content-padding-data-toolbar" usePageInsets>
@@ -154,7 +200,7 @@ export const KubernetesNodeList: React.FunctionComponent = () => {
         selectedDataListItemId={selectedDataListItemId}
         onSelectDataListItem={onSelectDataListItem}
       >
-        {kubeNodes.map((kubeNode) => (
+        {filteredNodes.map((kubeNode) => (
           <DataListItem key={kubeNode.NodeId} id="content-padding-item1">
             <DataListItemRow>
               <DataListItemCells
@@ -171,13 +217,13 @@ export const KubernetesNodeList: React.FunctionComponent = () => {
                       </Flex>
                       <Flex spaceItems={{ default: 'spaceItemsMd' }}>
                         <FlexItem>
-                          <CpuIcon /> {kubeNode.AllocatedCPU} / {kubeNode.CapacityCPU}
+                          <CpuIcon /> {kubeNode.AllocatedCPU.toFixed(4)} / {kubeNode.CapacityCPU}
                         </FlexItem>
                         <FlexItem>
-                          <MemoryIcon /> {kubeNode.AllocatedMemory} / {kubeNode.CapacityMemory}
+                          <MemoryIcon /> {kubeNode.AllocatedMemory.toFixed(4)} / {kubeNode.CapacityMemory.toFixed(0)}
                         </FlexItem>
                         <FlexItem>
-                          <GpuIcon /> {kubeNode.AllocatedCPU} / {kubeNode.CapacityCPU}
+                          <GpuIcon /> {kubeNode.AllocatedCPU.toFixed(4)} / {kubeNode.CapacityCPU}
                         </FlexItem>
                       </Flex>
                     </Flex>

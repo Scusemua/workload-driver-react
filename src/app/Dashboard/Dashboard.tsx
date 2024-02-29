@@ -9,7 +9,7 @@ import { KernelSpecList } from '@app/Components/KernelSpecList';
 
 const Dashboard: React.FunctionComponent = () => (
   <PageSection>
-    <Title headingLevel="h1" size="lg">
+    <Title headingLevel="h1" size="4xl">
       Workload Driver: Dashboard
     </Title>
     <Grid hasGutter>

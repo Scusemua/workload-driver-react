@@ -75,7 +75,7 @@ type NodeProvider interface {
 }
 
 type KubernetesNode struct {
-	NodeId          string           `json:"Nodes"`
+	NodeId          string           `json:"NodeId"`
 	Pods            []*KubernetesPod `json:"Pods"`
 	Age             time.Duration    `json:"Age"`
 	IP              string           `json:"IP"`
