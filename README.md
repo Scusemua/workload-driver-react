@@ -55,9 +55,9 @@ npm run build:storybook
 
 ## Code quality tools
 * For accessibility compliance, we use [react-axe](https://github.com/dequelabs/react-axe)
-* To keep our bundle size in check, we use [webpack-bundle-analyzer](https://github.com/webpack-contrib/webpack-bundle-analyzer)
-* To keep our code formatting in check, we use [prettier](https://github.com/prettier/prettier)
-* To keep our code logic and test coverage in check, we use [jest](https://github.com/facebook/jest)
+* To keep the bundle size in check, we use [webpack-bundle-analyzer](https://github.com/webpack-contrib/webpack-bundle-analyzer)
+* To keep the code formatting in check, we use [prettier](https://github.com/prettier/prettier)
+* To keep the code logic and test coverage in check, we use [jest](https://github.com/facebook/jest)
 * To ensure code styles remain consistent, we use [eslint](https://eslint.org/)
 * To provide a place to showcase custom components, we integrate with [storybook](https://storybook.js.org/)
 
