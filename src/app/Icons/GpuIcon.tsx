@@ -1,5 +1,4 @@
-import * as React from 'react';
-import { SVGIconProps, createIcon } from '@patternfly/react-icons/src/createIcon';
+import { createIcon } from '@patternfly/react-icons/src/createIcon';
 
 export const GpuIcon = createIcon({
     name: 'GpuIcon',

@@ -3,14 +3,14 @@ interface DistributedJupyterKernel {
     numReplicas: number;
     status: string;
     replicas: JupyterKernelReplica[];
-};
+}
 
 interface JupyterKernelReplica {
     kernelId: string;
     replicaId: number;
     podId: string;
     nodeId: string;
-};
+}
 
 interface KernelSpec {
     name: string;
@@ -19,7 +19,7 @@ interface KernelSpec {
     interruptMode: string;
     kernelProvisioner: KernelProvisioner;
     argV: string[];
-};
+}
 
 interface KernelProvisioner {
     name: string;

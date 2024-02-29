@@ -9,8 +9,8 @@ import {
   DescriptionListTerm,
   Tab,
   TabContent,
-  Tabs,
   TabTitleText,
+  Tabs,
   Title
 } from '@patternfly/react-core';
 

@@ -11,14 +11,14 @@ interface KubernetesNode {
     AllocatedMemory: number;
     AllocatedGPUs: number;
     AllocatedVGPUs: number;
-};
+}
 
 interface KubernetesPod {
     PodName: string;
     PodPhase: string;
     PodAge: string;
     PodIP: string;
-};
+}
 
 export type { KubernetesPod as KubernetesPod };
 export type { KubernetesNode as KubernetesNode };

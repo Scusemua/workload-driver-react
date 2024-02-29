@@ -12,12 +12,6 @@ import {
   DataListItem,
   DataListItemCells,
   DataListItemRow,
-  Toolbar,
-  ToolbarItem,
-  ToolbarFilter,
-  ToolbarContent,
-  ToolbarToggleGroup,
-  ToolbarGroup,
   Drawer,
   DrawerActions,
   DrawerCloseButton,
@@ -26,28 +20,27 @@ import {
   DrawerHead,
   DrawerPanelBody,
   DrawerPanelContent,
-  EmptyState,
-  EmptyStateHeader,
-  EmptyStateBody,
-  EmptyStateActions,
-  EmptyStateFooter,
-  EmptyStateIcon,
   Flex,
   FlexItem,
   InputGroup,
   InputGroupItem,
   Menu,
-  MenuItem,
   MenuContent,
+  MenuItem,
   MenuList,
+  MenuToggle,
   Popper,
   Progress,
+  SearchInput,
   Stack,
   StackItem,
-  SearchInput,
   Title,
-  SelectOptionProps,
-  MenuToggle
+  Toolbar,
+  ToolbarContent,
+  ToolbarFilter,
+  ToolbarGroup,
+  ToolbarItem,
+  ToolbarToggleGroup,
 } from '@patternfly/react-core';
 
 import { DistributedJupyterKernel } from 'src/app/Data/Kernel';
@@ -56,24 +49,8 @@ import StopCircle from '@patternfly/react-icons/dist/esm/icons/stop-circle-icon'
 import CheckCircleIcon from '@patternfly/react-icons/dist/esm/icons/check-circle-icon';
 import ExclamationTriangleIcon from '@patternfly/react-icons/dist/esm/icons/exclamation-triangle-icon';
 import FilterIcon from '@patternfly/react-icons/dist/esm/icons/filter-icon';
-import SearchIcon from '@patternfly/react-icons/dist/esm/icons/search-icon';
 import { HourglassHalfIcon, RebootingIcon, SkullIcon, SpinnerIcon } from '@patternfly/react-icons';
 
-interface SelectOptionType extends Omit<SelectOptionProps, 'children'> {
-  label: string;
-}
-
-// The kernel statuses in the filter.
-const statusOptions: SelectOptionType[] = [
-  { value: 'unknown', label: 'unknown' },
-  { value: 'starting', label: 'starting' },
-  { value: 'idle', label: 'idle' },
-  { value: 'busy', label: 'busy' },
-  { value: 'terminating', label: 'terminating' },
-  { value: 'restarting', label: 'restarting' },
-  { value: 'autorestarting', label: 'autorestarting' },
-  { value: 'dead', label: 'dead' },
-];
 
 // Map from kernel status to the associated icon.
 const kernelStatusIcons = {
@@ -194,16 +171,9 @@ const kernels: DistributedJupyterKernel[] = [
 export const KernelList: React.FunctionComponent = () => {
   const [isDrawerExpanded, setIsDrawerExpanded] = React.useState(false);
   const [drawerPanelBodyContent, setDrawerPanelBodyContent] = React.useState('');
-  const [statusIsOpen, setStatusIsOpen] = React.useState(false);
-  const [statusSelected, setStatusSelected] = React.useState<string | number | undefined>('Status');
   const [selectedDataListItemId, setSelectedDataListItemId] = React.useState('');
   const [searchValue, setSearchValue] = React.useState('');
   const [statusSelections, setStatusSelections] = React.useState<string[]>([]);
-
-  const onStatusSelect = (_event: React.MouseEvent<Element> | undefined, value: string | number | undefined) => {
-    setStatusSelected(value);
-    setStatusIsOpen(false);
-  };
 
   const onSelectDataListItem = (
     _event: React.MouseEvent<Element, MouseEvent> | React.KeyboardEvent<Element>,
@@ -214,7 +184,7 @@ export const KernelList: React.FunctionComponent = () => {
     setDrawerPanelBodyContent(id.charAt(id.length - 1));
   };
 
-  const onCloseDrawerClick = (_event: React.MouseEvent<HTMLDivElement>) => {
+  const onCloseDrawerClick = () => {
     setIsDrawerExpanded(false);
     setSelectedDataListItemId('');
   };
@@ -240,9 +210,9 @@ export const KernelList: React.FunctionComponent = () => {
     const matchesSearchValue = repo.kernelId.search(searchValueInput) >= 0;
 
     // Search status with status selection
-    var matchesStatusValue = false;
+    let matchesStatusValue = false;
     statusSelections.forEach(function (selectedStatus) {
-      var match = repo.status.toLowerCase() === selectedStatus.toLowerCase();
+      const match = repo.status.toLowerCase() === selectedStatus.toLowerCase();
       matchesStatusValue = matchesStatusValue || match;
     })
 
@@ -263,22 +233,22 @@ export const KernelList: React.FunctionComponent = () => {
     />
   );
 
-  const handleStatusMenuKeys = (event: KeyboardEvent) => {
-    if (isStatusMenuOpen && statusMenuRef.current?.contains(event.target as Node)) {
-      if (event.key === 'Escape' || event.key === 'Tab') {
-        setIsStatusMenuOpen(!isStatusMenuOpen);
-        statusToggleRef.current?.focus();
-      }
-    }
-  };
-
-  const handleStatusClickOutside = (event: MouseEvent) => {
-    if (isStatusMenuOpen && !statusMenuRef.current?.contains(event.target as Node)) {
-      setIsStatusMenuOpen(false);
-    }
-  };
-
   React.useEffect(() => {
+    const handleStatusClickOutside = (event: MouseEvent) => {
+      if (isStatusMenuOpen && !statusMenuRef.current?.contains(event.target as Node)) {
+        setIsStatusMenuOpen(false);
+      }
+    };
+
+    const handleStatusMenuKeys = (event: KeyboardEvent) => {
+      if (isStatusMenuOpen && statusMenuRef.current?.contains(event.target as Node)) {
+        if (event.key === 'Escape' || event.key === 'Tab') {
+          setIsStatusMenuOpen(!isStatusMenuOpen);
+          statusToggleRef.current?.focus();
+        }
+      }
+    };
+
     window.addEventListener('keydown', handleStatusMenuKeys);
     window.addEventListener('click', handleStatusClickOutside);
     return () => {
@@ -339,24 +309,6 @@ export const KernelList: React.FunctionComponent = () => {
     </Menu>
   );
 
-  const emptyState = (
-    <EmptyState>
-      <EmptyStateHeader headingLevel="h4" titleText="No results found" icon={<EmptyStateIcon icon={SearchIcon} />} />
-      <EmptyStateBody>No results match the filter criteria. Clear all filters and try again.</EmptyStateBody>
-      <EmptyStateFooter>
-        <EmptyStateActions>
-          <Button
-            variant="link"
-            onClick={() => {
-              setStatusSelections([]);
-            }}
-          >
-            Clear all filters
-          </Button>
-        </EmptyStateActions>
-      </EmptyStateFooter>
-    </EmptyState>
-  );
 
   const onStatusToggleClick = (ev: React.MouseEvent) => {
     ev.stopPropagation(); // Stop handleClickOutside from handling
@@ -472,7 +424,7 @@ export const KernelList: React.FunctionComponent = () => {
       >
         {
           filteredKernels.map(kernel => (
-            <DataListItem id="content-padding-item1">
+            <DataListItem key={kernel.kernelId} id="content-padding-item1">
               <DataListItemRow>
                 <DataListItemCells
                   dataListCells={[

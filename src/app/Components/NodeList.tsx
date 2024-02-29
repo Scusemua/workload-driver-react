@@ -4,6 +4,7 @@ import {
     ButtonVariant,
     Card,
     CardBody,
+    CardHeader,
     CardTitle,
     DataList,
     DataListAction,
@@ -11,10 +12,6 @@ import {
     DataListItem,
     DataListItemCells,
     DataListItemRow,
-    Toolbar,
-    ToolbarItem,
-    ToolbarContent,
-    ToolbarToggleGroup,
     Drawer,
     DrawerActions,
     DrawerCloseButton,
@@ -28,12 +25,14 @@ import {
     InputGroup,
     InputGroupItem,
     Progress,
+    SearchInput,
     Stack,
     StackItem,
-    SearchInput,
     Title,
-    SelectOptionProps,
-    CardHeader
+    Toolbar,
+    ToolbarContent,
+    ToolbarItem,
+    ToolbarToggleGroup,
 } from '@patternfly/react-core';
 
 import GpuIcon from 'src/app/Icons/GpuIcon';
@@ -42,9 +41,6 @@ import CubeIcon from '@patternfly/react-icons/dist/esm/icons/cube-icon';
 import FilterIcon from '@patternfly/react-icons/dist/esm/icons/filter-icon';
 import { CpuIcon, MemoryIcon } from '@patternfly/react-icons';
 
-interface SelectOptionType extends Omit<SelectOptionProps, 'children'> {
-    label: string;
-}
 
 // Hard-coded, dummy data.
 const kubeNodes: KubernetesNode[] = [
@@ -74,16 +70,8 @@ const kubeNodes: KubernetesNode[] = [
 export const KubernetesNodeList: React.FunctionComponent = () => {
     const [isDrawerExpanded, setIsDrawerExpanded] = React.useState(false);
     const [drawerPanelBodyContent, setDrawerPanelBodyContent] = React.useState('');
-    const [statusIsOpen, setStatusIsOpen] = React.useState(false);
-    const [statusSelected, setStatusSelected] = React.useState<string | number | undefined>('Status');
     const [selectedDataListItemId, setSelectedDataListItemId] = React.useState('');
     const [searchValue, setSearchValue] = React.useState('');
-    const [statusSelection, setStatusSelection] = React.useState('');
-
-    const onStatusSelect = (_event: React.MouseEvent<Element> | undefined, value: string | number | undefined) => {
-        setStatusSelected(value);
-        setStatusIsOpen(false);
-    };
 
     const onSelectDataListItem = (
         _event: React.MouseEvent<Element, MouseEvent> | React.KeyboardEvent<Element>,
@@ -94,7 +82,7 @@ export const KubernetesNodeList: React.FunctionComponent = () => {
         setDrawerPanelBodyContent(id.charAt(id.length - 1));
     };
 
-    const onCloseDrawerClick = (_event: React.MouseEvent<HTMLDivElement>) => {
+    const onCloseDrawerClick = () => {
         setIsDrawerExpanded(false);
         setSelectedDataListItemId('');
     };
@@ -103,21 +91,6 @@ export const KubernetesNodeList: React.FunctionComponent = () => {
         setSearchValue(value);
     };
 
-    const onFilter = (repo: KubernetesNode) => {
-        // Search name with search value
-        let searchValueInput: RegExp;
-        try {
-            searchValueInput = new RegExp(searchValue, 'i');
-        } catch (err) {
-            searchValueInput = new RegExp(searchValue.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
-        }
-        const matchesSearchValue = repo.NodeId.search(searchValueInput) >= 0;
-
-        return (
-            (searchValue === '' || matchesSearchValue)
-        );
-    };
-    const filteredRepos = kubeNodes.filter(onFilter);
 
     // Set up name search input
     const searchInput = (
@@ -189,7 +162,7 @@ export const KubernetesNodeList: React.FunctionComponent = () => {
             >
                 {
                     kubeNodes.map(kubeNode => (
-                        <DataListItem id="content-padding-item1">
+                        <DataListItem key={kubeNode.NodeId} id="content-padding-item1">
                             <DataListItemRow>
                                 <DataListItemCells
                                     dataListCells={[
