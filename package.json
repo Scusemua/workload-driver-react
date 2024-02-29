@@ -6,6 +6,9 @@
   "homepage": "https://patternfly-react-seed.surge.sh",
   "license": "MIT",
   "private": true,
+  "resolutions": {
+    "@types/react": "17.0.30"
+  },
   "scripts": {
     "prebuild": "npm run type-check && npm run clean",
     "dr:surge": "node dr-surge.js",
@@ -14,6 +17,7 @@
     "start:dev": "webpack serve --color --progress --config webpack.dev.js",
     "test": "jest",
     "test:watch": "jest --watch",
+    "preinstall": "npx npm-force-resolutions",
     "test:coverage": "jest --coverage",
     "eslint": "eslint --ext .tsx,.js ./src/",
     "lint": "npm run eslint",
