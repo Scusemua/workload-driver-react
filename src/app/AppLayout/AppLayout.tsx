@@ -7,17 +7,17 @@ import {
   MastheadBrand,
   MastheadMain,
   MastheadToggle,
-	Nav,
+  Nav,
   NavExpandable,
   NavItem,
-	NavList,
-	Page,
-	PageSidebar,
+  NavList,
+  Page,
+  PageSidebar,
   PageSidebarBody,
-	SkipToContent
+  SkipToContent
 } from '@patternfly/react-core';
 import { IAppRoute, IAppRouteGroup, routes } from '@app/routes';
-import logo from '@app/bgimages/Patternfly-Logo.svg';
+import logo from '@app/bgimages/WorkloadDriver-Logo.svg';
 import { BarsIcon } from '@patternfly/react-icons';
 
 interface IAppLayout {
