@@ -24,14 +24,8 @@
       "@app/*": [
         "src/app/*"
       ],
-      "@icons/*": [
-        "src/app/Icons/*"
-      ],
       "@data/*": [
         "src/app/Data/*"
-      ],
-      "@components/*": [
-        "src/app/Components/*"
       ],
       "@assets/*": [
         "node_modules/@patternfly/react-core/dist/styles/assets/*"
