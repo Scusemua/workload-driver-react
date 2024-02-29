@@ -539,9 +539,10 @@ export const KernelList: React.FunctionComponent = () => {
         </Title>
       </CardTitle>
       <CardBody>
-        <Drawer isExpanded={isDrawerExpanded}>
+        <Drawer isExpanded={isDrawerExpanded} >
+          <DrawerHead hasNoPadding></DrawerHead>
           <DrawerContent panelContent={panelContent} colorVariant="no-background">
-            <DrawerContentBody hasPadding>{drawerContent}</DrawerContentBody>
+            <DrawerContentBody>{drawerContent}</DrawerContentBody>
           </DrawerContent>
         </Drawer>
       </CardBody>

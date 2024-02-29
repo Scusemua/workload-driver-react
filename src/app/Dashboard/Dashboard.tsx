@@ -53,13 +53,13 @@ const Dashboard: React.FunctionComponent = () => (
   <PageSection>
     <Title headingLevel="h1" size="lg">Workload Driver: Dashboard</Title>
     <Grid hasGutter>
-      <GridItem span={6}>
+      <GridItem span={6} rowSpan={3}>
         <KernelList />
       </GridItem>
-      <GridItem span={6}>
+      <GridItem span={6} rowSpan={1}>
         <KubernetesNodeList />
       </GridItem>
-      <GridItem span={6}>
+      <GridItem span={6} rowSpan={1}>
         <KernelSpecList />
       </GridItem>
     </Grid>

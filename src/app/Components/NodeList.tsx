@@ -273,7 +273,7 @@ export const KubernetesNodeList: React.FunctionComponent = () => {
             <CardBody>
                 <Drawer isExpanded={isDrawerExpanded}>
                     <DrawerContent panelContent={panelContent} colorVariant="no-background">
-                        <DrawerContentBody hasPadding>{drawerContent}</DrawerContentBody>
+                        <DrawerContentBody>{drawerContent}</DrawerContentBody>
                     </DrawerContent>
                 </Drawer>
             </CardBody>
