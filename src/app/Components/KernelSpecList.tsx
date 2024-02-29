@@ -11,36 +11,36 @@ import {
   TabContent,
   TabTitleText,
   Tabs,
-  Title
+  Title,
 } from '@patternfly/react-core';
 
 import { KernelSpec } from 'src/app/Data/Kernel';
 
 const kernelSpecs: KernelSpec[] = [
   {
-    name: "distributed",
-    displayName: "Distributed Python3",
-    language: "python3",
-    interruptMode: "signal",
+    name: 'distributed',
+    displayName: 'Distributed Python3',
+    language: 'python3',
+    interruptMode: 'signal',
     kernelProvisioner: {
-      name: "gateway-provisioner",
-      gateway: "gateway:8080",
-      valid: true
+      name: 'gateway-provisioner',
+      gateway: 'gateway:8080',
+      valid: true,
     },
-    argV: [""],
+    argV: [''],
   },
   {
-    name: "python3",
-    displayName: "Python 3 (ipykernel)",
-    language: "python3",
-    interruptMode: "signal",
+    name: 'python3',
+    displayName: 'Python 3 (ipykernel)',
+    language: 'python3',
+    interruptMode: 'signal',
     kernelProvisioner: {
-      name: "",
-      gateway: "",
-      valid: false
+      name: '',
+      gateway: '',
+      valid: false,
     },
-    argV: [""],
-  }
+    argV: [''],
+  },
 ];
 
 export const KernelSpecList: React.FunctionComponent = () => {
@@ -57,9 +57,7 @@ export const KernelSpecList: React.FunctionComponent = () => {
       </DescriptionListGroup>
       <DescriptionListGroup>
         <DescriptionListTerm>Display Name</DescriptionListTerm>
-        <DescriptionListDescription>
-          {kernelSpecs[activeTabKey].displayName}
-        </DescriptionListDescription>
+        <DescriptionListDescription>{kernelSpecs[activeTabKey].displayName}</DescriptionListDescription>
       </DescriptionListGroup>
       <DescriptionListGroup>
         <DescriptionListTerm>Language</DescriptionListTerm>
@@ -67,9 +65,7 @@ export const KernelSpecList: React.FunctionComponent = () => {
       </DescriptionListGroup>
       <DescriptionListGroup>
         <DescriptionListTerm>Interrupt Mode</DescriptionListTerm>
-        <DescriptionListDescription>
-          {kernelSpecs[activeTabKey].interruptMode}
-        </DescriptionListDescription>
+        <DescriptionListDescription>{kernelSpecs[activeTabKey].interruptMode}</DescriptionListDescription>
       </DescriptionListGroup>
     </DescriptionList>
   );
@@ -78,7 +74,7 @@ export const KernelSpecList: React.FunctionComponent = () => {
     <>
       <Card isCompact isRounded>
         <CardHeader>
-          <Title headingLevel='h2' size='xl'>
+          <Title headingLevel="h2" size="xl">
             Available Kernel Specs
           </Title>
         </CardHeader>
@@ -110,4 +106,4 @@ export const KernelSpecList: React.FunctionComponent = () => {
       </Card>
     </>
   );
-}
+};

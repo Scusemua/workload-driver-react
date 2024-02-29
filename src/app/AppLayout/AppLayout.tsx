@@ -14,7 +14,7 @@ import {
   Page,
   PageSidebar,
   PageSidebarBody,
-  SkipToContent
+  SkipToContent,
 } from '@patternfly/react-core';
 import { IAppRoute, IAppRouteGroup, routes } from '@app/routes';
 import logo from '@app/bgimages/WorkloadDriver-Logo.svg';
@@ -66,37 +66,34 @@ const AppLayout: React.FunctionComponent<IAppLayout> = ({ children }) => {
     <Nav id="nav-primary-simple" theme="dark">
       <NavList id="nav-list-simple">
         {routes.map(
-          (route, idx) => route.label && (!route.routes ? renderNavItem(route, idx) : renderNavGroup(route, idx))
+          (route, idx) => route.label && (!route.routes ? renderNavItem(route, idx) : renderNavGroup(route, idx)),
         )}
       </NavList>
     </Nav>
   );
 
   const Sidebar = (
-    <PageSidebar theme="dark" >
-      <PageSidebarBody>
-        {Navigation}
-      </PageSidebarBody>
+    <PageSidebar theme="dark">
+      <PageSidebarBody>{Navigation}</PageSidebarBody>
     </PageSidebar>
   );
 
   const pageId = 'primary-app-container';
 
   const PageSkipToContent = (
-    <SkipToContent onClick={(event) => {
-      event.preventDefault();
-      const primaryContentContainer = document.getElementById(pageId);
-      primaryContentContainer && primaryContentContainer.focus();
-    }} href={`#${pageId}`}>
+    <SkipToContent
+      onClick={(event) => {
+        event.preventDefault();
+        const primaryContentContainer = document.getElementById(pageId);
+        primaryContentContainer && primaryContentContainer.focus();
+      }}
+      href={`#${pageId}`}
+    >
       Skip to Content
     </SkipToContent>
   );
   return (
-    <Page
-      mainContainerId={pageId}
-      header={Header}
-      sidebar={sidebarOpen && Sidebar}
-      skipToContent={PageSkipToContent}>
+    <Page mainContainerId={pageId} header={Header} sidebar={sidebarOpen && Sidebar} skipToContent={PageSkipToContent}>
       {children}
     </Page>
   );

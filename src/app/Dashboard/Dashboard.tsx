@@ -1,20 +1,17 @@
-import "@patternfly/react-core/dist/styles/base.css";
+import '@patternfly/react-core/dist/styles/base.css';
 
 import React from 'react';
-import {
-  Grid,
-  GridItem,
-  PageSection,
-  Title
-} from '@patternfly/react-core';
+import { Grid, GridItem, PageSection, Title } from '@patternfly/react-core';
 
-import { KernelList } from "src/app/Components/KernelList";
-import { KubernetesNodeList } from "src/app/Components/NodeList";
-import { KernelSpecList } from "@app/Components/KernelSpecList";
+import { KernelList } from 'src/app/Components/KernelList';
+import { KubernetesNodeList } from 'src/app/Components/NodeList';
+import { KernelSpecList } from '@app/Components/KernelSpecList';
 
 const Dashboard: React.FunctionComponent = () => (
   <PageSection>
-    <Title headingLevel="h1" size="lg">Workload Driver: Dashboard</Title>
+    <Title headingLevel="h1" size="lg">
+      Workload Driver: Dashboard
+    </Title>
     <Grid hasGutter>
       <GridItem span={6} rowSpan={3}>
         <KernelList />
@@ -27,6 +24,6 @@ const Dashboard: React.FunctionComponent = () => (
       </GridItem>
     </Grid>
   </PageSection>
-)
+);
 
 export { Dashboard };

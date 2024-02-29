@@ -51,120 +51,119 @@ import ExclamationTriangleIcon from '@patternfly/react-icons/dist/esm/icons/excl
 import FilterIcon from '@patternfly/react-icons/dist/esm/icons/filter-icon';
 import { HourglassHalfIcon, RebootingIcon, SkullIcon, SpinnerIcon } from '@patternfly/react-icons';
 
-
 // Map from kernel status to the associated icon.
 const kernelStatusIcons = {
-  'unknown': <ExclamationTriangleIcon />,
-  'starting': <SpinnerIcon className='loading-icon-spin-pulse' />,
-  'idle': <CheckCircleIcon />,
-  'busy': <HourglassHalfIcon />,
-  'terminating': <StopCircle />,
-  'restarting': <RebootingIcon className='loading-icon-spin' />,
-  'autorestarting': <RebootingIcon className='loading-icon-spin' />,
-  'dead': <SkullIcon />
-}
+  unknown: <ExclamationTriangleIcon />,
+  starting: <SpinnerIcon className="loading-icon-spin-pulse" />,
+  idle: <CheckCircleIcon />,
+  busy: <HourglassHalfIcon />,
+  terminating: <StopCircle />,
+  restarting: <RebootingIcon className="loading-icon-spin" />,
+  autorestarting: <RebootingIcon className="loading-icon-spin" />,
+  dead: <SkullIcon />,
+};
 
 // Hard-coded, dummy data.
 const kernels: DistributedJupyterKernel[] = [
   {
-    kernelId: "173d8f23-a5af-4998-8221-b510a73c832c",
+    kernelId: '173d8f23-a5af-4998-8221-b510a73c832c',
     numReplicas: 3,
-    status: "idle",
+    status: 'idle',
     replicas: [
       {
-        kernelId: "173d8f23-a5af-4998-8221-b510a73c832c",
+        kernelId: '173d8f23-a5af-4998-8221-b510a73c832c',
         replicaId: 1,
-        podId: "173d8f23-a5af-4998-8221-b510a73c832c-9042e",
-        nodeId: "node-1"
+        podId: '173d8f23-a5af-4998-8221-b510a73c832c-9042e',
+        nodeId: 'node-1',
       },
       {
-        kernelId: "173d8f23-a5af-4998-8221-b510a73c832c",
+        kernelId: '173d8f23-a5af-4998-8221-b510a73c832c',
         replicaId: 2,
-        podId: "173d8f23-a5af-4998-8221-b510a73c832c-b5f23",
-        nodeId: "node-2"
+        podId: '173d8f23-a5af-4998-8221-b510a73c832c-b5f23',
+        nodeId: 'node-2',
       },
       {
-        kernelId: "173d8f23-a5af-4998-8221-b510a73c832c",
+        kernelId: '173d8f23-a5af-4998-8221-b510a73c832c',
         replicaId: 3,
-        podId: "173d8f23-a5af-4998-8221-b510a73c832c-7316b",
-        nodeId: "node-3"
+        podId: '173d8f23-a5af-4998-8221-b510a73c832c-7316b',
+        nodeId: 'node-3',
       },
-    ]
+    ],
   },
   {
-    kernelId: "62677bbf-359a-4f0b-96e7-6baf7ac65545",
+    kernelId: '62677bbf-359a-4f0b-96e7-6baf7ac65545',
     numReplicas: 3,
-    status: "terminating",
+    status: 'terminating',
     replicas: [
       {
-        kernelId: "62677bbf-359a-4f0b-96e7-6baf7ac65545",
+        kernelId: '62677bbf-359a-4f0b-96e7-6baf7ac65545',
         replicaId: 1,
-        podId: "62677bbf-359a-4f0b-96e7-6baf7ac65545-7ad16",
-        nodeId: "node-1"
+        podId: '62677bbf-359a-4f0b-96e7-6baf7ac65545-7ad16',
+        nodeId: 'node-1',
       },
       {
-        kernelId: "62677bbf-359a-4f0b-96e7-6baf7ac65545",
+        kernelId: '62677bbf-359a-4f0b-96e7-6baf7ac65545',
         replicaId: 2,
-        podId: "62677bbf-359a-4f0b-96e7-6baf7ac65545-9a75a",
-        nodeId: "node-2"
+        podId: '62677bbf-359a-4f0b-96e7-6baf7ac65545-9a75a',
+        nodeId: 'node-2',
       },
       {
-        kernelId: "62677bbf-359a-4f0b-96e7-6baf7ac65545",
+        kernelId: '62677bbf-359a-4f0b-96e7-6baf7ac65545',
         replicaId: 3,
-        podId: "62677bbf-359a-4f0b-96e7-6baf7ac65545-04a02",
-        nodeId: "node-3"
+        podId: '62677bbf-359a-4f0b-96e7-6baf7ac65545-04a02',
+        nodeId: 'node-3',
       },
-    ]
+    ],
   },
   {
-    kernelId: "51f66655-168b-4d77-a1e0-f8f2c8044d14",
+    kernelId: '51f66655-168b-4d77-a1e0-f8f2c8044d14',
     numReplicas: 3,
-    status: "restarting",
+    status: 'restarting',
     replicas: [
       {
-        kernelId: "51f66655-168b-4d77-a1e0-f8f2c8044d14",
+        kernelId: '51f66655-168b-4d77-a1e0-f8f2c8044d14',
         replicaId: 1,
-        podId: "51f66655-168b-4d77-a1e0-f8f2c8044d14-jtqwg",
-        nodeId: "node-1"
+        podId: '51f66655-168b-4d77-a1e0-f8f2c8044d14-jtqwg',
+        nodeId: 'node-1',
       },
       {
-        kernelId: "51f66655-168b-4d77-a1e0-f8f2c8044d14",
+        kernelId: '51f66655-168b-4d77-a1e0-f8f2c8044d14',
         replicaId: 2,
-        podId: "51f66655-168b-4d77-a1e0-f8f2c8044d14-jth2a",
-        nodeId: "node-2"
+        podId: '51f66655-168b-4d77-a1e0-f8f2c8044d14-jth2a',
+        nodeId: 'node-2',
       },
       {
-        kernelId: "51f66655-168b-4d77-a1e0-f8f2c8044d14",
+        kernelId: '51f66655-168b-4d77-a1e0-f8f2c8044d14',
         replicaId: 3,
-        podId: "51f66655-168b-4d77-a1e0-f8f2c8044d14-g31g4",
-        nodeId: "node-3"
+        podId: '51f66655-168b-4d77-a1e0-f8f2c8044d14-g31g4',
+        nodeId: 'node-3',
       },
-    ]
+    ],
   },
   {
-    kernelId: "f692f0d4-852c-4b5f-9d21-e087f5a774e9",
+    kernelId: 'f692f0d4-852c-4b5f-9d21-e087f5a774e9',
     numReplicas: 3,
-    status: "starting",
+    status: 'starting',
     replicas: [
       {
-        kernelId: "f692f0d4-852c-4b5f-9d21-e087f5a774e9",
+        kernelId: 'f692f0d4-852c-4b5f-9d21-e087f5a774e9',
         replicaId: 1,
-        podId: "f692f0d4-852c-4b5f-9d21-e087f5a774e9-fq3qg",
-        nodeId: "node-1"
+        podId: 'f692f0d4-852c-4b5f-9d21-e087f5a774e9-fq3qg',
+        nodeId: 'node-1',
       },
       {
-        kernelId: "f692f0d4-852c-4b5f-9d21-e087f5a774e9",
+        kernelId: 'f692f0d4-852c-4b5f-9d21-e087f5a774e9',
         replicaId: 2,
-        podId: "f692f0d4-852c-4b5f-9d21-e087f5a774e9-geqgf",
-        nodeId: "node-2"
+        podId: 'f692f0d4-852c-4b5f-9d21-e087f5a774e9-geqgf',
+        nodeId: 'node-2',
       },
       {
-        kernelId: "f692f0d4-852c-4b5f-9d21-e087f5a774e9",
+        kernelId: 'f692f0d4-852c-4b5f-9d21-e087f5a774e9',
         replicaId: 3,
-        podId: "f692f0d4-852c-4b5f-9d21-e087f5a774e9-1gasg",
-        nodeId: "node-3"
+        podId: 'f692f0d4-852c-4b5f-9d21-e087f5a774e9-1gasg',
+        nodeId: 'node-3',
       },
-    ]
+    ],
   },
 ];
 
@@ -177,7 +176,7 @@ export const KernelList: React.FunctionComponent = () => {
 
   const onSelectDataListItem = (
     _event: React.MouseEvent<Element, MouseEvent> | React.KeyboardEvent<Element>,
-    id: string
+    id: string,
   ) => {
     setSelectedDataListItemId(id);
     setIsDrawerExpanded(true);
@@ -214,12 +213,9 @@ export const KernelList: React.FunctionComponent = () => {
     statusSelections.forEach(function (selectedStatus) {
       const match = repo.status.toLowerCase() === selectedStatus.toLowerCase();
       matchesStatusValue = matchesStatusValue || match;
-    })
+    });
 
-    return (
-      (searchValue === '' || matchesSearchValue) &&
-      (statusSelections.length === 0 || matchesStatusValue)
-    );
+    return (searchValue === '' || matchesSearchValue) && (statusSelections.length === 0 || matchesStatusValue);
   };
   const filteredKernels = kernels.filter(onFilter);
 
@@ -267,17 +263,12 @@ export const KernelList: React.FunctionComponent = () => {
     setStatusSelections(
       statusSelections.includes(itemStr)
         ? statusSelections.filter((selection) => selection !== itemStr)
-        : [itemStr, ...statusSelections]
+        : [itemStr, ...statusSelections],
     );
   }
 
   const statusMenu = (
-    <Menu
-      ref={statusMenuRef}
-      id="mixed-group-status-menu"
-      onSelect={onStatusMenuSelect}
-      selected={statusSelections}
-    >
+    <Menu ref={statusMenuRef} id="mixed-group-status-menu" onSelect={onStatusMenuSelect} selected={statusSelections}>
       <MenuContent>
         <MenuList>
           <MenuItem hasCheckbox isSelected={statusSelections.includes('unknown')} itemId="unknown">
@@ -309,7 +300,6 @@ export const KernelList: React.FunctionComponent = () => {
     </Menu>
   );
 
-
   const onStatusToggleClick = (ev: React.MouseEvent) => {
     ev.stopPropagation(); // Stop handleClickOutside from handling
     setTimeout(() => {
@@ -330,7 +320,7 @@ export const KernelList: React.FunctionComponent = () => {
       icon={<FilterIcon />}
       style={
         {
-          width: '200px'
+          width: '200px',
         } as React.CSSProperties
       }
     >
@@ -355,9 +345,7 @@ export const KernelList: React.FunctionComponent = () => {
     <Flex alignItems={{ default: 'alignItemsCenter' }}>
       <ToolbarItem>
         <InputGroup>
-          <InputGroupItem isFill>
-            {searchInput}
-          </InputGroupItem>
+          <InputGroupItem isFill>{searchInput}</InputGroupItem>
         </InputGroup>
       </ToolbarItem>
       <ToolbarGroup variant="filter-group">
@@ -411,10 +399,13 @@ export const KernelList: React.FunctionComponent = () => {
 
   const drawerContent = (
     <React.Fragment>
-      <Toolbar id="content-padding-data-toolbar" usePageInsets clearAllFilters={() => {
-        setStatusSelections([]);
-      }}>
-
+      <Toolbar
+        id="content-padding-data-toolbar"
+        usePageInsets
+        clearAllFilters={() => {
+          setStatusSelections([]);
+        }}
+      >
         <ToolbarContent>{ToolbarItems}</ToolbarContent>
       </Toolbar>
       <DataList
@@ -422,47 +413,46 @@ export const KernelList: React.FunctionComponent = () => {
         selectedDataListItemId={selectedDataListItemId}
         onSelectDataListItem={onSelectDataListItem}
       >
-        {
-          filteredKernels.map(kernel => (
-            <DataListItem key={kernel.kernelId} id="content-padding-item1">
-              <DataListItemRow>
-                <DataListItemCells
-                  dataListCells={[
-                    <DataListCell key="primary-content">
-                      <Flex spaceItems={{ default: 'spaceItemsMd' }} direction={{ default: 'column' }}>
+        {filteredKernels.map((kernel) => (
+          <DataListItem key={kernel.kernelId} id="content-padding-item1">
+            <DataListItemRow>
+              <DataListItemCells
+                dataListCells={[
+                  <DataListCell key="primary-content">
+                    <Flex spaceItems={{ default: 'spaceItemsMd' }} direction={{ default: 'column' }}>
+                      <FlexItem>
+                        <p>Kernel {kernel.kernelId}</p>
+                      </FlexItem>
+                      <Flex spaceItems={{ default: 'spaceItemsMd' }}>
                         <FlexItem>
-                          <p>Kernel {kernel.kernelId}</p>
+                          <CubeIcon /> {kernel.numReplicas}
                         </FlexItem>
-                        <Flex spaceItems={{ default: 'spaceItemsMd' }}>
-                          <FlexItem>
-                            <CubeIcon /> {kernel.numReplicas}
-                          </FlexItem>
-                          <FlexItem>
-                            {kernelStatusIcons[kernel.status]} {kernel.status}
-                          </FlexItem>
-                        </Flex>
+                        <FlexItem>
+                          {kernelStatusIcons[kernel.status]} {kernel.status}
+                        </FlexItem>
                       </Flex>
-                    </DataListCell>,
-                    <DataListAction
-                      key="actions"
-                      aria-labelledby="content-padding-item1 content-padding-action1"
-                      id="content-padding-action1"
-                      aria-label="Actions"
-                    >
-                      <Stack>
-                        <StackItem>
-                          <Button variant={ButtonVariant.secondary}>Secondary</Button>
-                        </StackItem>
-                        <StackItem>
-                          <Button variant={ButtonVariant.link}>Link Button</Button>
-                        </StackItem>
-                      </Stack>
-                    </DataListAction>
-                  ]}
-                />
-              </DataListItemRow>
-            </DataListItem>
-          ))}
+                    </Flex>
+                  </DataListCell>,
+                  <DataListAction
+                    key="actions"
+                    aria-labelledby="content-padding-item1 content-padding-action1"
+                    id="content-padding-action1"
+                    aria-label="Actions"
+                  >
+                    <Stack>
+                      <StackItem>
+                        <Button variant={ButtonVariant.secondary}>Secondary</Button>
+                      </StackItem>
+                      <StackItem>
+                        <Button variant={ButtonVariant.link}>Link Button</Button>
+                      </StackItem>
+                    </Stack>
+                  </DataListAction>,
+                ]}
+              />
+            </DataListItemRow>
+          </DataListItem>
+        ))}
       </DataList>
     </React.Fragment>
   );
@@ -470,12 +460,12 @@ export const KernelList: React.FunctionComponent = () => {
   return (
     <Card isCompact isRounded>
       <CardTitle>
-        <Title headingLevel='h2' size='xl'>
+        <Title headingLevel="h2" size="xl">
           Active Kernels
         </Title>
       </CardTitle>
       <CardBody>
-        <Drawer isExpanded={isDrawerExpanded} >
+        <Drawer isExpanded={isDrawerExpanded}>
           <DrawerHead hasNoPadding></DrawerHead>
           <DrawerContent panelContent={panelContent} colorVariant="no-background">
             <DrawerContentBody>{drawerContent}</DrawerContentBody>
