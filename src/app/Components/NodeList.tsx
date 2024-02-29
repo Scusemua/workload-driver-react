@@ -5,10 +5,6 @@ import {
     Card,
     CardBody,
     CardTitle,
-    DescriptionList,
-    DescriptionListDescription,
-    DescriptionListGroup,
-    DescriptionListTerm,
     DataList,
     DataListAction,
     DataListCell,
@@ -19,8 +15,6 @@ import {
     ToolbarItem,
     ToolbarContent,
     ToolbarToggleGroup,
-    ToolbarGroup,
-    Divider,
     Drawer,
     DrawerActions,
     DrawerCloseButton,
@@ -33,35 +27,20 @@ import {
     FlexItem,
     InputGroup,
     InputGroupItem,
-    Page,
-    PageSection,
-    PageSectionVariants,
     Progress,
     Stack,
     StackItem,
     SearchInput,
-    Text,
-    TextContent,
-    TextInput,
     Title,
-    Select,
-    SelectOption,
     SelectOptionProps,
-    MenuToggle,
     CardHeader
 } from '@patternfly/react-core';
 
 import GpuIcon from 'src/app/Icons/GpuIcon';
-import { KubernetesNode, KubernetesPod } from 'src/app/Data/Kubernetes';
-import CodeBranchIcon from '@patternfly/react-icons/dist/esm/icons/code-branch-icon';
+import { KubernetesNode } from 'src/app/Data/Kubernetes';
 import CubeIcon from '@patternfly/react-icons/dist/esm/icons/cube-icon';
-import StopCircle from '@patternfly/react-icons/dist/esm/icons/stop-circle-icon';
-import CheckCircleIcon from '@patternfly/react-icons/dist/esm/icons/check-circle-icon';
-import ExclamationTriangleIcon from '@patternfly/react-icons/dist/esm/icons/exclamation-triangle-icon';
 import FilterIcon from '@patternfly/react-icons/dist/esm/icons/filter-icon';
-import SearchIcon from '@patternfly/react-icons/dist/esm/icons/search-icon';
-import TimesCircleIcon from '@patternfly/react-icons/dist/esm/icons/times-circle-icon';
-import { CpuIcon, HourglassHalfIcon, MemoryIcon, RebootingIcon, SkullIcon, SpinnerIcon } from '@patternfly/react-icons';
+import { CpuIcon, MemoryIcon } from '@patternfly/react-icons';
 
 interface SelectOptionType extends Omit<SelectOptionProps, 'children'> {
     label: string;
