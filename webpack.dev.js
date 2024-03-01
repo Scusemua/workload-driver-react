@@ -12,10 +12,14 @@ module.exports = merge(common('development'), {
   devtool: 'eval-source-map',
   devServer: {
     proxy: {
-      "/api/*": {
-        context: ["/api"],
-        target: "http://localhost:8000"
-      }
+      '/jupyter/*': {
+        context: ['/jupyter'],
+        target: 'http://localhost:8000',
+      },
+      '/api/*': {
+        context: ['/api'],
+        target: 'http://localhost:8000',
+      },
     },
     host: HOST,
     port: PORT,

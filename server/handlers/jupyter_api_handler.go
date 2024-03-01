@@ -20,23 +20,28 @@ const (
 	kernelSpecJupyterServerEndpoint = "/api/kernelspecs"
 )
 
-type KernelSpecHttpHandler struct {
-	*BaseHandler
-
+type JupyterAPIHandler struct {
 	jupyterServerAddress string // IP of the Jupyter Server.
 	jupyterServerVersion string // We just obtain this when testing connectivity. It's not presently used for anything.
 	spoofKernelSpecs     bool   // Determines whether we return real or fake data.
+
+	logger *zap.Logger
+	opts   *config.Configuration
 }
 
-func NewKernelSpecHttpHandler(opts *config.Configuration) domain.BackendHttpHandler {
-	handler := &KernelSpecHttpHandler{
-		BaseHandler:          newBaseHandler(opts),
+func NewJupyterAPIHandler(opts *config.Configuration) domain.JupyterApiHttpHandler {
+	handler := &JupyterAPIHandler{
 		jupyterServerAddress: opts.JupyterServerAddress,
 		spoofKernelSpecs:     opts.SpoofKernelSpecs,
 	}
-	handler.BackendHttpHandler = handler
 
-	handler.logger.Info(fmt.Sprintf("Creating server-side KernelSpecHttpHandler.\nOptions: %s", opts))
+	var err error
+	handler.logger, err = zap.NewDevelopment()
+	if err != nil {
+		panic(err)
+	}
+
+	handler.logger.Info(fmt.Sprintf("Creating server-side JupyterAPIHandler.\nOptions: %s", opts))
 
 	connectivity := handler.testJupyterServerConnectivity()
 	if !connectivity && !opts.SpoofKernelSpecs {
@@ -47,7 +52,17 @@ func NewKernelSpecHttpHandler(opts *config.Configuration) domain.BackendHttpHand
 	return handler
 }
 
-func (h *KernelSpecHttpHandler) issueHttpRequest(target string) ([]byte, error) {
+// Write an error back to the client.
+func (h *JupyterAPIHandler) WriteError(c *gin.Context, errorMessage string) {
+	// Write error back to front-end.
+	msg := &domain.ErrorMessage{
+		ErrorMessage: errorMessage,
+		Valid:        true,
+	}
+	c.JSON(http.StatusInternalServerError, msg)
+}
+
+func (h *JupyterAPIHandler) issueHttpRequest(target string) ([]byte, error) {
 	resp, err := http.Get(target)
 	if err != nil {
 		h.logger.Error("Failed to complete HTTP GET request.", zap.String("error-message", err.Error()), zap.String("URL", target))
@@ -63,7 +78,7 @@ func (h *KernelSpecHttpHandler) issueHttpRequest(target string) ([]byte, error) 
 	return body, nil
 }
 
-func (h *KernelSpecHttpHandler) testJupyterServerConnectivity() bool {
+func (h *JupyterAPIHandler) testJupyterServerConnectivity() bool {
 	target := h.jupyterServerAddress + versionSpecJupyterServerEndpoint
 	body, err := h.issueHttpRequest(target)
 	if err != nil {
@@ -83,7 +98,7 @@ func (h *KernelSpecHttpHandler) testJupyterServerConnectivity() bool {
 	}
 }
 
-func (h *KernelSpecHttpHandler) doSpoofKernelSpecs() []*domain.KernelSpec {
+func (h *JupyterAPIHandler) doSpoofKernelSpecs() []*domain.KernelSpec {
 	// Distributed kernel.
 	distributed_kernel := &domain.KernelSpec{
 		Name:          "distributed",
@@ -119,7 +134,7 @@ func (h *KernelSpecHttpHandler) doSpoofKernelSpecs() []*domain.KernelSpec {
 }
 
 // Retrieve the kernel specs by issuing an HTTP request to the Jupyter Server.
-func (h *KernelSpecHttpHandler) getKernelSpecsFromJupyter() []*domain.KernelSpec {
+func (h *JupyterAPIHandler) getKernelSpecsFromJupyter() []*domain.KernelSpec {
 	target := h.jupyterServerAddress + kernelSpecJupyterServerEndpoint
 
 	body, err := h.issueHttpRequest(target)
@@ -174,7 +189,13 @@ func (h *KernelSpecHttpHandler) getKernelSpecsFromJupyter() []*domain.KernelSpec
 	return kernelSpecs
 }
 
-func (h *KernelSpecHttpHandler) HandleRequest(c *gin.Context) {
+// Handle an HTTP POST request to create a new jupyter kernel.
+func (h *JupyterAPIHandler) HandleCreateKernelRequest(*gin.Context) {
+
+}
+
+// Handle an HTTP GET request to get the jupyter kernel specs.
+func (h *JupyterAPIHandler) HandleGetKernelSpecRequest(c *gin.Context) {
 	var kernelSpecs []*domain.KernelSpec
 
 	// If we're spoofing the cluster, then just return some made up kernel specs for testing/debugging purposes.

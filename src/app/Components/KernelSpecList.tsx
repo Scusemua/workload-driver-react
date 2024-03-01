@@ -19,6 +19,7 @@ import {
   ToolbarItem,
   Tooltip,
 } from '@patternfly/react-core';
+import { KernelAPI, KernelManager, KernelMessage, KernelSpecManager, ServerConnection } from '@jupyterlab/services';
 
 import { SyncIcon } from '@patternfly/react-icons';
 import { KernelSpec } from '@data/Kernel';
@@ -53,6 +54,41 @@ import { KernelSpec } from '@data/Kernel';
 export const KernelSpecList: React.FunctionComponent = () => {
   const [activeTabKey, setActiveTabKey] = React.useState(0);
   const [isCardExpanded, setIsCardExpanded] = React.useState(true);
+  const kernelSpecManager = useRef<KernelSpecManager | null>(null);
+
+  useEffect(() => {
+    async function initializeKernelManagers() {
+      if (kernelSpecManager.current === null) {
+        const kernelSpecManagerOptions: KernelSpecManager.IOptions = {
+          serverSettings: ServerConnection.makeSettings({
+            token: '',
+            appendToken: false,
+            baseUrl: '/jupyter',
+            fetch: fetch,
+          }),
+        };
+        kernelSpecManager.current = new KernelSpecManager(kernelSpecManagerOptions);
+
+        console.log('Waiting for kernel spec manager to be ready.');
+
+        kernelSpecManager.current.disposed.connect(() => {
+          console.log('Spec manager was disposed.');
+        });
+
+        kernelSpecManager.current.connectionFailure.connect((_sender: KernelSpecManager, err: Error) => {
+          console.log('An error has occurred. ' + err.name + ': ' + err.message);
+        });
+
+        await kernelSpecManager.current.ready.then(() => {
+          console.log('Kernel spec manager is ready!');
+          const kernelSpecs = kernelSpecManager.current?.specs;
+          console.log('KernelSpecs have been refreshed. Specs: ' + JSON.stringify(kernelSpecs));
+        });
+      }
+    }
+
+    initializeKernelManagers();
+  }, []);
 
   const onCardExpand = () => {
     setIsCardExpanded(!isCardExpanded);
@@ -68,15 +104,18 @@ export const KernelSpecList: React.FunctionComponent = () => {
       console.log('Refreshing kernel specs.');
 
       // Make a network request to the backend. The server infrastructure handles proxying/routing the request to the correct host.
-      // We're specifically targeting the API endpoint I setup called "kernelspec".
-      const response = await fetch('/api/kernelspec');
+      // We're specifically targeting the API endpoint I setup called "kernelspecs".
+      // const response = await fetch('/api/jupyter/kernelspecs');
 
-      const respKernels: KernelSpec[] = await response.json();
+      // const respKernels: KernelSpec[] = await response.json();
 
-      if (!ignoreResponse.current) {
-        console.log('Received kernel specs: ' + JSON.stringify(respKernels));
-        setKernelSpecs(respKernels);
-      }
+      kernelSpecManager.current?.refreshSpecs().then(() => {
+        if (!ignoreResponse.current) {
+          const respKernels = kernelSpecManager.current?.specs;
+          console.log('Received kernel specs: ' + JSON.stringify(respKernels));
+          // setKernelSpecs(respKernels);
+        }
+      });
     } catch (e) {
       console.error(e);
     }

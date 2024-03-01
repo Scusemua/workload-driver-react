@@ -23,12 +23,12 @@ type KernelHttpHandler struct {
 	spoofedKernels *cmap.ConcurrentMap[string, *gateway.DistributedJupyterKernel] // Latest spoofedKernels.
 }
 
-func NewKernelHttpHandler(opts *config.Configuration) domain.BackendHttpHandler {
+func NewKernelHttpHandler(opts *config.Configuration) domain.BackendHttpGetHandler {
 	handler := &KernelHttpHandler{
 		spoofKernels:    opts.SpoofKernels,
 		BaseGRPCHandler: newBaseGRPCHandler(opts, !opts.SpoofKernels),
 	}
-	handler.BackendHttpHandler = handler
+	handler.BackendHttpGetHandler = handler
 
 	if handler.spoofKernels {
 		spoofedKernels := cmap.New[*gateway.DistributedJupyterKernel]()

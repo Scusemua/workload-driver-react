@@ -48,7 +48,7 @@ func GetConfiguration() *Configuration {
 	var nodeQueryIntervalFlag = flag.String("node-query-interval", "120s", "How often to refresh nodes from Cluster Gateway.")
 	var gatewayAddressFlag = flag.String("gateway-address", "localhost:9990", "The IP address that the front-end should use to connect to the Gateway.")
 	var kernelSpecQueryIntervalFlag = flag.String("kernel-spec-query-interval", "600s", "How frequently to query the Cluster for updated Jupyter kernel spec information.")
-	var jupyterServerAddressFlag = flag.String("jupyter-server-address", "http://localhost:8888", "The IP address of the Jupyter Server.")
+	var jupyterServerAddressFlag = flag.String("jupyter-server-address", "localhost:8888", "The IP address of the Jupyter Server.")
 	var serverPortFlag = flag.Int("server-port", 8000, "Port of the backend server.")
 
 	var kubeconfigFlag *string

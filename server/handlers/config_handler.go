@@ -14,11 +14,11 @@ type ConfigHttpHandler struct {
 	*BaseHandler
 }
 
-func NewConfigHttpHandler(opts *config.Configuration) domain.BackendHttpHandler {
+func NewConfigHttpHandler(opts *config.Configuration) domain.BackendHttpGetHandler {
 	handler := &ConfigHttpHandler{
 		BaseHandler: newBaseHandler(opts),
 	}
-	handler.BackendHttpHandler = handler
+	handler.BackendHttpGetHandler = handler
 
 	handler.logger.Info(fmt.Sprintf("Creating server-side ConfigHttpHandler.\nOptions: %s", opts))
 

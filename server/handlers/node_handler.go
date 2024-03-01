@@ -26,11 +26,11 @@ type KubeNodeHttpHandler struct {
 	clientset     *kubernetes.Clientset
 }
 
-func NewKubeNodeHttpHandler(opts *config.Configuration) domain.BackendHttpHandler {
+func NewKubeNodeHttpHandler(opts *config.Configuration) domain.BackendHttpGetHandler {
 	handler := &KubeNodeHttpHandler{
 		BaseHandler: newBaseHandler(opts),
 	}
-	handler.BackendHttpHandler = handler
+	handler.BackendHttpGetHandler = handler
 
 	handler.logger.Info("Creating server-side KubeNodeHttpHandler.")
 

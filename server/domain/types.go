@@ -9,17 +9,24 @@ import (
 )
 
 const (
+	// Base of the API endpoint.
+	BASE_API_GROUP_ENDPOINT = "/api"
+
 	// Used internally (by the frontend) to get the current kubernetes nodes from the backend.
-	KUBERNETES_NODES_ENDPOINT = "/api/node"
+	KUBERNETES_NODES_ENDPOINT = "/nodes"
 
 	// Used internally (by the frontend) to get the system config from the backend.
-	SYSTEM_CONFIG_ENDPOINT = "/api/config"
+	SYSTEM_CONFIG_ENDPOINT = "/config"
 
 	// Used internally (by the frontend) to get the current set of Jupyter kernel specs from the backend.
-	KERNEL_SPEC_ENDPOINT = "/api/kernelspec"
+	KERNEL_SPEC_ENDPOINT = "/kernelspecs"
 
 	// Used internally (by the frontend) to get the current set of Jupyter kernels from the backend.
-	KERNEL_ENDPOINT = "/api/kernel"
+	GET_KERNELS_ENDPOINT = "/get-kernels"
+
+	JUPYTER_GROUP_ENDPOINT        = "/jupyter"
+	JUPYTER_START_KERNEL_ENDPOINT = "/start"
+	JUPYTER_STOP_KERNEL_ENDPOINT  = "/stop"
 )
 
 var (
@@ -132,7 +139,7 @@ func (m *ErrorMessage) String() string {
 	return string(out)
 }
 
-type BackendHttpHandler interface {
+type BackendHttpGetHandler interface {
 	// Write an error back to the client.
 	WriteError(*gin.Context, string)
 
@@ -140,11 +147,22 @@ type BackendHttpHandler interface {
 	HandleRequest(*gin.Context)
 
 	// Return the request handler responsible for handling a majority of requests.
-	PrimaryHttpHandler() BackendHttpHandler
+	PrimaryHttpHandler() BackendHttpGetHandler
+}
+
+type JupyterApiHttpHandler interface {
+	// Handle an HTTP GET request to get the jupyter kernel specs.
+	HandleGetKernelSpecRequest(*gin.Context)
+
+	// Handle an HTTP POST request to create a new jupyter kernel.
+	HandleCreateKernelRequest(*gin.Context)
+
+	// Write an error back to the client.
+	WriteError(*gin.Context, string)
 }
 
 type BackendHttpGRPCHandler interface {
-	BackendHttpHandler
+	BackendHttpGetHandler
 
 	// Attempt to connect to the Cluster Gateway's gRPC server using the provided address. Returns an error if connection failed, or nil on success.
 	DialGatewayGRPC(string) error

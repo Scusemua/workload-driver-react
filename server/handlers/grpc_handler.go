@@ -35,7 +35,7 @@ func newBaseGRPCHandler(opts *config.Configuration, shouldConnect bool) *BaseGRP
 		}
 	}
 
-	handler.BackendHttpHandler = handler
+	handler.BackendHttpGetHandler = handler
 
 	return handler
 }
@@ -51,7 +51,7 @@ func (h *BaseGRPCHandler) WriteError(c *gin.Context, errorMessage string) {
 }
 
 func (h *BaseGRPCHandler) HandleRequest(c *gin.Context) {
-	h.BackendHttpHandler.HandleRequest(c)
+	h.BackendHttpGetHandler.HandleRequest(c)
 }
 
 // Attempt to connect to the Cluster Gateway's gRPC server using the provided address. Returns an error if connection failed, or nil on success. This should NOT be called from the UI goroutine.

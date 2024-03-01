@@ -91,7 +91,7 @@ export const KubernetesNodeList: React.FunctionComponent = () => {
 
       // Make a network request to the backend. The server infrastructure handles proxying/routing the request to the correct host.
       // We're specifically targeting the API endpoint I setup called "nodes".
-      const response = await fetch('/api/node');
+      const response = await fetch('/api/nodes');
 
       // Get the response, which will be in JSON format, and decode it into an array of KubernetesNode (which is a TypeScript interface that I defined).
       const respNodes: KubernetesNode[] = await response.json();

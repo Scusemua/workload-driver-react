@@ -15,7 +15,7 @@ type BaseHandler struct {
 	logger *zap.Logger
 	opts   *config.Configuration
 
-	BackendHttpHandler domain.BackendHttpHandler
+	BackendHttpGetHandler domain.BackendHttpGetHandler
 }
 
 func newBaseHandler(opts *config.Configuration) *BaseHandler {
@@ -29,13 +29,13 @@ func newBaseHandler(opts *config.Configuration) *BaseHandler {
 		panic(err)
 	}
 
-	handler.BackendHttpHandler = handler
+	handler.BackendHttpGetHandler = handler
 
 	return handler
 }
 
-func (h *BaseHandler) PrimaryHttpHandler() domain.BackendHttpHandler {
-	return h.BackendHttpHandler
+func (h *BaseHandler) PrimaryHttpHandler() domain.BackendHttpGetHandler {
+	return h.BackendHttpGetHandler
 }
 
 // Write an error back to the client.
@@ -49,5 +49,5 @@ func (h *BaseHandler) WriteError(c *gin.Context, errorMessage string) {
 }
 
 func (h *BaseHandler) HandleRequest(c *gin.Context) {
-	h.BackendHttpHandler.HandleRequest(c)
+	h.BackendHttpGetHandler.HandleRequest(c)
 }

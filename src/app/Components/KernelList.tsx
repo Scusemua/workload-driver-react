@@ -56,6 +56,7 @@ import {
   SyncIcon,
   TrashIcon,
 } from '@patternfly/react-icons';
+import { any } from 'prop-types';
 
 // Map from kernel status to the associated icon.
 const kernelStatusIcons = {
@@ -129,8 +130,8 @@ export const KernelList: React.FunctionComponent = () => {
       console.log('Refreshing kernels.');
 
       // Make a network request to the backend. The server infrastructure handles proxying/routing the request to the correct host.
-      // We're specifically targeting the API endpoint I setup called "kernels".
-      const response = await fetch('/api/kernel');
+      // We're specifically targeting the API endpoint I setup called "get-kernels".
+      const response = await fetch('/api/get-kernels');
 
       const respKernels: DistributedJupyterKernel[] = await response.json();
 
@@ -157,7 +158,7 @@ export const KernelList: React.FunctionComponent = () => {
     };
   }, []);
 
-  function onStatusMenuSelect(event: React.MouseEvent | undefined, itemId: string | number | undefined) {
+  function onStatusMenuSelect(_event: React.MouseEvent | undefined, itemId: string | number | undefined) {
     if (typeof itemId === 'undefined') {
       return;
     }
