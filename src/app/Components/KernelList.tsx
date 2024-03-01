@@ -52,11 +52,13 @@ import {
   ExclamationTriangleIcon,
   FilterIcon,
   HourglassHalfIcon,
+  PlusIcon,
   RebootingIcon,
   SkullIcon,
   SpinnerIcon,
   StopCircleIcon,
   SyncIcon,
+  TrashIcon,
 } from '@patternfly/react-icons';
 
 // Map from kernel status to the associated icon.
@@ -440,19 +442,26 @@ export const KernelList: React.FunctionComponent = () => {
     </DrawerPanelContent>
   );
 
-  const cardHeaderActions = <Button variant="link" icon={<SyncIcon />} onClick={fetchKernels} />;
+  const cardHeaderActions = (
+    <React.Fragment>
+      <ToolbarGroup variant="icon-button-group">
+        <ToolbarItem>
+          <Button id="create-kernel-button" variant="plain" onClick={fetchKernels}>
+            <PlusIcon />
+          </Button>
+          <Button id="delete-kernels-button" variant="plain" onClick={fetchKernels}>
+            <TrashIcon />
+          </Button>
+          <Button id="refresh-kernels-button" variant="plain" onClick={fetchKernels}>
+            <SyncIcon />
+          </Button>
+        </ToolbarItem>
+      </ToolbarGroup>
+    </React.Fragment>
+  );
 
   const drawerContent = (
     <React.Fragment>
-      <Toolbar
-        id="content-padding-data-toolbar"
-        usePageInsets
-        clearAllFilters={() => {
-          setStatusSelections([]);
-        }}
-      >
-        <ToolbarContent>{ToolbarItems}</ToolbarContent>
-      </Toolbar>
       <DataList
         aria-label="data list"
         selectedDataListItemId={selectedDataListItemId}
@@ -504,12 +513,30 @@ export const KernelList: React.FunctionComponent = () => {
 
   return (
     <Card isCompact isRounded isExpanded={isCardExpanded}>
-      <CardHeader onExpand={onCardExpand} actions={{ actions: cardHeaderActions, hasNoOffset: true }}>
+      <CardHeader
+        onExpand={onCardExpand}
+        actions={{ actions: cardHeaderActions, hasNoOffset: true }}
+        toggleButtonProps={{
+          id: 'toggle-button',
+          'aria-label': 'Actions',
+          'aria-labelledby': 'titleId toggle-button',
+          'aria-expanded': isCardExpanded,
+        }}
+      >
         <CardTitle>
-          <Title headingLevel="h2" size="xl">
+          <Title headingLevel="h4" size="xl">
             Active Kernels
           </Title>
         </CardTitle>
+        <Toolbar
+          id="content-padding-data-toolbar"
+          usePageInsets
+          clearAllFilters={() => {
+            setStatusSelections([]);
+          }}
+        >
+          <ToolbarContent>{ToolbarItems}</ToolbarContent>
+        </Toolbar>
       </CardHeader>
       <CardExpandableContent>
         <CardBody>

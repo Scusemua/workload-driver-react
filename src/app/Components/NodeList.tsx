@@ -30,8 +30,9 @@ import {
   Stack,
   StackItem,
   Title,
-  Toolbar,
-  ToolbarContent,
+  // Toolbar,
+  // ToolbarContent,
+  ToolbarGroup,
   ToolbarItem,
   ToolbarToggleGroup,
 } from '@patternfly/react-core';
@@ -192,19 +193,6 @@ export const KubernetesNodeList: React.FunctionComponent = () => {
 
   const drawerContent = (
     <React.Fragment>
-      <Toolbar id="content-padding-data-toolbar" usePageInsets>
-        <ToolbarContent>
-          <ToolbarToggleGroup toggleIcon={<FilterIcon />} breakpoint="xl">
-            <Flex alignItems={{ default: 'alignItemsCenter' }}>
-              <ToolbarItem>
-                <InputGroup>
-                  <InputGroupItem isFill>{searchInput}</InputGroupItem>
-                </InputGroup>
-              </ToolbarItem>
-            </Flex>
-          </ToolbarToggleGroup>
-        </ToolbarContent>
-      </Toolbar>
       <DataList
         aria-label="data list"
         selectedDataListItemId={selectedDataListItemId}
@@ -262,13 +250,41 @@ export const KubernetesNodeList: React.FunctionComponent = () => {
     </React.Fragment>
   );
 
-  const cardHeaderActions = <Button variant="link" icon={<SyncIcon />} onClick={fetchKubernetesNodes} />;
+  const toolbar = (
+    <React.Fragment>
+      <ToolbarToggleGroup toggleIcon={<FilterIcon />} breakpoint="xl">
+        <Flex alignItems={{ default: 'alignItemsCenter' }}>
+          <ToolbarItem>
+            <InputGroup>
+              <InputGroupItem isFill>{searchInput}</InputGroupItem>
+            </InputGroup>
+          </ToolbarItem>
+        </Flex>
+      </ToolbarToggleGroup>
+      <ToolbarGroup variant="icon-button-group">
+        <ToolbarItem>
+          <Button variant="plain" onClick={fetchKubernetesNodes}>
+            <SyncIcon />
+          </Button>
+        </ToolbarItem>
+      </ToolbarGroup>
+    </React.Fragment>
+  );
 
   return (
     <Card isCompact isRounded isExpanded={isCardExpanded}>
-      <CardHeader onExpand={onCardExpand} actions={{ actions: cardHeaderActions, hasNoOffset: true }}>
+      <CardHeader
+        onExpand={onCardExpand}
+        actions={{ actions: toolbar, hasNoOffset: true }}
+        toggleButtonProps={{
+          id: 'toggle-button',
+          'aria-label': 'Actions',
+          'aria-labelledby': 'titleId toggle-button',
+          'aria-expanded': isCardExpanded,
+        }}
+      >
         <CardTitle>
-          <Title headingLevel="h2" size="xl">
+          <Title headingLevel="h4" size="xl">
             Kubernetes Nodes
           </Title>
         </CardTitle>
