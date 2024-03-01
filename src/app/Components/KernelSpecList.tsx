@@ -17,6 +17,7 @@ import {
   Title,
   ToolbarGroup,
   ToolbarItem,
+  Tooltip,
 } from '@patternfly/react-core';
 
 import { SyncIcon } from '@patternfly/react-icons';
@@ -97,9 +98,11 @@ export const KernelSpecList: React.FunctionComponent = () => {
   const cardHeaderActions = (
     <ToolbarGroup variant="icon-button-group">
       <ToolbarItem>
-        <Button variant="plain" onClick={fetchKernelSpecs}>
-          <SyncIcon />
-        </Button>
+        <Tooltip exitDelay={75} content={<div>Refresh kernel specs.</div>}>
+          <Button variant="plain" onClick={fetchKernelSpecs}>
+            <SyncIcon />
+          </Button>
+        </Tooltip>
       </ToolbarItem>
     </ToolbarGroup>
   );

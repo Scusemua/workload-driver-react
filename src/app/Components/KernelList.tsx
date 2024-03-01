@@ -35,6 +35,7 @@ import {
   ToolbarGroup,
   ToolbarItem,
   ToolbarToggleGroup,
+  Tooltip,
 } from '@patternfly/react-core';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 
@@ -291,15 +292,21 @@ export const KernelList: React.FunctionComponent = () => {
     <React.Fragment>
       <ToolbarGroup variant="icon-button-group">
         <ToolbarItem>
-          <Button id="create-kernel-button" variant="plain" onClick={fetchKernels}>
-            <PlusIcon />
-          </Button>
-          <Button id="delete-kernels-button" variant="plain" onClick={fetchKernels}>
-            <TrashIcon />
-          </Button>
-          <Button id="refresh-kernels-button" variant="plain" onClick={fetchKernels}>
-            <SyncIcon />
-          </Button>
+          <Tooltip exitDelay={75} content={<div>Create a new kernel.</div>}>
+            <Button id="create-kernel-button" variant="plain" onClick={fetchKernels}>
+              <PlusIcon />
+            </Button>
+          </Tooltip>
+          <Tooltip exitDelay={75} content={<div>Delete selected kernels.</div>}>
+            <Button id="delete-kernels-button" variant="plain" onClick={fetchKernels}>
+              <TrashIcon />
+            </Button>
+          </Tooltip>
+          <Tooltip exitDelay={75} content={<div>Refresh kernels.</div>}>
+            <Button id="refresh-kernels-button" variant="plain" onClick={fetchKernels}>
+              <SyncIcon />
+            </Button>
+          </Tooltip>
         </ToolbarItem>
       </ToolbarGroup>
     </React.Fragment>
@@ -323,14 +330,18 @@ export const KernelList: React.FunctionComponent = () => {
             <Td dataLabel="Pod">{replica.podId}</Td>
             <Td dataLabel="Node">{replica.nodeId}</Td>
             <Td>
-              <Button variant={'link'} icon={<CodeIcon />}>
-                Execute
-              </Button>
+              <Tooltip exitDelay={20} entryDelay={175} content={<div>Execute Python code on this replica.</div>}>
+                <Button variant={'link'} icon={<CodeIcon />}>
+                  Execute
+                </Button>
+              </Tooltip>
             </Td>
             <Td>
-              <Button variant={'link'} icon={<MigrationIcon />}>
-                Migrate
-              </Button>
+              <Tooltip exitDelay={20} entryDelay={175} content={<div>Migrate this replica to another node.</div>}>
+                <Button variant={'link'} icon={<MigrationIcon />}>
+                  Migrate
+                </Button>
+              </Tooltip>
             </Td>
           </Tr>
         ))}
@@ -415,14 +426,22 @@ export const KernelList: React.FunctionComponent = () => {
                       >
                         <Stack>
                           <StackItem>
-                            <Button variant={'link'} icon={<CodeIcon />}>
-                              Execute
-                            </Button>
+                            <Tooltip
+                              exitDelay={75}
+                              entryDelay={250}
+                              content={<div>Execute Python code on this kernel.</div>}
+                            >
+                              <Button variant={'link'} icon={<CodeIcon />}>
+                                Execute
+                              </Button>
+                            </Tooltip>
                           </StackItem>
                           <StackItem>
-                            <Button variant={'link'} icon={<TrashIcon />} isDanger>
-                              Terminate
-                            </Button>
+                            <Tooltip exitDelay={75} entryDelay={250} content={<div>Terminate this kernel.</div>}>
+                              <Button variant={'link'} icon={<TrashIcon />} isDanger>
+                                Terminate
+                              </Button>
+                            </Tooltip>
                           </StackItem>
                         </Stack>
                       </DataListAction>,

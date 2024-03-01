@@ -28,6 +28,7 @@ import {
   ToolbarGroup,
   ToolbarItem,
   ToolbarToggleGroup,
+  Tooltip,
 } from '@patternfly/react-core';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 import GpuIcon from '@app/Icons/GpuIcon';
@@ -147,9 +148,11 @@ export const KubernetesNodeList: React.FunctionComponent = () => {
       </ToolbarToggleGroup>
       <ToolbarGroup variant="icon-button-group">
         <ToolbarItem>
-          <Button variant="plain" onClick={fetchKubernetesNodes}>
-            <SyncIcon />
-          </Button>
+          <Tooltip exitDelay={75} content={<div>Refresh nodes.</div>}>
+            <Button variant="plain" onClick={fetchKubernetesNodes}>
+              <SyncIcon />
+            </Button>
+          </Tooltip>
         </ToolbarItem>
       </ToolbarGroup>
     </React.Fragment>
