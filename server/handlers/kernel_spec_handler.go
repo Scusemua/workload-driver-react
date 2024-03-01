@@ -127,12 +127,44 @@ func (h *KernelSpecHttpHandler) getKernelSpecsFromJupyter() []*domain.KernelSpec
 		return nil
 	}
 
-	var kernelSpecs map[string]interface{}
-	json.Unmarshal(body, &kernelSpecs)
+	var response map[string]interface{}
+	json.Unmarshal(body, &response)
 
-	h.logger.Info("Retrieved kernel specs from Jupyter Server.", zap.Any("kernel-specs", kernelSpecs))
+	// TODO(Ben): Handle errors here gracefully.
+	kernelSpecsJson := response["kernelspecs"].(map[string]interface{})
+	h.logger.Debug(fmt.Sprintf("Retrieved %d kernel spec(s) from Jupyter Server.", len(kernelSpecsJson)), zap.Any("kernel-specs", kernelSpecsJson))
 
-	return make([]*domain.KernelSpec, 0)
+	kernelSpecs := make([]*domain.KernelSpec, 0, len(kernelSpecsJson))
+
+	for specName, spec := range kernelSpecsJson {
+		// TODO(Ben): Handle errors here gracefully.
+		var specDefinition map[string]interface{} = spec.(map[string]interface{})["spec"].(map[string]interface{})
+
+		kernelSpec := &domain.KernelSpec{
+			Name:          specName,
+			DisplayName:   specDefinition["display_name"].(string),
+			Language:      specDefinition["language"].(string),
+			InterruptMode: specDefinition["interrupt_mode"].(string),
+		}
+
+		var specMetadata map[string]interface{} = specDefinition["metadata"].(map[string]interface{})
+
+		if val, ok := specMetadata["kernel_provisioner"]; ok {
+			// TODO(Ben): Handle errors here gracefully.
+			var kernelProvisioner map[string]interface{} = val.(map[string]interface{})
+
+			kernelSpec.KernelProvisioner = &domain.KernelProvisioner{
+				// TODO(Ben): Handle errors here gracefully.
+				Name: kernelProvisioner["provisioner_name"].(string),
+				// TODO(Ben): Handle errors here gracefully.
+				Gateway: kernelProvisioner["config"].(map[string]interface{})["gateway"].(string),
+			}
+		}
+
+		kernelSpecs = append(kernelSpecs, kernelSpec)
+	}
+
+	return kernelSpecs
 }
 
 func (h *KernelSpecHttpHandler) HandleRequest(c *gin.Context) {

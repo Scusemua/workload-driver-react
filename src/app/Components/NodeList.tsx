@@ -96,7 +96,7 @@ export const KubernetesNodeList: React.FunctionComponent = () => {
       const respNodes: KubernetesNode[] = await response.json();
 
       if (!ignoreResponse.current) {
-        console.log('Received nodes: ' + JSON.stringify(respNodes));
+        // console.log('Received nodes: ' + JSON.stringify(respNodes));
         setNodes(respNodes);
       }
     } catch (e) {
