@@ -1,34 +1,27 @@
 import React, { useEffect, useRef } from 'react';
 import {
   Button,
-  ButtonVariant,
   Card,
   CardBody,
   CardExpandableContent,
   CardHeader,
   CardTitle,
   DataList,
-  DataListAction,
   DataListCell,
+  DataListContent,
   DataListItem,
   DataListItemCells,
   DataListItemRow,
-  Drawer,
-  DrawerActions,
-  DrawerCloseButton,
-  DrawerContent,
-  DrawerContentBody,
-  DrawerHead,
-  DrawerPanelBody,
-  DrawerPanelContent,
+  DataListToggle,
+  DescriptionList,
+  DescriptionListDescription,
+  DescriptionListGroup,
+  DescriptionListTerm,
   Flex,
   FlexItem,
   InputGroup,
   InputGroupItem,
-  Progress,
   SearchInput,
-  Stack,
-  StackItem,
   Title,
   // Toolbar,
   // ToolbarContent,
@@ -36,7 +29,7 @@ import {
   ToolbarItem,
   ToolbarToggleGroup,
 } from '@patternfly/react-core';
-
+import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 import GpuIcon from '@app/Icons/GpuIcon';
 import { KubernetesNode } from '@data/Kubernetes';
 import { CpuIcon, CubeIcon, FilterIcon, MemoryIcon, SyncIcon } from '@patternfly/react-icons';
@@ -67,30 +60,12 @@ import { CpuIcon, CubeIcon, FilterIcon, MemoryIcon, SyncIcon } from '@patternfly
 // ];
 
 export const KubernetesNodeList: React.FunctionComponent = () => {
-  const [isDrawerExpanded, setIsDrawerExpanded] = React.useState(false);
-  const [drawerPanelBodyContent, setDrawerPanelBodyContent] = React.useState('');
-  const [selectedDataListItemId, setSelectedDataListItemId] = React.useState('');
   const [searchValue, setSearchValue] = React.useState('');
   const [isCardExpanded, setIsCardExpanded] = React.useState(true);
+  const [expanded, setExpanded] = React.useState<string[]>([]);
 
   const onCardExpand = () => {
     setIsCardExpanded(!isCardExpanded);
-  };
-
-  // Clicking one of the nodes to open its associated drawer.
-  const onSelectDataListItem = (
-    _event: React.MouseEvent<Element, MouseEvent> | React.KeyboardEvent<Element>,
-    id: string,
-  ) => {
-    setSelectedDataListItemId(id);
-    setIsDrawerExpanded(true);
-    setDrawerPanelBodyContent(id.charAt(id.length - 1));
-  };
-
-  // Handle closing the drawer.
-  const onCloseDrawerClick = () => {
-    setIsDrawerExpanded(false);
-    setSelectedDataListItemId('');
   };
 
   // When the user types something into the node name filter, we update the associated state.
@@ -106,38 +81,6 @@ export const KubernetesNodeList: React.FunctionComponent = () => {
       onChange={(_event, value) => onSearchChange(value)}
       onClear={() => onSearchChange('')}
     />
-  );
-
-  // This is the drawer that is opened when clicking a node.
-  // Presently it's just a placeholder.
-  const panelContent = (
-    <DrawerPanelContent>
-      <DrawerHead>
-        <Title headingLevel="h2" size="xl">
-          node-{drawerPanelBodyContent}
-        </Title>
-        <DrawerActions>
-          <DrawerCloseButton onClick={onCloseDrawerClick} />
-        </DrawerActions>
-      </DrawerHead>
-      <DrawerPanelBody>
-        <Flex spaceItems={{ default: 'spaceItemsLg' }} direction={{ default: 'column' }}>
-          <FlexItem>
-            <p>
-              The content of the drawer really is up to you. It could have form fields, definition lists, text lists,
-              labels, charts, progress bars, etc. Spacing recommendation is 24px margins. You can put tabs in here, and
-              can also make the drawer scrollable.
-            </p>
-          </FlexItem>
-          <FlexItem>
-            <Progress value={parseInt(drawerPanelBodyContent) * 10} title="Title" />
-          </FlexItem>
-          <FlexItem>
-            <Progress value={parseInt(drawerPanelBodyContent) * 5} title="Title" />
-          </FlexItem>
-        </Flex>
-      </DrawerPanelBody>
-    </DrawerPanelContent>
   );
 
   const ignoreResponse = useRef(false);
@@ -191,65 +134,6 @@ export const KubernetesNodeList: React.FunctionComponent = () => {
   };
   const filteredNodes = nodes.filter(onFilter);
 
-  const drawerContent = (
-    <React.Fragment>
-      <DataList
-        aria-label="data list"
-        selectedDataListItemId={selectedDataListItemId}
-        onSelectDataListItem={onSelectDataListItem}
-      >
-        {filteredNodes.map((kubeNode) => (
-          <DataListItem key={kubeNode.NodeId} id="content-padding-item1">
-            <DataListItemRow>
-              <DataListItemCells
-                dataListCells={[
-                  <DataListCell key="primary-content">
-                    <Flex spaceItems={{ default: 'spaceItemsMd' }} direction={{ default: 'column' }}>
-                      <FlexItem>
-                        <p>Node {kubeNode.NodeId}</p>
-                      </FlexItem>
-                      <Flex spaceItems={{ default: 'spaceItemsMd' }}>
-                        <FlexItem>
-                          <CubeIcon /> {kubeNode.Pods.length}
-                        </FlexItem>
-                      </Flex>
-                      <Flex spaceItems={{ default: 'spaceItemsMd' }}>
-                        <FlexItem>
-                          <CpuIcon /> {kubeNode.AllocatedCPU.toFixed(4)} / {kubeNode.CapacityCPU}
-                        </FlexItem>
-                        <FlexItem>
-                          <MemoryIcon /> {kubeNode.AllocatedMemory.toFixed(4)} / {kubeNode.CapacityMemory.toFixed(0)}
-                        </FlexItem>
-                        <FlexItem>
-                          <GpuIcon /> {kubeNode.AllocatedCPU.toFixed(4)} / {kubeNode.CapacityCPU}
-                        </FlexItem>
-                      </Flex>
-                    </Flex>
-                  </DataListCell>,
-                  <DataListAction
-                    key="actions"
-                    aria-labelledby="content-padding-item1 content-padding-action1"
-                    id="content-padding-action1"
-                    aria-label="Actions"
-                  >
-                    <Stack>
-                      <StackItem>
-                        <Button variant={ButtonVariant.secondary}>Secondary</Button>
-                      </StackItem>
-                      <StackItem>
-                        <Button variant={ButtonVariant.link}>Link Button</Button>
-                      </StackItem>
-                    </Stack>
-                  </DataListAction>,
-                ]}
-              />
-            </DataListItemRow>
-          </DataListItem>
-        ))}
-      </DataList>
-    </React.Fragment>
-  );
-
   const toolbar = (
     <React.Fragment>
       <ToolbarToggleGroup toggleIcon={<FilterIcon />} breakpoint="xl">
@@ -271,6 +155,13 @@ export const KubernetesNodeList: React.FunctionComponent = () => {
     </React.Fragment>
   );
 
+  const toggleExpanded = (id) => {
+    const index = expanded.indexOf(id);
+    const newExpanded =
+      index >= 0 ? [...expanded.slice(0, index), ...expanded.slice(index + 1, expanded.length)] : [...expanded, id];
+    setExpanded(newExpanded);
+  };
+
   return (
     <Card isCompact isRounded isExpanded={isCardExpanded}>
       <CardHeader
@@ -291,11 +182,91 @@ export const KubernetesNodeList: React.FunctionComponent = () => {
       </CardHeader>
       <CardExpandableContent>
         <CardBody>
-          <Drawer isExpanded={isDrawerExpanded}>
-            <DrawerContent panelContent={panelContent} colorVariant="no-background">
-              <DrawerContentBody>{drawerContent}</DrawerContentBody>
-            </DrawerContent>
-          </Drawer>
+          <DataList isCompact aria-label="data list">
+            {filteredNodes.map((kubeNode: KubernetesNode, idx: number) => (
+              <DataListItem
+                key={kubeNode.NodeId}
+                id={'node-list-item-' + idx}
+                isExpanded={expanded.includes(kubeNode.NodeId)}
+              >
+                <DataListItemRow>
+                  <DataListToggle
+                    onClick={() => toggleExpanded(kubeNode.NodeId)}
+                    isExpanded={expanded.includes(kubeNode.NodeId)}
+                    id="ex-toggle1"
+                    aria-controls="ex-expand1"
+                  />
+                  <DataListItemCells
+                    dataListCells={[
+                      <DataListCell key="primary-content">
+                        <Flex spaceItems={{ default: 'spaceItemsMd' }} direction={{ default: 'column' }}>
+                          <FlexItem>
+                            <DescriptionList isCompact columnModifier={{ lg: '3Col' }}>
+                              <DescriptionListGroup>
+                                <DescriptionListTerm>Node ID</DescriptionListTerm>
+                                <DescriptionListDescription>{kubeNode.NodeId}</DescriptionListDescription>
+                              </DescriptionListGroup>
+                              <DescriptionListGroup>
+                                <DescriptionListTerm>IP</DescriptionListTerm>
+                                <DescriptionListDescription>{kubeNode.IP}</DescriptionListDescription>
+                              </DescriptionListGroup>
+                              <DescriptionListGroup>
+                                <DescriptionListTerm>Age</DescriptionListTerm>
+                                <DescriptionListDescription>{kubeNode.Age}</DescriptionListDescription>
+                              </DescriptionListGroup>
+                            </DescriptionList>
+                          </FlexItem>
+                          <FlexItem>
+                            <Flex spaceItems={{ default: 'spaceItems4xl' }}>
+                              <FlexItem>
+                                <CubeIcon /> {kubeNode.Pods.length}
+                              </FlexItem>
+                              <FlexItem>
+                                <CpuIcon /> {kubeNode.AllocatedCPU.toFixed(4)} / {kubeNode.CapacityCPU}
+                              </FlexItem>
+                              <FlexItem>
+                                <MemoryIcon /> {kubeNode.AllocatedMemory.toFixed(4)} /{' '}
+                                {kubeNode.CapacityMemory.toFixed(0)}
+                              </FlexItem>
+                              <FlexItem>
+                                <GpuIcon /> {kubeNode.AllocatedCPU.toFixed(4)} / {kubeNode.CapacityCPU}
+                              </FlexItem>
+                            </Flex>
+                          </FlexItem>
+                        </Flex>
+                      </DataListCell>,
+                    ]}
+                  />
+                </DataListItemRow>
+                <DataListContent
+                  aria-label={'node-' + kubeNode.NodeId + '-expandable-content'}
+                  id={'node-' + kubeNode.NodeId + '-expandable-content'}
+                  isHidden={!expanded.includes(kubeNode.NodeId)}
+                >
+                  <Table aria-label="Pods Table" variant={'compact'} borders={true}>
+                    <Thead>
+                      <Tr>
+                        <Th>Pod ID</Th>
+                        <Th>Phase</Th>
+                        <Th>Age</Th>
+                        <Th>IP</Th>
+                      </Tr>
+                    </Thead>
+                    <Tbody>
+                      {kubeNode.Pods.map((pod) => (
+                        <Tr key={pod.PodName}>
+                          <Td dataLabel="Pod ID">{pod.PodName}</Td>
+                          <Td dataLabel="Phase">{pod.PodPhase}</Td>
+                          <Td dataLabel="Age">{pod.PodAge}</Td>
+                          <Td dataLabel="IP">{pod.PodIP}</Td>
+                        </Tr>
+                      ))}
+                    </Tbody>
+                  </Table>
+                </DataListContent>
+              </DataListItem>
+            ))}
+          </DataList>
         </CardBody>
       </CardExpandableContent>
     </Card>

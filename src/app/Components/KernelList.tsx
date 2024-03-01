@@ -463,12 +463,13 @@ export const KernelList: React.FunctionComponent = () => {
   const drawerContent = (
     <React.Fragment>
       <DataList
+        isCompact
         aria-label="data list"
         selectedDataListItemId={selectedDataListItemId}
         onSelectDataListItem={onSelectDataListItem}
       >
-        {filteredKernels.map((kernel) => (
-          <DataListItem key={kernel.kernelId} id="content-padding-item1">
+        {filteredKernels.map((kernel, idx) => (
+          <DataListItem key={kernel.kernelId} id={'content-padding-item-' + idx}>
             <DataListItemRow>
               <DataListItemCells
                 dataListCells={[
@@ -489,16 +490,18 @@ export const KernelList: React.FunctionComponent = () => {
                   </DataListCell>,
                   <DataListAction
                     key="actions"
-                    aria-labelledby="content-padding-item1 content-padding-action1"
-                    id="content-padding-action1"
+                    aria-labelledby={'content-padding-item-' + idx + ' content-action-item-' + idx}
+                    id={'content-padding-item-' + idx}
                     aria-label="Actions"
                   >
                     <Stack>
                       <StackItem>
-                        <Button variant={ButtonVariant.secondary}>Secondary</Button>
+                        <Button variant={ButtonVariant.link}>Execute Code</Button>
                       </StackItem>
                       <StackItem>
-                        <Button variant={ButtonVariant.link}>Link Button</Button>
+                        <Button variant={ButtonVariant.link} isDanger>
+                          Terminate
+                        </Button>
                       </StackItem>
                     </Stack>
                   </DataListAction>,

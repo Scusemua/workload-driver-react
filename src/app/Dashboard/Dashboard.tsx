@@ -16,7 +16,7 @@ const Dashboard: React.FunctionComponent = () => (
       <GridItem span={6} rowSpan={3}>
         <KernelList />
       </GridItem>
-      <GridItem span={6} rowSpan={1}>
+      <GridItem span={6} rowSpan={4}>
         <KubernetesNodeList />
       </GridItem>
       <GridItem span={6} rowSpan={1}>

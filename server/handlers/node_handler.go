@@ -140,7 +140,8 @@ func (h *KubeNodeHttpHandler) HandleRequest(c *gin.Context) {
 					PodName:  pod.ObjectMeta.Name,
 					PodPhase: string(pod.Status.Phase),
 					PodIP:    pod.Status.PodIP,
-					PodAge:   time.Since(pod.GetCreationTimestamp().Time).Round(time.Second),
+					PodAge:   time.Since(pod.GetCreationTimestamp().Time).Round(time.Second).String(),
+					Valid:    true,
 				}
 
 				kubePods = append(kubePods, kubePod)
@@ -156,7 +157,7 @@ func (h *KubeNodeHttpHandler) HandleRequest(c *gin.Context) {
 			CapacityCPU:    allocCpu,
 			CapacityMemory: allocMem / 976600.0, // Convert from Ki to GB.
 			Pods:           kubePods,
-			Age:            time.Since(node.GetCreationTimestamp().Time).Round(time.Second),
+			Age:            time.Since(node.GetCreationTimestamp().Time).Round(time.Second).String(),
 			IP:             node.Status.Addresses[0].Address,
 			// CapacityGPUs:    0,
 			// CapacityVGPUs:   0,

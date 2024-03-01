@@ -3,7 +3,6 @@ package domain
 import (
 	"encoding/json"
 	"errors"
-	"time"
 
 	"github.com/gin-gonic/gin"
 	gateway "github.com/scusemua/workload-driver-react/m/v2/server/api/proto"
@@ -80,7 +79,7 @@ type NodeProvider interface {
 type KubernetesNode struct {
 	NodeId          string           `json:"NodeId"`
 	Pods            []*KubernetesPod `json:"Pods"`
-	Age             time.Duration    `json:"Age"`
+	Age             string    `json:"Age"` // Convert the time.Duration to a string
 	IP              string           `json:"IP"`
 	CapacityCPU     float64          `json:"CapacityCPU"`
 	CapacityMemory  float64          `json:"CapacityMemory"`
@@ -90,8 +89,6 @@ type KubernetesNode struct {
 	AllocatedMemory float64          `json:"AllocatedMemory"`
 	AllocatedGPUs   float64          `json:"AllocatedGPUs"`
 	AllocatedVGPUs  float64          `json:"AllocatedVGPUs"`
-
-	Valid bool `json:"Valid"` // Used to determine if the struct was sent/received correctly over the network.
 }
 
 func (kn *KubernetesNode) String() string {
@@ -103,10 +100,10 @@ func (kn *KubernetesNode) String() string {
 	return string(out)
 }
 
-type KubernetesPod struct {
+type KubernetesPod struct { 
 	PodName  string        `json:"PodName"`
 	PodPhase string        `json:"PodPhase"`
-	PodAge   time.Duration `json:"PodAge"`
+	PodAge   string `json:"PodAge"` // Convert the time.Duration to a string
 	PodIP    string        `json:"PodIP"`
 
 	Valid bool `json:"Valid"` // Used to determine if the struct was sent/received correctly over the network.
