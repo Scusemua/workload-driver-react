@@ -2,7 +2,6 @@ import React, { useEffect, useRef } from 'react';
 import {
   Badge,
   Button,
-  ButtonVariant,
   Card,
   CardBody,
   CardExpandableContent,
@@ -11,17 +10,11 @@ import {
   DataList,
   DataListAction,
   DataListCell,
+  DataListContent,
   DataListItem,
   DataListItemCells,
   DataListItemRow,
-  Drawer,
-  DrawerActions,
-  DrawerCloseButton,
-  DrawerContent,
-  DrawerContentBody,
-  DrawerHead,
-  DrawerPanelBody,
-  DrawerPanelContent,
+  DataListToggle,
   Flex,
   FlexItem,
   InputGroup,
@@ -32,7 +25,6 @@ import {
   MenuList,
   MenuToggle,
   Popper,
-  Progress,
   SearchInput,
   Stack,
   StackItem,
@@ -44,14 +36,17 @@ import {
   ToolbarItem,
   ToolbarToggleGroup,
 } from '@patternfly/react-core';
+import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 
 import { DistributedJupyterKernel } from '@data/Kernel';
 import {
   CheckCircleIcon,
+  CodeIcon,
   CubeIcon,
   ExclamationTriangleIcon,
   FilterIcon,
   HourglassHalfIcon,
+  MigrationIcon,
   PlusIcon,
   RebootingIcon,
   SkullIcon,
@@ -73,134 +68,14 @@ const kernelStatusIcons = {
   dead: <SkullIcon />,
 };
 
-// Hard-coded, dummy data.
-// const kernels: DistributedJupyterKernel[] = [
-//   {
-//     kernelId: '173d8f23-a5af-4998-8221-b510a73c832c',
-//     numReplicas: 3,
-//     status: 'idle',
-//     replicas: [
-//       {
-//         kernelId: '173d8f23-a5af-4998-8221-b510a73c832c',
-//         replicaId: 1,
-//         podId: '173d8f23-a5af-4998-8221-b510a73c832c-9042e',
-//         nodeId: 'node-1',
-//       },
-//       {
-//         kernelId: '173d8f23-a5af-4998-8221-b510a73c832c',
-//         replicaId: 2,
-//         podId: '173d8f23-a5af-4998-8221-b510a73c832c-b5f23',
-//         nodeId: 'node-2',
-//       },
-//       {
-//         kernelId: '173d8f23-a5af-4998-8221-b510a73c832c',
-//         replicaId: 3,
-//         podId: '173d8f23-a5af-4998-8221-b510a73c832c-7316b',
-//         nodeId: 'node-3',
-//       },
-//     ],
-//   },
-//   {
-//     kernelId: '62677bbf-359a-4f0b-96e7-6baf7ac65545',
-//     numReplicas: 3,
-//     status: 'terminating',
-//     replicas: [
-//       {
-//         kernelId: '62677bbf-359a-4f0b-96e7-6baf7ac65545',
-//         replicaId: 1,
-//         podId: '62677bbf-359a-4f0b-96e7-6baf7ac65545-7ad16',
-//         nodeId: 'node-1',
-//       },
-//       {
-//         kernelId: '62677bbf-359a-4f0b-96e7-6baf7ac65545',
-//         replicaId: 2,
-//         podId: '62677bbf-359a-4f0b-96e7-6baf7ac65545-9a75a',
-//         nodeId: 'node-2',
-//       },
-//       {
-//         kernelId: '62677bbf-359a-4f0b-96e7-6baf7ac65545',
-//         replicaId: 3,
-//         podId: '62677bbf-359a-4f0b-96e7-6baf7ac65545-04a02',
-//         nodeId: 'node-3',
-//       },
-//     ],
-//   },
-//   {
-//     kernelId: '51f66655-168b-4d77-a1e0-f8f2c8044d14',
-//     numReplicas: 3,
-//     status: 'restarting',
-//     replicas: [
-//       {
-//         kernelId: '51f66655-168b-4d77-a1e0-f8f2c8044d14',
-//         replicaId: 1,
-//         podId: '51f66655-168b-4d77-a1e0-f8f2c8044d14-jtqwg',
-//         nodeId: 'node-1',
-//       },
-//       {
-//         kernelId: '51f66655-168b-4d77-a1e0-f8f2c8044d14',
-//         replicaId: 2,
-//         podId: '51f66655-168b-4d77-a1e0-f8f2c8044d14-jth2a',
-//         nodeId: 'node-2',
-//       },
-//       {
-//         kernelId: '51f66655-168b-4d77-a1e0-f8f2c8044d14',
-//         replicaId: 3,
-//         podId: '51f66655-168b-4d77-a1e0-f8f2c8044d14-g31g4',
-//         nodeId: 'node-3',
-//       },
-//     ],
-//   },
-//   {
-//     kernelId: 'f692f0d4-852c-4b5f-9d21-e087f5a774e9',
-//     numReplicas: 3,
-//     status: 'starting',
-//     replicas: [
-//       {
-//         kernelId: 'f692f0d4-852c-4b5f-9d21-e087f5a774e9',
-//         replicaId: 1,
-//         podId: 'f692f0d4-852c-4b5f-9d21-e087f5a774e9-fq3qg',
-//         nodeId: 'node-1',
-//       },
-//       {
-//         kernelId: 'f692f0d4-852c-4b5f-9d21-e087f5a774e9',
-//         replicaId: 2,
-//         podId: 'f692f0d4-852c-4b5f-9d21-e087f5a774e9-geqgf',
-//         nodeId: 'node-2',
-//       },
-//       {
-//         kernelId: 'f692f0d4-852c-4b5f-9d21-e087f5a774e9',
-//         replicaId: 3,
-//         podId: 'f692f0d4-852c-4b5f-9d21-e087f5a774e9-1gasg',
-//         nodeId: 'node-3',
-//       },
-//     ],
-//   },
-// ];
-
 export const KernelList: React.FunctionComponent = () => {
-  const [isDrawerExpanded, setIsDrawerExpanded] = React.useState(false);
-  const [drawerPanelBodyContent, setDrawerPanelBodyContent] = React.useState('');
-  const [selectedDataListItemId, setSelectedDataListItemId] = React.useState('');
   const [searchValue, setSearchValue] = React.useState('');
   const [statusSelections, setStatusSelections] = React.useState<string[]>([]);
   const [isCardExpanded, setIsCardExpanded] = React.useState(true);
+  const [expandedKernels, setExpandedKernels] = React.useState<string[]>([]);
 
   const onCardExpand = () => {
     setIsCardExpanded(!isCardExpanded);
-  };
-
-  const onSelectDataListItem = (
-    _event: React.MouseEvent<Element, MouseEvent> | React.KeyboardEvent<Element>,
-    id: string,
-  ) => {
-    setSelectedDataListItemId(id);
-    setIsDrawerExpanded(true);
-    setDrawerPanelBodyContent(id.charAt(id.length - 1));
-  };
-
-  const onCloseDrawerClick = () => {
-    setIsDrawerExpanded(false);
-    setSelectedDataListItemId('');
   };
 
   const onSearchChange = (value: string) => {
@@ -412,36 +287,6 @@ export const KernelList: React.FunctionComponent = () => {
     </ToolbarToggleGroup>
   );
 
-  const panelContent = (
-    <DrawerPanelContent>
-      <DrawerHead>
-        <Title headingLevel="h2" size="xl">
-          kernel-{drawerPanelBodyContent}
-        </Title>
-        <DrawerActions>
-          <DrawerCloseButton onClick={onCloseDrawerClick} />
-        </DrawerActions>
-      </DrawerHead>
-      <DrawerPanelBody>
-        <Flex spaceItems={{ default: 'spaceItemsLg' }} direction={{ default: 'column' }}>
-          <FlexItem>
-            <p>
-              The content of the drawer really is up to you. It could have form fields, definition lists, text lists,
-              labels, charts, progress bars, etc. Spacing recommendation is 24px margins. You can put tabs in here, and
-              can also make the drawer scrollable.
-            </p>
-          </FlexItem>
-          <FlexItem>
-            <Progress value={parseInt(drawerPanelBodyContent) * 10} title="Title" />
-          </FlexItem>
-          <FlexItem>
-            <Progress value={parseInt(drawerPanelBodyContent) * 5} title="Title" />
-          </FlexItem>
-        </Flex>
-      </DrawerPanelBody>
-    </DrawerPanelContent>
-  );
-
   const cardHeaderActions = (
     <React.Fragment>
       <ToolbarGroup variant="icon-button-group">
@@ -460,59 +305,47 @@ export const KernelList: React.FunctionComponent = () => {
     </React.Fragment>
   );
 
-  const drawerContent = (
-    <React.Fragment>
-      <DataList
-        isCompact
-        aria-label="data list"
-        selectedDataListItemId={selectedDataListItemId}
-        onSelectDataListItem={onSelectDataListItem}
-      >
-        {filteredKernels.map((kernel, idx) => (
-          <DataListItem key={kernel.kernelId} id={'content-padding-item-' + idx}>
-            <DataListItemRow>
-              <DataListItemCells
-                dataListCells={[
-                  <DataListCell key="primary-content">
-                    <Flex spaceItems={{ default: 'spaceItemsMd' }} direction={{ default: 'column' }}>
-                      <FlexItem>
-                        <p>Kernel {kernel.kernelId}</p>
-                      </FlexItem>
-                      <Flex spaceItems={{ default: 'spaceItemsMd' }}>
-                        <FlexItem>
-                          <CubeIcon /> {kernel.numReplicas}
-                        </FlexItem>
-                        <FlexItem>
-                          {kernelStatusIcons[kernel.status]} {kernel.status}
-                        </FlexItem>
-                      </Flex>
-                    </Flex>
-                  </DataListCell>,
-                  <DataListAction
-                    key="actions"
-                    aria-labelledby={'content-padding-item-' + idx + ' content-action-item-' + idx}
-                    id={'content-padding-item-' + idx}
-                    aria-label="Actions"
-                  >
-                    <Stack>
-                      <StackItem>
-                        <Button variant={ButtonVariant.link}>Execute Code</Button>
-                      </StackItem>
-                      <StackItem>
-                        <Button variant={ButtonVariant.link} isDanger>
-                          Terminate
-                        </Button>
-                      </StackItem>
-                    </Stack>
-                  </DataListAction>,
-                ]}
-              />
-            </DataListItemRow>
-          </DataListItem>
+  const expandedKernelContent = (kernel: DistributedJupyterKernel) => (
+    <Table aria-label="Pods Table" variant={'compact'} borders={true}>
+      <Thead>
+        <Tr>
+          <Th>ID</Th>
+          <Th>Pod</Th>
+          <Th>Node</Th>
+          <Th />
+          <Th />
+        </Tr>
+      </Thead>
+      <Tbody>
+        {kernel.replicas.map((replica) => (
+          <Tr key={replica.replicaId}>
+            <Td dataLabel="ID">{replica.replicaId}</Td>
+            <Td dataLabel="Pod">{replica.podId}</Td>
+            <Td dataLabel="Node">{replica.nodeId}</Td>
+            <Td>
+              <Button variant={'link'} icon={<CodeIcon />}>
+                Execute
+              </Button>
+            </Td>
+            <Td>
+              <Button variant={'link'} icon={<MigrationIcon />}>
+                Migrate
+              </Button>
+            </Td>
+          </Tr>
         ))}
-      </DataList>
-    </React.Fragment>
+      </Tbody>
+    </Table>
   );
+
+  const toggleExpandedKernel = (id) => {
+    const index = expandedKernels.indexOf(id);
+    const newExpanded =
+      index >= 0
+        ? [...expandedKernels.slice(0, index), ...expandedKernels.slice(index + 1, expandedKernels.length)]
+        : [...expandedKernels, id];
+    setExpandedKernels(newExpanded);
+  };
 
   return (
     <Card isCompact isRounded isExpanded={isCardExpanded}>
@@ -543,12 +376,69 @@ export const KernelList: React.FunctionComponent = () => {
       </CardHeader>
       <CardExpandableContent>
         <CardBody>
-          <Drawer isExpanded={isDrawerExpanded}>
-            <DrawerHead hasNoPadding></DrawerHead>
-            <DrawerContent panelContent={panelContent} colorVariant="no-background">
-              <DrawerContentBody>{drawerContent}</DrawerContentBody>
-            </DrawerContent>
-          </Drawer>
+          <DataList isCompact aria-label="data list">
+            {filteredKernels.map((kernel, idx) => (
+              <DataListItem
+                isExpanded={expandedKernels.includes(kernel.kernelId)}
+                key={kernel.kernelId}
+                id={'content-padding-item-' + idx}
+              >
+                <DataListItemRow>
+                  <DataListToggle
+                    onClick={() => toggleExpandedKernel(kernel.kernelId)}
+                    isExpanded={expandedKernels.includes(kernel.kernelId)}
+                    id="ex-toggle1"
+                    aria-controls="ex-expand1"
+                  />
+                  <DataListItemCells
+                    dataListCells={[
+                      <DataListCell key="primary-content">
+                        <Flex spaceItems={{ default: 'spaceItemsMd' }} direction={{ default: 'column' }}>
+                          <FlexItem>
+                            <p>Kernel {kernel.kernelId}</p>
+                          </FlexItem>
+                          <Flex spaceItems={{ default: 'spaceItemsMd' }}>
+                            <FlexItem>
+                              <CubeIcon /> {kernel.numReplicas}
+                            </FlexItem>
+                            <FlexItem>
+                              {kernelStatusIcons[kernel.status]} {kernel.status}
+                            </FlexItem>
+                          </Flex>
+                        </Flex>
+                      </DataListCell>,
+                      <DataListAction
+                        key="actions"
+                        aria-labelledby={'content-padding-item-' + idx + ' content-action-item-' + idx}
+                        id={'content-padding-item-' + idx}
+                        aria-label="Actions"
+                      >
+                        <Stack>
+                          <StackItem>
+                            <Button variant={'link'} icon={<CodeIcon />}>
+                              Execute
+                            </Button>
+                          </StackItem>
+                          <StackItem>
+                            <Button variant={'link'} icon={<TrashIcon />} isDanger>
+                              Terminate
+                            </Button>
+                          </StackItem>
+                        </Stack>
+                      </DataListAction>,
+                    ]}
+                  />
+                </DataListItemRow>
+                <DataListContent
+                  aria-label={'kernel-' + kernel.kernelId + '-expandable-content'}
+                  id={'kernel-' + kernel.kernelId + '-expandable-content'}
+                  isHidden={!expandedKernels.includes(kernel.kernelId)}
+                >
+                  {expandedKernelContent(kernel)}
+                </DataListContent>
+              </DataListItem>
+            ))}
+          </DataList>
         </CardBody>
       </CardExpandableContent>
     </Card>

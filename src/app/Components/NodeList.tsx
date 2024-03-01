@@ -62,7 +62,7 @@ import { CpuIcon, CubeIcon, FilterIcon, MemoryIcon, SyncIcon } from '@patternfly
 export const KubernetesNodeList: React.FunctionComponent = () => {
   const [searchValue, setSearchValue] = React.useState('');
   const [isCardExpanded, setIsCardExpanded] = React.useState(true);
-  const [expanded, setExpanded] = React.useState<string[]>([]);
+  const [expandedNodes, setExpandedNodes] = React.useState<string[]>([]);
 
   const onCardExpand = () => {
     setIsCardExpanded(!isCardExpanded);
@@ -155,11 +155,36 @@ export const KubernetesNodeList: React.FunctionComponent = () => {
     </React.Fragment>
   );
 
-  const toggleExpanded = (id) => {
-    const index = expanded.indexOf(id);
+  const expandedNodeContent = (kubeNode: KubernetesNode) => (
+    <Table aria-label="Pods Table" variant={'compact'} borders={true}>
+      <Thead>
+        <Tr>
+          <Th>Pod ID</Th>
+          <Th>Phase</Th>
+          <Th>Age</Th>
+          <Th>IP</Th>
+        </Tr>
+      </Thead>
+      <Tbody>
+        {kubeNode.Pods.map((pod) => (
+          <Tr key={pod.PodName}>
+            <Td dataLabel="Pod ID">{pod.PodName}</Td>
+            <Td dataLabel="Phase">{pod.PodPhase}</Td>
+            <Td dataLabel="Age">{pod.PodAge}</Td>
+            <Td dataLabel="IP">{pod.PodIP}</Td>
+          </Tr>
+        ))}
+      </Tbody>
+    </Table>
+  );
+
+  const toggleExpandedNode = (id) => {
+    const index = expandedNodes.indexOf(id);
     const newExpanded =
-      index >= 0 ? [...expanded.slice(0, index), ...expanded.slice(index + 1, expanded.length)] : [...expanded, id];
-    setExpanded(newExpanded);
+      index >= 0
+        ? [...expandedNodes.slice(0, index), ...expandedNodes.slice(index + 1, expandedNodes.length)]
+        : [...expandedNodes, id];
+    setExpandedNodes(newExpanded);
   };
 
   return (
@@ -187,12 +212,12 @@ export const KubernetesNodeList: React.FunctionComponent = () => {
               <DataListItem
                 key={kubeNode.NodeId}
                 id={'node-list-item-' + idx}
-                isExpanded={expanded.includes(kubeNode.NodeId)}
+                isExpanded={expandedNodes.includes(kubeNode.NodeId)}
               >
                 <DataListItemRow>
                   <DataListToggle
-                    onClick={() => toggleExpanded(kubeNode.NodeId)}
-                    isExpanded={expanded.includes(kubeNode.NodeId)}
+                    onClick={() => toggleExpandedNode(kubeNode.NodeId)}
+                    isExpanded={expandedNodes.includes(kubeNode.NodeId)}
                     id="ex-toggle1"
                     aria-controls="ex-expand1"
                   />
@@ -241,28 +266,9 @@ export const KubernetesNodeList: React.FunctionComponent = () => {
                 <DataListContent
                   aria-label={'node-' + kubeNode.NodeId + '-expandable-content'}
                   id={'node-' + kubeNode.NodeId + '-expandable-content'}
-                  isHidden={!expanded.includes(kubeNode.NodeId)}
+                  isHidden={!expandedNodes.includes(kubeNode.NodeId)}
                 >
-                  <Table aria-label="Pods Table" variant={'compact'} borders={true}>
-                    <Thead>
-                      <Tr>
-                        <Th>Pod ID</Th>
-                        <Th>Phase</Th>
-                        <Th>Age</Th>
-                        <Th>IP</Th>
-                      </Tr>
-                    </Thead>
-                    <Tbody>
-                      {kubeNode.Pods.map((pod) => (
-                        <Tr key={pod.PodName}>
-                          <Td dataLabel="Pod ID">{pod.PodName}</Td>
-                          <Td dataLabel="Phase">{pod.PodPhase}</Td>
-                          <Td dataLabel="Age">{pod.PodAge}</Td>
-                          <Td dataLabel="IP">{pod.PodIP}</Td>
-                        </Tr>
-                      ))}
-                    </Tbody>
-                  </Table>
+                  {expandedNodeContent(kubeNode)}
                 </DataListContent>
               </DataListItem>
             ))}

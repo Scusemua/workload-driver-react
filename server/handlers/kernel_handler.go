@@ -81,7 +81,7 @@ func (h *KernelHttpHandler) spoofKernel() *gateway.DistributedJupyterKernel {
 	for j := 0; j < numReplicas; j++ {
 		podId := fmt.Sprintf("kernel-%s-%s", kernelId, uuid.New().String()[0:5])
 		replica := &gateway.JupyterKernelReplica{
-			ReplicaId: int32(j),
+			ReplicaId: int32(j + 1),
 			KernelId:  kernelId,
 			PodId:     podId,
 			NodeId:    fmt.Sprintf("Node-%d", rand.Intn(4-1)+1),
