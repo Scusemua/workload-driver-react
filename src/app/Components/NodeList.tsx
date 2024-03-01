@@ -4,6 +4,7 @@ import {
   ButtonVariant,
   Card,
   CardBody,
+  CardExpandableContent,
   CardHeader,
   CardTitle,
   DataList,
@@ -69,6 +70,11 @@ export const KubernetesNodeList: React.FunctionComponent = () => {
   const [drawerPanelBodyContent, setDrawerPanelBodyContent] = React.useState('');
   const [selectedDataListItemId, setSelectedDataListItemId] = React.useState('');
   const [searchValue, setSearchValue] = React.useState('');
+  const [isCardExpanded, setIsCardExpanded] = React.useState(true);
+
+  const onCardExpand = () => {
+    setIsCardExpanded(!isCardExpanded);
+  };
 
   // Clicking one of the nodes to open its associated drawer.
   const onSelectDataListItem = (
@@ -256,21 +262,23 @@ export const KubernetesNodeList: React.FunctionComponent = () => {
   );
 
   return (
-    <Card isCompact isRounded>
-      <CardHeader>
+    <Card isCompact isRounded isExpanded={isCardExpanded}>
+      <CardHeader onExpand={onCardExpand}>
         <CardTitle>
           <Title headingLevel="h2" size="xl">
             Kubernetes Nodes
           </Title>
         </CardTitle>
       </CardHeader>
-      <CardBody>
-        <Drawer isExpanded={isDrawerExpanded}>
-          <DrawerContent panelContent={panelContent} colorVariant="no-background">
-            <DrawerContentBody>{drawerContent}</DrawerContentBody>
-          </DrawerContent>
-        </Drawer>
-      </CardBody>
+      <CardExpandableContent>
+        <CardBody>
+          <Drawer isExpanded={isDrawerExpanded}>
+            <DrawerContent panelContent={panelContent} colorVariant="no-background">
+              <DrawerContentBody>{drawerContent}</DrawerContentBody>
+            </DrawerContent>
+          </Drawer>
+        </CardBody>
+      </CardExpandableContent>
     </Card>
   );
 };

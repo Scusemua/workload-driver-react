@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import {
   Card,
   CardBody,
+  CardExpandableContent,
   CardHeader,
   DescriptionList,
   DescriptionListDescription,
@@ -45,6 +46,12 @@ import { KernelSpec } from '@data/Kernel';
 
 export const KernelSpecList: React.FunctionComponent = () => {
   const [activeTabKey, setActiveTabKey] = React.useState(0);
+  const [isCardExpanded, setIsCardExpanded] = React.useState(true);
+
+  const onCardExpand = () => {
+    setIsCardExpanded(!isCardExpanded);
+  };
+
   const handleTabClick = (_e: React.MouseEvent<HTMLElement, MouseEvent>, tabIndex: string | number) => {
     setActiveTabKey(Number(tabIndex));
   };
@@ -81,77 +88,58 @@ export const KernelSpecList: React.FunctionComponent = () => {
     };
   }, []);
 
-  // const tabContent = (
-  //   <DescriptionList columnModifier={{ lg: '2Col' }}>
-  //     <DescriptionListGroup>
-  //       <DescriptionListTerm>Name</DescriptionListTerm>
-  //       <DescriptionListDescription>{kernelSpecs[activeTabKey].name}</DescriptionListDescription>
-  //     </DescriptionListGroup>
-  //     <DescriptionListGroup>
-  //       <DescriptionListTerm>Display Name</DescriptionListTerm>
-  //       <DescriptionListDescription>{kernelSpecs[activeTabKey].displayName}</DescriptionListDescription>
-  //     </DescriptionListGroup>
-  //     <DescriptionListGroup>
-  //       <DescriptionListTerm>Language</DescriptionListTerm>
-  //       <DescriptionListDescription>{kernelSpecs[activeTabKey].language}</DescriptionListDescription>
-  //     </DescriptionListGroup>
-  //     <DescriptionListGroup>
-  //       <DescriptionListTerm>Interrupt Mode</DescriptionListTerm>
-  //       <DescriptionListDescription>{kernelSpecs[activeTabKey].interruptMode}</DescriptionListDescription>
-  //     </DescriptionListGroup>
-  //   </DescriptionList>
-  // );
-
   return (
     <>
-      <Card isCompact isRounded>
-        <CardHeader>
+      <Card isCompact isRounded isExpanded={isCardExpanded}>
+        <CardHeader onExpand={onCardExpand}>
           <Title headingLevel="h2" size="xl">
             Available Kernel Specs
           </Title>
         </CardHeader>
-        <CardBody>
-          <Tabs isFilled id="status-tabs" activeKey={activeTabKey} onSelect={handleTabClick}>
+        <CardExpandableContent>
+          <CardBody>
+            <Tabs isFilled id="status-tabs" activeKey={activeTabKey} onSelect={handleTabClick}>
+              {kernelSpecs.map((kernelSpec, tabIndex) => (
+                <Tab
+                  key={tabIndex}
+                  eventKey={tabIndex}
+                  title={<TabTitleText>{kernelSpec.displayName}</TabTitleText>}
+                  tabContentId={`tabContent${tabIndex}`}
+                />
+              ))}
+            </Tabs>
+          </CardBody>
+          <CardBody>
             {kernelSpecs.map((kernelSpec, tabIndex) => (
-              <Tab
+              <TabContent
                 key={tabIndex}
                 eventKey={tabIndex}
-                title={<TabTitleText>{kernelSpec.displayName}</TabTitleText>}
-                tabContentId={`tabContent${tabIndex}`}
-              />
+                id={`tabContent${tabIndex}`}
+                activeKey={activeTabKey}
+                hidden={tabIndex !== activeTabKey}
+              >
+                <DescriptionList columnModifier={{ lg: '2Col' }}>
+                  <DescriptionListGroup>
+                    <DescriptionListTerm>Name</DescriptionListTerm>
+                    <DescriptionListDescription>{kernelSpecs[tabIndex].name}</DescriptionListDescription>
+                  </DescriptionListGroup>
+                  <DescriptionListGroup>
+                    <DescriptionListTerm>Display Name</DescriptionListTerm>
+                    <DescriptionListDescription>{kernelSpecs[tabIndex].displayName}</DescriptionListDescription>
+                  </DescriptionListGroup>
+                  <DescriptionListGroup>
+                    <DescriptionListTerm>Language</DescriptionListTerm>
+                    <DescriptionListDescription>{kernelSpecs[tabIndex].language}</DescriptionListDescription>
+                  </DescriptionListGroup>
+                  <DescriptionListGroup>
+                    <DescriptionListTerm>Interrupt Mode</DescriptionListTerm>
+                    <DescriptionListDescription>{kernelSpecs[tabIndex].interruptMode}</DescriptionListDescription>
+                  </DescriptionListGroup>
+                </DescriptionList>
+              </TabContent>
             ))}
-          </Tabs>
-        </CardBody>
-        <CardBody>
-          {kernelSpecs.map((kernelSpec, tabIndex) => (
-            <TabContent
-              key={tabIndex}
-              eventKey={tabIndex}
-              id={`tabContent${tabIndex}`}
-              activeKey={activeTabKey}
-              hidden={tabIndex !== activeTabKey}
-            >
-              <DescriptionList columnModifier={{ lg: '2Col' }}>
-                <DescriptionListGroup>
-                  <DescriptionListTerm>Name</DescriptionListTerm>
-                  <DescriptionListDescription>{kernelSpecs[tabIndex].name}</DescriptionListDescription>
-                </DescriptionListGroup>
-                <DescriptionListGroup>
-                  <DescriptionListTerm>Display Name</DescriptionListTerm>
-                  <DescriptionListDescription>{kernelSpecs[tabIndex].displayName}</DescriptionListDescription>
-                </DescriptionListGroup>
-                <DescriptionListGroup>
-                  <DescriptionListTerm>Language</DescriptionListTerm>
-                  <DescriptionListDescription>{kernelSpecs[tabIndex].language}</DescriptionListDescription>
-                </DescriptionListGroup>
-                <DescriptionListGroup>
-                  <DescriptionListTerm>Interrupt Mode</DescriptionListTerm>
-                  <DescriptionListDescription>{kernelSpecs[tabIndex].interruptMode}</DescriptionListDescription>
-                </DescriptionListGroup>
-              </DescriptionList>
-            </TabContent>
-          ))}
-        </CardBody>
+          </CardBody>
+        </CardExpandableContent>
       </Card>
     </>
   );

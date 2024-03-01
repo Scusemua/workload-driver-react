@@ -5,6 +5,8 @@ import {
   ButtonVariant,
   Card,
   CardBody,
+  CardExpandableContent,
+  CardHeader,
   CardTitle,
   DataList,
   DataListAction,
@@ -178,6 +180,11 @@ export const KernelList: React.FunctionComponent = () => {
   const [selectedDataListItemId, setSelectedDataListItemId] = React.useState('');
   const [searchValue, setSearchValue] = React.useState('');
   const [statusSelections, setStatusSelections] = React.useState<string[]>([]);
+  const [isCardExpanded, setIsCardExpanded] = React.useState(true);
+
+  const onCardExpand = () => {
+    setIsCardExpanded(!isCardExpanded);
+  };
 
   const onSelectDataListItem = (
     _event: React.MouseEvent<Element, MouseEvent> | React.KeyboardEvent<Element>,
@@ -378,29 +385,25 @@ export const KernelList: React.FunctionComponent = () => {
     </div>
   );
 
-  const toggleGroupItems = (
-    <Flex alignItems={{ default: 'alignItemsCenter' }}>
-      <ToolbarItem>
-        <InputGroup>
-          <InputGroupItem isFill>{searchInput}</InputGroupItem>
-        </InputGroup>
-      </ToolbarItem>
-      <ToolbarGroup variant="filter-group">
-        <ToolbarFilter
-          chips={statusSelections}
-          deleteChip={() => setStatusSelections([])}
-          deleteChipGroup={() => setStatusSelections([])}
-          categoryName="Status"
-        >
-          {statusSelect}
-        </ToolbarFilter>
-      </ToolbarGroup>
-    </Flex>
-  );
-
   const ToolbarItems = (
     <ToolbarToggleGroup toggleIcon={<FilterIcon />} breakpoint="xl">
-      {toggleGroupItems}
+      <Flex alignItems={{ default: 'alignItemsCenter' }}>
+        <ToolbarItem>
+          <InputGroup>
+            <InputGroupItem isFill>{searchInput}</InputGroupItem>
+          </InputGroup>
+        </ToolbarItem>
+        <ToolbarGroup variant="filter-group">
+          <ToolbarFilter
+            chips={statusSelections}
+            deleteChip={() => setStatusSelections([])}
+            deleteChipGroup={() => setStatusSelections([])}
+            categoryName="Status"
+          >
+            {statusSelect}
+          </ToolbarFilter>
+        </ToolbarGroup>
+      </Flex>
     </ToolbarToggleGroup>
   );
 
@@ -433,6 +436,10 @@ export const KernelList: React.FunctionComponent = () => {
       </DrawerPanelBody>
     </DrawerPanelContent>
   );
+
+  // const cardHeaderActions = (
+
+  // )
 
   const drawerContent = (
     <React.Fragment>
@@ -495,20 +502,24 @@ export const KernelList: React.FunctionComponent = () => {
   );
 
   return (
-    <Card isCompact isRounded>
-      <CardTitle>
-        <Title headingLevel="h2" size="xl">
-          Active Kernels
-        </Title>
-      </CardTitle>
-      <CardBody>
-        <Drawer isExpanded={isDrawerExpanded}>
-          <DrawerHead hasNoPadding></DrawerHead>
-          <DrawerContent panelContent={panelContent} colorVariant="no-background">
-            <DrawerContentBody>{drawerContent}</DrawerContentBody>
-          </DrawerContent>
-        </Drawer>
-      </CardBody>
+    <Card isCompact isRounded isExpanded={isCardExpanded}>
+      <CardHeader onExpand={onCardExpand}>
+        <CardTitle>
+          <Title headingLevel="h2" size="xl">
+            Active Kernels
+          </Title>
+        </CardTitle>
+      </CardHeader>
+      <CardExpandableContent>
+        <CardBody>
+          <Drawer isExpanded={isDrawerExpanded}>
+            <DrawerHead hasNoPadding></DrawerHead>
+            <DrawerContent panelContent={panelContent} colorVariant="no-background">
+              <DrawerContentBody>{drawerContent}</DrawerContentBody>
+            </DrawerContent>
+          </Drawer>
+        </CardBody>
+      </CardExpandableContent>
     </Card>
   );
 };
