@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   Badge,
   Button,
@@ -56,6 +56,7 @@ import {
   SkullIcon,
   SpinnerIcon,
   StopCircleIcon,
+  SyncIcon,
 } from '@patternfly/react-icons';
 
 // Map from kernel status to the associated icon.
@@ -244,27 +245,29 @@ export const KernelList: React.FunctionComponent = () => {
     };
   }, [isStatusMenuOpen, statusMenuRef]);
 
+  const ignoreResponse = useRef(false);
+  async function fetchKernels() {
+    try {
+      console.log('Refreshing kernels.');
+
+      // Make a network request to the backend. The server infrastructure handles proxying/routing the request to the correct host.
+      // We're specifically targeting the API endpoint I setup called "kernels".
+      const response = await fetch('/api/kernel');
+
+      const respKernels: DistributedJupyterKernel[] = await response.json();
+
+      if (!ignoreResponse.current) {
+        console.log('Received kernels: ' + JSON.stringify(respKernels));
+        setKernels(respKernels);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
   const [kernels, setKernels] = React.useState<DistributedJupyterKernel[]>([]);
   useEffect(() => {
-    let ignoreResponse = false;
-    async function fetchKernels() {
-      try {
-        console.log('Refreshing kernels.');
-
-        // Make a network request to the backend. The server infrastructure handles proxying/routing the request to the correct host.
-        // We're specifically targeting the API endpoint I setup called "kernels".
-        const response = await fetch('/api/kernel');
-
-        const respKernels: DistributedJupyterKernel[] = await response.json();
-
-        if (!ignoreResponse) {
-          console.log('Received kernels: ' + JSON.stringify(respKernels));
-          setKernels(respKernels);
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    }
+    ignoreResponse.current = false;
 
     fetchKernels();
 
@@ -272,7 +275,7 @@ export const KernelList: React.FunctionComponent = () => {
     setInterval(fetchKernels, 30000);
 
     return () => {
-      ignoreResponse = true;
+      ignoreResponse.current = true;
     };
   }, []);
 
@@ -437,9 +440,7 @@ export const KernelList: React.FunctionComponent = () => {
     </DrawerPanelContent>
   );
 
-  // const cardHeaderActions = (
-
-  // )
+  const cardHeaderActions = <Button variant="link" icon={<SyncIcon />} onClick={fetchKernels} />;
 
   const drawerContent = (
     <React.Fragment>
@@ -503,7 +504,7 @@ export const KernelList: React.FunctionComponent = () => {
 
   return (
     <Card isCompact isRounded isExpanded={isCardExpanded}>
-      <CardHeader onExpand={onCardExpand}>
+      <CardHeader onExpand={onCardExpand} actions={{ actions: cardHeaderActions, hasNoOffset: true }}>
         <CardTitle>
           <Title headingLevel="h2" size="xl">
             Active Kernels

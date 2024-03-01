@@ -1,5 +1,6 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
+  Button,
   Card,
   CardBody,
   CardExpandableContent,
@@ -15,6 +16,7 @@ import {
   Title,
 } from '@patternfly/react-core';
 
+import { SyncIcon } from '@patternfly/react-icons';
 import { KernelSpec } from '@data/Kernel';
 
 // const kernelSpecs: KernelSpec[] = [
@@ -56,42 +58,45 @@ export const KernelSpecList: React.FunctionComponent = () => {
     setActiveTabKey(Number(tabIndex));
   };
 
+  const ignoreResponse = useRef(false);
+  async function fetchKernelSpecs() {
+    try {
+      console.log('Refreshing kernel specs.');
+
+      // Make a network request to the backend. The server infrastructure handles proxying/routing the request to the correct host.
+      // We're specifically targeting the API endpoint I setup called "kernelspec".
+      const response = await fetch('/api/kernelspec');
+
+      const respKernels: KernelSpec[] = await response.json();
+
+      if (!ignoreResponse.current) {
+        console.log('Received kernel specs: ' + JSON.stringify(respKernels));
+        setKernelSpecs(respKernels);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
   const [kernelSpecs, setKernelSpecs] = React.useState<KernelSpec[]>([]);
   useEffect(() => {
-    let ignoreResponse = false;
-    async function fetchKernelSpecs() {
-      try {
-        console.log('Refreshing kernel specs.');
-
-        // Make a network request to the backend. The server infrastructure handles proxying/routing the request to the correct host.
-        // We're specifically targeting the API endpoint I setup called "kernelspec".
-        const response = await fetch('/api/kernelspec');
-
-        const respKernels: KernelSpec[] = await response.json();
-
-        if (!ignoreResponse) {
-          console.log('Received kernel specs: ' + JSON.stringify(respKernels));
-          setKernelSpecs(respKernels);
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    }
-
+    ignoreResponse.current = false;
     fetchKernelSpecs();
 
     // Periodically refresh the automatically kernel specs every 5 minutes.
     setInterval(fetchKernelSpecs, 300000);
 
     return () => {
-      ignoreResponse = true;
+      ignoreResponse.current = true;
     };
   }, []);
+
+  const cardHeaderActions = <Button variant="link" icon={<SyncIcon />} onClick={fetchKernelSpecs} />;
 
   return (
     <>
       <Card isCompact isRounded isExpanded={isCardExpanded}>
-        <CardHeader onExpand={onCardExpand}>
+        <CardHeader onExpand={onCardExpand} actions={{ actions: cardHeaderActions, hasNoOffset: true }}>
           <Title headingLevel="h2" size="xl">
             Available Kernel Specs
           </Title>

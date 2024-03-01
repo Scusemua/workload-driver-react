@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
   Button,
   ButtonVariant,
@@ -38,7 +38,7 @@ import {
 
 import GpuIcon from '@app/Icons/GpuIcon';
 import { KubernetesNode } from '@data/Kubernetes';
-import { CpuIcon, CubeIcon, FilterIcon, MemoryIcon } from '@patternfly/react-icons';
+import { CpuIcon, CubeIcon, FilterIcon, MemoryIcon, SyncIcon } from '@patternfly/react-icons';
 
 // Hard-coded, dummy data.
 // const kubeNodes: KubernetesNode[] = [
@@ -139,37 +139,38 @@ export const KubernetesNodeList: React.FunctionComponent = () => {
     </DrawerPanelContent>
   );
 
+  const ignoreResponse = useRef(false);
+  async function fetchKubernetesNodes() {
+    try {
+      console.log('Refreshing Kubernetes nodes.');
+
+      // Make a network request to the backend. The server infrastructure handles proxying/routing the request to the correct host.
+      // We're specifically targeting the API endpoint I setup called "nodes".
+      const response = await fetch('/api/node');
+
+      // Get the response, which will be in JSON format, and decode it into an array of KubernetesNode (which is a TypeScript interface that I defined).
+      const respNodes: KubernetesNode[] = await response.json();
+
+      if (!ignoreResponse.current) {
+        console.log('Received nodes: ' + JSON.stringify(respNodes));
+        setNodes(respNodes);
+      }
+    } catch (e) {
+      console.error(e);
+    }
+  }
+
   // Fetch the kubernetes nodes from the backend (which itself makes a network call to the Kubernetes API).
   const [nodes, setNodes] = React.useState<KubernetesNode[]>([]);
   useEffect(() => {
-    let ignoreResponse = false;
-    async function fetchKubernetesNodes() {
-      try {
-        console.log('Refreshing Kubernetes nodes.');
-
-        // Make a network request to the backend. The server infrastructure handles proxying/routing the request to the correct host.
-        // We're specifically targeting the API endpoint I setup called "nodes".
-        const response = await fetch('/api/node');
-
-        // Get the response, which will be in JSON format, and decode it into an array of KubernetesNode (which is a TypeScript interface that I defined).
-        const respNodes: KubernetesNode[] = await response.json();
-
-        if (!ignoreResponse) {
-          console.log('Received nodes: ' + JSON.stringify(respNodes));
-          setNodes(respNodes);
-        }
-      } catch (e) {
-        console.error(e);
-      }
-    }
-
+    ignoreResponse.current = false;
     fetchKubernetesNodes();
 
     // Periodically refresh the Kubernetes nodes every 120,000ms, or when the user clicks the "refresh" button.
     setInterval(fetchKubernetesNodes, 120000);
 
     return () => {
-      ignoreResponse = true;
+      ignoreResponse.current = true;
     };
   }, []);
 
@@ -261,9 +262,11 @@ export const KubernetesNodeList: React.FunctionComponent = () => {
     </React.Fragment>
   );
 
+  const cardHeaderActions = <Button variant="link" icon={<SyncIcon />} onClick={fetchKubernetesNodes} />;
+
   return (
     <Card isCompact isRounded isExpanded={isCardExpanded}>
-      <CardHeader onExpand={onCardExpand}>
+      <CardHeader onExpand={onCardExpand} actions={{ actions: cardHeaderActions, hasNoOffset: true }}>
         <CardTitle>
           <Title headingLevel="h2" size="xl">
             Kubernetes Nodes
