@@ -147,20 +147,32 @@ export const KernelSpecList: React.FunctionComponent = () => {
               <DescriptionList columnModifier={{ lg: '2Col' }}>
                 <DescriptionListGroup>
                   <DescriptionListTerm>Name</DescriptionListTerm>
-                  <DescriptionListDescription>{kernelSpecs[tabIndex].name}</DescriptionListDescription>
+                  <DescriptionListDescription>{kernelSpec.name}</DescriptionListDescription>
                 </DescriptionListGroup>
                 <DescriptionListGroup>
                   <DescriptionListTerm>Display Name</DescriptionListTerm>
-                  <DescriptionListDescription>{kernelSpecs[tabIndex].displayName}</DescriptionListDescription>
+                  <DescriptionListDescription>{kernelSpec.displayName}</DescriptionListDescription>
                 </DescriptionListGroup>
                 <DescriptionListGroup>
                   <DescriptionListTerm>Language</DescriptionListTerm>
-                  <DescriptionListDescription>{kernelSpecs[tabIndex].language}</DescriptionListDescription>
+                  <DescriptionListDescription>{kernelSpec.language}</DescriptionListDescription>
                 </DescriptionListGroup>
                 <DescriptionListGroup>
                   <DescriptionListTerm>Interrupt Mode</DescriptionListTerm>
-                  <DescriptionListDescription>{kernelSpecs[tabIndex].interruptMode}</DescriptionListDescription>
+                  <DescriptionListDescription>{kernelSpec.interruptMode}</DescriptionListDescription>
                 </DescriptionListGroup>
+                {kernelSpec.kernelProvisioner.valid && (
+                  <React.Fragment>
+                    <DescriptionListGroup>
+                      <DescriptionListTerm>Provisioner</DescriptionListTerm>
+                      <DescriptionListDescription>{kernelSpec.kernelProvisioner.name}</DescriptionListDescription>
+                    </DescriptionListGroup>
+                    <DescriptionListGroup>
+                      <DescriptionListTerm>Provisioner Gateway</DescriptionListTerm>
+                      <DescriptionListDescription>{kernelSpec.kernelProvisioner.gateway}</DescriptionListDescription>
+                    </DescriptionListGroup>
+                  </React.Fragment>
+                )}
               </DescriptionList>
             </TabContent>
           ))}

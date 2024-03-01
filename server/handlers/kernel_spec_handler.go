@@ -158,6 +158,13 @@ func (h *KernelSpecHttpHandler) getKernelSpecsFromJupyter() []*domain.KernelSpec
 				Name: kernelProvisioner["provisioner_name"].(string),
 				// TODO(Ben): Handle errors here gracefully.
 				Gateway: kernelProvisioner["config"].(map[string]interface{})["gateway"].(string),
+				Valid:   true,
+			}
+		} else {
+			kernelSpec.KernelProvisioner = &domain.KernelProvisioner{
+				Name:    "",
+				Gateway: "",
+				Valid:   false,
 			}
 		}
 

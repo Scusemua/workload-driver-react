@@ -79,7 +79,7 @@ type NodeProvider interface {
 type KubernetesNode struct {
 	NodeId          string           `json:"NodeId"`
 	Pods            []*KubernetesPod `json:"Pods"`
-	Age             string    `json:"Age"` // Convert the time.Duration to a string
+	Age             string           `json:"Age"` // Convert the time.Duration to a string
 	IP              string           `json:"IP"`
 	CapacityCPU     float64          `json:"CapacityCPU"`
 	CapacityMemory  float64          `json:"CapacityMemory"`
@@ -100,11 +100,11 @@ func (kn *KubernetesNode) String() string {
 	return string(out)
 }
 
-type KubernetesPod struct { 
-	PodName  string        `json:"PodName"`
-	PodPhase string        `json:"PodPhase"`
+type KubernetesPod struct {
+	PodName  string `json:"PodName"`
+	PodPhase string `json:"PodPhase"`
 	PodAge   string `json:"PodAge"` // Convert the time.Duration to a string
-	PodIP    string        `json:"PodIP"`
+	PodIP    string `json:"PodIP"`
 
 	Valid bool `json:"Valid"` // Used to determine if the struct was sent/received correctly over the network.
 }
@@ -171,6 +171,7 @@ func (ks *KernelSpec) String() string {
 type KernelProvisioner struct {
 	Name    string `json:"name"`
 	Gateway string `json:"display_name"`
+	Valid   bool   `json:"valid"`
 }
 
 func (kp *KernelProvisioner) String() string {
