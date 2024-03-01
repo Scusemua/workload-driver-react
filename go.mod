@@ -5,7 +5,9 @@ go 1.21.5
 require (
 	github.com/gin-gonic/contrib v0.0.0-20221130124618-7e01895a63f2
 	github.com/gin-gonic/gin v1.9.1
+	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
+	github.com/orcaman/concurrent-map/v2 v2.0.1
 	github.com/roylisto/gin-golang-react v0.0.0-20210916050058-6cd870c9ef6d
 	go.uber.org/zap v1.27.0
 	google.golang.org/grpc v1.62.0
@@ -14,6 +16,7 @@ require (
 	k8s.io/apimachinery v0.29.2
 	k8s.io/client-go v0.29.2
 	k8s.io/metrics v0.29.2
+	nhooyr.io/websocket v1.8.10
 )
 
 require (
@@ -35,7 +38,6 @@ require (
 	github.com/golang/protobuf v1.5.3 // indirect
 	github.com/google/gnostic-models v0.6.8 // indirect
 	github.com/google/gofuzz v1.2.0 // indirect
-	github.com/google/uuid v1.6.0 // indirect
 	github.com/imdario/mergo v0.3.6 // indirect
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect

@@ -70,6 +70,7 @@ export const KubernetesNodeList: React.FunctionComponent = () => {
   const [selectedDataListItemId, setSelectedDataListItemId] = React.useState('');
   const [searchValue, setSearchValue] = React.useState('');
 
+  // Clicking one of the nodes to open its associated drawer.
   const onSelectDataListItem = (
     _event: React.MouseEvent<Element, MouseEvent> | React.KeyboardEvent<Element>,
     id: string,
@@ -79,11 +80,13 @@ export const KubernetesNodeList: React.FunctionComponent = () => {
     setDrawerPanelBodyContent(id.charAt(id.length - 1));
   };
 
+  // Handle closing the drawer.
   const onCloseDrawerClick = () => {
     setIsDrawerExpanded(false);
     setSelectedDataListItemId('');
   };
 
+  // When the user types something into the node name filter, we update the associated state.
   const onSearchChange = (value: string) => {
     setSearchValue(value);
   };
@@ -98,22 +101,8 @@ export const KubernetesNodeList: React.FunctionComponent = () => {
     />
   );
 
-  const toggleGroupItems = (
-    <Flex alignItems={{ default: 'alignItemsCenter' }}>
-      <ToolbarItem>
-        <InputGroup>
-          <InputGroupItem isFill>{searchInput}</InputGroupItem>
-        </InputGroup>
-      </ToolbarItem>
-    </Flex>
-  );
-
-  const ToolbarItems = (
-    <ToolbarToggleGroup toggleIcon={<FilterIcon />} breakpoint="xl">
-      {toggleGroupItems}
-    </ToolbarToggleGroup>
-  );
-
+  // This is the drawer that is opened when clicking a node.
+  // Presently it's just a placeholder.
   const panelContent = (
     <DrawerPanelContent>
       <DrawerHead>
@@ -144,13 +133,13 @@ export const KubernetesNodeList: React.FunctionComponent = () => {
     </DrawerPanelContent>
   );
 
+  // Fetch the kubernetes nodes from the backend (which itself makes a network call to the Kubernetes API).
   const [nodes, setNodes] = React.useState<KubernetesNode[]>([]);
   useEffect(() => {
-    let ignore = false;
-
+    let ignoreResponse = false;
     async function fetchKubernetesNodes() {
       try {
-        console.log('Fetching nodes.');
+        console.log('Refreshing Kubernetes nodes.');
 
         // Make a network request to the backend. The server infrastructure handles proxying/routing the request to the correct host.
         // We're specifically targeting the API endpoint I setup called "nodes".
@@ -159,9 +148,8 @@ export const KubernetesNodeList: React.FunctionComponent = () => {
         // Get the response, which will be in JSON format, and decode it into an array of KubernetesNode (which is a TypeScript interface that I defined).
         const respNodes: KubernetesNode[] = await response.json();
 
-        console.log('Received nodes: ' + JSON.stringify(respNodes));
-
-        if (!ignore) {
+        if (!ignoreResponse) {
+          console.log('Received nodes: ' + JSON.stringify(respNodes));
           setNodes(respNodes);
         }
       } catch (e) {
@@ -171,11 +159,15 @@ export const KubernetesNodeList: React.FunctionComponent = () => {
 
     fetchKubernetesNodes();
 
+    // Periodically refresh the Kubernetes nodes every 120,000ms, or when the user clicks the "refresh" button.
+    setInterval(fetchKubernetesNodes, 120000);
+
     return () => {
-      ignore = true;
+      ignoreResponse = true;
     };
   }, []);
 
+  // Handler for when the user filters by node name.
   const onFilter = (repo: KubernetesNode) => {
     // Search name with search value
     let searchValueInput: RegExp;
@@ -186,6 +178,7 @@ export const KubernetesNodeList: React.FunctionComponent = () => {
     }
     const matchesSearchValue = repo.NodeId.search(searchValueInput) >= 0;
 
+    // If the filter text box is empty, then match against everything. Otherwise, match against node ID.
     return searchValue === '' || matchesSearchValue;
   };
   const filteredNodes = nodes.filter(onFilter);
@@ -193,7 +186,17 @@ export const KubernetesNodeList: React.FunctionComponent = () => {
   const drawerContent = (
     <React.Fragment>
       <Toolbar id="content-padding-data-toolbar" usePageInsets>
-        <ToolbarContent>{ToolbarItems}</ToolbarContent>
+        <ToolbarContent>
+          <ToolbarToggleGroup toggleIcon={<FilterIcon />} breakpoint="xl">
+            <Flex alignItems={{ default: 'alignItemsCenter' }}>
+              <ToolbarItem>
+                <InputGroup>
+                  <InputGroupItem isFill>{searchInput}</InputGroupItem>
+                </InputGroup>
+              </ToolbarItem>
+            </Flex>
+          </ToolbarToggleGroup>
+        </ToolbarContent>
       </Toolbar>
       <DataList
         aria-label="data list"

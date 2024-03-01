@@ -47,6 +47,9 @@ func main() {
 	// Used internally (by the frontend) to get the current set of Jupyter kernel specs from us (i.e., the backend).
 	app.GET(domain.KERNEL_SPEC_ENDPOINT, handlers.NewKernelSpecHttpHandler(conf).HandleRequest)
 
+	// Used internally (by the frontend) to get the current set of Jupyter kernels from us (i.e., the backend).
+	app.GET(domain.KERNEL_ENDPOINT, handlers.NewKernelHttpHandler(conf).HandleRequest)
+
 	// Initialize the route
 	router.SetupRouter(app)
 

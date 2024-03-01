@@ -18,6 +18,9 @@ const (
 
 	// Used internally (by the frontend) to get the current set of Jupyter kernel specs from the backend.
 	KERNEL_SPEC_ENDPOINT = "/api/kernelspec"
+
+	// Used internally (by the frontend) to get the current set of Jupyter kernels from the backend.
+	KERNEL_ENDPOINT = "/api/kernel"
 )
 
 var (
@@ -138,15 +141,25 @@ type BackendHttpHandler interface {
 
 	// Handle a message/request from the front-end.
 	HandleRequest(*gin.Context)
+
+	// Return the request handler responsible for handling a majority of requests.
+	PrimaryHttpHandler() BackendHttpHandler
+}
+
+type BackendHttpGRPCHandler interface {
+	BackendHttpHandler
+
+	// Attempt to connect to the Cluster Gateway's gRPC server using the provided address. Returns an error if connection failed, or nil on success.
+	DialGatewayGRPC(string) error
 }
 
 type KernelSpec struct {
 	Name              string             `json:"name"`
-	DisplayName       string             `json:"display_name"`
+	DisplayName       string             `json:"displayName"`
 	Language          string             `json:"language"`
-	InterruptMode     string             `json:"interrupt_mode"`
-	KernelProvisioner *KernelProvisioner `json:"kernel_provisioner"`
-	ArgV              []string           `json:"argv"`
+	InterruptMode     string             `json:"interruptMode"`
+	KernelProvisioner *KernelProvisioner `json:"kernelProvisioner"`
+	ArgV              []string           `json:"argV"`
 }
 
 func (ks *KernelSpec) String() string {

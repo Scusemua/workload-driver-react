@@ -12,19 +12,19 @@ import (
 type BaseHandler struct {
 	http.Handler
 
-	Logger *zap.Logger
+	logger *zap.Logger
 	opts   *config.Configuration
 
 	BackendHttpHandler domain.BackendHttpHandler
 }
 
-func NewBaseHandler(opts *config.Configuration) *BaseHandler {
+func newBaseHandler(opts *config.Configuration) *BaseHandler {
 	handler := &BaseHandler{
 		opts: opts,
 	}
 
 	var err error
-	handler.Logger, err = zap.NewDevelopment()
+	handler.logger, err = zap.NewDevelopment()
 	if err != nil {
 		panic(err)
 	}
@@ -32,6 +32,10 @@ func NewBaseHandler(opts *config.Configuration) *BaseHandler {
 	handler.BackendHttpHandler = handler
 
 	return handler
+}
+
+func (h *BaseHandler) PrimaryHttpHandler() domain.BackendHttpHandler {
+	return h.BackendHttpHandler
 }
 
 // Write an error back to the client.

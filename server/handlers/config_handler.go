@@ -6,6 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/scusemua/workload-driver-react/m/v2/server/config"
+	"github.com/scusemua/workload-driver-react/m/v2/server/domain"
 	"go.uber.org/zap"
 )
 
@@ -13,18 +14,18 @@ type ConfigHttpHandler struct {
 	*BaseHandler
 }
 
-func NewConfigHttpHandler(opts *config.Configuration) *ConfigHttpHandler {
+func NewConfigHttpHandler(opts *config.Configuration) domain.BackendHttpHandler {
 	handler := &ConfigHttpHandler{
-		BaseHandler: NewBaseHandler(opts),
+		BaseHandler: newBaseHandler(opts),
 	}
 	handler.BackendHttpHandler = handler
 
-	handler.Logger.Info(fmt.Sprintf("Creating server-side ConfigHttpHandler.\nOptions: %s", opts))
+	handler.logger.Info(fmt.Sprintf("Creating server-side ConfigHttpHandler.\nOptions: %s", opts))
 
 	return handler
 }
 
 func (h *ConfigHttpHandler) HandleRequest(c *gin.Context) {
-	h.Logger.Info("Sending config back to client now.", zap.Any("config", h.opts))
+	h.logger.Info("Sending config back to client now.", zap.Any("config", h.opts))
 	c.JSON(http.StatusOK, h.opts)
 }

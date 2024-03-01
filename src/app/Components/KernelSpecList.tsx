@@ -1,4 +1,4 @@
-import * as React from 'react';
+import React, { useEffect } from 'react';
 import {
   Card,
   CardBody,
@@ -16,32 +16,32 @@ import {
 
 import { KernelSpec } from '@data/Kernel';
 
-const kernelSpecs: KernelSpec[] = [
-  {
-    name: 'distributed',
-    displayName: 'Distributed Python3',
-    language: 'python3',
-    interruptMode: 'signal',
-    kernelProvisioner: {
-      name: 'gateway-provisioner',
-      gateway: 'gateway:8080',
-      valid: true,
-    },
-    argV: [''],
-  },
-  {
-    name: 'python3',
-    displayName: 'Python 3 (ipykernel)',
-    language: 'python3',
-    interruptMode: 'signal',
-    kernelProvisioner: {
-      name: '',
-      gateway: '',
-      valid: false,
-    },
-    argV: [''],
-  },
-];
+// const kernelSpecs: KernelSpec[] = [
+//   {
+//     name: 'distributed',
+//     displayName: 'Distributed Python3',
+//     language: 'python3',
+//     interruptMode: 'signal',
+//     kernelProvisioner: {
+//       name: 'gateway-provisioner',
+//       gateway: 'gateway:8080',
+//       valid: true,
+//     },
+//     argV: [''],
+//   },
+//   {
+//     name: 'python3',
+//     displayName: 'Python 3 (ipykernel)',
+//     language: 'python3',
+//     interruptMode: 'signal',
+//     kernelProvisioner: {
+//       name: '',
+//       gateway: '',
+//       valid: false,
+//     },
+//     argV: [''],
+//   },
+// ];
 
 export const KernelSpecList: React.FunctionComponent = () => {
   const [activeTabKey, setActiveTabKey] = React.useState(0);
@@ -49,26 +49,58 @@ export const KernelSpecList: React.FunctionComponent = () => {
     setActiveTabKey(Number(tabIndex));
   };
 
-  const tabContent = (
-    <DescriptionList columnModifier={{ lg: '2Col' }}>
-      <DescriptionListGroup>
-        <DescriptionListTerm>Name</DescriptionListTerm>
-        <DescriptionListDescription>{kernelSpecs[activeTabKey].name}</DescriptionListDescription>
-      </DescriptionListGroup>
-      <DescriptionListGroup>
-        <DescriptionListTerm>Display Name</DescriptionListTerm>
-        <DescriptionListDescription>{kernelSpecs[activeTabKey].displayName}</DescriptionListDescription>
-      </DescriptionListGroup>
-      <DescriptionListGroup>
-        <DescriptionListTerm>Language</DescriptionListTerm>
-        <DescriptionListDescription>{kernelSpecs[activeTabKey].language}</DescriptionListDescription>
-      </DescriptionListGroup>
-      <DescriptionListGroup>
-        <DescriptionListTerm>Interrupt Mode</DescriptionListTerm>
-        <DescriptionListDescription>{kernelSpecs[activeTabKey].interruptMode}</DescriptionListDescription>
-      </DescriptionListGroup>
-    </DescriptionList>
-  );
+  const [kernelSpecs, setKernelSpecs] = React.useState<KernelSpec[]>([]);
+  useEffect(() => {
+    let ignoreResponse = false;
+    async function fetchKernelSpecs() {
+      try {
+        console.log('Refreshing kernel specs.');
+
+        // Make a network request to the backend. The server infrastructure handles proxying/routing the request to the correct host.
+        // We're specifically targeting the API endpoint I setup called "kernelspec".
+        const response = await fetch('/api/kernelspec');
+
+        const respKernels: KernelSpec[] = await response.json();
+
+        if (!ignoreResponse) {
+          console.log('Received kernel specs: ' + JSON.stringify(respKernels));
+          setKernelSpecs(respKernels);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    fetchKernelSpecs();
+
+    // Periodically refresh the automatically kernel specs every 5 minutes.
+    setInterval(fetchKernelSpecs, 300000);
+
+    return () => {
+      ignoreResponse = true;
+    };
+  }, []);
+
+  // const tabContent = (
+  //   <DescriptionList columnModifier={{ lg: '2Col' }}>
+  //     <DescriptionListGroup>
+  //       <DescriptionListTerm>Name</DescriptionListTerm>
+  //       <DescriptionListDescription>{kernelSpecs[activeTabKey].name}</DescriptionListDescription>
+  //     </DescriptionListGroup>
+  //     <DescriptionListGroup>
+  //       <DescriptionListTerm>Display Name</DescriptionListTerm>
+  //       <DescriptionListDescription>{kernelSpecs[activeTabKey].displayName}</DescriptionListDescription>
+  //     </DescriptionListGroup>
+  //     <DescriptionListGroup>
+  //       <DescriptionListTerm>Language</DescriptionListTerm>
+  //       <DescriptionListDescription>{kernelSpecs[activeTabKey].language}</DescriptionListDescription>
+  //     </DescriptionListGroup>
+  //     <DescriptionListGroup>
+  //       <DescriptionListTerm>Interrupt Mode</DescriptionListTerm>
+  //       <DescriptionListDescription>{kernelSpecs[activeTabKey].interruptMode}</DescriptionListDescription>
+  //     </DescriptionListGroup>
+  //   </DescriptionList>
+  // );
 
   return (
     <>
@@ -99,7 +131,24 @@ export const KernelSpecList: React.FunctionComponent = () => {
               activeKey={activeTabKey}
               hidden={tabIndex !== activeTabKey}
             >
-              {tabContent}
+              <DescriptionList columnModifier={{ lg: '2Col' }}>
+                <DescriptionListGroup>
+                  <DescriptionListTerm>Name</DescriptionListTerm>
+                  <DescriptionListDescription>{kernelSpecs[tabIndex].name}</DescriptionListDescription>
+                </DescriptionListGroup>
+                <DescriptionListGroup>
+                  <DescriptionListTerm>Display Name</DescriptionListTerm>
+                  <DescriptionListDescription>{kernelSpecs[tabIndex].displayName}</DescriptionListDescription>
+                </DescriptionListGroup>
+                <DescriptionListGroup>
+                  <DescriptionListTerm>Language</DescriptionListTerm>
+                  <DescriptionListDescription>{kernelSpecs[tabIndex].language}</DescriptionListDescription>
+                </DescriptionListGroup>
+                <DescriptionListGroup>
+                  <DescriptionListTerm>Interrupt Mode</DescriptionListTerm>
+                  <DescriptionListDescription>{kernelSpecs[tabIndex].interruptMode}</DescriptionListDescription>
+                </DescriptionListGroup>
+              </DescriptionList>
             </TabContent>
           ))}
         </CardBody>

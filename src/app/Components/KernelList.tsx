@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
   Badge,
   Button,
@@ -69,108 +69,108 @@ const kernelStatusIcons = {
 };
 
 // Hard-coded, dummy data.
-const kernels: DistributedJupyterKernel[] = [
-  {
-    kernelId: '173d8f23-a5af-4998-8221-b510a73c832c',
-    numReplicas: 3,
-    status: 'idle',
-    replicas: [
-      {
-        kernelId: '173d8f23-a5af-4998-8221-b510a73c832c',
-        replicaId: 1,
-        podId: '173d8f23-a5af-4998-8221-b510a73c832c-9042e',
-        nodeId: 'node-1',
-      },
-      {
-        kernelId: '173d8f23-a5af-4998-8221-b510a73c832c',
-        replicaId: 2,
-        podId: '173d8f23-a5af-4998-8221-b510a73c832c-b5f23',
-        nodeId: 'node-2',
-      },
-      {
-        kernelId: '173d8f23-a5af-4998-8221-b510a73c832c',
-        replicaId: 3,
-        podId: '173d8f23-a5af-4998-8221-b510a73c832c-7316b',
-        nodeId: 'node-3',
-      },
-    ],
-  },
-  {
-    kernelId: '62677bbf-359a-4f0b-96e7-6baf7ac65545',
-    numReplicas: 3,
-    status: 'terminating',
-    replicas: [
-      {
-        kernelId: '62677bbf-359a-4f0b-96e7-6baf7ac65545',
-        replicaId: 1,
-        podId: '62677bbf-359a-4f0b-96e7-6baf7ac65545-7ad16',
-        nodeId: 'node-1',
-      },
-      {
-        kernelId: '62677bbf-359a-4f0b-96e7-6baf7ac65545',
-        replicaId: 2,
-        podId: '62677bbf-359a-4f0b-96e7-6baf7ac65545-9a75a',
-        nodeId: 'node-2',
-      },
-      {
-        kernelId: '62677bbf-359a-4f0b-96e7-6baf7ac65545',
-        replicaId: 3,
-        podId: '62677bbf-359a-4f0b-96e7-6baf7ac65545-04a02',
-        nodeId: 'node-3',
-      },
-    ],
-  },
-  {
-    kernelId: '51f66655-168b-4d77-a1e0-f8f2c8044d14',
-    numReplicas: 3,
-    status: 'restarting',
-    replicas: [
-      {
-        kernelId: '51f66655-168b-4d77-a1e0-f8f2c8044d14',
-        replicaId: 1,
-        podId: '51f66655-168b-4d77-a1e0-f8f2c8044d14-jtqwg',
-        nodeId: 'node-1',
-      },
-      {
-        kernelId: '51f66655-168b-4d77-a1e0-f8f2c8044d14',
-        replicaId: 2,
-        podId: '51f66655-168b-4d77-a1e0-f8f2c8044d14-jth2a',
-        nodeId: 'node-2',
-      },
-      {
-        kernelId: '51f66655-168b-4d77-a1e0-f8f2c8044d14',
-        replicaId: 3,
-        podId: '51f66655-168b-4d77-a1e0-f8f2c8044d14-g31g4',
-        nodeId: 'node-3',
-      },
-    ],
-  },
-  {
-    kernelId: 'f692f0d4-852c-4b5f-9d21-e087f5a774e9',
-    numReplicas: 3,
-    status: 'starting',
-    replicas: [
-      {
-        kernelId: 'f692f0d4-852c-4b5f-9d21-e087f5a774e9',
-        replicaId: 1,
-        podId: 'f692f0d4-852c-4b5f-9d21-e087f5a774e9-fq3qg',
-        nodeId: 'node-1',
-      },
-      {
-        kernelId: 'f692f0d4-852c-4b5f-9d21-e087f5a774e9',
-        replicaId: 2,
-        podId: 'f692f0d4-852c-4b5f-9d21-e087f5a774e9-geqgf',
-        nodeId: 'node-2',
-      },
-      {
-        kernelId: 'f692f0d4-852c-4b5f-9d21-e087f5a774e9',
-        replicaId: 3,
-        podId: 'f692f0d4-852c-4b5f-9d21-e087f5a774e9-1gasg',
-        nodeId: 'node-3',
-      },
-    ],
-  },
-];
+// const kernels: DistributedJupyterKernel[] = [
+//   {
+//     kernelId: '173d8f23-a5af-4998-8221-b510a73c832c',
+//     numReplicas: 3,
+//     status: 'idle',
+//     replicas: [
+//       {
+//         kernelId: '173d8f23-a5af-4998-8221-b510a73c832c',
+//         replicaId: 1,
+//         podId: '173d8f23-a5af-4998-8221-b510a73c832c-9042e',
+//         nodeId: 'node-1',
+//       },
+//       {
+//         kernelId: '173d8f23-a5af-4998-8221-b510a73c832c',
+//         replicaId: 2,
+//         podId: '173d8f23-a5af-4998-8221-b510a73c832c-b5f23',
+//         nodeId: 'node-2',
+//       },
+//       {
+//         kernelId: '173d8f23-a5af-4998-8221-b510a73c832c',
+//         replicaId: 3,
+//         podId: '173d8f23-a5af-4998-8221-b510a73c832c-7316b',
+//         nodeId: 'node-3',
+//       },
+//     ],
+//   },
+//   {
+//     kernelId: '62677bbf-359a-4f0b-96e7-6baf7ac65545',
+//     numReplicas: 3,
+//     status: 'terminating',
+//     replicas: [
+//       {
+//         kernelId: '62677bbf-359a-4f0b-96e7-6baf7ac65545',
+//         replicaId: 1,
+//         podId: '62677bbf-359a-4f0b-96e7-6baf7ac65545-7ad16',
+//         nodeId: 'node-1',
+//       },
+//       {
+//         kernelId: '62677bbf-359a-4f0b-96e7-6baf7ac65545',
+//         replicaId: 2,
+//         podId: '62677bbf-359a-4f0b-96e7-6baf7ac65545-9a75a',
+//         nodeId: 'node-2',
+//       },
+//       {
+//         kernelId: '62677bbf-359a-4f0b-96e7-6baf7ac65545',
+//         replicaId: 3,
+//         podId: '62677bbf-359a-4f0b-96e7-6baf7ac65545-04a02',
+//         nodeId: 'node-3',
+//       },
+//     ],
+//   },
+//   {
+//     kernelId: '51f66655-168b-4d77-a1e0-f8f2c8044d14',
+//     numReplicas: 3,
+//     status: 'restarting',
+//     replicas: [
+//       {
+//         kernelId: '51f66655-168b-4d77-a1e0-f8f2c8044d14',
+//         replicaId: 1,
+//         podId: '51f66655-168b-4d77-a1e0-f8f2c8044d14-jtqwg',
+//         nodeId: 'node-1',
+//       },
+//       {
+//         kernelId: '51f66655-168b-4d77-a1e0-f8f2c8044d14',
+//         replicaId: 2,
+//         podId: '51f66655-168b-4d77-a1e0-f8f2c8044d14-jth2a',
+//         nodeId: 'node-2',
+//       },
+//       {
+//         kernelId: '51f66655-168b-4d77-a1e0-f8f2c8044d14',
+//         replicaId: 3,
+//         podId: '51f66655-168b-4d77-a1e0-f8f2c8044d14-g31g4',
+//         nodeId: 'node-3',
+//       },
+//     ],
+//   },
+//   {
+//     kernelId: 'f692f0d4-852c-4b5f-9d21-e087f5a774e9',
+//     numReplicas: 3,
+//     status: 'starting',
+//     replicas: [
+//       {
+//         kernelId: 'f692f0d4-852c-4b5f-9d21-e087f5a774e9',
+//         replicaId: 1,
+//         podId: 'f692f0d4-852c-4b5f-9d21-e087f5a774e9-fq3qg',
+//         nodeId: 'node-1',
+//       },
+//       {
+//         kernelId: 'f692f0d4-852c-4b5f-9d21-e087f5a774e9',
+//         replicaId: 2,
+//         podId: 'f692f0d4-852c-4b5f-9d21-e087f5a774e9-geqgf',
+//         nodeId: 'node-2',
+//       },
+//       {
+//         kernelId: 'f692f0d4-852c-4b5f-9d21-e087f5a774e9',
+//         replicaId: 3,
+//         podId: 'f692f0d4-852c-4b5f-9d21-e087f5a774e9-1gasg',
+//         nodeId: 'node-3',
+//       },
+//     ],
+//   },
+// ];
 
 export const KernelList: React.FunctionComponent = () => {
   const [isDrawerExpanded, setIsDrawerExpanded] = React.useState(false);
@@ -213,7 +213,7 @@ export const KernelList: React.FunctionComponent = () => {
     />
   );
 
-  React.useEffect(() => {
+  useEffect(() => {
     const handleStatusClickOutside = (event: MouseEvent) => {
       if (isStatusMenuOpen && !statusMenuRef.current?.contains(event.target as Node)) {
         setIsStatusMenuOpen(false);
@@ -236,6 +236,38 @@ export const KernelList: React.FunctionComponent = () => {
       window.removeEventListener('click', handleStatusClickOutside);
     };
   }, [isStatusMenuOpen, statusMenuRef]);
+
+  const [kernels, setKernels] = React.useState<DistributedJupyterKernel[]>([]);
+  useEffect(() => {
+    let ignoreResponse = false;
+    async function fetchKernels() {
+      try {
+        console.log('Refreshing kernels.');
+
+        // Make a network request to the backend. The server infrastructure handles proxying/routing the request to the correct host.
+        // We're specifically targeting the API endpoint I setup called "kernels".
+        const response = await fetch('/api/kernel');
+
+        const respKernels: DistributedJupyterKernel[] = await response.json();
+
+        if (!ignoreResponse) {
+          console.log('Received kernels: ' + JSON.stringify(respKernels));
+          setKernels(respKernels);
+        }
+      } catch (e) {
+        console.error(e);
+      }
+    }
+
+    fetchKernels();
+
+    // Periodically refresh the automatically kernels every 30 seconds.
+    setInterval(fetchKernels, 30000);
+
+    return () => {
+      ignoreResponse = true;
+    };
+  }, []);
 
   function onStatusMenuSelect(event: React.MouseEvent | undefined, itemId: string | number | undefined) {
     if (typeof itemId === 'undefined') {
@@ -376,7 +408,7 @@ export const KernelList: React.FunctionComponent = () => {
     <DrawerPanelContent>
       <DrawerHead>
         <Title headingLevel="h2" size="xl">
-          node-{drawerPanelBodyContent}
+          kernel-{drawerPanelBodyContent}
         </Title>
         <DrawerActions>
           <DrawerCloseButton onClick={onCloseDrawerClick} />

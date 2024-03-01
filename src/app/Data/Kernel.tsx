@@ -2,6 +2,7 @@ interface DistributedJupyterKernel {
   kernelId: string;
   numReplicas: number;
   status: string;
+  aggregateBusyStatus: string;
   replicas: JupyterKernelReplica[];
 }
 

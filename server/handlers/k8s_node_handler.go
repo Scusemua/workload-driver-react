@@ -26,13 +26,13 @@ type KubeNodeHttpHandler struct {
 	clientset     *kubernetes.Clientset
 }
 
-func NewKubeNodeHttpHandler(opts *config.Configuration) *KubeNodeHttpHandler {
+func NewKubeNodeHttpHandler(opts *config.Configuration) domain.BackendHttpHandler {
 	handler := &KubeNodeHttpHandler{
-		BaseHandler: NewBaseHandler(opts),
+		BaseHandler: newBaseHandler(opts),
 	}
 	handler.BackendHttpHandler = handler
 
-	handler.Logger.Info("Creating server-side KubeNodeHttpHandler.")
+	handler.logger.Info("Creating server-side KubeNodeHttpHandler.")
 
 	if opts.InCluster {
 		// creates the in-cluster config
@@ -86,7 +86,7 @@ func NewKubeNodeHttpHandler(opts *config.Configuration) *KubeNodeHttpHandler {
 		handler.metricsClient = metricsClient
 	}
 
-	handler.Logger.Info("Successfully created server-side HTTP handler.")
+	handler.logger.Info("Successfully created server-side HTTP handler.")
 
 	return handler
 }
@@ -94,19 +94,19 @@ func NewKubeNodeHttpHandler(opts *config.Configuration) *KubeNodeHttpHandler {
 func (h *KubeNodeHttpHandler) HandleRequest(c *gin.Context) {
 	nodes, err := h.clientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
-		h.Logger.Error("Failed to retrieve nodes from Kubernetes.", zap.Error(err))
+		h.logger.Error("Failed to retrieve nodes from Kubernetes.", zap.Error(err))
 		h.WriteError(c, "Failed to retrieve nodes from Kubernetes.")
 		return
 	}
 
 	nodeUsageMetrics, err := h.metricsClient.MetricsV1beta1().NodeMetricses().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
-		h.Logger.Error("Failed to retrieve node metrics from Kubernetes.", zap.Error(err))
+		h.logger.Error("Failed to retrieve node metrics from Kubernetes.", zap.Error(err))
 		h.WriteError(c, "Failed to retrieve node metrics from Kubernetes.")
 		return
 	}
 
-	h.Logger.Info(fmt.Sprintf("Sending a list of %d nodes back to the client.", len(nodes.Items)), zap.Int("num-nodes", len(nodes.Items)))
+	h.logger.Info(fmt.Sprintf("Sending a list of %d nodes back to the client.", len(nodes.Items)), zap.Int("num-nodes", len(nodes.Items)))
 
 	var kubernetesNodes map[string]*domain.KubernetesNode = make(map[string]*domain.KubernetesNode, len(nodes.Items))
 	val := nodes.Items[0].Status.Capacity[corev1.ResourceCPU]
@@ -118,7 +118,7 @@ func (h *KubeNodeHttpHandler) HandleRequest(c *gin.Context) {
 		allocCpu := allocatableCPU.AsApproximateFloat64()
 		allocMem := allocatableMemory.AsApproximateFloat64()
 
-		// h.Logger.Info("Memory as inf.Dec.", zap.String("node-id", node.Name), zap.Any("mem inf.Dec", allocatableMemory.AsDec().String()))
+		// h.logger.Info("Memory as inf.Dec.", zap.String("node-id", node.Name), zap.Any("mem inf.Dec", allocatableMemory.AsDec().String()))
 
 		ctx, cancel := context.WithTimeout(context.Background(), time.Second*15)
 		defer cancel()
@@ -128,7 +128,7 @@ func (h *KubeNodeHttpHandler) HandleRequest(c *gin.Context) {
 		})
 
 		if err != nil {
-			h.Logger.Error("Could not retrieve Pods running on node.", zap.String("node", node.Name), zap.Error(err))
+			h.logger.Error("Could not retrieve Pods running on node.", zap.String("node", node.Name), zap.Error(err))
 		}
 
 		var kubePods []*domain.KubernetesPod
@@ -172,19 +172,19 @@ func (h *KubeNodeHttpHandler) HandleRequest(c *gin.Context) {
 	for _, nodeMetric := range nodeUsageMetrics.Items {
 		nodeName := nodeMetric.ObjectMeta.Name
 		kubeNode := kubernetesNodes[nodeName]
-		// h.Logger.Info("Node metric.", zap.String("node", nodeName), zap.Any("metric", nodeMetric))
+		// h.logger.Info("Node metric.", zap.String("node", nodeName), zap.Any("metric", nodeMetric))
 
 		cpu := nodeMetric.Usage.Cpu().AsApproximateFloat64()
 		// if !ok {
-		// 	h.Logger.Error("Could not convert CPU usage metric to Int64.", zap.Any("cpu-metric", nodeMetric.Usage.Cpu()))
+		// 	h.logger.Error("Could not convert CPU usage metric to Int64.", zap.Any("cpu-metric", nodeMetric.Usage.Cpu()))
 		// }
-		// h.Logger.Info("CPU metric.", zap.String("node-id", nodeName), zap.Float64("cpu", cpu))
+		// h.logger.Info("CPU metric.", zap.String("node-id", nodeName), zap.Float64("cpu", cpu))
 
 		mem := nodeMetric.Usage.Memory().AsApproximateFloat64()
 		// if !ok {
-		// 	h.Logger.Error("Could not convert 	memory usage metric to Int64.", zap.Any("mem-metric", nodeMetric.Usage.Memory()))
+		// 	h.logger.Error("Could not convert 	memory usage metric to Int64.", zap.Any("mem-metric", nodeMetric.Usage.Memory()))
 		// }
-		// h.Logger.Info("Memory metric.", zap.String("node-id", nodeName), zap.Float64("memory", cpu))
+		// h.logger.Info("Memory metric.", zap.String("node-id", nodeName), zap.Float64("memory", cpu))
 
 		kubeNode.AllocatedCPU = cpu
 		kubeNode.AllocatedMemory = mem / 976600.0 // Convert from Ki to GB.
@@ -208,6 +208,6 @@ func (h *KubeNodeHttpHandler) HandleRequest(c *gin.Context) {
 		})
 	}
 
-	h.Logger.Info("Sending nodes back to client now.", zap.Int("num-nodes", len(resp)))
+	h.logger.Info("Sending nodes back to client now.", zap.Int("num-nodes", len(resp)))
 	c.JSON(http.StatusOK, resp)
 }
