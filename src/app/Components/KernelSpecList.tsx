@@ -19,10 +19,10 @@ import {
   ToolbarItem,
   Tooltip,
 } from '@patternfly/react-core';
-import { KernelAPI, KernelManager, KernelMessage, KernelSpecManager, ServerConnection } from '@jupyterlab/services';
+import { KernelSpecManager, ServerConnection } from '@jupyterlab/services';
+import { ISpecModel } from '@jupyterlab/services/lib/kernelspec/restapi';
 
 import { SyncIcon } from '@patternfly/react-icons';
-import { KernelSpec } from '@data/Kernel';
 
 // const kernelSpecs: KernelSpec[] = [
 //   {
@@ -69,21 +69,24 @@ export const KernelSpecList: React.FunctionComponent = () => {
         };
         kernelSpecManager.current = new KernelSpecManager(kernelSpecManagerOptions);
 
-        console.log('Waiting for kernel spec manager to be ready.');
+        // console.log('Waiting for kernel spec manager to be ready.');
 
-        kernelSpecManager.current.disposed.connect(() => {
-          console.log('Spec manager was disposed.');
-        });
+        // kernelSpecManager.current.disposed.connect(() => {
+        //   console.log('Spec manager was disposed.');
+        // });
 
-        kernelSpecManager.current.connectionFailure.connect((_sender: KernelSpecManager, err: Error) => {
-          console.log('An error has occurred. ' + err.name + ': ' + err.message);
-        });
+        // kernelSpecManager.current.connectionFailure.connect((_sender: KernelSpecManager, err: Error) => {
+        //   console.log('An error has occurred. ' + err.name + ': ' + err.message);
+        // });
 
-        await kernelSpecManager.current.ready.then(() => {
-          console.log('Kernel spec manager is ready!');
-          const kernelSpecs = kernelSpecManager.current?.specs;
-          console.log('KernelSpecs have been refreshed. Specs: ' + JSON.stringify(kernelSpecs));
-        });
+        // await kernelSpecManager.current.ready.then(() => {
+        //   console.log('Kernel spec manager is ready!');
+        //   const kernelSpecs = kernelSpecManager.current?.specs?.kernelspecs;
+        //   console.log(
+        //     'KernelSpecs have been refreshed. Type: ' + typeof kernelSpecs + ' Specs: ' + JSON.stringify(kernelSpecs),
+        //   );
+        //   console.log('Keys: ' + Object.keys(kernelSpecs!));
+        // });
       }
     }
 
@@ -106,14 +109,16 @@ export const KernelSpecList: React.FunctionComponent = () => {
       // Make a network request to the backend. The server infrastructure handles proxying/routing the request to the correct host.
       // We're specifically targeting the API endpoint I setup called "kernelspecs".
       // const response = await fetch('/api/jupyter/kernelspecs');
-
       // const respKernels: KernelSpec[] = await response.json();
 
       kernelSpecManager.current?.refreshSpecs().then(() => {
-        if (!ignoreResponse.current) {
-          const respKernels = kernelSpecManager.current?.specs;
-          console.log('Received kernel specs: ' + JSON.stringify(respKernels));
-          // setKernelSpecs(respKernels);
+        if (!ignoreResponse.current && kernelSpecManager.current?.specs?.kernelspecs != undefined) {
+          const respKernels: { [key: string]: ISpecModel | undefined } = kernelSpecManager.current?.specs.kernelspecs;
+          console.log('Received kernel specs (' + typeof respKernels + '): ' + JSON.stringify(respKernels));
+
+          if (respKernels !== undefined) {
+            setKernelSpecs(respKernels!);
+          }
         }
       });
     } catch (e) {
@@ -121,7 +126,7 @@ export const KernelSpecList: React.FunctionComponent = () => {
     }
   }
 
-  const [kernelSpecs, setKernelSpecs] = React.useState<KernelSpec[]>([]);
+  const [kernelSpecs, setKernelSpecs] = React.useState<{ [key: string]: ISpecModel | undefined }>({});
   useEffect(() => {
     ignoreResponse.current = false;
     fetchKernelSpecs();
@@ -167,18 +172,18 @@ export const KernelSpecList: React.FunctionComponent = () => {
       <CardExpandableContent>
         <CardBody>
           <Tabs isFilled id="status-tabs" activeKey={activeTabKey} onSelect={handleTabClick}>
-            {kernelSpecs.map((kernelSpec, tabIndex) => (
+            {Object.keys(kernelSpecs).map((key, tabIndex) => (
               <Tab
                 key={tabIndex}
                 eventKey={tabIndex}
-                title={<TabTitleText>{kernelSpec.displayName}</TabTitleText>}
+                title={<TabTitleText>{kernelSpecs[key]?.display_name}</TabTitleText>}
                 tabContentId={`tabContent${tabIndex}`}
               />
             ))}
           </Tabs>
         </CardBody>
         <CardBody>
-          {kernelSpecs.map((kernelSpec, tabIndex) => (
+          {Object.keys(kernelSpecs).map((key, tabIndex) => (
             <TabContent
               key={tabIndex}
               eventKey={tabIndex}
@@ -186,24 +191,24 @@ export const KernelSpecList: React.FunctionComponent = () => {
               activeKey={activeTabKey}
               hidden={tabIndex !== activeTabKey}
             >
-              <DescriptionList columnModifier={{ lg: '2Col' }}>
+              <DescriptionList columnModifier={{ lg: '3Col' }}>
                 <DescriptionListGroup>
                   <DescriptionListTerm>Name</DescriptionListTerm>
-                  <DescriptionListDescription>{kernelSpec.name}</DescriptionListDescription>
+                  <DescriptionListDescription>{kernelSpecs[key]?.name}</DescriptionListDescription>
                 </DescriptionListGroup>
                 <DescriptionListGroup>
                   <DescriptionListTerm>Display Name</DescriptionListTerm>
-                  <DescriptionListDescription>{kernelSpec.displayName}</DescriptionListDescription>
+                  <DescriptionListDescription>{kernelSpecs[key]?.display_name}</DescriptionListDescription>
                 </DescriptionListGroup>
                 <DescriptionListGroup>
                   <DescriptionListTerm>Language</DescriptionListTerm>
-                  <DescriptionListDescription>{kernelSpec.language}</DescriptionListDescription>
+                  <DescriptionListDescription>{kernelSpecs[key]?.language}</DescriptionListDescription>
                 </DescriptionListGroup>
-                <DescriptionListGroup>
+                {/* <DescriptionListGroup>
                   <DescriptionListTerm>Interrupt Mode</DescriptionListTerm>
-                  <DescriptionListDescription>{kernelSpec.interruptMode}</DescriptionListDescription>
-                </DescriptionListGroup>
-                {kernelSpec.kernelProvisioner.valid && (
+                  <DescriptionListDescription>{kernelSpecs[key]?.interrupt_mode}</DescriptionListDescription>
+                </DescriptionListGroup> */}
+                {/* {kernelSpec.kernelProvisioner.valid && (
                   <React.Fragment>
                     <DescriptionListGroup>
                       <DescriptionListTerm>Provisioner</DescriptionListTerm>
@@ -214,7 +219,7 @@ export const KernelSpecList: React.FunctionComponent = () => {
                       <DescriptionListDescription>{kernelSpec.kernelProvisioner.gateway}</DescriptionListDescription>
                     </DescriptionListGroup>
                   </React.Fragment>
-                )}
+                )} */}
               </DescriptionList>
             </TabContent>
           ))}

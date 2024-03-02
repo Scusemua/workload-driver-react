@@ -3,8 +3,6 @@ package main
 import (
 	"fmt"
 	"net/http"
-	"net/http/httputil"
-	"strings"
 
 	"github.com/gin-gonic/contrib/cors"
 	"github.com/gin-gonic/contrib/static"
@@ -14,14 +12,8 @@ import (
 	"github.com/scusemua/workload-driver-react/m/v2/server/config"
 	"github.com/scusemua/workload-driver-react/m/v2/server/domain"
 	"github.com/scusemua/workload-driver-react/m/v2/server/handlers"
+	"github.com/scusemua/workload-driver-react/m/v2/server/proxy"
 )
-
-type JupyterProxyRouter struct {
-	ContextPath string
-	Start       int
-	conf        *config.Configuration
-	*gin.Engine
-}
 
 func main() {
 	conf := config.GetConfiguration()
@@ -32,7 +24,12 @@ func main() {
 		panic("error loading .env file")
 	}
 
-	app := &JupyterProxyRouter{domain.JUPYTER_GROUP_ENDPOINT, len(domain.JUPYTER_GROUP_ENDPOINT), conf, gin.New()}
+	app := &proxy.JupyterProxyRouter{
+		ContextPath: domain.JUPYTER_GROUP_ENDPOINT,
+		Start:       len(domain.JUPYTER_GROUP_ENDPOINT),
+		Config:      conf,
+		Engine:      gin.New(),
+	}
 
 	app.ForwardedByClientIP = true
 	app.SetTrustedProxies([]string{"127.0.0.1"})
@@ -55,22 +52,4 @@ func main() {
 	}
 
 	http.ListenAndServe(fmt.Sprintf("127.0.0.1:%d", conf.ServerPort), app)
-}
-
-func (r *JupyterProxyRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	fmt.Printf("req.RequestURI: %s\n", req.RequestURI)
-	if strings.HasPrefix(req.RequestURI, r.ContextPath) {
-		fmt.Printf("request url:%s, will skip prefix:%s\n", req.RequestURI, r.ContextPath)
-		req.RequestURI = req.RequestURI[r.Start:]
-		req.URL.Path = req.URL.Path[r.Start:]
-
-		director := func(req *http.Request) {
-			req.URL.Scheme = "http"
-			req.URL.Host = r.conf.JupyterServerAddress
-		}
-		proxy := &httputil.ReverseProxy{Director: director}
-		proxy.ServeHTTP(w, req)
-	} else {
-		r.Engine.ServeHTTP(w, req)
-	}
 }

@@ -56,7 +56,6 @@ import {
   SyncIcon,
   TrashIcon,
 } from '@patternfly/react-icons';
-import { any } from 'prop-types';
 
 // Map from kernel status to the associated icon.
 const kernelStatusIcons = {
