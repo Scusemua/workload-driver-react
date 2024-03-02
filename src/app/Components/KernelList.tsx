@@ -42,6 +42,8 @@ import {
 import { KernelManager, ServerConnection } from '@jupyterlab/services';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 
+import { ConfirmationModal } from '@app/Components/ConfirmationModal';
+import { CodeEditorComponent } from '@app/Components/CodeEditor';
 import { DistributedJupyterKernel } from '@data/Kernel';
 import {
   CheckCircleIcon,
@@ -73,12 +75,55 @@ const kernelStatusIcons = {
   dead: <SkullIcon />,
 };
 
+interface ExecuteCodeOnKernelProps {
+  children?: React.ReactNode;
+  kernelId: string;
+  isOpen: boolean;
+  onClose: () => void;
+  onSubmit: (code: string) => void;
+}
+
+const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKernelProps> = (props) => {
+  const [code, setCode] = React.useState('');
+
+  const onSubmit = () => {
+    props.onSubmit(code);
+  };
+
+  const onChange = (code) => {
+    setCode(code);
+  };
+
+  return (
+    <Modal
+      variant={ModalVariant.large}
+      title={'Execute Code on Kernel ' + props.kernelId}
+      isOpen={props.isOpen}
+      onClose={props.onClose}
+      actions={[
+        <Button key="submit" variant="primary" onClick={onSubmit}>
+          Submit
+        </Button>,
+        <Button key="cancel" variant="link" onClick={props.onClose}>
+          Cancel
+        </Button>,
+      ]}
+    >
+      Enter the code to be executed below. Once you&apos;re ready, press &apos;Submit&apos; to submit the code to the
+      kernel for execution.
+      <CodeEditorComponent onChange={onChange} />
+    </Modal>
+  );
+};
+
 export const KernelList: React.FunctionComponent = () => {
   const [searchValue, setSearchValue] = React.useState('');
   const [statusSelections, setStatusSelections] = React.useState<string[]>([]);
   const [isCardExpanded, setIsCardExpanded] = React.useState(true);
   const [expandedKernels, setExpandedKernels] = React.useState<string[]>([]);
   const [isConfirmCreateModalOpen, setIsConfirmCreateModalOpen] = React.useState(false);
+  const [isExecuteCodeModalOpen, setIsExecuteCodeModalOpen] = React.useState(false);
+  const [executeCodeKernel, setExecuteCodeKernel] = React.useState<DistributedJupyterKernel | null>(null);
   const kernelManager = useRef<KernelManager | null>(null);
 
   async function initializeKernelManagers() {
@@ -123,6 +168,20 @@ export const KernelList: React.FunctionComponent = () => {
     setIsConfirmCreateModalOpen(!isConfirmCreateModalOpen);
   };
 
+  const onCancelCreateKernelClicked = () => {
+    setIsConfirmCreateModalOpen(false);
+  };
+
+  const onCancelExecuteCodeClicked = () => {
+    setIsExecuteCodeModalOpen(false);
+    setExecuteCodeKernel(null);
+  };
+
+  const onExecuteCodeClicked = (index: number) => {
+    setIsExecuteCodeModalOpen(true);
+    setExecuteCodeKernel(filteredKernels[index]);
+  };
+
   async function startKernel() {
     // Precondition: The KernelManager is defined.
     const manager: KernelManager = kernelManager.current!;
@@ -134,6 +193,38 @@ export const KernelList: React.FunctionComponent = () => {
     kernel.statusChanged.connect((_, status) => {
       console.log(`New Kernel Status Update: ${status}`);
     });
+  }
+
+  async function onConfirmExecuteCodeClicked(code: string) {
+    console.log('Executing code:\n' + code);
+
+    const kernelId: string | undefined = executeCodeKernel?.kernelId;
+
+    if (kernelId == undefined) {
+      console.log("Couldn't determiner kernel ID of target kernel for code execution...");
+      return;
+    }
+
+    if (!kernelManager.current) {
+      console.log('ERROR: Kernel Manager is not available. Will try to connect...');
+      initializeKernelManagers();
+      return;
+    }
+
+    const kernelConnection: IKernelConnection = kernelManager.current.connectTo({
+      model: { id: kernelId, name: kernelId },
+    });
+
+    const future = kernelConnection.requestExecute({ code: code });
+
+    // Handle iopub messages
+    future.onIOPub = (msg) => {
+      if (msg.header.msg_type !== 'status') {
+        console.log(msg.content);
+      }
+    };
+    await future.done;
+    console.log('Execution on Kernel ' + kernelId + ' is done.');
   }
 
   const onConfirmCreateKernelClicked = () => {
@@ -150,6 +241,7 @@ export const KernelList: React.FunctionComponent = () => {
       return;
     }
 
+    // Create a new kernel.
     startKernel();
   };
 
@@ -389,7 +481,7 @@ export const KernelList: React.FunctionComponent = () => {
           <Th>ID</Th>
           <Th>Pod</Th>
           <Th>Node</Th>
-          <Th />
+          {/* <Th /> */}
           <Th />
         </Tr>
       </Thead>
@@ -399,13 +491,13 @@ export const KernelList: React.FunctionComponent = () => {
             <Td dataLabel="ID">{replica.replicaId}</Td>
             <Td dataLabel="Pod">{replica.podId}</Td>
             <Td dataLabel="Node">{replica.nodeId}</Td>
-            <Td>
+            {/* <Td>
               <Tooltip exitDelay={20} entryDelay={175} content={<div>Execute Python code on this replica.</div>}>
-                <Button variant={'link'} icon={<CodeIcon />}>
+                <Button variant={'link'} icon={<CodeIcon />} onClick={() => onExecuteCodeClicked(replica.kernelId)}>
                   Execute
                 </Button>
               </Tooltip>
-            </Td>
+            </Td> */}
             <Td>
               <Tooltip exitDelay={20} entryDelay={175} content={<div>Migrate this replica to another node.</div>}>
                 <Button variant={'link'} icon={<MigrationIcon />}>
@@ -501,7 +593,7 @@ export const KernelList: React.FunctionComponent = () => {
                               entryDelay={250}
                               content={<div>Execute Python code on this kernel.</div>}
                             >
-                              <Button variant={'link'} icon={<CodeIcon />}>
+                              <Button variant={'link'} icon={<CodeIcon />} onClick={() => onExecuteCodeClicked(idx)}>
                                 Execute
                               </Button>
                             </Tooltip>
@@ -528,22 +620,18 @@ export const KernelList: React.FunctionComponent = () => {
               </DataListItem>
             ))}
           </DataList>
-          <Modal
-            variant={ModalVariant.small}
-            title="Create a New Kernel"
+          <ConfirmationModal
             isOpen={isConfirmCreateModalOpen}
-            onClose={onCreateKernelClicked}
-            actions={[
-              <Button key="confirm" variant="primary" onClick={onConfirmCreateKernelClicked}>
-                Confirm
-              </Button>,
-              <Button key="cancel" variant="link" onClick={onCreateKernelClicked}>
-                Cancel
-              </Button>,
-            ]}
-          >
-            Are you sure you&apos;d like to create a new kernel?
-          </Modal>
+            onConfirm={onConfirmCreateKernelClicked}
+            onClose={onCancelCreateKernelClicked}
+            message="Are you sure you'd like to create a new kernel?"
+          />
+          <ExecuteCodeOnKernelModal
+            kernelId={executeCodeKernel?.kernelId || 'N/A'}
+            isOpen={isExecuteCodeModalOpen}
+            onClose={onCancelExecuteCodeClicked}
+            onSubmit={onConfirmExecuteCodeClicked}
+          />
         </CardBody>
       </CardExpandableContent>
     </Card>

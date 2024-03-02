@@ -49,7 +49,7 @@ func (h *KernelHttpHandler) HandleRequest(c *gin.Context) {
 		kernels = h.doSpoofKernels()
 	} else {
 		h.logger.Info("Retrieving Jupyter kernels from the Jupyter Server now.", zap.String("jupyter-server-ip", h.gatewayAddress))
-		kernels = h.getKernelSpecsFromClusterGateway()
+		kernels = h.getKernelsFromClusterGateway()
 
 		if kernels == nil {
 			// Write error back to front-end.
@@ -170,12 +170,12 @@ func (h *KernelHttpHandler) spoofedKernelsToSlice() []*gateway.DistributedJupyte
 	return spoofedKernelsSlice
 }
 
-func (h *KernelHttpHandler) getKernelSpecsFromClusterGateway() []*gateway.DistributedJupyterKernel {
+func (h *KernelHttpHandler) getKernelsFromClusterGateway() []*gateway.DistributedJupyterKernel {
 	h.logger.Debug("Kernel Querier is refreshing kernels now.")
 	resp, err := h.rpcClient.ListKernels(context.TODO(), &gateway.Void{})
-	if err != nil || resp == nil {
+	if err != nil || resp == nil || resp.Kernels == nil {
 		h.logger.Error("[ERROR] Failed to fetch list of active kernels from the Cluster Gateway.", zap.Error(err))
-		return nil
+		return make([]*gateway.DistributedJupyterKernel, 0)
 	}
 
 	return resp.Kernels
