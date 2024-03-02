@@ -21,35 +21,7 @@ import {
 } from '@patternfly/react-core';
 import { KernelSpecManager, ServerConnection } from '@jupyterlab/services';
 import { ISpecModel } from '@jupyterlab/services/lib/kernelspec/restapi';
-
 import { SyncIcon } from '@patternfly/react-icons';
-
-// const kernelSpecs: KernelSpec[] = [
-//   {
-//     name: 'distributed',
-//     displayName: 'Distributed Python3',
-//     language: 'python3',
-//     interruptMode: 'signal',
-//     kernelProvisioner: {
-//       name: 'gateway-provisioner',
-//       gateway: 'gateway:8080',
-//       valid: true,
-//     },
-//     argV: [''],
-//   },
-//   {
-//     name: 'python3',
-//     displayName: 'Python 3 (ipykernel)',
-//     language: 'python3',
-//     interruptMode: 'signal',
-//     kernelProvisioner: {
-//       name: '',
-//       gateway: '',
-//       valid: false,
-//     },
-//     argV: [''],
-//   },
-// ];
 
 export const KernelSpecList: React.FunctionComponent = () => {
   const [activeTabKey, setActiveTabKey] = React.useState(0);
@@ -69,24 +41,17 @@ export const KernelSpecList: React.FunctionComponent = () => {
         };
         kernelSpecManager.current = new KernelSpecManager(kernelSpecManagerOptions);
 
-        // console.log('Waiting for kernel spec manager to be ready.');
+        console.log('Waiting for kernel spec manager to be ready.');
 
-        // kernelSpecManager.current.disposed.connect(() => {
-        //   console.log('Spec manager was disposed.');
-        // });
+        kernelSpecManager.current.connectionFailure.connect((_sender: KernelSpecManager, err: Error) => {
+          console.log(
+            '[ERROR] An error has occurred while preparing the Kernel Spec Manager. ' + err.name + ': ' + err.message,
+          );
+        });
 
-        // kernelSpecManager.current.connectionFailure.connect((_sender: KernelSpecManager, err: Error) => {
-        //   console.log('An error has occurred. ' + err.name + ': ' + err.message);
-        // });
-
-        // await kernelSpecManager.current.ready.then(() => {
-        //   console.log('Kernel spec manager is ready!');
-        //   const kernelSpecs = kernelSpecManager.current?.specs?.kernelspecs;
-        //   console.log(
-        //     'KernelSpecs have been refreshed. Type: ' + typeof kernelSpecs + ' Specs: ' + JSON.stringify(kernelSpecs),
-        //   );
-        //   console.log('Keys: ' + Object.keys(kernelSpecs!));
-        // });
+        await kernelSpecManager.current.ready.then(() => {
+          console.log('Kernel spec manager is ready!');
+        });
       }
     }
 
@@ -114,7 +79,6 @@ export const KernelSpecList: React.FunctionComponent = () => {
       kernelSpecManager.current?.refreshSpecs().then(() => {
         if (!ignoreResponse.current && kernelSpecManager.current?.specs?.kernelspecs != undefined) {
           const respKernels: { [key: string]: ISpecModel | undefined } = kernelSpecManager.current?.specs.kernelspecs;
-          console.log('Received kernel specs (' + typeof respKernels + '): ' + JSON.stringify(respKernels));
 
           if (respKernels !== undefined) {
             setKernelSpecs(respKernels!);

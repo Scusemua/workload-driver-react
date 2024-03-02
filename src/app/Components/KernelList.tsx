@@ -24,6 +24,8 @@ import {
   MenuItem,
   MenuList,
   MenuToggle,
+  Modal,
+  ModalVariant,
   Popper,
   SearchInput,
   Stack,
@@ -37,6 +39,7 @@ import {
   ToolbarToggleGroup,
   Tooltip,
 } from '@patternfly/react-core';
+import { KernelManager, ServerConnection } from '@jupyterlab/services';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 
 import { DistributedJupyterKernel } from '@data/Kernel';
@@ -56,6 +59,7 @@ import {
   SyncIcon,
   TrashIcon,
 } from '@patternfly/react-icons';
+import { IKernelConnection } from '@jupyterlab/services/lib/kernel/kernel';
 
 // Map from kernel status to the associated icon.
 const kernelStatusIcons = {
@@ -74,6 +78,38 @@ export const KernelList: React.FunctionComponent = () => {
   const [statusSelections, setStatusSelections] = React.useState<string[]>([]);
   const [isCardExpanded, setIsCardExpanded] = React.useState(true);
   const [expandedKernels, setExpandedKernels] = React.useState<string[]>([]);
+  const [isConfirmCreateModalOpen, setIsConfirmCreateModalOpen] = React.useState(false);
+  const kernelManager = useRef<KernelManager | null>(null);
+
+  async function initializeKernelManagers() {
+    if (kernelManager.current === null) {
+      const kernelSpecManagerOptions: KernelManager.IOptions = {
+        serverSettings: ServerConnection.makeSettings({
+          token: '',
+          appendToken: false,
+          baseUrl: '/jupyter',
+          fetch: fetch,
+        }),
+      };
+      kernelManager.current = new KernelManager(kernelSpecManagerOptions);
+
+      console.log('Waiting for Kernel Manager to be ready.');
+
+      kernelManager.current.connectionFailure.connect((_sender: KernelManager, err: Error) => {
+        console.log(
+          '[ERROR] An error has occurred while preparing the Kernel Manager. ' + err.name + ': ' + err.message,
+        );
+      });
+
+      await kernelManager.current.ready.then(() => {
+        console.log('Kernel Manager is ready!');
+      });
+    }
+  }
+
+  useEffect(() => {
+    initializeKernelManagers();
+  }, []);
 
   const onCardExpand = () => {
     setIsCardExpanded(!isCardExpanded);
@@ -81,6 +117,40 @@ export const KernelList: React.FunctionComponent = () => {
 
   const onSearchChange = (value: string) => {
     setSearchValue(value);
+  };
+
+  const onCreateKernelClicked = () => {
+    setIsConfirmCreateModalOpen(!isConfirmCreateModalOpen);
+  };
+
+  async function startKernel() {
+    // Precondition: The KernelManager is defined.
+    const manager: KernelManager = kernelManager.current!;
+
+    // Start a python kernel
+    const kernel: IKernelConnection = await manager.startNew({ name: 'distributed' });
+
+    // Register a callback for when the kernel changes state.
+    kernel.statusChanged.connect((_, status) => {
+      console.log(`New Kernel Status Update: ${status}`);
+    });
+  }
+
+  const onConfirmCreateKernelClicked = () => {
+    // _event: KeyboardEvent | React.MouseEvent
+    console.log('Creating a new Kernel.');
+
+    // Close the confirmation dialogue.
+    setIsConfirmCreateModalOpen(!isConfirmCreateModalOpen);
+
+    // Create a new kernel.
+    if (!kernelManager.current) {
+      console.log('ERROR: Kernel Manager is not available. Will try to connect...');
+      initializeKernelManagers();
+      return;
+    }
+
+    startKernel();
   };
 
   // Set up status single select
@@ -293,7 +363,7 @@ export const KernelList: React.FunctionComponent = () => {
       <ToolbarGroup variant="icon-button-group">
         <ToolbarItem>
           <Tooltip exitDelay={75} content={<div>Create a new kernel.</div>}>
-            <Button id="create-kernel-button" variant="plain" onClick={fetchKernels}>
+            <Button id="create-kernel-button" variant="plain" onClick={onCreateKernelClicked}>
               <PlusIcon />
             </Button>
           </Tooltip>
@@ -458,6 +528,22 @@ export const KernelList: React.FunctionComponent = () => {
               </DataListItem>
             ))}
           </DataList>
+          <Modal
+            variant={ModalVariant.small}
+            title="Create a New Kernel"
+            isOpen={isConfirmCreateModalOpen}
+            onClose={onCreateKernelClicked}
+            actions={[
+              <Button key="confirm" variant="primary" onClick={onConfirmCreateKernelClicked}>
+                Confirm
+              </Button>,
+              <Button key="cancel" variant="link" onClick={onCreateKernelClicked}>
+                Cancel
+              </Button>,
+            ]}
+          >
+            Are you sure you&apos;d like to create a new kernel?
+          </Modal>
         </CardBody>
       </CardExpandableContent>
     </Card>
