@@ -40,3 +40,7 @@ body,
 .loading-icon-spin {
   animation: spin 1.5s infinite linear;
 }
+
+#code-execution-output {
+  white-space:pre-wrap
+}

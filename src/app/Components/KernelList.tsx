@@ -7,6 +7,10 @@ import {
   CardExpandableContent,
   CardHeader,
   CardTitle,
+  CodeBlock,
+  CodeBlockAction,
+  CodeBlockCode,
+  ClipboardCopyButton,
   DataList,
   DataListAction,
   DataListCell,
@@ -81,16 +85,32 @@ interface ExecuteCodeOnKernelProps {
   kernelId: string;
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (code: string) => Promise<void>;
+  onSubmit: (code: string, logConsumer: (msg: string) => void) => Promise<void>;
 }
 
 const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKernelProps> = (props) => {
   const [code, setCode] = React.useState('');
   const [executionState, setExecutionState] = React.useState('idle');
+  const [copied, setCopied] = React.useState(false);
+  const [output, setOutput] = React.useState('');
+
+  const clipboardCopyFunc = (_event, text) => {
+    navigator.clipboard.writeText(text.toString());
+  };
+
+  const onClickCopyToClipboard = (event, text) => {
+    clipboardCopyFunc(event, text);
+    setCopied(true);
+  };
+
+  const logConsumer = (msg: string) => {
+    console.log('Appending log message: ' + msg);
+    setOutput(output + '\n' + msg);
+  };
 
   const onSubmit = () => {
     async function runUserCode() {
-      await props.onSubmit(code);
+      await props.onSubmit(code, logConsumer);
       setExecutionState('done');
     }
 
@@ -100,6 +120,32 @@ const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKernelProps
   const onChange = (code) => {
     setCode(code);
   };
+
+  // Reset state, then call user-supplied onClose function.
+  const onClose = () => {
+    setExecutionState('idle');
+    setOutput('');
+    props.onClose();
+  };
+
+  const outputLogActions = (
+    <React.Fragment>
+      <CodeBlockAction>
+        <ClipboardCopyButton
+          id="basic-copy-button"
+          textId="code-content"
+          aria-label="Copy to clipboard"
+          onClick={(e) => onClickCopyToClipboard(e, code)}
+          exitDelay={copied ? 1500 : 600}
+          maxWidth="110px"
+          variant="plain"
+          onTooltipHidden={() => setCopied(false)}
+        >
+          {copied ? 'Successfully copied to clipboard!' : 'Copy to clipboard'}
+        </ClipboardCopyButton>
+      </CodeBlockAction>
+    </React.Fragment>
+  );
 
   return (
     <Modal
@@ -112,25 +158,27 @@ const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKernelProps
           key="submit"
           variant="primary"
           onClick={() => {
-            if (executionState == 'idle' || executionState == 'done') {
+            if (executionState == 'idle') {
               console.log('Executing code now.');
-              // setExecutionState('executing');
+              setExecutionState('busy');
               onSubmit();
-            } else {
+            } else if (executionState == 'busy') {
               console.log(
                 'Please wait until the current execution completes before submitting additional code for execution.',
               );
+            } else {
+              onClose();
             }
           }}
-          isLoading={executionState === 'executing'}
+          isLoading={executionState === 'busy'}
           icon={executionState === 'done' ? <CheckCircleIcon /> : null}
           spinnerAriaValueText="Loading..."
         >
           {executionState === 'idle' && 'Execute'}
-          {executionState === 'executing' && 'Executing code'}
+          {executionState === 'busy' && 'Executing code'}
           {executionState === 'done' && 'Complete'}
         </Button>,
-        <Button key="cancel" variant="link" onClick={props.onClose}>
+        <Button key="cancel" variant="link" onClick={onClose}>
           Cancel
         </Button>,
       ]}
@@ -138,6 +186,11 @@ const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKernelProps
       Enter the code to be executed below. Once you&apos;re ready, press &apos;Submit&apos; to submit the code to the
       kernel for execution.
       <CodeEditorComponent onChange={onChange} />
+      <br />
+      <Title headingLevel="h2">Output</Title>
+      <CodeBlock actions={outputLogActions}>
+        <CodeBlockCode id="code-execution-output">{output}</CodeBlockCode>
+      </CodeBlock>
     </Modal>
   );
 };
@@ -248,7 +301,7 @@ export const KernelList: React.FunctionComponent = () => {
     });
   }
 
-  async function onConfirmExecuteCodeClicked(code: string) {
+  async function onConfirmExecuteCodeClicked(code: string, logConsumer: (logMessage: string) => void) {
     console.log('Executing code:\n' + code);
 
     const kernelId: string | undefined = executeCodeKernel?.kernelId;
@@ -273,7 +326,7 @@ export const KernelList: React.FunctionComponent = () => {
     // Handle iopub messages
     future.onIOPub = (msg) => {
       if (msg.header.msg_type !== 'status') {
-        console.log(msg.content);
+        logConsumer(JSON.stringify(msg.content));
       }
     };
     await future.done;
