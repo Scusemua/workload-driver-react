@@ -10,6 +10,7 @@ import {
   DataList,
   DataListAction,
   DataListCell,
+  DataListCheck,
   DataListContent,
   DataListItem,
   DataListItemCells,
@@ -80,14 +81,20 @@ interface ExecuteCodeOnKernelProps {
   kernelId: string;
   isOpen: boolean;
   onClose: () => void;
-  onSubmit: (code: string) => void;
+  onSubmit: (code: string) => Promise<void>;
 }
 
 const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKernelProps> = (props) => {
   const [code, setCode] = React.useState('');
+  const [executionState, setExecutionState] = React.useState('idle');
 
   const onSubmit = () => {
-    props.onSubmit(code);
+    async function runUserCode() {
+      await props.onSubmit(code);
+      setExecutionState('done');
+    }
+
+    runUserCode();
   };
 
   const onChange = (code) => {
@@ -101,8 +108,27 @@ const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKernelProps
       isOpen={props.isOpen}
       onClose={props.onClose}
       actions={[
-        <Button key="submit" variant="primary" onClick={onSubmit}>
-          Submit
+        <Button
+          key="submit"
+          variant="primary"
+          onClick={() => {
+            if (executionState == 'idle' || executionState == 'done') {
+              console.log('Executing code now.');
+              // setExecutionState('executing');
+              onSubmit();
+            } else {
+              console.log(
+                'Please wait until the current execution completes before submitting additional code for execution.',
+              );
+            }
+          }}
+          isLoading={executionState === 'executing'}
+          icon={executionState === 'done' ? <CheckCircleIcon /> : null}
+          spinnerAriaValueText="Loading..."
+        >
+          {executionState === 'idle' && 'Execute'}
+          {executionState === 'executing' && 'Executing code'}
+          {executionState === 'done' && 'Complete'}
         </Button>,
         <Button key="cancel" variant="link" onClick={props.onClose}>
           Cancel
@@ -122,8 +148,12 @@ export const KernelList: React.FunctionComponent = () => {
   const [isCardExpanded, setIsCardExpanded] = React.useState(true);
   const [expandedKernels, setExpandedKernels] = React.useState<string[]>([]);
   const [isConfirmCreateModalOpen, setIsConfirmCreateModalOpen] = React.useState(false);
+  const [isConfirmDeleteKernelsModalOpen, setIsConfirmDeleteKernelsModalOpen] = React.useState(false);
+  const [isConfirmDeleteKernelModalOpen, setIsConfirmDeleteKernelModalOpen] = React.useState(false);
   const [isExecuteCodeModalOpen, setIsExecuteCodeModalOpen] = React.useState(false);
   const [executeCodeKernel, setExecuteCodeKernel] = React.useState<DistributedJupyterKernel | null>(null);
+  const [selectedKernels, setSelectedKernels] = React.useState<string[]>([]);
+  const [kernelToDelete, setKernelToDelete] = React.useState<string>('');
   const kernelManager = useRef<KernelManager | null>(null);
 
   async function initializeKernelManagers() {
@@ -133,6 +163,7 @@ export const KernelList: React.FunctionComponent = () => {
           token: '',
           appendToken: false,
           baseUrl: '/jupyter',
+          wsUrl: 'ws://localhost:8888/',
           fetch: fetch,
         }),
       };
@@ -152,6 +183,24 @@ export const KernelList: React.FunctionComponent = () => {
     }
   }
 
+  const onSelectKernel = (
+    _event: React.FormEvent<HTMLInputElement>,
+    _checked: boolean,
+    kernelId: string | undefined,
+  ) => {
+    const item = kernelId as string;
+
+    // console.log('onSelectKernel: ' + item);
+
+    if (selectedKernels.includes(item)) {
+      setSelectedKernels(selectedKernels.filter((id) => id !== item));
+    } else {
+      setSelectedKernels([...selectedKernels, item]);
+    }
+
+    console.log('selectedKernels: ' + selectedKernels);
+  };
+
   useEffect(() => {
     initializeKernelManagers();
   }, []);
@@ -164,12 +213,16 @@ export const KernelList: React.FunctionComponent = () => {
     setSearchValue(value);
   };
 
-  const onCreateKernelClicked = () => {
-    setIsConfirmCreateModalOpen(!isConfirmCreateModalOpen);
-  };
-
   const onCancelCreateKernelClicked = () => {
     setIsConfirmCreateModalOpen(false);
+  };
+
+  const onCancelDeleteKernelClicked = () => {
+    setIsConfirmDeleteKernelModalOpen(false);
+  };
+
+  const onCancelDeleteKernelsClicked = () => {
+    setIsConfirmDeleteKernelsModalOpen(false);
   };
 
   const onCancelExecuteCodeClicked = () => {
@@ -226,6 +279,37 @@ export const KernelList: React.FunctionComponent = () => {
     await future.done;
     console.log('Execution on Kernel ' + kernelId + ' is done.');
   }
+
+  const onConfirmDeleteKernelsClicked = (kernelIds: string[]) => {
+    // Close the confirmation dialogue.
+    setIsConfirmDeleteKernelsModalOpen(false);
+    setIsConfirmDeleteKernelModalOpen(false);
+
+    // Create a new kernel.
+    if (!kernelManager.current) {
+      console.log('ERROR: Kernel Manager is not available. Will try to connect...');
+      initializeKernelManagers();
+      return;
+    }
+
+    /**
+     * Delete the specified kernel.
+     *
+     * @param id The ID of the kernel to be deleted.
+     */
+    async function delete_kernel(id: string) {
+      console.log('Deleting Kernel ' + id + ' now.');
+      await kernelManager.current?.shutdown(id).then(() => {
+        console.log('Deleting Kernel ' + id + ' now.');
+      });
+    }
+
+    setSelectedKernels([]);
+    setKernelToDelete('');
+    kernelIds.forEach((kernelId) => {
+      delete_kernel(kernelId);
+    });
+  };
 
   const onConfirmCreateKernelClicked = () => {
     // _event: KeyboardEvent | React.MouseEvent
@@ -312,7 +396,7 @@ export const KernelList: React.FunctionComponent = () => {
     fetchKernels();
 
     // Periodically refresh the automatically kernels every 30 seconds.
-    setInterval(fetchKernels, 30000);
+    setInterval(fetchKernels, 120000);
 
     return () => {
       ignoreResponse.current = true;
@@ -455,12 +539,16 @@ export const KernelList: React.FunctionComponent = () => {
       <ToolbarGroup variant="icon-button-group">
         <ToolbarItem>
           <Tooltip exitDelay={75} content={<div>Create a new kernel.</div>}>
-            <Button id="create-kernel-button" variant="plain" onClick={onCreateKernelClicked}>
+            <Button
+              id="create-kernel-button"
+              variant="plain"
+              onClick={() => setIsConfirmCreateModalOpen(!isConfirmCreateModalOpen)}
+            >
               <PlusIcon />
             </Button>
           </Tooltip>
-          <Tooltip exitDelay={75} content={<div>Delete selected kernels.</div>}>
-            <Button id="delete-kernels-button" variant="plain" onClick={fetchKernels}>
+          <Tooltip exitDelay={75} content={<div>Terminate selected kernels.</div>}>
+            <Button id="delete-kernels-button" variant="plain" onClick={() => setIsConfirmDeleteKernelsModalOpen(true)}>
               <TrashIcon />
             </Button>
           </Tooltip>
@@ -557,6 +645,14 @@ export const KernelList: React.FunctionComponent = () => {
                 id={'content-padding-item-' + idx}
               >
                 <DataListItemRow>
+                  <DataListCheck
+                    aria-labelledby={'kernel-' + kernel.kernelId + '-check'}
+                    name={'kernel-' + kernel.kernelId + '-check'}
+                    onChange={(event: React.FormEvent<HTMLInputElement>, checked: boolean) =>
+                      onSelectKernel(event, checked, kernel.kernelId)
+                    }
+                    defaultChecked={kernel.kernelId in selectedKernels}
+                  />
                   <DataListToggle
                     onClick={() => toggleExpandedKernel(kernel.kernelId)}
                     isExpanded={expandedKernels.includes(kernel.kernelId)}
@@ -600,7 +696,16 @@ export const KernelList: React.FunctionComponent = () => {
                           </StackItem>
                           <StackItem>
                             <Tooltip exitDelay={75} entryDelay={250} content={<div>Terminate this kernel.</div>}>
-                              <Button variant={'link'} icon={<TrashIcon />} isDanger>
+                              <Button
+                                variant={'link'}
+                                icon={<TrashIcon />}
+                                isDanger
+                                onClick={() => {
+                                  // We're trying to delete a specific kernel.
+                                  setKernelToDelete(kernel.kernelId);
+                                  setIsConfirmDeleteKernelModalOpen(true);
+                                }}
+                              >
                                 Terminate
                               </Button>
                             </Tooltip>
@@ -624,7 +729,22 @@ export const KernelList: React.FunctionComponent = () => {
             isOpen={isConfirmCreateModalOpen}
             onConfirm={onConfirmCreateKernelClicked}
             onClose={onCancelCreateKernelClicked}
+            title={'Create a New Kernel'}
             message="Are you sure you'd like to create a new kernel?"
+          />
+          <ConfirmationModal
+            isOpen={isConfirmDeleteKernelsModalOpen}
+            onConfirm={() => onConfirmDeleteKernelsClicked(selectedKernels)}
+            onClose={onCancelDeleteKernelsClicked}
+            title={'Terminate Selected Kernels'}
+            message={"Are you sure you'd like to delete the specified kernel(s)?"}
+          />
+          <ConfirmationModal
+            isOpen={isConfirmDeleteKernelModalOpen}
+            onConfirm={() => onConfirmDeleteKernelsClicked([kernelToDelete])}
+            onClose={onCancelDeleteKernelClicked}
+            title={'Terminate Kernel'}
+            message={"Are you sure you'd like to delete the specified kernel?"}
           />
           <ExecuteCodeOnKernelModal
             kernelId={executeCodeKernel?.kernelId || 'N/A'}

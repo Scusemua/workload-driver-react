@@ -2,12 +2,15 @@ package main
 
 import (
 	"fmt"
+	"log"
 	"net/http"
+	"net/url"
 
 	"github.com/gin-gonic/contrib/cors"
 	"github.com/gin-gonic/contrib/static"
 	"github.com/gin-gonic/gin"
 	"github.com/joho/godotenv"
+	"github.com/koding/websocketproxy"
 
 	"github.com/scusemua/workload-driver-react/m/v2/server/config"
 	"github.com/scusemua/workload-driver-react/m/v2/server/domain"
@@ -51,5 +54,17 @@ func main() {
 		apiGroup.GET(domain.GET_KERNELS_ENDPOINT, handlers.NewKernelHttpHandler(conf).HandleRequest)
 	}
 
-	http.ListenAndServe(fmt.Sprintf("127.0.0.1:%d", conf.ServerPort), app)
+	go http.ListenAndServe(fmt.Sprintf("127.0.0.1:%d", conf.ServerPort), app)
+
+	wsUrlString := fmt.Sprintf("ws://%s", conf.JupyterServerAddress)
+	wsUrl, err := url.Parse(wsUrlString)
+	if err != nil {
+		panic(err)
+	}
+
+	fmt.Printf("Listening for Websocket Connections on '%s' and proxying them to '%s'\n", fmt.Sprintf("127.0.0.1:%d", conf.WebsocketProxyPort), wsUrl)
+	err = http.ListenAndServe(fmt.Sprintf("127.0.0.1:%d", conf.WebsocketProxyPort), websocketproxy.NewProxy(wsUrl))
+	if err != nil {
+		log.Fatalln(err)
+	}
 }

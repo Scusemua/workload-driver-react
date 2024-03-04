@@ -4,8 +4,9 @@ const path = require('path');
 const { merge } = require('webpack-merge');
 const common = require('./webpack.common.js');
 const { stylePaths } = require('./stylePaths');
+const { debug } = require('console');
 const HOST = process.env.HOST || 'localhost';
-const PORT = process.env.PORT || '9000';
+const PORT = process.env.PORT || '9001';
 
 module.exports = merge(common('development'), {
   mode: 'development',
@@ -13,11 +14,21 @@ module.exports = merge(common('development'), {
   devServer: {
     proxy: {
       '/jupyter/*': {
-        context: ['/jupyter'],
-        target: 'http://localhost:8000',
+        secure: false,
+        logLevel: 'debug',
+        pathRewrite: {
+          '^/jupyter': '/',
+        },
+        router: {
+          'http://localhost:8000': 'http://localhost:8888',
+        },
+        target: 'http://localhost:8888',
       },
       '/api/*': {
         context: ['/api'],
+        host: 'localhost',
+        port: PORT,
+        scheme: 'http',
         target: 'http://localhost:8000',
       },
     },

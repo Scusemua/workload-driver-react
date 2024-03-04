@@ -26,6 +26,7 @@ type Configuration struct {
 	GatewayAddress          string `yaml:"gateway-address" json:"gateway-address" description:"The IP address that the front-end should use to connect to the Gateway."`
 	JupyterServerAddress    string `yaml:"jupyter-server-address" json:"jupyter-server-address" description:"The IP address of the Jupyter Server."`
 	ServerPort              int    `yaml:"server-port" json:"server-port" description:"Port of the backend server."`
+	WebsocketProxyPort      int    `yaml:"websocket-proxy-port" json:"websocket-proxy-port" description:"Port of the backend websocket proxy server, which reverse-proxies websocket connections to the Jupyter server."`
 
 	Valid bool `json:"Valid"` // Used to determine if the struct was sent/received correctly over the network.
 }
@@ -50,6 +51,7 @@ func GetConfiguration() *Configuration {
 	var kernelSpecQueryIntervalFlag = flag.String("kernel-spec-query-interval", "600s", "How frequently to query the Cluster for updated Jupyter kernel spec information.")
 	var jupyterServerAddressFlag = flag.String("jupyter-server-address", "localhost:8888", "The IP address of the Jupyter Server.")
 	var serverPortFlag = flag.Int("server-port", 8000, "Port of the backend server.")
+	var websocketProxyPortFlag = flag.Int("websocket-proxy-port", 8001, "Port of the backend websocket proxy server, which reverse-proxies websocket connections to the Jupyter server.")
 
 	var kubeconfigFlag *string
 	if home := homedir.HomeDir(); home != "" {
@@ -73,6 +75,7 @@ func GetConfiguration() *Configuration {
 		SpoofKubeNodes:          *spoofNodesFlag,
 		SpoofKernels:            *spoofKernelsFlag,
 		SpoofKernelSpecs:        *spoofKernelSpecsFlag,
+		WebsocketProxyPort:      *websocketProxyPortFlag,
 	}
 }
 

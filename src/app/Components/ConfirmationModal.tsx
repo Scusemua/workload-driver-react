@@ -6,6 +6,7 @@ export interface ConfirmationModalProps {
   isOpen: boolean;
   onClose: () => void;
   onConfirm: () => void;
+  title: string;
   message: string;
 }
 
@@ -13,7 +14,7 @@ export const ConfirmationModal: React.FunctionComponent<ConfirmationModalProps> 
   return (
     <Modal
       variant={ModalVariant.small}
-      title="Create a New Kernel"
+      title={props.title}
       isOpen={props.isOpen}
       onClose={props.onClose}
       actions={[

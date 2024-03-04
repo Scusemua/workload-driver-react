@@ -18,12 +18,12 @@ type JupyterProxyRouter struct {
 }
 
 func (r *JupyterProxyRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
-	fmt.Printf("req.RequestURI: %s\n", req.RequestURI)
+	fmt.Printf("req.RequestURI: %s. req.Method:%v\n", req.RequestURI, req.Method)
 	if strings.HasPrefix(req.RequestURI, r.ContextPath) {
 		req.RequestURI = req.RequestURI[r.Start:]
 		req.URL.Path = req.URL.Path[r.Start:]
 
-		fmt.Printf("Adjusted RequestURI to \"%s\" and URL.Path to \"%s\"\n", req.RequestURI, req.URL.Path)
+		fmt.Printf("\tAdjusted RequestURI to \"%s\" and URL.Path to \"%s\" for %v request.\n", req.RequestURI, req.URL.Path, req.Method)
 
 		director := func(req *http.Request) {
 			req.URL.Scheme = "http"
