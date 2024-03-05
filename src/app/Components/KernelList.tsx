@@ -7,10 +7,10 @@ import {
   CardExpandableContent,
   CardHeader,
   CardTitle,
+  ClipboardCopyButton,
   CodeBlock,
   CodeBlockAction,
   CodeBlockCode,
-  ClipboardCopyButton,
   DataList,
   DataListAction,
   DataListCell,
@@ -47,7 +47,8 @@ import {
 import { KernelManager, ServerConnection } from '@jupyterlab/services';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 
-import { ConfirmationModal } from '@app/Components/ConfirmationModal';
+import { InformationModal } from '@app/Components/InformationModal';
+import { ConfirmationModal, ConfirmationWithTextInputModal } from '@app/Components/ConfirmationModal';
 import { CodeEditorComponent } from '@app/Components/CodeEditor';
 import { DistributedJupyterKernel } from '@data/Kernel';
 import {
@@ -67,6 +68,10 @@ import {
   TrashIcon,
 } from '@patternfly/react-icons';
 import { IKernelConnection } from '@jupyterlab/services/lib/kernel/kernel';
+
+function isNumber(value?: string | number): boolean {
+  return value != null && value !== '' && !isNaN(Number(value.toString()));
+}
 
 // Map from kernel status to the associated icon.
 const kernelStatusIcons = {
@@ -203,6 +208,9 @@ export const KernelList: React.FunctionComponent = () => {
   const [isConfirmCreateModalOpen, setIsConfirmCreateModalOpen] = React.useState(false);
   const [isConfirmDeleteKernelsModalOpen, setIsConfirmDeleteKernelsModalOpen] = React.useState(false);
   const [isConfirmDeleteKernelModalOpen, setIsConfirmDeleteKernelModalOpen] = React.useState(false);
+  const [isErrorModalOpen, setIsErrorModalOpen] = React.useState(false);
+  const [errorMessage, setErrorMessage] = React.useState('');
+  const [errorMessagePreamble, setErrorMessagePreamble] = React.useState('');
   const [isExecuteCodeModalOpen, setIsExecuteCodeModalOpen] = React.useState(false);
   const [executeCodeKernel, setExecuteCodeKernel] = React.useState<DistributedJupyterKernel | null>(null);
   const [selectedKernels, setSelectedKernels] = React.useState<string[]>([]);
@@ -312,7 +320,7 @@ export const KernelList: React.FunctionComponent = () => {
     }
 
     if (!kernelManager.current) {
-      console.log('ERROR: Kernel Manager is not available. Will try to connect...');
+      console.log('[ERROR] Kernel Manager is not available. Will try to connect...');
       initializeKernelManagers();
       return;
     }
@@ -340,7 +348,7 @@ export const KernelList: React.FunctionComponent = () => {
 
     // Create a new kernel.
     if (!kernelManager.current) {
-      console.log('ERROR: Kernel Manager is not available. Will try to connect...');
+      console.log('[ERROR] Kernel Manager is not available. Will try to connect...');
       initializeKernelManagers();
       return;
     }
@@ -364,22 +372,48 @@ export const KernelList: React.FunctionComponent = () => {
     });
   };
 
-  const onConfirmCreateKernelClicked = () => {
-    // _event: KeyboardEvent | React.MouseEvent
-    console.log('Creating a new Kernel.');
+  const onConfirmCreateKernelClicked = (input: string) => {
+    let numKernelsToCreate: number = 1;
+    input = input.trim();
+
+    // If the user specified som
+    if (input != '') {
+      if (isNumber(input)) {
+        numKernelsToCreate = parseInt(input);
+      } else {
+        console.log('[ERROR] Failed to convert number of kernels to a number: "' + input + '"');
+        setErrorMessage('Failed to convert number of kernels to a number: "' + input + '"');
+        setIsErrorModalOpen(true);
+      }
+    }
+
+    console.log(`Creating ${numKernelsToCreate} new Kernel(s).`);
 
     // Close the confirmation dialogue.
-    setIsConfirmCreateModalOpen(!isConfirmCreateModalOpen);
+    setIsConfirmCreateModalOpen(false);
 
     // Create a new kernel.
     if (!kernelManager.current) {
-      console.log('ERROR: Kernel Manager is not available. Will try to connect...');
+      console.log('[ERROR] Kernel Manager is not available. Will try to connect...');
       initializeKernelManagers();
       return;
     }
 
-    // Create a new kernel.
-    startKernel();
+    let errorOccurred = false;
+    for (let i = 0; i < numKernelsToCreate; i++) {
+      if (errorOccurred) break;
+
+      console.log(`Creating kernel ${i + 1} / ${numKernelsToCreate} now.`);
+
+      // Create a new kernel.
+      startKernel().catch((error) => {
+        console.error('Error while trying to start a new kernel:\n' + error);
+        setErrorMessagePreamble('An error occurred while trying to start a new kernel:');
+        setErrorMessage(error.toString());
+        setIsErrorModalOpen(true);
+        errorOccurred = true;
+      });
+    }
   };
 
   // Set up status single select
@@ -778,12 +812,13 @@ export const KernelList: React.FunctionComponent = () => {
               </DataListItem>
             ))}
           </DataList>
-          <ConfirmationModal
+          <ConfirmationWithTextInputModal
             isOpen={isConfirmCreateModalOpen}
             onConfirm={onConfirmCreateKernelClicked}
             onClose={onCancelCreateKernelClicked}
-            title={'Create a New Kernel'}
-            message="Are you sure you'd like to create a new kernel?"
+            title="Create a New Kernel"
+            message="How many kernels would you like to create?"
+            hint="1"
           />
           <ConfirmationModal
             isOpen={isConfirmDeleteKernelsModalOpen}
@@ -804,6 +839,18 @@ export const KernelList: React.FunctionComponent = () => {
             isOpen={isExecuteCodeModalOpen}
             onClose={onCancelExecuteCodeClicked}
             onSubmit={onConfirmExecuteCodeClicked}
+          />
+          <InformationModal
+            isOpen={isErrorModalOpen}
+            onClose={() => {
+              setIsErrorModalOpen(false);
+              setErrorMessage('');
+              setErrorMessagePreamble('');
+            }}
+            title="An Error has Occurred"
+            titleIconVariant="danger"
+            message1={errorMessagePreamble}
+            message2={errorMessage}
           />
         </CardBody>
       </CardExpandableContent>
