@@ -24,16 +24,28 @@ type KubeNodeHttpHandler struct {
 
 	metricsClient *metrics.Clientset
 	clientset     *kubernetes.Clientset
+	spoof         bool
 }
 
 func NewKubeNodeHttpHandler(opts *config.Configuration) domain.BackendHttpGetHandler {
 	handler := &KubeNodeHttpHandler{
 		BaseHandler: newBaseHandler(opts),
+		spoof:       opts.SpoofKubeNodes,
 	}
 	handler.BackendHttpGetHandler = handler
 
 	handler.logger.Info("Creating server-side KubeNodeHttpHandler.")
 
+	if !opts.SpoofKubeNodes {
+		handler.createKubernetesClient(opts)
+	}
+
+	handler.logger.Info("Successfully created server-side HTTP handler.")
+
+	return handler
+}
+
+func (h *KubeNodeHttpHandler) createKubernetesClient(opts *config.Configuration) {
 	if opts.InCluster {
 		// creates the in-cluster config
 		config, err := rest.InClusterConfig()
@@ -57,8 +69,8 @@ func NewKubeNodeHttpHandler(opts *config.Configuration) domain.BackendHttpGetHan
 			panic(err)
 		}
 
-		handler.clientset = clientset
-		handler.metricsClient = metricsClient
+		h.clientset = clientset
+		h.metricsClient = metricsClient
 	} else {
 		// use the current context in kubeconfig
 		config, err := clientcmd.BuildConfigFromFlags("", opts.KubeConfig)
@@ -82,16 +94,17 @@ func NewKubeNodeHttpHandler(opts *config.Configuration) domain.BackendHttpGetHan
 			panic(err)
 		}
 
-		handler.clientset = clientset
-		handler.metricsClient = metricsClient
+		h.clientset = clientset
+		h.metricsClient = metricsClient
 	}
-
-	handler.logger.Info("Successfully created server-side HTTP handler.")
-
-	return handler
 }
 
 func (h *KubeNodeHttpHandler) HandleRequest(c *gin.Context) {
+	if h.spoof {
+		h.spoofNodes(c)
+		return
+	}
+
 	nodes, err := h.clientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		h.logger.Error("Failed to retrieve nodes from Kubernetes.", zap.Error(err))
@@ -211,4 +224,75 @@ func (h *KubeNodeHttpHandler) HandleRequest(c *gin.Context) {
 
 	h.logger.Info("Sending nodes back to client now.", zap.Int("num-nodes", len(resp)))
 	c.JSON(http.StatusOK, resp)
+}
+
+func (h *KubeNodeHttpHandler) spoofNodes(c *gin.Context) {
+	c.JSON(200, []*domain.KubernetesNode{
+		{
+			NodeId: "spoofed-kubernetes-node-0",
+			Pods: []*domain.KubernetesPod{
+				{
+					PodName:  "spoofed-kubernetes-pod-0",
+					PodAge:   "121hr24m18sec",
+					PodPhase: "running",
+					PodIP:    "148.122.32.1",
+				},
+				{
+					PodName:  "spoofed-kubernetes-pod-1",
+					PodAge:   "121hr25m43sec",
+					PodPhase: "running",
+					PodIP:    "148.122.32.2",
+				},
+				{
+					PodName:  "spoofed-kubernetes-pod-2",
+					PodAge:   "121hr12m59sec",
+					PodPhase: "running",
+					PodIP:    "148.122.32.3",
+				},
+			},
+			Age:             "121hr32m14sec",
+			IP:              "10.0.0.1",
+			CapacityCPU:     64,
+			CapacityMemory:  64,
+			CapacityGPUs:    8,
+			CapacityVGPUs:   72,
+			AllocatedCPU:    24,
+			AllocatedMemory: 54,
+			AllocatedGPUs:   2,
+			AllocatedVGPUs:  18,
+		},
+		{
+			NodeId: "spoofed-kubernetes-node-1",
+			Pods: []*domain.KubernetesPod{
+				{
+					PodName:  "spoofed-kubernetes-pod-3",
+					PodAge:   "121hr44m28sec",
+					PodPhase: "running",
+					PodIP:    "157.137.61.1",
+				},
+				{
+					PodName:  "spoofed-kubernetes-pod-4",
+					PodAge:   "121hr22m42sec",
+					PodPhase: "running",
+					PodIP:    "157.137.61.2",
+				},
+				{
+					PodName:  "spoofed-kubernetes-pod-5",
+					PodAge:   "121hr13m49sec",
+					PodPhase: "running",
+					PodIP:    "157.137.61.3",
+				},
+			},
+			Age:             "121hr32m14sec",
+			IP:              "10.0.0.2",
+			CapacityCPU:     64,
+			CapacityMemory:  64,
+			CapacityGPUs:    8,
+			CapacityVGPUs:   72,
+			AllocatedCPU:    48,
+			AllocatedMemory: 60,
+			AllocatedGPUs:   4,
+			AllocatedVGPUs:  36,
+		},
+	})
 }

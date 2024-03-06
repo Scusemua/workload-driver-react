@@ -62,7 +62,8 @@ func main() {
 		}
 	}
 
-	go http.ListenAndServe(fmt.Sprintf("127.0.0.1:%d", conf.ServerPort), app)
+	fmt.Printf("Listening for HTTP requests on '%s'\n", fmt.Sprintf("127.0.0.1:%d", conf.ServerPort))
+	go http.ListenAndServe(fmt.Sprintf(":%d", conf.ServerPort), app)
 
 	wsUrlString := fmt.Sprintf("ws://%s", conf.JupyterServerAddress)
 	wsUrl, err := url.Parse(wsUrlString)

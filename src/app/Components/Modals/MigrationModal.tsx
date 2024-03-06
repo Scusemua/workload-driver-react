@@ -52,8 +52,11 @@ export const MigrationModal: React.FunctionComponent<MigrationModalProps> = (pro
       />
       <br />
       <TextContent>
-        <Text component={TextVariants.p}>
+        <Text component={TextVariants.p} hidden={targetNodeID == ''}>
           <strong>Selected Node:</strong> {targetNodeID}
+        </Text>
+        <Text component={TextVariants.p} hidden={targetNodeID != ''}>
+          <strong>Selected Node:</strong> None
         </Text>
       </TextContent>
     </Modal>

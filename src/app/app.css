@@ -58,11 +58,11 @@ body,
 }
 
 .kernel-list-row {
-  padding: 0px 16px 0px 4px;
+  padding: 0px 0px 0px 0px;
 }
 
 .kernel-list-expandable-content {
-  margin-top: -48px
+  margin-top: -32px
 }
 
 .pf-v5-c-description-list__description {

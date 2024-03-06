@@ -35,7 +35,7 @@ export const KernelSpecList: React.FunctionComponent = () => {
           serverSettings: ServerConnection.makeSettings({
             token: '',
             appendToken: false,
-            baseUrl: '/jupyter',
+            baseUrl: 'jupyter',
             fetch: fetch,
           }),
         };

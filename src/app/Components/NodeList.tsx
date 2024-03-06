@@ -242,7 +242,7 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                               columnModifier={{ lg: '3Col' }}
                             >
                               <DescriptionListGroup>
-                                <DescriptionListTerm>Node ID</DescriptionListTerm>
+                                <DescriptionListTerm>Node</DescriptionListTerm>
                                 <DescriptionListDescription>{kubeNode.NodeId}</DescriptionListDescription>
                               </DescriptionListGroup>
                               <DescriptionListGroup>

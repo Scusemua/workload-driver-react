@@ -16,7 +16,7 @@ export interface DashboardProps {
 
 const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProps) => {
   const [nodes, setNodes] = React.useState<KubernetesNode[]>([]);
-  const [isMigrateModalOpen, setIsMigrateModalOpen] = React.useState(true);
+  const [isMigrateModalOpen, setIsMigrateModalOpen] = React.useState(false);
   const [migrateKernel, setMigrateKernel] = React.useState<DistributedJupyterKernel | null>(null);
   const [migrateReplica, setMigrateReplica] = React.useState<JupyterKernelReplica | null>(null);
 

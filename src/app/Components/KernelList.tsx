@@ -46,12 +46,15 @@ import {
   CheckCircleIcon,
   CodeIcon,
   CubeIcon,
+  CubesIcon,
   ExclamationTriangleIcon,
   FilterIcon,
   HourglassHalfIcon,
   MigrationIcon,
+  PauseIcon,
   PlusIcon,
   RebootingIcon,
+  SearchIcon,
   SkullIcon,
   SpinnerIcon,
   StopCircleIcon,
@@ -183,6 +186,14 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
   const onExecuteCodeClicked = (index: number) => {
     setIsExecuteCodeModalOpen(true);
     setExecuteCodeKernel(filteredKernels[index]);
+  };
+
+  const onInspectKernelClicked = (index: number) => {
+    console.log('User is inspecting kernel ' + filteredKernels[index].kernelId);
+  };
+
+  const onInterruptKernelClicked = (index: number) => {
+    console.log('User is interrupting kernel ' + filteredKernels[index].kernelId);
   };
 
   async function startKernel() {
@@ -352,7 +363,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
 
       // Make a network request to the backend. The server infrastructure handles proxying/routing the request to the correct host.
       // We're specifically targeting the API endpoint I setup called "get-kernels".
-      const response = await fetch('/api/get-kernels');
+      const response = await fetch('api/get-kernels');
 
       const respKernels: DistributedJupyterKernel[] = await response.json();
 
@@ -662,7 +673,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                           </FlexItem>
                           <Flex className="kernel-list-stat-icons" spaceItems={{ default: 'spaceItemsMd' }}>
                             <FlexItem>
-                              <CubeIcon /> {kernel.numReplicas}
+                              <CubesIcon /> {kernel.numReplicas}
                             </FlexItem>
                             <FlexItem>
                               {kernelStatusIcons[kernel.status]} {kernel.status}
@@ -676,35 +687,74 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                         id={'content-padding-item-' + idx}
                         aria-label="Actions"
                       >
-                        <Stack>
-                          <StackItem>
-                            <Tooltip
-                              exitDelay={75}
-                              entryDelay={250}
-                              content={<div>Execute Python code on this kernel.</div>}
-                            >
-                              <Button variant={'link'} icon={<CodeIcon />} onClick={() => onExecuteCodeClicked(idx)}>
-                                Execute
-                              </Button>
-                            </Tooltip>
-                          </StackItem>
-                          <StackItem>
-                            <Tooltip exitDelay={75} entryDelay={250} content={<div>Terminate this kernel.</div>}>
-                              <Button
-                                variant={'link'}
-                                icon={<TrashIcon />}
-                                isDanger
-                                onClick={() => {
-                                  // We're trying to delete a specific kernel.
-                                  setKernelToDelete(kernel.kernelId);
-                                  setIsConfirmDeleteKernelModalOpen(true);
-                                }}
-                              >
-                                Terminate
-                              </Button>
-                            </Tooltip>
-                          </StackItem>
-                        </Stack>
+                        <Flex spaceItems={{ default: 'spaceItemsNone' }} direction={{ default: 'column' }}>
+                          <FlexItem>
+                            <Flex spaceItems={{ default: 'spaceItemsSm' }} direction={{ default: 'row' }}>
+                              <FlexItem>
+                                <Tooltip
+                                  exitDelay={75}
+                                  entryDelay={250}
+                                  content={<div>Execute Python code on this kernel.</div>}
+                                >
+                                  <Button
+                                    variant={'link'}
+                                    icon={<CodeIcon />}
+                                    onClick={() => onExecuteCodeClicked(idx)}
+                                  >
+                                    Execute
+                                  </Button>
+                                </Tooltip>
+                              </FlexItem>
+                              <FlexItem>
+                                <Tooltip
+                                  exitDelay={75}
+                                  entryDelay={250}
+                                  content={<div>Inspect and obtain information about this kernel.</div>}
+                                >
+                                  <Button
+                                    variant={'link'}
+                                    icon={<SearchIcon />}
+                                    onClick={() => onInspectKernelClicked(idx)}
+                                  >
+                                    Inspect
+                                  </Button>
+                                </Tooltip>
+                              </FlexItem>
+                            </Flex>
+                          </FlexItem>
+                          <FlexItem>
+                            <Flex spaceItems={{ default: 'spaceItemsSm' }} direction={{ default: 'row' }}>
+                              <FlexItem>
+                                <Tooltip exitDelay={75} entryDelay={250} content={<div>Interrupt this kernel.</div>}>
+                                  <Button
+                                    variant={'link'}
+                                    isDanger
+                                    icon={<PauseIcon />}
+                                    onClick={() => onInterruptKernelClicked(idx)}
+                                  >
+                                    Interrupt
+                                  </Button>
+                                </Tooltip>
+                              </FlexItem>
+                              <FlexItem>
+                                <Tooltip exitDelay={75} entryDelay={250} content={<div>Terminate this kernel.</div>}>
+                                  <Button
+                                    variant={'link'}
+                                    icon={<TrashIcon />}
+                                    isDanger
+                                    onClick={() => {
+                                      // We're trying to delete a specific kernel.
+                                      setKernelToDelete(kernel.kernelId);
+                                      setIsConfirmDeleteKernelModalOpen(true);
+                                    }}
+                                  >
+                                    Terminate
+                                  </Button>
+                                </Tooltip>
+                              </FlexItem>
+                            </Flex>
+                          </FlexItem>
+                        </Flex>
                       </DataListAction>,
                     ]}
                   />
