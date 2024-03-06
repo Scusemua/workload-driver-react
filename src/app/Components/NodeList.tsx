@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import {
   Button,
   Card,
@@ -9,6 +9,7 @@ import {
   DataList,
   DataListCell,
   DataListContent,
+  DataListControl,
   DataListItem,
   DataListItemCells,
   DataListItemRow,
@@ -21,6 +22,7 @@ import {
   FlexItem,
   InputGroup,
   InputGroupItem,
+  Radio,
   SearchInput,
   Title,
   // Toolbar,
@@ -32,38 +34,23 @@ import {
 } from '@patternfly/react-core';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 import GpuIcon from '@app/Icons/GpuIcon';
-import { KubernetesNode } from '@data/Kubernetes';
+import { KubernetesNode, KubernetesPod } from '@data/Kubernetes';
 import { CpuIcon, CubeIcon, FilterIcon, MemoryIcon, SyncIcon } from '@patternfly/react-icons';
 
-// Hard-coded, dummy data.
-// const kubeNodes: KubernetesNode[] = [
-//     {
-//         NodeId: 'distributed-notebook-worker',
-//         Pods: [
-//             {
-//                 PodName: '62677bbf-359a-4f0b-96e7-6baf7ac65545-7ad16',
-//                 PodPhase: 'running',
-//                 PodAge: '127h2m45s',
-//                 PodIP: '10.0.0.1',
-//             },
-//         ],
-//         Age: '147h4m53s',
-//         IP: '172.20.0.3',
-//         CapacityCPU: 64,
-//         CapacityMemory: 64000,
-//         CapacityGPUs: 8,
-//         CapacityVGPUs: 72,
-//         AllocatedCPU: 0.24,
-//         AllocatedMemory: 1557.1,
-//         AllocatedGPUs: 2,
-//         AllocatedVGPUs: 4,
-//     },
-// ];
+export interface NodeListProps {
+  selectable: boolean;
+  nodes: KubernetesNode[];
+  refreshInterval: number; // Refresh interval in seconds.
+  manuallyRefreshNodes: () => void; // Function to manually refresh the nodes.
+  disableRadiosWithKernel?: string; // KernelID such that, if a node has a Pod for that kernel, its radio button is disabled.
+  onSelectNode?: (nodeId: string) => void; // Function to call when a node is selected; used in case parent wants to do something when node is selected, such as update state.
+}
 
-export const KubernetesNodeList: React.FunctionComponent = () => {
+export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props: NodeListProps) => {
   const [searchValue, setSearchValue] = React.useState('');
   const [isCardExpanded, setIsCardExpanded] = React.useState(true);
   const [expandedNodes, setExpandedNodes] = React.useState<string[]>([]);
+  const [selectedNode, setSelectedNode] = React.useState('');
 
   const onCardExpand = () => {
     setIsCardExpanded(!isCardExpanded);
@@ -84,41 +71,6 @@ export const KubernetesNodeList: React.FunctionComponent = () => {
     />
   );
 
-  const ignoreResponse = useRef(false);
-  async function fetchKubernetesNodes() {
-    try {
-      console.log('Refreshing Kubernetes nodes.');
-
-      // Make a network request to the backend. The server infrastructure handles proxying/routing the request to the correct host.
-      // We're specifically targeting the API endpoint I setup called "nodes".
-      const response = await fetch('/api/nodes');
-
-      // Get the response, which will be in JSON format, and decode it into an array of KubernetesNode (which is a TypeScript interface that I defined).
-      const respNodes: KubernetesNode[] = await response.json();
-
-      if (!ignoreResponse.current) {
-        // console.log('Received nodes: ' + JSON.stringify(respNodes));
-        setNodes(respNodes);
-      }
-    } catch (e) {
-      console.error(e);
-    }
-  }
-
-  // Fetch the kubernetes nodes from the backend (which itself makes a network call to the Kubernetes API).
-  const [nodes, setNodes] = React.useState<KubernetesNode[]>([]);
-  useEffect(() => {
-    ignoreResponse.current = false;
-    fetchKubernetesNodes();
-
-    // Periodically refresh the Kubernetes nodes every 120,000ms, or when the user clicks the "refresh" button.
-    setInterval(fetchKubernetesNodes, 120000);
-
-    return () => {
-      ignoreResponse.current = true;
-    };
-  }, []);
-
   // Handler for when the user filters by node name.
   const onFilter = (repo: KubernetesNode) => {
     // Search name with search value
@@ -133,23 +85,43 @@ export const KubernetesNodeList: React.FunctionComponent = () => {
     // If the filter text box is empty, then match against everything. Otherwise, match against node ID.
     return searchValue === '' || matchesSearchValue;
   };
-  const filteredNodes = nodes.filter(onFilter);
+  const filteredNodes = props.nodes.filter(onFilter);
 
   const toolbar = (
     <React.Fragment>
       <ToolbarToggleGroup toggleIcon={<FilterIcon />} breakpoint="xl">
         <Flex alignItems={{ default: 'alignItemsCenter' }}>
-          <ToolbarItem>
-            <InputGroup>
-              <InputGroupItem isFill>{searchInput}</InputGroupItem>
-            </InputGroup>
-          </ToolbarItem>
+          <FlexItem hidden={!props.selectable}>
+            <ToolbarItem>
+              <Tooltip exitDelay={75} content={<div>Refresh nodes.</div>}>
+                <Button
+                  variant="link"
+                  disabled={selectedNode != ''}
+                  onClick={() => {
+                    setSelectedNode('');
+                    if (props.onSelectNode != undefined) {
+                      props.onSelectNode('');
+                    }
+                  }}
+                >
+                  Clear Selection
+                </Button>
+              </Tooltip>
+            </ToolbarItem>
+          </FlexItem>
+          <FlexItem>
+            <ToolbarItem>
+              <InputGroup>
+                <InputGroupItem isFill>{searchInput}</InputGroupItem>
+              </InputGroup>
+            </ToolbarItem>
+          </FlexItem>
         </Flex>
       </ToolbarToggleGroup>
       <ToolbarGroup variant="icon-button-group">
         <ToolbarItem>
           <Tooltip exitDelay={75} content={<div>Refresh nodes.</div>}>
-            <Button variant="plain" onClick={fetchKubernetesNodes}>
+            <Button variant="plain" onClick={props.manuallyRefreshNodes}>
               <SyncIcon />
             </Button>
           </Tooltip>
@@ -190,8 +162,23 @@ export const KubernetesNodeList: React.FunctionComponent = () => {
     setExpandedNodes(newExpanded);
   };
 
+  // Returns true if the node's radio button should be disabled.
+  const shouldSelectBeDisabledForNode = (kubeNode: KubernetesNode) => {
+    if (props.disableRadiosWithKernel == '' || props.disableRadiosWithKernel == undefined) {
+      return false;
+    }
+
+    const kernelId: string = props.disableRadiosWithKernel!;
+    for (let i = 0; i < kubeNode.Pods.length; i++) {
+      const pod: KubernetesPod = kubeNode.Pods[i];
+      if (pod.PodName.includes(kernelId)) return true;
+    }
+
+    return false;
+  };
+
   return (
-    <Card isCompact isRounded isExpanded={isCardExpanded}>
+    <Card isRounded isExpanded={isCardExpanded}>
       <CardHeader
         onExpand={onCardExpand}
         actions={{ actions: toolbar, hasNoOffset: true }}
@@ -218,6 +205,26 @@ export const KubernetesNodeList: React.FunctionComponent = () => {
                 isExpanded={expandedNodes.includes(kubeNode.NodeId)}
               >
                 <DataListItemRow>
+                  {props.selectable && (
+                    <DataListControl>
+                      <Radio
+                        id={'node-' + kubeNode.NodeId + '-radio'}
+                        aria-label={'node-' + kubeNode.NodeId + '-radio'}
+                        aria-labelledby={'node-' + kubeNode.NodeId + '-radio'}
+                        name={'node-list-radio-buttons'}
+                        hidden={!props.selectable}
+                        isDisabled={shouldSelectBeDisabledForNode(kubeNode)}
+                        onChange={() => {
+                          console.log('Selected node ' + kubeNode.NodeId);
+                          setSelectedNode(kubeNode.NodeId);
+                          if (props.onSelectNode != undefined) {
+                            props.onSelectNode(kubeNode.NodeId);
+                          }
+                        }}
+                        isChecked={kubeNode.NodeId == selectedNode}
+                      />
+                    </DataListControl>
+                  )}
                   <DataListToggle
                     onClick={() => toggleExpandedNode(kubeNode.NodeId)}
                     isExpanded={expandedNodes.includes(kubeNode.NodeId)}
@@ -229,7 +236,11 @@ export const KubernetesNodeList: React.FunctionComponent = () => {
                       <DataListCell key="primary-content">
                         <Flex spaceItems={{ default: 'spaceItemsMd' }} direction={{ default: 'column' }}>
                           <FlexItem>
-                            <DescriptionList isCompact columnModifier={{ lg: '3Col' }}>
+                            <DescriptionList
+                              className="node-list-description-list"
+                              isCompact
+                              columnModifier={{ lg: '3Col' }}
+                            >
                               <DescriptionListGroup>
                                 <DescriptionListTerm>Node ID</DescriptionListTerm>
                                 <DescriptionListDescription>{kubeNode.NodeId}</DescriptionListDescription>
@@ -267,6 +278,7 @@ export const KubernetesNodeList: React.FunctionComponent = () => {
                   />
                 </DataListItemRow>
                 <DataListContent
+                  className="node-list-expandable-content"
                   aria-label={'node-' + kubeNode.NodeId + '-expandable-content'}
                   id={'node-' + kubeNode.NodeId + '-expandable-content'}
                   isHidden={!expandedNodes.includes(kubeNode.NodeId)}

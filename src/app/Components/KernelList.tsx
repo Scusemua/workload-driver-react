@@ -7,10 +7,6 @@ import {
   CardExpandableContent,
   CardHeader,
   CardTitle,
-  ClipboardCopyButton,
-  CodeBlock,
-  CodeBlockAction,
-  CodeBlockCode,
   DataList,
   DataListAction,
   DataListCell,
@@ -29,8 +25,6 @@ import {
   MenuItem,
   MenuList,
   MenuToggle,
-  Modal,
-  ModalVariant,
   Popper,
   SearchInput,
   Stack,
@@ -44,13 +38,10 @@ import {
   ToolbarToggleGroup,
   Tooltip,
 } from '@patternfly/react-core';
+
 import { KernelManager, ServerConnection } from '@jupyterlab/services';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 
-import { InformationModal } from '@app/Components/InformationModal';
-import { ConfirmationModal, ConfirmationWithTextInputModal } from '@app/Components/ConfirmationModal';
-import { CodeEditorComponent } from '@app/Components/CodeEditor';
-import { DistributedJupyterKernel } from '@data/Kernel';
 import {
   CheckCircleIcon,
   CodeIcon,
@@ -67,7 +58,16 @@ import {
   SyncIcon,
   TrashIcon,
 } from '@patternfly/react-icons';
+
 import { IKernelConnection } from '@jupyterlab/services/lib/kernel/kernel';
+
+import {
+  ConfirmationModal,
+  ConfirmationWithTextInputModal,
+  ExecuteCodeOnKernelModal,
+  InformationModal,
+} from '@app/Components/Modals';
+import { DistributedJupyterKernel } from '@data/Kernel';
 
 function isNumber(value?: string | number): boolean {
   return value != null && value !== '' && !isNaN(Number(value.toString()));
@@ -85,122 +85,11 @@ const kernelStatusIcons = {
   dead: <SkullIcon />,
 };
 
-interface ExecuteCodeOnKernelProps {
-  children?: React.ReactNode;
-  kernelId: string;
-  isOpen: boolean;
-  onClose: () => void;
-  onSubmit: (code: string, logConsumer: (msg: string) => void) => Promise<void>;
+export interface KernelListProps {
+  openMigrationModal: (DistributedJupyterKernel, JupyterKernelReplica) => void;
 }
 
-const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKernelProps> = (props) => {
-  const [code, setCode] = React.useState('');
-  const [executionState, setExecutionState] = React.useState('idle');
-  const [copied, setCopied] = React.useState(false);
-  const [output, setOutput] = React.useState('');
-
-  const clipboardCopyFunc = (_event, text) => {
-    navigator.clipboard.writeText(text.toString());
-  };
-
-  const onClickCopyToClipboard = (event, text) => {
-    clipboardCopyFunc(event, text);
-    setCopied(true);
-  };
-
-  const logConsumer = (msg: string) => {
-    console.log('Appending log message: ' + msg);
-    setOutput(output + '\n' + msg);
-  };
-
-  const onSubmit = () => {
-    async function runUserCode() {
-      await props.onSubmit(code, logConsumer);
-      setExecutionState('done');
-    }
-
-    runUserCode();
-  };
-
-  const onChange = (code) => {
-    setCode(code);
-  };
-
-  // Reset state, then call user-supplied onClose function.
-  const onClose = () => {
-    setExecutionState('idle');
-    setOutput('');
-    props.onClose();
-  };
-
-  const outputLogActions = (
-    <React.Fragment>
-      <CodeBlockAction>
-        <ClipboardCopyButton
-          id="basic-copy-button"
-          textId="code-content"
-          aria-label="Copy to clipboard"
-          onClick={(e) => onClickCopyToClipboard(e, code)}
-          exitDelay={copied ? 1500 : 600}
-          maxWidth="110px"
-          variant="plain"
-          onTooltipHidden={() => setCopied(false)}
-        >
-          {copied ? 'Successfully copied to clipboard!' : 'Copy to clipboard'}
-        </ClipboardCopyButton>
-      </CodeBlockAction>
-    </React.Fragment>
-  );
-
-  return (
-    <Modal
-      variant={ModalVariant.large}
-      title={'Execute Code on Kernel ' + props.kernelId}
-      isOpen={props.isOpen}
-      onClose={props.onClose}
-      actions={[
-        <Button
-          key="submit"
-          variant="primary"
-          onClick={() => {
-            if (executionState == 'idle') {
-              console.log('Executing code now.');
-              setExecutionState('busy');
-              onSubmit();
-            } else if (executionState == 'busy') {
-              console.log(
-                'Please wait until the current execution completes before submitting additional code for execution.',
-              );
-            } else {
-              onClose();
-            }
-          }}
-          isLoading={executionState === 'busy'}
-          icon={executionState === 'done' ? <CheckCircleIcon /> : null}
-          spinnerAriaValueText="Loading..."
-        >
-          {executionState === 'idle' && 'Execute'}
-          {executionState === 'busy' && 'Executing code'}
-          {executionState === 'done' && 'Complete'}
-        </Button>,
-        <Button key="cancel" variant="link" onClick={onClose}>
-          Cancel
-        </Button>,
-      ]}
-    >
-      Enter the code to be executed below. Once you&apos;re ready, press &apos;Submit&apos; to submit the code to the
-      kernel for execution.
-      <CodeEditorComponent onChange={onChange} />
-      <br />
-      <Title headingLevel="h2">Output</Title>
-      <CodeBlock actions={outputLogActions}>
-        <CodeBlockCode id="code-execution-output">{output}</CodeBlockCode>
-      </CodeBlock>
-    </Modal>
-  );
-};
-
-export const KernelList: React.FunctionComponent = () => {
+export const KernelList: React.FunctionComponent<KernelListProps> = (props: KernelListProps) => {
   const [searchValue, setSearchValue] = React.useState('');
   const [statusSelections, setStatusSelections] = React.useState<string[]>([]);
   const [isCardExpanded, setIsCardExpanded] = React.useState(true);
@@ -479,11 +368,14 @@ export const KernelList: React.FunctionComponent = () => {
   const [kernels, setKernels] = React.useState<DistributedJupyterKernel[]>([]);
   useEffect(() => {
     ignoreResponse.current = false;
-
     fetchKernels();
 
     // Periodically refresh the automatically kernels every 30 seconds.
-    setInterval(fetchKernels, 120000);
+    setInterval(() => {
+      ignoreResponse.current = false;
+      fetchKernels();
+      ignoreResponse.current = true;
+    }, 120000);
 
     return () => {
       ignoreResponse.current = true;
@@ -640,7 +532,15 @@ export const KernelList: React.FunctionComponent = () => {
             </Button>
           </Tooltip>
           <Tooltip exitDelay={75} content={<div>Refresh kernels.</div>}>
-            <Button id="refresh-kernels-button" variant="plain" onClick={fetchKernels}>
+            <Button
+              id="refresh-kernels-button"
+              variant="plain"
+              onClick={() => {
+                ignoreResponse.current = false;
+                fetchKernels();
+                ignoreResponse.current = true;
+              }}
+            >
               <SyncIcon />
             </Button>
           </Tooltip>
@@ -675,7 +575,13 @@ export const KernelList: React.FunctionComponent = () => {
             </Td> */}
             <Td>
               <Tooltip exitDelay={20} entryDelay={175} content={<div>Migrate this replica to another node.</div>}>
-                <Button variant={'link'} icon={<MigrationIcon />}>
+                <Button
+                  variant={'link'}
+                  icon={<MigrationIcon />}
+                  onClick={() => {
+                    props.openMigrationModal(kernel, replica);
+                  }}
+                >
                   Migrate
                 </Button>
               </Tooltip>
@@ -696,7 +602,7 @@ export const KernelList: React.FunctionComponent = () => {
   };
 
   return (
-    <Card isCompact isRounded isExpanded={isCardExpanded}>
+    <Card isRounded isExpanded={isCardExpanded}>
       <CardHeader
         onExpand={onCardExpand}
         actions={{ actions: cardHeaderActions, hasNoOffset: true }}
@@ -729,6 +635,7 @@ export const KernelList: React.FunctionComponent = () => {
               <DataListItem
                 isExpanded={expandedKernels.includes(kernel.kernelId)}
                 key={kernel.kernelId}
+                className="kernel-list-row"
                 id={'content-padding-item-' + idx}
               >
                 <DataListItemRow>
@@ -753,7 +660,7 @@ export const KernelList: React.FunctionComponent = () => {
                           <FlexItem>
                             <p>Kernel {kernel.kernelId}</p>
                           </FlexItem>
-                          <Flex spaceItems={{ default: 'spaceItemsMd' }}>
+                          <Flex className="kernel-list-stat-icons" spaceItems={{ default: 'spaceItemsMd' }}>
                             <FlexItem>
                               <CubeIcon /> {kernel.numReplicas}
                             </FlexItem>
@@ -805,6 +712,7 @@ export const KernelList: React.FunctionComponent = () => {
                 <DataListContent
                   aria-label={'kernel-' + kernel.kernelId + '-expandable-content'}
                   id={'kernel-' + kernel.kernelId + '-expandable-content'}
+                  className="kernel-list-expandable-content"
                   isHidden={!expandedKernels.includes(kernel.kernelId)}
                 >
                   {expandedKernelContent(kernel)}

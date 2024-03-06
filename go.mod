@@ -7,8 +7,8 @@ require (
 	github.com/gin-gonic/gin v1.9.1
 	github.com/google/uuid v1.6.0
 	github.com/joho/godotenv v1.5.1
+	github.com/koding/websocketproxy v0.0.0-20181220232114-7ed82d81a28c
 	github.com/orcaman/concurrent-map/v2 v2.0.1
-	github.com/roylisto/gin-golang-react v0.0.0-20210916050058-6cd870c9ef6d
 	go.uber.org/zap v1.27.0
 	google.golang.org/grpc v1.62.0
 	google.golang.org/protobuf v1.32.0
@@ -43,7 +43,6 @@ require (
 	github.com/josharian/intern v1.0.0 // indirect
 	github.com/json-iterator/go v1.1.12 // indirect
 	github.com/klauspost/cpuid/v2 v2.2.4 // indirect
-	github.com/koding/websocketproxy v0.0.0-20181220232114-7ed82d81a28c // indirect
 	github.com/leodido/go-urn v1.2.4 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
 	github.com/mattn/go-isatty v0.0.19 // indirect

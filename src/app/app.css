@@ -41,6 +41,30 @@ body,
   animation: spin 1.5s infinite linear;
 }
 
-#code-execution-output {
+.code-execution-output {
   white-space:pre-wrap
+}
+
+.node-list-description-list {
+  margin-bottom: -8px
+}
+
+.node-list-expandable-content {
+  margin-top: -24px
+}
+
+.kernel-list-stat-icons {
+  margin-top: -16px;
+}
+
+.kernel-list-row {
+  padding: 0px 16px 0px 4px;
+}
+
+.kernel-list-expandable-content {
+  margin-top: -48px
+}
+
+.pf-v5-c-description-list__description {
+  margin-top: -8px
 }

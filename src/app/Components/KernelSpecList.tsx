@@ -96,7 +96,11 @@ export const KernelSpecList: React.FunctionComponent = () => {
     fetchKernelSpecs();
 
     // Periodically refresh the automatically kernel specs every 5 minutes.
-    setInterval(fetchKernelSpecs, 300000);
+    setInterval(() => {
+      ignoreResponse.current = false;
+      fetchKernelSpecs();
+      ignoreResponse.current = true;
+    }, 300000);
 
     return () => {
       ignoreResponse.current = true;
@@ -107,7 +111,14 @@ export const KernelSpecList: React.FunctionComponent = () => {
     <ToolbarGroup variant="icon-button-group">
       <ToolbarItem>
         <Tooltip exitDelay={75} content={<div>Refresh kernel specs.</div>}>
-          <Button variant="plain" onClick={fetchKernelSpecs}>
+          <Button
+            variant="plain"
+            onClick={() => {
+              ignoreResponse.current = false;
+              fetchKernelSpecs();
+              ignoreResponse.current = true;
+            }}
+          >
             <SyncIcon />
           </Button>
         </Tooltip>
@@ -116,7 +127,7 @@ export const KernelSpecList: React.FunctionComponent = () => {
   );
 
   return (
-    <Card isCompact isRounded isExpanded={isCardExpanded}>
+    <Card isRounded isExpanded={isCardExpanded}>
       <CardHeader
         onExpand={onCardExpand}
         actions={{ actions: cardHeaderActions, hasNoOffset: true }}

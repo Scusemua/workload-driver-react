@@ -11,15 +11,20 @@ import (
 )
 
 type JupyterProxyRouter struct {
-	ContextPath string
-	Start       int
-	Config      *config.Configuration
+	ContextPath  string
+	Start        int
+	Config       *config.Configuration
+	SpoofJupyter bool
 	*gin.Engine
 }
 
 func (r *JupyterProxyRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	fmt.Printf("req.RequestURI: %s. req.Method:%v\n", req.RequestURI, req.Method)
-	if strings.HasPrefix(req.RequestURI, r.ContextPath) {
+
+	if r.SpoofJupyter || !strings.HasPrefix(req.RequestURI, r.ContextPath) {
+		r.Engine.ServeHTTP(w, req)
+	} else {
+		// If we're here, then we're not spoofing jupyter AND the request has the "/jupyter" prefix.
 		req.RequestURI = req.RequestURI[r.Start:]
 		req.URL.Path = req.URL.Path[r.Start:]
 
@@ -33,7 +38,5 @@ func (r *JupyterProxyRouter) ServeHTTP(w http.ResponseWriter, req *http.Request)
 			Director: director,
 		}
 		proxy.ServeHTTP(w, req)
-	} else {
-		r.Engine.ServeHTTP(w, req)
 	}
 }

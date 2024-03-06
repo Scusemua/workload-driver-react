@@ -28,10 +28,11 @@ func main() {
 	}
 
 	app := &proxy.JupyterProxyRouter{
-		ContextPath: domain.JUPYTER_GROUP_ENDPOINT,
-		Start:       len(domain.JUPYTER_GROUP_ENDPOINT),
-		Config:      conf,
-		Engine:      gin.New(),
+		ContextPath:  domain.JUPYTER_GROUP_ENDPOINT,
+		Start:        len(domain.JUPYTER_GROUP_ENDPOINT),
+		Config:       conf,
+		SpoofJupyter: conf.SpoofKernelSpecs,
+		Engine:       gin.New(),
 	}
 
 	app.ForwardedByClientIP = true
@@ -52,6 +53,13 @@ func main() {
 
 		// Used internally (by the frontend) to get the current set of Jupyter kernels from us (i.e., the backend).
 		apiGroup.GET(domain.GET_KERNELS_ENDPOINT, handlers.NewKernelHttpHandler(conf).HandleRequest)
+	}
+
+	if conf.SpoofKernelSpecs {
+		jupyterGroup := app.Group(domain.JUPYTER_GROUP_ENDPOINT)
+		{
+			jupyterGroup.GET(domain.BASE_API_GROUP_ENDPOINT+domain.KERNEL_SPEC_ENDPOINT, handlers.NewJupyterAPIHandler(conf).HandleGetKernelSpecRequest)
+		}
 	}
 
 	go http.ListenAndServe(fmt.Sprintf("127.0.0.1:%d", conf.ServerPort), app)

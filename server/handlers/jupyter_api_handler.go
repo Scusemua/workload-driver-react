@@ -43,11 +43,11 @@ func NewJupyterAPIHandler(opts *config.Configuration) domain.JupyterApiHttpHandl
 
 	handler.logger.Info(fmt.Sprintf("Creating server-side JupyterAPIHandler.\nOptions: %s", opts))
 
-	connectivity := handler.testJupyterServerConnectivity()
-	if !connectivity && !opts.SpoofKernelSpecs {
-		handler.logger.Error("Cannot connect to the Jupyter server.", zap.String("jupyter-server-ip", handler.jupyterServerAddress))
-		panic("Could not connect to Jupyter server.")
-	}
+	// connectivity := handler.testJupyterServerConnectivity()
+	// if !connectivity && !opts.SpoofKernelSpecs {
+	// 	handler.logger.Error("Cannot connect to the Jupyter server.", zap.String("jupyter-server-ip", handler.jupyterServerAddress))
+	// 	panic("Could not connect to Jupyter server.")
+	// }
 
 	return handler
 }
