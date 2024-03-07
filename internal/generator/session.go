@@ -142,7 +142,7 @@ func (s *Session) Transit(evt domain.Event, inspect bool) ([]SessionEvent, error
 		s.last = evt
 	}()
 
-	events, err := s.transit(evt, inspect)
+	events, err := s.transit(evt)
 	sugarLog.Debug("Transitioned Session. NewStatus=%v. Events=%v.", s.Status, events)
 	if err == ErrEventPending {
 		return events, nil
@@ -159,7 +159,7 @@ func (s *Session) Transit(evt domain.Event, inspect bool) ([]SessionEvent, error
 		// We reuse the backend slice, for the pending events will be appended to original slice with the same order.
 		s.pending = pending[:0]
 		for _, evt := range pending {
-			moreEvents, err := s.transit(evt, inspect)
+			moreEvents, err := s.transit(evt)
 			if err == ErrEventPending {
 				// Not applied? just continue.
 				break
@@ -177,7 +177,7 @@ func (s *Session) Transit(evt domain.Event, inspect bool) ([]SessionEvent, error
 	return events, nil
 }
 
-func (s *Session) transit(evt domain.Event, inspect bool) ([]SessionEvent, error) {
+func (s *Session) transit(evt domain.Event) ([]SessionEvent, error) {
 	// log.Debug("Transitioning Session. CurrentStatus=%v. Event=%v.", s.Status, evt)
 	switch s.Status {
 	case SessionInit:
@@ -314,7 +314,7 @@ func (s *Session) transit(evt domain.Event, inspect bool) ([]SessionEvent, error
 			// Ignore irrelevant events.
 			break
 		} else {
-			return NoSessionEvent, Errorf(ErrUnexpectedSessionStTrans, "SessionStopping on event %s", evt.Name)
+			return NoSessionEvent, Errorf(ErrUnexpectedSessionStTrans, "SessionStopping on event %s", evt.Name())
 		}
 
 		// Check if session is ready to stop.

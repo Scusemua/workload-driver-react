@@ -391,8 +391,6 @@ func (s *Synthesizer) Synthesize(ctx context.Context, opts *domain.WorkloadConfi
 	if s.executionMode == 1 {
 		workloadSimulatorDoneChan <- struct{}{}
 		s.log.Info("Informed the Simulation Driver that the simulation has ended.")
-		// clusterDoneChan <- struct{}{}
-		// s.log.Info("Informed the Cluster that the simulation has ended.")
 	}
 }
 

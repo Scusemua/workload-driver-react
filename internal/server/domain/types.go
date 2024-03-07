@@ -18,6 +18,9 @@ const (
 	// Used internally (by the frontend) to get the system config from the backend.
 	SYSTEM_CONFIG_ENDPOINT = "/config"
 
+	// Used internally (by the frontend) to trigger kernel replica migrations.
+	MIGRATION_ENDPOINT = "/migrate"
+
 	// Used internally (by the frontend) to get the current set of Jupyter kernel specs from the backend.
 	KERNEL_SPEC_ENDPOINT = "/kernelspecs"
 
@@ -129,8 +132,9 @@ func (kp *KubernetesPod) String() string {
 }
 
 type ErrorMessage struct {
-	ErrorMessage string `json:"ErrorMessage"`
-	Valid        bool   `json:"Valid"` // Used to determine if the struct was sent/received correctly over the network.
+	Description  string `json:"Description"`  // Provides additional context for what occurred; written by us.
+	ErrorMessage string `json:"ErrorMessage"` // The value returned by err.Error() for whatever error occurred.
+	Valid        bool   `json:"Valid"`        // Used to determine if the struct was sent/received correctly over the network.
 }
 
 func (m *ErrorMessage) String() string {

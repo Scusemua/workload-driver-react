@@ -435,21 +435,12 @@ func (d *MemoryDriver) HandleRecord(ctx context.Context, r Record) {
 	}
 	d.lastRead = rec.Timestamp.Time().Unix()
 
-	// log.Trace("handle reading %d, %v", rec.Timestamp.Time().Unix(), rec)
-
 	if d.ExecutionMode == 0 {
-		//log.Info("[%s] Acquiring MaxesMutex lock.", d.DriverType)
-		// d.MaxesMutex.RLock()
 		d.MaxesMutex.Lock()
 		if _, ok := d.TrainingMaxes[rec.Pod]; !ok {
-			// d.MaxesMutex.RUnlock()
-			// d.MaxesMutex.Lock()
 			podTrainingMaxes := make([]float64, 1)
 			podTrainingMaxes[0] = -1
 			d.TrainingMaxes[rec.Pod] = podTrainingMaxes
-			// d.MaxesMutex.Unlock()
-		} else {
-			// d.MaxesMutex.RUnlock()
 		}
 		d.MaxesMutex.Unlock()
 	}

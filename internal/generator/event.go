@@ -66,9 +66,6 @@ func (e *eventImpl) String() string {
 	case EventError:
 		return fmt.Sprintf("generator.Event[Name=%s -- src=%v, orgSrc=%v, orderSeq=%d, data=%v]", e.Name(), e.EventSource(), e.OriginalEventSource(), e.OrderSeq(), e.Data())
 	}
-	if e.EventSource == nil {
-		return fmt.Sprintf("generator.Event[Timestamp=%v, Name=%s -- src=N/A, orgSrc=N/A, orderSeq=%d, data=%v]", e.Timestamp(), e.Name(), e.OrderSeq(), e.Data())
-	}
 	return fmt.Sprintf("generator.Event[Timestamp=%v, Name=%s -- src=%v, orgSrc=%v, orderSeq=%d, data=%v]", e.Timestamp(), e.Name(), e.EventSource(), e.OriginalEventSource(), e.OrderSeq(), e.Data())
 }
 

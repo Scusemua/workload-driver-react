@@ -486,7 +486,7 @@ func main() {
 	simulationDriver := driver.NewWorkloadDriver(options) // eventQueueService
 
 	if options.ExecutionMode == 1 {
-		go simulationDriver.DriveSimulation()
+		go simulationDriver.DriveWorkload()
 
 		// Set the cluster as the EventHandler for the Synthesizer.
 		synth.SetEventConsumer(simulationDriver)

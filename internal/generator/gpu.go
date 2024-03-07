@@ -521,16 +521,11 @@ func (d *GPUDriver) updateMaxUtilization(committed *GPUUtil) {
 	// It's set (in the base Driver) to -1 when training ends so that we stop recording.
 	// It's set (in the base Driver) to 0 when training begins so that we start recording.
 	if d.SessionIsCurrentlyTraining[committed.Pod] && committed.Value > current_training_maxes[n-1] {
-		// d.MaxesMutex.RUnlock()
-		// d.MaxesMutex.Lock()
 		current_training_maxes[n-1] = committed.Value
 		current_training_gpus[n-1] = committed.GPUs
 
 		d.TrainingMaxes[committed.Pod] = current_training_maxes
 		d.TrainingNumGPUs[committed.Pod] = current_training_gpus
-		// d.MaxesMutex.Unlock()
-	} else {
-		// d.MaxesMutex.RUnlock()
 	}
 }
 

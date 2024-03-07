@@ -56,6 +56,9 @@ func main() {
 
 		// Used internally (by the frontend) to get the list of available workload presets from the backend.
 		apiGroup.GET(domain.WORKLOAD_PRESET_ENDPOINT, handlers.NewWorkloadPresetHttpHandler(conf).HandleRequest)
+
+		// Used internally (by the frontend) to trigger kernel replica migrations.
+		apiGroup.GET(domain.MIGRATION_ENDPOINT, handlers.NewMigrationHttpHandler(conf).HandleRequest)
 	}
 
 	if conf.SpoofKernelSpecs {
