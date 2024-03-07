@@ -53,6 +53,9 @@ func main() {
 
 		// Used internally (by the frontend) to get the current set of Jupyter kernels from us (i.e., the backend).
 		apiGroup.GET(domain.GET_KERNELS_ENDPOINT, handlers.NewKernelHttpHandler(conf).HandleRequest)
+
+		// Used internally (by the frontend) to get the list of available workload presets from the backend.
+		apiGroup.GET(domain.WORKLOAD_PRESET_ENDPOINT, handlers.NewWorkloadPresetHttpHandler(conf).HandleRequest)
 	}
 
 	if conf.SpoofKernelSpecs {

@@ -24,6 +24,9 @@ const (
 	// Used internally (by the frontend) to get the current set of Jupyter kernels from the backend.
 	GET_KERNELS_ENDPOINT = "/get-kernels"
 
+	// Used internally (by the frontend) to get the list of available workload presets from the backend.
+	WORKLOAD_PRESET_ENDPOINT = "/workload-presets"
+
 	JUPYTER_GROUP_ENDPOINT        = "/jupyter"
 	JUPYTER_START_KERNEL_ENDPOINT = "/start"
 	JUPYTER_STOP_KERNEL_ENDPOINT  = "/stop"
@@ -199,4 +202,11 @@ func (kp *KernelProvisioner) String() string {
 	}
 
 	return string(out)
+}
+
+type WorkloadPreset struct {
+	Name        string   `json:"name"`        // Human-readable name for this particular workload preset.
+	Description string   `json:"description"` // Human-readable description of the workload.
+	Key         string   `json:"key"`         // Key for code-use only (i.e., we don't intend to display this to the user for the most part).
+	Months      []string `json:"months"`      // The months of data used by the workload.
 }

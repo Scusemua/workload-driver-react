@@ -11,14 +11,14 @@ build-backend: build-server
 
 build-server: 
 	@echo Building backend server now.
-	go build -o server ./server/cmd/main.go 
+	go build -o server ./cmd/server/main.go 
 
 # Alias for run-server. 
 run-backend: run-server 
 
 run-server-spoofed:
 	@echo Running backend server now.
-	go run ./server/cmd/main.go --in-cluster=false --spoof-nodes=true --spoof-kernels=true --spoof-specs=true  --server-port=8005
+	go run ./cmd/server/main.go --in-cluster=false --spoof-nodes=true --spoof-kernels=true --spoof-specs=true  --server-port=8005
 
 run-server:
 	@echo Running backend server now.

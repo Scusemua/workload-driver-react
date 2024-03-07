@@ -22,10 +22,10 @@
     "strict": true,
     "paths": {
       "@app/*": [
-        "src/app/*"
+        "web/app/*"
       ],
       "@data/*": [
-        "src/app/Data/*"
+        "web/app/Data/*"
       ],
       "@assets/*": [
         "node_modules/@patternfly/react-core/dist/styles/assets/*"
