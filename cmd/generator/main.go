@@ -22,7 +22,9 @@ import (
 	"time"
 
 	"github.com/fatih/color"
+	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/generator"
+	"github.com/scusemua/workload-driver-react/m/v2/internal/server/driver"
 	"github.com/zhangjyr/gocsv"
 	"go.uber.org/zap"
 
@@ -144,7 +146,7 @@ func main() {
 	var wg sync.WaitGroup
 
 	// Assign some default values for certain configuration parameters.
-	options := &generator.WorkloadGeneratorConfig{
+	options := &domain.WorkloadConfig{
 		TraceStep:                         60,
 		MaxTaskDurationSec:                300,      // 5 minutes.
 		CheckpointMinDelayMillis:          "10",     // 10 millisecond.
@@ -195,7 +197,7 @@ func main() {
 	// 	log.Println(http.ListenAndServe("localhost:6060", nil))
 	// }()
 
-	generator.Config = options
+	domain.Config = options
 	options.CheckUsage()
 
 	outputSubdir := time.Now().Format("01-02-2006 15:04:05")
@@ -352,7 +354,7 @@ func main() {
 		}
 	}
 
-	eventQueueService := NewEventQueueService(options)
+	// eventQueueService := NewEventQueueService(options)
 
 	maxUtilizationWrapper := generator.NewMaxUtilizationWrapper(cpuSessionMap, memSessionMap, gpuSessionMap, cpuTaskMap, memTaskMap, gpuTaskMap)
 	synth := generator.NewSynthesizer(options, maxUtilizationWrapper)
@@ -473,27 +475,27 @@ func main() {
 	// go bufferedEventService.ServeTick()
 
 	// Synthesize events.
-	cluster := NewCluster(&options, cpuSessionMap, memSessionMap, gpuSessionMap, eventQueueService, &wg, outputSubdirectoryPath)
-	if options.ExecutionMode == 1 {
-		eventQueueService.Initialize(cluster)
-		defer cluster.Close()
-		wg.Add(1)
-		go cluster.ServeTicks()
-	}
+	// cluster := NewCluster(&options, cpuSessionMap, memSessionMap, gpuSessionMap, eventQueueService, &wg, outputSubdirectoryPath)
+	// if options.ExecutionMode == 1 {
+	// 	eventQueueService.Initialize(cluster)
+	// 	defer cluster.Close()
+	// 	wg.Add(1)
+	// 	go cluster.ServeTicks()
+	// }
 
-	simulationDriver := NewSimulationDriver(&options, eventQueueService, true)
+	simulationDriver := driver.NewWorkloadDriver(options) // eventQueueService
 
 	if options.ExecutionMode == 1 {
-		go simulationDriver.DriveSimulation(&options)
+		go simulationDriver.DriveSimulation()
 
 		// Set the cluster as the EventHandler for the Synthesizer.
 		synth.SetEventConsumer(simulationDriver)
 	}
 
 	// Start synthesizing.
-	synth.Synthesize(ctx, options, simulationDriver.DoneChan(), cluster.DoneChan())
+	synth.Synthesize(ctx, options, simulationDriver.DoneChan()) // , cluster.DoneChan()
 
-	log.Printf("Waiting for Cluster to finish before simulation can exit. There is/are %d session event(s) enqueued right now.\n", eventQueueService.Len())
+	// log.Printf("Waiting for Cluster to finish before simulation can exit. There is/are %d session event(s) enqueued right now.\n", eventQueueService.Len())
 	wg.Wait()
 
 	log.Printf("Simulation complete. Time elapsed: %v\n.", time.Since(start_time))

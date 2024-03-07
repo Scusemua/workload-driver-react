@@ -68,24 +68,21 @@ type Synthesizer struct {
 	drivingGPU bool
 	drivingMem bool
 
-	consumer       domain.EventConsumer
-	bufferedEvents chan domain.Event
-	eventsChannel  chan domain.Event
-	eventsHeap     SimpleEventHeap
-
-	numActiveSources uint64
-
+	consumer              domain.EventConsumer
+	bufferedEvents        chan domain.Event
+	eventsChannel         chan domain.Event
+	eventsHeap            SimpleEventHeap
+	numActiveSources      uint64
 	maxUtilizationWrapper *MaxUtilizationWrapper
 
 	executionMode int
-
 	// Per synthsizing fields
-	sessions     map[string]*Session
-	firstEventTs int64
-	lastTickTs   int64
+	sessions   map[string]*Session
+	lastTickTs int64
+	// firstEventTs int64
 }
 
-func NewSynthesizer(opts *WorkloadGeneratorConfig, maxUtilizationWrapper *MaxUtilizationWrapper) *Synthesizer {
+func NewSynthesizer(opts *domain.WorkloadConfig, maxUtilizationWrapper *MaxUtilizationWrapper) *Synthesizer {
 	if opts.ExecutionMode == 1 {
 		if maxUtilizationWrapper.MemSessionMap == nil {
 			panic("The Synthesizer's per-session max-memory map should not be nil during a standard (i.e., non-pre-run) simulation.")
@@ -312,7 +309,7 @@ func (s *Synthesizer) transitionAndSubmitEvent(evt domain.Event) {
 	}
 }
 
-func (s *Synthesizer) Synthesize(ctx context.Context, opts *WorkloadGeneratorConfig, workloadSimulatorDoneChan chan struct{}, clusterDoneChan chan struct{}) {
+func (s *Synthesizer) Synthesize(ctx context.Context, opts *domain.WorkloadConfig, workloadSimulatorDoneChan chan struct{}) { // , clusterDoneChan chan struct{}
 	simulation_start := time.Now()
 
 	s.Tick = opts.TraceStep
@@ -394,8 +391,8 @@ func (s *Synthesizer) Synthesize(ctx context.Context, opts *WorkloadGeneratorCon
 	if s.executionMode == 1 {
 		workloadSimulatorDoneChan <- struct{}{}
 		s.log.Info("Informed the Simulation Driver that the simulation has ended.")
-		clusterDoneChan <- struct{}{}
-		s.log.Info("Informed the Cluster that the simulation has ended.")
+		// clusterDoneChan <- struct{}{}
+		// s.log.Info("Informed the Cluster that the simulation has ended.")
 	}
 }
 

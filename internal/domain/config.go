@@ -1,4 +1,4 @@
-package generator
+package domain
 
 import (
 	"flag"
@@ -21,12 +21,12 @@ const (
 )
 
 var (
-	Config  *WorkloadGeneratorConfig = nil
+	Config  *WorkloadConfig = nil
 	Verbose bool
 	Months  = []string{"jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"}
 )
 
-type WorkloadGeneratorConfig struct {
+type WorkloadConfig struct {
 	YAML                         string `name:"yaml" description:"Path to config file in the yml format."`
 	TraceStep                    int64  `name:"trace-step" description:"Default interval, in seconds, of two consecutive trace readings."`
 	GPUTraceFile                 string `name:"gputrace" description:"File path of GPU utilization trace."`
@@ -255,7 +255,7 @@ type WorkloadGeneratorConfig struct {
 	MinScheduledReplicaFitnessCheck string  `name:"min-scheduled-replica-metric" description:"Indicates whether to go off of a numerical quantity ('quantity') of actively-scheduled training replicas or a fraction ('fraction') of actively-scheduled training replicas when determining if a Session is fit to process training-events."`                          // Indicates whether to go off of a numerical quantity ("quantity") of actively-scheduled training replicas or a fraction ("fraction") of actively-scheduled training replicas when determining if a Session is fit to process training-events.
 }
 
-func (opts *WorkloadGeneratorConfig) CheckUsage() {
+func (opts *WorkloadConfig) CheckUsage() {
 	var printInfo bool
 	flag.BoolVar(&printInfo, "h", false, "help info?")
 
@@ -314,7 +314,7 @@ func (opts *WorkloadGeneratorConfig) CheckUsage() {
 		if err := configKit.LoadFiles(opts.YAML); err != nil {
 			panic(err)
 		}
-		fileOpts := &WorkloadGeneratorConfig{}
+		fileOpts := &WorkloadConfig{}
 		if err := configKit.BindStruct("", fileOpts); err != nil {
 			panic(err)
 		}
@@ -341,7 +341,7 @@ func (opts *WorkloadGeneratorConfig) CheckUsage() {
 	}
 }
 
-func (opts *WorkloadGeneratorConfig) NormalizeTracePaths(path string) []string {
+func (opts *WorkloadConfig) NormalizeTracePaths(path string) []string {
 	if opts.FromMonth == "" {
 		return []string{path}
 	}
@@ -367,7 +367,7 @@ func (opts *WorkloadGeneratorConfig) NormalizeTracePaths(path string) []string {
 	return paths
 }
 
-func (opts *WorkloadGeneratorConfig) NormalizeDowntime(downtime string) []int64 {
+func (opts *WorkloadConfig) NormalizeDowntime(downtime string) []int64 {
 	if downtime == "" {
 		return nil
 	}
