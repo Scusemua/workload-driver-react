@@ -4,6 +4,8 @@ import (
 	"errors"
 	"fmt"
 	"time"
+
+	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
 )
 
 var (
@@ -100,8 +102,8 @@ type Session struct {
 	InitedAt  time.Time
 	InitDelay time.Duration
 
-	last    *Event   // Track last event for debugging purpose.
-	pending []*Event // For special cases, previous event will be saved here. See Transit implementation.
+	last    domain.Event   // Track last event for debugging purpose.
+	pending []domain.Event // For special cases, previous event will be saved here. See Transit implementation.
 }
 
 func (s *Session) String() string {
@@ -130,12 +132,12 @@ func (s *Session) setReadyFlag(expects int, utils int) int {
 	return s.StatusReadyFlags
 }
 
-func (s *Session) Transit(evt *Event, inspect bool) ([]SessionEvent, error) {
+func (s *Session) Transit(evt domain.Event, inspect bool) ([]SessionEvent, error) {
 	if s.pending == nil {
-		s.pending = make([]*Event, 0, 3)
+		s.pending = make([]domain.Event, 0, 3)
 	}
 	// Support the detection of series transitions
-	s.Timestamp = evt.Timestamp
+	s.Timestamp = evt.Timestamp()
 	defer func() {
 		s.last = evt
 	}()
@@ -175,53 +177,53 @@ func (s *Session) Transit(evt *Event, inspect bool) ([]SessionEvent, error) {
 	return events, nil
 }
 
-func (s *Session) transit(evt *Event, inspect bool) ([]SessionEvent, error) {
+func (s *Session) transit(evt domain.Event, inspect bool) ([]SessionEvent, error) {
 	// log.Debug("Transitioning Session. CurrentStatus=%v. Event=%v.", s.Status, evt)
 	switch s.Status {
 	case SessionInit:
-		if evt.Name == EventGPUStarted {
-			s.GPU = evt.Data.(*GPUUtil)
+		if evt.Name() == EventGPUStarted {
+			s.GPU = evt.Data().(*GPUUtil)
 			s.Status = SessionInitializing
-			s.InitedAt = evt.Timestamp
+			s.InitedAt = evt.Timestamp()
 			s.resetReadyFlags()
 			s.setReadyFlag(SessionReadyExpects, SessionGPUReady)
 			return []SessionEvent{EventSessionStarted}, nil
-		} else if evt.Name == EventCPUStarted {
-			s.CPU = evt.Data.(*CPUUtil)
+		} else if evt.Name() == EventCPUStarted {
+			s.CPU = evt.Data().(*CPUUtil)
 			s.Status = SessionInitializing
-			s.InitedAt = evt.Timestamp
+			s.InitedAt = evt.Timestamp()
 			s.resetReadyFlags()
 			s.setReadyFlag(SessionReadyExpects, SessionCPUReady)
 			return []SessionEvent{EventSessionStarted}, nil
-		} else if evt.Name == EventMemoryStarted {
-			s.MemoryQuerier = evt.Data.(*MemoryUtilBuffer)
-			s.Memory = s.MemoryQuerier.Lookup(evt.Timestamp)
+		} else if evt.Name() == EventMemoryStarted {
+			s.MemoryQuerier = evt.Data().(*MemoryUtilBuffer)
+			s.Memory = s.MemoryQuerier.Lookup(evt.Timestamp())
 			s.Status = SessionInitializing
-			s.InitedAt = evt.Timestamp
+			s.InitedAt = evt.Timestamp()
 			s.resetReadyFlags()
 			s.setReadyFlag(SessionReadyExpects, SessionMemReady)
 			return []SessionEvent{EventSessionStarted}, nil
 		}
 		return NoSessionEvent, Errorf(ErrUnexpectedSessionStTrans, "SessionInit on %v", evt)
 	case SessionInitializing:
-		if evt.Name == EventGPUStarted {
-			s.GPU = evt.Data.(*GPUUtil)
+		if evt.Name() == EventGPUStarted {
+			s.GPU = evt.Data().(*GPUUtil)
 			if s.CPU == nil {
 				return NoSessionEvent, Errorf(ErrUnexpectedSessionState, "CPU status is unknown while \"%v\" on SessionInitializing, last event \"%v\"", evt, s.last)
 			}
 			s.setReadyFlag(SessionReadyExpects, SessionGPUReady)
 			s.InitDelay = s.CPU.Timestamp.Sub(s.InitedAt)
-		} else if evt.Name == EventCPUStarted {
-			s.CPU = evt.Data.(*CPUUtil)
+		} else if evt.Name() == EventCPUStarted {
+			s.CPU = evt.Data().(*CPUUtil)
 			if s.GPU == nil {
 				// Since we ignore CPU events before SessionReady(see below), we may see the duplicated CPU started before GPU started.
 				break
 			}
 			s.setReadyFlag(SessionReadyExpects, SessionCPUReady)
 			s.InitDelay = s.CPU.Timestamp.Sub(s.InitedAt)
-		} else if evt.Name == EventMemoryStarted {
-			s.MemoryQuerier = evt.Data.(*MemoryUtilBuffer)
-			s.Memory = s.MemoryQuerier.Lookup(evt.Timestamp)
+		} else if evt.Name() == EventMemoryStarted {
+			s.MemoryQuerier = evt.Data().(*MemoryUtilBuffer)
+			s.Memory = s.MemoryQuerier.Lookup(evt.Timestamp())
 			s.setReadyFlag(SessionReadyExpects, SessionMemReady)
 			s.InitDelay = s.Memory.Timestamp.Sub(s.InitedAt)
 		} else {
@@ -231,84 +233,84 @@ func (s *Session) transit(evt *Event, inspect bool) ([]SessionEvent, error) {
 		if s.StatusReadyFlags == SessionReadyExpects {
 			s.Status = SessionIdle
 			if s.MemoryQuerier != nil {
-				s.Memory = s.MemoryQuerier.Lookup(evt.Timestamp) // Update memory reading.
+				s.Memory = s.MemoryQuerier.Lookup(evt.Timestamp()) // Update memory reading.
 			}
 			return []SessionEvent{EventSessionReady}, nil
 		}
 		return NoSessionEvent, nil
 	case SessionIdle:
-		if evt.Name == EventCPUActivated || evt.Name == EventCPUDeactivated {
+		if evt.Name() == EventCPUActivated || evt.Name() == EventCPUDeactivated {
 			return NoSessionEvent, nil
-		} else if evt.Name == EventGPUActivated {
-			s.GPU = evt.Data.(*GPUUtil)
+		} else if evt.Name() == EventGPUActivated {
+			s.GPU = evt.Data().(*GPUUtil)
 			s.Status = SessionTraining
 
 			if s.CPU != nil {
 				s.CPU.MaxTaskCPU = 0
 			}
 			if s.MemoryQuerier != nil {
-				s.Memory = s.MemoryQuerier.Lookup(evt.Timestamp) // Update memory reading.
+				s.Memory = s.MemoryQuerier.Lookup(evt.Timestamp()) // Update memory reading.
 			}
 			return []SessionEvent{EventSessionTrainingStarted}, nil
-		} else if evt.Name == EventGPUStopped {
-			s.GPU = evt.Data.(*GPUUtil)
+		} else if evt.Name() == EventGPUStopped {
+			s.GPU = evt.Data().(*GPUUtil)
 			s.Status = SessionStopping
 			s.resetReadyFlags()
 			s.setReadyFlag(SessionStopExpects, SessionGPUReady)
 			return NoSessionEvent, nil
-		} else if evt.Name == EventCPUStopped {
-			s.CPU = evt.Data.(*CPUUtil)
+		} else if evt.Name() == EventCPUStopped {
+			s.CPU = evt.Data().(*CPUUtil)
 			s.Status = SessionStopping
 			s.resetReadyFlags()
 			s.setReadyFlag(SessionStopExpects, SessionCPUReady)
 			return NoSessionEvent, nil
-		} else if evt.Name == EventMemoryStopped {
-			s.Memory = s.MemoryQuerier.Lookup(evt.Timestamp)
+		} else if evt.Name() == EventMemoryStopped {
+			s.Memory = s.MemoryQuerier.Lookup(evt.Timestamp())
 			// TODO: ignore memory events during stopping, for now.
 			return NoSessionEvent, nil
 		}
 		return NoSessionEvent, Errorf(ErrUnexpectedSessionStTrans, "SessionIdle on %v", evt)
 	case SessionTraining:
-		if evt.Name == EventGPUDeactivated {
-			s.GPU = evt.Data.(*GPUUtil)
+		if evt.Name() == EventGPUDeactivated {
+			s.GPU = evt.Data().(*GPUUtil)
 			s.Status = SessionIdle
 			if s.MemoryQuerier != nil {
-				s.Memory = s.MemoryQuerier.Lookup(evt.Timestamp) // Update memory reading.
+				s.Memory = s.MemoryQuerier.Lookup(evt.Timestamp()) // Update memory reading.
 			}
 			return []SessionEvent{EventSessionTrainingEnded}, nil
-		} else if evt.Name == EventCPUActivated || evt.Name == EventCPUDeactivated {
+		} else if evt.Name() == EventCPUActivated || evt.Name() == EventCPUDeactivated {
 			break
-		} else if evt.Name == EventCPUStopped {
+		} else if evt.Name() == EventCPUStopped {
 			// Handling the sepecial case that the session/pod continues after the end of the trace,
 			// where CPU stop along with GPU deactivation and GPU may deactivated at a later time.
-			s.CPU = evt.Data.(*CPUUtil)
+			s.CPU = evt.Data().(*CPUUtil)
 			s.pending = append(s.pending, evt)
 			return NoSessionEvent, ErrEventPending
-		} else if evt.Name == EventMemoryStopped {
-			s.Memory = s.MemoryQuerier.Lookup(evt.Timestamp)
+		} else if evt.Name() == EventMemoryStopped {
+			s.Memory = s.MemoryQuerier.Lookup(evt.Timestamp())
 			// TODO: ignore memory events during stopping, for now.
 			break
 		}
-		// else if evt.Name == EventGpuUpdateUtil {
-		// 	s.GPU = evt.Data.(*GPUUtil)
+		// else if evt.Name() == EventGpuUpdateUtil {
+		// 	s.GPU = evt.Data().(*GPUUtil)
 
 		// 	return NoSessionEvent, nil
 		// 	// return []SessionEvent{EventSessionUpdateGpuUtil}, nil
 		// }
 		return NoSessionEvent, Errorf(ErrUnexpectedSessionStTrans, "SessionTraining on %v", evt)
 	case SessionStopping:
-		if evt.Name == EventGPUStopped {
-			s.GPU = evt.Data.(*GPUUtil)
+		if evt.Name() == EventGPUStopped {
+			s.GPU = evt.Data().(*GPUUtil)
 			s.setReadyFlag(SessionStopExpects, SessionGPUReady)
-		} else if evt.Name == EventCPUStopped {
-			s.CPU = evt.Data.(*CPUUtil)
+		} else if evt.Name() == EventCPUStopped {
+			s.CPU = evt.Data().(*CPUUtil)
 			s.setReadyFlag(SessionStopExpects, SessionCPUReady)
-		} else if evt.Name == EventGPUStarted && s.GPU.Status == GPUStopped {
+		} else if evt.Name() == EventGPUStarted && s.GPU.Status == GPUStopped {
 			// Deal with situations like regaining GPU readings after missing for a while.
-			s.GPU = evt.Data.(*GPUUtil)
+			s.GPU = evt.Data().(*GPUUtil)
 			s.Status = SessionIdle
 			break
-		} else if evt.Name == EventCPUDeactivated || evt.Name == EventMemoryStopped {
+		} else if evt.Name() == EventCPUDeactivated || evt.Name() == EventMemoryStopped {
 			// Ignore irrelevant events.
 			break
 		} else {
@@ -319,13 +321,13 @@ func (s *Session) transit(evt *Event, inspect bool) ([]SessionEvent, error) {
 		if s.StatusReadyFlags == SessionStopExpects {
 			s.Status = SessionStopped
 			if s.MemoryQuerier != nil {
-				s.Memory = s.MemoryQuerier.Lookup(evt.Timestamp) // Update memory reading.
+				s.Memory = s.MemoryQuerier.Lookup(evt.Timestamp()) // Update memory reading.
 			}
 			return []SessionEvent{EventSessionStopped}, nil
 		}
 		return NoSessionEvent, nil
 	case SessionStopped:
-		if evt.Name == EventMemoryStopped {
+		if evt.Name() == EventMemoryStopped {
 			return NoSessionEvent, nil
 		}
 		return NoSessionEvent, Errorf(ErrUnexpectedSessionStTrans, "SessionStopped on %v", evt)

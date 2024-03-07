@@ -3,59 +3,48 @@ package generator
 import (
 	"fmt"
 	"time"
+
+	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
 )
 
 var (
 	NilTimestamp = time.Time{}
 )
 
-type EventName interface {
-	String() string
-}
-
-type PodData interface {
-	GetPod() string
-}
-
-type EventSource interface {
-	OnEvent() <-chan *Event
-	String() string
-	Id() int
-	SetId(int)
-	IsDriver() bool
-	// If the EventSource is the last one, should the simulation continue?
-	// For Drivers, the answer is yes. For non-Drivers, it may depend.
-	// For example, if the BufferedService is the last one, then the simulation
-	// should end once all buffered events have been retriggered.
-	IsLastShouldContinue() bool
-	// Called in pre-run mode when the Synthesizer encounters a training-started event.
-	// Sets the value in the latest training max slot to 0.
-	TrainingStarted(string)
-	// Called in pre-run mode when the Synthesizer encounters a training-stopped event.
-	// Prepares the next slot in the training maxes by appending to the list a new value of -1.
-	TrainingEnded(string)
-}
-
-type EventConsumer interface {
-	SubmitEvent(*Event) // Give an event to the EventConsumer so that it may be processed.
-}
-
 // type EventHandler interface {
 // 	HandleEvent(*Event)
 // }
 
-type Event struct {
-	EventSource         EventSource
-	OriginalEventSource EventSource
-	Name                EventName
-	Data                interface{}
-	Timestamp           time.Time
-	Id                  string
+type eventImpl struct {
+	eventSource         domain.EventSource
+	originalEventSource domain.EventSource
+	name                domain.EventName
+	data                interface{}
+	timestamp           time.Time
+	id                  string
+	orderSeq            int64 // OrderSeq is essentially timestamp of event, but randomized to make behavior stochastic.
+}
 
-	// index int
+func (e *eventImpl) EventSource() domain.EventSource { return e.eventSource }
 
-	// OrderSeq is essentially timestamp of event, but randomized to make behavior stochastic.
-	OrderSeq int64
+func (e *eventImpl) OriginalEventSource() domain.EventSource { return e.originalEventSource }
+
+func (e *eventImpl) Name() domain.EventName { return e.name }
+
+func (e *eventImpl) Data() interface{} { return e.data }
+
+func (e *eventImpl) Timestamp() time.Time { return e.timestamp }
+
+func (e *eventImpl) Id() string { return e.id }
+
+// OrderSeq is essentially timestamp of event, but randomized to make behavior stochastic.
+func (e *eventImpl) OrderSeq() int64 {
+	return e.orderSeq
+}
+
+// OrderSeq is essentially timestamp of event, but randomized to make behavior stochastic.
+func (e *eventImpl) SetOrderSeq(seq int64) {
+	e.orderSeq = seq
 }
 
 // func (e *Event) SetIndex(idx int) {
@@ -66,24 +55,24 @@ type Event struct {
 // 	return e.index
 // }
 
-func (e *Event) String() string {
-	switch e.Name {
+func (e *eventImpl) String() string {
+	switch e.Name() {
 	case EventNoMore:
-		if e.EventSource == nil {
-			return e.Name.String()
+		if e.EventSource() == nil {
+			return e.Name().String()
 		} else {
-			return fmt.Sprintf("generator.Event[Name=%s -- src=%v, orgSrc=%v, orderSeq=%d]", e.Name, e.EventSource, e.OriginalEventSource, e.OrderSeq)
+			return fmt.Sprintf("generator.Event[Name=%s -- src=%v, orgSrc=%v, orderSeq=%d]", e.Name(), e.EventSource(), e.OriginalEventSource(), e.OrderSeq())
 		}
 	case EventError:
-		return fmt.Sprintf("generator.Event[Name=%s -- src=%v, orgSrc=%v, orderSeq=%d, data=%v]", e.Name, e.EventSource, e.OriginalEventSource, e.OrderSeq, e.Data)
+		return fmt.Sprintf("generator.Event[Name=%s -- src=%v, orgSrc=%v, orderSeq=%d, data=%v]", e.Name(), e.EventSource(), e.OriginalEventSource(), e.OrderSeq(), e.Data())
 	}
 	if e.EventSource == nil {
-		return fmt.Sprintf("generator.Event[Timestamp=%v, Name=%s -- src=N/A, orgSrc=N/A, orderSeq=%d, data=%v]", e.Timestamp, e.Name, e.OrderSeq, e.Data)
+		return fmt.Sprintf("generator.Event[Timestamp=%v, Name=%s -- src=N/A, orgSrc=N/A, orderSeq=%d, data=%v]", e.Timestamp(), e.Name(), e.OrderSeq(), e.Data())
 	}
-	return fmt.Sprintf("generator.Event[Timestamp=%v, Name=%s -- src=%v, orgSrc=%v, orderSeq=%d, data=%v]", e.Timestamp, e.Name, e.EventSource, e.OriginalEventSource, e.OrderSeq, e.Data)
+	return fmt.Sprintf("generator.Event[Timestamp=%v, Name=%s -- src=%v, orgSrc=%v, orderSeq=%d, data=%v]", e.Timestamp(), e.Name(), e.EventSource(), e.OriginalEventSource(), e.OrderSeq(), e.Data())
 }
 
-type EventBuff []*Event
+type EventBuff []domain.Event
 
 // sort.Interface implementations
 func (buff EventBuff) Len() int {
@@ -91,7 +80,7 @@ func (buff EventBuff) Len() int {
 }
 
 func (buff EventBuff) Less(i, j int) bool {
-	return buff[i].OrderSeq < buff[j].OrderSeq
+	return buff[i].OrderSeq() < buff[j].OrderSeq()
 }
 
 func (buff EventBuff) Swap(i, j int) {

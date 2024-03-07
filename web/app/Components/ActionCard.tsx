@@ -84,30 +84,40 @@ export const ActionCard: React.FunctionComponent<ActionCardProps> = (props: Acti
         setIsCardExpanded(!isCardExpanded);
     };
 
+    const cardHeaderActions = (
+        <React.Fragment>
+            <Button variant="primary" onClick={() => props.onLaunchWorkloadClicked()}>
+                Launch Workload
+            </Button>
+        </React.Fragment>
+    );
+
     return (
-        <Card isRounded isExpanded={isCardExpanded}>
+        <Card
+            isRounded
+            // isExpanded={isCardExpanded}
+        >
             <CardHeader
-                onExpand={onCardExpand}
-                toggleButtonProps={{
-                    id: 'toggle-button',
-                    'aria-label': 'Actions',
-                    'aria-labelledby': 'titleId toggle-button',
-                    'aria-expanded': isCardExpanded,
-                }}
+            // actions={{ actions: cardHeaderActions, hasNoOffset: true }}
+            // onExpand={onCardExpand}
+            // toggleButtonProps={{
+            //     id: 'toggle-button',
+            //     'aria-label': 'Actions',
+            //     'aria-labelledby': 'titleId toggle-button',
+            //     'aria-expanded': isCardExpanded,
+            // }}
             >
-                <CardTitle>
-                    <Title headingLevel="h4" size="xl">
-                        Actions
-                    </Title>
-                </CardTitle>
+                <Title headingLevel="h4" size="xl">
+                    Actions
+                </Title>
             </CardHeader>
-            <CardExpandableContent>
-                <CardBody>
+            <CardBody>
+                <React.Fragment>
                     <Button variant="primary" onClick={() => props.onLaunchWorkloadClicked()}>
                         Launch Workload
                     </Button>
-                </CardBody>
-            </CardExpandableContent>
+                </React.Fragment>
+            </CardBody>
         </Card>
     );
 };
