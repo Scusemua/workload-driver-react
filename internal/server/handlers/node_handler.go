@@ -8,8 +8,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/scusemua/workload-driver-react/m/v2/internal/server/config"
-	"github.com/scusemua/workload-driver-react/m/v2/internal/server/domain"
+	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -27,7 +26,7 @@ type KubeNodeHttpHandler struct {
 	spoof         bool
 }
 
-func NewKubeNodeHttpHandler(opts *config.Configuration) domain.BackendHttpGetHandler {
+func NewKubeNodeHttpHandler(opts *domain.Configuration) domain.BackendHttpGetHandler {
 	handler := &KubeNodeHttpHandler{
 		BaseHandler: newBaseHandler(opts),
 		spoof:       opts.SpoofKubeNodes,
@@ -45,7 +44,7 @@ func NewKubeNodeHttpHandler(opts *config.Configuration) domain.BackendHttpGetHan
 	return handler
 }
 
-func (h *KubeNodeHttpHandler) createKubernetesClient(opts *config.Configuration) {
+func (h *KubeNodeHttpHandler) createKubernetesClient(opts *domain.Configuration) {
 	if opts.InCluster {
 		// creates the in-cluster config
 		config, err := rest.InClusterConfig()

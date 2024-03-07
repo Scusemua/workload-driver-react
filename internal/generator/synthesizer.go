@@ -82,7 +82,7 @@ type Synthesizer struct {
 	// firstEventTs int64
 }
 
-func NewSynthesizer(opts *domain.WorkloadConfig, maxUtilizationWrapper *MaxUtilizationWrapper) *Synthesizer {
+func NewSynthesizer(opts *domain.Configuration, maxUtilizationWrapper *MaxUtilizationWrapper) *Synthesizer {
 	if opts.ExecutionMode == 1 {
 		if maxUtilizationWrapper.MemSessionMap == nil {
 			panic("The Synthesizer's per-session max-memory map should not be nil during a standard (i.e., non-pre-run) simulation.")
@@ -309,7 +309,7 @@ func (s *Synthesizer) transitionAndSubmitEvent(evt domain.Event) {
 	}
 }
 
-func (s *Synthesizer) Synthesize(ctx context.Context, opts *domain.WorkloadConfig, workloadSimulatorDoneChan chan struct{}) { // , clusterDoneChan chan struct{}
+func (s *Synthesizer) Synthesize(ctx context.Context, opts *domain.Configuration, workloadSimulatorDoneChan chan struct{}) { // , clusterDoneChan chan struct{}
 	simulation_start := time.Now()
 
 	s.Tick = opts.TraceStep

@@ -10,9 +10,8 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	cmap "github.com/orcaman/concurrent-map/v2"
+	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
 	gateway "github.com/scusemua/workload-driver-react/m/v2/internal/server/api/proto"
-	"github.com/scusemua/workload-driver-react/m/v2/internal/server/config"
-	"github.com/scusemua/workload-driver-react/m/v2/internal/server/domain"
 	"go.uber.org/zap"
 )
 
@@ -23,7 +22,7 @@ type KernelHttpHandler struct {
 	spoofedKernels *cmap.ConcurrentMap[string, *gateway.DistributedJupyterKernel] // Latest spoofedKernels.
 }
 
-func NewKernelHttpHandler(opts *config.Configuration) domain.BackendHttpGetHandler {
+func NewKernelHttpHandler(opts *domain.Configuration) domain.BackendHttpGetHandler {
 	handler := &KernelHttpHandler{
 		spoofKernels:    opts.SpoofKernels,
 		BaseGRPCHandler: newBaseGRPCHandler(opts, !opts.SpoofKernels),

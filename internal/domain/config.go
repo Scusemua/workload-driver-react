@@ -1,9 +1,11 @@
 package domain
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
+	"path/filepath"
 	"reflect"
 	"strconv"
 	"strings"
@@ -12,6 +14,7 @@ import (
 	"github.com/gookit/config/v2/yaml"
 	"github.com/imdario/mergo"
 	"github.com/mitchellh/mapstructure"
+	"k8s.io/client-go/util/homedir"
 )
 
 const (
@@ -21,12 +24,12 @@ const (
 )
 
 var (
-	Config  *WorkloadConfig = nil
+	Config  *Configuration = nil
 	Verbose bool
 	Months  = []string{"jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"}
 )
 
-type WorkloadConfig struct {
+type Configuration struct {
 	YAML                         string `name:"yaml" description:"Path to config file in the yml format."`
 	TraceStep                    int64  `name:"trace-step" description:"Default interval, in seconds, of two consecutive trace readings."`
 	GPUTraceFile                 string `name:"gputrace" description:"File path of GPU utilization trace."`
@@ -62,20 +65,6 @@ type WorkloadConfig struct {
 	LastTimestamp                int64  `name:"last-timestamp" description:"Epoch Unix Timestamp denotating the last timestamp for which events will be generated. Any events beyond that point will be discarded."`
 	EvictHostOnLastContainerStop int    `name:"evict-host-on-last-container-stop" description:"Override the default settings for whatever Scheduler you're using and force a value for this parameter. -1 to force false, 0 to leave as default for the particular scheduler, and 1 to force true."`
 
-	/////////////////////////////
-	// Compute resource policy //
-	/////////////////////////////
-	ComputeResourcePolicy string `name:"compute-resource-policy" description:"Defines the different compute resources available to the cluster."`
-	FractionServerless    string `name:"fraction-serverless" description:"Fraction of compute resource served by cloud functions."`
-	FractionOnDemand      string `name:"fraction-on-demand" description:"Fraction of the serverful compute resource that is composed of on-demand virtual machines."`
-
-	///////////////////////
-	// Spot reclamations //
-	///////////////////////
-	// Determines what happens when a spot reclamation occurs. Options: 'terminate', 'migrate'
-	SpotReclamationHandler string `name:"spot-reclaimation-handler" description:"Determines what happens when a spot reclamation occurs. Options: 'terminate', 'migrate'"`
-	SpotReclamationConfig  string `name:"spot-reclamation-policy" description:"Defines how spot instances are reclaimed."`
-
 	///////////////////////
 	// General execution //
 	///////////////////////
@@ -84,22 +73,6 @@ type WorkloadConfig struct {
 	ExecutionMode                     int  `name:"execution-mode" description:"Options are 0 (i.e., 'pre') and 1 (i.e., 'standard'). With 'pre', the Simulator will not process any events; it will simply parse the trace to extract the CPU, GPU, and Memory readings. With 'standard', the Simulator will actually simulate the workload."`
 	MaxTaskDurationSec                int  `name:"max-task-duration-seconds" description:"The maximum length of a task. If a task with length >= this value is executed, then the associated Session will be terminated once the event completes."`
 	ContinueUntilExplicitlyTerminated bool `name:"continue-until-explicit-termination" description:""`
-	// TrainingMode                      string `name:"training-mode" description:"Determines where training events are processed. Options include: 'local', 'offload-faas', 'offload-serverful', or 'offload-hybrid'."` // Determines where training events are processed. Options include: 'local', 'offload-faas', 'offload-serverful', or 'offload-hybrid'.
-	NotebookServerMemoryGB string `name:"notebook-server-memory-gb" description:"The number of gigabytes allocated to notebook servers (when they're not permitted to train directly/locally)."` // The number of gigabytes allocated to notebook servers (when they're not permitted to train directly/locally).
-	// If true, then the PendingHostQueue is enabled, which keeps tracks of pending hosts and allocates resources to them prior to when they're actually provisioned.
-	// TrackResourcesOnPendingHosts bool `name:"track-resources-on-pending-hosts" description:"If true, then the PendingHostQueue is enabled, which keeps tracks of pending hosts and allocates resources to them prior to when they're actually provisioned."`
-
-	///////////////////
-	// Checkpointing //
-	///////////////////
-	UseCheckpointing         bool   `name:"use-checkpointing" description:"If set to true, then simulate the use of checkpointing when migrating containers from one host to another following a reclamation event. Without checkpointing, all state is lost and a container's events must be replayed from the beginning once the container is rescheduled onto another (possibly new) host."`
-	CheckpointMinDelayMillis string `name:"checkpoint-min-delay-millis" description:"The minimum delay, in milliseconds, that occurs when using checkpointing. This delay simulates the time spent retrieving the checkpointed state for a rescheduled container following a spot instance reclamation."`
-	CheckpointMaxDelayMillis string `name:"checkpoint-max-delay-millis" description:"The maximum delay, in milliseconds, that occurs when using checkpointing. This delay simulates the time spent retrieving the checkpointed state for a rescheduled container following a spot instance reclamation"`
-
-	// MinimumHosts            int `name:"cluster-min-hosts" description:"The minimum number of actively-running hosts that this Cluster maintains. If a host is reclaimed or stopped and the number of actively-running hosts falls below this number, then a new host will be provisioned."`
-	MinHostProvisionDelayMs  string `name:"min-host-provisioning-delay" description:"The minimum amount of time required to provision a new host (in milliseconds)."`
-	MaxHostProvisionDelayMs  string `name:"max-host-provisioning-delay" description:"The maximum amount of time required to provision a new host (in milliseconds)."`
-	KeepAliveIntervalSeconds int64  `name:"keep-alive-interval-seconds" description:"The duration, in milliseconds, of the interval after which an idle Session is evicted."`
 
 	//////////////////////
 	// Resource Credits //
@@ -110,53 +83,6 @@ type WorkloadConfig struct {
 	ResourceCreditGPU       float64 `name:"resource-credit-gpus" description:"The amount of GPUs made available to a user for one hour by a single resource credit."`
 	ResourceCreditMemMB     float64 `name:"resource-credit-mem-mb" description:"The amount of memory (i.e., RAM), in megabytes (MB), made available to a user for one hour by a single resource credit."`
 	ResourceCreditCostInUSD float64 `name:"resource-credit-cost-usd" description:"The cost-equivalent of a single resource credit in USD."`
-
-	////////////////
-	// Scheduling //
-	////////////////
-	CpuSchedulingWeight     float64 `name:"cpu-schedule-weight" description:"Value from 1.0 to 100.0 indicating how much weight to assign to CPU when scheduling Sessions onto Hosts."`
-	GpuSchedulingWeight     float64 `name:"gpu-schedule-weight" description:"Value from 1.0 to 100.0 indicating how much weight to assign to GPU when scheduling Sessions onto Hosts."`
-	MemorySchedulingWeight  float64 `name:"memory-schedule-weight" description:"Value from 1.0 to 100.0 indicating how much weight to assign to memory when scheduling Sessions onto Hosts."`
-	HostScoreMetric         string  `name:"host-score-metric" description:"Scoring method to use for potential hosts when scheduling sessions. Valid options include 'LeastAllocated', 'MostAllocated', 'LeastAllocatable', and 'MostAllocatable'."` // Scoring metric to use for potential hosts when scheduling sessions. Valid options include "least-allocated" and "most-allocated".
-	MinMigrationDelayMillis string  `name:"min-migration-delay" description:"The minimum delay (in milliseconds) incurred when migrating a Container."`
-	MaxMigrationDelayMillis string  `name:"max-migration-delay" description:"The maximum delay (in milliseconds) incurred when migrating a Container."`
-	PreemptionEnabled       bool    `name:"preemption-enabled" description:"Basically enables Jingyuan's dynamic policy."`
-	Scheduler               string  `name:"scheduler" description:"Scheduler to use. Options include: 'non-replica', 'faas', 'static', and 'dynamic'."`
-	RandomHostSpace         int     `name:"random-host-space" description:"Number of hosts to select from when finding a reschedule host in the dynamic scheduler."`
-	// FindRescheduleHostMethod string  `name:"find-reschedule-host-method" description:"The method used to find reschedule hosts when migrating Containers. Options are 'v3' (Dynamic V3) or 'v4' (Dynamic V4)."`
-
-	////////////////////////////////////////////
-	// Instance type & host pool config paths //
-	////////////////////////////////////////////
-	ServerlessFunctionPoolConfigPath        string `name:"serverless-function-pool-config-path" description:"Path to the configuration file defining the serverless function pool to be used by the Cluster in the Simulator."`
-	ServerlessFunctionDefinitionsConfigPath string `name:"serverless-function-definitions-config-path" description:"Path to the configuration file defining the different Serverless Functions available during the simulation."`
-	ServerfulHostPoolConfigPath             string `name:"host-pool-config-path" description:"Path to the configuration file defining the serverful host pool to be used by the Cluster in the Simulator."`
-	ServerfulInstanceTypesConfigPath        string `name:"serverful-instance-types-config-path" description:"Path to the configuration file defining the Instance Types to be available during the simulation."`
-
-	//////////////////////////////
-	// Warm & Cold Start Delays //
-	//////////////////////////////
-	MinRetentionPeriodMillis string `name:"serverless-min-retention" description:"The minimum amount of time that a warm serverless function will remain provisioned before being reclaimed by the cloud provider in milliseconds."` // The minimum amount of time that a warm serverless function will remain provisioned before being reclaimed by the cloud provider in milliseconds.
-	MaxRetentionPeriodMillis string `name:"serverless-max-retention" description:"The maximum amount of time that a warm serverless function will remain provisioned before being reclaimed by the cloud provider in milliseconds."` // The maximum amount of time that a warm serverless function will remain provisioned before being reclaimed by the cloud provider in milliseconds.
-
-	/////////////
-	// Logging //
-	/////////////
-	DoHostLevelLogging       bool   `name:"do-host-level-logging" description:"If enabled, output host-level CSV files for every host."` // If enabled, output host-level CSV files for every host.
-	DoHostPoolLevelLogging   bool   `name:"do-host-pool-level-logging" description:"If enabled, output host-pool-level CSV files for every host."`
-	HostLogsEveryNTicks      int64  `name:"host-logs-every-n-ticks" description:"Output host-level CSV logs every N ticks. This parameter is N."`     // Output host-level CSV logs every N ticks. This parameter is N."
-	LogOutputFile            string `name:"log-output-file" description:"If specified, then log output will go to this file, rather than to STDOUT."` // If specified, then log output will go to this file, rather than to STDOUT.
-	DisplayCostIntervalTicks int64  `name:"display-cost-interval" description:"Defines the frequency (every N ticks) at which the simulator outputs the running provider-side and tenant-side cost. The cost is logged at the very end of a tick."`
-	// If true, then sessions will ALWAYS be migrated to an on-demand host following a spot migration.
-	// AlwaysMigrateToOnDemandAfterSpotReclamation bool `name:"spot-migration-force-on-demand" description:"If true, then sessions will ALWAYS be migrated to an on-demand host following a spot migration."`
-	// If specified, will write CPU profile to the specified file in the output directory.
-	CpuProfileFile string `name:"cpu-profile-file" description:"If specified, will write CPU profile to the specified file in the output directory."`
-	// Deprecated.
-	PreTaskFile string `name:"pre-task-file" description:"Task CSV file containing a 'MaxTaskCPU' column of max CPU utilization and 'MaxSessionMemory' column of max memory usage during each task."`
-	// Deprecated.
-	PreSessionFile              string `name:"pre-session-file" description:"Session CSV file containing a 'MaxSessionCPU' column of max CPU utilization and 'MaxSessionMemory' column of max memory usage during each session."`
-	UtilizationSamplingInterval int64  `name:"utilization-sampling-interval" description:"Sample utilizations from running Sessions every 'UtilizationSamplingInterval' ticks."`
-	EnableDebugLogAt            int64  `name:"enable-debug-log-at-time" description:"Enable debug logging at a certain timestamp."`
 
 	////////////////////
 	// Host Reclaimer //
@@ -215,22 +141,8 @@ type WorkloadConfig struct {
 	BillUsersForNonActiveReplicas  bool   `name:"bill-inactive-replicas" description:"If true, then charge users for actively-scheduled training replicas that are not processing training events."`
 	NonActiveReplicaCostMultiplier string `name:"inactive-replica-cost-multiplier" description:"Adjusts the rate at which we bill users for actively-scheduled training replicas that are not processing training events. This is only used when 'BillUsersForNonActiveReplicas' is true."`
 
-	//////////////////////
-	// Recovery handler //
-	//////////////////////
-	// The method for computing the replay delay when evicting a container. Options include 'last-n', 'all', 'replay-if-idle-less-than', and 'replay-if-training'.
-	// The 'last-n' option uses the previous n training times as the replay delay, whereas the 'all' option uses all of the completed training times.
-	// The 'replay-if-training' policy will only prompt a container to replay events if it was evicted while actively training. It is combined with another base policy to handle the replay interval when the criterion is satifised.
-	// The 'replay-if-idle-less-than' policy will only prompt a container to replay events if it was evicted while actively training OR if it had been idle for < a configurable interval. It is combined with another base policy to handle the replay interval when the criteria are satifised.
-	RecoveryHandler string `name:"recovery-handler" description:"The method for computing the replay delay when evicting a container. Options include 'last-n' and 'all'. The 'last-n' option uses the previous n training times as the replay delay, whereas the 'all' option uses all of the completed training times."`
-	// Used when the 'last-n' replay delay method is selected. Sets the value of n for that method.
-	RecoveryHandlerLastN int `name:"recovery-handler-last-n" description:"Used when the 'last-n' replay delay method is selected. Sets the value of n for that method."`
-	// The recovery handler used by one of the 'composite' handlers (such as '' or '') when the replay criteria are satisfied.
-	UnderlyingRecoveryHandler string `name:"underlying-recovery-handler" description:"The recovery handler used by one of the 'composite' handlers (such as 'replay-if-training' or 'replay-if-idle-less-than') when the replay criteria are satisfied."`
-	// When using the 'replay-if-idle-less-than' recovery handlers, this is the threshold (in seconds) after which an idle Session will NOT have to replay events if rescheduled.
-	RecoveryIdleThresholdSeconds int `name:"recovery-idle-threshold" description:"When using the 'replay-if-idle-less-than' recovery handlers, this is the threshold (in seconds) after which an idle Session will NOT have to replay events if rescheduled."`
-
-	OnlyChargeMixedContainersWhileTraining bool `name:"only-charge-mixed-containers-while-training" description:"When the training-mode is set to \"local\", only charge the user (using the configured pricing model, such as GPU-Proportional) when the notebook server is actively training. When the notebook server is not actively training, fall back to CPU/Memory-proportional."`
+	OnlyChargeMixedContainersWhileTraining bool   `name:"only-charge-mixed-containers-while-training" description:"When the training-mode is set to \"local\", only charge the user (using the configured pricing model, such as GPU-Proportional) when the notebook server is actively training. When the notebook server is not actively training, fall back to CPU/Memory-proportional."`
+	LogOutputFile                          string `name:"log-output-file" description:"If specified, then log output will go to this file, rather than to STDOUT."` // If specified, then log output will go to this file, rather than to STDOUT.
 
 	/////////////////////////
 	// Jingyuan's Policies //
@@ -247,15 +159,54 @@ type WorkloadConfig struct {
 	ScalingOutEnaled              bool    `name:"scaling-out-enabled" description:"If enabled, the scaling manager will attempt to over-provision hosts slightly so as to leave room for fluctation. If disabled, then the Cluster will exclusivel scale-out in response to real-time demand, rather than attempt to have some hosts available in the case that demand surges."`
 	ScalingBufferSize             int     `name:"scaling-buffer-size" description:"Buffer size is how many extra hosts we provision so that we can quickly scale if needed."`
 
-	/////////////////
-	// Replication //
-	/////////////////
-	MinScheduledReplicaQuantity     int     `name:"min-scheduled-replica-quantity" description:"The minimum number of actively-scheduled training replicas that a Session must have in order in ordered to be considered fit to process training-events. This options is only used if 'quantity' is specified for the 'MinScheduledReplicaMetric' config parameter."` // The minimum number of actively-scheduled training replicas that a Session must have in order in ordered to be considered fit to process training-events. This options is only used if "quantity" is specified for the 'MinScheduledReplicaMetric' config parameter.
-	MinScheduledReplicaFraction     float64 `name:"min-scheduled-replica-fraction" description:"The fraction of actively-scheduled training replicas that a Session must have in order in ordered to be considered fit to process training-events. This options is only used if 'fraction' is specified for the 'MinScheduledReplicaMetric' config parameter."`       // The fraction of actively-scheduled training replicas that a Session must have in order in ordered to be considered fit to process training-events. This options is only used if "fraction" is specified for the 'MinScheduledReplicaMetric' config parameter.
-	MinScheduledReplicaFitnessCheck string  `name:"min-scheduled-replica-metric" description:"Indicates whether to go off of a numerical quantity ('quantity') of actively-scheduled training replicas or a fraction ('fraction') of actively-scheduled training replicas when determining if a Session is fit to process training-events."`                          // Indicates whether to go off of a numerical quantity ("quantity") of actively-scheduled training replicas or a fraction ("fraction") of actively-scheduled training replicas when determining if a Session is fit to process training-events.
+	SpoofKubeNodes          bool   `name:"spoof-nodes" yaml:"spoof-nodes" json:"spoof-nodes" description:"If true, spoof the Kubernetes nodes."`
+	SpoofKernels            bool   `name:"spoof-kernels" yaml:"spoof-kernels" json:"spoof-kernels" description:"If true, spoof the kernels."`
+	SpoofKernelSpecs        bool   `name:"spoof-specs" yaml:"spoof-specs" json:"spoof-specs" description:"If true, spoof the kernel specs."`
+	InCluster               bool   `name:"in-cluster" yaml:"in-cluster" json:"in-cluster" description:"Should be true if running from within the kubernetes cluster."`
+	KernelQueryInterval     string `name:"kernel-query-interval" yaml:"kernel-query-interval" json:"kernel-query-interval" default:"5s" description:"How frequently to query the Cluster for updated kernel information."`
+	NodeQueryInterval       string `name:"node-query-interval" yaml:"node-query-interval" json:"node-query-interval" default:"10s" description:"How frequently to query the Cluster for updated Kubernetes node information."`
+	KernelSpecQueryInterval string `name:"kernel-spec-query-interval" yaml:"kernel-spec-query-interval" json:"kernel-spec-query-interval" default:"600s" description:"How frequently to query the Cluster for updated Jupyter kernel spec information."`
+	KubeConfig              string `name:"kubeconfig" yaml:"kubeconfig" json:"kubeconfig" description:"Absolute path to the kubeconfig file."`
+	GatewayAddress          string `name:"gateway-address" yaml:"gateway-address" json:"gateway-address" description:"The IP address that the front-end should use to connect to the Gateway."`
+	JupyterServerAddress    string `name:"jupyter-server-address" yaml:"jupyter-server-address" json:"jupyter-server-address" description:"The IP address of the Jupyter Server."`
+	ServerPort              int    `name:"server-port" yaml:"server-port" json:"server-port" description:"Port of the backend server."`
+	WebsocketProxyPort      int    `name:"websocket-proxy-port" yaml:"websocket-proxy-port" json:"websocket-proxy-port" description:"Port of the backend websocket proxy server, which reverse-proxies websocket connections to the Jupyter server."`
 }
 
-func (opts *WorkloadConfig) CheckUsage() {
+func GetDefaultConfig() *Configuration {
+	var kubeconfigDefaultValue string
+	if home := homedir.HomeDir(); home != "" {
+		kubeconfigDefaultValue = filepath.Join(home, ".kube", "config")
+	} else {
+		kubeconfigDefaultValue = ""
+	}
+
+	return &Configuration{
+		InCluster:               false,
+		KernelQueryInterval:     "60s",
+		NodeQueryInterval:       "120s",
+		KubeConfig:              kubeconfigDefaultValue,
+		GatewayAddress:          "localhost:9990",
+		KernelSpecQueryInterval: "600s",
+		JupyterServerAddress:    "localhost:8888",
+		ServerPort:              8000,
+		SpoofKubeNodes:          true,
+		SpoofKernels:            true,
+		SpoofKernelSpecs:        true,
+		WebsocketProxyPort:      8001,
+	}
+}
+
+func (opts *Configuration) String() string {
+	out, err := json.MarshalIndent(opts, "", "  ")
+	if err != nil {
+		panic(err)
+	}
+
+	return string(out)
+}
+
+func (opts *Configuration) CheckUsage() {
 	var printInfo bool
 	flag.BoolVar(&printInfo, "h", false, "help info?")
 
@@ -305,7 +256,7 @@ func (opts *WorkloadConfig) CheckUsage() {
 
 	if opts.YAML != "" {
 		configKit.WithOptions(func(opt *configKit.Options) {
-			opt.TagName = OptionName
+			opt.SetTagName(OptionName)
 			// DecoderConfig initialization is due a bug in configKit: no TagName will be applied if DecoderConfig is nil.
 			// TODO: Fix the bug
 			opt.DecoderConfig = &mapstructure.DecoderConfig{}
@@ -314,7 +265,7 @@ func (opts *WorkloadConfig) CheckUsage() {
 		if err := configKit.LoadFiles(opts.YAML); err != nil {
 			panic(err)
 		}
-		fileOpts := &WorkloadConfig{}
+		fileOpts := GetDefaultConfig()
 		if err := configKit.BindStruct("", fileOpts); err != nil {
 			panic(err)
 		}
@@ -341,7 +292,7 @@ func (opts *WorkloadConfig) CheckUsage() {
 	}
 }
 
-func (opts *WorkloadConfig) NormalizeTracePaths(path string) []string {
+func (opts *Configuration) NormalizeTracePaths(path string) []string {
 	if opts.FromMonth == "" {
 		return []string{path}
 	}
@@ -367,7 +318,7 @@ func (opts *WorkloadConfig) NormalizeTracePaths(path string) []string {
 	return paths
 }
 
-func (opts *WorkloadConfig) NormalizeDowntime(downtime string) []int64 {
+func (opts *Configuration) NormalizeDowntime(downtime string) []int64 {
 	if downtime == "" {
 		return nil
 	}

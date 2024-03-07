@@ -5,9 +5,8 @@ import (
 	"fmt"
 
 	"github.com/gin-gonic/gin"
+	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
 	gateway "github.com/scusemua/workload-driver-react/m/v2/internal/server/api/proto"
-	"github.com/scusemua/workload-driver-react/m/v2/internal/server/config"
-	"github.com/scusemua/workload-driver-react/m/v2/internal/server/domain"
 	"go.uber.org/zap"
 )
 
@@ -15,7 +14,7 @@ type MigrationHttpHandler struct {
 	*BaseGRPCHandler
 }
 
-func NewMigrationHttpHandler(opts *config.Configuration) domain.BackendHttpGetHandler {
+func NewMigrationHttpHandler(opts *domain.Configuration) domain.BackendHttpGetHandler {
 	handler := &MigrationHttpHandler{
 		BaseGRPCHandler: newBaseGRPCHandler(opts, !opts.SpoofKernels),
 	}

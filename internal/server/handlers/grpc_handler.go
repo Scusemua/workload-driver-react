@@ -5,9 +5,8 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
 	gateway "github.com/scusemua/workload-driver-react/m/v2/internal/server/api/proto"
-	"github.com/scusemua/workload-driver-react/m/v2/internal/server/config"
-	"github.com/scusemua/workload-driver-react/m/v2/internal/server/domain"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/server/proxy"
 	"go.uber.org/zap"
 	"google.golang.org/grpc"
@@ -23,7 +22,7 @@ type BaseGRPCHandler struct {
 	connectedToGateway bool                         // Indicates whether we're connected or not.
 }
 
-func newBaseGRPCHandler(opts *config.Configuration, shouldConnect bool) *BaseGRPCHandler {
+func newBaseGRPCHandler(opts *domain.Configuration, shouldConnect bool) *BaseGRPCHandler {
 	handler := &BaseGRPCHandler{
 		BaseHandler: newBaseHandler(opts),
 	}

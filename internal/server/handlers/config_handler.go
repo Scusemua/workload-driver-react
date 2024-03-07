@@ -5,8 +5,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/scusemua/workload-driver-react/m/v2/internal/server/config"
-	"github.com/scusemua/workload-driver-react/m/v2/internal/server/domain"
+	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
 	"go.uber.org/zap"
 )
 
@@ -14,7 +13,7 @@ type ConfigHttpHandler struct {
 	*BaseHandler
 }
 
-func NewConfigHttpHandler(opts *config.Configuration) domain.BackendHttpGetHandler {
+func NewConfigHttpHandler(opts *domain.Configuration) domain.BackendHttpGetHandler {
 	handler := &ConfigHttpHandler{
 		BaseHandler: newBaseHandler(opts),
 	}

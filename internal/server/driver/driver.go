@@ -18,11 +18,11 @@ type WorkloadDriver struct {
 	workloadComplete  atomic.Bool       // This is set to true when the workload completes.
 	eventChan         chan domain.Event // Receives events from the Synthesizer.
 
-	opts     *domain.WorkloadConfig
+	opts     *domain.Configuration
 	doneChan chan struct{}
 }
 
-func NewWorkloadDriver(opts *domain.WorkloadConfig) *WorkloadDriver {
+func NewWorkloadDriver(opts *domain.Configuration) *WorkloadDriver {
 	driver := &WorkloadDriver{
 		opts:      opts,
 		doneChan:  make(chan struct{}),

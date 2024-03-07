@@ -12,14 +12,13 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/koding/websocketproxy"
 
-	"github.com/scusemua/workload-driver-react/m/v2/internal/server/config"
-	"github.com/scusemua/workload-driver-react/m/v2/internal/server/domain"
+	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/server/handlers"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/server/proxy"
 )
 
 func main() {
-	conf := config.GetConfiguration()
+	conf := domain.GetDefaultConfig()
 
 	// Load ENV from .env file
 	err := godotenv.Load()

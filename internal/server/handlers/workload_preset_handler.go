@@ -2,8 +2,7 @@ package handlers
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/scusemua/workload-driver-react/m/v2/internal/server/config"
-	"github.com/scusemua/workload-driver-react/m/v2/internal/server/domain"
+	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
 )
 
 var (
@@ -33,7 +32,7 @@ type WorkloadPresetHttpHandler struct {
 	*BaseHandler
 }
 
-func NewWorkloadPresetHttpHandler(opts *config.Configuration) domain.BackendHttpGetHandler {
+func NewWorkloadPresetHttpHandler(opts *domain.Configuration) domain.BackendHttpGetHandler {
 	handler := &WorkloadPresetHttpHandler{
 		BaseHandler: newBaseHandler(opts),
 	}

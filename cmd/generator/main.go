@@ -146,15 +146,10 @@ func main() {
 	var wg sync.WaitGroup
 
 	// Assign some default values for certain configuration parameters.
-	options := &domain.WorkloadConfig{
+	options := &domain.Configuration{
 		TraceStep:                         60,
-		MaxTaskDurationSec:                300,      // 5 minutes.
-		CheckpointMinDelayMillis:          "10",     // 10 millisecond.
-		CheckpointMaxDelayMillis:          "60000",  // 30 seconds.
-		MinHostProvisionDelayMs:           "5000",   // 5 seconds.
-		MaxHostProvisionDelayMs:           "240000", // 4 minutes.
+		MaxTaskDurationSec:                300, // 5 minutes.
 		ResourceCreditCPU:                 1,
-		EnableDebugLogAt:                  -1,
 		ResourceCreditGPU:                 1,
 		ServerfulUserCostMultiplier:       "1.0",
 		ServerfulProviderCostMultiplier:   "1.0",
@@ -163,39 +158,18 @@ func main() {
 		ResourceCreditMemMB:               1024,
 		OutputSessions:                    "", // By default, don't profile sessions.
 		InitialCreditBalance:              100,
-		HostLogsEveryNTicks:               1,
 		ContinueUntilExplicitlyTerminated: false,
-		DisplayCostIntervalTicks:          10,       // Log the running tenant-side and provider-side cost every 10 ticks by default.
-		ResourceCreditCostInUSD:           0.0999,   // You can purchase 100 compute units for Google Collab for $9.99, so each compute unit is roughly $0.10. For now, we assume the same pricing model.
-		CpuSchedulingWeight:               1,        // Value from 1 to 100 indicating how much weight to assign to CPU when scheduling Sessions onto Hosts.
-		GpuSchedulingWeight:               1,        // Value from 1 to 100 indicating how much weight to assign to GPU when scheduling Sessions onto Hosts.
-		MemorySchedulingWeight:            1,        // Value from 1 to 100 indicating how much weight to assign to memory when scheduling Sessions onto Hosts.
-		KeepAliveIntervalSeconds:          900,      // 900,000 milliseconds, or 900 seconds, or 15 minutes.
-		RecoveryIdleThresholdSeconds:      600,      // 5 minutes.
-		MinRetentionPeriodMillis:          "300000", // 5 minutes.
-		MaxRetentionPeriodMillis:          "900000", // 15 minutes.
-		AdjustGpuReservations:             false,    // Default to false.
-		NotebookServerMemoryGB:            "0.2",
+		ResourceCreditCostInUSD:           0.0999, // You can purchase 100 compute units for Google Collab for $9.99, so each compute unit is roughly $0.10. For now, we assume the same pricing model.
+		AdjustGpuReservations:             false,  // Default to false.
 		ServerlessInstanceTypeSelector:    "smallest-gpu",
-		MinMigrationDelayMillis:           "500",
-		MaxMigrationDelayMillis:           "45000",
 		ScalingInterval:                   40,
-		RandomHostSpace:                   4,
 		ScalingOutEnaled:                  true,
 		ScalingBufferSize:                 4,
-		// TrackResourcesOnPendingHosts:      true,
 	}
 
 	if options.YAML != "" {
 		log.Printf("YAML configuration file: \"%s\"\n", options.YAML)
 	}
-
-	// runtime.SetMutexProfileFraction(1)
-	// runtime.SetBlockProfileRate(1)
-
-	// go func() {
-	// 	log.Println(http.ListenAndServe("localhost:6060", nil))
-	// }()
 
 	domain.Config = options
 	options.CheckUsage()
@@ -226,51 +200,6 @@ func main() {
 		if err != nil {
 			log.Fatalf("Failed to copy file \"%s\" to destination \"%s\". Error: %v\n", srcFile.Name(), dstFile.Name(), err)
 		}
-
-		srcFile.Close()
-		dstFile.Close()
-
-		// Next, the configuration file for the host pool(s).
-		srcFile, err = os.Open(options.ServerfulHostPoolConfigPath)
-		if err != nil {
-			log.Fatalf("Could not open source host pool configuration file \"%s\". Error: %v\n", options.ServerfulHostPoolConfigPath, err)
-		}
-
-		// Create the destination file for writing
-		hostPoolCopyFilePath := filepath.Join(outputSubdirectoryPath, filepath.Base(options.ServerfulHostPoolConfigPath))
-		dstFile, err = os.Create(hostPoolCopyFilePath)
-		if err != nil {
-			log.Fatalf("Could not create destination host pool configuration file \"%s\". Error: %v\n", hostPoolCopyFilePath, err)
-		}
-
-		_, err = io.Copy(dstFile, srcFile)
-		if err != nil {
-			log.Fatalf("Failed to copy file \"%s\" to destination \"%s\". Error: %v\n", srcFile.Name(), dstFile.Name(), err)
-		}
-
-		srcFile.Close()
-		dstFile.Close()
-
-		// Finally, the configuration file for the instance types.
-		srcFile, err = os.Open(options.ServerfulInstanceTypesConfigPath)
-		if err != nil {
-			log.Fatalf("Could not open source instance type configuration file \"%s\". Error: %v\n", options.ServerfulInstanceTypesConfigPath, err)
-		}
-
-		// Create the destination file for writing
-		instanceTypesCopyFilePath := filepath.Join(outputSubdirectoryPath, filepath.Base(options.ServerfulInstanceTypesConfigPath))
-		dstFile, err = os.Create(instanceTypesCopyFilePath)
-		if err != nil {
-			log.Fatalf("Could not create destination instance type configuration file \"%s\" for copying. Error: %v\n", instanceTypesCopyFilePath, err)
-		}
-
-		_, err = io.Copy(dstFile, srcFile)
-		if err != nil {
-			log.Fatalf("Failed to copy file \"%s\" to destination \"%s\". Error: %v\n", srcFile.Name(), dstFile.Name(), err)
-		}
-
-		srcFile.Close()
-		dstFile.Close()
 	}
 
 	if options.ExecutionMode == 0 {

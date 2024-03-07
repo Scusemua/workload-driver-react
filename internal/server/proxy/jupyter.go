@@ -7,13 +7,13 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/scusemua/workload-driver-react/m/v2/internal/server/config"
+	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
 )
 
 type JupyterProxyRouter struct {
 	ContextPath  string
 	Start        int
-	Config       *config.Configuration
+	Config       *domain.Configuration
 	SpoofJupyter bool
 	*gin.Engine
 }

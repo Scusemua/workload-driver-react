@@ -7,8 +7,7 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/scusemua/workload-driver-react/m/v2/internal/server/config"
-	"github.com/scusemua/workload-driver-react/m/v2/internal/server/domain"
+	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
 	"go.uber.org/zap"
 )
 
@@ -26,10 +25,10 @@ type JupyterAPIHandler struct {
 	spoofKernelSpecs     bool   // Determines whether we return real or fake data.
 
 	logger *zap.Logger
-	opts   *config.Configuration
+	opts   *domain.Configuration
 }
 
-func NewJupyterAPIHandler(opts *config.Configuration) domain.JupyterApiHttpHandler {
+func NewJupyterAPIHandler(opts *domain.Configuration) domain.JupyterApiHttpHandler {
 	handler := &JupyterAPIHandler{
 		jupyterServerAddress: opts.JupyterServerAddress,
 		spoofKernelSpecs:     opts.SpoofKernelSpecs,
