@@ -5,7 +5,7 @@ import (
 	"errors"
 
 	"github.com/gin-gonic/gin"
-	gateway "github.com/scusemua/workload-driver-react/m/v2/server/api/proto"
+	gateway "github.com/scusemua/workload-driver-react/m/v2/internal/server/api/proto"
 )
 
 const (

@@ -10,9 +10,9 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	cmap "github.com/orcaman/concurrent-map/v2"
-	gateway "github.com/scusemua/workload-driver-react/m/v2/server/api/proto"
-	"github.com/scusemua/workload-driver-react/m/v2/server/config"
-	"github.com/scusemua/workload-driver-react/m/v2/server/domain"
+	gateway "github.com/scusemua/workload-driver-react/m/v2/internal/server/api/proto"
+	"github.com/scusemua/workload-driver-react/m/v2/internal/server/config"
+	"github.com/scusemua/workload-driver-react/m/v2/internal/server/domain"
 	"go.uber.org/zap"
 )
 

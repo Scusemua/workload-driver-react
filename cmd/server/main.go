@@ -12,10 +12,10 @@ import (
 	"github.com/joho/godotenv"
 	"github.com/koding/websocketproxy"
 
-	"github.com/scusemua/workload-driver-react/m/v2/server/config"
-	"github.com/scusemua/workload-driver-react/m/v2/server/domain"
-	"github.com/scusemua/workload-driver-react/m/v2/server/handlers"
-	"github.com/scusemua/workload-driver-react/m/v2/server/proxy"
+	"github.com/scusemua/workload-driver-react/m/v2/internal/server/config"
+	"github.com/scusemua/workload-driver-react/m/v2/internal/server/domain"
+	"github.com/scusemua/workload-driver-react/m/v2/internal/server/handlers"
+	"github.com/scusemua/workload-driver-react/m/v2/internal/server/proxy"
 )
 
 func main() {

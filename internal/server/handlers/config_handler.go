@@ -5,8 +5,8 @@ import (
 	"net/http"
 
 	"github.com/gin-gonic/gin"
-	"github.com/scusemua/workload-driver-react/m/v2/server/config"
-	"github.com/scusemua/workload-driver-react/m/v2/server/domain"
+	"github.com/scusemua/workload-driver-react/m/v2/internal/server/config"
+	"github.com/scusemua/workload-driver-react/m/v2/internal/server/domain"
 	"go.uber.org/zap"
 )
 

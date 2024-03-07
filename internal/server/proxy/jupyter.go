@@ -7,7 +7,7 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/scusemua/workload-driver-react/m/v2/server/config"
+	"github.com/scusemua/workload-driver-react/m/v2/internal/server/config"
 )
 
 type JupyterProxyRouter struct {
