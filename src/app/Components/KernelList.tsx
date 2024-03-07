@@ -39,7 +39,7 @@ import {
   Tooltip,
 } from '@patternfly/react-core';
 
-import { KernelManager, ServerConnection } from '@jupyterlab/services';
+import { KernelConnection, KernelManager, ServerConnection } from '@jupyterlab/services';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 
 import {
@@ -63,6 +63,7 @@ import {
 } from '@patternfly/react-icons';
 
 import { IKernelConnection } from '@jupyterlab/services/lib/kernel/kernel';
+import { IInfoReplyMsg } from '@jupyterlab/services/lib/kernel/messages';
 
 import {
   ConfirmationModal,
@@ -188,12 +189,46 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
     setExecuteCodeKernel(filteredKernels[index]);
   };
 
-  const onInspectKernelClicked = (index: number) => {
-    console.log('User is inspecting kernel ' + filteredKernels[index].kernelId);
-  };
+  async function onInspectKernelClicked(index: number) {
+    const kernelId: string | undefined = filteredKernels[index].kernelId;
+    console.log('User is inspecting kernel ' + kernelId);
+
+    if (!kernelManager.current) {
+      console.log('[ERROR] Kernel Manager is not available. Will try to connect...');
+      initializeKernelManagers();
+      return;
+    }
+
+    const kernelConnection: IKernelConnection = kernelManager.current.connectTo({
+      model: { id: kernelId, name: kernelId },
+    });
+
+    kernelConnection.requestKernelInfo().then((resp: IInfoReplyMsg | undefined) => {
+      if (resp == undefined) {
+        console.log('Failed to retrieve information about kernel ' + kernelId);
+      } else {
+        console.log('Received info from kernel ' + kernelId + ': ' + JSON.stringify(resp));
+      }
+    });
+  }
 
   const onInterruptKernelClicked = (index: number) => {
-    console.log('User is interrupting kernel ' + filteredKernels[index].kernelId);
+    const kernelId: string | undefined = filteredKernels[index].kernelId;
+    console.log('User is interrupting kernel ' + kernelId);
+
+    if (!kernelManager.current) {
+      console.log('[ERROR] Kernel Manager is not available. Will try to connect...');
+      initializeKernelManagers();
+      return;
+    }
+
+    const kernelConnection: IKernelConnection = kernelManager.current.connectTo({
+      model: { id: kernelId, name: kernelId },
+    });
+
+    kernelConnection.interrupt().then(() => {
+      console.log('Successfully interrupted kernel ' + kernelId);
+    });
   };
 
   async function startKernel() {
