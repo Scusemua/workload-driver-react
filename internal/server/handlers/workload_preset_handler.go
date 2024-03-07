@@ -11,19 +11,19 @@ var (
 			Name:        "June - August",
 			Description: "Workload based on trace data from June, July, and August.",
 			Key:         "jun-aug",
-			Months:      []string{"jun, jul, aug"},
+			Months:      []string{"jun", "jul", "aug"},
 		},
 		{
 			Name:        "July",
 			Description: "Workload based on trace data from July.",
 			Key:         "jul",
-			Months:      []string{"jun, jul, aug"},
+			Months:      []string{"jul"},
 		},
 		{
 			Name:        "August",
 			Description: "Workload based on trace data from August.",
 			Key:         "aug",
-			Months:      []string{"jun, jul, aug"},
+			Months:      []string{"aug"},
 		},
 	}
 )

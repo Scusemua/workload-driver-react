@@ -29,6 +29,7 @@ var (
 	Months  = []string{"jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"}
 )
 
+// These are all parsed and converted into flag arguments using the provided 'flag' package (i.e., the one that's part of the standard library).
 type Configuration struct {
 	YAML                         string `name:"yaml" description:"Path to config file in the yml format."`
 	TraceStep                    int64  `name:"trace-step" description:"Default interval, in seconds, of two consecutive trace readings."`
@@ -64,6 +65,7 @@ type Configuration struct {
 	Seed                         int64  `name:"seed" description:"Random seed to reproduce simulation."`
 	LastTimestamp                int64  `name:"last-timestamp" description:"Epoch Unix Timestamp denotating the last timestamp for which events will be generated. Any events beyond that point will be discarded."`
 	EvictHostOnLastContainerStop int    `name:"evict-host-on-last-container-stop" description:"Override the default settings for whatever Scheduler you're using and force a value for this parameter. -1 to force false, 0 to leave as default for the particular scheduler, and 1 to force true."`
+	WorkloadPresetsFilepath      string `name:"workload-presets-file" description:"Path to a .YAML file containing the definitions of one or more Workload Presets."`
 
 	///////////////////////
 	// General execution //
