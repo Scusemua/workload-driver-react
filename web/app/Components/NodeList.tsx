@@ -96,7 +96,7 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                             <Tooltip exitDelay={75} content={<div>Refresh nodes.</div>}>
                                 <Button
                                     variant="link"
-                                    disabled={selectedNode != ''}
+                                    isDisabled={selectedNode == ''}
                                     onClick={() => {
                                         setSelectedNode('');
                                         if (props.onSelectNode != undefined) {
