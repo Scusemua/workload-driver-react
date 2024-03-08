@@ -11,8 +11,9 @@ import (
 type BaseHandler struct {
 	http.Handler
 
-	logger *zap.Logger
-	opts   *domain.Configuration
+	logger        *zap.Logger
+	sugaredLogger *zap.SugaredLogger
+	opts          *domain.Configuration
 
 	BackendHttpGetHandler domain.BackendHttpGetHandler
 }
@@ -27,6 +28,8 @@ func newBaseHandler(opts *domain.Configuration) *BaseHandler {
 	if err != nil {
 		panic(err)
 	}
+
+	handler.sugaredLogger = handler.logger.Sugar()
 
 	handler.BackendHttpGetHandler = handler
 

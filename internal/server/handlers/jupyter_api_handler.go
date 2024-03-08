@@ -40,7 +40,7 @@ func NewJupyterAPIHandler(opts *domain.Configuration) domain.JupyterApiHttpHandl
 		panic(err)
 	}
 
-	handler.logger.Info(fmt.Sprintf("Creating server-side JupyterAPIHandler.\nOptions: %s", opts))
+	handler.logger.Info("Creating server-side JupyterAPIHandler.")
 
 	// connectivity := handler.testJupyterServerConnectivity()
 	// if !connectivity && !opts.SpoofKernelSpecs {

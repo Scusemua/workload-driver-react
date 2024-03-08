@@ -1,6 +1,7 @@
 package driver
 
 import (
+	"fmt"
 	"sync/atomic"
 	"time"
 
@@ -17,6 +18,8 @@ type WorkloadDriver struct {
 	workloadEndTime   time.Time         // The time at which the workload completed.
 	workloadComplete  atomic.Bool       // This is set to true when the workload completes.
 	eventChan         chan domain.Event // Receives events from the Synthesizer.
+
+	workloadPresets map[string]*domain.WorkloadPreset
 
 	opts     *domain.Configuration
 	doneChan chan struct{}
@@ -38,6 +41,21 @@ func NewWorkloadDriver(opts *domain.Configuration) *WorkloadDriver {
 
 	driver.logger = logger
 	driver.sugaredLogger = logger.Sugar()
+
+	// Load the list of workload presets from the specified file.
+	driver.logger.Debug("Loading workload presets from file now.", zap.String("filepath", opts.WorkloadPresetsFilepath))
+	presets, err := domain.LoadWorkloadPresetsFromFile(opts.WorkloadPresetsFilepath)
+	if err != nil {
+		driver.logger.Error("Error encountered while loading workload presets from file now.", zap.String("filepath", opts.WorkloadPresetsFilepath), zap.Error(err))
+		panic(err)
+	}
+
+	driver.workloadPresets = make(map[string]*domain.WorkloadPreset, len(presets))
+	for _, preset := range presets {
+		driver.workloadPresets[preset.Key] = preset
+
+		driver.logger.Debug("Discovered preset.", zap.Any(fmt.Sprintf("preset-%s", preset.Key), preset.String()))
+	}
 
 	return driver
 }

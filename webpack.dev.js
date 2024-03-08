@@ -5,12 +5,16 @@ const { merge } = require('webpack-merge');
 const common = require('./webpack.common.js');
 const { stylePaths } = require('./stylePaths');
 const { debug } = require('console');
-const HOST = process.env.HOST || '127.0.0.1';
-const PORT = process.env.PORT || '9001';
-const SPOOF = process.env.SPOOF || false;
+
+const HOST = process.env.host || '127.0.0.1';
+const PORT = process.env.port || '9001';
+const SPOOF = process.env.spoof;
+
+console.log('HOST: %s. PORT: %s.', HOST, PORT);
 
 let devServer = undefined;
 if (SPOOF) {
+    console.log('Returning spoofed webpack dev configuration.');
     devServer = {
         proxy: {
             '/api/*': {
@@ -18,7 +22,7 @@ if (SPOOF) {
                 host: '127.0.0.1',
                 port: PORT,
                 scheme: 'http',
-                target: 'http://127.0.0.1:8005',
+                target: 'http://127.0.0.1:8000',
             },
         },
         host: HOST,
@@ -33,6 +37,7 @@ if (SPOOF) {
         },
     };
 } else {
+    console.log('Returning non-spoofed webpack dev configuration.');
     devServer = {
         proxy: {
             '/jupyter/*': {
@@ -51,7 +56,7 @@ if (SPOOF) {
                 host: '127.0.0.1',
                 port: PORT,
                 scheme: 'http',
-                target: 'http://127.0.0.1:8005',
+                target: 'http://127.0.0.1:8000',
             },
         },
         host: HOST,

@@ -2,7 +2,7 @@
 // versions:
 // - protoc-gen-go-grpc v1.3.0
 // - protoc             v3.15.8
-// source: server/api/proto/gateway.proto
+// source: internal/server/api/proto/gateway.proto
 
 package gateway
 
@@ -347,7 +347,7 @@ var ClusterGateway_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "server/api/proto/gateway.proto",
+	Metadata: "internal/server/api/proto/gateway.proto",
 }
 
 const (
@@ -835,5 +835,5 @@ var LocalGateway_ServiceDesc = grpc.ServiceDesc{
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
-	Metadata: "server/api/proto/gateway.proto",
+	Metadata: "internal/server/api/proto/gateway.proto",
 }

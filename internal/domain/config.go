@@ -192,10 +192,10 @@ func GetDefaultConfig() *Configuration {
 		KernelSpecQueryInterval: "600s",
 		JupyterServerAddress:    "localhost:8888",
 		ServerPort:              8000,
-		SpoofKubeNodes:          true,
-		SpoofKernels:            true,
-		SpoofKernelSpecs:        true,
-		WebsocketProxyPort:      8001,
+		// SpoofKubeNodes:          true,
+		// SpoofKernels:            true,
+		// SpoofKernelSpecs:        true,
+		WebsocketProxyPort: 8001,
 	}
 }
 
@@ -257,6 +257,7 @@ func (opts *Configuration) CheckUsage() {
 	}
 
 	if opts.YAML != "" {
+		fmt.Printf("Reading configuration from file: \"%s\"\n", opts.YAML)
 		configKit.WithOptions(func(opt *configKit.Options) {
 			opt.SetTagName(OptionName)
 			// DecoderConfig initialization is due a bug in configKit: no TagName will be applied if DecoderConfig is nil.
@@ -267,7 +268,7 @@ func (opts *Configuration) CheckUsage() {
 		if err := configKit.LoadFiles(opts.YAML); err != nil {
 			panic(err)
 		}
-		fileOpts := GetDefaultConfig()
+		fileOpts := &Configuration{}
 		if err := configKit.BindStruct("", fileOpts); err != nil {
 			panic(err)
 		}
@@ -292,6 +293,8 @@ func (opts *Configuration) CheckUsage() {
 	if opts.ToMonth != "" {
 		opts.ToMonth = strings.ToLower(opts.ToMonth[:3])
 	}
+
+	fmt.Printf("Loaded options:\n%v\n", opts)
 }
 
 func (opts *Configuration) NormalizeTracePaths(path string) []string {

@@ -39,3 +39,7 @@ var (
 )
 
 type KernelRefreshCallback func([]*gateway.DistributedJupyterKernel)
+
+type Server interface {
+	Serve() error // Run the server. This is a blocking call.
+}

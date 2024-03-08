@@ -1,7 +1,6 @@
 package handlers
 
 import (
-	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -19,7 +18,7 @@ func NewConfigHttpHandler(opts *domain.Configuration) domain.BackendHttpGetHandl
 	}
 	handler.BackendHttpGetHandler = handler
 
-	handler.logger.Info(fmt.Sprintf("Creating server-side ConfigHttpHandler.\nOptions: %s", opts))
+	handler.logger.Info("Creating server-side ConfigHttpHandler.")
 
 	return handler
 }

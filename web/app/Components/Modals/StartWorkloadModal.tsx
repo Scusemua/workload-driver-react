@@ -1,6 +1,5 @@
 import React from 'react';
 import {
-    ActionGroup,
     Button,
     Dropdown,
     DropdownItem,
@@ -16,8 +15,6 @@ import {
     ModalVariant,
     Popover,
     TextInput,
-    TextInputGroup,
-    TextInputGroupMain,
 } from '@patternfly/react-core';
 
 import HelpIcon from '@patternfly/react-icons/dist/esm/icons/help-icon';
@@ -175,7 +172,7 @@ export const StartWorkloadModal: React.FunctionComponent<StartWorkloadModalProps
                             shouldFocusToggleOnSelect
                         >
                             <DropdownList>
-                                {props.workloadPresets.map((value: WorkloadPreset, index: number) => {
+                                {props.workloadPresets.map((value: WorkloadPreset) => {
                                     return (
                                         <DropdownItem
                                             value={value.name}

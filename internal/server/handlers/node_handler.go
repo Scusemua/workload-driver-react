@@ -226,7 +226,7 @@ func (h *KubeNodeHttpHandler) HandleRequest(c *gin.Context) {
 }
 
 func (h *KubeNodeHttpHandler) spoofNodes(c *gin.Context) {
-	c.JSON(200, []*domain.KubernetesNode{
+	c.JSON(http.StatusOK, []*domain.KubernetesNode{
 		{
 			NodeId: "spoofed-kubernetes-node-0",
 			Pods: []*domain.KubernetesPod{

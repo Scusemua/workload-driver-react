@@ -1,4 +1,4 @@
-export * from './ActionCard';
+export * from './WorkloadCard';
 export * from './CodeEditor';
 export * from './KernelSpecList';
 export * from './KernelList';

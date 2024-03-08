@@ -34,7 +34,7 @@ func NewKernelHttpHandler(opts *domain.Configuration) domain.BackendHttpGetHandl
 		handler.spoofedKernels = &spoofedKernels
 	}
 
-	handler.logger.Info(fmt.Sprintf("Creating server-side KernelHttpHandler.\nOptions: %s", opts))
+	handler.logger.Info("Creating server-side KernelHttpHandler.")
 
 	return handler
 }
@@ -55,10 +55,12 @@ func (h *KernelHttpHandler) HandleRequest(c *gin.Context) {
 			h.logger.Error("Failed to retrieve list of kernels from Jupyter Server.")
 			h.WriteError(c, "Failed to retrieve list of kernels from Jupyter Server.")
 			return
+		} else {
 		}
 	}
 
-	h.logger.Info(fmt.Sprintf("Sending %d kernel(s) back to client now.", len(kernels)))
+	h.sugaredLogger.Infof("Sending %d kernel(s) back to client now.", len(kernels))
+	h.sugaredLogger.Debugf("Kernels: %v.", kernels)
 	c.JSON(http.StatusOK, kernels)
 }
 
@@ -172,8 +174,12 @@ func (h *KernelHttpHandler) spoofedKernelsToSlice() []*gateway.DistributedJupyte
 func (h *KernelHttpHandler) getKernelsFromClusterGateway() []*gateway.DistributedJupyterKernel {
 	h.logger.Debug("Kernel Querier is refreshing kernels now.")
 	resp, err := h.rpcClient.ListKernels(context.TODO(), &gateway.Void{})
-	if err != nil || resp == nil || resp.Kernels == nil {
+	if err != nil || resp == nil {
 		h.logger.Error("[ERROR] Failed to fetch list of active kernels from the Cluster Gateway.", zap.Error(err))
+		return make([]*gateway.DistributedJupyterKernel, 0)
+	}
+
+	if resp.Kernels == nil {
 		return make([]*gateway.DistributedJupyterKernel, 0)
 	}
 

@@ -15,24 +15,28 @@ type WorkloadPreset struct {
 
 	/* The following fields are not sent to the client. They're just used by the server. */
 
-	GPUTraceFile      string `yaml:"gputrace" name:"gputrace" description:"File path of GPU utilization trace."`
-	GPUTraceStep      int64  `yaml:"gputrace-step" name:"gputrace-step" description:"Interval, in seconds, of two consecutive trace readings of GPU."`
-	GPUMappingFile    string `yaml:"gpumap" name:"gpumap" description:"File path of GPU idx/pod map."`
-	MaxSessionCpuFile string `yaml:"cpudown" name:"max-session-cpu-file" description:"File obtained during a 'pre-run' of the simulator that simply reads thru the trace data. Contains the lifetime-maximum CPU utilization of each session."`       // File obtained during a 'pre-run' of the simulator that simply reads thru the trace data. Contains the max CPU used by each session.
-	MaxSessionMemFile string `yaml:"cpumap" name:"max-session-mem-file" description:"File obtained during a 'pre-run' of the simulator that simply reads thru the trace data. Contains the lifetime-maximum memory (in bytes) used by each session."` // // File obtained during a 'pre-run' of the simulator that simply reads thru the trace data. Contains the max memory (in bytes) used by each session.
-	MaxSessionGpuFile string `yaml:"cputrace-step" name:"max-session-gpu-file" desciption:"File obtained during a 'pre-run' of the simulator that simply reads thru the trace data. Contains the lifetime-maximum GPU utilization of each session."`  // File obtained during a 'pre-run' of the simulator that simply reads thru the trace data. Contains the max CPU used by each session.
-	MaxTaskCpuFile    string `yaml:"cputrace" name:"max-task-cpu-file" description:"File obtained during a 'pre-run' of the simulator that simply reads thru the trace data. Contains the max CPU utilization achieved within each individual training task."`
-	MaxTaskMemFile    string `yaml:"max-task-gpu-file" name:"max-task-mem-file" description:"File obtained during a 'pre-run' of the simulator that simply reads thru the trace data. Contains the max memory (in bytes) used within each individual training task."`
-	MaxTaskGpuFile    string `yaml:"max-task-mem-file" name:"max-task-gpu-file" description:"File obtained during a 'pre-run' of the simulator that simply reads thru the trace data. Contains the max GPU utilization achieved within each individual training task."`
-	CPUTraceFile      string `yaml:"max-task-cpu-file" name:"cputrace" description:"File path of CPU counter trace."`
-	CPUTraceStep      int64  `yaml:"max-session-gpu-file" name:"cputrace-step" description:"Interval, in seconds, of two consecutive trace readings of CPU."`
-	CPUMappingFile    string `yaml:"max-session-mem-file" name:"cpumap" description:"File path of CPU idx/pod map."`
-	CPUDowntime       string `yaml:"max-session-cpu-file" name:"cpudown" description:"CPU trace downtime."`
-	MemTraceFile      string `yaml:"memtrace" name:"memtrace" description:"File path of memory usage trace."`
-	MemTraceStep      int64  `yaml:"memtrace-step" name:"memtrace-step" description:"Interval, in seconds, of two consecutive trace readings of memory."`
-	MemMappingFile    string `yaml:"memmap" name:"memmap" description:"File path of memory idx/pod map."`
-	FromMonth         string `yaml:"from-month" name:"from-month" description:"Month the trace starts if the path of trace file contains placeholder."`
-	ToMonth           string `yaml:"to-month" name:"to-month" description:"Month the trace ends if the path of trace file contains placeholder."`
+	GPUTraceFile      string `yaml:"gputrace" json:"-" name:"gputrace" description:"File path of GPU utilization trace."`
+	GPUTraceStep      int64  `yaml:"gputrace-step" json:"-" name:"gputrace-step" description:"Interval, in seconds, of two consecutive trace readings of GPU."`
+	GPUMappingFile    string `yaml:"gpumap" json:"-" name:"gpumap" description:"File path of GPU idx/pod map."`
+	MaxSessionCpuFile string `yaml:"max-session-cpu-file" json:"-" name:"max-session-cpu-file" description:"File obtained during a 'pre-run' of the simulator that simply reads thru the trace data. Contains the lifetime-maximum CPU utilization of each session."`        // File obtained during a 'pre-run' of the simulator that simply reads thru the trace data. Contains the max CPU used by each session.
+	MaxSessionMemFile string `yaml:"max-session-mem-file" json:"-" name:"max-session-mem-file" description:"File obtained during a 'pre-run' of the simulator that simply reads thru the trace data. Contains the lifetime-maximum memory (in bytes) used by each session."` // // File obtained during a 'pre-run' of the simulator that simply reads thru the trace data. Contains the max memory (in bytes) used by each session.
+	MaxSessionGpuFile string `yaml:"max-session-gpu-file" json:"-" name:"max-session-gpu-file" desciption:"File obtained during a 'pre-run' of the simulator that simply reads thru the trace data. Contains the lifetime-maximum GPU utilization of each session."`         // File obtained during a 'pre-run' of the simulator that simply reads thru the trace data. Contains the max CPU used by each session.
+	MaxTaskCpuFile    string `yaml:"max-task-cpu-file" json:"-" name:"max-task-cpu-file" description:"File obtained during a 'pre-run' of the simulator that simply reads thru the trace data. Contains the max CPU utilization achieved within each individual training task."`
+	MaxTaskMemFile    string `yaml:"max-task-mem-file" json:"-" name:"max-task-mem-file" description:"File obtained during a 'pre-run' of the simulator that simply reads thru the trace data. Contains the max memory (in bytes) used within each individual training task."`
+	MaxTaskGpuFile    string `yaml:"max-task-gpu-file" json:"-" name:"max-task-gpu-file" description:"File obtained during a 'pre-run' of the simulator that simply reads thru the trace data. Contains the max GPU utilization achieved within each individual training task."`
+	CPUTraceFile      string `yaml:"cputrace" json:"-" name:"cputrace" description:"File path of CPU counter trace."`
+	CPUTraceStep      int64  `yaml:"cputrace-step" json:"-" name:"cputrace-step" description:"Interval, in seconds, of two consecutive trace readings of CPU."`
+	CPUMappingFile    string `yaml:"cpumap" json:"-" name:"cpumap" description:"File path of CPU idx/pod map."`
+	CPUDowntime       string `yaml:"cpudown" json:"-" name:"cpudown" description:"CPU trace downtime."`
+	MemTraceFile      string `yaml:"memtrace" json:"-" name:"memtrace" description:"File path of memory usage trace."`
+	MemTraceStep      int64  `yaml:"memtrace-step" json:"-" name:"memtrace-step" description:"Interval, in seconds, of two consecutive trace readings of memory."`
+	MemMappingFile    string `yaml:"memmap" json:"-" name:"memmap" description:"File path of memory idx/pod map."`
+	FromMonth         string `yaml:"from-month" json:"-" name:"from-month" description:"Month the trace starts if the path of trace file contains placeholder."`
+	ToMonth           string `yaml:"to-month" json:"-" name:"to-month" description:"Month the trace ends if the path of trace file contains placeholder."`
+}
+
+func (p *WorkloadPreset) String() string {
+	return fmt.Sprintf("WorkloadPreset[Name=%s,Key=%s,Months=%s]", p.Name, p.Key, p.Months)
 }
 
 // Read a yaml file containing one or more WorkloadPreset definitions.

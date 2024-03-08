@@ -2,7 +2,7 @@ package handlers
 
 import (
 	"context"
-	"fmt"
+	"net/http"
 
 	"github.com/gin-gonic/gin"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
@@ -20,7 +20,7 @@ func NewMigrationHttpHandler(opts *domain.Configuration) domain.BackendHttpGetHa
 	}
 	handler.BackendHttpGetHandler = handler
 
-	handler.logger.Info(fmt.Sprintf("Creating server-side MigrationHttpHandler.\nOptions: %s", opts))
+	handler.logger.Info("Creating server-side MigrationHttpHandler.")
 
 	return handler
 }
@@ -30,18 +30,20 @@ func (h *MigrationHttpHandler) HandleRequest(c *gin.Context) {
 	if err := c.BindJSON(&migrationRequest); err != nil {
 		h.logger.Error("Failed to extract and/or unmarshal migration request from request body.")
 
-		c.JSON(400, &domain.ErrorMessage{
+		c.JSON(http.StatusBadRequest, &domain.ErrorMessage{
 			Description:  "Failed to extract migration request from request body.",
 			ErrorMessage: err.Error(),
 			Valid:        true,
 		})
 	}
 
+	h.logger.Info("Received migration request.", zap.Int32("replica-smr-id", migrationRequest.TargetReplica.ReplicaId), zap.String("kernel-id", migrationRequest.TargetReplica.KernelId), zap.String("target-k8s-node-id", migrationRequest.GetTargetNodeId()))
+
 	resp, err := h.rpcClient.MigrateKernelReplica(context.TODO(), migrationRequest)
 	if err != nil {
 		h.logger.Error("An error occurred while triggering or performing the kernel replica migration.", zap.String("kernelID", migrationRequest.TargetReplica.KernelId), zap.Int32("replicaID", migrationRequest.TargetReplica.ReplicaId), zap.String("target-node", migrationRequest.GetTargetNodeId()), zap.Error(err))
 
-		c.JSON(500, &domain.ErrorMessage{
+		c.JSON(http.StatusInternalServerError, &domain.ErrorMessage{
 			Description:  "An error occurred while triggering or performing the kernel replica migration.",
 			ErrorMessage: err.Error(),
 			Valid:        true,

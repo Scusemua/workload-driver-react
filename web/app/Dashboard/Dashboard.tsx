@@ -3,8 +3,8 @@ import '@patternfly/react-core/dist/styles/base.css';
 import React, { useEffect, useRef } from 'react';
 import { Grid, GridItem, PageSection } from '@patternfly/react-core';
 
-import { ActionCard, KernelSpecList, KubernetesNodeList, KernelList } from '@app/Components';
-import { KubernetesNode, DistributedJupyterKernel, JupyterKernelReplica, WorkloadPreset } from '@app/Data';
+import { KernelList, KernelSpecList, KubernetesNodeList, WorkloadCard } from '@app/Components';
+import { DistributedJupyterKernel, JupyterKernelReplica, KubernetesNode, WorkloadPreset } from '@app/Data';
 import { MigrationModal, StartWorkloadModal } from '@app/Components/Modals';
 
 export interface DashboardProps {
@@ -27,7 +27,7 @@ August
 const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProps) => {
     const [nodes, setNodes] = React.useState<KubernetesNode[]>([]);
     const [workloadPresets, setWorkloadPresets] = React.useState<WorkloadPreset[]>([]);
-    const [isStartWorkloadModalOpen, setIsStartWorkloadOpen] = React.useState(true);
+    const [isStartWorkloadModalOpen, setIsStartWorkloadOpen] = React.useState(false);
     const [isMigrateModalOpen, setIsMigrateModalOpen] = React.useState(false);
     const [migrateKernel, setMigrateKernel] = React.useState<DistributedJupyterKernel | null>(null);
     const [migrateReplica, setMigrateReplica] = React.useState<JupyterKernelReplica | null>(null);
@@ -84,7 +84,8 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
             if (!ignoreResponseForWorkloadPresets.current) {
                 setWorkloadPresets(respWorkloadPresets);
                 console.log(
-                    'Successfully refreshed workload presets. Discovered ' + respWorkloadPresets.length + ' preset(s).',
+                    'Successfully refreshed workload presets. Discovered %d preset(s).',
+                    respWorkloadPresets.length,
                 );
             }
         } catch (e) {
@@ -132,13 +133,40 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
         ignoreResponseForNodes.current = true;
     }
 
-    const onConfirmMigrateReplica = () => {
+    const onConfirmMigrateReplica = (
+        targetReplica: JupyterKernelReplica,
+        targetKernel: DistributedJupyterKernel,
+        targetNodeId: string,
+    ) => {
+        const requestOptions = {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                targetReplica: {
+                    replicaId: targetReplica.replicaId,
+                    kernelId: targetKernel.kernelId,
+                },
+                targetNodeId: targetNodeId,
+            }),
+        };
+
+        fetch('/api/migrate', requestOptions).then((response) => {
+            console.log(
+                'Received response for migration operation of replica %d of kernel %s: %s',
+                targetReplica.replicaId,
+                targetKernel.kernelId,
+                JSON.stringify(response),
+            );
+        });
+
+        // Close the migration modal and reset its state.
         setIsMigrateModalOpen(false);
         setMigrateReplica(null);
         setMigrateKernel(null);
     };
 
-    const onCancelMigrateReplica = () => {
+    const closeMigrateReplicaModal = () => {
+        // Close the migration modal and reset its state.
         setIsMigrateModalOpen(false);
         setMigrateReplica(null);
         setMigrateKernel(null);
@@ -164,7 +192,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
         <PageSection>
             <Grid hasGutter>
                 <GridItem span={6} rowSpan={1}>
-                    <ActionCard
+                    <WorkloadCard
                         onLaunchWorkloadClicked={() => {
                             setIsStartWorkloadOpen(true);
                         }}
@@ -189,15 +217,15 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
                 nodes={nodes}
                 manuallyRefreshNodes={manuallyRefreshNodes}
                 isOpen={isMigrateModalOpen}
-                onClose={() => onCancelMigrateReplica()}
-                onConfirm={() => onConfirmMigrateReplica()}
+                onClose={closeMigrateReplicaModal}
+                onConfirm={onConfirmMigrateReplica}
                 targetKernel={migrateKernel}
                 targetReplica={migrateReplica}
             />
             <StartWorkloadModal
                 isOpen={isStartWorkloadModalOpen}
-                onClose={() => onCancelStartWorkload()}
-                onConfirm={() => onConfirmStartWorkload()}
+                onClose={onCancelStartWorkload}
+                onConfirm={onConfirmStartWorkload}
                 workloadPresets={workloadPresets}
             />
         </PageSection>

@@ -18,8 +18,8 @@ run-backend: run-server
 
 run-server-spoofed:
 	@echo Running backend server now.
-	go run ./cmd/server/main.go --in-cluster=false --spoof-nodes=true --spoof-kernels=true --spoof-specs=true  --server-port=8005
+	go run ./cmd/server/main.go --yaml ./config-files/config-spoofed.yaml
 
 run-server:
 	@echo Running backend server now.
-	go run ./server/cmd/main.go --in-cluster=false --spoof-nodes=false --spoof-kernels=false --spoof-specs=false --server-port=8000
+	go run ./cmd/server/main.go --yaml ./config-files/config.yaml

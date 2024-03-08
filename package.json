@@ -14,6 +14,7 @@
     "build": "webpack --config webpack.prod.js && npm run dr:surge",
     "start": "sirv dist --cors --single --host --port 8080",
     "start:dev": "webpack serve --color --progress --config webpack.dev.js",
+    "start:dev-spoofed": "webpack serve --color --progress --config webpack.dev.js --env spoof",
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
