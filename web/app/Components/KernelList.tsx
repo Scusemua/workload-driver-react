@@ -278,9 +278,31 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
 
         // Handle iopub messages
         future.onIOPub = (msg) => {
-            if (msg.header.msg_type !== 'status') {
-                logConsumer(JSON.stringify(msg.content));
+            console.log('Received IOPub message:\n%s\n', JSON.stringify(msg));
+            if (msg.header.msg_type == 'status') {
+                logConsumer(
+                    msg['header']['date'] +
+                        ': Execution state changed to ' +
+                        JSON.stringify(msg.content['execution_state']) +
+                        '\n',
+                );
+            } else if (msg.header.msg_type == 'execute_input') {
+                // Do nothing.
+            } else if (msg.header.msg_type == 'stream') {
+                if (msg['content']['name'] == 'stderr') {
+                    logConsumer(msg['header']['date'] + ' <ERROR>: ' + JSON.stringify(msg.content['text']) + '\n');
+                } else if (msg['content']['name'] == 'stdout') {
+                    logConsumer(msg['header']['date'] + ': ' + JSON.stringify(msg.content['text']) + '\n');
+                } else {
+                    logConsumer(msg['header']['date'] + ': ' + JSON.stringify(msg.content['text']) + '\n');
+                }
+            } else {
+                logConsumer(msg['header']['date'] + ': ' + JSON.stringify(msg.content) + '\n');
             }
+
+            // if (msg.header.msg_type !== 'status') {
+            //     logConsumer(JSON.stringify(msg.content));
+            // }
         };
         await future.done;
         console.log('Execution on Kernel ' + kernelId + ' is done.');

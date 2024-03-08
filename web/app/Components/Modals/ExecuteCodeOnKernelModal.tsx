@@ -7,6 +7,8 @@ import {
     CodeBlockCode,
     Modal,
     ModalVariant,
+    Text,
+    TextContent,
     Title,
 } from '@patternfly/react-core';
 
@@ -25,7 +27,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
     const [code, setCode] = React.useState('');
     const [executionState, setExecutionState] = React.useState('idle');
     const [copied, setCopied] = React.useState(false);
-    const [output, setOutput] = React.useState('');
+    const output = React.useRef<string[]>([]);
 
     const clipboardCopyFunc = (_event, text) => {
         navigator.clipboard.writeText(text.toString());
@@ -37,8 +39,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
     };
 
     const logConsumer = (msg: string) => {
-        console.log('Appending log message: ' + msg);
-        setOutput(output + '\n' + msg);
+        output.current = [...output.current, msg];
     };
 
     const onSubmit = () => {
@@ -56,8 +57,9 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
 
     // Reset state, then call user-supplied onClose function.
     const onClose = () => {
+        console.log('Closing execute code modal.');
         setExecutionState('idle');
-        setOutput('');
+        output.current = [];
         props.onClose();
     };
 
@@ -121,8 +123,12 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
             <CodeEditorComponent onChange={onChange} />
             <br />
             <Title headingLevel="h2">Output</Title>
-            <CodeBlock actions={outputLogActions}>
-                <CodeBlockCode id="code-execution-output">{output}</CodeBlockCode>
+            <CodeBlock>
+                {output.current.map((val, idx) => (
+                    <CodeBlockCode key={'log-message-' + idx} id={'log-message-' + idx}>
+                        {val}
+                    </CodeBlockCode>
+                ))}
             </CodeBlock>
         </Modal>
     );
