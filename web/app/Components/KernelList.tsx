@@ -203,13 +203,23 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             model: { id: kernelId, name: kernelId },
         });
 
-        kernelConnection.requestKernelInfo().then((resp: IInfoReplyMsg | undefined) => {
-            if (resp == undefined) {
-                console.log('Failed to retrieve information about kernel ' + kernelId);
-            } else {
-                console.log('Received info from kernel ' + kernelId + ': ' + JSON.stringify(resp));
-            }
-        });
+        if (kernelConnection.connectionStatus == 'connected') {
+            kernelConnection.requestKernelInfo().then((resp: IInfoReplyMsg | undefined) => {
+                if (resp == undefined) {
+                    console.log('Failed to retrieve information about kernel ' + kernelId);
+                } else {
+                    console.log('Received info from kernel ' + kernelId + ': ' + JSON.stringify(resp));
+                }
+            });
+        } else {
+            console.log('[ERROR] Could not retrieve information for kernel %s. Not connected to the kernel.', kernelId);
+            setErrorMessage(
+                'Could not retrieve information about kernel ' +
+                    kernelId +
+                    ' as a connection to the kernel was not established successfully.',
+            );
+            setIsErrorModalOpen(true);
+        }
     }
 
     const onInterruptKernelClicked = (index: number) => {
@@ -226,9 +236,19 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             model: { id: kernelId, name: kernelId },
         });
 
-        kernelConnection.interrupt().then(() => {
-            console.log('Successfully interrupted kernel ' + kernelId);
-        });
+        if (kernelConnection.connectionStatus == 'connected') {
+            kernelConnection.interrupt().then(() => {
+                console.log('Successfully interrupted kernel ' + kernelId);
+            });
+        } else {
+            console.log('[ERROR] Could not interrupt kernel %s. Not connected to the kernel.', kernelId);
+            setErrorMessage(
+                'Could not interrupt kernel ' +
+                    kernelId +
+                    ' as a connection to the kernel was not established successfully.',
+            );
+            setIsErrorModalOpen(true);
+        }
     };
 
     async function startKernel() {
