@@ -4,6 +4,10 @@ This repository contains a "Workload Driver" for the Distributed Jupyter Noteboo
 
 The Workload Driver provides a web interface containing a dashboard for monitoring the Notebook Cluster. The Workload Driver will also allow users to execute large-scale workloads on the Jupyter Notebook cluster.
 
+## Repository Overview 
+
+The backend is contained within the `internal/` directory. The frontend is contained within the `web/` directory. The entrypoint for the backend is in the `cmd/server/` directory. 
+
 ## Quick-start
 
 ```bash
