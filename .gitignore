@@ -9,3 +9,5 @@ storybook-static
 .idea
 .env
 ./config-files
+config-files/
+config-files/*
