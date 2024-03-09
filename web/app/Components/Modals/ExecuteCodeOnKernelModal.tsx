@@ -7,8 +7,6 @@ import {
     CodeBlockCode,
     Modal,
     ModalVariant,
-    Text,
-    TextContent,
     Title,
 } from '@patternfly/react-core';
 
@@ -123,7 +121,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
             <CodeEditorComponent onChange={onChange} />
             <br />
             <Title headingLevel="h2">Output</Title>
-            <CodeBlock>
+            <CodeBlock actions={outputLogActions}>
                 {output.current.map((val, idx) => (
                     <CodeBlockCode key={'log-message-' + idx} id={'log-message-' + idx}>
                         {val}
