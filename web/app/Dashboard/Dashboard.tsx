@@ -150,6 +150,8 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
             }),
         };
 
+        targetReplica.isMigrating = true;
+
         fetch('/api/migrate', requestOptions).then((response) => {
             console.log(
                 'Received response for migration operation of replica %d of kernel %s: %s',

@@ -26,6 +26,11 @@ func NewMigrationHttpHandler(opts *domain.Configuration) domain.BackendHttpGetHa
 }
 
 func (h *MigrationHttpHandler) HandleRequest(c *gin.Context) {
+	if h.opts.SpoofKernels {
+		// Do nothing.
+		return
+	}
+
 	var migrationRequest *gateway.MigrationRequest
 	if err := c.BindJSON(&migrationRequest); err != nil {
 		h.logger.Error("Failed to extract and/or unmarshal migration request from request body.")

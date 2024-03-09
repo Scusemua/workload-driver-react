@@ -674,7 +674,9 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                             >
                                 <Button
                                     variant={'link'}
-                                    icon={<MigrationIcon />}
+                                    isLoading={replica.isMigrating}
+                                    isDisabled={replica.isMigrating}
+                                    icon={replica.isMigrating ? null : <MigrationIcon />}
                                     onClick={() => {
                                         props.openMigrationModal(kernel, replica);
                                     }}

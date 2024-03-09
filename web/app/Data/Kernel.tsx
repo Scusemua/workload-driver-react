@@ -14,6 +14,7 @@ interface JupyterKernelReplica {
     replicaId: number;
     podId: string;
     nodeId: string;
+    isMigrating: boolean;
 }
 
 interface KernelSpec {
