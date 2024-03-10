@@ -7,6 +7,19 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+type WorkloadGenerator interface {
+	GenerateWorkload(EventConsumer, *WorkloadPreset, *WorkloadRequest) error
+}
+
+type WorkloadRequest struct {
+	Key  string `name:"key" yaml:"key" json:"key" description:"Key for code-use only (i.e., we don't intend to display this to the user for the most part)."` // Key for code-use only (i.e., we don't intend to display this to the user for the most part).
+	Seed int    `name:"seed" yaml:"seed" json:"seed" description:"RNG seed for the workload."`
+	// By default, sessions reserve 'NUM_GPUS' GPUs when being scheduled. If this property is enabled, then sessions will instead reserve 'NUM_GPUs' * 'MAX_GPU_UTIL'.
+	// This will lead to many sessions reserving fewer GPUs than when this property is disabled (default).
+	AdjustGpuReservations bool   `name:"adjust_gpu_reservations" json:"adjust_gpu_reservations" description:"By default, sessions reserve 'NUM_GPUS' GPUs when being scheduled. If this property is enabled, then sessions will instead reserve 'NUM_GPUs' * 'MAX_GPU_UTIL'. This will lead to many sessions reserving fewer GPUs than when this property is disabled (default)."`
+	WorkloadName          string `name:"name" json:"name" yaml:"name" description: "Non-unique identifier of the workload created/specified by the user when launching the workload."`
+}
+
 type WorkloadPreset struct {
 	Name        string   `name:"name" yaml:"name" json:"name" description:"Human-readable name for this particular workload preset."`                                   // Human-readable name for this particular workload preset.
 	Description string   `name:"description" yaml:"description" json:"description" description:"Human-readable description of the workload."`                           // Human-readable description of the workload.

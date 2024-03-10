@@ -19,6 +19,9 @@ const (
 	// Used internally (by the frontend) to trigger kernel replica migrations.
 	MIGRATION_ENDPOINT = "/migrate"
 
+	// Used internally (by the frontend) to trigger the start of a new workload.
+	START_WORKLOAD_ENDPOINT = "/workload"
+
 	// Used internally (by the frontend) to get the current set of Jupyter kernel specs from the backend.
 	KERNEL_SPEC_ENDPOINT = "/kernelspecs"
 

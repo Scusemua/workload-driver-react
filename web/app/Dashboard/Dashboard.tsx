@@ -174,9 +174,24 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
         setMigrateKernel(null);
     };
 
-    const onConfirmStartWorkload = () => {
-        console.log('New workload started by user.');
+    const onConfirmStartWorkload = (workloadName: string, selectedPreset: WorkloadPreset) => {
+        console.log("New workload '%s' started by user with preset:\n%s", workloadName, JSON.stringify(selectedPreset));
         setIsStartWorkloadOpen(false);
+
+        const requestOptions = {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                adjust_gpu_reservations: false,
+                seed: 1,
+                key: selectedPreset.key,
+                name: workloadName,
+            }),
+        };
+
+        fetch('/api/workload', requestOptions).then((response) => {
+            console.log('Received response for launch of new workload');
+        });
     };
 
     const onCancelStartWorkload = () => {

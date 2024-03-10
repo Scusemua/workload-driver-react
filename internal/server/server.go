@@ -11,23 +11,26 @@ import (
 	"github.com/gin-gonic/gin"
 	"github.com/koding/websocketproxy"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
+	"github.com/scusemua/workload-driver-react/m/v2/internal/server/driver"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/server/handlers"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/server/proxy"
 	"go.uber.org/zap"
 )
 
 type serverImpl struct {
-	logger        *zap.Logger
-	sugaredLogger *zap.SugaredLogger
-	opts          *domain.Configuration
-	app           *proxy.JupyterProxyRouter
-	engine        *gin.Engine
+	logger         *zap.Logger
+	sugaredLogger  *zap.SugaredLogger
+	opts           *domain.Configuration
+	app            *proxy.JupyterProxyRouter
+	engine         *gin.Engine
+	workloadDriver *driver.WorkloadDriver
 }
 
 func NewServer(opts *domain.Configuration) domain.Server {
 	s := &serverImpl{
-		opts:   opts,
-		engine: gin.New(),
+		opts:           opts,
+		engine:         gin.New(),
+		workloadDriver: driver.NewWorkloadDriver(opts),
 	}
 
 	logger, err := zap.NewDevelopment()
@@ -76,6 +79,9 @@ func (s *serverImpl) setupRoutes() error {
 
 		// Used internally (by the frontend) to trigger kernel replica migrations.
 		apiGroup.POST(domain.MIGRATION_ENDPOINT, handlers.NewMigrationHttpHandler(s.opts).HandleRequest)
+
+		// Used internally (by the frontend) to trigger the start of a new workload.
+		apiGroup.POST(domain.START_WORKLOAD_ENDPOINT, s.workloadDriver.HandleRequest)
 	}
 
 	if s.opts.SpoofKernelSpecs {

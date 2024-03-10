@@ -26,7 +26,7 @@ export interface StartWorkloadModalProps {
     children?: React.ReactNode;
     isOpen: boolean;
     onClose: () => void;
-    onConfirm: () => void;
+    onConfirm: (string, WorkloadPreset) => void;
     workloadPresets: WorkloadPreset[];
 }
 
@@ -35,7 +35,7 @@ export const StartWorkloadModal: React.FunctionComponent<StartWorkloadModalProps
 
     const [workloadTitle, setWorkloadTitle] = React.useState('');
     const [isWorkloadDataDropdownOpen, setIsWorkloadDataDropdownOpen] = React.useState(false);
-    const [selectedDataKey, setSelectedDataKey] = React.useState(defaultWorkloadKey);
+    const [selectedWorkloadPreset, setSelectedWorkloadPreset] = React.useState<WorkloadPreset | null>(null);
 
     const handleWorkloadTitleChanged = (_event, title: string) => {
         setWorkloadTitle(title);
@@ -51,7 +51,12 @@ export const StartWorkloadModal: React.FunctionComponent<StartWorkloadModalProps
     ) => {
         // eslint-disable-next-line no-console
         console.log('selected', value);
-        setSelectedDataKey(value?.toString() || defaultWorkloadKey);
+
+        if (value != undefined) {
+            setSelectedWorkloadPreset(props.workloadPresets[value]);
+        } else {
+            setSelectedWorkloadPreset(null);
+        }
         setIsWorkloadDataDropdownOpen(false);
     };
 
@@ -64,7 +69,7 @@ export const StartWorkloadModal: React.FunctionComponent<StartWorkloadModalProps
             return true;
         }
 
-        if (selectedDataKey == '' || selectedDataKey == defaultWorkloadKey) {
+        if (selectedWorkloadPreset == null) {
             return true;
         }
 
@@ -79,7 +84,14 @@ export const StartWorkloadModal: React.FunctionComponent<StartWorkloadModalProps
             isOpen={props.isOpen}
             onClose={props.onClose}
             actions={[
-                <Button key="submit" variant="primary" onClick={props.onConfirm} isDisabled={isSubmitButtonEnabled()}>
+                <Button
+                    key="submit"
+                    variant="primary"
+                    onClick={() => {
+                        props.onConfirm(workloadTitle, selectedWorkloadPreset);
+                    }}
+                    isDisabled={isSubmitButtonEnabled()}
+                >
                     Submit
                 </Button>,
                 <Button key="cancel" variant="link" onClick={props.onClose}>
@@ -166,19 +178,15 @@ export const StartWorkloadModal: React.FunctionComponent<StartWorkloadModalProps
                                     onClick={onWorkloadDataDropdownToggleClick}
                                     isExpanded={isWorkloadDataDropdownOpen}
                                 >
-                                    {selectedDataKey}
+                                    {selectedWorkloadPreset?.name}
                                 </MenuToggle>
                             )}
                             shouldFocusToggleOnSelect
                         >
                             <DropdownList>
-                                {props.workloadPresets.map((value: WorkloadPreset) => {
+                                {props.workloadPresets.map((value: WorkloadPreset, index: number) => {
                                     return (
-                                        <DropdownItem
-                                            value={value.name}
-                                            key={value.key}
-                                            description={value.description}
-                                        >
+                                        <DropdownItem value={index} key={value.key} description={value.description}>
                                             {value.name}
                                         </DropdownItem>
                                     );

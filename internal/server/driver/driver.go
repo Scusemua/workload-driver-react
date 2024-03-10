@@ -2,10 +2,13 @@ package driver
 
 import (
 	"fmt"
+	"net/http"
 	"sync/atomic"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
+	"github.com/scusemua/workload-driver-react/m/v2/internal/generator"
 	"go.uber.org/zap"
 )
 
@@ -60,13 +63,64 @@ func NewWorkloadDriver(opts *domain.Configuration) *WorkloadDriver {
 	return driver
 }
 
+func (d *WorkloadDriver) HandleRequest(c *gin.Context) {
+	d.logger.Info("WorkloadDriver is handling HTTP request.")
+
+	var workloadRequest *domain.WorkloadRequest
+	if err := c.BindJSON(&workloadRequest); err != nil {
+		d.logger.Error("Failed to extract and/or unmarshal workload request from request body.")
+
+		c.JSON(http.StatusBadRequest, &domain.ErrorMessage{
+			Description:  "Failed to extract workload request from request body.",
+			ErrorMessage: err.Error(),
+			Valid:        true,
+		})
+		return
+	}
+
+	d.sugaredLogger.Debugf("User is requesting the execution of workload '%s'", workloadRequest.Key)
+
+	if workloadPreset, ok := d.workloadPresets[workloadRequest.Key]; !ok {
+		d.logger.Error("Could not find workload preset with specified key.", zap.String("key", workloadRequest.Key))
+
+		c.JSON(http.StatusBadRequest, &domain.ErrorMessage{
+			Description:  "Could not find workload preset with specified key.",
+			ErrorMessage: "Could not find workload preset with specified key.",
+			Valid:        true,
+		})
+		return
+	} else {
+		go d.DriveWorkload(workloadPreset, workloadRequest)
+	}
+}
+
+// Write an error back to the client.
+func (d *WorkloadDriver) WriteError(c *gin.Context, errorMessage string) {
+	// Write error back to front-end.
+	msg := &domain.ErrorMessage{
+		ErrorMessage: errorMessage,
+		Valid:        true,
+	}
+	c.JSON(http.StatusInternalServerError, msg)
+}
+
+// Return the request handler responsible for handling a majority of requests.
+func (d *WorkloadDriver) PrimaryHttpHandler() domain.BackendHttpGetHandler {
+	return d
+}
+
 // Return true if the workload has completed; otherwise, return false.
 func (d *WorkloadDriver) IsWorkloadComplete() bool {
 	return d.workloadComplete.Load()
 }
 
 // This should be called from its own goroutine.
-func (d *WorkloadDriver) DriveWorkload() {
+func (d *WorkloadDriver) DriveWorkload(workloadPreset *domain.WorkloadPreset, workloadRequest *domain.WorkloadRequest) {
+	d.logger.Debug("Starting workload.", zap.Any("workload-preset", workloadPreset), zap.Any("workload-request", workloadRequest))
+
+	workloadGenerator := generator.NewWorkloadGenerator(d.opts)
+	go workloadGenerator.GenerateWorkload(d, workloadPreset, workloadRequest)
+
 	d.workloadStartTime = time.Now()
 	d.logger.Info("The Workload Driver has started running.")
 

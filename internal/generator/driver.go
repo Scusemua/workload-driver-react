@@ -319,134 +319,134 @@ func (d *BaseDriver) DriveSync(ctx context.Context, mfPaths ...string) error {
 		manifest = nextManifest
 	}
 
-	if d.ExecutionMode == 0 {
-		sugarLog.Info("Driver %v is writing its max data to file. Number of records to write: %d.", d.String(), len(d.SessionMaxes))
-		file, err := os.Create(d.MaxSessionOutputPath)
+	// if d.ExecutionMode == 0 {
+	// 	sugarLog.Info("Driver %v is writing its max data to file. Number of records to write: %d.", d.String(), len(d.SessionMaxes))
+	// 	file, err := os.Create(d.MaxSessionOutputPath)
 
-		if err != nil {
-			panic(err)
-		}
+	// 	if err != nil {
+	// 		panic(err)
+	// 	}
 
-		if d.DriverType == "GPU" {
-			file.WriteString("session_id,max_gpu_utilization,num_gpus\n")
-		} else if d.DriverType == "CPU" {
-			file.WriteString("session_id,max_cpu_utilization\n")
-		} else {
-			file.WriteString("session_id,max_memory_bytes\n")
-		}
+	// 	if d.DriverType == "GPU" {
+	// 		file.WriteString("session_id,max_gpu_utilization,num_gpus\n")
+	// 	} else if d.DriverType == "CPU" {
+	// 		file.WriteString("session_id,max_cpu_utilization\n")
+	// 	} else {
+	// 		file.WriteString("session_id,max_memory_bytes\n")
+	// 	}
 
-		// log.Info("[%s] Acquiring MaxesMutex lock.", d.DriverType)
-		d.MaxesMutex.RLock()
-		for pod, val := range d.SessionMaxes {
-			if d.DriverType == "GPU" {
-				numGPUs := d.SessionNumGPUs[pod]
-				_, err = file.WriteString(fmt.Sprintf("%s,%.2f,%d\n", pod, val, numGPUs))
-				if err != nil {
-					panic(err)
-				}
-			} else if d.DriverType == "CPU" {
-				_, err = file.WriteString(fmt.Sprintf("%s,%.17f\n", pod, val))
-				if err != nil {
-					panic(err)
-				}
-			} else {
-				_, err = file.WriteString(fmt.Sprintf("%s,%.2f\n", pod, val))
-				if err != nil {
-					panic(err)
-				}
-			}
-		}
-		d.MaxesMutex.RUnlock()
+	// 	// log.Info("[%s] Acquiring MaxesMutex lock.", d.DriverType)
+	// 	d.MaxesMutex.RLock()
+	// 	for pod, val := range d.SessionMaxes {
+	// 		if d.DriverType == "GPU" {
+	// 			numGPUs := d.SessionNumGPUs[pod]
+	// 			_, err = file.WriteString(fmt.Sprintf("%s,%.2f,%d\n", pod, val, numGPUs))
+	// 			if err != nil {
+	// 				panic(err)
+	// 			}
+	// 		} else if d.DriverType == "CPU" {
+	// 			_, err = file.WriteString(fmt.Sprintf("%s,%.17f\n", pod, val))
+	// 			if err != nil {
+	// 				panic(err)
+	// 			}
+	// 		} else {
+	// 			_, err = file.WriteString(fmt.Sprintf("%s,%.2f\n", pod, val))
+	// 			if err != nil {
+	// 				panic(err)
+	// 			}
+	// 		}
+	// 	}
+	// 	d.MaxesMutex.RUnlock()
 
-		err = file.Close()
-		if err != nil {
-			panic(err)
-		}
+	// 	err = file.Close()
+	// 	if err != nil {
+	// 		panic(err)
+	// 	}
 
-		file_train, err := os.Create(d.MaxTrainingOutputPath)
+	// 	file_train, err := os.Create(d.MaxTrainingOutputPath)
 
-		if err != nil {
-			panic(err)
-		}
+	// 	if err != nil {
+	// 		panic(err)
+	// 	}
 
-		if d.DriverType == "GPU" {
-			file_train.WriteString("session_id,seq,max_gpu_utilization,num_gpus\n")
-		} else if d.DriverType == "CPU" {
-			file_train.WriteString("session_id,seq,max_cpu_utilization\n")
-		} else {
-			file_train.WriteString("session_id,seq,max_mem_bytes\n")
-		}
+	// 	if d.DriverType == "GPU" {
+	// 		file_train.WriteString("session_id,seq,max_gpu_utilization,num_gpus\n")
+	// 	} else if d.DriverType == "CPU" {
+	// 		file_train.WriteString("session_id,seq,max_cpu_utilization\n")
+	// 	} else {
+	// 		file_train.WriteString("session_id,seq,max_mem_bytes\n")
+	// 	}
 
-		for pod, maxes := range d.TrainingMaxes {
-			for training_event_seq_num, max_util := range maxes {
-				if d.DriverType == "GPU" {
-					numGPUs := d.TrainingNumGPUs[pod]
-					_, err = file_train.WriteString(fmt.Sprintf("%s,%d,%.2f,%d\n", pod, training_event_seq_num, max_util, numGPUs[training_event_seq_num]))
-					if err != nil {
-						panic(err)
-					}
-				} else if d.DriverType == "CPU" {
-					_, err = file_train.WriteString(fmt.Sprintf("%s,%d,%.17f\n", pod, training_event_seq_num, max_util))
-					if err != nil {
-						panic(err)
-					}
-				} else {
-					_, err = file_train.WriteString(fmt.Sprintf("%s,%d,%.2f\n", pod, training_event_seq_num, max_util))
-					if err != nil {
-						panic(err)
-					}
-				}
-			}
-		}
+	// 	for pod, maxes := range d.TrainingMaxes {
+	// 		for training_event_seq_num, max_util := range maxes {
+	// 			if d.DriverType == "GPU" {
+	// 				numGPUs := d.TrainingNumGPUs[pod]
+	// 				_, err = file_train.WriteString(fmt.Sprintf("%s,%d,%.2f,%d\n", pod, training_event_seq_num, max_util, numGPUs[training_event_seq_num]))
+	// 				if err != nil {
+	// 					panic(err)
+	// 				}
+	// 			} else if d.DriverType == "CPU" {
+	// 				_, err = file_train.WriteString(fmt.Sprintf("%s,%d,%.17f\n", pod, training_event_seq_num, max_util))
+	// 				if err != nil {
+	// 					panic(err)
+	// 				}
+	// 			} else {
+	// 				_, err = file_train.WriteString(fmt.Sprintf("%s,%d,%.2f\n", pod, training_event_seq_num, max_util))
+	// 				if err != nil {
+	// 					panic(err)
+	// 				}
+	// 			}
+	// 		}
+	// 	}
 
-		if d.DriverType == "GPU" {
-			var max_gpu_sess_file, max_gpu_train_file *os.File
-			var err error
+	// 	if d.DriverType == "GPU" {
+	// 		var max_gpu_sess_file, max_gpu_train_file *os.File
+	// 		var err error
 
-			// First, per-Session GPU device maxes.
-			max_gpu_sess_file, err = os.Create(d.MaxPerGpuSessionOutputPath)
-			if err != nil {
-				panic(fmt.Sprintf("Failed to create MaxPerGpuSession file at path \"%s\"", d.MaxPerGpuSessionOutputPath))
-			}
+	// 		// First, per-Session GPU device maxes.
+	// 		max_gpu_sess_file, err = os.Create(d.MaxPerGpuSessionOutputPath)
+	// 		if err != nil {
+	// 			panic(fmt.Sprintf("Failed to create MaxPerGpuSession file at path \"%s\"", d.MaxPerGpuSessionOutputPath))
+	// 		}
 
-			max_gpu_sess_file.WriteString("session_id,sum_gpus,gpu0,gpu1,gpu2,gpu3,gpu4,gpu5,gpu6,gpu7\n")
+	// 		max_gpu_sess_file.WriteString("session_id,sum_gpus,gpu0,gpu1,gpu2,gpu3,gpu4,gpu5,gpu6,gpu7\n")
 
-			gpuDriver := d.Driver.(*GPUDriver)
+	// 		gpuDriver := d.Driver.(*GPUDriver)
 
-			for pod, vals := range gpuDriver.PerGpuSessionMaxes {
-				max_gpu_sess_file.WriteString(fmt.Sprintf("%s,%f,%f,%f,%f,%f,%f,%f,%f,%f\n", pod, sum(vals), vals[0], vals[1], vals[2], vals[3], vals[4], vals[5], vals[6], vals[7]))
-			}
+	// 		for pod, vals := range gpuDriver.PerGpuSessionMaxes {
+	// 			max_gpu_sess_file.WriteString(fmt.Sprintf("%s,%f,%f,%f,%f,%f,%f,%f,%f,%f\n", pod, sum(vals), vals[0], vals[1], vals[2], vals[3], vals[4], vals[5], vals[6], vals[7]))
+	// 		}
 
-			err = max_gpu_sess_file.Close()
-			if err != nil {
-				panic(fmt.Sprintf("Failed to close MaxPerGpuSession file at path \"%s\"", d.MaxPerGpuSessionOutputPath))
-			}
+	// 		err = max_gpu_sess_file.Close()
+	// 		if err != nil {
+	// 			panic(fmt.Sprintf("Failed to close MaxPerGpuSession file at path \"%s\"", d.MaxPerGpuSessionOutputPath))
+	// 		}
 
-			// Second, per-Session per-Training event GPU device maxes.
-			max_gpu_train_file, err = os.Create(d.MaxPerGpuTrainingOutputPath)
-			if err != nil {
-				panic(fmt.Sprintf("Failed to create MaxPerGpuTraining file at path \"%s\"", d.MaxPerGpuTrainingOutputPath))
-			}
+	// 		// Second, per-Session per-Training event GPU device maxes.
+	// 		max_gpu_train_file, err = os.Create(d.MaxPerGpuTrainingOutputPath)
+	// 		if err != nil {
+	// 			panic(fmt.Sprintf("Failed to create MaxPerGpuTraining file at path \"%s\"", d.MaxPerGpuTrainingOutputPath))
+	// 		}
 
-			max_gpu_train_file.WriteString("session_id,seq,sum_gpus,gpu0,gpu1,gpu2,gpu3,gpu4,gpu5,gpu6,gpu7\n")
+	// 		max_gpu_train_file.WriteString("session_id,seq,sum_gpus,gpu0,gpu1,gpu2,gpu3,gpu4,gpu5,gpu6,gpu7\n")
 
-			for pod, maxesForEachTraining := range gpuDriver.PerGpuTrainingMaxes {
-				for training_event_seq_num, vals := range maxesForEachTraining {
-					max_gpu_train_file.WriteString(fmt.Sprintf("%s,%d,%f,%f,%f,%f,%f,%f,%f,%f,%f\n", pod, training_event_seq_num, sum(vals), vals[0], vals[1], vals[2], vals[3], vals[4], vals[5], vals[6], vals[7]))
-				}
-			}
+	// 		for pod, maxesForEachTraining := range gpuDriver.PerGpuTrainingMaxes {
+	// 			for training_event_seq_num, vals := range maxesForEachTraining {
+	// 				max_gpu_train_file.WriteString(fmt.Sprintf("%s,%d,%f,%f,%f,%f,%f,%f,%f,%f,%f\n", pod, training_event_seq_num, sum(vals), vals[0], vals[1], vals[2], vals[3], vals[4], vals[5], vals[6], vals[7]))
+	// 			}
+	// 		}
 
-			err = max_gpu_train_file.Close()
-			if err != nil {
-				panic(fmt.Sprintf("Failed to close MaxPerGpuTraining file at path \"%s\"", d.MaxPerGpuSessionOutputPath))
-			}
-		}
+	// 		err = max_gpu_train_file.Close()
+	// 		if err != nil {
+	// 			panic(fmt.Sprintf("Failed to close MaxPerGpuTraining file at path \"%s\"", d.MaxPerGpuSessionOutputPath))
+	// 		}
+	// 	}
 
-		err = file_train.Close()
-		if err != nil {
-			panic(err)
-		}
-	}
+	// 	err = file_train.Close()
+	// 	if err != nil {
+	// 		panic(err)
+	// 	}
+	// }
 
 	return nil
 }
