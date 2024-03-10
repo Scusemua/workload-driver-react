@@ -1,6 +1,0 @@
-in-cluster: false
-spoof-nodes: false
-spoof-kernels: true
-spoof-specs: true
-server-port: 8000
-workload-presets-file: "./config-files/workload_presets.yaml"
