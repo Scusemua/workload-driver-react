@@ -31,8 +31,6 @@ export interface StartWorkloadModalProps {
 }
 
 export const StartWorkloadModal: React.FunctionComponent<StartWorkloadModalProps> = (props) => {
-    const defaultWorkloadKey = 'Select workload data';
-
     const [workloadTitle, setWorkloadTitle] = React.useState('');
     const [isWorkloadDataDropdownOpen, setIsWorkloadDataDropdownOpen] = React.useState(false);
     const [selectedWorkloadPreset, setSelectedWorkloadPreset] = React.useState<WorkloadPreset | null>(null);

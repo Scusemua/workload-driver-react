@@ -467,14 +467,16 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             // We're specifically targeting the API endpoint I setup called "get-kernels".
             const response = await fetch('api/get-kernels');
 
-            const respKernels: DistributedJupyterKernel[] = await response.json();
+            if (response.status == 200) {
+                const respKernels: DistributedJupyterKernel[] = await response.json();
 
-            if (!ignoreResponse.current) {
-                console.log('Received kernels: ' + JSON.stringify(respKernels));
-                setKernels(respKernels);
-                ignoreResponse.current = true;
-            } else {
-                console.log("Received %d kernel(s), but we're ignoring the response.", respKernels.length);
+                if (!ignoreResponse.current) {
+                    console.log('Received kernels: ' + JSON.stringify(respKernels));
+                    setKernels(respKernels);
+                    ignoreResponse.current = true;
+                } else {
+                    console.log("Received %d kernel(s), but we're ignoring the response.", respKernels.length);
+                }
             }
         } catch (e) {
             console.error(e);

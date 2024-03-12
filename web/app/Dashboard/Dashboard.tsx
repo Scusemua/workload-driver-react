@@ -54,13 +54,15 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
             // We're specifically targeting the API endpoint I setup called "nodes".
             const response = await fetch('/api/nodes');
 
-            // Get the response, which will be in JSON format, and decode it into an array of KubernetesNode (which is a TypeScript interface that I defined).
-            const respNodes: KubernetesNode[] = await response.json();
+            if (response.status == 200) {
+                // Get the response, which will be in JSON format, and decode it into an array of KubernetesNode (which is a TypeScript interface that I defined).
+                const respNodes: KubernetesNode[] = await response.json();
 
-            if (!ignoreResponseForNodes.current) {
-                // console.log('Received nodes: ' + JSON.stringify(respNodes));
-                setNodes(respNodes);
-                console.log('Successfully refreshed Kubernetes nodes.');
+                if (!ignoreResponseForNodes.current) {
+                    // console.log('Received nodes: ' + JSON.stringify(respNodes));
+                    setNodes(respNodes);
+                    console.log('Successfully refreshed Kubernetes nodes.');
+                }
             }
         } catch (e) {
             console.error(e);
@@ -78,15 +80,17 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
             // We're specifically targeting the API endpoint I setup called "nodes".
             const response = await fetch('/api/workload-presets');
 
-            // Get the response, which will be in JSON format, and decode it into an array of WorkloadPreset (which is a TypeScript interface that I defined).
-            const respWorkloadPresets: WorkloadPreset[] = await response.json();
+            if (response.status == 200) {
+                // Get the response, which will be in JSON format, and decode it into an array of WorkloadPreset (which is a TypeScript interface that I defined).
+                const respWorkloadPresets: WorkloadPreset[] = await response.json();
 
-            if (!ignoreResponseForWorkloadPresets.current) {
-                setWorkloadPresets(respWorkloadPresets);
-                console.log(
-                    'Successfully refreshed workload presets. Discovered %d preset(s).',
-                    respWorkloadPresets.length,
-                );
+                if (!ignoreResponseForWorkloadPresets.current) {
+                    setWorkloadPresets(respWorkloadPresets);
+                    console.log(
+                        'Successfully refreshed workload presets. Discovered %d preset(s).',
+                        respWorkloadPresets.length,
+                    );
+                }
             }
         } catch (e) {
             console.error(e);
@@ -211,6 +215,13 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
                 <GridItem span={6} rowSpan={1}>
                     <WorkloadCard
                         onLaunchWorkloadClicked={() => {
+                            // If we have no workload presets, then refresh them when the user opens the 'Start Workload' modal.
+                            if (workloadPresets.length == 0) {
+                                ignoreResponseForWorkloadPresets.current = false;
+                                fetchWorkloadPresets();
+                                ignoreResponseForWorkloadPresets.current = true;
+                            }
+
                             setIsStartWorkloadOpen(true);
                         }}
                     />
