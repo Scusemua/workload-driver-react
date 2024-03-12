@@ -74,6 +74,12 @@ function isNumber(value?: string | number): boolean {
     return value != null && value !== '' && !isNaN(Number(value.toString()));
 }
 
+function range(start: number, end: number) {
+    let nums: number[] = [];
+    for (let i: number = start; i < end; i++) nums.push(i);
+    return nums;
+}
+
 // Map from kernel status to the associated icon.
 const kernelStatusIcons = {
     unknown: <ExclamationTriangleIcon />,
@@ -106,6 +112,8 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
     const [executeCodeKernelReplica, setExecuteCodeKernelReplica] = React.useState<JupyterKernelReplica | null>(null);
     const [selectedKernels, setSelectedKernels] = React.useState<string[]>([]);
     const [kernelToDelete, setKernelToDelete] = React.useState<string>('');
+
+    const numKernelsCreating = useRef(0);
     const kernelManager = useRef<KernelManager | null>(null);
 
     async function initializeKernelManagers() {
@@ -186,7 +194,11 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         setExecuteCodeKernelReplica(null);
     };
 
-    const onExecuteCodeClicked = (kernel: DistributedJupyterKernel, replicaIdx?: number | undefined) => {
+    const onExecuteCodeClicked = (kernel: DistributedJupyterKernel | null, replicaIdx?: number | undefined) => {
+        if (kernel == null) {
+            return;
+        }
+
         // If we clicked the 'Execute' button associated with a specific replica, then set the state for that replica.
         if (replicaIdx !== undefined) {
             // Need to use "!== undefined" because a `replicaIdx` of 0 will be coerced to false if by itself.
@@ -389,7 +401,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         let numKernelsToCreate: number = 1;
         input = input.trim();
 
-        // If the user specified som
+        // If the user specified a particular number of kernels to create, then parse it.
         if (input != '') {
             if (isNumber(input)) {
                 numKernelsToCreate = parseInt(input);
@@ -401,6 +413,8 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         }
 
         console.log(`Creating ${numKernelsToCreate} new Kernel(s).`);
+        numKernelsCreating.current = numKernelsCreating.current + numKernelsToCreate;
+        console.log("We're now creating %d kernel(s).", numKernelsToCreate);
 
         // Close the confirmation dialogue.
         setIsConfirmCreateModalOpen(false);
@@ -472,6 +486,30 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
 
                 if (!ignoreResponse.current) {
                     console.log('Received kernels: ' + JSON.stringify(respKernels));
+                    console.log("We're currently creating %d kernel(s).", numKernelsCreating);
+
+                    if (numKernelsCreating.current > 0) {
+                        respKernels.forEach((newKernel) => {
+                            for (let i = 0; i < kernels.length; i++) {
+                                if (kernels[i].kernelId == newKernel.kernelId) {
+                                    console.log(
+                                        'Kernel %s is NOT a new kernel (i.e., we already knew about it).',
+                                        newKernel.kernelId,
+                                    );
+                                    return;
+                                }
+                            }
+
+                            if (numKernelsCreating.current > 0) {
+                                console.log(
+                                    'Kernel %s is a NEW kernel (i.e., it was just created).',
+                                    newKernel.kernelId,
+                                );
+                                numKernelsCreating.current -= 1;
+                            }
+                        });
+                    }
+
                     setKernels(respKernels);
                     ignoreResponse.current = true;
                 } else {
@@ -757,6 +795,170 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         setExpandedKernels(newExpanded);
     };
 
+    let pendingKernelArr = range(0, numKernelsCreating.current);
+
+    const getKernelDataListRow = (kernel: DistributedJupyterKernel | null, idx: number) => {
+        return (
+            <DataListItem
+                isExpanded={expandedKernels.includes(kernel?.kernelId || 'Pending...')}
+                key={'Pending...' + idx}
+                className="kernel-list-row"
+                id={'content-padding-item-' + idx}
+            >
+                <DataListItemRow>
+                    <DataListCheck
+                        aria-labelledby={'kernel-' + kernel?.kernelId + '-check'}
+                        name={'kernel-' + kernel?.kernelId + '-check'}
+                        onChange={(event: React.FormEvent<HTMLInputElement>, checked: boolean) =>
+                            onSelectKernel(event, checked, kernel?.kernelId)
+                        }
+                        isDisabled={kernel == null}
+                        defaultChecked={kernel != null && kernel.kernelId in selectedKernels}
+                    />
+                    <DataListToggle
+                        onClick={() => {
+                            if (kernel == null) {
+                                return;
+                            }
+
+                            toggleExpandedKernel(kernel?.kernelId);
+                        }}
+                        isExpanded={kernel != null && expandedKernels.includes(kernel.kernelId)}
+                        id="ex-toggle1"
+                        aria-controls="ex-expand1"
+                    />
+                    <DataListItemCells
+                        dataListCells={[
+                            <DataListCell key="primary-content">
+                                <Flex spaceItems={{ default: 'spaceItemsMd' }} direction={{ default: 'column' }}>
+                                    <FlexItem>
+                                        {kernel != null && <p>Kernel {kernel.kernelId}</p>}
+                                        {kernel == null && <p>Pending...</p>}
+                                    </FlexItem>
+                                    <Flex className="kernel-list-stat-icons" spaceItems={{ default: 'spaceItemsMd' }}>
+                                        <FlexItem>
+                                            <CubesIcon /> {kernel != null && kernel.numReplicas}{' '}
+                                            {kernel == null && 'TBD'}
+                                        </FlexItem>
+                                        <FlexItem>
+                                            {kernel != null && kernelStatusIcons[kernel.aggregateBusyStatus]}{' '}
+                                            {kernel != null && kernel.aggregateBusyStatus}
+                                            {kernel == null && kernelStatusIcons['starting']}{' '}
+                                            {kernel == null && 'starting'}
+                                        </FlexItem>
+                                    </Flex>
+                                </Flex>
+                            </DataListCell>,
+                            <DataListAction
+                                key="actions"
+                                aria-labelledby={'content-padding-item-' + idx + ' content-action-item-' + idx}
+                                id={'content-padding-item-' + idx}
+                                aria-label="Actions"
+                            >
+                                <Flex spaceItems={{ default: 'spaceItemsNone' }} direction={{ default: 'column' }}>
+                                    <FlexItem>
+                                        <Flex spaceItems={{ default: 'spaceItemsSm' }} direction={{ default: 'row' }}>
+                                            <FlexItem>
+                                                <Tooltip
+                                                    exitDelay={75}
+                                                    entryDelay={250}
+                                                    content={<div>Execute Python code on this kernel.</div>}
+                                                >
+                                                    <Button
+                                                        variant={'link'}
+                                                        icon={<CodeIcon />}
+                                                        isDisabled={kernel == null}
+                                                        onClick={() => onExecuteCodeClicked(kernel)}
+                                                    >
+                                                        Execute
+                                                    </Button>
+                                                </Tooltip>
+                                            </FlexItem>
+                                            <FlexItem>
+                                                <Tooltip
+                                                    exitDelay={75}
+                                                    entryDelay={250}
+                                                    content={
+                                                        <div>Inspect and obtain information about this kernel.</div>
+                                                    }
+                                                >
+                                                    <Button
+                                                        variant={'link'}
+                                                        icon={<SearchIcon />}
+                                                        isDisabled={kernel == null}
+                                                        onClick={() => onInspectKernelClicked(idx)}
+                                                    >
+                                                        Inspect
+                                                    </Button>
+                                                </Tooltip>
+                                            </FlexItem>
+                                        </Flex>
+                                    </FlexItem>
+                                    <FlexItem>
+                                        <Flex spaceItems={{ default: 'spaceItemsSm' }} direction={{ default: 'row' }}>
+                                            <FlexItem>
+                                                <Tooltip
+                                                    exitDelay={75}
+                                                    entryDelay={250}
+                                                    content={<div>Interrupt this kernel.</div>}
+                                                >
+                                                    <Button
+                                                        variant={'link'}
+                                                        isDanger
+                                                        icon={<PauseIcon />}
+                                                        isDisabled={kernel == null}
+                                                        onClick={() => onInterruptKernelClicked(idx)}
+                                                    >
+                                                        Interrupt
+                                                    </Button>
+                                                </Tooltip>
+                                            </FlexItem>
+                                            <FlexItem>
+                                                <Tooltip
+                                                    exitDelay={75}
+                                                    entryDelay={250}
+                                                    content={<div>Terminate this kernel.</div>}
+                                                >
+                                                    <Button
+                                                        variant={'link'}
+                                                        icon={<TrashIcon />}
+                                                        isDanger
+                                                        isDisabled={kernel == null}
+                                                        onClick={() => {
+                                                            if (kernel == null) {
+                                                                return;
+                                                            }
+
+                                                            // We're trying to delete a specific kernel.
+                                                            setKernelToDelete(kernel.kernelId);
+                                                            setIsConfirmDeleteKernelModalOpen(true);
+                                                        }}
+                                                    >
+                                                        Terminate
+                                                    </Button>
+                                                </Tooltip>
+                                            </FlexItem>
+                                        </Flex>
+                                    </FlexItem>
+                                </Flex>
+                            </DataListAction>,
+                        ]}
+                    />
+                </DataListItemRow>
+                {kernel != null && (
+                    <DataListContent
+                        aria-label={'kernel-' + kernel.kernelId + '-expandable-content'}
+                        id={'kernel-' + kernel.kernelId + '-expandable-content'}
+                        className="kernel-list-expandable-content"
+                        isHidden={!expandedKernels.includes(kernel.kernelId)}
+                    >
+                        {kernel != null && expandedKernelContent(kernel)}
+                    </DataListContent>
+                )}
+            </DataListItem>
+        );
+    };
+
     return (
         <Card isRounded isExpanded={isCardExpanded}>
             <CardHeader
@@ -787,166 +989,8 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             <CardExpandableContent>
                 <CardBody>
                     <DataList isCompact aria-label="data list">
-                        {filteredKernels.map((kernel, idx) => (
-                            <DataListItem
-                                isExpanded={expandedKernels.includes(kernel.kernelId)}
-                                key={kernel.kernelId}
-                                className="kernel-list-row"
-                                id={'content-padding-item-' + idx}
-                            >
-                                <DataListItemRow>
-                                    <DataListCheck
-                                        aria-labelledby={'kernel-' + kernel.kernelId + '-check'}
-                                        name={'kernel-' + kernel.kernelId + '-check'}
-                                        onChange={(event: React.FormEvent<HTMLInputElement>, checked: boolean) =>
-                                            onSelectKernel(event, checked, kernel.kernelId)
-                                        }
-                                        defaultChecked={kernel.kernelId in selectedKernels}
-                                    />
-                                    <DataListToggle
-                                        onClick={() => toggleExpandedKernel(kernel.kernelId)}
-                                        isExpanded={expandedKernels.includes(kernel.kernelId)}
-                                        id="ex-toggle1"
-                                        aria-controls="ex-expand1"
-                                    />
-                                    <DataListItemCells
-                                        dataListCells={[
-                                            <DataListCell key="primary-content">
-                                                <Flex
-                                                    spaceItems={{ default: 'spaceItemsMd' }}
-                                                    direction={{ default: 'column' }}
-                                                >
-                                                    <FlexItem>
-                                                        <p>Kernel {kernel.kernelId}</p>
-                                                    </FlexItem>
-                                                    <Flex
-                                                        className="kernel-list-stat-icons"
-                                                        spaceItems={{ default: 'spaceItemsMd' }}
-                                                    >
-                                                        <FlexItem>
-                                                            <CubesIcon /> {kernel.numReplicas}
-                                                        </FlexItem>
-                                                        <FlexItem>
-                                                            {kernelStatusIcons[kernel.aggregateBusyStatus]}{' '}
-                                                            {kernel.aggregateBusyStatus}
-                                                        </FlexItem>
-                                                    </Flex>
-                                                </Flex>
-                                            </DataListCell>,
-                                            <DataListAction
-                                                key="actions"
-                                                aria-labelledby={
-                                                    'content-padding-item-' + idx + ' content-action-item-' + idx
-                                                }
-                                                id={'content-padding-item-' + idx}
-                                                aria-label="Actions"
-                                            >
-                                                <Flex
-                                                    spaceItems={{ default: 'spaceItemsNone' }}
-                                                    direction={{ default: 'column' }}
-                                                >
-                                                    <FlexItem>
-                                                        <Flex
-                                                            spaceItems={{ default: 'spaceItemsSm' }}
-                                                            direction={{ default: 'row' }}
-                                                        >
-                                                            <FlexItem>
-                                                                <Tooltip
-                                                                    exitDelay={75}
-                                                                    entryDelay={250}
-                                                                    content={
-                                                                        <div>Execute Python code on this kernel.</div>
-                                                                    }
-                                                                >
-                                                                    <Button
-                                                                        variant={'link'}
-                                                                        icon={<CodeIcon />}
-                                                                        onClick={() => onExecuteCodeClicked(kernel)}
-                                                                    >
-                                                                        Execute
-                                                                    </Button>
-                                                                </Tooltip>
-                                                            </FlexItem>
-                                                            <FlexItem>
-                                                                <Tooltip
-                                                                    exitDelay={75}
-                                                                    entryDelay={250}
-                                                                    content={
-                                                                        <div>
-                                                                            Inspect and obtain information about this
-                                                                            kernel.
-                                                                        </div>
-                                                                    }
-                                                                >
-                                                                    <Button
-                                                                        variant={'link'}
-                                                                        icon={<SearchIcon />}
-                                                                        onClick={() => onInspectKernelClicked(idx)}
-                                                                    >
-                                                                        Inspect
-                                                                    </Button>
-                                                                </Tooltip>
-                                                            </FlexItem>
-                                                        </Flex>
-                                                    </FlexItem>
-                                                    <FlexItem>
-                                                        <Flex
-                                                            spaceItems={{ default: 'spaceItemsSm' }}
-                                                            direction={{ default: 'row' }}
-                                                        >
-                                                            <FlexItem>
-                                                                <Tooltip
-                                                                    exitDelay={75}
-                                                                    entryDelay={250}
-                                                                    content={<div>Interrupt this kernel.</div>}
-                                                                >
-                                                                    <Button
-                                                                        variant={'link'}
-                                                                        isDanger
-                                                                        icon={<PauseIcon />}
-                                                                        onClick={() => onInterruptKernelClicked(idx)}
-                                                                    >
-                                                                        Interrupt
-                                                                    </Button>
-                                                                </Tooltip>
-                                                            </FlexItem>
-                                                            <FlexItem>
-                                                                <Tooltip
-                                                                    exitDelay={75}
-                                                                    entryDelay={250}
-                                                                    content={<div>Terminate this kernel.</div>}
-                                                                >
-                                                                    <Button
-                                                                        variant={'link'}
-                                                                        icon={<TrashIcon />}
-                                                                        isDanger
-                                                                        onClick={() => {
-                                                                            // We're trying to delete a specific kernel.
-                                                                            setKernelToDelete(kernel.kernelId);
-                                                                            setIsConfirmDeleteKernelModalOpen(true);
-                                                                        }}
-                                                                    >
-                                                                        Terminate
-                                                                    </Button>
-                                                                </Tooltip>
-                                                            </FlexItem>
-                                                        </Flex>
-                                                    </FlexItem>
-                                                </Flex>
-                                            </DataListAction>,
-                                        ]}
-                                    />
-                                </DataListItemRow>
-                                <DataListContent
-                                    aria-label={'kernel-' + kernel.kernelId + '-expandable-content'}
-                                    id={'kernel-' + kernel.kernelId + '-expandable-content'}
-                                    className="kernel-list-expandable-content"
-                                    isHidden={!expandedKernels.includes(kernel.kernelId)}
-                                >
-                                    {kernel != null && expandedKernelContent(kernel)}
-                                </DataListContent>
-                            </DataListItem>
-                        ))}
+                        {pendingKernelArr.map((_, idx) => getKernelDataListRow(null, idx))}
+                        {filteredKernels.map((kernel, idx) => getKernelDataListRow(kernel, idx))}
                     </DataList>
                     <ConfirmationWithTextInputModal
                         isOpen={isConfirmCreateModalOpen}
