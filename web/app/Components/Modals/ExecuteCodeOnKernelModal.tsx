@@ -16,6 +16,7 @@ import { CheckCircleIcon } from '@patternfly/react-icons';
 export interface ExecuteCodeOnKernelProps {
     children?: React.ReactNode;
     kernelId: string;
+    replicaId?: number;
     isOpen: boolean;
     onClose: () => void;
     onSubmit: (code: string, logConsumer: (msg: string) => void) => Promise<void>;
@@ -80,10 +81,19 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
         </React.Fragment>
     );
 
+    // Returns the title to use for the Modal depending on whether a specific replica was specified as the target or not.
+    const getModalTitle = () => {
+        if (props.replicaId) {
+            return 'Execute Code on Replica ' + props.replicaId + ' of Kernel ' + props.kernelId;
+        } else {
+            return 'Execute Code on Kernel ' + props.kernelId;
+        }
+    };
+
     return (
         <Modal
             variant={ModalVariant.large}
-            title={'Execute Code on Kernel ' + props.kernelId}
+            title={getModalTitle()}
             isOpen={props.isOpen}
             onClose={props.onClose}
             actions={[

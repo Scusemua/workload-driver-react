@@ -68,7 +68,7 @@ import {
     ExecuteCodeOnKernelModal,
     InformationModal,
 } from '@app/Components/Modals';
-import { DistributedJupyterKernel } from '@data/Kernel';
+import { DistributedJupyterKernel, JupyterKernelReplica } from '@data/Kernel';
 
 function isNumber(value?: string | number): boolean {
     return value != null && value !== '' && !isNaN(Number(value.toString()));
@@ -103,6 +103,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
     const [errorMessagePreamble, setErrorMessagePreamble] = React.useState('');
     const [isExecuteCodeModalOpen, setIsExecuteCodeModalOpen] = React.useState(false);
     const [executeCodeKernel, setExecuteCodeKernel] = React.useState<DistributedJupyterKernel | null>(null);
+    const [executeCodeKernelReplica, setExecuteCodeKernelReplica] = React.useState<JupyterKernelReplica | null>(null);
     const [selectedKernels, setSelectedKernels] = React.useState<string[]>([]);
     const [kernelToDelete, setKernelToDelete] = React.useState<string>('');
     const kernelManager = useRef<KernelManager | null>(null);
@@ -182,15 +183,29 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
     const onCancelExecuteCodeClicked = () => {
         setIsExecuteCodeModalOpen(false);
         setExecuteCodeKernel(null);
+        setExecuteCodeKernelReplica(null);
     };
 
-    const onExecuteCodeClicked = (index: number) => {
+    const onExecuteCodeClicked = (kernel: DistributedJupyterKernel, replicaIdx?: number | undefined) => {
+        // If we clicked the 'Execute' button associated with a specific replica, then set the state for that replica.
+        if (replicaIdx !== undefined) {
+            // Need to use "!== undefined" because a `replicaIdx` of 0 will be coerced to false if by itself.
+            console.log(
+                'Will be executing code on replica %d of kernel %s.',
+                kernel.replicas[replicaIdx].replicaId,
+                kernel.kernelId,
+            );
+            setExecuteCodeKernelReplica(kernel.replicas[replicaIdx]);
+        } else {
+            setExecuteCodeKernelReplica(null);
+        }
+
+        setExecuteCodeKernel(kernel);
         setIsExecuteCodeModalOpen(true);
-        setExecuteCodeKernel(filteredKernels[index]);
     };
 
-    async function onInspectKernelClicked(index: number) {
-        const kernelId: string | undefined = filteredKernels[index].kernelId;
+    async function onInspectKernelClicked(kernelIndex: number) {
+        const kernelId: string | undefined = filteredKernels[kernelIndex].kernelId;
         console.log('User is inspecting kernel ' + kernelId);
 
         if (!kernelManager.current) {
@@ -275,7 +290,12 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
     }
 
     async function onConfirmExecuteCodeClicked(code: string, logConsumer: (logMessage: string) => void) {
-        console.log('Executing code:\n' + code);
+        console.log(
+            'Executing code on kernel %s, replica %d:\n%s',
+            executeCodeKernel?.kernelId,
+            executeCodeKernelReplica?.replicaId,
+            code,
+        );
 
         const kernelId: string | undefined = executeCodeKernel?.kernelId;
 
@@ -294,7 +314,9 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             model: { id: kernelId, name: kernelId },
         });
 
-        const future = kernelConnection.requestExecute({ code: code });
+        const future = kernelConnection.requestExecute({ code: code }, undefined, {
+            target_replica_key: executeCodeKernelReplica?.replicaId || -1,
+        });
 
         // Handle iopub messages
         future.onIOPub = (msg) => {
@@ -669,23 +691,33 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                     <Th>ID</Th>
                     <Th>Pod</Th>
                     <Th>Node</Th>
-                    {/* <Th /> */}
+                    <Th />
                     <Th />
                 </Tr>
             </Thead>
             <Tbody>
-                {kernel.replicas.map((replica) => (
+                {kernel.replicas.map((replica, replicaIdx) => (
                     <Tr key={replica.replicaId}>
                         <Td dataLabel="ID">{replica.replicaId}</Td>
                         <Td dataLabel="Pod">{replica.podId}</Td>
                         <Td dataLabel="Node">{replica.nodeId}</Td>
-                        {/* <Td>
-              <Tooltip exitDelay={20} entryDelay={175} content={<div>Execute Python code on this replica.</div>}>
-                <Button variant={'link'} icon={<CodeIcon />} onClick={() => onExecuteCodeClicked(replica.kernelId)}>
-                  Execute
-                </Button>
-              </Tooltip>
-            </Td> */}
+                        <Td>
+                            <Tooltip
+                                exitDelay={20}
+                                entryDelay={175}
+                                content={
+                                    <div>Execute Python code on replica {kernel.replicas[replicaIdx].replicaId}.</div>
+                                }
+                            >
+                                <Button
+                                    variant={'link'}
+                                    icon={<CodeIcon />}
+                                    onClick={() => onExecuteCodeClicked(kernel, replicaIdx)}
+                                >
+                                    Execute
+                                </Button>
+                            </Tooltip>
+                        </Td>
                         <Td>
                             <Tooltip
                                 exitDelay={20}
@@ -824,7 +856,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                                                     <Button
                                                                         variant={'link'}
                                                                         icon={<CodeIcon />}
-                                                                        onClick={() => onExecuteCodeClicked(idx)}
+                                                                        onClick={() => onExecuteCodeClicked(kernel)}
                                                                     >
                                                                         Execute
                                                                     </Button>
@@ -935,6 +967,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                     />
                     <ExecuteCodeOnKernelModal
                         kernelId={executeCodeKernel?.kernelId || 'N/A'}
+                        replicaId={executeCodeKernelReplica?.replicaId}
                         isOpen={isExecuteCodeModalOpen}
                         onClose={onCancelExecuteCodeClicked}
                         onSubmit={onConfirmExecuteCodeClicked}
