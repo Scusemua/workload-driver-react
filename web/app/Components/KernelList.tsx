@@ -486,7 +486,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
 
                 if (!ignoreResponse.current) {
                     console.log('Received kernels: ' + JSON.stringify(respKernels));
-                    console.log("We're currently creating %d kernel(s).", numKernelsCreating);
+                    console.log("We're currently creating %d kernel(s).", numKernelsCreating.current);
 
                     if (numKernelsCreating.current > 0) {
                         respKernels.forEach((newKernel) => {
