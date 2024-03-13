@@ -116,15 +116,16 @@ export const KernelSpecList: React.FunctionComponent = () => {
             <ToolbarItem>
                 <Tooltip exitDelay={75} content={<div>Refresh kernel specs.</div>}>
                     <Button
+                        label="refresh-kernel-specs-button"
+                        aria-label="refresh-kernel-specs-button"
                         variant="plain"
                         onClick={() => {
                             ignoreResponse.current = false;
                             fetchKernelSpecs();
                             ignoreResponse.current = true;
                         }}
-                    >
-                        <SyncIcon />
-                    </Button>
+                        icon={<SyncIcon />}
+                    />
                 </Tooltip>
             </ToolbarItem>
         </ToolbarGroup>
@@ -136,14 +137,13 @@ export const KernelSpecList: React.FunctionComponent = () => {
                 onExpand={onCardExpand}
                 actions={{ actions: cardHeaderActions, hasNoOffset: true }}
                 toggleButtonProps={{
-                    id: 'toggle-button',
-                    'aria-label': 'Actions',
-                    'aria-labelledby': 'titleId toggle-button',
+                    id: 'expand-kernel-specs-button',
+                    'aria-label': 'expand-kernel-specs-button',
                     'aria-expanded': isCardExpanded,
                 }}
             >
                 <CardTitle>
-                    <Title headingLevel="h4" size="xl">
+                    <Title headingLevel="h1" size="xl">
                         Kernel Specs
                     </Title>
                 </CardTitle>

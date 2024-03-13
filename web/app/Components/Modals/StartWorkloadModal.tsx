@@ -102,6 +102,7 @@ export const StartWorkloadModal: React.FunctionComponent<StartWorkloadModalProps
                     label="Workload name:"
                     labelIcon={
                         <Popover
+                            aria-label="workload-title-popover"
                             headerContent={<div>Workload Title</div>}
                             bodyContent={
                                 <div>
@@ -124,6 +125,8 @@ export const StartWorkloadModal: React.FunctionComponent<StartWorkloadModalProps
                 >
                     <TextInput
                         isRequired
+                        label="workload-title-text-input"
+                        aria-label="workload-title-text-input"
                         type="text"
                         id="simple-form-name-01"
                         name="simple-form-name-01"
@@ -131,9 +134,20 @@ export const StartWorkloadModal: React.FunctionComponent<StartWorkloadModalProps
                         value={workloadTitle}
                         onChange={handleWorkloadTitleChanged}
                     />
-                    <FormHelperText>
-                        <HelperText>
-                            <HelperTextItem>Provide a title to help you identify the workload.</HelperTextItem>
+                    <FormHelperText
+                        label="workload-title-text-input-helper"
+                        aria-label="workload-title-text-input-helper"
+                    >
+                        <HelperText
+                            label="workload-title-text-input-helper"
+                            aria-label="workload-title-text-input-helper"
+                        >
+                            <HelperTextItem
+                                aria-label="workload-title-text-input-helper"
+                                label="workload-title-text-input-helper"
+                            >
+                                Provide a title to help you identify the workload.
+                            </HelperTextItem>
                         </HelperText>
                     </FormHelperText>
                 </FormGroup>
@@ -141,6 +155,7 @@ export const StartWorkloadModal: React.FunctionComponent<StartWorkloadModalProps
                     label="Workload data:"
                     labelIcon={
                         <Popover
+                            aria-label="workload-data-text-header"
                             headerContent={<div>Workload Data</div>}
                             bodyContent={<div>Select the preprocessed data to use for driving the workload.</div>}
                         >
@@ -158,6 +173,8 @@ export const StartWorkloadModal: React.FunctionComponent<StartWorkloadModalProps
                 >
                     {props.workloadPresets.length == 0 && (
                         <TextInput
+                            label="workload-dataset-disabled-text"
+                            aria-label="workload-dataset-disabled-text"
                             id="disabled-workload-data-select-text"
                             isDisabled
                             type="text"
@@ -166,6 +183,7 @@ export const StartWorkloadModal: React.FunctionComponent<StartWorkloadModalProps
                     )}
                     {props.workloadPresets.length > 0 && (
                         <Dropdown
+                            aria-label="workload-dataset-dropdown-menu"
                             isOpen={isWorkloadDataDropdownOpen}
                             onSelect={onWorkloadDataDropdownSelect}
                             onOpenChange={(isOpen: boolean) => setIsWorkloadDataDropdownOpen(isOpen)}
@@ -181,10 +199,15 @@ export const StartWorkloadModal: React.FunctionComponent<StartWorkloadModalProps
                             )}
                             shouldFocusToggleOnSelect
                         >
-                            <DropdownList>
+                            <DropdownList aria-label="workload-dataset-dropdown-list">
                                 {props.workloadPresets.map((value: WorkloadPreset, index: number) => {
                                     return (
-                                        <DropdownItem value={index} key={value.key} description={value.description}>
+                                        <DropdownItem
+                                            aria-label={'workload-dataset-dropdown-item' + index}
+                                            value={index}
+                                            key={value.key}
+                                            description={value.description}
+                                        >
                                             {value.name}
                                         </DropdownItem>
                                     );

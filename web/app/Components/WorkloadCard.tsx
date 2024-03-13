@@ -20,6 +20,8 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                 <ToolbarItem>
                     <Tooltip exitDelay={75} content={<div>Create a new kernel.</div>}>
                         <Button
+                            label="launch-workload-button"
+                            aria-label="launch-workload-button"
                             id="launch-workload-button"
                             variant="plain"
                             onClick={() => props.onLaunchWorkloadClicked()}
@@ -29,6 +31,8 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                     </Tooltip>
                     <Tooltip exitDelay={75} content={<div>Stop selected workloads.</div>}>
                         <Button
+                            label="stop-workload-button"
+                            aria-label="stop-workload-button"
                             id="stop-workloads-button"
                             variant="plain"
                             onClick={() => {}} // () => setIsConfirmDeleteKernelsModalOpen(true)
@@ -37,7 +41,13 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                         </Button>
                     </Tooltip>
                     <Tooltip exitDelay={75} content={<div>Refresh workloads.</div>}>
-                        <Button id="refresh-workloads-button" variant="plain" onClick={() => {}}>
+                        <Button
+                            id="refresh-workloads-button"
+                            variant="plain"
+                            onClick={() => {}}
+                            label="refresh-workload-button"
+                            aria-label="refresh-workload-button"
+                        >
                             <SyncIcon />
                         </Button>
                     </Tooltip>
@@ -52,13 +62,12 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                 actions={{ actions: cardHeaderActions, hasNoOffset: true }}
                 onExpand={onCardExpand}
                 toggleButtonProps={{
-                    id: 'toggle-button',
-                    'aria-label': 'Actions',
-                    'aria-labelledby': 'titleId toggle-button',
+                    id: 'expand-workloads-button',
+                    'aria-label': 'expand-workloads-button',
                     'aria-expanded': isCardExpanded,
                 }}
             >
-                <Title headingLevel="h4" size="xl">
+                <Title headingLevel="h1" size="xl">
                     Workloads
                 </Title>
             </CardHeader>

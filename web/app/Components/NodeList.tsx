@@ -93,8 +93,10 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                 <Flex alignItems={{ default: 'alignItemsCenter' }}>
                     <FlexItem hidden={!props.selectable}>
                         <ToolbarItem>
-                            <Tooltip exitDelay={75} content={<div>Refresh nodes.</div>}>
+                            <Tooltip exitDelay={75} content={<div>Clear selected node.</div>}>
                                 <Button
+                                    label="clear-selected-node-button"
+                                    aria-label="clear-selected-node-button"
                                     variant="link"
                                     isDisabled={selectedNode == ''}
                                     onClick={() => {
@@ -121,7 +123,12 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
             <ToolbarGroup variant="icon-button-group">
                 <ToolbarItem>
                     <Tooltip exitDelay={75} content={<div>Refresh nodes.</div>}>
-                        <Button variant="plain" onClick={props.manuallyRefreshNodes}>
+                        <Button
+                            variant="plain"
+                            onClick={props.manuallyRefreshNodes}
+                            label="refresh-nodes-button"
+                            aria-label="refresh-nodes-button"
+                        >
                             <SyncIcon />
                         </Button>
                     </Tooltip>
@@ -183,14 +190,13 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                 onExpand={onCardExpand}
                 actions={{ actions: toolbar, hasNoOffset: true }}
                 toggleButtonProps={{
-                    id: 'toggle-button',
-                    'aria-label': 'Actions',
-                    'aria-labelledby': 'titleId toggle-button',
+                    id: 'expand-kube-nodes-button',
+                    'aria-label': 'expand-kube-nodes-button',
                     'aria-expanded': isCardExpanded,
                 }}
             >
                 <CardTitle>
-                    <Title headingLevel="h4" size="xl">
+                    <Title headingLevel="h1" size="xl">
                         Kubernetes Nodes
                     </Title>
                 </CardTitle>
@@ -228,8 +234,8 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                                     <DataListToggle
                                         onClick={() => toggleExpandedNode(kubeNode.NodeId)}
                                         isExpanded={expandedNodes.includes(kubeNode.NodeId)}
-                                        id="ex-toggle1"
-                                        aria-controls="ex-expand1"
+                                        id={'expand-node-' + kubeNode.NodeId + '-toggle'}
+                                        aria-controls={'expand-node-' + kubeNode.NodeId + '-toggle'}
                                     />
                                     <DataListItemCells
                                         dataListCells={[

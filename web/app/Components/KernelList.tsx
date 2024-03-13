@@ -694,6 +694,8 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                 <ToolbarItem>
                     <Tooltip exitDelay={75} content={<div>Create a new kernel.</div>}>
                         <Button
+                            label="create-kernels-button"
+                            aria-label="create-kernels-button"
                             id="create-kernel-button"
                             variant="plain"
                             onClick={() => setIsConfirmCreateModalOpen(!isConfirmCreateModalOpen)}
@@ -703,6 +705,8 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                     </Tooltip>
                     <Tooltip exitDelay={75} content={<div>Terminate selected kernels.</div>}>
                         <Button
+                            label="delete-kernels-button"
+                            aria-label="delete-kernels-button"
                             id="delete-kernels-button"
                             variant="plain"
                             onClick={() => setIsConfirmDeleteKernelsModalOpen(true)}
@@ -712,6 +716,8 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                     </Tooltip>
                     <Tooltip exitDelay={75} content={<div>Refresh kernels.</div>}>
                         <Button
+                            label="refresh-kernels-button"
+                            aria-label="refresh-kernels-button"
                             id="refresh-kernels-button"
                             variant="plain"
                             onClick={() => {
@@ -811,6 +817,8 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             >
                 <DataListItemRow>
                     <DataListCheck
+                        label={'kernel-' + kernel?.kernelId + '-check'}
+                        aria-label={'kernel-' + kernel?.kernelId + '-check'}
                         aria-labelledby={'kernel-' + kernel?.kernelId + '-check'}
                         name={'kernel-' + kernel?.kernelId + '-check'}
                         onChange={(event: React.FormEvent<HTMLInputElement>, checked: boolean) =>
@@ -828,8 +836,10 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                             toggleExpandedKernel(kernel?.kernelId);
                         }}
                         isExpanded={kernel != null && expandedKernels.includes(kernel.kernelId)}
-                        id="ex-toggle1"
-                        aria-controls="ex-expand1"
+                        id={'expand-kernel-' + kernel?.kernelId + '-button'}
+                        aria-controls={'expand-kernel-' + kernel?.kernelId + '-button'}
+                        label={'expand-kernel-' + kernel?.kernelId + '-button'}
+                        aria-label={'expand-kernel-' + kernel?.kernelId + '-button'}
                     />
                     <DataListItemCells
                         dataListCells={[
@@ -969,14 +979,13 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                 onExpand={onCardExpand}
                 actions={{ actions: cardHeaderActions, hasNoOffset: true }}
                 toggleButtonProps={{
-                    id: 'toggle-button',
-                    'aria-label': 'Actions',
-                    'aria-labelledby': 'titleId toggle-button',
+                    id: 'toggle-kernels-button',
+                    'aria-label': 'toggle-kernels-button',
                     'aria-expanded': isCardExpanded,
                 }}
             >
                 <CardTitle>
-                    <Title headingLevel="h4" size="xl">
+                    <Title headingLevel="h1" size="xl">
                         Active Kernels
                     </Title>
                 </CardTitle>
