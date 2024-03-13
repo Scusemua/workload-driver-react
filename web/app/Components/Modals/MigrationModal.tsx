@@ -12,7 +12,7 @@ export interface MigrationModalProps {
     targetKernel?: DistributedJupyterKernel | null;
     targetReplica?: JupyterKernelReplica | null;
     nodes: KubernetesNode[];
-    manuallyRefreshNodes: () => void; // Function to manually refresh the nodes.
+    manuallyRefreshNodes: (callback: () => void | undefined) => void; // Function to manually refresh the nodes.
 }
 
 export const MigrationModal: React.FunctionComponent<MigrationModalProps> = (props) => {

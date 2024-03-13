@@ -5,10 +5,12 @@ import { PlusIcon, StopCircleIcon, SyncIcon } from '@patternfly/react-icons';
 
 export interface WorkloadCardProps {
     onLaunchWorkloadClicked: () => void;
+    refreshWorkloadPresets: (callback: () => void | undefined) => void;
 }
 
 export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: WorkloadCardProps) => {
     const [isCardExpanded, setIsCardExpanded] = React.useState(true);
+    const [refreshingWorkloads, setRefreshingWorkloads] = React.useState(false);
 
     const onCardExpand = () => {
         setIsCardExpanded(!isCardExpanded);
@@ -44,12 +46,21 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                         <Button
                             id="refresh-workloads-button"
                             variant="plain"
-                            onClick={() => {}}
+                            onClick={() => {
+                                setRefreshingWorkloads(true);
+                                props.refreshWorkloadPresets(() => {
+                                    setRefreshingWorkloads(false);
+                                });
+                            }}
                             label="refresh-workload-button"
                             aria-label="refresh-workload-button"
-                        >
-                            <SyncIcon />
-                        </Button>
+                            icon={<SyncIcon />}
+                            isDisabled={refreshingWorkloads}
+                            className={
+                                (refreshingWorkloads && 'loading-icon-spin-toggleable') ||
+                                'loading-icon-spin-toggleable paused'
+                            }
+                        />
                     </Tooltip>
                 </ToolbarItem>
             </ToolbarGroup>

@@ -112,6 +112,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
     const [executeCodeKernelReplica, setExecuteCodeKernelReplica] = React.useState<JupyterKernelReplica | null>(null);
     const [selectedKernels, setSelectedKernels] = React.useState<string[]>([]);
     const [kernelToDelete, setKernelToDelete] = React.useState<string>('');
+    const [refreshingKernels, setRefreshingKernels] = React.useState(false);
 
     const numKernelsCreating = useRef(0); // Used to display "pending" entries in the kernel list.
     const kernelManager = useRef<KernelManager | null>(null);
@@ -473,6 +474,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
     const ignoreResponse = useRef(false);
     const fetchKernels = useCallback(() => {
         try {
+            setRefreshingKernels(true);
             console.log('Refreshing kernels now.');
             // Make a network request to the backend. The server infrastructure handles proxying/routing the request to the correct host.
             // We're specifically targeting the API endpoint I setup called "get-kernels".
@@ -517,6 +519,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                         } else {
                             console.log("Received %d kernel(s), but we're ignoring the response.", respKernels.length);
                         }
+                        setRefreshingKernels(false);
                     });
                 }
             });
@@ -720,6 +723,11 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                             aria-label="refresh-kernels-button"
                             id="refresh-kernels-button"
                             variant="plain"
+                            isDisabled={refreshingKernels}
+                            className={
+                                (refreshingKernels && 'loading-icon-spin-toggleable') ||
+                                'loading-icon-spin-toggleable paused'
+                            }
                             onClick={() => {
                                 ignoreResponse.current = false;
                                 console.log('Manually refreshing kernels.');

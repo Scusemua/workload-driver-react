@@ -25,8 +25,6 @@ import {
     Radio,
     SearchInput,
     Title,
-    // Toolbar,
-    // ToolbarContent,
     ToolbarGroup,
     ToolbarItem,
     ToolbarToggleGroup,
@@ -41,7 +39,7 @@ export interface NodeListProps {
     selectable: boolean;
     nodes: KubernetesNode[];
     refreshInterval: number; // Refresh interval in seconds.
-    manuallyRefreshNodes: () => void; // Function to manually refresh the nodes.
+    manuallyRefreshNodes: (callback: () => void | undefined) => void; // Function to manually refresh the nodes.
     disableRadiosWithKernel?: string; // KernelID such that, if a node has a Pod for that kernel, its radio button is disabled.
     onSelectNode?: (nodeId: string) => void; // Function to call when a node is selected; used in case parent wants to do something when node is selected, such as update state.
 }
@@ -51,6 +49,7 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
     const [isCardExpanded, setIsCardExpanded] = React.useState(true);
     const [expandedNodes, setExpandedNodes] = React.useState<string[]>([]);
     const [selectedNode, setSelectedNode] = React.useState('');
+    const [refreshingNodes, setRefreshingNodes] = React.useState(false);
 
     const onCardExpand = () => {
         setIsCardExpanded(!isCardExpanded);
@@ -125,12 +124,21 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                     <Tooltip exitDelay={75} content={<div>Refresh nodes.</div>}>
                         <Button
                             variant="plain"
-                            onClick={props.manuallyRefreshNodes}
+                            onClick={() => {
+                                setRefreshingNodes(true);
+                                props.manuallyRefreshNodes(() => {
+                                    setRefreshingNodes(false);
+                                });
+                            }}
+                            isDisabled={refreshingNodes}
                             label="refresh-nodes-button"
                             aria-label="refresh-nodes-button"
-                        >
-                            <SyncIcon />
-                        </Button>
+                            className={
+                                (refreshingNodes && 'loading-icon-spin-toggleable') ||
+                                'loading-icon-spin-toggleable paused'
+                            }
+                            icon={<SyncIcon />}
+                        />
                     </Tooltip>
                 </ToolbarItem>
             </ToolbarGroup>

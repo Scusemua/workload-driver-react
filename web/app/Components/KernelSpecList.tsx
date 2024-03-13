@@ -27,6 +27,7 @@ export const KernelSpecList: React.FunctionComponent = () => {
     const [activeTabKey, setActiveTabKey] = React.useState(0);
     const [isCardExpanded, setIsCardExpanded] = React.useState(true);
     const kernelSpecManager = useRef<KernelSpecManager | null>(null);
+    const [refreshingKernelSpecs, setRefreshingKernelSpecs] = React.useState(false);
 
     useEffect(() => {
         async function initializeKernelManagers() {
@@ -72,6 +73,7 @@ export const KernelSpecList: React.FunctionComponent = () => {
     const ignoreResponse = useRef(false);
     async function fetchKernelSpecs() {
         try {
+            setRefreshingKernelSpecs(true);
             console.log('Refreshing kernel specs.');
 
             // Make a network request to the backend. The server infrastructure handles proxying/routing the request to the correct host.
@@ -87,7 +89,11 @@ export const KernelSpecList: React.FunctionComponent = () => {
                     if (respKernels !== undefined) {
                         setKernelSpecs(respKernels!);
                     }
+
+                    ignoreResponse.current = true;
                 }
+
+                setRefreshingKernelSpecs(false);
             });
         } catch (e) {
             console.error(e);
@@ -102,8 +108,9 @@ export const KernelSpecList: React.FunctionComponent = () => {
         // Periodically refresh the automatically kernel specs every 5 minutes.
         setInterval(() => {
             ignoreResponse.current = false;
-            fetchKernelSpecs();
-            ignoreResponse.current = true;
+            fetchKernelSpecs().then(() => {
+                ignoreResponse.current = true;
+            });
         }, 300000);
 
         return () => {
@@ -119,10 +126,14 @@ export const KernelSpecList: React.FunctionComponent = () => {
                         label="refresh-kernel-specs-button"
                         aria-label="refresh-kernel-specs-button"
                         variant="plain"
+                        isDisabled={refreshingKernelSpecs}
+                        className={
+                            (refreshingKernelSpecs && 'loading-icon-spin-toggleable') ||
+                            'loading-icon-spin-toggleable paused'
+                        }
                         onClick={() => {
                             ignoreResponse.current = false;
                             fetchKernelSpecs();
-                            ignoreResponse.current = true;
                         }}
                         icon={<SyncIcon />}
                     />
