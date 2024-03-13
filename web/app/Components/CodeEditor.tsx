@@ -1,6 +1,6 @@
 import React from 'react';
 import { ChangeHandler, CodeEditor, Language } from '@patternfly/react-code-editor';
-import { Chip, Grid, GridItem } from '@patternfly/react-core';
+import { Button, Chip, Grid, GridItem, Switch } from '@patternfly/react-core';
 
 export interface CodeEditorComponent {
     children?: React.ReactNode;
@@ -8,6 +8,8 @@ export interface CodeEditorComponent {
 }
 
 export const CodeEditorComponent: React.FunctionComponent<CodeEditorComponent> = (props) => {
+    const [isDarkMode, setIsDarkMode] = React.useState(false);
+
     const onEditorDidMount = (editor, monaco) => {
         editor.layout();
         editor.focus();
@@ -56,9 +58,46 @@ export const CodeEditorComponent: React.FunctionComponent<CodeEditorComponent> =
         'aria-label': 'Shortcuts',
     };
 
+    const customControl = (
+        // <CodeEditorControl
+        //     aria-label={'Toggle darkmode' + ((isDarkMode && ' off') || ' on')}
+        //     tooltipProps={{
+        //         content: 'Toggle darkmode' + ((isDarkMode && ' off') || ' on'),
+        //     }}
+        //     onClick={() => {
+        //         setIsDarkMode(!isDarkMode);
+        //     }}
+        //     icon={<LightbulbIcon />}
+        // />
+        <div>
+            <Button
+                variant="link"
+                onClick={(event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
+                    event.stopPropagation();
+                }}
+                onMouseDown={(event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
+                    event.preventDefault();
+                }}
+            >
+                <Switch
+                    id="darkmode-switch"
+                    aria-label="darkmode-switch"
+                    label="Dark Theme"
+                    labelOff="Light Theme"
+                    isChecked={isDarkMode}
+                    onChange={(_event: React.FormEvent<HTMLInputElement>, checked: boolean) => {
+                        setIsDarkMode(checked);
+                    }}
+                />
+            </Button>
+        </div>
+    );
+
     return (
         <CodeEditor
+            isDarkTheme={isDarkMode}
             shortcutsPopoverProps={shortcutsPopoverProps}
+            customControls={customControl}
             isLanguageLabelVisible
             isUploadEnabled
             isDownloadEnabled

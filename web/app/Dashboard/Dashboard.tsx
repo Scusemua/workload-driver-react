@@ -233,6 +233,17 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
     return (
         <PageSection>
             <Grid hasGutter>
+                <GridItem span={6} rowSpan={2}>
+                    <KernelList openMigrationModal={openMigrationModal} />
+                </GridItem>
+                <GridItem span={6} rowSpan={6}>
+                    <KubernetesNodeList
+                        manuallyRefreshNodes={manuallyRefreshNodes}
+                        nodes={nodes}
+                        refreshInterval={120}
+                        selectable={false}
+                    />
+                </GridItem>
                 <GridItem span={6} rowSpan={1}>
                     <WorkloadCard
                         refreshWorkloadPresets={fetchWorkloadPresets}
@@ -247,17 +258,6 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
 
                             setIsStartWorkloadOpen(true);
                         }}
-                    />
-                </GridItem>
-                <GridItem span={6} rowSpan={6}>
-                    <KernelList openMigrationModal={openMigrationModal} />
-                </GridItem>
-                <GridItem span={6} rowSpan={2}>
-                    <KubernetesNodeList
-                        manuallyRefreshNodes={manuallyRefreshNodes}
-                        nodes={nodes}
-                        refreshInterval={120}
-                        selectable={false}
                     />
                 </GridItem>
                 <GridItem span={6} rowSpan={1}>
