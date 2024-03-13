@@ -236,7 +236,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
                 <GridItem span={6} rowSpan={2}>
                     <KernelList openMigrationModal={openMigrationModal} />
                 </GridItem>
-                <GridItem span={6} rowSpan={6}>
+                <GridItem span={5} rowSpan={6}>
                     <KubernetesNodeList
                         manuallyRefreshNodes={manuallyRefreshNodes}
                         nodes={nodes}

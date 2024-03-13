@@ -33,7 +33,17 @@ import {
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 import GpuIcon from '@app/Icons/GpuIcon';
 import { KubernetesNode, KubernetesPod } from '@data/Kubernetes';
-import { CpuIcon, CubeIcon, FilterIcon, MemoryIcon, SyncIcon } from '@patternfly/react-icons';
+import {
+    CopyIcon,
+    CpuIcon,
+    CubeIcon,
+    FilterIcon,
+    GlobeIcon,
+    MemoryIcon,
+    OutlinedClockIcon,
+    SyncIcon,
+    VirtualMachineIcon,
+} from '@patternfly/react-icons';
 
 export interface NodeListProps {
     selectable: boolean;
@@ -151,7 +161,7 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
     );
 
     const expandedNodeContent = (kubeNode: KubernetesNode) => (
-        <Table aria-label="Pods Table" variant={'compact'} borders={true}>
+        <Table isStriped aria-label="Pods Table" variant={'compact'} borders={true}>
             <Thead>
                 <Tr>
                     <Th>Pod ID</Th>
@@ -260,23 +270,28 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                                                     <FlexItem>
                                                         <DescriptionList
                                                             className="node-list-description-list"
-                                                            isCompact
-                                                            columnModifier={{ lg: '3Col' }}
+                                                            columnModifier={{ lg: '3Col', xl: '3Col' }}
                                                         >
                                                             <DescriptionListGroup>
-                                                                <DescriptionListTerm>Node</DescriptionListTerm>
+                                                                <DescriptionListTerm icon={<VirtualMachineIcon />}>
+                                                                    Node
+                                                                </DescriptionListTerm>
                                                                 <DescriptionListDescription>
                                                                     {kubeNode.NodeId}
                                                                 </DescriptionListDescription>
                                                             </DescriptionListGroup>
                                                             <DescriptionListGroup>
-                                                                <DescriptionListTerm>IP</DescriptionListTerm>
+                                                                <DescriptionListTerm icon={<GlobeIcon />}>
+                                                                    IP
+                                                                </DescriptionListTerm>
                                                                 <DescriptionListDescription>
                                                                     {kubeNode.IP}
                                                                 </DescriptionListDescription>
                                                             </DescriptionListGroup>
                                                             <DescriptionListGroup>
-                                                                <DescriptionListTerm>Age</DescriptionListTerm>
+                                                                <DescriptionListTerm icon={<OutlinedClockIcon />}>
+                                                                    Age
+                                                                </DescriptionListTerm>
                                                                 <DescriptionListDescription>
                                                                     {kubeNode.Age}
                                                                 </DescriptionListDescription>

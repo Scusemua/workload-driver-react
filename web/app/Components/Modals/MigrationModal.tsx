@@ -20,7 +20,7 @@ export const MigrationModal: React.FunctionComponent<MigrationModalProps> = (pro
 
     return (
         <Modal
-            variant={ModalVariant.large}
+            variant={ModalVariant.medium}
             titleIconVariant="info"
             title={'Migrate replica ' + props.targetReplica?.replicaId + ' of kernel ' + props.targetKernel?.kernelId}
             isOpen={props.isOpen}

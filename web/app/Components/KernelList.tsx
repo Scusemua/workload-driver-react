@@ -41,6 +41,7 @@ import { KernelManager, ServerConnection } from '@jupyterlab/services';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 
 import {
+    BundleIcon,
     CheckCircleIcon,
     CodeIcon,
     CubesIcon,
@@ -57,6 +58,7 @@ import {
     StopCircleIcon,
     SyncIcon,
     TrashIcon,
+    VirtualMachineIcon,
 } from '@patternfly/react-icons';
 
 import { IKernelConnection } from '@jupyterlab/services/lib/kernel/kernel';
@@ -750,12 +752,18 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
     );
 
     const expandedKernelContent = (kernel: DistributedJupyterKernel) => (
-        <Table aria-label="Pods Table" variant={'compact'} borders={true}>
+        <Table isStriped aria-label="Pods Table" variant={'compact'} borders={true}>
             <Thead>
                 <Tr>
                     <Th>ID</Th>
-                    <Th>Pod</Th>
-                    <Th>Node</Th>
+                    <Th>
+                        <BundleIcon />
+                        {' Pod'}
+                    </Th>
+                    <Th>
+                        <VirtualMachineIcon />
+                        {' Node'}
+                    </Th>
                     <Th />
                     <Th />
                 </Tr>
@@ -765,8 +773,12 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                     kernel.replicas.map((replica, replicaIdx) => (
                         <Tr key={replica.replicaId}>
                             <Td dataLabel="ID">{replica.replicaId}</Td>
-                            <Td dataLabel="Pod">{replica.podId}</Td>
-                            <Td dataLabel="Node">{replica.nodeId}</Td>
+                            <Td dataLabel="Pod" modifier="nowrap">
+                                {replica.podId}
+                            </Td>
+                            <Td dataLabel="Node" modifier="nowrap">
+                                {replica.nodeId}
+                            </Td>
                             <Td>
                                 <Tooltip
                                     exitDelay={20}
