@@ -325,7 +325,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         });
 
         const future = kernelConnection.requestExecute({ code: code }, undefined, {
-            target_replica_key: executeCodeKernelReplica?.replicaId || -1,
+            target_replica: executeCodeKernelReplica?.replicaId || -1,
         });
 
         // Handle iopub messages

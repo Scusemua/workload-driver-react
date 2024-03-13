@@ -121,7 +121,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                     {executionState === 'busy' && 'Executing code'}
                     {executionState === 'done' && 'Complete'}
                 </Button>,
-                <Button key="cancel" variant="link" onClick={onClose}>
+                <Button key="cancel" variant="link" onClick={onClose} hidden={executionState === 'done'}>
                     Cancel
                 </Button>,
             ]}
