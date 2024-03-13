@@ -132,11 +132,8 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             console.log('Waiting for Kernel Manager to be ready.');
 
             kernelManager.current.connectionFailure.connect((_sender: KernelManager, err: Error) => {
-                console.log(
-                    '[ERROR] An error has occurred while preparing the Kernel Manager. ' +
-                        err.name +
-                        ': ' +
-                        err.message,
+                console.error(
+                    'An error has occurred while preparing the Kernel Manager. ' + err.name + ': ' + err.message,
                 );
             });
 
@@ -221,7 +218,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         console.log('User is inspecting kernel ' + kernelId);
 
         if (!kernelManager.current) {
-            console.log('[ERROR] Kernel Manager is not available. Will try to connect...');
+            console.error('Kernel Manager is not available. Will try to connect...');
             initializeKernelManagers();
             return;
         }
@@ -233,13 +230,13 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         if (kernelConnection.connectionStatus == 'connected') {
             kernelConnection.requestKernelInfo().then((resp: IInfoReplyMsg | undefined) => {
                 if (resp == undefined) {
-                    console.log('Failed to retrieve information about kernel ' + kernelId);
+                    console.error('Failed to retrieve information about kernel ' + kernelId);
                 } else {
                     console.log('Received info from kernel ' + kernelId + ': ' + JSON.stringify(resp));
                 }
             });
         } else {
-            console.log('[ERROR] Could not retrieve information for kernel %s. Not connected to the kernel.', kernelId);
+            console.error('Could not retrieve information for kernel %s. Not connected to the kernel.', kernelId);
             setErrorMessage(
                 'Could not retrieve information about kernel ' +
                     kernelId +
@@ -254,7 +251,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         console.log('User is interrupting kernel ' + kernelId);
 
         if (!kernelManager.current) {
-            console.log('[ERROR] Kernel Manager is not available. Will try to connect...');
+            console.error('Kernel Manager is not available. Will try to connect...');
             initializeKernelManagers();
             return;
         }
@@ -268,7 +265,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                 console.log('Successfully interrupted kernel ' + kernelId);
             });
         } else {
-            console.log('[ERROR] Could not interrupt kernel %s. Not connected to the kernel.', kernelId);
+            console.error('Could not interrupt kernel %s. Not connected to the kernel.', kernelId);
             setErrorMessage(
                 'Could not interrupt kernel ' +
                     kernelId +
@@ -312,12 +309,12 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         const kernelId: string | undefined = executeCodeKernel?.kernelId;
 
         if (kernelId == undefined) {
-            console.log("Couldn't determiner kernel ID of target kernel for code execution...");
+            console.error("Couldn't determiner kernel ID of target kernel for code execution...");
             return;
         }
 
         if (!kernelManager.current) {
-            console.log('[ERROR] Kernel Manager is not available. Will try to connect...');
+            console.error('Kernel Manager is not available. Will try to connect...');
             initializeKernelManagers();
             return;
         }
@@ -369,7 +366,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
 
         // Create a new kernel.
         if (!kernelManager.current) {
-            console.log('[ERROR] Kernel Manager is not available. Will try to connect...');
+            console.error('Kernel Manager is not available. Will try to connect...');
             initializeKernelManagers();
             return;
         }
@@ -406,7 +403,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             if (isNumber(input)) {
                 numKernelsToCreate = parseInt(input);
             } else {
-                console.log('[ERROR] Failed to convert number of kernels to a number: "' + input + '"');
+                console.error('Failed to convert number of kernels to a number: "' + input + '"');
                 setErrorMessage('Failed to convert number of kernels to a number: "' + input + '"');
                 setIsErrorModalOpen(true);
             }
@@ -421,7 +418,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
 
         // Create a new kernel.
         if (!kernelManager.current) {
-            console.log('[ERROR] Kernel Manager is not available. Will try to connect...');
+            console.error('Kernel Manager is not available. Will try to connect...');
             initializeKernelManagers();
             return;
         }
