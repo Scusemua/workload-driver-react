@@ -131,8 +131,9 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
         // Periodically refresh the Kubernetes nodes every `props.workloadPresetRefreshInterval` seconds, or when the user clicks the "refresh" button.
         setInterval(() => {
             ignoreResponseForWorkloadPresets.current = false;
-            fetchWorkloadPresets(() => {});
-            ignoreResponseForWorkloadPresets.current = true;
+            fetchWorkloadPresets(() => {}).then(() => {
+                ignoreResponseForWorkloadPresets.current = true;
+            });
         }, props.workloadPresetRefreshInterval * 1000);
 
         return () => {

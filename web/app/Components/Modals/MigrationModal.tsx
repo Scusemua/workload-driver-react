@@ -50,6 +50,7 @@ export const MigrationModal: React.FunctionComponent<MigrationModalProps> = (pro
                 manuallyRefreshNodes={props.manuallyRefreshNodes}
                 refreshInterval={604800} // Once per week (i.e., never).
                 selectable={true}
+                disableRadiosWithKernel={(props.targetReplica != null && props.targetReplica.kernelId) || undefined}
                 onSelectNode={(nodeId: string) => {
                     setTargetNodeID(nodeId);
                 }}
