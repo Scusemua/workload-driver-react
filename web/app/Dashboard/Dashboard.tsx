@@ -194,7 +194,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
         };
 
         fetch('/api/workload', requestOptions).then((response) => {
-            console.log('Received response for launch of new workload');
+            console.log('Received response for launch of new workload: %s', JSON.stringify(response));
         });
     };
 

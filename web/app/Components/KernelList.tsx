@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import {
     Badge,
     Button,
@@ -75,7 +75,7 @@ function isNumber(value?: string | number): boolean {
 }
 
 function range(start: number, end: number) {
-    let nums: number[] = [];
+    const nums: number[] = [];
     for (let i: number = start; i < end; i++) nums.push(i);
     return nums;
 }
@@ -113,7 +113,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
     const [selectedKernels, setSelectedKernels] = React.useState<string[]>([]);
     const [kernelToDelete, setKernelToDelete] = React.useState<string>('');
 
-    const numKernelsCreating = useRef(0);
+    const numKernelsCreating = useRef(0); // Used to display "pending" entries in the kernel list.
     const kernelManager = useRef<KernelManager | null>(null);
 
     async function initializeKernelManagers() {
@@ -474,54 +474,61 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
     }, [isStatusMenuOpen, statusMenuRef]);
 
     const ignoreResponse = useRef(false);
-    async function fetchKernels() {
+    const fetchKernels = useCallback(() => {
         try {
             console.log('Refreshing kernels now.');
             // Make a network request to the backend. The server infrastructure handles proxying/routing the request to the correct host.
             // We're specifically targeting the API endpoint I setup called "get-kernels".
-            const response = await fetch('api/get-kernels');
+            fetch('api/get-kernels').then((response: Response) => {
+                if (response.status == 200) {
+                    response.json().then((respKernels: DistributedJupyterKernel[]) => {
+                        if (!ignoreResponse.current) {
+                            console.log('Received kernels: ' + JSON.stringify(respKernels));
+                            console.log("We're currently creating %d kernel(s).", numKernelsCreating.current);
 
-            if (response.status == 200) {
-                const respKernels: DistributedJupyterKernel[] = await response.json();
-
-                if (!ignoreResponse.current) {
-                    console.log('Received kernels: ' + JSON.stringify(respKernels));
-                    console.log("We're currently creating %d kernel(s).", numKernelsCreating.current);
-
-                    if (numKernelsCreating.current > 0) {
-                        respKernels.forEach((newKernel) => {
-                            for (let i = 0; i < kernels.length; i++) {
-                                if (kernels[i].kernelId == newKernel.kernelId) {
-                                    console.log(
-                                        'Kernel %s is NOT a new kernel (i.e., we already knew about it).',
-                                        newKernel.kernelId,
-                                    );
-                                    return;
-                                }
-                            }
-
+                            // Only bother with this next bit if we're waiting on some kernels that we just created.
                             if (numKernelsCreating.current > 0) {
-                                console.log(
-                                    'Kernel %s is a NEW kernel (i.e., it was just created).',
-                                    newKernel.kernelId,
-                                );
-                                numKernelsCreating.current -= 1;
-                            }
-                        });
-                    }
+                                // For each kernel that we receive, we'll check if it is a new kernel.
+                                respKernels.forEach((newKernel) => {
+                                    for (let i = 0; i < kernels.current.length; i++) {
+                                        // If we've already seen this kernel, then return immediately.
+                                        // No need to compare it against all the other kernels; we already know that it isn't new.
+                                        if (kernels[i].kernelId == newKernel.kernelId) {
+                                            console.log(
+                                                'Kernel %s is NOT a new kernel (i.e., we already knew about it).',
+                                                newKernel.kernelId,
+                                            );
+                                            return;
+                                        }
+                                    }
 
-                    setKernels(respKernels);
-                    ignoreResponse.current = true;
-                } else {
-                    console.log("Received %d kernel(s), but we're ignoring the response.", respKernels.length);
+                                    // If we're currently creating any kernels and we just received a kernel that we've never seen before,
+                                    // then this must be one of the newly-created kernels that we're waiting on! So, we decrement the
+                                    // 'numKernelsCreating' counter.
+                                    if (numKernelsCreating.current > 0) {
+                                        console.log(
+                                            'Kernel %s is a NEW kernel (i.e., it was just created).',
+                                            newKernel.kernelId,
+                                        );
+                                        numKernelsCreating.current -= 1;
+                                    }
+                                });
+                            }
+
+                            kernels.current = respKernels;
+                            ignoreResponse.current = true;
+                        } else {
+                            console.log("Received %d kernel(s), but we're ignoring the response.", respKernels.length);
+                        }
+                    });
                 }
-            }
+            });
         } catch (e) {
             console.error(e);
         }
-    }
+    }, []);
 
-    const [kernels, setKernels] = React.useState<DistributedJupyterKernel[]>([]);
+    const kernels = React.useRef<DistributedJupyterKernel[]>([]);
     useEffect(() => {
         ignoreResponse.current = false;
         fetchKernels();
@@ -535,7 +542,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         return () => {
             ignoreResponse.current = true;
         };
-    }, []);
+    }, [fetchKernels]);
 
     function onStatusMenuSelect(_event: React.MouseEvent | undefined, itemId: string | number | undefined) {
         if (typeof itemId === 'undefined') {
@@ -570,7 +577,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
 
         return (searchValue === '' || matchesSearchValue) && (statusSelections.length === 0 || matchesStatusValue);
     };
-    const filteredKernels = kernels.filter(onFilter);
+    const filteredKernels = kernels.current.filter(onFilter);
 
     const statusMenu = (
         <Menu
@@ -795,7 +802,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         setExpandedKernels(newExpanded);
     };
 
-    let pendingKernelArr = range(0, numKernelsCreating.current);
+    const pendingKernelArr = range(0, numKernelsCreating.current);
 
     const getKernelDataListRow = (kernel: DistributedJupyterKernel | null, idx: number) => {
         return (
@@ -833,7 +840,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                 <Flex spaceItems={{ default: 'spaceItemsMd' }} direction={{ default: 'column' }}>
                                     <FlexItem>
                                         {kernel != null && <p>Kernel {kernel.kernelId}</p>}
-                                        {kernel == null && <p>Pending...</p>}
+                                        {kernel == null && <p className="loading">Pending</p>}
                                     </FlexItem>
                                     <Flex className="kernel-list-stat-icons" spaceItems={{ default: 'spaceItemsMd' }}>
                                         <FlexItem>
