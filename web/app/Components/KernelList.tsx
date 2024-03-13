@@ -379,6 +379,11 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
          */
         async function delete_kernel(id: string) {
             console.log('Deleting Kernel ' + id + ' now.');
+
+            await kernelManager.current?.shutdownAll().then(() => {
+                console.log('Shutdown ALL kernels.');
+            });
+
             await kernelManager.current?.shutdown(id).then(() => {
                 console.log('Successfully deleted Kernel ' + id + ' now.');
 
@@ -473,6 +478,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
 
     const ignoreResponse = useRef(false);
     const fetchKernels = useCallback(() => {
+        const startTime = performance.now();
         try {
             setRefreshingKernels(true);
             console.log('Refreshing kernels now.');
@@ -526,6 +532,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         } catch (e) {
             console.error(e);
         }
+        console.log(`Refresh kernels: ${(performance.now() - startTime).toFixed(4)} ms`);
     }, []);
 
     const kernels = React.useRef<DistributedJupyterKernel[]>([]);

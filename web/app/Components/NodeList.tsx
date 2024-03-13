@@ -41,6 +41,7 @@ export interface NodeListProps {
     refreshInterval: number; // Refresh interval in seconds.
     manuallyRefreshNodes: (callback: () => void | undefined) => void; // Function to manually refresh the nodes.
     disableRadiosWithKernel?: string; // KernelID such that, if a node has a Pod for that kernel, its radio button is disabled.
+    hideControlPlaneNode?: boolean;
     onSelectNode?: (nodeId: string) => void; // Function to call when a node is selected; used in case parent wants to do something when node is selected, such as update state.
 }
 
@@ -72,6 +73,10 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
 
     // Handler for when the user filters by node name.
     const onFilter = (repo: KubernetesNode) => {
+        if (props.hideControlPlaneNode && repo.NodeId.includes('control-plane')) {
+            return false;
+        }
+
         // Search name with search value
         let searchValueInput: RegExp;
         try {

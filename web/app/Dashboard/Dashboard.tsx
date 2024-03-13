@@ -12,16 +12,8 @@ export interface DashboardProps {
     workloadPresetRefreshInterval: number;
 }
 
-{
-    /* <DropdownItem value={0} key="jun-aug" description="Trace data from June - August.">
-June - August
-</DropdownItem>
-<DropdownItem value={1} key="july" description="Trace data from July.">
-July
-</DropdownItem>
-<DropdownItem value={2} key="august" description="Trace data from August.">
-August
-</DropdownItem> */
+function wait<T>(ms: number, value: T) {
+    return new Promise<T>((resolve) => setTimeout(resolve, ms, value));
 }
 
 const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProps) => {
@@ -77,6 +69,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
      * Retrieve the current workload presets from the backend.
      */
     async function fetchWorkloadPresets(callback: () => void | undefined) {
+        const startTime = performance.now();
         try {
             console.log('Refreshing workload presets.');
 
@@ -103,6 +96,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
         } catch (e) {
             console.error(e);
         }
+        console.log(`Refresh workload presets: ${(performance.now() - startTime).toFixed(4)} ms`);
     }
 
     // Fetch the kubernetes nodes from the backend (which itself makes a network call to the Kubernetes API).
@@ -142,9 +136,11 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
     }, [props.workloadPresetRefreshInterval]);
 
     async function manuallyRefreshNodes(callback: () => void | undefined) {
+        const startTime = performance.now();
         ignoreResponseForNodes.current = false;
-        fetchKubernetesNodes().then(() => {
+        await fetchKubernetesNodes().then(() => {
             ignoreResponseForNodes.current = true;
+            console.log(`Refresh Kubernetes nodes: ${(performance.now() - startTime).toFixed(4)} ms`);
 
             if (callback != undefined) {
                 callback();
@@ -219,9 +215,19 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
     };
 
     const openMigrationModal = (kernel: DistributedJupyterKernel, replica: JupyterKernelReplica) => {
-        setMigrateReplica(replica);
-        setMigrateKernel(kernel);
-        setIsMigrateModalOpen(true);
+        const refreshComplete: Promise<void> = manuallyRefreshNodes(() => {});
+
+        const delayMilliseconds = 5;
+        // Basically, we'll open the modal after either 'delayMilliseconds' ms or when the node refresh completes, whichever comes first.
+        Promise.race([wait(delayMilliseconds, 'timeout'), refreshComplete]).then((value) => {
+            if (value == 'timeout') {
+                console.warn('Node refresh took longer than %dms to complete', delayMilliseconds);
+            }
+            console.log('value: ' + value);
+            setMigrateReplica(replica);
+            setMigrateKernel(kernel);
+            setIsMigrateModalOpen(true);
+        });
     };
 
     return (

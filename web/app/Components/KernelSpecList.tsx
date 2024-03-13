@@ -72,6 +72,7 @@ export const KernelSpecList: React.FunctionComponent = () => {
 
     const ignoreResponse = useRef(false);
     async function fetchKernelSpecs() {
+        const startTime = performance.now();
         try {
             setRefreshingKernelSpecs(true);
             console.log('Refreshing kernel specs.');
@@ -98,6 +99,8 @@ export const KernelSpecList: React.FunctionComponent = () => {
         } catch (e) {
             console.error(e);
         }
+
+        console.log(`Refresh kernel specs: ${(performance.now() - startTime).toFixed(4)} ms`);
     }
 
     const [kernelSpecs, setKernelSpecs] = React.useState<{ [key: string]: ISpecModel | undefined }>({});
