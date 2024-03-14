@@ -18,19 +18,24 @@ import (
 )
 
 type serverImpl struct {
-	logger         *zap.Logger
-	sugaredLogger  *zap.SugaredLogger
-	opts           *domain.Configuration
-	app            *proxy.JupyterProxyRouter
-	engine         *gin.Engine
-	workloadDriver *driver.WorkloadDriver
+	logger          *zap.Logger
+	sugaredLogger   *zap.SugaredLogger
+	opts            *domain.Configuration
+	app             *proxy.JupyterProxyRouter
+	engine          *gin.Engine
+	workloadDrivers map[string]*driver.WorkloadDriver // Map from workload ID to the associated driver.
+	workloadsMap    map[string]*domain.Workload       // Map from workload ID to workload
+	workloads       []*domain.Workload
 }
 
 func NewServer(opts *domain.Configuration) domain.Server {
 	s := &serverImpl{
-		opts:           opts,
-		engine:         gin.New(),
-		workloadDriver: driver.NewWorkloadDriver(opts),
+		opts:            opts,
+		engine:          gin.New(),
+		workloadDrivers: make(map[string]*driver.WorkloadDriver),
+		workloadsMap:    make(map[string]*domain.Workload),
+		workloads:       make([]*domain.Workload, 0),
+		// workloadDriver: driver.NewWorkloadDriver(opts),
 	}
 
 	logger, err := zap.NewDevelopment()
@@ -44,6 +49,21 @@ func NewServer(opts *domain.Configuration) domain.Server {
 	s.setupRoutes()
 
 	return s
+}
+
+func (s *serverImpl) handleStartWorkloadRequest(c *gin.Context) {
+	workloadDriver := driver.NewWorkloadDriver(s.opts)
+
+	workload := workloadDriver.RegisterWorkload(c)
+
+	if workload != nil {
+		s.workloads = append(s.workloads, workload)
+		s.workloadsMap[workload.ID] = workload
+		s.workloadDrivers[workload.ID] = workloadDriver
+
+		s.sugaredLogger.Debug("Starting workload '%s' (ID=%v) now.", workload.Name, workload.ID)
+		workloadDriver.StartWorkload()
+	}
 }
 
 func (s *serverImpl) setupRoutes() error {
@@ -81,7 +101,9 @@ func (s *serverImpl) setupRoutes() error {
 		apiGroup.POST(domain.MIGRATION_ENDPOINT, handlers.NewMigrationHttpHandler(s.opts).HandleRequest)
 
 		// Used internally (by the frontend) to trigger the start of a new workload.
-		apiGroup.POST(domain.START_WORKLOAD_ENDPOINT, s.workloadDriver.HandleRequest)
+		apiGroup.POST(domain.WORKLOAD_ENDPOINT, s.handleStartWorkloadRequest)
+
+		apiGroup.GET(domain.WORKLOAD_ENDPOINT, handlers.NewGetWorkloadsHttpHandler(s.opts).HandleRequest)
 	}
 
 	if s.opts.SpoofKernelSpecs {

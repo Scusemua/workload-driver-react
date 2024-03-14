@@ -1,8 +1,10 @@
 package domain
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
+	"time"
 
 	"gopkg.in/yaml.v2"
 )
@@ -18,6 +20,27 @@ type WorkloadRequest struct {
 	// This will lead to many sessions reserving fewer GPUs than when this property is disabled (default).
 	AdjustGpuReservations bool   `name:"adjust_gpu_reservations" json:"adjust_gpu_reservations" description:"By default, sessions reserve 'NUM_GPUS' GPUs when being scheduled. If this property is enabled, then sessions will instead reserve 'NUM_GPUs' * 'MAX_GPU_UTIL'. This will lead to many sessions reserving fewer GPUs than when this property is disabled (default)."`
 	WorkloadName          string `name:"name" json:"name" yaml:"name" description:"Non-unique identifier of the workload created/specified by the user when launching the workload."`
+}
+
+type Workload struct {
+	ID                 string          `json:"id"`
+	Name               string          `json:"name"`
+	Started            bool            `json:"started"`
+	WorkloadPreset     *WorkloadPreset `json:"-"`
+	WorkloadPresetName string          `json:"workload_preset_name"`
+	WorkloadPresetKey  string          `json:"workload_preset_key"`
+	StartTime          time.Time       `json:"start_time"`
+	NumTasksExecuted   int64           `json:"num-tasks-executed"`
+	Finished           bool            `json:"finished"`
+}
+
+func (w *Workload) String() string {
+	out, err := json.Marshal(w)
+	if err != nil {
+		panic(err)
+	}
+
+	return string(out)
 }
 
 type WorkloadPreset struct {

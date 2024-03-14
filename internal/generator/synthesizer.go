@@ -327,6 +327,7 @@ func (s *Synthesizer) Synthesize(ctx context.Context, opts *domain.Configuration
 
 	// Establish the heap
 	for i := 0; i < len(s.Sources); i++ {
+		s.sugarLog.Debug("Pushing event source %d '%v' onto events heap.", (i + 1), s.Sources[i])
 		heap.Push(&s.eventsHeap, <-s.Sources[i].OnEvent())
 	}
 
@@ -386,7 +387,7 @@ func (s *Synthesizer) Synthesize(ctx context.Context, opts *domain.Configuration
 		}
 	}
 
-	s.sugarLog.Info("Finished consuming events from drivers. Workload generation is done. Time elapsed: %v.\n\n", time.Since(simulation_start))
+	s.sugarLog.Infof("Finished consuming events from drivers. Workload generation is done. Time elapsed: %v.\n\n", time.Since(simulation_start))
 
 	if s.executionMode == 1 {
 		workloadSimulatorDoneChan <- struct{}{}
