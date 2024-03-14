@@ -5,6 +5,7 @@ import (
 	"net/http"
 	"net/url"
 	"sync"
+	"time"
 
 	"github.com/gin-gonic/contrib/cors"
 	"github.com/gin-gonic/contrib/static"
@@ -54,16 +55,22 @@ func NewServer(opts *domain.Configuration) domain.Server {
 func (s *serverImpl) handleStartWorkloadRequest(c *gin.Context) {
 	workloadDriver := driver.NewWorkloadDriver(s.opts)
 
-	workload := workloadDriver.RegisterWorkload(c)
+	workload, _ := workloadDriver.RegisterWorkload(c)
 
 	if workload != nil {
 		s.workloads = append(s.workloads, workload)
 		s.workloadsMap[workload.ID] = workload
 		s.workloadDrivers[workload.ID] = workloadDriver
 
-		s.sugaredLogger.Debug("Starting workload '%s' (ID=%v) now.", workload.Name, workload.ID)
-		workloadDriver.StartWorkload()
+		s.sugaredLogger.Debugf("Starting workload '%s' (ID=%v) now.", workload.Name, workload.ID)
+		go workloadDriver.DriveWorkload()
+		c.JSON(http.StatusOK, workload)
+		s.sugaredLogger.Debugf("Sent workload back to user: %v", workload)
+	} else {
+		s.logger.Error("Workload registration did not return a Workload object...")
 	}
+
+	// If an error occurred when registering the workload, then the RegisterWorkload function already posted that info back to the user, so we don't need to do anything here.
 }
 
 func (s *serverImpl) setupRoutes() error {
@@ -103,7 +110,7 @@ func (s *serverImpl) setupRoutes() error {
 		// Used internally (by the frontend) to trigger the start of a new workload.
 		apiGroup.POST(domain.WORKLOAD_ENDPOINT, s.handleStartWorkloadRequest)
 
-		apiGroup.GET(domain.WORKLOAD_ENDPOINT, handlers.NewGetWorkloadsHttpHandler(s.opts).HandleRequest)
+		apiGroup.GET(domain.WORKLOAD_ENDPOINT, s.handleGetWorkloadsRequest)
 	}
 
 	if s.opts.SpoofKernelSpecs {
@@ -114,6 +121,16 @@ func (s *serverImpl) setupRoutes() error {
 	}
 
 	return nil
+}
+
+func (s *serverImpl) handleGetWorkloadsRequest(c *gin.Context) {
+	s.sugaredLogger.Debugf("Returning %d workloads to user.", len(s.workloads))
+
+	for _, workload := range s.workloads {
+		workload.TimeElasped = time.Since(workload.StartTime).String()
+	}
+
+	c.JSON(http.StatusOK, s.workloads)
 }
 
 // Blocking call.

@@ -4,12 +4,13 @@ import React, { useEffect, useRef } from 'react';
 import { Grid, GridItem, PageSection } from '@patternfly/react-core';
 
 import { KernelList, KernelSpecList, KubernetesNodeList, WorkloadCard } from '@app/Components';
-import { DistributedJupyterKernel, JupyterKernelReplica, KubernetesNode, WorkloadPreset } from '@app/Data';
+import { DistributedJupyterKernel, JupyterKernelReplica, KubernetesNode, WorkloadPreset, Workload } from '@app/Data';
 import { MigrationModal, StartWorkloadModal } from '@app/Components/Modals';
 
 export interface DashboardProps {
     nodeRefreshInterval: number;
     workloadPresetRefreshInterval: number;
+    workloadRefreshInterval: number;
 }
 
 function wait<T>(ms: number, value: T) {
@@ -18,6 +19,7 @@ function wait<T>(ms: number, value: T) {
 
 const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProps) => {
     const [nodes, setNodes] = React.useState<KubernetesNode[]>([]);
+    const [workloads, setWorkloads] = React.useState<Workload[]>([]);
     const [workloadPresets, setWorkloadPresets] = React.useState<WorkloadPreset[]>([]);
     const [isStartWorkloadModalOpen, setIsStartWorkloadOpen] = React.useState(false);
     const [isMigrateModalOpen, setIsMigrateModalOpen] = React.useState(false);
@@ -34,6 +36,8 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
 
     // Coordinate acceptance of network responses for workload presets.
     const ignoreResponseForWorkloadPresets = useRef(false);
+
+    const ignoreResponseForWorkloads = useRef(false);
 
     /**
      * Retrieve the current Kubernetes nodes from the backend.
@@ -99,6 +103,43 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
         console.log(`Refresh workload presets: ${(performance.now() - startTime).toFixed(4)} ms`);
     }
 
+    /**
+     * Retrieve the current workloads from the backend.
+     */
+    async function fetchWorkloads(callback: (presets: Workload[]) => void | undefined) {
+        const startTime = performance.now();
+        try {
+            console.log('Refreshing workloads.');
+
+            // Make a network request to the backend. The server infrastructure handles proxying/routing the request to the correct host.
+            // We're specifically targeting the API endpoint I setup called "nodes".
+            const response = await fetch('/api/workload');
+
+            if (response.status == 200) {
+                // Get the response, which will be in JSON format, and decode it into an array of WorkloadPreset (which is a TypeScript interface that I defined).
+                const respWorkloads: Workload[] = await response.json();
+
+                if (!ignoreResponseForWorkloads.current) {
+                    setWorkloads(respWorkloads);
+                    console.log(
+                        'Successfully refreshed workloads. Discovered %d workload(s):\n%s',
+                        respWorkloads.length,
+                        JSON.stringify(respWorkloads),
+                    );
+
+                    if (callback != undefined) {
+                        callback(respWorkloads);
+                    }
+                } else {
+                    console.log("Refreshed workloads, but we're ignoring the response...");
+                }
+            }
+        } catch (e) {
+            console.error(e);
+        }
+        console.log(`Refresh workloads: ${(performance.now() - startTime).toFixed(4)} ms`);
+    }
+
     // Fetch the kubernetes nodes from the backend (which itself makes a network call to the Kubernetes API).
     useEffect(() => {
         ignoreResponseForNodes.current = false;
@@ -134,6 +175,26 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
             ignoreResponseForWorkloadPresets.current = true;
         };
     }, [props.workloadPresetRefreshInterval]);
+
+    // Fetch the workloads from the backend.
+    useEffect(() => {
+        ignoreResponseForWorkloads.current = false;
+        fetchWorkloads(() => {}).then(() => {
+            ignoreResponseForWorkloads.current = true;
+        });
+
+        // Periodically refresh the Kubernetes nodes every `props.workloadPresetRefreshInterval` seconds, or when the user clicks the "refresh" button.
+        setInterval(() => {
+            ignoreResponseForWorkloads.current = false;
+            fetchWorkloads(() => {}).then(() => {
+                ignoreResponseForWorkloads.current = true;
+            });
+        }, props.workloadRefreshInterval * 1000);
+
+        return () => {
+            ignoreResponseForWorkloads.current = true;
+        };
+    }, [props.workloadRefreshInterval]);
 
     async function manuallyRefreshNodes(callback: () => void | undefined) {
         const startTime = performance.now();
@@ -204,8 +265,11 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
             }),
         };
 
-        fetch('/api/workload', requestOptions).then((response) => {
-            console.log('Received response for launch of new workload: %s', JSON.stringify(response));
+        fetch('/api/workload', requestOptions).then(() => {
+            ignoreResponseForWorkloads.current = false;
+            fetchWorkloads(() => {}).then(() => {
+                ignoreResponseForWorkloads.current = true;
+            });
         });
     };
 
@@ -236,7 +300,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
                 <GridItem span={6} rowSpan={2}>
                     <KernelList openMigrationModal={openMigrationModal} />
                 </GridItem>
-                <GridItem span={5} rowSpan={6}>
+                <GridItem span={6} rowSpan={6}>
                     <KubernetesNodeList
                         manuallyRefreshNodes={manuallyRefreshNodes}
                         nodes={nodes}
@@ -246,7 +310,13 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
                 </GridItem>
                 <GridItem span={6} rowSpan={1}>
                     <WorkloadCard
-                        refreshWorkloadPresets={fetchWorkloadPresets}
+                        workloads={workloads}
+                        refreshWorkloads={(callback: () => void | undefined) => {
+                            ignoreResponseForWorkloads.current = false;
+                            fetchWorkloads(callback).then(() => {
+                                ignoreResponseForWorkloads.current = true;
+                            });
+                        }}
                         onLaunchWorkloadClicked={() => {
                             // If we have no workload presets, then refresh them when the user opens the 'Start Workload' modal.
                             if (workloadPresets.length == 0) {

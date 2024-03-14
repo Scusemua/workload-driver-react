@@ -1,6 +1,7 @@
 package driver
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -10,6 +11,10 @@ import (
 	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/generator"
 	"go.uber.org/zap"
+)
+
+var (
+	ErrWorkloadPresetNotFound = errors.New("could not find workload preset with specified key")
 )
 
 // The Workload Driver consumes events from the Workload Generator and takes action accordingly.
@@ -64,10 +69,6 @@ func NewWorkloadDriver(opts *domain.Configuration) *WorkloadDriver {
 	return driver
 }
 
-func (d *WorkloadDriver) StartWorkload() {
-	go d.DriveWorkload(d.workloadPreset, d.workloadRequest)
-}
-
 func (d *WorkloadDriver) GetWorkload() *domain.Workload {
 	return d.workload
 }
@@ -81,7 +82,7 @@ func (d *WorkloadDriver) GetWorkloadRequest() *domain.WorkloadRequest {
 }
 
 // Returns nil if the workload could not be registered.
-func (d *WorkloadDriver) RegisterWorkload(c *gin.Context) *domain.Workload {
+func (d *WorkloadDriver) RegisterWorkload(c *gin.Context) (*domain.Workload, error) {
 	d.logger.Info("WorkloadDriver is handling HTTP request.")
 
 	var workloadRequest *domain.WorkloadRequest
@@ -93,7 +94,7 @@ func (d *WorkloadDriver) RegisterWorkload(c *gin.Context) *domain.Workload {
 			ErrorMessage: err.Error(),
 			Valid:        true,
 		})
-		return nil
+		return nil, err
 	}
 
 	d.workloadRequest = workloadRequest
@@ -108,7 +109,7 @@ func (d *WorkloadDriver) RegisterWorkload(c *gin.Context) *domain.Workload {
 			ErrorMessage: "Could not find workload preset with specified key.",
 			Valid:        true,
 		})
-		return nil
+		return nil, ErrWorkloadPresetNotFound
 	}
 
 	d.workload = &domain.Workload{
@@ -121,7 +122,7 @@ func (d *WorkloadDriver) RegisterWorkload(c *gin.Context) *domain.Workload {
 		WorkloadPresetKey:  d.workloadPreset.Key,
 		NumTasksExecuted:   0,
 	}
-	return d.workload
+	return d.workload, nil
 }
 
 // Write an error back to the client.
@@ -140,11 +141,11 @@ func (d *WorkloadDriver) IsWorkloadComplete() bool {
 }
 
 // This should be called from its own goroutine.
-func (d *WorkloadDriver) DriveWorkload(workloadPreset *domain.WorkloadPreset, workloadRequest *domain.WorkloadRequest) {
-	d.logger.Debug("Starting workload.", zap.Any("workload-preset", workloadPreset), zap.Any("workload-request", workloadRequest))
+func (d *WorkloadDriver) DriveWorkload() {
+	d.logger.Debug("Starting workload.", zap.Any("workload-preset", d.workloadPreset), zap.Any("workload-request", d.workloadRequest))
 
 	workloadGenerator := generator.NewWorkloadGenerator(d.opts)
-	go workloadGenerator.GenerateWorkload(d, workloadPreset, workloadRequest)
+	go workloadGenerator.GenerateWorkload(d, d.workloadPreset, d.workloadRequest)
 
 	d.workload.StartTime = time.Now()
 	d.workload.Started = true

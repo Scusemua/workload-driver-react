@@ -5,4 +5,17 @@ interface WorkloadPreset {
     months: string[]; // The months of data used by the workload.
 }
 
+interface Workload {
+    id: string;
+    name: string;
+    started: boolean;
+    workload_preset_name: string;
+    workload_preset_key: string;
+    start_time: string;
+    time_elapsed: string;
+    num_tasks_executed: number;
+    finished: boolean;
+}
+
+export type { Workload as Workload };
 export type { WorkloadPreset as WorkloadPreset };

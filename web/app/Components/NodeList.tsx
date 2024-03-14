@@ -34,7 +34,6 @@ import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 import GpuIcon from '@app/Icons/GpuIcon';
 import { KubernetesNode, KubernetesPod } from '@data/Kubernetes';
 import {
-    CopyIcon,
     CpuIcon,
     CubeIcon,
     FilterIcon,

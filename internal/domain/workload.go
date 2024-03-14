@@ -30,7 +30,8 @@ type Workload struct {
 	WorkloadPresetName string          `json:"workload_preset_name"`
 	WorkloadPresetKey  string          `json:"workload_preset_key"`
 	StartTime          time.Time       `json:"start_time"`
-	NumTasksExecuted   int64           `json:"num-tasks-executed"`
+	TimeElasped        string          `json:"time_elapsed"` // Computed at the time that the data is requested by the user.
+	NumTasksExecuted   int64           `json:"num_tasks_executed"`
 	Finished           bool            `json:"finished"`
 }
 
