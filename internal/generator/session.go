@@ -143,7 +143,7 @@ func (s *Session) Transit(evt domain.Event, inspect bool) ([]SessionEvent, error
 	}()
 
 	events, err := s.transit(evt)
-	sugarLog.Debug("Transitioned Session. NewStatus=%v. Events=%v.", s.Status, events)
+	// sugarLog.Debugf("Transitioned Session. NewStatus=%v. Events=%v.", s.Status, events)
 	if err == ErrEventPending {
 		return events, nil
 	} else if err != nil {

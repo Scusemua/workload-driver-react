@@ -354,7 +354,7 @@ func (d *MemoryDriver) Setup(ctx context.Context) error {
 
 	if d.MapperPath == "" {
 		d.pods = make([]*MemoryUtilBuffer, 1000)
-		sugarLog.Debug("%v set up, no mapper loaded", d)
+		sugarLog.Debugf("%v set up, no mapper loaded", d)
 		return nil
 	}
 
@@ -363,7 +363,7 @@ func (d *MemoryDriver) Setup(ctx context.Context) error {
 	err := d.DriveSync(context.TODO(), d.MapperPath)
 	d.podMapper = nil
 	d.pods = make([]*MemoryUtilBuffer, len(d.podMap))
-	sugarLog.Info("%v set up, mapper loaded, %d entries", d, len(d.podMap))
+	sugarLog.Infof("%v set up, mapper loaded, %d entries", d, len(d.podMap))
 	return err
 }
 
@@ -376,7 +376,7 @@ func (d *MemoryDriver) Teardown(ctx context.Context) {
 		return
 	}
 
-	sugarLog.Debug("%v tearing down, last read %v", d, d.lastRead)
+	sugarLog.Debugf("%v tearing down, last read %v", d, d.lastRead)
 	if d.lastRead != 0 {
 		d.gc(ctx, time.Unix(d.lastRead, 0), false)
 		if d.interval == time.Duration(0) {
@@ -424,13 +424,13 @@ func (d *MemoryDriver) HandleRecord(ctx context.Context, r Record) {
 		down := d.IsDown()
 		if d.validateTick(rec.Timestamp.Time(), interval) {
 			if down {
-				sugarLog.Warn("Detected memory trace server resumed since %v, resume gc...", rec.Timestamp.Time())
+				sugarLog.Warnf("Detected memory trace server resumed since %v, resume gc...", rec.Timestamp.Time())
 			}
 			d.gc(ctx, ts, false)
 			// Current implementation looks ahead of one interval and only generates events with timestamp of lastRead.Timestamp - interval.
 			d.FlushEvents(ctx, ts.Add(-interval))
 		} else if !down {
-			sugarLog.Warn("Detected memory trace server down since %v, start to skip gc...", rec.Timestamp.Time())
+			sugarLog.Warnf("Detected memory trace server down since %v, start to skip gc...", rec.Timestamp.Time())
 		}
 	}
 	d.lastRead = rec.Timestamp.Time().Unix()
@@ -483,7 +483,7 @@ func (d *MemoryDriver) HandleRecord(ctx context.Context, r Record) {
 
 		events, err := memoryBuffer.transit(events, false)
 		if err != nil {
-			sugarLog.Warn("Error on handling records: %v", err)
+			sugarLog.Warnf("Error on handling records: %v", err)
 		}
 		d.triggerMulti(ctx, events, memoryBuffer)
 	}
@@ -605,7 +605,7 @@ func (d *MemoryDriver) gc(ctx context.Context, ts time.Time, force bool) error {
 
 		events, err = pod.transit(events, force)
 		if err != nil {
-			sugarLog.Warn("Error on commiting last readings in gc: %v, %v", err, committed)
+			sugarLog.Warnf("Error on commiting last readings in gc: %v, %v", err, committed)
 		}
 		if err := d.triggerMulti(ctx, events, pod); err != nil {
 			return err

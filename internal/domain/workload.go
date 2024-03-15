@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"strconv"
+	"strings"
 	"time"
 
 	"gopkg.in/yaml.v2"
@@ -15,7 +17,7 @@ type WorkloadGenerator interface {
 
 type WorkloadRequest struct {
 	Key  string `name:"key" yaml:"key" json:"key" description:"Key for code-use only (i.e., we don't intend to display this to the user for the most part)."` // Key for code-use only (i.e., we don't intend to display this to the user for the most part).
-	Seed int    `name:"seed" yaml:"seed" json:"seed" description:"RNG seed for the workload."`
+	Seed int64  `name:"seed" yaml:"seed" json:"seed" description:"RNG seed for the workload."`
 	// By default, sessions reserve 'NUM_GPUS' GPUs when being scheduled. If this property is enabled, then sessions will instead reserve 'NUM_GPUs' * 'MAX_GPU_UTIL'.
 	// This will lead to many sessions reserving fewer GPUs than when this property is disabled (default).
 	AdjustGpuReservations bool   `name:"adjust_gpu_reservations" json:"adjust_gpu_reservations" description:"By default, sessions reserve 'NUM_GPUS' GPUs when being scheduled. If this property is enabled, then sessions will instead reserve 'NUM_GPUs' * 'MAX_GPU_UTIL'. This will lead to many sessions reserving fewer GPUs than when this property is disabled (default)."`
@@ -33,6 +35,7 @@ type Workload struct {
 	TimeElasped        string          `json:"time_elapsed"` // Computed at the time that the data is requested by the user.
 	NumTasksExecuted   int64           `json:"num_tasks_executed"`
 	Finished           bool            `json:"finished"`
+	Seed               int64           `json:"seed"`
 }
 
 func (w *Workload) String() string {
@@ -74,6 +77,45 @@ type WorkloadPreset struct {
 
 func (p *WorkloadPreset) String() string {
 	return fmt.Sprintf("WorkloadPreset[Name=%s,Key=%s,Months=%s]", p.Name, p.Key, p.Months)
+}
+
+func (p *WorkloadPreset) NormalizeTracePaths(path string) []string {
+	if p.FromMonth == "" {
+		return []string{path}
+	}
+
+	paths := make([]string, 0, len(Months))
+	fromMonth := 0
+	// Match the start month
+	if p.FromMonth != "" {
+		for i := 0; i < len(Months); i++ {
+			if Months[i] == p.FromMonth {
+				fromMonth = i
+			}
+		}
+	}
+	// Match the end month
+	for i := 0; i < len(Months); i++ {
+		idx := (fromMonth + i) % len(Months)
+		paths = append(paths, fmt.Sprintf(path, Months[idx]))
+		if Months[idx] == p.ToMonth {
+			return paths
+		}
+	}
+	return paths
+}
+
+func (p *WorkloadPreset) NormalizeDowntime(downtime string) []int64 {
+	if downtime == "" {
+		return nil
+	}
+
+	startEnds := strings.Split(downtime, ",")
+	downtimes := make([]int64, len(startEnds))
+	for i, startEnd := range startEnds {
+		downtimes[i], _ = strconv.ParseInt(startEnd, 10, 64)
+	}
+	return downtimes
 }
 
 // Read a yaml file containing one or more WorkloadPreset definitions.

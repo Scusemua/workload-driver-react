@@ -344,7 +344,7 @@ func (d *GPUDriver) Setup(ctx context.Context) error {
 	if d.MapperPath == "" {
 		d.pods = make([]*GPUUtil, 1000)
 
-		sugarLog.Debug("%v set up, no mapper loaded", d)
+		sugarLog.Debugf("%v set up, no mapper loaded", d)
 		return nil
 	}
 
@@ -353,7 +353,7 @@ func (d *GPUDriver) Setup(ctx context.Context) error {
 	err := d.DriveSync(context.TODO(), d.MapperPath)
 	d.podMapper = nil
 	d.pods = make([]*GPUUtil, len(d.podMap))
-	sugarLog.Info("%v set up, mapper loaded, %d entries", d, len(d.podMap))
+	sugarLog.Infof("%v set up, mapper loaded, %d entries", d, len(d.podMap))
 	return err
 }
 
@@ -362,7 +362,7 @@ func (d *GPUDriver) Teardown(ctx context.Context) {
 		return
 	}
 
-	sugarLog.Debug("%v tearing down, last read %v", d, d.lastRead)
+	sugarLog.Debugf("%v tearing down, last read %v", d, d.lastRead)
 	if d.lastRead != 0 {
 		d.gc(ctx, time.Unix(d.lastRead, 0), false)
 		if d.interval == time.Duration(0) {
@@ -461,7 +461,7 @@ func (d *GPUDriver) HandleRecord(ctx context.Context, r Record) {
 	// log.Trace("Concluded GPUUtil %v", committed)
 	events, err := committed.transit(events, false)
 	if err != nil {
-		sugarLog.Warn("Error on handling records: %v", err)
+		sugarLog.Warnf("Error on handling records: %v", err)
 	}
 
 	// if len(events) == 0 {
@@ -631,7 +631,7 @@ func (d *GPUDriver) gc(ctx context.Context, ts time.Time, force bool) error {
 		committed := pod.commit()
 		events, err = committed.transit(events, force)
 		if err != nil {
-			sugarLog.Warn("Error on commiting last readings in gc: %v, %v", err, committed)
+			sugarLog.Warnf("Error on commiting last readings in gc: %v, %v", err, committed)
 		}
 		if err := d.triggerMulti(ctx, events, committed); err != nil {
 			return err
@@ -643,7 +643,7 @@ func (d *GPUDriver) gc(ctx context.Context, ts time.Time, force bool) error {
 		committed := pod.reset(ts)
 		events, err = committed.transit(events, force)
 		if err != nil {
-			sugarLog.Warn("Error on commiting last readings in gc: %v, %v", err, committed)
+			sugarLog.Warnf("Error on commiting last readings in gc: %v, %v", err, committed)
 		}
 		if err := d.triggerMulti(ctx, events, committed); err != nil {
 			return err

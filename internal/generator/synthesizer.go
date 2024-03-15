@@ -139,7 +139,7 @@ func (s *Synthesizer) AddDriverEventSource(create NewDriver, configs ...func(Dri
 	var eventSource domain.EventSource = create(id, configs...)
 	s.Sources = append(s.Sources, eventSource)
 
-	s.sugarLog.Debug("Added new event source to driver: %v.", eventSource)
+	s.sugarLog.Debugf("Added new event source to driver: %v.", eventSource)
 
 	switch reflect.TypeOf(s.Sources[id]).Elem().String() {
 	case "generator.CPUDriver":
@@ -152,7 +152,7 @@ func (s *Synthesizer) AddDriverEventSource(create NewDriver, configs ...func(Dri
 		s.drivingMem = true
 		s.log.Debug("Synthesizer will be receiving memory events.")
 	default:
-		s.sugarLog.Error("Unexpected/unsupported type of event source added to Synthesizer. Type: \"%s\"", reflect.TypeOf(s.Sources[id]).Elem().String())
+		s.sugarLog.Errorf("Unexpected/unsupported type of event source added to Synthesizer. Type: \"%s\"", reflect.TypeOf(s.Sources[id]).Elem().String())
 		panic(fmt.Sprintf("Unexpected/unsupported type of event source added to Synthesizer. Type: \"%s\"", reflect.TypeOf(s.Sources[id]).Elem().String()))
 	}
 
@@ -212,7 +212,7 @@ func (s *Synthesizer) transitionAndSubmitEvent(evt domain.Event) {
 				// which is calculated by rounding-up the maximum utilization achieved by the session.
 				if s.CpuSessionMap() != nil {
 					if maxCPUs, ok = s.CpuSessionMap()[podData.GetPod()]; !ok {
-						s.sugarLog.Error("No data in CPU Session Map for pod %s.", podData.GetPod())
+						s.sugarLog.Errorf("No data in CPU Session Map for pod %s.", podData.GetPod())
 						maxCPUs = 0
 						noCpuEntry = true
 					}
@@ -221,7 +221,7 @@ func (s *Synthesizer) transitionAndSubmitEvent(evt domain.Event) {
 				if s.MemSessionMap() != nil {
 					// Memory is stored in SimulationDriver::MemSessionMap as GB values.
 					if maxMem, ok = s.MemSessionMap()[podData.GetPod()]; !ok {
-						s.sugarLog.Error("No data in Memory Session Map for pod %s.", podData.GetPod())
+						s.sugarLog.Errorf("No data in Memory Session Map for pod %s.", podData.GetPod())
 						maxMem = 0
 						noMemoryEntry = true
 					}
@@ -229,14 +229,14 @@ func (s *Synthesizer) transitionAndSubmitEvent(evt domain.Event) {
 
 				if s.GpuSessionMap() != nil {
 					if maxGPUs, ok = s.GpuSessionMap()[podData.GetPod()]; !ok {
-						s.sugarLog.Error("No data in GPU Session Map for pod %s.", podData.GetPod())
+						s.sugarLog.Errorf("No data in GPU Session Map for pod %s.", podData.GetPod())
 						maxGPUs = 0
 						noGpuEntry = true
 					}
 				}
 
 				if noCpuEntry && noMemoryEntry && noGpuEntry {
-					s.sugarLog.Error("The maximum resource values for CPUs, GPU, Memory are all 0 for Session %s. Skipping.", podData.GetPod())
+					s.sugarLog.Errorf("The maximum resource values for CPUs, GPU, Memory are all 0 for Session %s. Skipping.", podData.GetPod())
 					return
 				}
 			} else {
@@ -273,18 +273,18 @@ func (s *Synthesizer) transitionAndSubmitEvent(evt domain.Event) {
 
 				if evtName == EventSessionTrainingStarted {
 					if len(s.CpuTrainingTaskMap()[sess.Pod]) <= (trainingIdx + 1) {
-						s.sugarLog.Warn("Cannot incr training idx for Session %s. len(CpuTrainingTaskMap): %d. Training index: %d", sess.Pod, len(s.CpuTrainingTaskMap()[sess.Pod]), trainingIdx)
+						s.sugarLog.Warnf("Cannot incr training idx for Session %s. len(CpuTrainingTaskMap): %d. Training index: %d", sess.Pod, len(s.CpuTrainingTaskMap()[sess.Pod]), trainingIdx)
 					} else if len(s.MemTrainingTaskMap()[sess.Pod]) <= (trainingIdx + 1) {
-						s.sugarLog.Warn("Cannot incr training idx for Session %s. len(MemTrainingTaskMap): %d. Training index: %d", sess.Pod, len(s.MemTrainingTaskMap()[sess.Pod]), trainingIdx)
+						s.sugarLog.Warnf("Cannot incr training idx for Session %s. len(MemTrainingTaskMap): %d. Training index: %d", sess.Pod, len(s.MemTrainingTaskMap()[sess.Pod]), trainingIdx)
 					} else if len(s.GpuTrainingTaskMap()[sess.Pod]) <= (trainingIdx + 1) {
-						s.sugarLog.Warn("Cannot incr training idx for Session %s. len(GpuTrainingTaskMap): %d. Training index: %d", sess.Pod, len(s.GpuTrainingTaskMap()[sess.Pod]), trainingIdx)
+						s.sugarLog.Warnf("Cannot incr training idx for Session %s. len(GpuTrainingTaskMap): %d. Training index: %d", sess.Pod, len(s.GpuTrainingTaskMap()[sess.Pod]), trainingIdx)
 					} else {
 						s.CurrentTrainingNumberMap()[sess.Pod] = trainingIdx + 1
 					}
 				}
 
 				sessEvt := &eventImpl{name: evtName, eventSource: evt.EventSource(), originalEventSource: evt.OriginalEventSource(), data: eventData, timestamp: sess.Timestamp, id: uuid.New().String()}
-				s.sugarLog.Debug("Enqueuing Session-level event targeting pod %s: %s [ts=%v]", sessEvt.Data().(*Session).Pod, evtName, sess.Timestamp)
+				s.sugarLog.Debugf("Enqueuing Session-level event targeting pod %s: %s [ts=%v]", sessEvt.Data().(*Session).Pod, evtName, sess.Timestamp)
 				s.consumer.SubmitEvent(sessEvt)
 			} else {
 				switch evtName {
@@ -327,7 +327,7 @@ func (s *Synthesizer) Synthesize(ctx context.Context, opts *domain.Configuration
 
 	// Establish the heap
 	for i := 0; i < len(s.Sources); i++ {
-		s.sugarLog.Debug("Pushing event source %d '%v' onto events heap.", (i + 1), s.Sources[i])
+		s.sugarLog.Debugf("Pushing event source %d '%v' onto events heap.", (i + 1), s.Sources[i])
 		heap.Push(&s.eventsHeap, <-s.Sources[i].OnEvent())
 	}
 
@@ -356,9 +356,9 @@ func (s *Synthesizer) Synthesize(ctx context.Context, opts *domain.Configuration
 			// The source of most recent event is drained or there is an error. Pop the source
 			heap.Pop(&s.eventsHeap)
 			if evt.Name() == EventNoMore {
-				sugarLog.Info("%v, %d sources left.", evt, s.eventsHeap.Len())
+				sugarLog.Infof("%v, %d sources left.", evt, s.eventsHeap.Len())
 			} else {
-				sugarLog.Debug("%v, %d sources left.", evt, s.eventsHeap.Len())
+				sugarLog.Debugf("%v, %d sources left.", evt, s.eventsHeap.Len())
 			}
 
 			switch evt.EventSource().(type) {

@@ -321,7 +321,7 @@ func (d *CPUDriver) Teardown(ctx context.Context) {
 		return
 	}
 
-	sugarLog.Debug("%v tearing down, last read %v", d, d.lastRead)
+	sugarLog.Debugf("%v tearing down, last read %v", d, d.lastRead)
 	if d.lastRead != 0 {
 		d.gc(ctx, time.Unix(d.lastRead, 0), false)
 		if d.interval == time.Duration(0) {
@@ -369,17 +369,17 @@ func (d *CPUDriver) HandleRecord(ctx context.Context, r Record) {
 		down := d.IsDown()
 		if d.validateTick(rec.Timestamp.Time(), interval) {
 			if down {
-				sugarLog.Warn("Detected CPU trace server resumed since %v, resume gc...", rec.Timestamp.Time())
+				sugarLog.Warnf("Detected CPU trace server resumed since %v, resume gc...", rec.Timestamp.Time())
 			}
 			d.gc(ctx, ts, false)
 			d.FlushEvents(ctx, ts)
 		} else if !down {
-			sugarLog.Warn("Detected CPU trace server down since %v, start to skip gc...", rec.Timestamp.Time())
+			sugarLog.Warnf("Detected CPU trace server down since %v, start to skip gc...", rec.Timestamp.Time())
 		}
 	}
 	d.lastRead = rec.Timestamp.Time().Unix()
 
-	// sugarLog.Debug("Handling CPU record: %v.", rec)
+	// sugarLog.Debugf("Handling CPU record: %v.", rec)
 
 	cpu, _ := d.ensurePod(rec)
 
@@ -426,7 +426,7 @@ func (d *CPUDriver) HandleRecord(ctx context.Context, r Record) {
 	events, err := committed.transit(events, false)
 	// log.Debug("Transitioned CPU Status. New Status: %v.", committed.Status)
 	if err != nil {
-		sugarLog.Warn("Error on handling records: %v", err)
+		sugarLog.Warnf("Error on handling records: %v", err)
 	}
 	d.triggerMulti(ctx, events, committed)
 
@@ -439,7 +439,7 @@ func (d *CPUDriver) HandleRecord(ctx context.Context, r Record) {
 func (d *CPUDriver) updateSessionMaxCPU(committed *CPUUtil) {
 	// log.Info("[%s] Acquiring MaxesMutex lock.", d.DriverType)
 	if d.ExecutionMode == 0 {
-		sugarLog.Debug("Committed CPU util of %0.4f for session %s", committed.Value, committed.Pod)
+		// sugarLog.Debugf("Committed CPU util of %0.4f for session %s", committed.Value, committed.Pod)
 
 		d.MaxesMutex.RLock()
 		// d.MaxesMutex.Lock()
@@ -555,7 +555,7 @@ func (d *CPUDriver) gc(ctx context.Context, ts time.Time, force bool) error {
 		committed := pod.reset(ts)
 		events, err = committed.transit(events, force)
 		if err != nil {
-			sugarLog.Warn("Error on commiting last readings in gc: %v, %v", err, committed)
+			sugarLog.Warnf("Error on commiting last readings in gc: %v, %v", err, committed)
 		}
 		if err := d.triggerMulti(ctx, events, committed); err != nil {
 			return err

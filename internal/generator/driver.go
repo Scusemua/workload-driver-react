@@ -236,14 +236,14 @@ func (d *BaseDriver) DriveWithSlice(ctx context.Context, records []Record, doneC
 	}
 	defer d.Teardown(ctx)
 
-	// sugarLog.Debug("There are %d record(s) to process.", len(records))
+	// sugarLog.Debugf("There are %d record(s) to process.", len(records))
 
 	for _, record := range records {
-		// sugarLog.Debug("Handling record %d/%d: %v.", i+1, len(records), record)
+		// sugarLog.Debugf("Handling record %d/%d: %v.", i+1, len(records), record)
 		d.HandleRecord(ctx, record)
 	}
 
-	// sugarLog.Debug("Received empty struct on \"Stop Channel\". Exiting now. Processed a total of %d record(s).", len(records))
+	// sugarLog.Debugf("Received empty struct on \"Stop Channel\". Exiting now. Processed a total of %d record(s).", len(records))
 	d.TriggerEvent(ctx, &eventImpl{
 		eventSource:         d,
 		originalEventSource: d,
@@ -284,7 +284,7 @@ func (d *BaseDriver) DriveSync(ctx context.Context, mfPaths ...string) error {
 			if err == nil {
 				d.HandleRecord(ctx, record)
 			} else {
-				sugarLog.Warn("Unable to parse csv on line %d(%s): %v", lineNo, mfPaths[i], err)
+				sugarLog.Warnf("Unable to parse csv on line %d(%s): %v", lineNo, mfPaths[i], err)
 			}
 
 			select {
@@ -300,8 +300,8 @@ func (d *BaseDriver) DriveSync(ctx context.Context, mfPaths ...string) error {
 			lineNo++
 
 			if d.LastTimestamp != defaultTime && record.GetTS().After(d.LastTimestamp) {
-				sugarLog.Warn("Encountered record with timestamp %v: %v", record.GetTS(), record)
-				sugarLog.Warn("Driver's `LastTimestamp` is %v. Finished parsing file \"%s\".", d.LastTimestamp, mfPaths[i])
+				sugarLog.Warnf("Encountered record with timestamp %v: %v", record.GetTS(), record)
+				sugarLog.Warnf("Driver's `LastTimestamp` is %v. Finished parsing file \"%s\".", d.LastTimestamp, mfPaths[i])
 				break
 			}
 		}
@@ -320,7 +320,7 @@ func (d *BaseDriver) DriveSync(ctx context.Context, mfPaths ...string) error {
 	}
 
 	// if d.ExecutionMode == 0 {
-	// 	sugarLog.Info("Driver %v is writing its max data to file. Number of records to write: %d.", d.String(), len(d.SessionMaxes))
+	// 	sugarLog.Infof("Driver %v is writing its max data to file. Number of records to write: %d.", d.String(), len(d.SessionMaxes))
 	// 	file, err := os.Create(d.MaxSessionOutputPath)
 
 	// 	if err != nil {
@@ -468,7 +468,7 @@ func (d *BaseDriver) Drive(ctx context.Context, mfPaths ...string) {
 	if err := d.DriveSync(ctx, mfPaths...); err != nil {
 		triggerErr := d.TriggerError(ctx, err) // If context is done, trigger context.Canceled error will fail anyway.
 		if triggerErr != nil {
-			sugarLog.Error("Failed on notify error: %v, reason: %v", err, triggerErr)
+			sugarLog.Errorf("Failed on notify error: %v, reason: %v", err, triggerErr)
 		}
 		return
 	}

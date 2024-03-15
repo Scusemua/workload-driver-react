@@ -39,7 +39,7 @@ func NewWorkloadGenerator(opts *domain.Configuration) domain.WorkloadGenerator {
 	return generator
 }
 
-func (g *workloadGeneratorImpl) GenerateWorkload(workloadDriver domain.EventConsumer, workload *domain.WorkloadPreset, opts *domain.WorkloadRequest) error {
+func (g *workloadGeneratorImpl) GenerateWorkload(workloadDriver domain.EventConsumer, workloadPreset *domain.WorkloadPreset, workloadRequest *domain.WorkloadRequest) error {
 	var cpuSessionMap, memSessionMap map[string]float64 = nil, nil
 	var gpuSessionMap map[string]int = nil
 	var cpuTaskMap, memTaskMap map[string][]float64 = nil, nil
@@ -48,19 +48,19 @@ func (g *workloadGeneratorImpl) GenerateWorkload(workloadDriver domain.EventCons
 	defer cancel()
 
 	// Per-Session max CPU.
-	if workload.MaxSessionCpuFile != "" {
-		cpuSessionMap = g.getSessionCpuMap(workload.MaxSessionCpuFile)
+	if workloadPreset.MaxSessionCpuFile != "" {
+		cpuSessionMap = g.getSessionCpuMap(workloadPreset.MaxSessionCpuFile)
 	}
 
 	// Per-Session max memory.
-	if workload.MaxSessionMemFile != "" {
-		memSessionMap = g.getSessionMemMap(workload.MaxSessionMemFile)
+	if workloadPreset.MaxSessionMemFile != "" {
+		memSessionMap = g.getSessionMemMap(workloadPreset.MaxSessionMemFile)
 	}
 
 	// Per-Session max number of GPUs.
-	if workload.MaxSessionGpuFile != "" {
+	if workloadPreset.MaxSessionGpuFile != "" {
 		var err error
-		gpuSessionMap, err = g.getSessionGpuMap(workload.MaxSessionGpuFile, opts.AdjustGpuReservations)
+		gpuSessionMap, err = g.getSessionGpuMap(workloadPreset.MaxSessionGpuFile, workloadRequest.AdjustGpuReservations)
 
 		if err != nil {
 			panic(err)
@@ -68,18 +68,18 @@ func (g *workloadGeneratorImpl) GenerateWorkload(workloadDriver domain.EventCons
 	}
 
 	// Per-training-event max CPU.
-	if workload.MaxTaskCpuFile != "" {
-		cpuTaskMap = g.getTrainingTaskCpuMap(workload.MaxTaskCpuFile)
+	if workloadPreset.MaxTaskCpuFile != "" {
+		cpuTaskMap = g.getTrainingTaskCpuMap(workloadPreset.MaxTaskCpuFile)
 	}
 
 	// Per-training-event max memory.
-	if workload.MaxTaskMemFile != "" {
-		memTaskMap = g.getTrainingTaskMemMap(workload.MaxTaskMemFile)
+	if workloadPreset.MaxTaskMemFile != "" {
+		memTaskMap = g.getTrainingTaskMemMap(workloadPreset.MaxTaskMemFile)
 	}
 
 	// Per-training-event max number of GPUs.
-	if workload.MaxTaskGpuFile != "" {
-		gpuTaskMap = g.getTrainingTaskGpuMap(workload.MaxTaskGpuFile, opts.AdjustGpuReservations)
+	if workloadPreset.MaxTaskGpuFile != "" {
+		gpuTaskMap = g.getTrainingTaskGpuMap(workloadPreset.MaxTaskGpuFile, workloadRequest.AdjustGpuReservations)
 	}
 
 	maxUtilizationWrapper := NewMaxUtilizationWrapper(cpuSessionMap, memSessionMap, gpuSessionMap, cpuTaskMap, memTaskMap, gpuTaskMap)
@@ -87,15 +87,23 @@ func (g *workloadGeneratorImpl) GenerateWorkload(workloadDriver domain.EventCons
 	// Set the cluster as the EventHandler for the Synthesizer.
 	g.synthesizer.SetEventConsumer(workloadDriver)
 
+	// If the workload seed is negative, then assign it a random value.
+	if workloadRequest.Seed < 0 {
+		workloadRequest.Seed = rand.Int63()
+		g.logger.Debug("Will use random seed for RNG.", zap.Int64("seed", workloadRequest.Seed))
+	} else {
+		g.logger.Debug("Will use user-specified seed for RNG.", zap.Int64("seed", workloadRequest.Seed))
+	}
+
 	g.logger.Debug("Driving GPU now.")
 
 	// Drive GPU trace
-	if g.opts.GPUTraceFile != "" {
+	if workloadPreset.GPUTraceFile != "" {
 		g.logger.Debug("Adding GPU driver as event source for Synthesizer.")
 		gpuDriver := g.synthesizer.AddDriverEventSource(NewGPUDriver, func(d Driver) {
 			drv := d.(*GPUDriver)
-			drv.MapperPath = g.opts.GPUMappingFile
-			drv.ReadingInterval = time.Duration(g.opts.GPUTraceStep) * time.Second
+			drv.MapperPath = workloadPreset.GPUMappingFile
+			drv.ReadingInterval = time.Duration(workloadPreset.GPUTraceStep) * time.Second
 			drv.SessionMaxes = make(map[string]float64)
 
 			if g.opts.LastTimestamp > 0 {
@@ -105,23 +113,23 @@ func (g *workloadGeneratorImpl) GenerateWorkload(workloadDriver domain.EventCons
 			}
 			drv.ExecutionMode = g.opts.ExecutionMode
 			drv.DriverType = "GPU"
-			drv.Rand = rand.New(rand.NewSource(g.opts.Seed))
+			drv.Rand = rand.New(rand.NewSource(workloadRequest.Seed))
 
 			g.logger.Debug("Created GPU driver.")
 		})
-		go gpuDriver.Drive(ctx, g.opts.NormalizeTracePaths(g.opts.GPUTraceFile)...)
+		go gpuDriver.Drive(ctx, workloadPreset.NormalizeTracePaths(workloadPreset.GPUTraceFile)...)
 	}
 
 	g.logger.Debug("Driving CPU now.")
 
 	// Drive CPU trace
-	if g.opts.CPUTraceFile != "" {
+	if workloadPreset.CPUTraceFile != "" {
 		g.logger.Debug("Adding CPU driver as event source for Synthesizer.")
 		cpuDriver := g.synthesizer.AddDriverEventSource(NewCPUDriver, func(d Driver) {
 			drv := d.(*CPUDriver)
-			drv.MapperPath = g.opts.CPUMappingFile
-			drv.Downtimes = g.opts.NormalizeDowntime(g.opts.CPUDowntime)
-			drv.ReadingInterval = time.Duration(g.opts.CPUTraceStep) * time.Second
+			drv.MapperPath = workloadPreset.CPUMappingFile
+			drv.Downtimes = workloadPreset.NormalizeDowntime(workloadPreset.CPUDowntime)
+			drv.ReadingInterval = time.Duration(workloadPreset.CPUTraceStep) * time.Second
 			drv.SessionMaxes = make(map[string]float64)
 
 			if g.opts.LastTimestamp > 0 {
@@ -136,25 +144,25 @@ func (g *workloadGeneratorImpl) GenerateWorkload(workloadDriver domain.EventCons
 			// g.sugaredLogger.Info("Set 'MaxTrainingOutputPath' for memory driver to \"%s\"", drv.MaxTrainingOutputPath)
 			drv.ExecutionMode = g.opts.ExecutionMode
 			drv.DriverType = "CPU"
-			drv.Rand = rand.New(rand.NewSource(g.opts.Seed))
+			drv.Rand = rand.New(rand.NewSource(workloadRequest.Seed))
 
 			g.logger.Debug("Created CPU driver.")
 		})
-		go cpuDriver.Drive(ctx, g.opts.NormalizeTracePaths(g.opts.CPUTraceFile)...)
+		go cpuDriver.Drive(ctx, workloadPreset.NormalizeTracePaths(workloadPreset.CPUTraceFile)...)
 	}
 
 	g.logger.Debug("Driving memory now.")
 
 	// Drive memory trace
-	if g.opts.MemTraceFile != "" {
+	if workloadPreset.MemTraceFile != "" {
 		g.logger.Debug("Adding memory driver as event source for Synthesizer.")
 		SessionReadyExpects |= SessionMemReady
 		memDriver := g.synthesizer.AddDriverEventSource(NewMemoryDriver, func(d Driver) {
 			drv := d.(*MemoryDriver)
-			drv.MapperPath = g.opts.MemMappingFile
+			drv.MapperPath = workloadPreset.MemMappingFile
 			// No downtime(s) for memory trace?
-			// drv.Downtimes = g.opts.NormalizeDowntime(g.opts.MemDowntime)
-			drv.ReadingInterval = time.Duration(g.opts.MemTraceStep) * time.Second
+			// drv.Downtimes = g.opts.NormalizeDowntime(workload.MemDowntime)
+			drv.ReadingInterval = time.Duration(workloadPreset.MemTraceStep) * time.Second
 			drv.SessionMaxes = make(map[string]float64)
 
 			if g.opts.LastTimestamp > 0 {
@@ -169,11 +177,11 @@ func (g *workloadGeneratorImpl) GenerateWorkload(workloadDriver domain.EventCons
 			// g.sugaredLogger.Info("Set 'MaxTrainingOutputPath' for memory driver to \"%s\"", drv.MaxTrainingOutputPath)
 			drv.ExecutionMode = g.opts.ExecutionMode
 			drv.DriverType = "Memory"
-			drv.Rand = rand.New(rand.NewSource(g.opts.Seed))
+			drv.Rand = rand.New(rand.NewSource(workloadRequest.Seed))
 
 			g.logger.Debug("Created memory driver.")
 		})
-		go memDriver.Drive(ctx, g.opts.NormalizeTracePaths(g.opts.MemTraceFile)...)
+		go memDriver.Drive(ctx, workloadPreset.NormalizeTracePaths(workloadPreset.MemTraceFile)...)
 	}
 
 	g.logger.Debug("Beginning to generate workload now.")

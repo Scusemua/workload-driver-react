@@ -7,6 +7,8 @@ import { KernelList, KernelSpecList, KubernetesNodeList, WorkloadCard } from '@a
 import { DistributedJupyterKernel, JupyterKernelReplica, KubernetesNode, WorkloadPreset, Workload } from '@app/Data';
 import { MigrationModal, StartWorkloadModal } from '@app/Components/Modals';
 
+import { v4 as uuidv4 } from 'uuid';
+
 export interface DashboardProps {
     nodeRefreshInterval: number;
     workloadPresetRefreshInterval: number;
@@ -38,6 +40,8 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
     const ignoreResponseForWorkloadPresets = useRef(false);
 
     const ignoreResponseForWorkloads = useRef(false);
+
+    const defaultWorkloadTitle = useRef(uuidv4());
 
     /**
      * Retrieve the current Kubernetes nodes from the backend.
@@ -250,16 +254,26 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
         setMigrateKernel(null);
     };
 
-    const onConfirmStartWorkload = (workloadName: string, selectedPreset: WorkloadPreset) => {
+    const onConfirmStartWorkload = (
+        workloadName: string,
+        selectedPreset: WorkloadPreset,
+        workloadSeedString: string,
+    ) => {
         console.log("New workload '%s' started by user with preset:\n%s", workloadName, JSON.stringify(selectedPreset));
         setIsStartWorkloadOpen(false);
+
+        let workloadSeed = -1;
+
+        if (workloadSeedString != '') {
+            workloadSeed = parseInt(workloadSeedString);
+        }
 
         const requestOptions = {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
             body: JSON.stringify({
                 adjust_gpu_reservations: false,
-                seed: 1,
+                seed: workloadSeed,
                 key: selectedPreset.key,
                 name: workloadName,
             }),
@@ -326,6 +340,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
                                 });
                             }
 
+                            defaultWorkloadTitle.current = uuidv4(); // Regenerate the default workload title as we're opening the modal again.
                             setIsStartWorkloadOpen(true);
                         }}
                     />
@@ -348,6 +363,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
                 onClose={onCancelStartWorkload}
                 onConfirm={onConfirmStartWorkload}
                 workloadPresets={workloadPresets}
+                defaultWorkloadTitle={defaultWorkloadTitle.current}
             />
         </PageSection>
     );

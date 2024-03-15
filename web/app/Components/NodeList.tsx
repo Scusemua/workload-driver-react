@@ -303,15 +303,15 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                                                                 <CubeIcon /> {kubeNode.Pods.length}
                                                             </FlexItem>
                                                             <FlexItem>
-                                                                <CpuIcon /> {kubeNode.AllocatedCPU.toFixed(4)} /{' '}
+                                                                <CpuIcon /> {kubeNode.AllocatedCPU.toFixed(2)} /{' '}
                                                                 {kubeNode.CapacityCPU}
                                                             </FlexItem>
                                                             <FlexItem>
-                                                                <MemoryIcon /> {kubeNode.AllocatedMemory.toFixed(4)} /{' '}
+                                                                <MemoryIcon /> {kubeNode.AllocatedMemory.toFixed(2)} /{' '}
                                                                 {kubeNode.CapacityMemory.toFixed(0)}
                                                             </FlexItem>
                                                             <FlexItem>
-                                                                <GpuIcon /> {kubeNode.AllocatedCPU.toFixed(4)} /{' '}
+                                                                <GpuIcon /> {kubeNode.AllocatedCPU.toFixed(2)} /{' '}
                                                                 {kubeNode.CapacityCPU}
                                                             </FlexItem>
                                                         </Flex>

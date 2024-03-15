@@ -7,7 +7,6 @@ import (
 	"os"
 	"path/filepath"
 	"reflect"
-	"strconv"
 	"strings"
 
 	configKit "github.com/gookit/config/v2"
@@ -295,43 +294,4 @@ func (opts *Configuration) CheckUsage() {
 	}
 
 	fmt.Printf("Loaded options:\n%v\n", opts)
-}
-
-func (opts *Configuration) NormalizeTracePaths(path string) []string {
-	if opts.FromMonth == "" {
-		return []string{path}
-	}
-
-	paths := make([]string, 0, len(Months))
-	fromMonth := 0
-	// Match the start month
-	if opts.FromMonth != "" {
-		for i := 0; i < len(Months); i++ {
-			if Months[i] == opts.FromMonth {
-				fromMonth = i
-			}
-		}
-	}
-	// Match the end month
-	for i := 0; i < len(Months); i++ {
-		idx := (fromMonth + i) % len(Months)
-		paths = append(paths, fmt.Sprintf(path, Months[idx]))
-		if Months[idx] == opts.ToMonth {
-			return paths
-		}
-	}
-	return paths
-}
-
-func (opts *Configuration) NormalizeDowntime(downtime string) []int64 {
-	if downtime == "" {
-		return nil
-	}
-
-	startEnds := strings.Split(downtime, ",")
-	downtimes := make([]int64, len(startEnds))
-	for i, startEnd := range startEnds {
-		downtimes[i], _ = strconv.ParseInt(startEnd, 10, 64)
-	}
-	return downtimes
 }
