@@ -24,6 +24,11 @@ if (SPOOF) {
                 scheme: 'http',
                 target: 'http://127.0.0.1:8000',
             },
+            '/workload': {
+                context: ['/workload'],
+                target: 'ws://127.0.0.1:8000',
+                ws: true,
+            },
         },
         host: HOST,
         port: PORT,

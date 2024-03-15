@@ -83,19 +83,19 @@ type Synthesizer struct {
 }
 
 func NewSynthesizer(opts *domain.Configuration, maxUtilizationWrapper *MaxUtilizationWrapper) *Synthesizer {
-	if opts.ExecutionMode == 1 {
-		if maxUtilizationWrapper.MemSessionMap == nil {
-			panic("The Synthesizer's per-session max-memory map should not be nil during a standard (i.e., non-pre-run) simulation.")
-		}
-
-		if maxUtilizationWrapper.CpuSessionMap == nil {
-			panic("The Synthesizer's per-session max-CPU map should not be nil during a standard (i.e., non-pre-run) simulation.")
-		}
-
-		if maxUtilizationWrapper.GpuSessionMap == nil {
-			panic("The Synthesizer's per-session max-GPU map should not be nil during a standard (i.e., non-pre-run) simulation.")
-		}
+	// if opts.ExecutionMode == 1 {
+	if maxUtilizationWrapper.MemSessionMap == nil {
+		panic("The Synthesizer's per-session max-memory map should not be nil during a standard (i.e., non-pre-run) simulation.")
 	}
+
+	if maxUtilizationWrapper.CpuSessionMap == nil {
+		panic("The Synthesizer's per-session max-CPU map should not be nil during a standard (i.e., non-pre-run) simulation.")
+	}
+
+	if maxUtilizationWrapper.GpuSessionMap == nil {
+		panic("The Synthesizer's per-session max-GPU map should not be nil during a standard (i.e., non-pre-run) simulation.")
+	}
+	// }
 
 	synthesizer := &Synthesizer{
 		// Sources:          make([]Driver, 0, 2),
@@ -104,7 +104,7 @@ func NewSynthesizer(opts *domain.Configuration, maxUtilizationWrapper *MaxUtiliz
 		eventsChannel:         make(chan domain.Event),
 		numActiveSources:      0,
 		maxUtilizationWrapper: maxUtilizationWrapper,
-		executionMode:         opts.ExecutionMode,
+		executionMode:         1,
 	}
 
 	logger, err := zap.NewDevelopment()
@@ -284,7 +284,7 @@ func (s *Synthesizer) transitionAndSubmitEvent(evt domain.Event) {
 				}
 
 				sessEvt := &eventImpl{name: evtName, eventSource: evt.EventSource(), originalEventSource: evt.OriginalEventSource(), data: eventData, timestamp: sess.Timestamp, id: uuid.New().String()}
-				s.sugarLog.Debugf("Enqueuing Session-level event targeting pod %s: %s [ts=%v]", sessEvt.Data().(*Session).Pod, evtName, sess.Timestamp)
+				// s.sugarLog.Debugf("Enqueuing Session-level event targeting pod %s: %s [ts=%v]", sessEvt.Data().(*Session).Pod, evtName, sess.Timestamp)
 				s.consumer.SubmitEvent(sessEvt)
 			} else {
 				switch evtName {

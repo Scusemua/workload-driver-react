@@ -111,7 +111,7 @@ func (g *workloadGeneratorImpl) GenerateWorkload(workloadDriver domain.EventCons
 			} else {
 				drv.LastTimestamp = time.Time{}
 			}
-			drv.ExecutionMode = g.opts.ExecutionMode
+			drv.ExecutionMode = 1 // g.opts.ExecutionMode
 			drv.DriverType = "GPU"
 			drv.Rand = rand.New(rand.NewSource(workloadRequest.Seed))
 
@@ -142,7 +142,7 @@ func (g *workloadGeneratorImpl) GenerateWorkload(workloadDriver domain.EventCons
 			// g.sugaredLogger.Info("Set 'MaxSessionOutputPath' for CPU driver to \"%s\"", drv.MaxSessionOutputPath)
 			// drv.MaxTrainingOutputPath = filepath.Join(outputSubdirectoryPath, g.opts.FromMonth+"-"+g.opts.ToMonth+"-training_cpu_maxes.csv")
 			// g.sugaredLogger.Info("Set 'MaxTrainingOutputPath' for memory driver to \"%s\"", drv.MaxTrainingOutputPath)
-			drv.ExecutionMode = g.opts.ExecutionMode
+			drv.ExecutionMode = 1 // g.opts.ExecutionMode
 			drv.DriverType = "CPU"
 			drv.Rand = rand.New(rand.NewSource(workloadRequest.Seed))
 
@@ -175,7 +175,7 @@ func (g *workloadGeneratorImpl) GenerateWorkload(workloadDriver domain.EventCons
 			// g.sugaredLogger.Info("Set 'MaxSessionOutputPath' for memory driver to \"%s\"", drv.MaxSessionOutputPath)
 			// drv.MaxTrainingOutputPath = filepath.Join(outputSubdirectoryPath, g.opts.FromMonth+"-"+g.opts.ToMonth+"-training_mem_maxes.csv")
 			// g.sugaredLogger.Info("Set 'MaxTrainingOutputPath' for memory driver to \"%s\"", drv.MaxTrainingOutputPath)
-			drv.ExecutionMode = g.opts.ExecutionMode
+			drv.ExecutionMode = 1 // g.opts.ExecutionMode
 			drv.DriverType = "Memory"
 			drv.Rand = rand.New(rand.NewSource(workloadRequest.Seed))
 

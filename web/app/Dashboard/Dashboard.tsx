@@ -1,11 +1,13 @@
 import '@patternfly/react-core/dist/styles/base.css';
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { Grid, GridItem, PageSection } from '@patternfly/react-core';
 
 import { KernelList, KernelSpecList, KubernetesNodeList, WorkloadCard } from '@app/Components';
 import { DistributedJupyterKernel, JupyterKernelReplica, KubernetesNode, WorkloadPreset, Workload } from '@app/Data';
-import { MigrationModal, StartWorkloadModal } from '@app/Components/Modals';
+import { MigrationModal, RegisterWorkloadModal } from '@app/Components/Modals';
+
+import useWebSocket, { ReadyState } from 'react-use-websocket';
 
 import { v4 as uuidv4 } from 'uuid';
 
@@ -27,6 +29,37 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
     const [isMigrateModalOpen, setIsMigrateModalOpen] = React.useState(false);
     const [migrateKernel, setMigrateKernel] = React.useState<DistributedJupyterKernel | null>(null);
     const [migrateReplica, setMigrateReplica] = React.useState<JupyterKernelReplica | null>(null);
+
+    const websocketCallbacks = React.useRef(new Map());
+
+    const { sendJsonMessage, lastJsonMessage, readyState } = useWebSocket<any>('ws://localhost:8000/workload', {
+        share: false,
+        shouldReconnect: () => true,
+    });
+
+    // Run when the connection state (readyState) changes.
+    // useEffect(() => {
+    //     console.log('Connection state changed: %s', readyState.toString());
+    //     if (readyState === ReadyState.OPEN) {
+    //         sendJsonMessage({
+    //             event: 'subscribe',
+    //             data: {
+    //                 channel: 'general-chatroom',
+    //             },
+    //         });
+    //     }
+    // }, [readyState]);
+
+    // Run when a new WebSocket message is received (lastJsonMessage).
+    useEffect(() => {
+        console.log(`Got a new message: ${JSON.stringify(lastJsonMessage)}`);
+
+        if (lastJsonMessage) {
+            websocketCallbacks.current[lastJsonMessage['msg_id']](lastJsonMessage);
+        }
+
+        // websocketCallbacks.current[lastJsonMessage['msg_id']](lastJsonMessage);
+    }, [lastJsonMessage]);
 
     /**
      * The following references are used to handle the fact that network responses can return at random/arbitrary/misordered times.
@@ -115,13 +148,9 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
         try {
             console.log('Refreshing workloads.');
 
-            // Make a network request to the backend. The server infrastructure handles proxying/routing the request to the correct host.
-            // We're specifically targeting the API endpoint I setup called "nodes".
-            const response = await fetch('/api/workload');
-
-            if (response.status == 200) {
-                // Get the response, which will be in JSON format, and decode it into an array of WorkloadPreset (which is a TypeScript interface that I defined).
-                const respWorkloads: Workload[] = await response.json();
+            const messageId: string = uuidv4();
+            const onResponse = (response: any) => {
+                const respWorkloads: Workload[] = response.workloads;
 
                 if (!ignoreResponseForWorkloads.current) {
                     setWorkloads(respWorkloads);
@@ -137,7 +166,36 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
                 } else {
                     console.log("Refreshed workloads, but we're ignoring the response...");
                 }
-            }
+            };
+            websocketCallbacks.current[messageId] = onResponse;
+            sendJsonMessage({
+                op: 'get_workloads',
+                msg_id: messageId,
+            });
+
+            // Make a network request to the backend. The server infrastructure handles proxying/routing the request to the correct host.
+            // We're specifically targeting the API endpoint I setup called "nodes".
+            // const response = await fetch('/api/workload');
+
+            // if (response.status == 200) {
+            // // Get the response, which will be in JSON format, and decode it into an array of WorkloadPreset (which is a TypeScript interface that I defined).
+            // const respWorkloads: Workload[] = await response.json();
+
+            // if (!ignoreResponseForWorkloads.current) {
+            //     setWorkloads(respWorkloads);
+            //     console.log(
+            //         'Successfully refreshed workloads. Discovered %d workload(s):\n%s',
+            //         respWorkloads.length,
+            //         JSON.stringify(respWorkloads),
+            //     );
+
+            //     if (callback != undefined) {
+            //         callback(respWorkloads);
+            //     }
+            // } else {
+            //     console.log("Refreshed workloads, but we're ignoring the response...");
+            // }
+            // }
         } catch (e) {
             console.error(e);
         }
@@ -183,16 +241,12 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
     // Fetch the workloads from the backend.
     useEffect(() => {
         ignoreResponseForWorkloads.current = false;
-        fetchWorkloads(() => {}).then(() => {
-            ignoreResponseForWorkloads.current = true;
-        });
+        fetchWorkloads(() => {});
 
         // Periodically refresh the Kubernetes nodes every `props.workloadPresetRefreshInterval` seconds, or when the user clicks the "refresh" button.
         setInterval(() => {
             ignoreResponseForWorkloads.current = false;
-            fetchWorkloads(() => {}).then(() => {
-                ignoreResponseForWorkloads.current = true;
-            });
+            fetchWorkloads(() => {});
         }, props.workloadRefreshInterval * 1000);
 
         return () => {
@@ -258,6 +312,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
         workloadName: string,
         selectedPreset: WorkloadPreset,
         workloadSeedString: string,
+        debugLoggingEnabled: boolean,
     ) => {
         console.log("New workload '%s' started by user with preset:\n%s", workloadName, JSON.stringify(selectedPreset));
         setIsStartWorkloadOpen(false);
@@ -268,22 +323,21 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
             workloadSeed = parseInt(workloadSeedString);
         }
 
-        const requestOptions = {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({
+        const messageId: string = uuidv4();
+        const callback = (result: any) => {
+            setWorkloads([result.workload, ...workloads]);
+        };
+        websocketCallbacks.current[messageId] = callback;
+        sendJsonMessage({
+            op: 'launch_workload',
+            msg_id: messageId,
+            workloadRequest: {
                 adjust_gpu_reservations: false,
                 seed: workloadSeed,
                 key: selectedPreset.key,
                 name: workloadName,
-            }),
-        };
-
-        fetch('/api/workload', requestOptions).then(() => {
-            ignoreResponseForWorkloads.current = false;
-            fetchWorkloads(() => {}).then(() => {
-                ignoreResponseForWorkloads.current = true;
-            });
+                debug_logging: debugLoggingEnabled,
+            },
         });
     };
 
@@ -327,9 +381,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
                         workloads={workloads}
                         refreshWorkloads={(callback: () => void | undefined) => {
                             ignoreResponseForWorkloads.current = false;
-                            fetchWorkloads(callback).then(() => {
-                                ignoreResponseForWorkloads.current = true;
-                            });
+                            fetchWorkloads(callback);
                         }}
                         onLaunchWorkloadClicked={() => {
                             // If we have no workload presets, then refresh them when the user opens the 'Start Workload' modal.
@@ -358,7 +410,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
                 targetKernel={migrateKernel}
                 targetReplica={migrateReplica}
             />
-            <StartWorkloadModal
+            <RegisterWorkloadModal
                 isOpen={isStartWorkloadModalOpen}
                 onClose={onCancelStartWorkload}
                 onConfirm={onConfirmStartWorkload}

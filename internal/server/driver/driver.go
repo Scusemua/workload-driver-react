@@ -4,13 +4,16 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/generator"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 var (
@@ -19,9 +22,11 @@ var (
 
 // The Workload Driver consumes events from the Workload Generator and takes action accordingly.
 type WorkloadDriver struct {
-	id            string
+	id string
+
 	logger        *zap.Logger
 	sugaredLogger *zap.SugaredLogger
+	atom          zap.AtomicLevel
 
 	workloadEndTime time.Time         // The time at which the workload completed.
 	eventChan       chan domain.Event // Receives events from the Synthesizer.
@@ -41,11 +46,13 @@ func NewWorkloadDriver(opts *domain.Configuration) *WorkloadDriver {
 		opts:      opts,
 		doneChan:  make(chan struct{}),
 		eventChan: make(chan domain.Event),
+		atom:      zap.NewAtomicLevelAt(zapcore.DebugLevel),
 	}
 
-	logger, err := zap.NewDevelopment()
-	if err != nil {
-		panic(err)
+	core := zapcore.NewCore(zapcore.NewJSONEncoder(zap.NewDevelopmentEncoderConfig()), os.Stdout, driver.atom)
+	logger := zap.New(core)
+	if logger == nil {
+		panic("failed to create logger for workload driver")
 	}
 
 	driver.logger = logger
@@ -82,20 +89,20 @@ func (d *WorkloadDriver) GetWorkloadRequest() *domain.WorkloadRequest {
 }
 
 // Returns nil if the workload could not be registered.
-func (d *WorkloadDriver) RegisterWorkload(c *gin.Context) (*domain.Workload, error) {
-	d.logger.Info("WorkloadDriver is handling HTTP request.")
+func (d *WorkloadDriver) RegisterWorkload(workloadRequest *domain.WorkloadRequest, conn *websocket.Conn) (*domain.Workload, error) {
+	// d.logger.Info("WorkloadDriver is handling HTTP request.")
 
-	var workloadRequest *domain.WorkloadRequest
-	if err := c.BindJSON(&workloadRequest); err != nil {
-		d.logger.Error("Failed to extract and/or unmarshal workload request from request body.")
+	// var workloadRequest *domain.WorkloadRequest
+	// if err := c.BindJSON(&workloadRequest); err != nil {
+	// 	d.logger.Error("Failed to extract and/or unmarshal workload request from request body.")
 
-		c.JSON(http.StatusBadRequest, &domain.ErrorMessage{
-			Description:  "Failed to extract workload request from request body.",
-			ErrorMessage: err.Error(),
-			Valid:        true,
-		})
-		return nil, err
-	}
+	// 	c.JSON(http.StatusBadRequest, &domain.ErrorMessage{
+	// 		Description:  "Failed to extract workload request from request body.",
+	// 		ErrorMessage: err.Error(),
+	// 		Valid:        true,
+	// 	})
+	// 	return nil, err
+	// }
 
 	d.workloadRequest = workloadRequest
 	d.sugaredLogger.Debugf("User is requesting the execution of workload '%s'", workloadRequest.Key)
@@ -104,12 +111,20 @@ func (d *WorkloadDriver) RegisterWorkload(c *gin.Context) (*domain.Workload, err
 	if d.workloadPreset, ok = d.workloadPresets[workloadRequest.Key]; !ok {
 		d.logger.Error("Could not find workload preset with specified key.", zap.String("key", workloadRequest.Key))
 
-		c.JSON(http.StatusBadRequest, &domain.ErrorMessage{
+		conn.WriteJSON(&domain.ErrorMessage{
 			Description:  "Could not find workload preset with specified key.",
 			ErrorMessage: "Could not find workload preset with specified key.",
 			Valid:        true,
 		})
 		return nil, ErrWorkloadPresetNotFound
+	}
+
+	if !workloadRequest.DebugLogging {
+		d.logger.Debug("Setting log-level to INFO.")
+		d.atom.SetLevel(zapcore.InfoLevel)
+		d.logger.Debug("Ignored.")
+	} else {
+		d.logger.Debug("Debug-level logging is ENABLED.")
 	}
 
 	d.workload = &domain.Workload{

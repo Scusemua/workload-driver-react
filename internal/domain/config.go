@@ -71,7 +71,7 @@ type Configuration struct {
 	///////////////////////
 	// Options are 0 (i.e., 'pre') and 1 (i.e., 'standard'). With 'pre', the Simulator will not process any events; it will simply parse
 	// the trace to extract the CPU, GPU, and Memory readings. With 'standard', the Simulator will actually simulate the workload.
-	ExecutionMode                     int  `name:"execution-mode" description:"Options are 0 (i.e., 'pre') and 1 (i.e., 'standard'). With 'pre', the Simulator will not process any events; it will simply parse the trace to extract the CPU, GPU, and Memory readings. With 'standard', the Simulator will actually simulate the workload."`
+	// ExecutionMode                     int  `name:"execution-mode" description:"Options are 0 (i.e., 'pre') and 1 (i.e., 'standard'). With 'pre', the Simulator will not process any events; it will simply parse the trace to extract the CPU, GPU, and Memory readings. With 'standard', the Simulator will actually simulate the workload."`
 	MaxTaskDurationSec                int  `name:"max-task-duration-seconds" description:"The maximum length of a task. If a task with length >= this value is executed, then the associated Session will be terminated once the event completes."`
 	ContinueUntilExplicitlyTerminated bool `name:"continue-until-explicit-termination" description:""`
 
