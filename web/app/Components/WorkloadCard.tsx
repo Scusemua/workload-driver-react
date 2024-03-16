@@ -43,6 +43,7 @@ import {
     StopIcon,
     ExclamationCircleIcon,
     PowerOffIcon,
+    CodeIcon,
 } from '@patternfly/react-icons';
 
 import {
@@ -361,33 +362,46 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                                                                             </React.Fragment>
                                                                         </Tooltip>
                                                                     </FlexItem>
+                                                                </Flex>
+                                                            </FlexItem>
+                                                            <FlexItem className="workload-descriptive-icons">
+                                                                <Flex direction={{ default: 'row' }}>
                                                                     <FlexItem>
                                                                         <Tooltip
-                                                                            content={'Number of tasks executed.'}
+                                                                            content={'Number of events processed.'}
                                                                             position="bottom"
                                                                         >
                                                                             <React.Fragment>
                                                                                 <MonitoringIcon />{' '}
+                                                                                {workload.num_events_processed}
+                                                                            </React.Fragment>
+                                                                        </Tooltip>
+                                                                    </FlexItem>
+                                                                    <FlexItem>
+                                                                        <Tooltip
+                                                                            content={
+                                                                                'Number of training sessions completed.'
+                                                                            }
+                                                                            position="bottom"
+                                                                        >
+                                                                            <React.Fragment>
+                                                                                <CodeIcon />{' '}
                                                                                 {workload.num_tasks_executed}
                                                                             </React.Fragment>
                                                                         </Tooltip>
                                                                     </FlexItem>
-                                                                    {workload.workload_state !=
-                                                                        WORKLOAD_STATE_READY && (
-                                                                        <FlexItem>
-                                                                            <Tooltip
-                                                                                content={
-                                                                                    'Time elapsed since the workload began.'
-                                                                                }
-                                                                                position="bottom"
-                                                                            >
-                                                                                <React.Fragment>
-                                                                                    <ClockIcon />{' '}
-                                                                                    {workload.time_elapsed}
-                                                                                </React.Fragment>
-                                                                            </Tooltip>
-                                                                        </FlexItem>
-                                                                    )}
+                                                                    <FlexItem>
+                                                                        <Tooltip
+                                                                            content={
+                                                                                'Time elapsed since the workload began.'
+                                                                            }
+                                                                            position="bottom"
+                                                                        >
+                                                                            <React.Fragment>
+                                                                                <ClockIcon /> {workload.time_elapsed}
+                                                                            </React.Fragment>
+                                                                        </Tooltip>
+                                                                    </FlexItem>
                                                                 </Flex>
                                                             </FlexItem>
                                                         </Flex>
