@@ -46,6 +46,7 @@ export const MigrationModal: React.FunctionComponent<MigrationModalProps> = (pro
             </TextContent>
             <br />
             <KubernetesNodeList
+                nodesPerPage={5}
                 nodes={props.nodes}
                 manuallyRefreshNodes={props.manuallyRefreshNodes}
                 refreshInterval={604800} // Once per week (i.e., never).

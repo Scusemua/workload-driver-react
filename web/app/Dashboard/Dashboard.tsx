@@ -56,14 +56,11 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
 
         // If there is a callback, then call it.
         if (lastJsonMessage) {
-            console.log("Checking if we have a callback for message '%s'", lastJsonMessage['msg_id']);
-            console.log('We have this many callbacks registered: %d', websocketCallbacks.current.size);
             if (websocketCallbacks.current.has(lastJsonMessage['msg_id'])) {
-                console.log("Callback found for message '%s'", lastJsonMessage['msg_id']);
-                console.log(typeof websocketCallbacks.current[lastJsonMessage['msg_id']]);
-                websocketCallbacks.current[lastJsonMessage['msg_id']](lastJsonMessage);
+                console.log(`Found callback for message ${lastJsonMessage['msg_id']}`);
+                websocketCallbacks.current.get(lastJsonMessage['msg_id'])(lastJsonMessage);
             } else {
-                console.log("No callback found for message '%s'", lastJsonMessage['msg_id']);
+                console.log(`No callback found for message ${lastJsonMessage['msg_id']}`);
                 const op: string = lastJsonMessage['op'];
 
                 if (op == 'active_workloads_update') {
@@ -192,8 +189,6 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
                 }
             };
             websocketCallbacks.current.set(messageId, onResponse);
-            console.log("Registered callback for get_workloads message '%s'", messageId);
-            console.log('We have this many callbacks registered: %d', websocketCallbacks.current.size);
             sendJsonMessage({
                 op: 'get_workloads',
                 msg_id: messageId,
@@ -351,10 +346,10 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
 
         const messageId: string = uuidv4();
         const callback = (result: any) => {
-            // setWorkloads([result.workload, ...workloads]);
+            console.log('Successfully registered workload %s', result.workload.id);
             setWorkloads(new Map(workloads.set(result.workload.id, result.workload)));
         };
-        websocketCallbacks.current[messageId] = callback;
+        websocketCallbacks.current.set(messageId, callback);
         sendJsonMessage({
             op: 'register_workload',
             msg_id: messageId,
@@ -405,7 +400,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
             // setWorkloads(updatedWorkloads);
             setWorkloads(new Map(workloads.set(result.workload.id, result.workload)));
         };
-        websocketCallbacks.current[messageId] = callback;
+        websocketCallbacks.current.set(messageId, callback);
         sendJsonMessage({
             op: 'start_workload',
             msg_id: messageId,
@@ -429,7 +424,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
             // setWorkloads(updatedWorkloads);
             setWorkloads(new Map(workloads.set(result.workload.id, result.workload)));
         };
-        websocketCallbacks.current[messageId] = callback;
+        websocketCallbacks.current.set(messageId, callback);
         sendJsonMessage({
             op: 'stop_workload',
             msg_id: messageId,
@@ -441,10 +436,11 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
         <PageSection>
             <Grid hasGutter>
                 <GridItem span={6} rowSpan={2}>
-                    <KernelList openMigrationModal={openMigrationModal} />
+                    <KernelList kernelsPerPage={5} openMigrationModal={openMigrationModal} />
                 </GridItem>
                 <GridItem span={6} rowSpan={6}>
                     <KubernetesNodeList
+                        nodesPerPage={5}
                         manuallyRefreshNodes={manuallyRefreshNodes}
                         nodes={nodes}
                         refreshInterval={120}
@@ -453,9 +449,10 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
                 </GridItem>
                 <GridItem span={6} rowSpan={1}>
                     <WorkloadCard
+                        workloadsPerPage={5}
                         onStartWorkloadClicked={onStartWorkloadClicked}
                         onStopWorkloadClicked={onStopWorkloadClicked}
-                        workloads={workloads}
+                        workloads={Array.from(workloads.values())}
                         refreshWorkloads={(callback: () => void | undefined) => {
                             ignoreResponseForWorkloads.current = false;
                             fetchWorkloads(callback);

@@ -22,6 +22,8 @@ import {
     FlexItem,
     InputGroup,
     InputGroupItem,
+    Pagination,
+    PaginationVariant,
     Radio,
     SearchInput,
     Title,
@@ -52,6 +54,7 @@ export interface NodeListProps {
     disableRadiosWithKernel?: string; // KernelID such that, if a node has a Pod for that kernel, its radio button is disabled.
     hideControlPlaneNode?: boolean;
     onSelectNode?: (nodeId: string) => void; // Function to call when a node is selected; used in case parent wants to do something when node is selected, such as update state.
+    nodesPerPage: number;
 }
 
 export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props: NodeListProps) => {
@@ -60,6 +63,31 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
     const [expandedNodes, setExpandedNodes] = React.useState<string[]>([]);
     const [selectedNode, setSelectedNode] = React.useState('');
     const [refreshingNodes, setRefreshingNodes] = React.useState(false);
+    const [page, setPage] = React.useState(1);
+    const [perPage, setPerPage] = React.useState(props.nodesPerPage);
+
+    const onSetPage = (_event: React.MouseEvent | React.KeyboardEvent | MouseEvent, newPage: number) => {
+        setPage(newPage);
+        console.log(
+            'onSetPage: Displaying workloads %d through %d.',
+            perPage * (newPage - 1),
+            perPage * (newPage - 1) + perPage,
+        );
+    };
+
+    const onPerPageSelect = (
+        _event: React.MouseEvent | React.KeyboardEvent | MouseEvent,
+        newPerPage: number,
+        newPage: number,
+    ) => {
+        setPerPage(newPerPage);
+        setPage(newPage);
+        console.log(
+            'onPerPageSelect: Displaying workloads %d through %d.',
+            newPerPage * (newPage - 1),
+            newPerPage * (newPage - 1) + newPerPage,
+        );
+    };
 
     const onCardExpand = () => {
         setIsCardExpanded(!isCardExpanded);
@@ -124,7 +152,7 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                             </Tooltip>
                         </ToolbarItem>
                     </FlexItem>
-                    <FlexItem>
+                    <FlexItem hidden={props.nodes.length == 0}>
                         <ToolbarItem>
                             <InputGroup>
                                 <InputGroupItem isFill>{searchInput}</InputGroupItem>
@@ -225,113 +253,147 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
             </CardHeader>
             <CardExpandableContent>
                 <CardBody>
-                    <DataList isCompact aria-label="data list">
-                        {filteredNodes.map((kubeNode: KubernetesNode, idx: number) => (
-                            <DataListItem
-                                key={kubeNode.NodeId}
-                                id={'node-list-item-' + idx}
-                                isExpanded={expandedNodes.includes(kubeNode.NodeId)}
-                            >
-                                <DataListItemRow>
-                                    {props.selectable && (
-                                        <DataListControl>
-                                            <Radio
-                                                id={'node-' + kubeNode.NodeId + '-radio'}
-                                                aria-label={'node-' + kubeNode.NodeId + '-radio'}
-                                                aria-labelledby={'node-' + kubeNode.NodeId + '-radio'}
-                                                name={'node-list-radio-buttons'}
-                                                hidden={!props.selectable}
-                                                isDisabled={shouldSelectBeDisabledForNode(kubeNode)}
-                                                onChange={() => {
-                                                    console.log('Selected node ' + kubeNode.NodeId);
-                                                    setSelectedNode(kubeNode.NodeId);
-                                                    if (props.onSelectNode != undefined) {
-                                                        props.onSelectNode(kubeNode.NodeId);
-                                                    }
-                                                }}
-                                                isChecked={kubeNode.NodeId == selectedNode}
-                                            />
-                                        </DataListControl>
-                                    )}
-                                    <DataListToggle
-                                        onClick={() => toggleExpandedNode(kubeNode.NodeId)}
-                                        isExpanded={expandedNodes.includes(kubeNode.NodeId)}
-                                        id={'expand-node-' + kubeNode.NodeId + '-toggle'}
-                                        aria-controls={'expand-node-' + kubeNode.NodeId + '-toggle'}
-                                    />
-                                    <DataListItemCells
-                                        dataListCells={[
-                                            <DataListCell key="primary-content">
-                                                <Flex
-                                                    spaceItems={{ default: 'spaceItemsMd' }}
-                                                    direction={{ default: 'column' }}
-                                                >
-                                                    <FlexItem>
-                                                        <DescriptionList
-                                                            className="node-list-description-list"
-                                                            columnModifier={{ lg: '3Col', xl: '3Col' }}
-                                                        >
-                                                            <DescriptionListGroup>
-                                                                <DescriptionListTerm icon={<VirtualMachineIcon />}>
-                                                                    Node
-                                                                </DescriptionListTerm>
-                                                                <DescriptionListDescription>
-                                                                    {kubeNode.NodeId}
-                                                                </DescriptionListDescription>
-                                                            </DescriptionListGroup>
-                                                            <DescriptionListGroup>
-                                                                <DescriptionListTerm icon={<GlobeIcon />}>
-                                                                    IP
-                                                                </DescriptionListTerm>
-                                                                <DescriptionListDescription>
-                                                                    {kubeNode.IP}
-                                                                </DescriptionListDescription>
-                                                            </DescriptionListGroup>
-                                                            <DescriptionListGroup>
-                                                                <DescriptionListTerm icon={<OutlinedClockIcon />}>
-                                                                    Age
-                                                                </DescriptionListTerm>
-                                                                <DescriptionListDescription>
-                                                                    {kubeNode.Age}
-                                                                </DescriptionListDescription>
-                                                            </DescriptionListGroup>
-                                                        </DescriptionList>
-                                                    </FlexItem>
-                                                    <FlexItem>
-                                                        <Flex spaceItems={{ default: 'spaceItems4xl' }}>
-                                                            <FlexItem>
-                                                                <CubeIcon /> {kubeNode.Pods.length}
-                                                            </FlexItem>
-                                                            <FlexItem>
-                                                                <CpuIcon /> {kubeNode.AllocatedCPU.toFixed(2)} /{' '}
-                                                                {kubeNode.CapacityCPU}
-                                                            </FlexItem>
-                                                            <FlexItem>
-                                                                <MemoryIcon /> {kubeNode.AllocatedMemory.toFixed(2)} /{' '}
-                                                                {kubeNode.CapacityMemory.toFixed(0)}
-                                                            </FlexItem>
-                                                            <FlexItem>
-                                                                <GpuIcon /> {kubeNode.AllocatedCPU.toFixed(2)} /{' '}
-                                                                {kubeNode.CapacityCPU}
-                                                            </FlexItem>
-                                                        </Flex>
-                                                    </FlexItem>
-                                                </Flex>
-                                            </DataListCell>,
-                                        ]}
-                                    />
-                                </DataListItemRow>
-                                <DataListContent
-                                    className="node-list-expandable-content"
-                                    aria-label={'node-' + kubeNode.NodeId + '-expandable-content'}
-                                    id={'node-' + kubeNode.NodeId + '-expandable-content'}
-                                    isHidden={!expandedNodes.includes(kubeNode.NodeId)}
+                    <DataList isCompact aria-label="data list" hidden={props.nodes.length == 0}>
+                        {filteredNodes
+                            .slice(perPage * (page - 1), perPage * (page - 1) + perPage)
+                            .map((kubeNode: KubernetesNode, idx: number) => (
+                                <DataListItem
+                                    key={kubeNode.NodeId}
+                                    id={'node-list-item-' + idx}
+                                    isExpanded={expandedNodes.includes(kubeNode.NodeId)}
                                 >
-                                    {expandedNodeContent(kubeNode)}
-                                </DataListContent>
-                            </DataListItem>
-                        ))}
+                                    <DataListItemRow>
+                                        {props.selectable && (
+                                            <DataListControl>
+                                                <Radio
+                                                    id={'node-' + kubeNode.NodeId + '-radio'}
+                                                    aria-label={'node-' + kubeNode.NodeId + '-radio'}
+                                                    aria-labelledby={'node-' + kubeNode.NodeId + '-radio'}
+                                                    name={'node-list-radio-buttons'}
+                                                    hidden={!props.selectable}
+                                                    isDisabled={shouldSelectBeDisabledForNode(kubeNode)}
+                                                    onChange={() => {
+                                                        console.log('Selected node ' + kubeNode.NodeId);
+                                                        setSelectedNode(kubeNode.NodeId);
+                                                        if (props.onSelectNode != undefined) {
+                                                            props.onSelectNode(kubeNode.NodeId);
+                                                        }
+                                                    }}
+                                                    isChecked={kubeNode.NodeId == selectedNode}
+                                                />
+                                            </DataListControl>
+                                        )}
+                                        <DataListToggle
+                                            onClick={() => toggleExpandedNode(kubeNode.NodeId)}
+                                            isExpanded={expandedNodes.includes(kubeNode.NodeId)}
+                                            id={'expand-node-' + kubeNode.NodeId + '-toggle'}
+                                            aria-controls={'expand-node-' + kubeNode.NodeId + '-toggle'}
+                                        />
+                                        <DataListItemCells
+                                            dataListCells={[
+                                                <DataListCell key="primary-content">
+                                                    <Flex
+                                                        spaceItems={{ default: 'spaceItemsMd' }}
+                                                        direction={{ default: 'column' }}
+                                                    >
+                                                        <FlexItem>
+                                                            <DescriptionList
+                                                                className="node-list-description-list"
+                                                                columnModifier={{ lg: '3Col', xl: '3Col' }}
+                                                            >
+                                                                <DescriptionListGroup>
+                                                                    <DescriptionListTerm icon={<VirtualMachineIcon />}>
+                                                                        Node
+                                                                    </DescriptionListTerm>
+                                                                    <DescriptionListDescription>
+                                                                        {kubeNode.NodeId}
+                                                                    </DescriptionListDescription>
+                                                                </DescriptionListGroup>
+                                                                <DescriptionListGroup>
+                                                                    <DescriptionListTerm icon={<GlobeIcon />}>
+                                                                        IP
+                                                                    </DescriptionListTerm>
+                                                                    <DescriptionListDescription>
+                                                                        {kubeNode.IP}
+                                                                    </DescriptionListDescription>
+                                                                </DescriptionListGroup>
+                                                                <DescriptionListGroup>
+                                                                    <DescriptionListTerm icon={<OutlinedClockIcon />}>
+                                                                        Age
+                                                                    </DescriptionListTerm>
+                                                                    <DescriptionListDescription>
+                                                                        {kubeNode.Age}
+                                                                    </DescriptionListDescription>
+                                                                </DescriptionListGroup>
+                                                            </DescriptionList>
+                                                        </FlexItem>
+                                                        <FlexItem>
+                                                            <Flex spaceItems={{ default: 'spaceItems4xl' }}>
+                                                                <FlexItem>
+                                                                    <CubeIcon /> {kubeNode.Pods.length}
+                                                                </FlexItem>
+                                                                <FlexItem>
+                                                                    <CpuIcon /> {kubeNode.AllocatedCPU.toFixed(2)} /{' '}
+                                                                    {kubeNode.CapacityCPU}
+                                                                </FlexItem>
+                                                                <FlexItem>
+                                                                    <MemoryIcon /> {kubeNode.AllocatedMemory.toFixed(2)}{' '}
+                                                                    / {kubeNode.CapacityMemory.toFixed(0)}
+                                                                </FlexItem>
+                                                                <FlexItem>
+                                                                    <GpuIcon /> {kubeNode.AllocatedCPU.toFixed(2)} /{' '}
+                                                                    {kubeNode.CapacityCPU}
+                                                                </FlexItem>
+                                                            </Flex>
+                                                        </FlexItem>
+                                                    </Flex>
+                                                </DataListCell>,
+                                            ]}
+                                        />
+                                    </DataListItemRow>
+                                    <DataListContent
+                                        className="node-list-expandable-content"
+                                        aria-label={'node-' + kubeNode.NodeId + '-expandable-content'}
+                                        id={'node-' + kubeNode.NodeId + '-expandable-content'}
+                                        isHidden={!expandedNodes.includes(kubeNode.NodeId)}
+                                    >
+                                        {expandedNodeContent(kubeNode)}
+                                    </DataListContent>
+                                </DataListItem>
+                            ))}
                     </DataList>
+                    <Pagination
+                        isDisabled={props.nodes.length == 0}
+                        itemCount={props.nodes.length}
+                        widgetId="bottom-example"
+                        perPage={perPage}
+                        page={page}
+                        variant={PaginationVariant.bottom}
+                        perPageOptions={[
+                            {
+                                title: '1',
+                                value: 1,
+                            },
+                            {
+                                title: '2',
+                                value: 2,
+                            },
+                            {
+                                title: '3',
+                                value: 3,
+                            },
+                            {
+                                title: '4',
+                                value: 4,
+                            },
+                            {
+                                title: '5',
+                                value: 5,
+                            },
+                        ]}
+                        onSetPage={onSetPage}
+                        onPerPageSelect={onPerPageSelect}
+                    />
                 </CardBody>
             </CardExpandableContent>
         </Card>

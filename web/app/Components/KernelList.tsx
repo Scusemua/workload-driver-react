@@ -25,6 +25,8 @@ import {
     MenuItem,
     MenuList,
     MenuToggle,
+    Pagination,
+    PaginationVariant,
     Popper,
     SearchInput,
     Title,
@@ -96,6 +98,7 @@ const kernelStatusIcons = {
 
 export interface KernelListProps {
     openMigrationModal: (DistributedJupyterKernel, JupyterKernelReplica) => void;
+    kernelsPerPage: number;
 }
 
 export const KernelList: React.FunctionComponent<KernelListProps> = (props: KernelListProps) => {
@@ -115,9 +118,34 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
     const [selectedKernels, setSelectedKernels] = React.useState<string[]>([]);
     const [kernelToDelete, setKernelToDelete] = React.useState<string>('');
     const [refreshingKernels, setRefreshingKernels] = React.useState(false);
+    const [page, setPage] = React.useState(1);
+    const [perPage, setPerPage] = React.useState(props.kernelsPerPage);
 
     const numKernelsCreating = useRef(0); // Used to display "pending" entries in the kernel list.
     const kernelManager = useRef<KernelManager | null>(null);
+
+    const onSetPage = (_event: React.MouseEvent | React.KeyboardEvent | MouseEvent, newPage: number) => {
+        setPage(newPage);
+        console.log(
+            'onSetPage: Displaying workloads %d through %d.',
+            perPage * (newPage - 1),
+            perPage * (newPage - 1) + perPage,
+        );
+    };
+
+    const onPerPageSelect = (
+        _event: React.MouseEvent | React.KeyboardEvent | MouseEvent,
+        newPerPage: number,
+        newPage: number,
+    ) => {
+        setPerPage(newPerPage);
+        setPage(newPage);
+        console.log(
+            'onPerPageSelect: Displaying workloads %d through %d.',
+            newPerPage * (newPage - 1),
+            newPerPage * (newPage - 1) + newPerPage,
+        );
+    };
 
     async function initializeKernelManagers() {
         if (kernelManager.current === null) {
@@ -1017,6 +1045,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                     </Title>
                 </CardTitle>
                 <Toolbar
+                    hidden={kernels.current.length == 0}
                     id="content-padding-data-toolbar"
                     usePageInsets
                     clearAllFilters={() => {
@@ -1028,9 +1057,15 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             </CardHeader>
             <CardExpandableContent>
                 <CardBody>
-                    <DataList isCompact aria-label="data list">
+                    <DataList
+                        isCompact
+                        aria-label="data list"
+                        hidden={kernels.current.length == 0 && pendingKernelArr.length == 0}
+                    >
                         {pendingKernelArr.map((_, idx) => getKernelDataListRow(null, idx))}
-                        {filteredKernels.map((kernel, idx) => getKernelDataListRow(kernel, idx))}
+                        {filteredKernels
+                            .slice(perPage * (page - 1), perPage * (page - 1) + perPage)
+                            .map((kernel, idx) => getKernelDataListRow(kernel, idx))}
                     </DataList>
                     <ConfirmationWithTextInputModal
                         isOpen={isConfirmCreateModalOpen}
@@ -1072,6 +1107,38 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                         titleIconVariant="danger"
                         message1={errorMessagePreamble}
                         message2={errorMessage}
+                    />
+                    <Pagination
+                        isDisabled={kernels.current.length == 0}
+                        itemCount={kernels.current.length}
+                        widgetId="bottom-example"
+                        perPage={perPage}
+                        page={page}
+                        variant={PaginationVariant.bottom}
+                        perPageOptions={[
+                            {
+                                title: '1',
+                                value: 1,
+                            },
+                            {
+                                title: '2',
+                                value: 2,
+                            },
+                            {
+                                title: '3',
+                                value: 3,
+                            },
+                            {
+                                title: '4',
+                                value: 4,
+                            },
+                            {
+                                title: '5',
+                                value: 5,
+                            },
+                        ]}
+                        onSetPage={onSetPage}
+                        onPerPageSelect={onPerPageSelect}
                     />
                 </CardBody>
             </CardExpandableContent>
