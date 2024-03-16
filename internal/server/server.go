@@ -12,6 +12,7 @@ import (
 	"github.com/gin-gonic/contrib/cors"
 	"github.com/gin-gonic/contrib/static"
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/koding/websocketproxy"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
@@ -27,23 +28,25 @@ var upgrader = websocket.Upgrader{
 }
 
 type serverImpl struct {
-	logger          *zap.Logger
-	sugaredLogger   *zap.SugaredLogger
-	opts            *domain.Configuration
-	app             *proxy.JupyterProxyRouter
-	engine          *gin.Engine
-	workloadDrivers map[string]*driver.WorkloadDriver // Map from workload ID to the associated driver.
-	workloadsMap    map[string]*domain.Workload       // Map from workload ID to workload
-	workloads       []*domain.Workload
+	logger             *zap.Logger
+	sugaredLogger      *zap.SugaredLogger
+	opts               *domain.Configuration
+	app                *proxy.JupyterProxyRouter
+	engine             *gin.Engine
+	workloadDrivers    map[string]*driver.WorkloadDriver // Map from workload ID to the associated driver.
+	workloadsMap       map[string]*domain.Workload       // Map from workload ID to workload
+	workloads          []*domain.Workload
+	pushUpdateInterval time.Duration
 }
 
 func NewServer(opts *domain.Configuration) domain.Server {
 	s := &serverImpl{
-		opts:            opts,
-		engine:          gin.New(),
-		workloadDrivers: make(map[string]*driver.WorkloadDriver),
-		workloadsMap:    make(map[string]*domain.Workload),
-		workloads:       make([]*domain.Workload, 0),
+		opts:               opts,
+		pushUpdateInterval: time.Second * time.Duration(opts.PushUpdateInterval),
+		engine:             gin.New(),
+		workloadDrivers:    make(map[string]*driver.WorkloadDriver),
+		workloadsMap:       make(map[string]*domain.Workload),
+		workloads:          make([]*domain.Workload, 0),
 		// workloadDriver: driver.NewWorkloadDriver(opts),
 	}
 
@@ -112,6 +115,72 @@ func (s *serverImpl) setupRoutes() error {
 	return nil
 }
 
+// Used to push updates about active workloads to the frontend.
+func (s *serverImpl) serverPushRoutine(conn *websocket.Conn, workloadStartedChan chan string, doneChan chan struct{}) {
+	// Keep track of the active workloads.
+	activeWorkloads := make(map[string]*domain.Workload)
+
+	// Add all active workloads to the map.
+	for _, workload := range s.workloads {
+		if workload.IsRunning() {
+			activeWorkloads[workload.ID] = workload
+		}
+	}
+
+	// We'll loop forever, unless the connection is terminated.
+	for {
+		// If we have any active workloads, then we'll push some updates to the front-end for the active workloads.
+		if len(activeWorkloads) > 0 {
+			toRemove := make([]string, 0)
+			updatedWorkloads := make([]*domain.Workload, 0)
+
+			// Iterate over all the active workloads.
+			for _, workload := range s.workloadsMap {
+				// If the workload is no longer active, then make a note to remove it and then skip it.
+				if !workload.IsRunning() {
+					toRemove = append(toRemove, workload.ID)
+					continue
+				}
+
+				updatedWorkloads = append(updatedWorkloads, workload)
+			}
+
+			// Send an update to the frontend.
+			conn.WriteJSON(&domain.ActiveWorkloadsUpdate{
+				MessageId:        uuid.NewString(),
+				Op:               "active_workloads_update",
+				UpdatedWorkloads: updatedWorkloads,
+			})
+
+			// Remove workloads that are now inactive from the map.
+			for _, id := range toRemove {
+				delete(activeWorkloads, id)
+			}
+		}
+
+		// In case there are a bunch of notifications in the 'workload started channel', consume all of them before breaking out.
+		var done bool = false
+		for !done {
+			// Do stuff.
+			select {
+			case id := <-workloadStartedChan:
+				{
+					// Add the newly-registered workload to the active workloads map.
+					activeWorkloads[id] = s.workloadsMap[id]
+				}
+			case <-doneChan:
+				{
+					return
+				}
+			default:
+				// Do nothing.
+				time.Sleep(time.Second * 1)
+				done = true // No more notifications right now. We'll process what we have.
+			}
+		}
+	}
+}
+
 func (s *serverImpl) serveWebsocket(c *gin.Context) {
 	s.logger.Debug("Handling websocket connection")
 
@@ -130,6 +199,19 @@ func (s *serverImpl) serveWebsocket(c *gin.Context) {
 		return
 	}
 	defer conn.Close()
+
+	// Used to notify the server-push goroutine that a new workload has been registered.
+	workloadStartedChan := make(chan string)
+	doneChan := make(chan struct{})
+	go s.serverPushRoutine(conn, workloadStartedChan, doneChan)
+
+	closeHandler := conn.CloseHandler()
+	conn.SetCloseHandler(func(code int, text string) error {
+		doneChan <- struct{}{} // Tell the server-push goroutine that this connection has been terminated.
+		err := closeHandler(code, text)
+		return err
+	})
+
 	for {
 		_, message, err := conn.ReadMessage()
 		if err != nil {
@@ -170,7 +252,7 @@ func (s *serverImpl) serveWebsocket(c *gin.Context) {
 		} else if op == "start_workload" {
 			var req *domain.StartStopWorkloadRequest
 			json.Unmarshal(message, &req)
-			s.handleStartWorkload(req, conn)
+			s.handleStartWorkload(req, conn, workloadStartedChan)
 		} else if op == "stop_workload" {
 			var req *domain.StartStopWorkloadRequest
 			json.Unmarshal(message, &req)
@@ -179,7 +261,7 @@ func (s *serverImpl) serveWebsocket(c *gin.Context) {
 	}
 }
 
-func (s *serverImpl) handleStartWorkload(req *domain.StartStopWorkloadRequest, conn *websocket.Conn) {
+func (s *serverImpl) handleStartWorkload(req *domain.StartStopWorkloadRequest, conn *websocket.Conn, workloadStartedChan chan string) {
 	if req.Operation != "start_workload" {
 		panic(fmt.Sprintf("Unexpected operation field in StartStopWorkloadRequest: \"%s\"", req.Operation))
 	}
@@ -200,6 +282,9 @@ func (s *serverImpl) handleStartWorkload(req *domain.StartStopWorkloadRequest, c
 			MessageId: req.MessageId,
 			Workload:  s.workloadsMap[req.WorkloadId],
 		})
+
+		// Notify the server-push goutine that the workload has started.
+		workloadStartedChan <- req.WorkloadId
 	} else {
 		s.logger.Error("Could not find already-registered workload with the given workload ID.", zap.String("workload-id", req.WorkloadId))
 	}
@@ -249,21 +334,10 @@ func (s *serverImpl) handleRegisterWorkload(request *domain.WorkloadRegistration
 	} else {
 		s.logger.Error("Workload registration did not return a Workload object...")
 	}
-
-	// If an error occurred when registering the workload, then the RegisterWorkload function already posted that info back to the user, so we don't need to do anything here.
 }
 
 func (s *serverImpl) handleGetWorkloads(conn *websocket.Conn, msgId string) {
 	s.sugaredLogger.Debugf("Returning %d workloads to user.", len(s.workloads))
-
-	for _, workload := range s.workloads {
-		if !workload.IsRunning() {
-			workload.TimeElasped = time.Duration(0).String() // Hasn't started yet.
-		} else if !workload.IsFinished() {
-			// Once the workload completes, we no longer update the TimeElapsed field.
-			workload.TimeElasped = time.Since(workload.StartTime).String()
-		}
-	}
 
 	conn.WriteJSON(&domain.WorkloadsResponse{
 		Workloads: s.workloads,

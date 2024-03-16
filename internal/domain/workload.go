@@ -37,6 +37,13 @@ type WorkloadsResponse struct {
 	Workloads []*Workload `json:"workloads"`
 }
 
+// Sent from the backend to the frontend. Proactively push updates for active workloads.
+type ActiveWorkloadsUpdate struct {
+	Op               string      `json:"op"`
+	MessageId        string      `json:"msg_id"`
+	UpdatedWorkloads []*Workload `json:"updated_workloads"`
+}
+
 // Wrapper around a WorkloadRegistrationRequest; contains the message ID and operation field.
 type WorkloadRegistrationRequestWrapper struct {
 	Operation                   string                       `json:"op"`
@@ -64,16 +71,23 @@ type WorkloadRegistrationRequest struct {
 type WorkloadState int
 
 type Workload struct {
-	ID                 string          `json:"id"`
-	Name               string          `json:"name"`
+	ID   string `json:"id"`
+	Name string `json:"name"`
+
 	WorkloadState      WorkloadState   `json:"workload_state"`
 	WorkloadPreset     *WorkloadPreset `json:"workload_preset"`
 	WorkloadPresetName string          `json:"workload_preset_name"`
 	WorkloadPresetKey  string          `json:"workload_preset_key"`
-	StartTime          time.Time       `json:"start_time"`
-	TimeElasped        string          `json:"time_elapsed"` // Computed at the time that the data is requested by the user.
-	NumTasksExecuted   int64           `json:"num_tasks_executed"`
-	Seed               int64           `json:"seed"`
+
+	Seed int64 `json:"seed"`
+
+	StartTime          time.Time `json:"start_time"`
+	TimeElasped        string    `json:"time_elapsed"` // Computed at the time that the data is requested by the user.
+	NumTasksExecuted   int64     `json:"num_tasks_executed"`
+	NumEventsProcessed int64     `json:"num_events_processed"`
+	NumSessionsCreated int64     `json:"num_sessions_created"`
+	NumActiveSessions  int64     `json:"num_active_sessions"`
+	NumActiveTrainings int64     `json:"num_active_trainings"`
 }
 
 // Return true if the workload stopped because it was explicitly terminated early/premature.

@@ -17,6 +17,10 @@ interface Workload {
     time_elapsed: string;
     num_tasks_executed: number;
     seed: number;
+    num_active_sessions: number;
+    num_sessions_created: number;
+    num_events_processed: number;
+    num_active_trainings: number;
 }
 
 const WORKLOAD_STATE_READY: number = 0; // Workload is registered and ready to be started.

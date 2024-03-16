@@ -23,7 +23,7 @@ function wait<T>(ms: number, value: T) {
 
 const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProps) => {
     const [nodes, setNodes] = React.useState<KubernetesNode[]>([]);
-    const [workloads, setWorkloads] = React.useState<Workload[]>([]);
+    const [workloads, setWorkloads] = React.useState(new Map());
     const [workloadPresets, setWorkloadPresets] = React.useState<WorkloadPreset[]>([]);
     const [isStartWorkloadModalOpen, setIsStartWorkloadOpen] = React.useState(false);
     const [isMigrateModalOpen, setIsMigrateModalOpen] = React.useState(false);
@@ -54,12 +54,32 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
     useEffect(() => {
         console.log(`Got a new message: ${JSON.stringify(lastJsonMessage)}`);
 
+        // If there is a callback, then call it.
         if (lastJsonMessage) {
-            websocketCallbacks.current[lastJsonMessage['msg_id']](lastJsonMessage);
-        }
+            console.log("Checking if we have a callback for message '%s'", lastJsonMessage['msg_id']);
+            console.log('We have this many callbacks registered: %d', websocketCallbacks.current.size);
+            if (websocketCallbacks.current.has(lastJsonMessage['msg_id'])) {
+                console.log("Callback found for message '%s'", lastJsonMessage['msg_id']);
+                console.log(typeof websocketCallbacks.current[lastJsonMessage['msg_id']]);
+                websocketCallbacks.current[lastJsonMessage['msg_id']](lastJsonMessage);
+            } else {
+                console.log("No callback found for message '%s'", lastJsonMessage['msg_id']);
+                const op: string = lastJsonMessage['op'];
 
-        // websocketCallbacks.current[lastJsonMessage['msg_id']](lastJsonMessage);
+                if (op == 'active_workloads_update') {
+                    handleActiveWorkloadsUpdate(lastJsonMessage['updated_workloads']);
+                }
+            }
+        }
     }, [lastJsonMessage]);
+
+    const handleActiveWorkloadsUpdate = (updatedWorkloads: Workload[]) => {
+        console.log('Received update about %d active workload(s).', updatedWorkloads.length);
+
+        updatedWorkloads.forEach((workload: Workload) => {
+            setWorkloads(new Map(workloads.set(workload.id, workload)));
+        });
+    };
 
     /**
      * The following references are used to handle the fact that network responses can return at random/arbitrary/misordered times.
@@ -152,8 +172,12 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
             const onResponse = (response: any) => {
                 const respWorkloads: Workload[] = response.workloads;
 
+                console.log('Received some workloads: %s', JSON.stringify(respWorkloads));
+
                 if (!ignoreResponseForWorkloads.current) {
-                    setWorkloads(respWorkloads);
+                    respWorkloads.forEach((workload: Workload) => {
+                        setWorkloads(new Map(workloads.set(workload.id, workload)));
+                    });
                     console.log(
                         'Successfully refreshed workloads. Discovered %d workload(s):\n%s',
                         respWorkloads.length,
@@ -167,7 +191,9 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
                     console.log("Refreshed workloads, but we're ignoring the response...");
                 }
             };
-            websocketCallbacks.current[messageId] = onResponse;
+            websocketCallbacks.current.set(messageId, onResponse);
+            console.log("Registered callback for get_workloads message '%s'", messageId);
+            console.log('We have this many callbacks registered: %d', websocketCallbacks.current.size);
             sendJsonMessage({
                 op: 'get_workloads',
                 msg_id: messageId,
@@ -325,7 +351,8 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
 
         const messageId: string = uuidv4();
         const callback = (result: any) => {
-            setWorkloads([result.workload, ...workloads]);
+            // setWorkloads([result.workload, ...workloads]);
+            setWorkloads(new Map(workloads.set(result.workload.id, result.workload)));
         };
         websocketCallbacks.current[messageId] = callback;
         sendJsonMessage({
@@ -367,18 +394,16 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
 
         const messageId: string = uuidv4();
         const callback = (result: any) => {
-            for (let i = 0; i < workloads.length; i++) {
-                if (workloads[i].id == result.workload.id) {
-                }
-            }
+            // const updatedWorkloads: Workload[] = workloads.map((workload: Workload) => {
+            //     if (workload.id == result.workload.id) {
+            //         return result.workload;
+            //     } else {
+            //         return workload;
+            //     }
+            // });
 
-            const updatedWorkloads: Workload[] = workloads.map((workload: Workload) => {
-                if (workload.id == result.workload.id) {
-                    return result.workload;
-                }
-            });
-
-            setWorkloads(updatedWorkloads);
+            // setWorkloads(updatedWorkloads);
+            setWorkloads(new Map(workloads.set(result.workload.id, result.workload)));
         };
         websocketCallbacks.current[messageId] = callback;
         sendJsonMessage({
@@ -393,18 +418,16 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
 
         const messageId: string = uuidv4();
         const callback = (result: any) => {
-            for (let i = 0; i < workloads.length; i++) {
-                if (workloads[i].id == result.workload.id) {
-                }
-            }
+            // const updatedWorkloads: Workload[] = workloads.map((workload: Workload) => {
+            //     if (workload.id == result.workload.id) {
+            //         return result.workload;
+            //     } else {
+            //         return workload;
+            //     }
+            // });
 
-            const updatedWorkloads: Workload[] = workloads.map((workload: Workload) => {
-                if (workload.id == result.workload.id) {
-                    return result.workload;
-                }
-            });
-
-            setWorkloads(updatedWorkloads);
+            // setWorkloads(updatedWorkloads);
+            setWorkloads(new Map(workloads.set(result.workload.id, result.workload)));
         };
         websocketCallbacks.current[messageId] = callback;
         sendJsonMessage({

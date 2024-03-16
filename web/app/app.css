@@ -192,3 +192,11 @@ body {
         transform: rotate(-40deg);
     }
 }
+
+.workload-start-stop-buttons {
+  margin-top: 4px;
+}
+
+.workload-descriptive-icons {
+  padding-top: 8px;
+}

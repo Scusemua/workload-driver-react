@@ -124,8 +124,13 @@ func (d *WorkloadDriver) RegisterWorkload(workloadRegistrationRequest *domain.Wo
 		WorkloadPreset:     d.workloadPreset,
 		WorkloadPresetName: d.workloadPreset.Name,
 		WorkloadPresetKey:  d.workloadPreset.Key,
-		NumTasksExecuted:   0,
+		TimeElasped:        time.Duration(0).String(),
 		Seed:               d.workloadRegistrationRequest.Seed,
+		NumTasksExecuted:   0,
+		NumEventsProcessed: 0,
+		NumSessionsCreated: 0,
+		NumActiveSessions:  0,
+		NumActiveTrainings: 0,
 	}
 
 	// If the workload seed is negative, then assign it a random value.
@@ -193,6 +198,9 @@ func (d *WorkloadDriver) DriveWorkload(wg *sync.WaitGroup) {
 		case evt := <-d.eventChan:
 			{
 				d.logger.Debug("Received event.", zap.Any("event-name", evt.Name()))
+				d.handleEvent(evt)
+				d.workload.NumEventsProcessed += 1
+				d.workload.TimeElasped = time.Since(d.workload.StartTime).String()
 			}
 		case <-d.doneChan:
 			{
@@ -205,6 +213,27 @@ func (d *WorkloadDriver) DriveWorkload(wg *sync.WaitGroup) {
 				return
 			}
 		}
+	}
+}
+
+func (d *WorkloadDriver) handleEvent(evt domain.Event) {
+	switch evt.Name() {
+	case generator.EventSessionStarted:
+		// TODO: Start session.
+		d.workload.NumActiveSessions += 1
+		d.workload.NumSessionsCreated += 1
+	case generator.EventSessionTrainingStarted:
+		// TODO: Initiate training.
+		d.workload.NumActiveTrainings += 1
+	case generator.EventSessionUpdateGpuUtil:
+		// TODO: Update GPU utilization.
+	case generator.EventSessionTrainingEnded:
+		// TODO: Stop training.
+		d.workload.NumTasksExecuted += 1
+		d.workload.NumActiveTrainings -= 1
+	case generator.EventSessionStopped:
+		// TODO: Stop session.
+		d.workload.NumActiveSessions -= 1
 	}
 }
 

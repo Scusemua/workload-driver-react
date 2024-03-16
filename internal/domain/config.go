@@ -101,6 +101,8 @@ type Configuration struct {
 	// If enabled, then ables the base idle interval to be scaled down. This can occur if an instance type has less of a resource than the configured 'baseResourceAmount' parameter.
 	VariableIdleHostReclaimerAllowScalingDown bool `name:"variable-idle-host-reclaimer-allow-scaling-down" description:"If enabled, then ables the base idle interval to be scaled down. This can occur if an instance type has less of a resource than the configured 'baseResourceAmount' parameter."`
 
+	PushUpdateInterval int `name:"push-update-interval" description:"How frequently the server should push updates about active workloads to the frontend"`
+
 	////////////////////////////
 	// Instance type selector //
 	////////////////////////////
@@ -191,6 +193,7 @@ func GetDefaultConfig() *Configuration {
 		KernelSpecQueryInterval: "600s",
 		JupyterServerAddress:    "localhost:8888",
 		ServerPort:              8000,
+		PushUpdateInterval:      1,
 		// SpoofKubeNodes:          true,
 		// SpoofKernels:            true,
 		// SpoofKernelSpecs:        true,
