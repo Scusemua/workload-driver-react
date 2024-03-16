@@ -329,9 +329,9 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
         };
         websocketCallbacks.current[messageId] = callback;
         sendJsonMessage({
-            op: 'launch_workload',
+            op: 'register_workload',
             msg_id: messageId,
-            workloadRequest: {
+            workloadRegistrationRequest: {
                 adjust_gpu_reservations: false,
                 seed: workloadSeed,
                 key: selectedPreset.key,
@@ -362,6 +362,36 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
         });
     };
 
+    const onStartWorkloadClicked = (workload: Workload) => {
+        console.log("Starting workload '%s' (ID=%s)", workload.name, workload.id);
+
+        const messageId: string = uuidv4();
+        const callback = (result: any) => {
+            setWorkloads([result.workload, ...workloads]);
+        };
+        websocketCallbacks.current[messageId] = callback;
+        sendJsonMessage({
+            op: 'start_workload',
+            msg_id: messageId,
+            workload_id: workload.id,
+        });
+    };
+
+    const onStopWorkloadClicked = (workload: Workload) => {
+        console.log("Stopping workload '%s' (ID=%s)", workload.name, workload.id);
+
+        const messageId: string = uuidv4();
+        const callback = (result: any) => {
+            setWorkloads([result.workload, ...workloads]);
+        };
+        websocketCallbacks.current[messageId] = callback;
+        sendJsonMessage({
+            op: 'stop_workload',
+            msg_id: messageId,
+            workload_id: workload.id,
+        });
+    };
+
     return (
         <PageSection>
             <Grid hasGutter>
@@ -378,6 +408,8 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
                 </GridItem>
                 <GridItem span={6} rowSpan={1}>
                     <WorkloadCard
+                        onStartWorkloadClicked={onStartWorkloadClicked}
+                        onStopWorkloadClicked={onStopWorkloadClicked}
                         workloads={workloads}
                         refreshWorkloads={(callback: () => void | undefined) => {
                             ignoreResponseForWorkloads.current = false;

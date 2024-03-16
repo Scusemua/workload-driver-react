@@ -840,7 +840,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                 isExpanded={expandedKernels.includes(kernel?.kernelId || 'Pending...')}
                 key={'Pending...' + idx}
                 className="kernel-list-row"
-                id={'content-padding-item-' + idx}
+                id={'kernel-data-list-' + idx}
             >
                 <DataListItemRow>
                     <DataListCheck
@@ -892,8 +892,8 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                             </DataListCell>,
                             <DataListAction
                                 key="actions"
-                                aria-labelledby={'content-padding-item-' + idx + ' content-action-item-' + idx}
-                                id={'content-padding-item-' + idx}
+                                aria-labelledby={'kernel-data-list-' + idx + ' kernel-data-list-action-item-' + idx}
+                                id={'kernel-data-list-' + idx}
                                 aria-label="Actions"
                             >
                                 <Flex spaceItems={{ default: 'spaceItemsNone' }} direction={{ default: 'column' }}>

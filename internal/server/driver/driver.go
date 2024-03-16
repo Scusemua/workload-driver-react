@@ -31,13 +31,14 @@ type WorkloadDriver struct {
 	workloadEndTime time.Time         // The time at which the workload completed.
 	eventChan       chan domain.Event // Receives events from the Synthesizer.
 
-	workloadPresets map[string]*domain.WorkloadPreset
-	workloadPreset  *domain.WorkloadPreset
-	workloadRequest *domain.WorkloadRequest
-	workload        *domain.Workload
+	workloadPresets             map[string]*domain.WorkloadPreset
+	workloadPreset              *domain.WorkloadPreset
+	workloadRegistrationRequest *domain.WorkloadRegistrationRequest
+	workload                    *domain.Workload
 
 	opts     *domain.Configuration
-	doneChan chan struct{}
+	doneChan chan struct{} // Used to signal that the workload has successfully processed all events.
+	stopChan chan struct{} // Used to stop the workload early/prematurely (i.e., before all events have been processed).
 }
 
 func NewWorkloadDriver(opts *domain.Configuration) *WorkloadDriver {
@@ -46,6 +47,7 @@ func NewWorkloadDriver(opts *domain.Configuration) *WorkloadDriver {
 		opts:      opts,
 		doneChan:  make(chan struct{}),
 		eventChan: make(chan domain.Event),
+		stopChan:  make(chan struct{}),
 		atom:      zap.NewAtomicLevelAt(zapcore.DebugLevel),
 	}
 
@@ -84,32 +86,18 @@ func (d *WorkloadDriver) GetWorkloadPreset() *domain.WorkloadPreset {
 	return d.workloadPreset
 }
 
-func (d *WorkloadDriver) GetWorkloadRequest() *domain.WorkloadRequest {
-	return d.workloadRequest
+func (d *WorkloadDriver) GetWorkloadRegistrationRequest() *domain.WorkloadRegistrationRequest {
+	return d.workloadRegistrationRequest
 }
 
 // Returns nil if the workload could not be registered.
-func (d *WorkloadDriver) RegisterWorkload(workloadRequest *domain.WorkloadRequest, conn *websocket.Conn) (*domain.Workload, error) {
-	// d.logger.Info("WorkloadDriver is handling HTTP request.")
-
-	// var workloadRequest *domain.WorkloadRequest
-	// if err := c.BindJSON(&workloadRequest); err != nil {
-	// 	d.logger.Error("Failed to extract and/or unmarshal workload request from request body.")
-
-	// 	c.JSON(http.StatusBadRequest, &domain.ErrorMessage{
-	// 		Description:  "Failed to extract workload request from request body.",
-	// 		ErrorMessage: err.Error(),
-	// 		Valid:        true,
-	// 	})
-	// 	return nil, err
-	// }
-
-	d.workloadRequest = workloadRequest
-	d.sugaredLogger.Debugf("User is requesting the execution of workload '%s'", workloadRequest.Key)
+func (d *WorkloadDriver) RegisterWorkload(workloadRegistrationRequest *domain.WorkloadRegistrationRequest, conn *websocket.Conn) (*domain.Workload, error) {
+	d.workloadRegistrationRequest = workloadRegistrationRequest
+	d.sugaredLogger.Debugf("User is requesting the execution of workload '%s'", workloadRegistrationRequest.Key)
 
 	var ok bool
-	if d.workloadPreset, ok = d.workloadPresets[workloadRequest.Key]; !ok {
-		d.logger.Error("Could not find workload preset with specified key.", zap.String("key", workloadRequest.Key))
+	if d.workloadPreset, ok = d.workloadPresets[workloadRegistrationRequest.Key]; !ok {
+		d.logger.Error("Could not find workload preset with specified key.", zap.String("key", workloadRegistrationRequest.Key))
 
 		conn.WriteJSON(&domain.ErrorMessage{
 			Description:  "Could not find workload preset with specified key.",
@@ -119,7 +107,7 @@ func (d *WorkloadDriver) RegisterWorkload(workloadRequest *domain.WorkloadReques
 		return nil, ErrWorkloadPresetNotFound
 	}
 
-	if !workloadRequest.DebugLogging {
+	if !workloadRegistrationRequest.DebugLogging {
 		d.logger.Debug("Setting log-level to INFO.")
 		d.atom.SetLevel(zapcore.InfoLevel)
 		d.logger.Debug("Ignored.")
@@ -129,13 +117,13 @@ func (d *WorkloadDriver) RegisterWorkload(workloadRequest *domain.WorkloadReques
 
 	d.workload = &domain.Workload{
 		ID:                 d.id, // Same ID as the driver.
-		Name:               workloadRequest.WorkloadName,
-		Started:            false,
-		Finished:           false,
+		Name:               workloadRegistrationRequest.WorkloadName,
+		WorkloadState:      domain.WorkloadReady,
 		WorkloadPreset:     d.workloadPreset,
 		WorkloadPresetName: d.workloadPreset.Name,
 		WorkloadPresetKey:  d.workloadPreset.Key,
 		NumTasksExecuted:   0,
+		Seed:               d.workloadRegistrationRequest.Seed,
 	}
 	return d.workload, nil
 }
@@ -152,23 +140,41 @@ func (d *WorkloadDriver) WriteError(c *gin.Context, errorMessage string) {
 
 // Return true if the workload has completed; otherwise, return false.
 func (d *WorkloadDriver) IsWorkloadComplete() bool {
-	return d.workload.Finished
+	return d.workload.WorkloadState == domain.WorkloadFinished
+}
+
+// Stop a workload that's already running/in-progress.
+// Returns nil on success, or an error if one occurred.
+func (d *WorkloadDriver) StopWorkload() error {
+	d.stopChan <- struct{}{}
+	return nil
+}
+
+func (d *WorkloadDriver) StopChan() chan struct{} {
+	return d.stopChan
 }
 
 // This should be called from its own goroutine.
 func (d *WorkloadDriver) DriveWorkload() {
-	d.logger.Debug("Starting workload.", zap.Any("workload-preset", d.workloadPreset), zap.Any("workload-request", d.workloadRequest))
+	d.logger.Debug("Starting workload.", zap.Any("workload-preset", d.workloadPreset), zap.Any("workload-request", d.workloadRegistrationRequest))
 
 	workloadGenerator := generator.NewWorkloadGenerator(d.opts)
-	go workloadGenerator.GenerateWorkload(d, d.workloadPreset, d.workloadRequest)
+	go workloadGenerator.GenerateWorkload(d, d.workload, d.workloadPreset, d.workloadRegistrationRequest)
 
 	d.workload.StartTime = time.Now()
-	d.workload.Started = true
+	d.workload.WorkloadState = domain.WorkloadRunning
 
 	d.logger.Info("The Workload Driver has started running.")
 
 	for {
 		select {
+		case <-d.stopChan:
+			{
+				d.logger.Debug("Workload has been instructed to terminate early.")
+				d.workloadEndTime = time.Now()
+				d.workload.WorkloadState = domain.WorkloadTerminated
+				return
+			}
 		case evt := <-d.eventChan:
 			{
 				d.logger.Debug("Received event.", zap.Any("event", evt))
@@ -176,7 +182,7 @@ func (d *WorkloadDriver) DriveWorkload() {
 		case <-d.doneChan:
 			{
 				d.workloadEndTime = time.Now()
-				d.workload.Finished = true
+				d.workload.WorkloadState = domain.WorkloadFinished
 
 				d.logger.Info("The Workload Generator has finished generating events.")
 				d.logger.Info("The Workload has ended.", zap.Any("workload-duration", time.Since(d.workload.StartTime)), zap.Any("workload-start-time", d.workload.StartTime), zap.Any("workload-end-time", d.workloadEndTime))

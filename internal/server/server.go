@@ -97,9 +97,9 @@ func (s *serverImpl) setupRoutes() error {
 		apiGroup.POST(domain.MIGRATION_ENDPOINT, handlers.NewMigrationHttpHandler(s.opts).HandleRequest)
 
 		// Used internally (by the frontend) to trigger the start of a new workload.
-		// apiGroup.POST(domain.WORKLOAD_ENDPOINT, s.handleStartWorkloadRequest)
+		// apiGroup.POST(domain.WORKLOAD_ENDPOINT, s.handleRegisterWorkload)
 
-		// apiGroup.GET(domain.WORKLOAD_ENDPOINT, s.handleGetWorkloadsRequest)
+		// apiGroup.GET(domain.WORKLOAD_ENDPOINT, s.handleGetWorkloads)
 	}
 
 	if s.opts.SpoofKernelSpecs {
@@ -162,16 +162,55 @@ func (s *serverImpl) serveWebsocket(c *gin.Context) {
 		op := op_val.(string)
 		msgId := msgIdVal.(string)
 		if op == "get_workloads" {
-			s.handleGetWorkloadsRequest(conn, msgId)
-		} else if op == "launch_workload" {
-			var wrapper *domain.WorkloadRequestWrapper
+			s.handleGetWorkloads(conn, msgId)
+		} else if op == "register_workload" {
+			var wrapper *domain.WorkloadRegistrationRequestWrapper
 			json.Unmarshal(message, &wrapper)
-			s.handleStartWorkloadRequest(wrapper.WorkloadRequest, conn, msgId)
+			s.handleRegisterWorkload(wrapper.WorkloadRegistrationRequest, conn, msgId)
+		} else if op == "start_workload" {
+			var req *domain.StartStopWorkloadRequest
+			json.Unmarshal(message, &req)
+			s.handleStartWorkload(req, conn)
+		} else if op == "stop_workload" {
+			var req *domain.StartStopWorkloadRequest
+			json.Unmarshal(message, &req)
+			s.handleStopWorkload(req, conn)
 		}
 	}
 }
 
-func (s *serverImpl) handleStartWorkloadRequest(request *domain.WorkloadRequest, conn *websocket.Conn, msgId string) {
+func (s *serverImpl) handleStartWorkload(req *domain.StartStopWorkloadRequest, conn *websocket.Conn) {
+	if req.Operation != "start_workload" {
+		panic(fmt.Sprintf("Unexpected operation field in StartStopWorkloadRequest: \"%s\"", req.Operation))
+	}
+
+	s.logger.Debug("Starting workload.", zap.String("workload-id", req.WorkloadId))
+
+	if workloadDriver, ok := s.workloadDrivers[req.WorkloadId]; ok {
+		go workloadDriver.DriveWorkload()
+	} else {
+		s.logger.Error("Could not find already-registered workload with the given workload ID.", zap.String("workload-id", req.WorkloadId))
+	}
+}
+
+func (s *serverImpl) handleStopWorkload(req *domain.StartStopWorkloadRequest, conn *websocket.Conn) {
+	if req.Operation != "stop_workload" {
+		panic(fmt.Sprintf("Unexpected operation field in StartStopWorkloadRequest: \"%s\"", req.Operation))
+	}
+
+	s.logger.Debug("Stopping workload.", zap.String("workload-id", req.WorkloadId))
+
+	if workloadDriver, ok := s.workloadDrivers[req.WorkloadId]; ok {
+		err := workloadDriver.StopWorkload()
+		if err != nil {
+			s.logger.Error("Error encountered when trying to stop workload.", zap.String("workload-id", req.WorkloadId), zap.Error(err))
+		}
+	} else {
+		s.logger.Error("Could not find already-registered workload with the given workload ID.", zap.String("workload-id", req.WorkloadId))
+	}
+}
+
+func (s *serverImpl) handleRegisterWorkload(request *domain.WorkloadRegistrationRequest, conn *websocket.Conn, msgId string) {
 	workloadDriver := driver.NewWorkloadDriver(s.opts)
 
 	workload, _ := workloadDriver.RegisterWorkload(request, conn)
@@ -181,9 +220,7 @@ func (s *serverImpl) handleStartWorkloadRequest(request *domain.WorkloadRequest,
 		s.workloadsMap[workload.ID] = workload
 		s.workloadDrivers[workload.ID] = workloadDriver
 
-		// s.sugaredLogger.Debugf("Starting workload '%s' (ID=%v) now.", workload.Name, workload.ID)
-		// go workloadDriver.DriveWorkload()
-		conn.WriteJSON(&domain.WorkloadResponse{
+		conn.WriteJSON(&domain.WorkloadRegistrationResponse{
 			Workload:  workload,
 			MessageId: msgId,
 		})
@@ -195,11 +232,16 @@ func (s *serverImpl) handleStartWorkloadRequest(request *domain.WorkloadRequest,
 	// If an error occurred when registering the workload, then the RegisterWorkload function already posted that info back to the user, so we don't need to do anything here.
 }
 
-func (s *serverImpl) handleGetWorkloadsRequest(conn *websocket.Conn, msgId string) {
+func (s *serverImpl) handleGetWorkloads(conn *websocket.Conn, msgId string) {
 	s.sugaredLogger.Debugf("Returning %d workloads to user.", len(s.workloads))
 
 	for _, workload := range s.workloads {
-		workload.TimeElasped = time.Since(workload.StartTime).String()
+		if !workload.IsRunning() {
+			workload.TimeElasped = time.Duration(0).String() // Hasn't started yet.
+		} else if !workload.IsFinished() {
+			// Once the workload completes, we no longer update the TimeElapsed field.
+			workload.TimeElasped = time.Since(workload.StartTime).String()
+		}
 	}
 
 	conn.WriteJSON(&domain.WorkloadsResponse{

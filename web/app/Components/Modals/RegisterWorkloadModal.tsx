@@ -323,7 +323,7 @@ export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalPr
                                     isDisabled
                                     type="text"
                                     validated={ValidatedOptions.warning}
-                                    value="No workload presets available."
+                                    value="No workload presets available..."
                                 />
                             )}
                             {props.workloadPresets.length > 0 && (

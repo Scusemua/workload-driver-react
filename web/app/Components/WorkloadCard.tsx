@@ -3,8 +3,10 @@ import {
     Button,
     Card,
     CardBody,
+    CardExpandableContent,
     CardHeader,
     DataList,
+    DataListAction,
     DataListCell,
     DataListContent,
     DataListControl,
@@ -12,11 +14,11 @@ import {
     DataListItemCells,
     DataListItemRow,
     DataListToggle,
-    DescriptionList,
-    DescriptionListDescription,
-    DescriptionListGroup,
-    DescriptionListTerm,
+    Flex,
+    FlexItem,
     Radio,
+    Text,
+    TextVariants,
     Title,
     ToolbarGroup,
     ToolbarItem,
@@ -24,14 +26,19 @@ import {
 } from '@patternfly/react-core';
 
 import {
+    BlueprintIcon,
     CheckCircleIcon,
-    ClipboardCheckIcon,
     ClockIcon,
-    CogIcon,
+    DiceIcon,
+    OutlinedCalendarAltIcon,
+    MonitoringIcon,
     SpinnerIcon,
+    PendingIcon,
     PlusIcon,
     StopCircleIcon,
     SyncIcon,
+    PlayIcon,
+    StopIcon,
 } from '@patternfly/react-icons';
 
 import { Workload } from '@app/Data/Workload';
@@ -41,37 +48,33 @@ export interface WorkloadCardProps {
     refreshWorkloads: (callback: () => void | undefined) => void;
     workloads: Workload[];
     onSelectWorkload?: (workloadId: string) => void;
-    selectable?: boolean;
+    onStartWorkloadClicked: (workload: Workload) => void;
+    onStopWorkloadClicked: (workload: Workload) => void;
 }
 
 export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: WorkloadCardProps) => {
     const [isCardExpanded, setIsCardExpanded] = React.useState(true);
     const [refreshingWorkloads, setRefreshingWorkloads] = React.useState(false);
-
-    const [expandedWorkloads, setExpandedWorkloads] = React.useState<string[]>([]);
-    const [selectedWorkload, setSelectedWorkload] = React.useState('');
+    const [selectedWorkloadListId, setSelectedWorkloadListId] = React.useState('');
 
     const onCardExpand = () => {
         setIsCardExpanded(!isCardExpanded);
     };
 
-    const toggleExpandedWorkload = (id) => {
-        const index = expandedWorkloads.indexOf(id);
-        const newExpanded =
-            index >= 0
-                ? [
-                      ...expandedWorkloads.slice(0, index),
-                      ...expandedWorkloads.slice(index + 1, expandedWorkloads.length),
-                  ]
-                : [...expandedWorkloads, id];
-        setExpandedWorkloads(newExpanded);
+    const onSelectWorkload = (_event: React.MouseEvent | React.KeyboardEvent, id: string) => {
+        // Toggle off if it is already selected.
+        if (id == selectedWorkloadListId) {
+            setSelectedWorkloadListId('');
+        } else {
+            setSelectedWorkloadListId(id);
+        }
     };
 
     const cardHeaderActions = (
         <React.Fragment>
             <ToolbarGroup variant="icon-button-group">
                 <ToolbarItem>
-                    <Tooltip exitDelay={75} content={<div>Create a new kernel.</div>}>
+                    <Tooltip exitDelay={75} content={<div>Register a new workload.</div>}>
                         <Button
                             label="launch-workload-button"
                             aria-label="launch-workload-button"
@@ -82,10 +85,10 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                             <PlusIcon />
                         </Button>
                     </Tooltip>
-                    <Tooltip exitDelay={75} content={<div>Stop selected workloads.</div>}>
+                    <Tooltip exitDelay={75} content={<div>Stop all running workloads.</div>}>
                         <Button
-                            label="stop-workload-button"
-                            aria-label="stop-workload-button"
+                            label="stop-workloads-button"
+                            aria-label="stop-workloads-button"
                             id="stop-workloads-button"
                             variant="plain"
                             onClick={() => {}} // () => setIsConfirmDeleteKernelsModalOpen(true)
@@ -133,118 +136,180 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                     Workloads
                 </Title>
             </CardHeader>
-            <CardBody>
-                <DataList isCompact aria-label="data list">
-                    {props.workloads != null &&
-                        props.workloads.map((workload: Workload, idx: number) => (
-                            <DataListItem
-                                key={workload.id}
-                                id={'workload-list-item-' + idx}
-                                isExpanded={expandedWorkloads.includes(workload.id)}
-                            >
-                                <DataListItemRow>
-                                    {props.selectable && (
-                                        <DataListControl>
-                                            <Radio
-                                                id={'workload-' + workload.id + '-radio'}
-                                                aria-label={'workload-' + workload.id + '-radio'}
-                                                aria-labelledby={'workload-' + workload.id + '-radio'}
-                                                name={'workload-list-radio-buttons'}
-                                                hidden={!props.selectable}
-                                                onChange={() => {
-                                                    console.log('Selected workload ' + workload.id);
-                                                    setSelectedWorkload(workload.id);
-                                                    if (props.onSelectWorkload != undefined) {
-                                                        props.onSelectWorkload(workload.id);
-                                                    }
-                                                }}
-                                                isChecked={workload.id == selectedWorkload}
-                                            />
-                                        </DataListControl>
-                                    )}
-                                    <DataListToggle
-                                        onClick={() => toggleExpandedWorkload(workload.id)}
-                                        isExpanded={expandedWorkloads.includes(workload.id)}
-                                        id={'expand-workload-' + workload.id + '-toggle'}
-                                        aria-controls={'expand-workload-' + workload.id + '-toggle'}
-                                    />
-                                    <DataListItemCells
-                                        dataListCells={[
-                                            <DataListCell key="primary-content">
-                                                <DescriptionList
-                                                    className="workload-list-description-list"
-                                                    columnModifier={{ lg: '3Col', xl: '3Col' }}
+            <CardExpandableContent>
+                <CardBody>
+                    <DataList
+                        isCompact
+                        aria-label="data list"
+                        selectedDataListItemId={selectedWorkloadListId}
+                        onSelectDataListItem={onSelectWorkload}
+                    >
+                        {props.workloads != null &&
+                            props.workloads.map((workload: Workload, idx: number) => (
+                                <DataListItem key={workload.id} id={workload.id}>
+                                    <DataListItemRow>
+                                        <DataListItemCells
+                                            dataListCells={[
+                                                <DataListCell isFilled={true} width={4}>
+                                                    <Flex
+                                                        direction={{ default: 'column' }}
+                                                        spaceItems={{ default: 'spaceItemsNone' }}
+                                                    >
+                                                        <FlexItem>
+                                                            <Text component={TextVariants.h2}>{workload.name}</Text>
+                                                        </FlexItem>
+                                                        <FlexItem>
+                                                            <Text component={TextVariants.small}>
+                                                                <strong>ID: </strong>
+                                                            </Text>
+                                                            <Text component={TextVariants.small}>{workload.id}</Text>
+                                                        </FlexItem>
+                                                        <FlexItem>
+                                                            <Flex spaceItems={{ default: 'spaceItemsMd' }}>
+                                                                <FlexItem>
+                                                                    <Tooltip
+                                                                        content={'Workload status/state.'}
+                                                                        position="bottom"
+                                                                    >
+                                                                        <React.Fragment>
+                                                                            {!workload.started && (
+                                                                                <React.Fragment>
+                                                                                    <PendingIcon />
+                                                                                    {' Ready'}
+                                                                                </React.Fragment>
+                                                                            )}
+                                                                            {workload.started && !workload.finished && (
+                                                                                <React.Fragment>
+                                                                                    <SpinnerIcon className="loading-icon-spin" />
+                                                                                    {' Running'}
+                                                                                </React.Fragment>
+                                                                            )}
+                                                                            {workload.finished && (
+                                                                                <React.Fragment>
+                                                                                    <CheckCircleIcon />
+                                                                                    {' Complete'}
+                                                                                </React.Fragment>
+                                                                            )}
+                                                                        </React.Fragment>
+                                                                    </Tooltip>
+                                                                </FlexItem>
+                                                                <FlexItem>
+                                                                    <Tooltip
+                                                                        content={'Workload preset.'}
+                                                                        position="bottom"
+                                                                    >
+                                                                        <React.Fragment>
+                                                                            <BlueprintIcon /> "
+                                                                            {workload.workload_preset_name}"
+                                                                        </React.Fragment>
+                                                                    </Tooltip>
+                                                                </FlexItem>
+                                                                <FlexItem>
+                                                                    <Tooltip
+                                                                        content={
+                                                                            'Months of trace data included in the workload.'
+                                                                        }
+                                                                        position="bottom"
+                                                                    >
+                                                                        <React.Fragment>
+                                                                            <OutlinedCalendarAltIcon />{' '}
+                                                                            {
+                                                                                workload.workload_preset
+                                                                                    .months_description
+                                                                            }
+                                                                        </React.Fragment>
+                                                                    </Tooltip>
+                                                                </FlexItem>
+                                                                <FlexItem>
+                                                                    <Tooltip
+                                                                        content={'Workload seed.'}
+                                                                        position="bottom"
+                                                                    >
+                                                                        <React.Fragment>
+                                                                            <DiceIcon /> {workload.seed}
+                                                                        </React.Fragment>
+                                                                    </Tooltip>
+                                                                </FlexItem>
+                                                                <FlexItem>
+                                                                    <Tooltip
+                                                                        content={'Number of tasks executed.'}
+                                                                        position="bottom"
+                                                                    >
+                                                                        <React.Fragment>
+                                                                            <MonitoringIcon />{' '}
+                                                                            {workload.num_tasks_executed}
+                                                                        </React.Fragment>
+                                                                    </Tooltip>
+                                                                </FlexItem>
+                                                                {workload.started && (
+                                                                    <FlexItem>
+                                                                        <Tooltip
+                                                                            content={
+                                                                                'Time elapsed since the workload began.'
+                                                                            }
+                                                                            position="bottom"
+                                                                        >
+                                                                            <React.Fragment>
+                                                                                <ClockIcon /> {workload.time_elapsed}
+                                                                            </React.Fragment>
+                                                                        </Tooltip>
+                                                                    </FlexItem>
+                                                                )}
+                                                            </Flex>
+                                                        </FlexItem>
+                                                    </Flex>
+                                                </DataListCell>,
+                                                <DataListCell
+                                                    alignRight={true}
+                                                    width={2}
+                                                    key="secondary content align"
+                                                    id={'workload-data-list-' + idx}
+                                                    aria-label="Workload Actions"
+                                                    aria-labelledby="Workload Actions"
                                                 >
-                                                    <DescriptionListGroup>
-                                                        <DescriptionListTerm>ID</DescriptionListTerm>
-                                                        <DescriptionListDescription>
-                                                            {workload.id}
-                                                        </DescriptionListDescription>
-                                                    </DescriptionListGroup>
-                                                    <DescriptionListGroup>
-                                                        <DescriptionListTerm>Name</DescriptionListTerm>
-                                                        <DescriptionListDescription>
-                                                            {workload.name}
-                                                        </DescriptionListDescription>
-                                                    </DescriptionListGroup>
-                                                    <DescriptionListGroup>
-                                                        <DescriptionListTerm>Status</DescriptionListTerm>
-                                                        <DescriptionListDescription>
-                                                            {workload.started && (
-                                                                <React.Fragment>
-                                                                    <SpinnerIcon className="loading-icon-spin" />
-                                                                    {' Running'}
-                                                                </React.Fragment>
-                                                            )}
-                                                            {!workload.started && (
-                                                                <React.Fragment>
-                                                                    <CheckCircleIcon />
-                                                                    {' Complete'}
-                                                                </React.Fragment>
-                                                            )}
-                                                        </DescriptionListDescription>
-                                                    </DescriptionListGroup>
-                                                    <DescriptionListGroup>
-                                                        <DescriptionListTerm icon={<CogIcon />}>
-                                                            Preset Name
-                                                        </DescriptionListTerm>
-                                                        <DescriptionListDescription>
-                                                            {workload.workload_preset_name}
-                                                        </DescriptionListDescription>
-                                                    </DescriptionListGroup>
-                                                    <DescriptionListGroup>
-                                                        <DescriptionListTerm icon={<ClockIcon />}>
-                                                            Running Time
-                                                        </DescriptionListTerm>
-                                                        <DescriptionListDescription>
-                                                            {workload.time_elapsed}
-                                                        </DescriptionListDescription>
-                                                    </DescriptionListGroup>
-                                                    <DescriptionListGroup>
-                                                        <DescriptionListTerm icon={<ClipboardCheckIcon />}>
-                                                            Tasks Executed
-                                                        </DescriptionListTerm>
-                                                        <DescriptionListDescription>
-                                                            {workload.num_tasks_executed}
-                                                        </DescriptionListDescription>
-                                                    </DescriptionListGroup>
-                                                </DescriptionList>
-                                            </DataListCell>,
-                                        ]}
-                                    />
-                                </DataListItemRow>
-                                <DataListContent
-                                    className="workload-list-expandable-content"
-                                    aria-label={'workload-' + workload.id + '-expandable-content'}
-                                    id={'workload-' + workload.id + '-expandable-content'}
-                                    isHidden={!expandedWorkloads.includes(workload.id)}
-                                >
-                                    {/* {expandedWorkloadContent(workload)} */}
-                                </DataListContent>
-                            </DataListItem>
-                        ))}
-                </DataList>
-            </CardBody>
+                                                    <Flex
+                                                        direction={{ default: 'row' }}
+                                                        spaceItems={{ default: 'spaceItemsXs' }}
+                                                    >
+                                                        <FlexItem>
+                                                            <Tooltip content={'Start the workload'}>
+                                                                <Button
+                                                                    isDisabled={workload.started}
+                                                                    variant="link"
+                                                                    icon={<PlayIcon />}
+                                                                    onClick={() => {
+                                                                        props.onStartWorkloadClicked(workload);
+                                                                    }}
+                                                                >
+                                                                    Start
+                                                                </Button>
+                                                            </Tooltip>
+                                                        </FlexItem>
+                                                        <FlexItem>
+                                                            <Tooltip content={'Stop the workload.'}>
+                                                                <Button
+                                                                    isDisabled={!workload.started || workload.finished}
+                                                                    variant="link"
+                                                                    isDanger
+                                                                    icon={<StopIcon />}
+                                                                    onClick={() => {
+                                                                        props.onStopWorkloadClicked(workload);
+                                                                    }}
+                                                                >
+                                                                    Stop
+                                                                </Button>
+                                                            </Tooltip>
+                                                        </FlexItem>
+                                                    </Flex>
+                                                </DataListCell>,
+                                            ]}
+                                        />
+                                    </DataListItemRow>
+                                </DataListItem>
+                            ))}
+                    </DataList>
+                </CardBody>
+            </CardExpandableContent>
         </Card>
     );
 };

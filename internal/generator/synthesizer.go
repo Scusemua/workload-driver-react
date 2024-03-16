@@ -383,6 +383,7 @@ func (s *Synthesizer) Synthesize(ctx context.Context, opts *domain.Configuration
 			// Abnormal eventsHeap (nomore or error) has no timestamp(0), so calling fix will be ok.
 			heap.Fix(&s.eventsHeap, 0)
 		case <-ctx.Done():
+			s.sugarLog.Debugf("Synthesizer has been stopped. ctx.Err: %v", ctx.Err())
 			return
 		}
 	}

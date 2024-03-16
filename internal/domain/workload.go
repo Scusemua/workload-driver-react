@@ -11,27 +11,46 @@ import (
 	"gopkg.in/yaml.v2"
 )
 
+const (
+	WorkloadReady      WorkloadState = iota // Workload is registered and ready to be started.
+	WorkloadRunning    WorkloadState = 1    // Workload is actively running/in-progress.
+	WorkloadFinished   WorkloadState = 2    // Workload stopped naturally/successfully after processing all events.
+	WorkloadErred      WorkloadState = 3    // Workload stopped due to an error.
+	WorkloadTerminated WorkloadState = 4    // Workload stopped because it was explicitly terminated early/premature.
+)
+
 type WorkloadGenerator interface {
-	GenerateWorkload(EventConsumer, *WorkloadPreset, *WorkloadRequest) error
+	GenerateWorkload(EventConsumer, *Workload, *WorkloadPreset, *WorkloadRegistrationRequest) error
 }
 
-type WorkloadResponse struct {
+// Response containing a single workload.
+// Sent to front-end in response to registering a workload.
+type WorkloadRegistrationResponse struct {
 	MessageId string    `json:"msg_id"`
 	Workload  *Workload `json:"workload"`
 }
 
+// Response for a 'get workloads' request.
 type WorkloadsResponse struct {
 	MessageId string      `json:"msg_id"`
 	Workloads []*Workload `json:"workloads"`
 }
 
-type WorkloadRequestWrapper struct {
-	Operation       string           `json:"op"`
-	MessageId       string           `json:"msg_id"`
-	WorkloadRequest *WorkloadRequest `json:"workloadRequest"`
+// Wrapper around a WorkloadRegistrationRequest; contains the message ID and operation field.
+type WorkloadRegistrationRequestWrapper struct {
+	Operation                   string                       `json:"op"`
+	MessageId                   string                       `json:"msg_id"`
+	WorkloadRegistrationRequest *WorkloadRegistrationRequest `json:"workloadRegistrationRequest"`
 }
 
-type WorkloadRequest struct {
+// Request for starting/stopping a workload. Whether this starts or stops a workload depends on the value of the Operation field.
+type StartStopWorkloadRequest struct {
+	MessageId  string `json:"msg_id"`
+	Operation  string `json:"op"`
+	WorkloadId string `json:"workload_id"`
+}
+
+type WorkloadRegistrationRequest struct {
 	Key  string `name:"key" yaml:"key" json:"key" description:"Key for code-use only (i.e., we don't intend to display this to the user for the most part)."` // Key for code-use only (i.e., we don't intend to display this to the user for the most part).
 	Seed int64  `name:"seed" yaml:"seed" json:"seed" description:"RNG seed for the workload."`
 	// By default, sessions reserve 'NUM_GPUS' GPUs when being scheduled. If this property is enabled, then sessions will instead reserve 'NUM_GPUs' * 'MAX_GPU_UTIL'.
@@ -41,18 +60,44 @@ type WorkloadRequest struct {
 	DebugLogging          bool   `name:"debug_logging" json:"debug_logging" yaml:"debug_logging" description:"Flag indicating whether debug-level logging should be enabled."`
 }
 
+type WorkloadState int
+
 type Workload struct {
 	ID                 string          `json:"id"`
 	Name               string          `json:"name"`
-	Started            bool            `json:"started"`
-	WorkloadPreset     *WorkloadPreset `json:"-"`
+	WorkloadState      WorkloadState   `json:"workload_state"`
+	WorkloadPreset     *WorkloadPreset `json:"workload_preset"`
 	WorkloadPresetName string          `json:"workload_preset_name"`
 	WorkloadPresetKey  string          `json:"workload_preset_key"`
 	StartTime          time.Time       `json:"start_time"`
 	TimeElasped        string          `json:"time_elapsed"` // Computed at the time that the data is requested by the user.
 	NumTasksExecuted   int64           `json:"num_tasks_executed"`
-	Finished           bool            `json:"finished"`
 	Seed               int64           `json:"seed"`
+}
+
+// Return true if the workload stopped because it was explicitly terminated early/premature.
+func (w *Workload) IsTerminated() bool {
+	return w.WorkloadState == WorkloadTerminated
+}
+
+// Return true if the workload is registered and ready to be started.
+func (w *Workload) IsReady() bool {
+	return w.WorkloadState == WorkloadReady
+}
+
+// Return true if the workload stopped due to an error.
+func (w *Workload) IsErred() bool {
+	return w.WorkloadState == WorkloadErred
+}
+
+// Return true if the workload is actively running/in-progress.
+func (w *Workload) IsRunning() bool {
+	return w.WorkloadState == WorkloadRunning
+}
+
+// Return true if the workload stopped naturally/successfully after processing all events.
+func (w *Workload) IsFinished() bool {
+	return w.WorkloadState == WorkloadFinished
 }
 
 func (w *Workload) String() string {
@@ -65,10 +110,11 @@ func (w *Workload) String() string {
 }
 
 type WorkloadPreset struct {
-	Name        string   `name:"name" yaml:"name" json:"name" description:"Human-readable name for this particular workload preset."`                                   // Human-readable name for this particular workload preset.
-	Description string   `name:"description" yaml:"description" json:"description" description:"Human-readable description of the workload."`                           // Human-readable description of the workload.
-	Key         string   `name:"key"  yaml:"key" json:"key" description:"Key for code-use only (i.e., we don't intend to display this to the user for the most part)."` // Key for code-use only (i.e., we don't intend to display this to the user for the most part).
-	Months      []string `name:"months" yaml:"months" json:"months" description:"The months of data used by the workload."`                                             // The months of data used by the workload.
+	Name              string   `name:"name" yaml:"name" json:"name" description:"Human-readable name for this particular workload preset."`                                   // Human-readable name for this particular workload preset.
+	Description       string   `name:"description" yaml:"description" json:"description" description:"Human-readable description of the workload."`                           // Human-readable description of the workload.
+	Key               string   `name:"key"  yaml:"key" json:"key" description:"Key for code-use only (i.e., we don't intend to display this to the user for the most part)."` // Key for code-use only (i.e., we don't intend to display this to the user for the most part).
+	Months            []string `name:"months" yaml:"months" json:"months" description:"The months of data used by the workload."`                                             // The months of data used by the workload.
+	MonthsDescription string   `name:"months_description" yaml:"months_description" json:"months_description" description:"Formatted, human-readable text of the form (StartMonth) - (EndMonth) or (Month) if there is only one month included in the trace."`
 
 	/* The following fields are not sent to the client. They're just used by the server. */
 

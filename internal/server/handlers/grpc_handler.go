@@ -61,11 +61,30 @@ func (h *BaseGRPCHandler) DialGatewayGRPC(gatewayAddress string) error {
 
 	h.logger.Debug("Attempting to dial Gateway gRPC server now.", zap.String("gateway-address", gatewayAddress))
 
-	webSocketProxyClient := proxy.NewWebSocketProxyClient(time.Minute)
-	conn, err := grpc.Dial("ws://"+gatewayAddress, grpc.WithContextDialer(webSocketProxyClient.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
-	if err != nil {
+	var numTries int = 0
+	var maxNumTries int = 5
+
+	var conn *grpc.ClientConn
+	var err error
+	for numTries < maxNumTries {
+		webSocketProxyClient := proxy.NewWebSocketProxyClient(time.Second * 10)
+		conn, err = grpc.Dial("ws://"+gatewayAddress, grpc.WithContextDialer(webSocketProxyClient.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
+
+		if err == nil { // Connection successful?
+			break
+		}
+
 		h.logger.Error("Failed to dial Gateway gRPC server.", zap.String("gateway-address", gatewayAddress), zap.Error(err))
-		return err
+		numTries += 1
+
+		// Don't sleep if we're just gonna stop trying afterwards.
+		// Only sleep if we're going to try again!
+		if numTries < maxNumTries {
+			time.Sleep(time.Second * (time.Duration(numTries)))
+			continue
+		} else {
+			return err
+		}
 	}
 
 	h.logger.Debug("Successfully dialed Cluster Gateway.", zap.String("gateway-address", gatewayAddress))
