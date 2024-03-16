@@ -212,7 +212,7 @@ func (s *Synthesizer) transitionAndSubmitEvent(evt domain.Event) {
 				// which is calculated by rounding-up the maximum utilization achieved by the session.
 				if s.CpuSessionMap() != nil {
 					if maxCPUs, ok = s.CpuSessionMap()[podData.GetPod()]; !ok {
-						s.sugarLog.Errorf("No data in CPU Session Map for pod %s.", podData.GetPod())
+						s.sugarLog.Warn("No data in CPU Session Map for pod %s.", podData.GetPod())
 						maxCPUs = 0
 						noCpuEntry = true
 					}
@@ -221,7 +221,7 @@ func (s *Synthesizer) transitionAndSubmitEvent(evt domain.Event) {
 				if s.MemSessionMap() != nil {
 					// Memory is stored in SimulationDriver::MemSessionMap as GB values.
 					if maxMem, ok = s.MemSessionMap()[podData.GetPod()]; !ok {
-						s.sugarLog.Errorf("No data in Memory Session Map for pod %s.", podData.GetPod())
+						s.sugarLog.Warn("No data in Memory Session Map for pod %s.", podData.GetPod())
 						maxMem = 0
 						noMemoryEntry = true
 					}
@@ -229,14 +229,14 @@ func (s *Synthesizer) transitionAndSubmitEvent(evt domain.Event) {
 
 				if s.GpuSessionMap() != nil {
 					if maxGPUs, ok = s.GpuSessionMap()[podData.GetPod()]; !ok {
-						s.sugarLog.Errorf("No data in GPU Session Map for pod %s.", podData.GetPod())
+						s.sugarLog.Warn("No data in GPU Session Map for pod %s. (GPU Session Map has %d entry/entries.)", podData.GetPod(), len(s.GpuSessionMap()))
 						maxGPUs = 0
 						noGpuEntry = true
 					}
 				}
 
 				if noCpuEntry && noMemoryEntry && noGpuEntry {
-					s.sugarLog.Errorf("The maximum resource values for CPUs, GPU, Memory are all 0 for Session %s. Skipping.", podData.GetPod())
+					s.sugarLog.Warn("The maximum resource values for CPUs, GPU, Memory are all 0 for Session %s. Skipping.", podData.GetPod())
 					return
 				}
 			} else {
@@ -269,7 +269,17 @@ func (s *Synthesizer) transitionAndSubmitEvent(evt domain.Event) {
 
 				eventData.CurrentTrainingMaxCPUs = s.CpuTrainingTaskMap()[sess.Pod][trainingIdx]
 				eventData.CurrentTrainingMaxMemory = s.MemTrainingTaskMap()[sess.Pod][trainingIdx]
-				eventData.CurrentTrainingMaxGPUs = s.GpuTrainingTaskMap()[sess.Pod][trainingIdx]
+
+				gpuMap := s.GpuTrainingTaskMap()[sess.Pod]
+				if len(gpuMap) == 0 {
+					if trainingIdx == 0 {
+						eventData.CurrentTrainingMaxGPUs = 0
+					} else {
+						panic(fmt.Sprintf("Training #%d for Session %s, but we have no max GPU training task data for that session.", trainingIdx+1, sess.Pod))
+					}
+				} else {
+					eventData.CurrentTrainingMaxGPUs = s.GpuTrainingTaskMap()[sess.Pod][trainingIdx]
+				}
 
 				if evtName == EventSessionTrainingStarted {
 					if len(s.CpuTrainingTaskMap()[sess.Pod]) <= (trainingIdx + 1) {

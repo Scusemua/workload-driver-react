@@ -16,7 +16,7 @@ import (
 
 type workloadGeneratorImpl struct {
 	ctx            context.Context
-	cancelFunction func()
+	cancelFunction context.CancelFunc
 
 	synthesizer *Synthesizer
 
@@ -94,14 +94,6 @@ func (g *workloadGeneratorImpl) GenerateWorkload(workloadDriver domain.EventCons
 	g.synthesizer = NewSynthesizer(g.opts, maxUtilizationWrapper)
 	// Set the cluster as the EventHandler for the Synthesizer.
 	g.synthesizer.SetEventConsumer(workloadDriver)
-
-	// If the workload seed is negative, then assign it a random value.
-	if workload.Seed < 0 {
-		workload.Seed = rand.Int63()
-		g.logger.Debug("Will use random seed for RNG.", zap.Int64("seed", workload.Seed))
-	} else {
-		g.logger.Debug("Will use user-specified seed for RNG.", zap.Int64("seed", workload.Seed))
-	}
 
 	g.logger.Debug("Driving GPU now.")
 

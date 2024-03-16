@@ -187,7 +187,19 @@ func (s *serverImpl) handleStartWorkload(req *domain.StartStopWorkloadRequest, c
 	s.logger.Debug("Starting workload.", zap.String("workload-id", req.WorkloadId))
 
 	if workloadDriver, ok := s.workloadDrivers[req.WorkloadId]; ok {
-		go workloadDriver.DriveWorkload()
+		var wg sync.WaitGroup
+		wg.Add(1)
+		go workloadDriver.DriveWorkload(&wg)
+		wg.Wait()
+
+		s.workloadsMap[req.WorkloadId].TimeElasped = time.Since(s.workloadsMap[req.WorkloadId].StartTime).String()
+
+		s.logger.Debug("Started workload.", zap.String("workload-id", req.WorkloadId), zap.Any("workload", s.workloadsMap[req.WorkloadId].String()))
+
+		conn.WriteJSON(&domain.SingleWorkloadResponse{
+			MessageId: req.MessageId,
+			Workload:  s.workloadsMap[req.WorkloadId],
+		})
 	} else {
 		s.logger.Error("Could not find already-registered workload with the given workload ID.", zap.String("workload-id", req.WorkloadId))
 	}
@@ -205,6 +217,15 @@ func (s *serverImpl) handleStopWorkload(req *domain.StartStopWorkloadRequest, co
 		if err != nil {
 			s.logger.Error("Error encountered when trying to stop workload.", zap.String("workload-id", req.WorkloadId), zap.Error(err))
 		}
+
+		s.workloadsMap[req.WorkloadId].TimeElasped = time.Since(s.workloadsMap[req.WorkloadId].StartTime).String()
+
+		s.logger.Debug("Started workload.", zap.String("workload-id", req.WorkloadId), zap.Any("workload", s.workloadsMap[req.WorkloadId].String()))
+
+		conn.WriteJSON(&domain.SingleWorkloadResponse{
+			MessageId: req.MessageId,
+			Workload:  s.workloadsMap[req.WorkloadId],
+		})
 	} else {
 		s.logger.Error("Could not find already-registered workload with the given workload ID.", zap.String("workload-id", req.WorkloadId))
 	}
@@ -220,7 +241,7 @@ func (s *serverImpl) handleRegisterWorkload(request *domain.WorkloadRegistration
 		s.workloadsMap[workload.ID] = workload
 		s.workloadDrivers[workload.ID] = workloadDriver
 
-		conn.WriteJSON(&domain.WorkloadRegistrationResponse{
+		conn.WriteJSON(&domain.SingleWorkloadResponse{
 			Workload:  workload,
 			MessageId: msgId,
 		})

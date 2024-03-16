@@ -20,12 +20,13 @@ const (
 )
 
 type WorkloadGenerator interface {
-	GenerateWorkload(EventConsumer, *Workload, *WorkloadPreset, *WorkloadRegistrationRequest) error
+	GenerateWorkload(EventConsumer, *Workload, *WorkloadPreset, *WorkloadRegistrationRequest) error // Start generating the workload.
+	StopGeneratingWorkload()                                                                        // Stop generating the workload prematurely.
 }
 
 // Response containing a single workload.
-// Sent to front-end in response to registering a workload.
-type WorkloadRegistrationResponse struct {
+// Sent to front-end in response to registering a workload, starting a workload, stopping a workload, etc.
+type SingleWorkloadResponse struct {
 	MessageId string    `json:"msg_id"`
 	Workload  *Workload `json:"workload"`
 }

@@ -367,7 +367,18 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
 
         const messageId: string = uuidv4();
         const callback = (result: any) => {
-            setWorkloads([result.workload, ...workloads]);
+            for (let i = 0; i < workloads.length; i++) {
+                if (workloads[i].id == result.workload.id) {
+                }
+            }
+
+            const updatedWorkloads: Workload[] = workloads.map((workload: Workload) => {
+                if (workload.id == result.workload.id) {
+                    return result.workload;
+                }
+            });
+
+            setWorkloads(updatedWorkloads);
         };
         websocketCallbacks.current[messageId] = callback;
         sendJsonMessage({
@@ -382,7 +393,18 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
 
         const messageId: string = uuidv4();
         const callback = (result: any) => {
-            setWorkloads([result.workload, ...workloads]);
+            for (let i = 0; i < workloads.length; i++) {
+                if (workloads[i].id == result.workload.id) {
+                }
+            }
+
+            const updatedWorkloads: Workload[] = workloads.map((workload: Workload) => {
+                if (workload.id == result.workload.id) {
+                    return result.workload;
+                }
+            });
+
+            setWorkloads(updatedWorkloads);
         };
         websocketCallbacks.current[messageId] = callback;
         sendJsonMessage({

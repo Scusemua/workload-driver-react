@@ -3,8 +3,10 @@ package driver
 import (
 	"errors"
 	"fmt"
+	"math/rand"
 	"net/http"
 	"os"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -125,6 +127,15 @@ func (d *WorkloadDriver) RegisterWorkload(workloadRegistrationRequest *domain.Wo
 		NumTasksExecuted:   0,
 		Seed:               d.workloadRegistrationRequest.Seed,
 	}
+
+	// If the workload seed is negative, then assign it a random value.
+	if d.workloadRegistrationRequest.Seed < 0 {
+		d.workload.Seed = rand.Int63n(2147483647) // We restrict the user to the range 0-2,147,483,647 when they specify a seed.
+		d.logger.Debug("Will use random seed for RNG.", zap.Int64("seed", d.workload.Seed))
+	} else {
+		d.logger.Debug("Will use user-specified seed for RNG.", zap.Int64("seed", d.workload.Seed))
+	}
+
 	return d.workload, nil
 }
 
@@ -147,6 +158,8 @@ func (d *WorkloadDriver) IsWorkloadComplete() bool {
 // Returns nil on success, or an error if one occurred.
 func (d *WorkloadDriver) StopWorkload() error {
 	d.stopChan <- struct{}{}
+	d.workloadEndTime = time.Now()
+	d.workload.WorkloadState = domain.WorkloadTerminated
 	return nil
 }
 
@@ -155,7 +168,8 @@ func (d *WorkloadDriver) StopChan() chan struct{} {
 }
 
 // This should be called from its own goroutine.
-func (d *WorkloadDriver) DriveWorkload() {
+// Accepts a waitgroup that is used to notify the caller when the workload has entered the 'WorkloadRunning' state.
+func (d *WorkloadDriver) DriveWorkload(wg *sync.WaitGroup) {
 	d.logger.Debug("Starting workload.", zap.Any("workload-preset", d.workloadPreset), zap.Any("workload-request", d.workloadRegistrationRequest))
 
 	workloadGenerator := generator.NewWorkloadGenerator(d.opts)
@@ -164,6 +178,8 @@ func (d *WorkloadDriver) DriveWorkload() {
 	d.workload.StartTime = time.Now()
 	d.workload.WorkloadState = domain.WorkloadRunning
 
+	wg.Done()
+
 	d.logger.Info("The Workload Driver has started running.")
 
 	for {
@@ -171,13 +187,12 @@ func (d *WorkloadDriver) DriveWorkload() {
 		case <-d.stopChan:
 			{
 				d.logger.Debug("Workload has been instructed to terminate early.")
-				d.workloadEndTime = time.Now()
-				d.workload.WorkloadState = domain.WorkloadTerminated
+				workloadGenerator.StopGeneratingWorkload()
 				return
 			}
 		case evt := <-d.eventChan:
 			{
-				d.logger.Debug("Received event.", zap.Any("event", evt))
+				d.logger.Debug("Received event.", zap.Any("event-name", evt.Name()))
 			}
 		case <-d.doneChan:
 			{

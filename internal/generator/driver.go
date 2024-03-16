@@ -288,6 +288,11 @@ func (d *BaseDriver) DriveSync(ctx context.Context, mfPaths ...string) error {
 			}
 
 			select {
+			case <-ctx.Done():
+				// TODO(Ben): I don't think we need this? It's covered by the ctxCSV.Done(), isn't it?
+				// I don't know if it is because ctxCSV is created with a *copy* of ctx as its parent.
+				// Nothing need to be done.
+				return context.Canceled
 			case <-ctxCSV.Done():
 				// Nothing need to be done.
 				return context.Canceled

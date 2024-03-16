@@ -39,9 +39,18 @@ import {
     SyncIcon,
     PlayIcon,
     StopIcon,
+    ExclamationCircleIcon,
+    PowerOffIcon,
 } from '@patternfly/react-icons';
 
-import { Workload } from '@app/Data/Workload';
+import {
+    Workload,
+    WORKLOAD_STATE_READY,
+    WORKLOAD_STATE_RUNNING,
+    WORKLOAD_STATE_FINISHED,
+    WORKLOAD_STATE_ERRED,
+    WORKLOAD_STATE_TERMINATED,
+} from '@app/Data/Workload';
 
 export interface WorkloadCardProps {
     onLaunchWorkloadClicked: () => void;
@@ -150,7 +159,11 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                                     <DataListItemRow>
                                         <DataListItemCells
                                             dataListCells={[
-                                                <DataListCell isFilled={true} width={4}>
+                                                <DataListCell
+                                                    key={'workload-primary-content-' + idx}
+                                                    isFilled={true}
+                                                    width={4}
+                                                >
                                                     <Flex
                                                         direction={{ default: 'column' }}
                                                         spaceItems={{ default: 'spaceItemsNone' }}
@@ -172,22 +185,39 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                                                                         position="bottom"
                                                                     >
                                                                         <React.Fragment>
-                                                                            {!workload.started && (
+                                                                            {workload.workload_state ==
+                                                                                WORKLOAD_STATE_READY && (
                                                                                 <React.Fragment>
                                                                                     <PendingIcon />
                                                                                     {' Ready'}
                                                                                 </React.Fragment>
                                                                             )}
-                                                                            {workload.started && !workload.finished && (
+                                                                            {workload.workload_state ==
+                                                                                WORKLOAD_STATE_RUNNING && (
                                                                                 <React.Fragment>
                                                                                     <SpinnerIcon className="loading-icon-spin" />
                                                                                     {' Running'}
                                                                                 </React.Fragment>
                                                                             )}
-                                                                            {workload.finished && (
+                                                                            {workload.workload_state ==
+                                                                                WORKLOAD_STATE_FINISHED && (
                                                                                 <React.Fragment>
                                                                                     <CheckCircleIcon />
                                                                                     {' Complete'}
+                                                                                </React.Fragment>
+                                                                            )}
+                                                                            {workload.workload_state ==
+                                                                                WORKLOAD_STATE_ERRED && (
+                                                                                <React.Fragment>
+                                                                                    <ExclamationCircleIcon />
+                                                                                    {' Erred'}
+                                                                                </React.Fragment>
+                                                                            )}
+                                                                            {workload.workload_state ==
+                                                                                WORKLOAD_STATE_TERMINATED && (
+                                                                                <React.Fragment>
+                                                                                    <PowerOffIcon />
+                                                                                    {' Terminated'}
                                                                                 </React.Fragment>
                                                                             )}
                                                                         </React.Fragment>
@@ -241,7 +271,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                                                                         </React.Fragment>
                                                                     </Tooltip>
                                                                 </FlexItem>
-                                                                {workload.started && (
+                                                                {workload.workload_state != WORKLOAD_STATE_READY && (
                                                                     <FlexItem>
                                                                         <Tooltip
                                                                             content={
@@ -262,7 +292,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                                                 <DataListCell
                                                     alignRight={true}
                                                     width={2}
-                                                    key="secondary content align"
+                                                    key={'workload-secondary-content-' + idx}
                                                     id={'workload-data-list-' + idx}
                                                     aria-label="Workload Actions"
                                                     aria-labelledby="Workload Actions"
@@ -274,7 +304,9 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                                                         <FlexItem>
                                                             <Tooltip content={'Start the workload'}>
                                                                 <Button
-                                                                    isDisabled={workload.started}
+                                                                    isDisabled={
+                                                                        workload.workload_state != WORKLOAD_STATE_READY
+                                                                    }
                                                                     variant="link"
                                                                     icon={<PlayIcon />}
                                                                     onClick={() => {
@@ -288,7 +320,10 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                                                         <FlexItem>
                                                             <Tooltip content={'Stop the workload.'}>
                                                                 <Button
-                                                                    isDisabled={!workload.started || workload.finished}
+                                                                    isDisabled={
+                                                                        workload.workload_state !=
+                                                                        WORKLOAD_STATE_RUNNING
+                                                                    }
                                                                     variant="link"
                                                                     isDanger
                                                                     icon={<StopIcon />}
