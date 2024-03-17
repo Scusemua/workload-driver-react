@@ -215,7 +215,7 @@ func (d *WorkloadDriver) DriveWorkload(wg *sync.WaitGroup) {
 				d.workload.NumEventsProcessed += 1
 				d.workload.TimeElasped = time.Since(d.workload.StartTime).String()
 
-				time.Sleep(time.Millisecond * time.Duration(10))
+				// time.Sleep(time.Millisecond * time.Duration(10))
 			}
 		case <-d.doneChan:
 			{
