@@ -24,6 +24,13 @@ type WorkloadGenerator interface {
 	StopGeneratingWorkload()                                                                        // Stop generating the workload prematurely.
 }
 
+type ToggleDebugLogsRequest struct {
+	Op         string `json:"op"`
+	MessageId  string `json:"msg_id"`
+	WorkloadId string `json:"workload_id"`
+	Enabled    bool   `json:"enabled"`
+}
+
 // Response containing a single workload.
 // Sent to front-end in response to registering a workload, starting a workload, stopping a workload, etc.
 type SingleWorkloadResponse struct {
@@ -74,10 +81,11 @@ type Workload struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
 
-	WorkloadState      WorkloadState   `json:"workload_state"`
-	WorkloadPreset     *WorkloadPreset `json:"workload_preset"`
-	WorkloadPresetName string          `json:"workload_preset_name"`
-	WorkloadPresetKey  string          `json:"workload_preset_key"`
+	WorkloadState       WorkloadState   `json:"workload_state"`
+	WorkloadPreset      *WorkloadPreset `json:"workload_preset"`
+	WorkloadPresetName  string          `json:"workload_preset_name"`
+	WorkloadPresetKey   string          `json:"workload_preset_key"`
+	DebugLoggingEnabled bool            `json:"debug_logging_enabled"`
 
 	Seed int64 `json:"seed"`
 

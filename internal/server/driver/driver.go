@@ -80,6 +80,18 @@ func NewWorkloadDriver(opts *domain.Configuration) *WorkloadDriver {
 	return driver
 }
 
+func (d *WorkloadDriver) ToggleDebugLogging(enabled bool) *domain.Workload {
+	if enabled {
+		d.atom.SetLevel(zap.DebugLevel)
+		d.workload.DebugLoggingEnabled = true
+	} else {
+		d.atom.SetLevel(zap.InfoLevel)
+		d.workload.DebugLoggingEnabled = false
+	}
+
+	return d.workload
+}
+
 func (d *WorkloadDriver) GetWorkload() *domain.Workload {
 	return d.workload
 }
@@ -118,19 +130,20 @@ func (d *WorkloadDriver) RegisterWorkload(workloadRegistrationRequest *domain.Wo
 	}
 
 	d.workload = &domain.Workload{
-		ID:                 d.id, // Same ID as the driver.
-		Name:               workloadRegistrationRequest.WorkloadName,
-		WorkloadState:      domain.WorkloadReady,
-		WorkloadPreset:     d.workloadPreset,
-		WorkloadPresetName: d.workloadPreset.Name,
-		WorkloadPresetKey:  d.workloadPreset.Key,
-		TimeElasped:        time.Duration(0).String(),
-		Seed:               d.workloadRegistrationRequest.Seed,
-		NumTasksExecuted:   0,
-		NumEventsProcessed: 0,
-		NumSessionsCreated: 0,
-		NumActiveSessions:  0,
-		NumActiveTrainings: 0,
+		ID:                  d.id, // Same ID as the driver.
+		Name:                workloadRegistrationRequest.WorkloadName,
+		WorkloadState:       domain.WorkloadReady,
+		WorkloadPreset:      d.workloadPreset,
+		WorkloadPresetName:  d.workloadPreset.Name,
+		WorkloadPresetKey:   d.workloadPreset.Key,
+		TimeElasped:         time.Duration(0).String(),
+		Seed:                d.workloadRegistrationRequest.Seed,
+		NumTasksExecuted:    0,
+		NumEventsProcessed:  0,
+		NumSessionsCreated:  0,
+		NumActiveSessions:   0,
+		NumActiveTrainings:  0,
+		DebugLoggingEnabled: workloadRegistrationRequest.DebugLogging,
 	}
 
 	// If the workload seed is negative, then assign it a random value.
@@ -175,7 +188,7 @@ func (d *WorkloadDriver) StopChan() chan struct{} {
 // This should be called from its own goroutine.
 // Accepts a waitgroup that is used to notify the caller when the workload has entered the 'WorkloadRunning' state.
 func (d *WorkloadDriver) DriveWorkload(wg *sync.WaitGroup) {
-	d.logger.Debug("Starting workload.", zap.Any("workload-preset", d.workloadPreset), zap.Any("workload-request", d.workloadRegistrationRequest))
+	d.logger.Info("Starting workload.", zap.Any("workload-preset", d.workloadPreset), zap.Any("workload-request", d.workloadRegistrationRequest))
 
 	workloadGenerator := generator.NewWorkloadGenerator(d.opts)
 	go workloadGenerator.GenerateWorkload(d, d.workload, d.workloadPreset, d.workloadRegistrationRequest)
@@ -191,16 +204,18 @@ func (d *WorkloadDriver) DriveWorkload(wg *sync.WaitGroup) {
 		select {
 		case <-d.stopChan:
 			{
-				d.logger.Debug("Workload has been instructed to terminate early.")
+				d.logger.Info("Workload has been instructed to terminate early.")
 				workloadGenerator.StopGeneratingWorkload()
 				return
 			}
 		case evt := <-d.eventChan:
 			{
-				d.logger.Debug("Received event.", zap.Any("event-name", evt.Name()))
+				// d.logger.Debug("Received event.", zap.Any("event-name", evt.Name()))
 				d.handleEvent(evt)
 				d.workload.NumEventsProcessed += 1
 				d.workload.TimeElasped = time.Since(d.workload.StartTime).String()
+
+				time.Sleep(time.Millisecond * time.Duration(10))
 			}
 		case <-d.doneChan:
 			{
@@ -219,19 +234,24 @@ func (d *WorkloadDriver) DriveWorkload(wg *sync.WaitGroup) {
 func (d *WorkloadDriver) handleEvent(evt domain.Event) {
 	switch evt.Name() {
 	case generator.EventSessionStarted:
+		d.logger.Debug("Received SessionStarted event.", zap.String("session", evt.Data().(*generator.Session).Pod))
 		// TODO: Start session.
 		d.workload.NumActiveSessions += 1
 		d.workload.NumSessionsCreated += 1
 	case generator.EventSessionTrainingStarted:
+		d.logger.Debug("Received TrainingStarted event.", zap.String("session", evt.Data().(*generator.Session).Pod))
 		// TODO: Initiate training.
 		d.workload.NumActiveTrainings += 1
 	case generator.EventSessionUpdateGpuUtil:
+		d.logger.Debug("Received UpdateGpuUtil event.", zap.String("session", evt.Data().(*generator.Session).Pod))
 		// TODO: Update GPU utilization.
 	case generator.EventSessionTrainingEnded:
+		d.logger.Debug("Received TrainingEnded event.", zap.String("session", evt.Data().(*generator.Session).Pod))
 		// TODO: Stop training.
 		d.workload.NumTasksExecuted += 1
 		d.workload.NumActiveTrainings -= 1
 	case generator.EventSessionStopped:
+		d.logger.Debug("Received SessionStopped event.", zap.String("session", evt.Data().(*generator.Session).Pod))
 		// TODO: Stop session.
 		d.workload.NumActiveSessions -= 1
 	}

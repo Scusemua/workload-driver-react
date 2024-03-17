@@ -185,11 +185,11 @@ func (s *serverImpl) serveWebsocket(c *gin.Context) {
 	s.logger.Debug("Handling websocket connection")
 
 	upgrader.CheckOrigin = func(r *http.Request) bool {
-		if r.Header.Get("Origin") == "http://127.0.0.1:9001" {
+		if r.Header.Get("Origin") == "http://127.0.0.1:9001" || r.Header.Get("Origin") == "http://localhost:9001" {
 			return true
 		}
 
-		s.sugaredLogger.Error("Unexpected origin: %v", r.Header.Get("Origin"))
+		s.sugaredLogger.Errorf("Unexpected origin: %v", r.Header.Get("Origin"))
 		return false
 	}
 
@@ -257,7 +257,25 @@ func (s *serverImpl) serveWebsocket(c *gin.Context) {
 			var req *domain.StartStopWorkloadRequest
 			json.Unmarshal(message, &req)
 			s.handleStopWorkload(req, conn)
+		} else if op == "toggle_debug_logs" {
+			var req *domain.ToggleDebugLogsRequest
+			json.Unmarshal(message, &req)
+			s.handleToggleDebugLogs(req, conn)
 		}
+	}
+}
+
+func (s *serverImpl) handleToggleDebugLogs(req *domain.ToggleDebugLogsRequest, conn *websocket.Conn) {
+	driver := s.workloadDrivers[req.WorkloadId]
+
+	if driver != nil {
+		workload := driver.ToggleDebugLogging(req.Enabled)
+		conn.WriteJSON(&domain.SingleWorkloadResponse{
+			MessageId: req.MessageId,
+			Workload:  workload,
+		})
+	} else {
+		s.sugaredLogger.Errorf("Could not find driver associated with workload ID=%s", req.WorkloadId)
 	}
 }
 

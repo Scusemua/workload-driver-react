@@ -1,13 +1,13 @@
 import '@patternfly/react-core/dist/styles/base.css';
 
-import React, { useEffect, useState, useCallback, useRef } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { Grid, GridItem, PageSection } from '@patternfly/react-core';
 
 import { KernelList, KernelSpecList, KubernetesNodeList, WorkloadCard } from '@app/Components';
-import { DistributedJupyterKernel, JupyterKernelReplica, KubernetesNode, WorkloadPreset, Workload } from '@app/Data';
+import { DistributedJupyterKernel, JupyterKernelReplica, KubernetesNode, Workload, WorkloadPreset } from '@app/Data';
 import { MigrationModal, RegisterWorkloadModal } from '@app/Components/Modals';
 
-import useWebSocket, { ReadyState } from 'react-use-websocket';
+import useWebSocket from 'react-use-websocket';
 
 import { v4 as uuidv4 } from 'uuid';
 
@@ -32,7 +32,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
 
     const websocketCallbacks = React.useRef(new Map());
 
-    const { sendJsonMessage, lastJsonMessage, readyState } = useWebSocket<any>('ws://localhost:8000/workload', {
+    const { sendJsonMessage, lastJsonMessage } = useWebSocket<Record<string, unknown>>('ws://localhost:8000/workload', {
         share: false,
         shouldReconnect: () => true,
     });
@@ -54,6 +54,14 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
     useEffect(() => {
         console.log(`Got a new message: ${JSON.stringify(lastJsonMessage)}`);
 
+        const handleActiveWorkloadsUpdate = (updatedWorkloads: Workload[]) => {
+            console.log('Received update about %d active workload(s).', updatedWorkloads.length);
+
+            updatedWorkloads.forEach((workload: Workload) => {
+                setWorkloads(new Map(workloads.set(workload.id, workload)));
+            });
+        };
+
         // If there is a callback, then call it.
         if (lastJsonMessage) {
             if (websocketCallbacks.current.has(lastJsonMessage['msg_id'])) {
@@ -61,22 +69,18 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
                 websocketCallbacks.current.get(lastJsonMessage['msg_id'])(lastJsonMessage);
             } else {
                 console.log(`No callback found for message ${lastJsonMessage['msg_id']}`);
-                const op: string = lastJsonMessage['op'];
+                const op = lastJsonMessage['op'];
 
                 if (op == 'active_workloads_update') {
-                    handleActiveWorkloadsUpdate(lastJsonMessage['updated_workloads']);
+                    const updatedWorkloads: Workload[] | unknown = lastJsonMessage['updated_workloads'];
+                    if (!updatedWorkloads) {
+                        throw new Error("Unexpected response for 'updated_workloads' key.");
+                    }
+                    handleActiveWorkloadsUpdate(updatedWorkloads as Workload[]);
                 }
             }
         }
-    }, [lastJsonMessage]);
-
-    const handleActiveWorkloadsUpdate = (updatedWorkloads: Workload[]) => {
-        console.log('Received update about %d active workload(s).', updatedWorkloads.length);
-
-        updatedWorkloads.forEach((workload: Workload) => {
-            setWorkloads(new Map(workloads.set(workload.id, workload)));
-        });
-    };
+    }, [workloads, lastJsonMessage]);
 
     /**
      * The following references are used to handle the fact that network responses can return at random/arbitrary/misordered times.
@@ -160,68 +164,47 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
     /**
      * Retrieve the current workloads from the backend.
      */
-    async function fetchWorkloads(callback: (presets: Workload[]) => void | undefined) {
-        const startTime = performance.now();
-        try {
-            console.log('Refreshing workloads.');
+    const fetchWorkloads = useCallback(
+        (callback: (presets: Workload[]) => void | undefined) => {
+            const startTime = performance.now();
+            try {
+                console.log('Refreshing workloads.');
 
-            const messageId: string = uuidv4();
-            const onResponse = (response: any) => {
-                const respWorkloads: Workload[] = response.workloads;
+                const messageId: string = uuidv4();
+                const onResponse = (response: Record<string, any>) => {
+                    const respWorkloads: Workload[] = response.workloads;
 
-                console.log('Received some workloads: %s', JSON.stringify(respWorkloads));
+                    if (!ignoreResponseForWorkloads.current) {
+                        setWorkloads(new Map());
+                        respWorkloads.forEach((workload: Workload) => {
+                            setWorkloads(new Map(workloads.set(workload.id, workload)));
+                        });
+                        console.log(
+                            'Successfully refreshed workloads. Discovered %d workload(s):\n%s',
+                            respWorkloads.length,
+                            JSON.stringify(respWorkloads),
+                        );
 
-                if (!ignoreResponseForWorkloads.current) {
-                    respWorkloads.forEach((workload: Workload) => {
-                        setWorkloads(new Map(workloads.set(workload.id, workload)));
-                    });
-                    console.log(
-                        'Successfully refreshed workloads. Discovered %d workload(s):\n%s',
-                        respWorkloads.length,
-                        JSON.stringify(respWorkloads),
-                    );
-
-                    if (callback != undefined) {
-                        callback(respWorkloads);
+                        if (callback != undefined) {
+                            callback(respWorkloads);
+                        }
+                        ignoreResponseForWorkloads.current = true;
+                    } else {
+                        console.log("Refreshed workloads, but we're ignoring the response...");
                     }
-                } else {
-                    console.log("Refreshed workloads, but we're ignoring the response...");
-                }
-            };
-            websocketCallbacks.current.set(messageId, onResponse);
-            sendJsonMessage({
-                op: 'get_workloads',
-                msg_id: messageId,
-            });
-
-            // Make a network request to the backend. The server infrastructure handles proxying/routing the request to the correct host.
-            // We're specifically targeting the API endpoint I setup called "nodes".
-            // const response = await fetch('/api/workload');
-
-            // if (response.status == 200) {
-            // // Get the response, which will be in JSON format, and decode it into an array of WorkloadPreset (which is a TypeScript interface that I defined).
-            // const respWorkloads: Workload[] = await response.json();
-
-            // if (!ignoreResponseForWorkloads.current) {
-            //     setWorkloads(respWorkloads);
-            //     console.log(
-            //         'Successfully refreshed workloads. Discovered %d workload(s):\n%s',
-            //         respWorkloads.length,
-            //         JSON.stringify(respWorkloads),
-            //     );
-
-            //     if (callback != undefined) {
-            //         callback(respWorkloads);
-            //     }
-            // } else {
-            //     console.log("Refreshed workloads, but we're ignoring the response...");
-            // }
-            // }
-        } catch (e) {
-            console.error(e);
-        }
-        console.log(`Refresh workloads: ${(performance.now() - startTime).toFixed(4)} ms`);
-    }
+                };
+                websocketCallbacks.current.set(messageId, onResponse);
+                sendJsonMessage({
+                    op: 'get_workloads',
+                    msg_id: messageId,
+                });
+            } catch (e) {
+                console.error(e);
+            }
+            console.log(`Refresh workloads: ${(performance.now() - startTime).toFixed(4)} ms`);
+        },
+        [sendJsonMessage],
+    );
 
     // Fetch the kubernetes nodes from the backend (which itself makes a network call to the Kubernetes API).
     useEffect(() => {
@@ -273,7 +256,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
         return () => {
             ignoreResponseForWorkloads.current = true;
         };
-    }, [props.workloadRefreshInterval]);
+    }, [props.workloadRefreshInterval, fetchWorkloads]);
 
     async function manuallyRefreshNodes(callback: () => void | undefined) {
         const startTime = performance.now();
@@ -384,6 +367,22 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
         });
     };
 
+    const toggleDebugLogs = (workloadId: string, enabled: boolean) => {
+        console.log('Toggling debug logs for workload ID=%s', workloadId);
+
+        const messageId: string = uuidv4();
+        const callback = (result: any) => {
+            setWorkloads(new Map(workloads.set(result.workload.id, result.workload)));
+        };
+        websocketCallbacks.current.set(messageId, callback);
+        sendJsonMessage({
+            op: 'toggle_debug_logs',
+            msg_id: messageId,
+            workload_id: workloadId,
+            enabled: enabled,
+        });
+    };
+
     const onStartWorkloadClicked = (workload: Workload) => {
         console.log("Starting workload '%s' (ID=%s)", workload.name, workload.id);
 
@@ -450,6 +449,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
                 <GridItem span={6} rowSpan={1}>
                     <WorkloadCard
                         workloadsPerPage={5}
+                        toggleDebugLogs={toggleDebugLogs}
                         onStartWorkloadClicked={onStartWorkloadClicked}
                         onStopWorkloadClicked={onStopWorkloadClicked}
                         workloads={Array.from(workloads.values())}

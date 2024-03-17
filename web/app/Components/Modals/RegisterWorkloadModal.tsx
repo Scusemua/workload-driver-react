@@ -282,8 +282,8 @@ export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalPr
                                         aria-label="workload-seed-text-input-helper"
                                         label="workload-seed-text-input-helper"
                                     >
-                                        Provide an optional integer seed (0 - 2,147,483,647) for the workload's random
-                                        number generator.
+                                        Provide an optional integer seed (0 - 2,147,483,647) for the workload&apos;s
+                                        random number generator.
                                     </HelperTextItem>
                                 </HelperText>
                             </FormHelperText>

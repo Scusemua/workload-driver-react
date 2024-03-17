@@ -6,19 +6,15 @@ import {
     CardExpandableContent,
     CardHeader,
     DataList,
-    DataListAction,
     DataListCell,
-    DataListContent,
-    DataListControl,
     DataListItem,
     DataListItemCells,
     DataListItemRow,
-    DataListToggle,
     Flex,
     FlexItem,
     Pagination,
     PaginationVariant,
-    Radio,
+    Switch,
     Text,
     TextVariants,
     Title,
@@ -31,28 +27,28 @@ import {
     BlueprintIcon,
     CheckCircleIcon,
     ClockIcon,
-    DiceIcon,
-    OutlinedCalendarAltIcon,
-    MonitoringIcon,
-    SpinnerIcon,
-    PendingIcon,
-    PlusIcon,
-    StopCircleIcon,
-    SyncIcon,
-    PlayIcon,
-    StopIcon,
-    ExclamationCircleIcon,
-    PowerOffIcon,
     CodeIcon,
+    DiceIcon,
+    ExclamationCircleIcon,
+    MonitoringIcon,
+    OutlinedCalendarAltIcon,
+    PendingIcon,
+    PlayIcon,
+    PlusIcon,
+    PowerOffIcon,
+    SpinnerIcon,
+    StopCircleIcon,
+    StopIcon,
+    SyncIcon,
 } from '@patternfly/react-icons';
 
 import {
-    Workload,
+    WORKLOAD_STATE_ERRED,
+    WORKLOAD_STATE_FINISHED,
     WORKLOAD_STATE_READY,
     WORKLOAD_STATE_RUNNING,
-    WORKLOAD_STATE_FINISHED,
-    WORKLOAD_STATE_ERRED,
     WORKLOAD_STATE_TERMINATED,
+    Workload,
 } from '@app/Data/Workload';
 
 export interface WorkloadCardProps {
@@ -61,6 +57,7 @@ export interface WorkloadCardProps {
     workloads: Workload[];
     onStartWorkloadClicked: (workload: Workload) => void;
     onStopWorkloadClicked: (workload: Workload) => void;
+    toggleDebugLogs: (workloadId: string, enabled: boolean) => void;
     workloadsPerPage: number;
 }
 
@@ -224,57 +221,88 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                                                                 </FlexItem>
                                                                 <FlexItem align={{ default: 'alignRight' }}>
                                                                     <Flex
-                                                                        direction={{ default: 'row' }}
+                                                                        direction={{ default: 'column' }}
                                                                         spaceItems={{ default: 'spaceItemsXs' }}
                                                                     >
                                                                         <FlexItem>
-                                                                            <Tooltip content={'Start the workload'}>
-                                                                                <Button
-                                                                                    id={
-                                                                                        'start-workload-' +
-                                                                                        idx +
-                                                                                        '-button'
-                                                                                    }
-                                                                                    isDisabled={
-                                                                                        workload.workload_state !=
-                                                                                        WORKLOAD_STATE_READY
-                                                                                    }
-                                                                                    variant="link"
-                                                                                    icon={<PlayIcon />}
-                                                                                    onClick={() => {
-                                                                                        props.onStartWorkloadClicked(
-                                                                                            workload,
-                                                                                        );
-                                                                                    }}
-                                                                                >
-                                                                                    Start
-                                                                                </Button>
-                                                                            </Tooltip>
+                                                                            <Flex
+                                                                                direction={{ default: 'row' }}
+                                                                                spaceItems={{ default: 'spaceItemsXs' }}
+                                                                            >
+                                                                                <FlexItem>
+                                                                                    <Tooltip
+                                                                                        content={'Start the workload'}
+                                                                                    >
+                                                                                        <Button
+                                                                                            id={
+                                                                                                'start-workload-' +
+                                                                                                idx +
+                                                                                                '-button'
+                                                                                            }
+                                                                                            isDisabled={
+                                                                                                workload.workload_state !=
+                                                                                                WORKLOAD_STATE_READY
+                                                                                            }
+                                                                                            variant="link"
+                                                                                            icon={<PlayIcon />}
+                                                                                            onClick={() => {
+                                                                                                props.onStartWorkloadClicked(
+                                                                                                    workload,
+                                                                                                );
+                                                                                            }}
+                                                                                        >
+                                                                                            Start
+                                                                                        </Button>
+                                                                                    </Tooltip>
+                                                                                </FlexItem>
+                                                                                <FlexItem>
+                                                                                    <Tooltip
+                                                                                        content={'Stop the workload.'}
+                                                                                    >
+                                                                                        <Button
+                                                                                            isDisabled={
+                                                                                                workload.workload_state !=
+                                                                                                WORKLOAD_STATE_RUNNING
+                                                                                            }
+                                                                                            id={
+                                                                                                'stop-workload-' +
+                                                                                                idx +
+                                                                                                '-button'
+                                                                                            }
+                                                                                            variant="link"
+                                                                                            isDanger
+                                                                                            icon={<StopIcon />}
+                                                                                            onClick={() => {
+                                                                                                props.onStopWorkloadClicked(
+                                                                                                    workload,
+                                                                                                );
+                                                                                            }}
+                                                                                        >
+                                                                                            Stop
+                                                                                        </Button>
+                                                                                    </Tooltip>
+                                                                                </FlexItem>
+                                                                            </Flex>
                                                                         </FlexItem>
-                                                                        <FlexItem>
-                                                                            <Tooltip content={'Stop the workload.'}>
-                                                                                <Button
-                                                                                    isDisabled={
-                                                                                        workload.workload_state !=
-                                                                                        WORKLOAD_STATE_RUNNING
-                                                                                    }
-                                                                                    id={
-                                                                                        'stop-workload-' +
-                                                                                        idx +
-                                                                                        '-button'
-                                                                                    }
-                                                                                    variant="link"
-                                                                                    isDanger
-                                                                                    icon={<StopIcon />}
-                                                                                    onClick={() => {
-                                                                                        props.onStopWorkloadClicked(
-                                                                                            workload,
-                                                                                        );
-                                                                                    }}
-                                                                                >
-                                                                                    Stop
-                                                                                </Button>
-                                                                            </Tooltip>
+                                                                        <FlexItem
+                                                                            alignSelf={{ default: 'alignSelfCenter' }}
+                                                                        >
+                                                                            <Switch
+                                                                                id="debug-logging-switch"
+                                                                                label="Debug logs enabled"
+                                                                                labelOff="Debug logs disabled"
+                                                                                aria-label="debug-logging-switch"
+                                                                                isChecked={
+                                                                                    workload.debug_logging_enabled
+                                                                                }
+                                                                                ouiaId="DebugLoggingSwitch"
+                                                                                onChange={() => {
+                                                                                    props.toggleDebugLogs(
+                                                                                        workload.id,
+                                                                                        !workload.debug_logging_enabled,
+                                                                                    );
+                                                                                }}
+                                                                            />
                                                                         </FlexItem>
                                                                     </Flex>
                                                                 </FlexItem>
@@ -331,8 +359,8 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                                                                             position="bottom"
                                                                         >
                                                                             <React.Fragment>
-                                                                                <BlueprintIcon /> "
-                                                                                {workload.workload_preset_name}"
+                                                                                <BlueprintIcon /> &quot;
+                                                                                {workload.workload_preset_name}&quot;
                                                                             </React.Fragment>
                                                                         </Tooltip>
                                                                     </FlexItem>

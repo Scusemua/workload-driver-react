@@ -21,6 +21,7 @@ interface Workload {
     num_sessions_created: number;
     num_events_processed: number;
     num_active_trainings: number;
+    debug_logging_enabled: boolean;
 }
 
 const WORKLOAD_STATE_READY: number = 0; // Workload is registered and ready to be started.
