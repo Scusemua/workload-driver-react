@@ -4,7 +4,15 @@ import React, { useCallback, useEffect, useRef } from 'react';
 import { Grid, GridItem, PageSection } from '@patternfly/react-core';
 
 import { KernelList, KernelSpecList, KubernetesNodeList, WorkloadCard } from '@app/Components';
-import { DistributedJupyterKernel, JupyterKernelReplica, KubernetesNode, Workload, WorkloadPreset } from '@app/Data';
+import {
+    DistributedJupyterKernel,
+    JupyterKernelReplica,
+    KubernetesNode,
+    SingleWorkloadResponse,
+    Workload,
+    WorkloadPreset,
+    WorkloadsResponse,
+} from '@app/Data';
 import { MigrationModal, RegisterWorkloadModal } from '@app/Components/Modals';
 
 import useWebSocket from 'react-use-websocket';
@@ -32,10 +40,13 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
 
     const websocketCallbacks = React.useRef(new Map());
 
-    const { sendJsonMessage, lastJsonMessage } = useWebSocket<Record<string, unknown>>('ws://localhost:8000/workload', {
-        share: false,
-        shouldReconnect: () => true,
-    });
+    const { sendJsonMessage, lastMessage, lastJsonMessage } = useWebSocket<Record<string, unknown>>(
+        'ws://localhost:8000/workload',
+        {
+            share: false,
+            shouldReconnect: () => true,
+        },
+    );
 
     // Run when the connection state (readyState) changes.
     // useEffect(() => {
@@ -50,29 +61,28 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
     //     }
     // }, [readyState]);
 
-    // Run when a new WebSocket message is received (lastJsonMessage).
-    useEffect(() => {
-        console.log(`Got a new message: ${JSON.stringify(lastJsonMessage)}`);
+    const handleMessage = useCallback((message: Record<string, unknown>) => {
+        console.log(`Got a new message: ${JSON.stringify(message)}`);
 
         const handleActiveWorkloadsUpdate = (updatedWorkloads: Workload[]) => {
             console.log('Received update about %d active workload(s).', updatedWorkloads.length);
 
             updatedWorkloads.forEach((workload: Workload) => {
-                setWorkloads(new Map(workloads.set(workload.id, workload)));
+                setWorkloads((w) => new Map(w.set(workload.id, workload)));
             });
         };
 
         // If there is a callback, then call it.
-        if (lastJsonMessage) {
-            if (websocketCallbacks.current.has(lastJsonMessage['msg_id'])) {
-                console.log(`Found callback for message ${lastJsonMessage['msg_id']}`);
-                websocketCallbacks.current.get(lastJsonMessage['msg_id'])(lastJsonMessage);
+        if (message) {
+            if (websocketCallbacks.current.has(message['msg_id'])) {
+                console.log(`Found callback for message ${message['msg_id']}`);
+                websocketCallbacks.current.get(message['msg_id'])(message);
             } else {
-                console.log(`No callback found for message ${lastJsonMessage['msg_id']}`);
-                const op = lastJsonMessage['op'];
+                console.log(`No callback found for message ${message['msg_id']}`);
+                const op = message['op'];
 
                 if (op == 'active_workloads_update') {
-                    const updatedWorkloads: Workload[] | unknown = lastJsonMessage['updated_workloads'];
+                    const updatedWorkloads: Workload[] | unknown = message['updated_workloads'];
                     if (!updatedWorkloads) {
                         throw new Error("Unexpected response for 'updated_workloads' key.");
                     }
@@ -80,7 +90,23 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
                 }
             }
         }
-    }, [workloads, lastJsonMessage]);
+    }, []);
+
+    // Run when a new WebSocket message is received (lastJsonMessage).
+    useEffect(() => {
+        handleMessage(lastJsonMessage);
+    }, [lastJsonMessage, handleMessage]);
+
+    useEffect(() => {
+        if (lastMessage && lastMessage.data) {
+            const promise: Promise<string> = lastMessage.data.text();
+            promise.then((data) => {
+                console.log(data);
+                const messageJson: Record<string, unknown> = JSON.parse(data);
+                handleMessage(messageJson);
+            });
+        }
+    }, [lastMessage, handleMessage]);
 
     /**
      * The following references are used to handle the fact that network responses can return at random/arbitrary/misordered times.
@@ -171,13 +197,13 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
                 console.log('Refreshing workloads.');
 
                 const messageId: string = uuidv4();
-                const onResponse = (response: Record<string, any>) => {
+                const onResponse = (response: WorkloadsResponse) => {
                     const respWorkloads: Workload[] = response.workloads;
 
                     if (!ignoreResponseForWorkloads.current) {
                         setWorkloads(new Map());
                         respWorkloads.forEach((workload: Workload) => {
-                            setWorkloads(new Map(workloads.set(workload.id, workload)));
+                            setWorkloads((w) => new Map(w.set(workload.id, workload)));
                         });
                         console.log(
                             'Successfully refreshed workloads. Discovered %d workload(s):\n%s',
@@ -328,7 +354,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
         }
 
         const messageId: string = uuidv4();
-        const callback = (result: any) => {
+        const callback = (result: SingleWorkloadResponse) => {
             console.log('Successfully registered workload %s', result.workload.id);
             setWorkloads(new Map(workloads.set(result.workload.id, result.workload)));
         };
@@ -368,10 +394,14 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
     };
 
     const toggleDebugLogs = (workloadId: string, enabled: boolean) => {
-        console.log('Toggling debug logs for workload ID=%s', workloadId);
+        if (enabled) {
+            console.log("Enabling debug logging for workload '%s'", workloadId);
+        } else {
+            console.log("Disabling debug logging for workload '%s'", workloadId);
+        }
 
         const messageId: string = uuidv4();
-        const callback = (result: any) => {
+        const callback = (result: SingleWorkloadResponse) => {
             setWorkloads(new Map(workloads.set(result.workload.id, result.workload)));
         };
         websocketCallbacks.current.set(messageId, callback);
@@ -387,16 +417,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
         console.log("Starting workload '%s' (ID=%s)", workload.name, workload.id);
 
         const messageId: string = uuidv4();
-        const callback = (result: any) => {
-            // const updatedWorkloads: Workload[] = workloads.map((workload: Workload) => {
-            //     if (workload.id == result.workload.id) {
-            //         return result.workload;
-            //     } else {
-            //         return workload;
-            //     }
-            // });
-
-            // setWorkloads(updatedWorkloads);
+        const callback = (result: SingleWorkloadResponse) => {
             setWorkloads(new Map(workloads.set(result.workload.id, result.workload)));
         };
         websocketCallbacks.current.set(messageId, callback);
@@ -411,16 +432,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
         console.log("Stopping workload '%s' (ID=%s)", workload.name, workload.id);
 
         const messageId: string = uuidv4();
-        const callback = (result: any) => {
-            // const updatedWorkloads: Workload[] = workloads.map((workload: Workload) => {
-            //     if (workload.id == result.workload.id) {
-            //         return result.workload;
-            //     } else {
-            //         return workload;
-            //     }
-            // });
-
-            // setWorkloads(updatedWorkloads);
+        const callback = (result: SingleWorkloadResponse) => {
             setWorkloads(new Map(workloads.set(result.workload.id, result.workload)));
         };
         websocketCallbacks.current.set(messageId, callback);

@@ -86,9 +86,11 @@ type Workload struct {
 	WorkloadPresetName  string          `json:"workload_preset_name"`
 	WorkloadPresetKey   string          `json:"workload_preset_key"`
 	DebugLoggingEnabled bool            `json:"debug_logging_enabled"`
+	Error               error           `json:"error"`
 
 	Seed int64 `json:"seed"`
 
+	RegisteredTime     time.Time `json:"registered_time"`
 	StartTime          time.Time `json:"start_time"`
 	TimeElasped        string    `json:"time_elapsed"` // Computed at the time that the data is requested by the user.
 	NumTasksExecuted   int64     `json:"num_tasks_executed"`

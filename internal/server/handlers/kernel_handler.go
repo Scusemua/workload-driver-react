@@ -16,7 +16,7 @@ import (
 )
 
 type KernelHttpHandler struct {
-	*BaseGRPCHandler
+	*GrpcClient
 
 	spoofKernels   bool                                                           // If we're creating and returning fake/mocked kernels.
 	spoofedKernels *cmap.ConcurrentMap[string, *gateway.DistributedJupyterKernel] // Latest spoofedKernels.
@@ -24,8 +24,8 @@ type KernelHttpHandler struct {
 
 func NewKernelHttpHandler(opts *domain.Configuration) domain.BackendHttpGetHandler {
 	handler := &KernelHttpHandler{
-		spoofKernels:    opts.SpoofKernels,
-		BaseGRPCHandler: newBaseGRPCHandler(opts, !opts.SpoofKernels),
+		spoofKernels: opts.SpoofKernels,
+		GrpcClient:   NewGrpcClient(opts, !opts.SpoofKernels),
 	}
 	handler.BackendHttpGetHandler = handler
 

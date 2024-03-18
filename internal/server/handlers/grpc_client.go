@@ -14,7 +14,7 @@ import (
 )
 
 // This type of handler issues HTTP requests to the backend.
-type BaseGRPCHandler struct {
+type GrpcClient struct {
 	*BaseHandler
 
 	gatewayAddress     string                       // Address that the Cluster Gateway's gRPC server is listening on.
@@ -22,8 +22,8 @@ type BaseGRPCHandler struct {
 	connectedToGateway bool                         // Indicates whether we're connected or not.
 }
 
-func newBaseGRPCHandler(opts *domain.Configuration, shouldConnect bool) *BaseGRPCHandler {
-	handler := &BaseGRPCHandler{
+func NewGrpcClient(opts *domain.Configuration, shouldConnect bool) *GrpcClient {
+	handler := &GrpcClient{
 		BaseHandler: newBaseHandler(opts),
 	}
 
@@ -40,7 +40,7 @@ func newBaseGRPCHandler(opts *domain.Configuration, shouldConnect bool) *BaseGRP
 }
 
 // Write an error back to the client.
-func (h *BaseGRPCHandler) WriteError(c *gin.Context, errorMessage string) {
+func (h *GrpcClient) WriteError(c *gin.Context, errorMessage string) {
 	// Write error back to front-end.
 	msg := &domain.ErrorMessage{
 		ErrorMessage: errorMessage,
@@ -49,12 +49,12 @@ func (h *BaseGRPCHandler) WriteError(c *gin.Context, errorMessage string) {
 	c.JSON(http.StatusInternalServerError, msg)
 }
 
-func (h *BaseGRPCHandler) HandleRequest(c *gin.Context) {
+func (h *GrpcClient) HandleRequest(c *gin.Context) {
 	h.BackendHttpGetHandler.HandleRequest(c)
 }
 
 // Attempt to connect to the Cluster Gateway's gRPC server using the provided address. Returns an error if connection failed, or nil on success. This should NOT be called from the UI goroutine.
-func (h *BaseGRPCHandler) DialGatewayGRPC(gatewayAddress string) error {
+func (h *GrpcClient) DialGatewayGRPC(gatewayAddress string) error {
 	if gatewayAddress == "" {
 		return domain.ErrEmptyGatewayAddr
 	}

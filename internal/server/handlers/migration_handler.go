@@ -11,12 +11,12 @@ import (
 )
 
 type MigrationHttpHandler struct {
-	*BaseGRPCHandler
+	*GrpcClient
 }
 
 func NewMigrationHttpHandler(opts *domain.Configuration) domain.BackendHttpGetHandler {
 	handler := &MigrationHttpHandler{
-		BaseGRPCHandler: newBaseGRPCHandler(opts, !opts.SpoofKernels),
+		GrpcClient: NewGrpcClient(opts, !opts.SpoofKernels),
 	}
 	handler.BackendHttpGetHandler = handler
 
