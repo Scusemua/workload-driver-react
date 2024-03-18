@@ -14,21 +14,32 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/generator"
+	"github.com/scusemua/workload-driver-react/m/v2/internal/server/handlers"
+	"github.com/scusemua/workload-driver-react/m/v2/internal/server/jupyter"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
 var (
-	ErrWorkloadPresetNotFound = errors.New("could not find workload preset with specified key")
+	ErrWorkloadPresetNotFound    = errors.New("could not find workload preset with specified key")
+	ErrWorkloadAlreadyRegistered = errors.New("driver already has a workload registered with it")
+
+	ErrTrainingStartedUnknownSession = errors.New("received 'training-started' event for unknown session")
+	ErrTrainingStoppedUnknownSession = errors.New("received 'training-ended' event for unknown session")
 )
 
 // The Workload Driver consumes events from the Workload Generator and takes action accordingly.
 type WorkloadDriver struct {
-	id string
+	id string // Unique ID (relative to other drivers). The workload registered with this driver will be assigned this ID.
+
+	rpc           *handlers.GrpcClient
+	kernelManager *jupyter.KernelManager
 
 	logger        *zap.Logger
 	sugaredLogger *zap.SugaredLogger
-	atom          zap.AtomicLevel
+	atom          *zap.AtomicLevel
+
+	kernels map[string]struct{}
 
 	workloadEndTime time.Time         // The time at which the workload completed.
 	eventChan       chan domain.Event // Receives events from the Synthesizer.
@@ -38,19 +49,27 @@ type WorkloadDriver struct {
 	workloadRegistrationRequest *domain.WorkloadRegistrationRequest
 	workload                    *domain.Workload
 
-	opts     *domain.Configuration
-	doneChan chan struct{} // Used to signal that the workload has successfully processed all events.
-	stopChan chan struct{} // Used to stop the workload early/prematurely (i.e., before all events have been processed).
+	mu sync.Mutex
+
+	opts      *domain.Configuration
+	doneChan  chan struct{} // Used to signal that the workload has successfully processed all events.
+	stopChan  chan struct{} // Used to stop the workload early/prematurely (i.e., before all events have been processed).
+	errorChan chan error    // Used to stop the workload due to a critical error.
 }
 
 func NewWorkloadDriver(opts *domain.Configuration) *WorkloadDriver {
+	atom := zap.NewAtomicLevelAt(zapcore.DebugLevel)
 	driver := &WorkloadDriver{
-		id:        uuid.NewString(),
-		opts:      opts,
-		doneChan:  make(chan struct{}),
-		eventChan: make(chan domain.Event),
-		stopChan:  make(chan struct{}),
-		atom:      zap.NewAtomicLevelAt(zapcore.DebugLevel),
+		id:            uuid.NewString(),
+		opts:          opts,
+		doneChan:      make(chan struct{}),
+		eventChan:     make(chan domain.Event),
+		stopChan:      make(chan struct{}),
+		errorChan:     make(chan error),
+		atom:          &atom,
+		rpc:           handlers.NewGrpcClient(opts, !opts.SpoofKernels),
+		kernelManager: jupyter.NewKernelManager(opts, &atom),
+		kernels:       make(map[string]struct{}),
 	}
 
 	core := zapcore.NewCore(zapcore.NewJSONEncoder(zap.NewDevelopmentEncoderConfig()), os.Stdout, driver.atom)
@@ -77,10 +96,40 @@ func NewWorkloadDriver(opts *domain.Configuration) *WorkloadDriver {
 		driver.logger.Debug("Discovered preset.", zap.Any(fmt.Sprintf("preset-%s", preset.Key), preset.String()))
 	}
 
+	if !opts.SpoofKernels {
+		err := driver.rpc.DialGatewayGRPC(opts.GatewayAddress)
+		if err != nil {
+			panic(fmt.Sprintf("WorkloadDriver %s failed to dial Cluster Gateway at addr='%s'", driver.id, opts.GatewayAddress))
+		}
+	}
+
 	return driver
 }
 
+// Acquire the Driver's mutex externally.
+//
+// IMPORTANT: This will prevent the Driver's workload from progressing until the lock is released!
+func (d *WorkloadDriver) LockDriver() {
+	d.mu.Lock()
+}
+
+// Attempt to acquire the Driver's mutex externally.
+// Returns true on successful acquiring of the lock. If lock was not acquired, return false.
+//
+// IMPORTANT: This will prevent the Driver's workload from progressing until the lock is released!
+func (d *WorkloadDriver) TryLockDriver() bool {
+	return d.mu.TryLock()
+}
+
+// Release the Driver's mutex externally.
+func (d *WorkloadDriver) UnlockDriver() {
+	d.mu.Unlock()
+}
+
 func (d *WorkloadDriver) ToggleDebugLogging(enabled bool) *domain.Workload {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
 	if enabled {
 		d.atom.SetLevel(zap.DebugLevel)
 		d.workload.DebugLoggingEnabled = true
@@ -106,6 +155,14 @@ func (d *WorkloadDriver) GetWorkloadRegistrationRequest() *domain.WorkloadRegist
 
 // Returns nil if the workload could not be registered.
 func (d *WorkloadDriver) RegisterWorkload(workloadRegistrationRequest *domain.WorkloadRegistrationRequest, conn *websocket.Conn) (*domain.Workload, error) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
+	// Only one workload per driver.
+	if d.workload != nil {
+		return nil, ErrWorkloadAlreadyRegistered
+	}
+
 	d.workloadRegistrationRequest = workloadRegistrationRequest
 	d.sugaredLogger.Debugf("User is requesting the execution of workload '%s'", workloadRegistrationRequest.Key)
 
@@ -138,6 +195,7 @@ func (d *WorkloadDriver) RegisterWorkload(workloadRegistrationRequest *domain.Wo
 		WorkloadPresetKey:   d.workloadPreset.Key,
 		TimeElasped:         time.Duration(0).String(),
 		Seed:                d.workloadRegistrationRequest.Seed,
+		RegisteredTime:      time.Now(),
 		NumTasksExecuted:    0,
 		NumEventsProcessed:  0,
 		NumSessionsCreated:  0,
@@ -169,13 +227,25 @@ func (d *WorkloadDriver) WriteError(c *gin.Context, errorMessage string) {
 
 // Return true if the workload has completed; otherwise, return false.
 func (d *WorkloadDriver) IsWorkloadComplete() bool {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
 	return d.workload.WorkloadState == domain.WorkloadFinished
+}
+
+func (d *WorkloadDriver) ID() string {
+	return d.id
 }
 
 // Stop a workload that's already running/in-progress.
 // Returns nil on success, or an error if one occurred.
 func (d *WorkloadDriver) StopWorkload() error {
+	d.logger.Debug("Stopping workload.", zap.String("workload-id", d.id))
 	d.stopChan <- struct{}{}
+
+	d.mu.Lock()
+	defer d.mu.Unlock()
+
 	d.workloadEndTime = time.Now()
 	d.workload.WorkloadState = domain.WorkloadTerminated
 	return nil
@@ -193,8 +263,10 @@ func (d *WorkloadDriver) DriveWorkload(wg *sync.WaitGroup) {
 	workloadGenerator := generator.NewWorkloadGenerator(d.opts)
 	go workloadGenerator.GenerateWorkload(d, d.workload, d.workloadPreset, d.workloadRegistrationRequest)
 
+	d.mu.Lock()
 	d.workload.StartTime = time.Now()
 	d.workload.WorkloadState = domain.WorkloadRunning
+	d.mu.Unlock()
 
 	wg.Done()
 
@@ -202,6 +274,18 @@ func (d *WorkloadDriver) DriveWorkload(wg *sync.WaitGroup) {
 
 	for {
 		select {
+		case err := <-d.errorChan:
+			{
+				d.logger.Error("Workload encountered a critical error and must abort.", zap.String("workload-id", d.id), zap.Error(err))
+				workloadGenerator.StopGeneratingWorkload()
+
+				d.mu.Lock()
+				defer d.mu.Unlock()
+
+				d.workload.WorkloadState = domain.WorkloadErred
+				d.workload.Error = err
+				return
+			}
 		case <-d.stopChan:
 			{
 				d.logger.Info("Workload has been instructed to terminate early.")
@@ -212,13 +296,20 @@ func (d *WorkloadDriver) DriveWorkload(wg *sync.WaitGroup) {
 			{
 				// d.logger.Debug("Received event.", zap.Any("event-name", evt.Name()))
 				d.handleEvent(evt)
+
+				d.mu.Lock()
+				defer d.mu.Unlock()
+
 				d.workload.NumEventsProcessed += 1
 				d.workload.TimeElasped = time.Since(d.workload.StartTime).String()
 
-				// time.Sleep(time.Millisecond * time.Duration(10))
+				return
 			}
 		case <-d.doneChan:
 			{
+				d.mu.Lock()
+				defer d.mu.Unlock()
+
 				d.workloadEndTime = time.Now()
 				d.workload.WorkloadState = domain.WorkloadFinished
 
@@ -232,29 +323,68 @@ func (d *WorkloadDriver) DriveWorkload(wg *sync.WaitGroup) {
 }
 
 func (d *WorkloadDriver) handleEvent(evt domain.Event) {
+	sessionId := evt.Data().(*generator.Session).Pod
 	switch evt.Name() {
 	case generator.EventSessionStarted:
-		d.logger.Debug("Received SessionStarted event.", zap.String("session", evt.Data().(*generator.Session).Pod))
+		d.logger.Debug("Received SessionStarted event.", zap.String("session-id", sessionId))
+
 		// TODO: Start session.
+		d.createKernel(sessionId)
+		d.kernels[sessionId] = struct{}{}
+
+		d.mu.Lock()
+		defer d.mu.Unlock()
 		d.workload.NumActiveSessions += 1
 		d.workload.NumSessionsCreated += 1
 	case generator.EventSessionTrainingStarted:
-		d.logger.Debug("Received TrainingStarted event.", zap.String("session", evt.Data().(*generator.Session).Pod))
+		d.logger.Debug("Received TrainingStarted event.", zap.String("session", sessionId))
+
 		// TODO: Initiate training.
+		if _, ok := d.kernels[sessionId]; !ok {
+			d.logger.Error("Received 'training-started' event for unknown session.", zap.String("session-id", sessionId))
+			d.errorChan <- ErrTrainingStartedUnknownSession
+		}
+
+		d.mu.Lock()
+		defer d.mu.Unlock()
 		d.workload.NumActiveTrainings += 1
 	case generator.EventSessionUpdateGpuUtil:
-		d.logger.Debug("Received UpdateGpuUtil event.", zap.String("session", evt.Data().(*generator.Session).Pod))
+		d.logger.Debug("Received UpdateGpuUtil event.", zap.String("session", sessionId))
 		// TODO: Update GPU utilization.
 	case generator.EventSessionTrainingEnded:
-		d.logger.Debug("Received TrainingEnded event.", zap.String("session", evt.Data().(*generator.Session).Pod))
+		d.logger.Debug("Received TrainingEnded event.", zap.String("session", sessionId))
+
 		// TODO: Stop training.
+		if _, ok := d.kernels[sessionId]; !ok {
+			d.logger.Error("Received 'training-stopped' event for unknown session.", zap.String("session-id", sessionId))
+			d.errorChan <- ErrTrainingStoppedUnknownSession
+		}
+
+		d.mu.Lock()
+		defer d.mu.Unlock()
 		d.workload.NumTasksExecuted += 1
 		d.workload.NumActiveTrainings -= 1
 	case generator.EventSessionStopped:
-		d.logger.Debug("Received SessionStopped event.", zap.String("session", evt.Data().(*generator.Session).Pod))
+		d.logger.Debug("Received SessionStopped event.", zap.String("session", sessionId))
+
 		// TODO: Stop session.
+		d.stopKernel(sessionId)
+		delete(d.kernels, sessionId)
+
+		d.mu.Lock()
+		defer d.mu.Unlock()
 		d.workload.NumActiveSessions -= 1
 	}
+}
+
+func (d *WorkloadDriver) createKernel(id string) {
+	d.logger.Debug("Creating new kernel.", zap.String("kernel-id", id))
+	d.kernelManager.CreateSession(id, id, fmt.Sprintf("%s.ipynb", id), "notebook")
+}
+
+func (d *WorkloadDriver) stopKernel(id string) {
+	d.logger.Debug("Stopping kernel.", zap.String("kernel-id", id))
+	d.kernelManager.StopKernel(id)
 }
 
 // Return the Workload Driver's "done" channel, which is used to signal that the simulation is complete.

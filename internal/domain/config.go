@@ -103,6 +103,8 @@ type Configuration struct {
 
 	PushUpdateInterval int `name:"push-update-interval" description:"How frequently the server should push updates about active workloads to the frontend"`
 
+	WorkloadDriverKernelSpec string `name:"workload-driver-kernel-spec-name" description:"The name of the Jupyter kernel spec to be used by the workload driver when creating new kernels."`
+
 	////////////////////////////
 	// Instance type selector //
 	////////////////////////////
@@ -185,15 +187,16 @@ func GetDefaultConfig() *Configuration {
 	}
 
 	return &Configuration{
-		InCluster:               false,
-		KernelQueryInterval:     "60s",
-		NodeQueryInterval:       "120s",
-		KubeConfig:              kubeconfigDefaultValue,
-		GatewayAddress:          "localhost:9990",
-		KernelSpecQueryInterval: "600s",
-		JupyterServerAddress:    "localhost:8888",
-		ServerPort:              8000,
-		PushUpdateInterval:      1,
+		InCluster:                false,
+		KernelQueryInterval:      "60s",
+		NodeQueryInterval:        "120s",
+		KubeConfig:               kubeconfigDefaultValue,
+		GatewayAddress:           "localhost:9990",
+		KernelSpecQueryInterval:  "600s",
+		JupyterServerAddress:     "localhost:8888",
+		ServerPort:               8000,
+		WorkloadDriverKernelSpec: "distributed",
+		PushUpdateInterval:       1,
 		// SpoofKubeNodes:          true,
 		// SpoofKernels:            true,
 		// SpoofKernelSpecs:        true,

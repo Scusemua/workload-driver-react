@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/elliotchance/orderedmap/v2"
 	"github.com/gin-gonic/contrib/cors"
 	"github.com/gin-gonic/contrib/static"
 	"github.com/gin-gonic/gin"
@@ -33,10 +34,13 @@ type serverImpl struct {
 	opts               *domain.Configuration
 	app                *proxy.JupyterProxyRouter
 	engine             *gin.Engine
-	workloadDrivers    map[string]*driver.WorkloadDriver // Map from workload ID to the associated driver.
-	workloadsMap       map[string]*domain.Workload       // Map from workload ID to workload
+	workloadDrivers    *orderedmap.OrderedMap[string, *driver.WorkloadDriver] // Map from workload ID to the associated driver.
+	workloadsMap       *orderedmap.OrderedMap[string, *domain.Workload]       // Map from workload ID to workload
 	workloads          []*domain.Workload
 	pushUpdateInterval time.Duration
+
+	driversMutex   sync.RWMutex
+	workloadsMutex sync.RWMutex
 }
 
 func NewServer(opts *domain.Configuration) domain.Server {
@@ -44,8 +48,8 @@ func NewServer(opts *domain.Configuration) domain.Server {
 		opts:               opts,
 		pushUpdateInterval: time.Second * time.Duration(opts.PushUpdateInterval),
 		engine:             gin.New(),
-		workloadDrivers:    make(map[string]*driver.WorkloadDriver),
-		workloadsMap:       make(map[string]*domain.Workload),
+		workloadDrivers:    orderedmap.NewOrderedMap[string, *driver.WorkloadDriver](),
+		workloadsMap:       orderedmap.NewOrderedMap[string, *domain.Workload](),
 		workloads:          make([]*domain.Workload, 0),
 		// workloadDriver: driver.NewWorkloadDriver(opts),
 	}
@@ -98,11 +102,6 @@ func (s *serverImpl) setupRoutes() error {
 
 		// Used internally (by the frontend) to trigger kernel replica migrations.
 		apiGroup.POST(domain.MIGRATION_ENDPOINT, handlers.NewMigrationHttpHandler(s.opts).HandleRequest)
-
-		// Used internally (by the frontend) to trigger the start of a new workload.
-		// apiGroup.POST(domain.WORKLOAD_ENDPOINT, s.handleRegisterWorkload)
-
-		// apiGroup.GET(domain.WORKLOAD_ENDPOINT, s.handleGetWorkloads)
 	}
 
 	if s.opts.SpoofKernelSpecs {
@@ -134,23 +133,53 @@ func (s *serverImpl) serverPushRoutine(conn *websocket.Conn, workloadStartedChan
 			toRemove := make([]string, 0)
 			updatedWorkloads := make([]*domain.Workload, 0)
 
+			s.workloadsMutex.RLock()
+			s.driversMutex.RLock()
 			// Iterate over all the active workloads.
-			for _, workload := range s.workloadsMap {
+			// for _, workload := range s.workloadsMap {
+			for el := s.workloadsMap.Front(); el != nil; el = el.Next() {
+				workload := el.Value
+
 				// If the workload is no longer active, then make a note to remove it and then skip it.
 				if !workload.IsRunning() {
 					toRemove = append(toRemove, workload.ID)
 					continue
 				}
 
+				s.driversMutex.RLock()
+				associatedDriver, _ := s.workloadDrivers.Get(workload.ID)
+				s.driversMutex.RUnlock()
+				associatedDriver.LockDriver()
+
+				// Lock the workloads' drivers while we marshal the workloads to JSON.
 				updatedWorkloads = append(updatedWorkloads, workload)
 			}
+			s.driversMutex.RUnlock()
+			s.workloadsMutex.RUnlock()
 
-			// Send an update to the frontend.
-			conn.WriteJSON(&domain.ActiveWorkloadsUpdate{
-				MessageId:        uuid.NewString(),
+			msgId := uuid.NewString()
+			payload, err := json.Marshal(&domain.ActiveWorkloadsUpdate{
+				MessageId:        msgId,
 				Op:               "active_workloads_update",
 				UpdatedWorkloads: updatedWorkloads,
 			})
+
+			if err != nil {
+				s.logger.Error("Error while marshalling message payload.", zap.Error(err))
+				panic(err)
+			}
+
+			s.driversMutex.RLock()
+			for _, workload := range updatedWorkloads {
+				associatedDriver, _ := s.workloadDrivers.Get(workload.ID)
+				associatedDriver.UnlockDriver()
+			}
+			s.driversMutex.RUnlock()
+
+			// Send an update to the frontend.
+			conn.WriteMessage(websocket.BinaryMessage, payload)
+
+			s.logger.Debug("Pushed 'Active Workloads' update to frontend.", zap.String("message-id", msgId))
 
 			// Remove workloads that are now inactive from the map.
 			for _, id := range toRemove {
@@ -165,8 +194,10 @@ func (s *serverImpl) serverPushRoutine(conn *websocket.Conn, workloadStartedChan
 			select {
 			case id := <-workloadStartedChan:
 				{
+					s.workloadsMutex.RLock()
 					// Add the newly-registered workload to the active workloads map.
-					activeWorkloads[id] = s.workloadsMap[id]
+					activeWorkloads[id], _ = s.workloadsMap.Get(id)
+					s.workloadsMutex.RUnlock()
 				}
 			case <-doneChan:
 				{
@@ -266,14 +297,28 @@ func (s *serverImpl) serveWebsocket(c *gin.Context) {
 }
 
 func (s *serverImpl) handleToggleDebugLogs(req *domain.ToggleDebugLogsRequest, conn *websocket.Conn) {
-	driver := s.workloadDrivers[req.WorkloadId]
+	s.driversMutex.RLock()
+	driver, _ := s.workloadDrivers.Get(req.WorkloadId)
+	s.driversMutex.RUnlock()
 
 	if driver != nil {
 		workload := driver.ToggleDebugLogging(req.Enabled)
-		conn.WriteJSON(&domain.SingleWorkloadResponse{
+
+		driver.LockDriver()
+		payload, err := json.Marshal(&domain.SingleWorkloadResponse{
 			MessageId: req.MessageId,
 			Workload:  workload,
 		})
+
+		if err != nil {
+			s.logger.Error("Error while marshalling message payload.", zap.Error(err))
+			panic(err)
+		}
+		driver.UnlockDriver()
+
+		conn.WriteMessage(websocket.BinaryMessage, payload)
+
+		s.logger.Debug("Wrote response for TOGGLE_DEBUG_LOGS to frontend.", zap.String("message-id", req.MessageId))
 	} else {
 		s.sugaredLogger.Errorf("Could not find driver associated with workload ID=%s", req.WorkloadId)
 	}
@@ -286,20 +331,39 @@ func (s *serverImpl) handleStartWorkload(req *domain.StartStopWorkloadRequest, c
 
 	s.logger.Debug("Starting workload.", zap.String("workload-id", req.WorkloadId))
 
-	if workloadDriver, ok := s.workloadDrivers[req.WorkloadId]; ok {
+	s.driversMutex.RLock()
+	workloadDriver, ok := s.workloadDrivers.Get(req.WorkloadId)
+	s.driversMutex.RUnlock()
+
+	if ok {
 		var wg sync.WaitGroup
 		wg.Add(1)
 		go workloadDriver.DriveWorkload(&wg)
 		wg.Wait()
 
-		s.workloadsMap[req.WorkloadId].TimeElasped = time.Since(s.workloadsMap[req.WorkloadId].StartTime).String()
+		s.workloadsMutex.RLock()
+		workload, _ := s.workloadsMap.Get(req.WorkloadId)
+		workload.TimeElasped = time.Since(workload.StartTime).String()
+		s.workloadsMutex.RUnlock()
 
-		s.logger.Debug("Started workload.", zap.String("workload-id", req.WorkloadId), zap.Any("workload", s.workloadsMap[req.WorkloadId].String()))
+		s.logger.Debug("Started workload.", zap.String("workload-id", req.WorkloadId), zap.Any("workload", workload.String()))
 
-		conn.WriteJSON(&domain.SingleWorkloadResponse{
+		// Lock the workload's driver while we marshal the workload to JSON.
+		workloadDriver.LockDriver()
+		payload, err := json.Marshal(&domain.SingleWorkloadResponse{
 			MessageId: req.MessageId,
-			Workload:  s.workloadsMap[req.WorkloadId],
+			Workload:  workload,
 		})
+
+		if err != nil {
+			s.logger.Error("Error while marshalling message payload.", zap.Error(err))
+			panic(err)
+		}
+		workloadDriver.UnlockDriver()
+
+		conn.WriteMessage(websocket.BinaryMessage, payload)
+
+		s.logger.Debug("Wrote response for START_WORKLOAD to frontend.", zap.String("message-id", req.MessageId), zap.String("workload-id", workloadDriver.ID()))
 
 		// Notify the server-push goutine that the workload has started.
 		workloadStartedChan <- req.WorkloadId
@@ -315,20 +379,39 @@ func (s *serverImpl) handleStopWorkload(req *domain.StartStopWorkloadRequest, co
 
 	s.logger.Debug("Stopping workload.", zap.String("workload-id", req.WorkloadId))
 
-	if workloadDriver, ok := s.workloadDrivers[req.WorkloadId]; ok {
+	s.driversMutex.RLock()
+	workloadDriver, ok := s.workloadDrivers.Get(req.WorkloadId)
+	s.driversMutex.RUnlock()
+
+	if ok {
 		err := workloadDriver.StopWorkload()
 		if err != nil {
 			s.logger.Error("Error encountered when trying to stop workload.", zap.String("workload-id", req.WorkloadId), zap.Error(err))
 		}
 
-		s.workloadsMap[req.WorkloadId].TimeElasped = time.Since(s.workloadsMap[req.WorkloadId].StartTime).String()
+		s.workloadsMutex.RLock()
+		workload, _ := s.workloadsMap.Get(req.WorkloadId)
+		workload.TimeElasped = time.Since(workload.StartTime).String()
+		s.workloadsMutex.RUnlock()
 
-		s.logger.Debug("Started workload.", zap.String("workload-id", req.WorkloadId), zap.Any("workload", s.workloadsMap[req.WorkloadId].String()))
+		s.logger.Debug("Started workload.", zap.String("workload-id", req.WorkloadId), zap.Any("workload", workload.String()))
 
-		conn.WriteJSON(&domain.SingleWorkloadResponse{
+		// Lock the workload's driver while we marshal the workload to JSON.
+		workloadDriver.LockDriver()
+		payload, err := json.Marshal(&domain.SingleWorkloadResponse{
 			MessageId: req.MessageId,
-			Workload:  s.workloadsMap[req.WorkloadId],
+			Workload:  workload,
 		})
+
+		if err != nil {
+			s.logger.Error("Error while marshalling message payload.", zap.Error(err))
+			panic(err)
+		}
+		workloadDriver.UnlockDriver()
+
+		conn.WriteMessage(websocket.BinaryMessage, payload)
+
+		s.logger.Debug("Wrote response for STOP_WORKLOAD to frontend.", zap.String("message-id", req.MessageId), zap.String("workload-id", req.WorkloadId))
 	} else {
 		s.logger.Error("Could not find already-registered workload with the given workload ID.", zap.String("workload-id", req.WorkloadId))
 	}
@@ -340,27 +423,66 @@ func (s *serverImpl) handleRegisterWorkload(request *domain.WorkloadRegistration
 	workload, _ := workloadDriver.RegisterWorkload(request, conn)
 
 	if workload != nil {
+		s.workloadsMutex.Lock()
 		s.workloads = append(s.workloads, workload)
-		s.workloadsMap[workload.ID] = workload
-		s.workloadDrivers[workload.ID] = workloadDriver
+		s.workloadsMap.Set(workload.ID, workload)
+		s.workloadsMutex.Unlock()
 
-		conn.WriteJSON(&domain.SingleWorkloadResponse{
-			Workload:  workload,
+		s.driversMutex.Lock()
+		s.workloadDrivers.Set(workload.ID, workloadDriver)
+		s.driversMutex.Unlock()
+
+		// Lock the workload's driver while we marshal the workload to JSON.
+		workloadDriver.LockDriver()
+		payload, err := json.Marshal(&domain.SingleWorkloadResponse{
 			MessageId: msgId,
+			Workload:  workload,
 		})
-		s.sugaredLogger.Debugf("Sent workload back to user: %v", workload)
+
+		if err != nil {
+			s.logger.Error("Error while marshalling message payload.", zap.Error(err))
+			panic(err)
+		}
+		workloadDriver.UnlockDriver()
+
+		conn.WriteMessage(websocket.BinaryMessage, payload)
+
+		s.logger.Debug("Wrote response for REGISTER_WORKLOAD to frontend.", zap.String("message-id", msgId), zap.Any("workload", workload))
 	} else {
 		s.logger.Error("Workload registration did not return a Workload object...")
 	}
 }
 
 func (s *serverImpl) handleGetWorkloads(conn *websocket.Conn, msgId string) {
-	s.sugaredLogger.Debugf("Returning %d workloads to user.", len(s.workloads))
 
-	conn.WriteJSON(&domain.WorkloadsResponse{
-		Workloads: s.workloads,
+	// Lock the workloads' drivers while we marshal the workloads to JSON.
+	// for _, driver := range s.workloadDrivers {
+	s.driversMutex.RLock()
+	for el := s.workloadDrivers.Front(); el != nil; el = el.Next() {
+		el.Value.LockDriver()
+	}
+	s.driversMutex.RUnlock()
+
+	payload, err := json.Marshal(&domain.WorkloadsResponse{
 		MessageId: msgId,
+		Workloads: s.workloads,
 	})
+
+	if err != nil {
+		s.logger.Error("Error while marshalling message payload.", zap.Error(err))
+		panic(err)
+	}
+
+	// for _, driver := range s.workloadDrivers {
+	s.driversMutex.RLock()
+	for el := s.workloadDrivers.Front(); el != nil; el = el.Next() {
+		el.Value.UnlockDriver()
+	}
+	s.driversMutex.RUnlock()
+
+	s.sugaredLogger.Debugf("Returning %d workloads to user.", len(s.workloads))
+	conn.WriteMessage(websocket.BinaryMessage, payload)
+	s.logger.Debug("Wrote response for GET_WORKLOADS to frontend.", zap.String("message-id", msgId))
 }
 
 // Blocking call.

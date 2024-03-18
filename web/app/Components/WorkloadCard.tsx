@@ -99,8 +99,10 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
         // Toggle off if it is already selected.
         if (id == selectedWorkloadListId) {
             setSelectedWorkloadListId('');
+            console.log("De-selected workload '%s'", id);
         } else {
             setSelectedWorkloadListId(id);
+            console.log("Selected workload '%s'", id);
         }
     };
 
@@ -245,10 +247,17 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                                                                                             }
                                                                                             variant="link"
                                                                                             icon={<PlayIcon />}
-                                                                                            onClick={() => {
+                                                                                            onClick={(
+                                                                                                event: React.MouseEvent<
+                                                                                                    HTMLButtonElement,
+                                                                                                    MouseEvent
+                                                                                                >,
+                                                                                            ) => {
                                                                                                 props.onStartWorkloadClicked(
                                                                                                     workload,
                                                                                                 );
+
+                                                                                                event.stopPropagation();
                                                                                             }}
                                                                                         >
                                                                                             Start
@@ -272,10 +281,17 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                                                                                             variant="link"
                                                                                             isDanger
                                                                                             icon={<StopIcon />}
-                                                                                            onClick={() => {
+                                                                                            onClick={(
+                                                                                                event: React.MouseEvent<
+                                                                                                    HTMLButtonElement,
+                                                                                                    MouseEvent
+                                                                                                >,
+                                                                                            ) => {
                                                                                                 props.onStopWorkloadClicked(
                                                                                                     workload,
                                                                                                 );
+
+                                                                                                event.stopPropagation();
                                                                                             }}
                                                                                         >
                                                                                             Stop
@@ -288,9 +304,13 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                                                                             alignSelf={{ default: 'alignSelfCenter' }}
                                                                         >
                                                                             <Switch
-                                                                                id="debug-logging-switch"
-                                                                                label="Debug logs enabled"
-                                                                                labelOff="Debug logs disabled"
+                                                                                id={
+                                                                                    'workload-' +
+                                                                                    workload.id +
+                                                                                    '-debug-logging-switch'
+                                                                                }
+                                                                                label={'Debug logs enabled'}
+                                                                                labelOff={'Debug logs disabled'}
                                                                                 aria-label="debug-logging-switch"
                                                                                 isChecked={
                                                                                     workload.debug_logging_enabled

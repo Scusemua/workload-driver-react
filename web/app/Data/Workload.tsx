@@ -1,3 +1,9 @@
+const WORKLOAD_STATE_READY: number = 0; // Workload is registered and ready to be started.
+const WORKLOAD_STATE_RUNNING: number = 1; // Workload is actively running/in-progress.
+const WORKLOAD_STATE_FINISHED: number = 2; // Workload stopped naturally/successfully after processing all events.
+const WORKLOAD_STATE_ERRED: number = 3; // Workload stopped due to an error.
+const WORKLOAD_STATE_TERMINATED: number = 4; // Workload stopped because it was explicitly terminated early/premature.
+
 interface WorkloadPreset {
     name: string; // Human-readable name for this particular workload preset.
     description: string; // Human-readable description of the workload.
@@ -13,6 +19,7 @@ interface Workload {
     workload_preset: WorkloadPreset;
     workload_preset_name: string;
     workload_preset_key: string;
+    registered_time: string; // Timestamp of when the workload was registered.
     start_time: string;
     time_elapsed: string;
     num_tasks_executed: number;
@@ -24,11 +31,19 @@ interface Workload {
     debug_logging_enabled: boolean;
 }
 
-const WORKLOAD_STATE_READY: number = 0; // Workload is registered and ready to be started.
-const WORKLOAD_STATE_RUNNING: number = 1; // Workload is actively running/in-progress.
-const WORKLOAD_STATE_FINISHED: number = 2; // Workload stopped naturally/successfully after processing all events.
-const WORKLOAD_STATE_ERRED: number = 3; // Workload stopped due to an error.
-const WORKLOAD_STATE_TERMINATED: number = 4; // Workload stopped because it was explicitly terminated early/premature.
+// Response containing a single workload.
+// Sent to the front-end by the back-end in response to registering a workload, starting a workload, stopping a workload, etc.
+interface SingleWorkloadResponse {
+    msg_id: string;
+    workload: Workload;
+}
+
+// Response for a 'get workloads' request.
+// Sent to the front-end by the back-end.
+interface WorkloadsResponse {
+    msg_id: string;
+    workloads: Workload[];
+}
 
 export { WORKLOAD_STATE_READY as WORKLOAD_STATE_READY };
 export { WORKLOAD_STATE_RUNNING as WORKLOAD_STATE_RUNNING };
@@ -38,3 +53,5 @@ export { WORKLOAD_STATE_TERMINATED as WORKLOAD_STATE_TERMINATED };
 
 export type { Workload as Workload };
 export type { WorkloadPreset as WorkloadPreset };
+export type { SingleWorkloadResponse as SingleWorkloadResponse };
+export type { WorkloadsResponse as WorkloadsResponse };
