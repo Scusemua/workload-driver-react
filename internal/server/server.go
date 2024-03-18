@@ -288,10 +288,21 @@ func (s *serverImpl) serveWebsocket(c *gin.Context) {
 			var req *domain.StartStopWorkloadRequest
 			json.Unmarshal(message, &req)
 			s.handleStopWorkload(req, conn)
+		} else if op == "stop_workloads" {
+			var req *domain.StartStopWorkloadsRequest
+			json.Unmarshal(message, &req)
+			s.handleStopWorkloads(req, conn)
 		} else if op == "toggle_debug_logs" {
 			var req *domain.ToggleDebugLogsRequest
 			json.Unmarshal(message, &req)
 			s.handleToggleDebugLogs(req, conn)
+		} else {
+			s.logger.Error("Unexpected or unsupported operation specified.", zap.String("op", op))
+			conn.WriteJSON(&domain.ErrorMessage{
+				Description:  "op",
+				ErrorMessage: "Unexpected or unsupported operation specified.",
+				Valid:        true,
+			})
 		}
 	}
 }
@@ -372,6 +383,60 @@ func (s *serverImpl) handleStartWorkload(req *domain.StartStopWorkloadRequest, c
 	}
 }
 
+func (s *serverImpl) handleStopWorkloads(req *domain.StartStopWorkloadsRequest, conn *websocket.Conn) {
+	if req.Operation != "stop_workload" {
+		panic(fmt.Sprintf("Unexpected operation field in StartStopWorkloadRequest: \"%s\"", req.Operation))
+	}
+
+	var updatedWorkloads []*domain.Workload = make([]*domain.Workload, 0, len(req.WorkloadIDs))
+
+	for _, workloadID := range req.WorkloadIDs {
+		s.logger.Debug("Stopping workload.", zap.String("workload-id", workloadID))
+
+		s.driversMutex.RLock()
+		workloadDriver, ok := s.workloadDrivers.Get(workloadID)
+		s.driversMutex.RUnlock()
+
+		if ok {
+			err := workloadDriver.StopWorkload()
+			if err != nil {
+				s.logger.Error("Error encountered when trying to stop workload.", zap.String("workload-id", workloadID), zap.Error(err))
+			} else {
+				workload := workloadDriver.GetWorkload()
+				workload.TimeElasped = time.Since(workload.StartTime).String()
+
+				s.logger.Debug("Stopped workload.", zap.String("workload-id", workloadID), zap.Any("workload", workload.String()))
+				updatedWorkloads = append(updatedWorkloads, workload)
+			}
+		} else {
+			s.logger.Error("Could not find already-registered workload with the given workload ID.", zap.String("workload-id", workloadID))
+		}
+	}
+
+	// Lock the workload's driver while we marshal the workload to JSON.
+	msgId := uuid.NewString()
+	payload, err := json.Marshal(&domain.ActiveWorkloadsUpdate{
+		MessageId:        msgId,
+		UpdatedWorkloads: updatedWorkloads,
+	})
+
+	if err != nil {
+		s.logger.Error("Error while marshalling message payload.", zap.Error(err))
+		panic(err)
+	}
+
+	s.driversMutex.RLock()
+	for _, workload := range updatedWorkloads {
+		associatedDriver, _ := s.workloadDrivers.Get(workload.ID)
+		associatedDriver.UnlockDriver()
+	}
+	s.driversMutex.RUnlock()
+
+	conn.WriteMessage(websocket.BinaryMessage, payload)
+
+	s.logger.Debug("Wrote response for STOP_WORKLOADS to frontend.", zap.String("message-id", req.MessageId), zap.Int("requested-num-workloads-stopped", len(req.WorkloadIDs)), zap.Int("actual-num-workloads-stopped", len(updatedWorkloads)))
+}
+
 func (s *serverImpl) handleStopWorkload(req *domain.StartStopWorkloadRequest, conn *websocket.Conn) {
 	if req.Operation != "stop_workload" {
 		panic(fmt.Sprintf("Unexpected operation field in StartStopWorkloadRequest: \"%s\"", req.Operation))
@@ -387,20 +452,18 @@ func (s *serverImpl) handleStopWorkload(req *domain.StartStopWorkloadRequest, co
 		err := workloadDriver.StopWorkload()
 		if err != nil {
 			s.logger.Error("Error encountered when trying to stop workload.", zap.String("workload-id", req.WorkloadId), zap.Error(err))
+		} else {
+			workload := workloadDriver.GetWorkload()
+			workload.TimeElasped = time.Since(workload.StartTime).String()
+
+			s.logger.Debug("Stopped workload.", zap.String("workload-id", req.WorkloadId), zap.Any("workload", workload.String()))
 		}
-
-		s.workloadsMutex.RLock()
-		workload, _ := s.workloadsMap.Get(req.WorkloadId)
-		workload.TimeElasped = time.Since(workload.StartTime).String()
-		s.workloadsMutex.RUnlock()
-
-		s.logger.Debug("Started workload.", zap.String("workload-id", req.WorkloadId), zap.Any("workload", workload.String()))
 
 		// Lock the workload's driver while we marshal the workload to JSON.
 		workloadDriver.LockDriver()
 		payload, err := json.Marshal(&domain.SingleWorkloadResponse{
 			MessageId: req.MessageId,
-			Workload:  workload,
+			Workload:  workloadDriver.GetWorkload(),
 		})
 
 		if err != nil {

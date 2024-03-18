@@ -24,9 +24,16 @@ var (
 	ErrWorkloadPresetNotFound    = errors.New("could not find workload preset with specified key")
 	ErrWorkloadAlreadyRegistered = errors.New("driver already has a workload registered with it")
 
+	ErrWorkloadNotRunning = errors.New("the workload is currently not running")
+
 	ErrTrainingStartedUnknownSession = errors.New("received 'training-started' event for unknown session")
 	ErrTrainingStoppedUnknownSession = errors.New("received 'training-ended' event for unknown session")
 )
+
+type CriticalError struct {
+	Error   error  `json:"error"`
+	Message string `json:"message"`
+}
 
 // The Workload Driver consumes events from the Workload Generator and takes action accordingly.
 type WorkloadDriver struct {
@@ -41,20 +48,21 @@ type WorkloadDriver struct {
 
 	kernels map[string]struct{}
 
-	workloadEndTime time.Time         // The time at which the workload completed.
-	eventChan       chan domain.Event // Receives events from the Synthesizer.
+	eventChan chan domain.Event  // Receives events from the Synthesizer.
+	doneChan  chan struct{}      // Used to signal that the workload has successfully processed all events.
+	stopChan  chan struct{}      // Used to stop the workload early/prematurely (i.e., before all events have been processed).
+	errorChan chan CriticalError // Used to stop the workload due to a critical error.
 
 	workloadPresets             map[string]*domain.WorkloadPreset
 	workloadPreset              *domain.WorkloadPreset
 	workloadRegistrationRequest *domain.WorkloadRegistrationRequest
 	workload                    *domain.Workload
 
+	workloadEndTime time.Time // The time at which the workload completed.
+
 	mu sync.Mutex
 
-	opts      *domain.Configuration
-	doneChan  chan struct{} // Used to signal that the workload has successfully processed all events.
-	stopChan  chan struct{} // Used to stop the workload early/prematurely (i.e., before all events have been processed).
-	errorChan chan error    // Used to stop the workload due to a critical error.
+	opts *domain.Configuration
 }
 
 func NewWorkloadDriver(opts *domain.Configuration) *WorkloadDriver {
@@ -65,15 +73,15 @@ func NewWorkloadDriver(opts *domain.Configuration) *WorkloadDriver {
 		doneChan:      make(chan struct{}),
 		eventChan:     make(chan domain.Event),
 		stopChan:      make(chan struct{}),
-		errorChan:     make(chan error),
+		errorChan:     make(chan CriticalError),
 		atom:          &atom,
 		rpc:           handlers.NewGrpcClient(opts, !opts.SpoofKernels),
 		kernelManager: jupyter.NewKernelManager(opts, &atom),
 		kernels:       make(map[string]struct{}),
 	}
 
-	core := zapcore.NewCore(zapcore.NewJSONEncoder(zap.NewDevelopmentEncoderConfig()), os.Stdout, driver.atom)
-	logger := zap.New(core)
+	core := zapcore.NewCore(zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()), os.Stdout, driver.atom)
+	logger := zap.New(core, zap.Development())
 	if logger == nil {
 		panic("failed to create logger for workload driver")
 	}
@@ -240,6 +248,10 @@ func (d *WorkloadDriver) ID() string {
 // Stop a workload that's already running/in-progress.
 // Returns nil on success, or an error if one occurred.
 func (d *WorkloadDriver) StopWorkload() error {
+	if !d.workload.IsRunning() {
+		return ErrWorkloadNotRunning
+	}
+
 	d.logger.Debug("Stopping workload.", zap.String("workload-id", d.id))
 	d.stopChan <- struct{}{}
 
@@ -276,36 +288,43 @@ func (d *WorkloadDriver) DriveWorkload(wg *sync.WaitGroup) {
 		select {
 		case err := <-d.errorChan:
 			{
-				d.logger.Error("Workload encountered a critical error and must abort.", zap.String("workload-id", d.id), zap.Error(err))
+				d.logger.Error("Workload encountered a critical error and must abort.", zap.String("workload-id", d.id), zap.String("error-message", err.Message), zap.Error(err.Error))
 				workloadGenerator.StopGeneratingWorkload()
 
 				d.mu.Lock()
 				defer d.mu.Unlock()
 
 				d.workload.WorkloadState = domain.WorkloadErred
-				d.workload.Error = err
-				return
+				d.workload.Error = err.Error
+				return // We're done, so we can return.
 			}
 		case <-d.stopChan:
 			{
 				d.logger.Info("Workload has been instructed to terminate early.")
 				workloadGenerator.StopGeneratingWorkload()
-				return
+				return // We're done, so we can return.
 			}
 		case evt := <-d.eventChan:
 			{
 				// d.logger.Debug("Received event.", zap.Any("event-name", evt.Name()))
-				d.handleEvent(evt)
+				err := d.handleEvent(evt)
+				if err != nil {
+					d.logger.Error("Failed to handle event.", zap.Any("event-name", evt.Name()), zap.Any("event-id", evt.Id()), zap.String("error-message", err.Error()))
+
+					existingErr := <-d.errorChan
+					d.logger.Error("Found EXISTING error.", zap.Error(existingErr.Error))
+
+					d.errorChan <- CriticalError{Error: err, Message: fmt.Sprintf("failed to handle event %s (id=%s)", evt.Name(), evt.Id())}
+					d.logger.Error("Enqueued error in error channel.")
+				}
 
 				d.mu.Lock()
 				defer d.mu.Unlock()
 
 				d.workload.NumEventsProcessed += 1
 				d.workload.TimeElasped = time.Since(d.workload.StartTime).String()
-
-				return
 			}
-		case <-d.doneChan:
+		case <-d.doneChan: // This is placed after eventChan so that all events are processed first.
 			{
 				d.mu.Lock()
 				defer d.mu.Unlock()
@@ -316,20 +335,24 @@ func (d *WorkloadDriver) DriveWorkload(wg *sync.WaitGroup) {
 				d.logger.Info("The Workload Generator has finished generating events.")
 				d.logger.Info("The Workload has ended.", zap.Any("workload-duration", time.Since(d.workload.StartTime)), zap.Any("workload-start-time", d.workload.StartTime), zap.Any("workload-end-time", d.workloadEndTime))
 
-				return
+				return // We're done, so we can return.
 			}
 		}
 	}
 }
 
-func (d *WorkloadDriver) handleEvent(evt domain.Event) {
+func (d *WorkloadDriver) handleEvent(evt domain.Event) error {
 	sessionId := evt.Data().(*generator.Session).Pod
 	switch evt.Name() {
 	case generator.EventSessionStarted:
 		d.logger.Debug("Received SessionStarted event.", zap.String("session-id", sessionId))
 
 		// TODO: Start session.
-		d.createKernel(sessionId)
+		err := d.createKernel(sessionId)
+		if err != nil {
+			return err
+		}
+
 		d.kernels[sessionId] = struct{}{}
 
 		d.mu.Lock()
@@ -342,7 +365,7 @@ func (d *WorkloadDriver) handleEvent(evt domain.Event) {
 		// TODO: Initiate training.
 		if _, ok := d.kernels[sessionId]; !ok {
 			d.logger.Error("Received 'training-started' event for unknown session.", zap.String("session-id", sessionId))
-			d.errorChan <- ErrTrainingStartedUnknownSession
+			return ErrTrainingStartedUnknownSession
 		}
 
 		d.mu.Lock()
@@ -357,7 +380,7 @@ func (d *WorkloadDriver) handleEvent(evt domain.Event) {
 		// TODO: Stop training.
 		if _, ok := d.kernels[sessionId]; !ok {
 			d.logger.Error("Received 'training-stopped' event for unknown session.", zap.String("session-id", sessionId))
-			d.errorChan <- ErrTrainingStoppedUnknownSession
+			return ErrTrainingStoppedUnknownSession
 		}
 
 		d.mu.Lock()
@@ -368,23 +391,29 @@ func (d *WorkloadDriver) handleEvent(evt domain.Event) {
 		d.logger.Debug("Received SessionStopped event.", zap.String("session", sessionId))
 
 		// TODO: Stop session.
-		d.stopKernel(sessionId)
+		err := d.stopKernel(sessionId)
+		if err != nil {
+			return err
+		}
+
 		delete(d.kernels, sessionId)
 
 		d.mu.Lock()
 		defer d.mu.Unlock()
 		d.workload.NumActiveSessions -= 1
 	}
+
+	return nil
 }
 
-func (d *WorkloadDriver) createKernel(id string) {
+func (d *WorkloadDriver) createKernel(id string) error {
 	d.logger.Debug("Creating new kernel.", zap.String("kernel-id", id))
-	d.kernelManager.CreateSession(id, id, fmt.Sprintf("%s.ipynb", id), "notebook")
+	return d.kernelManager.CreateSession(id, id, fmt.Sprintf("%s.ipynb", id), "notebook")
 }
 
-func (d *WorkloadDriver) stopKernel(id string) {
+func (d *WorkloadDriver) stopKernel(id string) error {
 	d.logger.Debug("Stopping kernel.", zap.String("kernel-id", id))
-	d.kernelManager.StopKernel(id)
+	return d.kernelManager.StopKernel(id)
 }
 
 // Return the Workload Driver's "done" channel, which is used to signal that the simulation is complete.

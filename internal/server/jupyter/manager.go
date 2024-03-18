@@ -50,7 +50,7 @@ func newCreateSessionKernelArgs(id string, name string) *createSessionKernelArgs
 
 type KernelManagerMetrics struct {
 	NumFilesCreated       int `json:"num-files-created"`
-	NumKernelsCreated     int `json:"num-kernels-created`
+	NumKernelsCreated     int `json:"num-kernels-created"`
 	NumSessionsCreated    int `json:"num-sessions-created"`
 	NumKernelsTerminated  int `json:"num-kernels-terminated"`
 	NumSessionsTerminated int `json:"num-sessions-terminated"`
@@ -91,8 +91,8 @@ func NewKernelManager(opts *domain.Configuration, atom *zap.AtomicLevel) *Kernel
 		metrics:              &KernelManagerMetrics{},
 	}
 
-	core := zapcore.NewCore(zapcore.NewJSONEncoder(zap.NewDevelopmentEncoderConfig()), os.Stdout, atom)
-	manager.logger = zap.New(core)
+	core := zapcore.NewCore(zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()), os.Stdout, atom)
+	manager.logger = zap.New(core, zap.Development())
 
 	manager.sugaredLogger = manager.logger.Sugar()
 

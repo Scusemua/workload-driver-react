@@ -57,6 +57,7 @@ export interface WorkloadCardProps {
     workloads: Workload[];
     onStartWorkloadClicked: (workload: Workload) => void;
     onStopWorkloadClicked: (workload: Workload) => void;
+    onStopAllWorkloadsClicked: () => void;
     toggleDebugLogs: (workloadId: string, enabled: boolean) => void;
     workloadsPerPage: number;
 }
@@ -116,7 +117,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                             aria-label="launch-workload-button"
                             id="launch-workload-button"
                             variant="plain"
-                            onClick={() => props.onLaunchWorkloadClicked()}
+                            onClick={props.onLaunchWorkloadClicked}
                         >
                             <PlusIcon />
                         </Button>
@@ -127,7 +128,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                             aria-label="stop-workloads-button"
                             id="stop-workloads-button"
                             variant="plain"
-                            onClick={() => {}} // () => setIsConfirmDeleteKernelsModalOpen(true)
+                            onClick={props.onStopAllWorkloadsClicked} // () => setIsConfirmDeleteKernelsModalOpen(true)
                         >
                             <StopCircleIcon />
                         </Button>

@@ -15,8 +15,8 @@ type KernelConnection struct {
 func NewKernelConnection(atom *zap.AtomicLevel) *KernelConnection {
 	conn := &KernelConnection{}
 
-	core := zapcore.NewCore(zapcore.NewJSONEncoder(zap.NewDevelopmentEncoderConfig()), os.Stdout, atom)
-	conn.logger = zap.New(core)
+	core := zapcore.NewCore(zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()), os.Stdout, atom)
+	conn.logger = zap.New(core, zap.Development())
 
 	conn.sugaredLogger = conn.logger.Sugar()
 

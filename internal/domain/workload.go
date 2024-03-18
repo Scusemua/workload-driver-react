@@ -65,6 +65,13 @@ type StartStopWorkloadRequest struct {
 	WorkloadId string `json:"workload_id"`
 }
 
+// Request for starting/stopping a workload. Whether this starts or stops a workload depends on the value of the Operation field.
+type StartStopWorkloadsRequest struct {
+	MessageId   string   `json:"msg_id"`
+	Operation   string   `json:"op"`
+	WorkloadIDs []string `json:"workload_ids"`
+}
+
 type WorkloadRegistrationRequest struct {
 	Key  string `name:"key" yaml:"key" json:"key" description:"Key for code-use only (i.e., we don't intend to display this to the user for the most part)."` // Key for code-use only (i.e., we don't intend to display this to the user for the most part).
 	Seed int64  `name:"seed" yaml:"seed" json:"seed" description:"RNG seed for the workload."`

@@ -12,6 +12,7 @@ import {
     Workload,
     WorkloadPreset,
     WorkloadsResponse,
+    WORKLOAD_STATE_RUNNING,
 } from '@app/Data';
 import { MigrationModal, RegisterWorkloadModal } from '@app/Components/Modals';
 
@@ -443,6 +444,28 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
         });
     };
 
+    const onStopAllWorkloadsClicked = () => {
+        let activeWorkloadsIDs: string[] = [];
+        workloads.forEach((workload: Workload) => {
+            if (workload.workload_state == WORKLOAD_STATE_RUNNING) {
+                activeWorkloadsIDs.push(workload.id);
+            }
+        });
+
+        const messageId: string = uuidv4();
+        const callback = (result: WorkloadsResponse) => {
+            result.workloads.forEach((workload: Workload) => {
+                setWorkloads((w) => new Map(w.set(workload.id, workload)));
+            });
+        };
+        websocketCallbacks.current.set(messageId, callback);
+        sendJsonMessage({
+            op: 'stop_workloads',
+            msg_id: messageId,
+            workload_ids: activeWorkloadsIDs,
+        });
+    };
+
     return (
         <PageSection>
             <Grid hasGutter>
@@ -464,6 +487,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
                         toggleDebugLogs={toggleDebugLogs}
                         onStartWorkloadClicked={onStartWorkloadClicked}
                         onStopWorkloadClicked={onStopWorkloadClicked}
+                        onStopAllWorkloadsClicked={onStopAllWorkloadsClicked}
                         workloads={Array.from(workloads.values())}
                         refreshWorkloads={(callback: () => void | undefined) => {
                             ignoreResponseForWorkloads.current = false;
