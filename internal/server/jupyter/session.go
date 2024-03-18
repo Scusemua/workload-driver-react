@@ -21,6 +21,8 @@ type jupyterSession struct {
 	SessionType      string           `json:"type"`
 	JupyterKernel    *jupyterKernel   `json:"kernel"`
 	JupyterNotebook  *jupyterNotebook `json:"notebook"`
+
+	SessionConnection *SessionConnection `json:"-"`
 }
 
 func newJupyterSessionForRequest(sessionName string, path string, sessionType string, kernelSpecName string) *jupyterSession {
@@ -107,6 +109,8 @@ func NewSessionConnection(model *jupyterSession, jupyterServerAddress string, at
 	if err != nil {
 		panic(err)
 	}
+
+	conn.logger.Debug("Successfully connected to kernel.", zap.String("kernel-id", model.JupyterKernel.Id))
 
 	return conn
 }

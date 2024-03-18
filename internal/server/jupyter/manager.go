@@ -157,6 +157,8 @@ func (m *KernelManager) CreateSession(localSessionId string, sessionName string,
 			sessionConnection := NewSessionConnection(jupyterSession, m.jupyterServerAddress, m.atom)
 
 			m.sessionMap[localSessionId] = sessionConnection
+
+			m.logger.Debug("Successfully created and setup session.", zap.String("local-session-id", localSessionId), zap.String("jupyter-session-id", jupyterSessionId), zap.String("kernel-id", kernelId))
 		}
 	case http.StatusBadRequest:
 		{

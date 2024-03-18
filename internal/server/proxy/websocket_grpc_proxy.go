@@ -5,7 +5,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/gorilla/websocket"
+	"nhooyr.io/websocket"
 )
 
 // Reference:
@@ -44,10 +44,10 @@ func (p *WebSocketProxyClient) Dialer(ctx context.Context, url string) (net.Conn
 	ctx, cancel := context.WithTimeout(ctx, p.timeout)
 	defer cancel()
 
-	conn, _, err := websocket.DefaultDialer.DialContext(ctx, url, nil)
+	conn, _, err := websocket.Dial(ctx, url, nil)
 	if err != nil {
 		return nil, err
 	}
 
-	return conn.NetConn(), nil
+	return websocket.NetConn(context.Background(), conn, websocket.MessageBinary), nil
 }
