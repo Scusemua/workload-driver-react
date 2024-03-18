@@ -133,29 +133,22 @@ func (s *serverImpl) serverPushRoutine(conn *websocket.Conn, workloadStartedChan
 			toRemove := make([]string, 0)
 			updatedWorkloads := make([]*domain.Workload, 0)
 
-			s.workloadsMutex.RLock()
 			s.driversMutex.RLock()
 			// Iterate over all the active workloads.
-			// for _, workload := range s.workloadsMap {
-			for el := s.workloadsMap.Front(); el != nil; el = el.Next() {
-				workload := el.Value
-
-				// If the workload is no longer active, then make a note to remove it and then skip it.
+			for _, workload := range activeWorkloads {
+				// If the workload is no longer active, then make a note to remove it after this next update.
+				// (We need to include it in the update so the frontend knows it's no longer active.)
 				if !workload.IsRunning() {
 					toRemove = append(toRemove, workload.ID)
-					continue
 				}
 
-				s.driversMutex.RLock()
 				associatedDriver, _ := s.workloadDrivers.Get(workload.ID)
-				s.driversMutex.RUnlock()
 				associatedDriver.LockDriver()
 
 				// Lock the workloads' drivers while we marshal the workloads to JSON.
 				updatedWorkloads = append(updatedWorkloads, workload)
 			}
 			s.driversMutex.RUnlock()
-			s.workloadsMutex.RUnlock()
 
 			msgId := uuid.NewString()
 			payload, err := json.Marshal(&domain.ActiveWorkloadsUpdate{
@@ -320,12 +313,12 @@ func (s *serverImpl) handleToggleDebugLogs(req *domain.ToggleDebugLogsRequest, c
 			MessageId: req.MessageId,
 			Workload:  workload,
 		})
+		driver.UnlockDriver()
 
 		if err != nil {
 			s.logger.Error("Error while marshalling message payload.", zap.Error(err))
 			panic(err)
 		}
-		driver.UnlockDriver()
 
 		conn.WriteMessage(websocket.BinaryMessage, payload)
 
@@ -365,12 +358,12 @@ func (s *serverImpl) handleStartWorkload(req *domain.StartStopWorkloadRequest, c
 			MessageId: req.MessageId,
 			Workload:  workload,
 		})
+		workloadDriver.UnlockDriver()
 
 		if err != nil {
 			s.logger.Error("Error while marshalling message payload.", zap.Error(err))
 			panic(err)
 		}
-		workloadDriver.UnlockDriver()
 
 		conn.WriteMessage(websocket.BinaryMessage, payload)
 
@@ -384,7 +377,7 @@ func (s *serverImpl) handleStartWorkload(req *domain.StartStopWorkloadRequest, c
 }
 
 func (s *serverImpl) handleStopWorkloads(req *domain.StartStopWorkloadsRequest, conn *websocket.Conn) {
-	if req.Operation != "stop_workload" {
+	if req.Operation != "stop_workloads" {
 		panic(fmt.Sprintf("Unexpected operation field in StartStopWorkloadRequest: \"%s\"", req.Operation))
 	}
 
@@ -465,12 +458,12 @@ func (s *serverImpl) handleStopWorkload(req *domain.StartStopWorkloadRequest, co
 			MessageId: req.MessageId,
 			Workload:  workloadDriver.GetWorkload(),
 		})
+		workloadDriver.UnlockDriver()
 
 		if err != nil {
 			s.logger.Error("Error while marshalling message payload.", zap.Error(err))
 			panic(err)
 		}
-		workloadDriver.UnlockDriver()
 
 		conn.WriteMessage(websocket.BinaryMessage, payload)
 
@@ -501,12 +494,12 @@ func (s *serverImpl) handleRegisterWorkload(request *domain.WorkloadRegistration
 			MessageId: msgId,
 			Workload:  workload,
 		})
+		workloadDriver.UnlockDriver()
 
 		if err != nil {
 			s.logger.Error("Error while marshalling message payload.", zap.Error(err))
 			panic(err)
 		}
-		workloadDriver.UnlockDriver()
 
 		conn.WriteMessage(websocket.BinaryMessage, payload)
 
@@ -524,7 +517,6 @@ func (s *serverImpl) handleGetWorkloads(conn *websocket.Conn, msgId string) {
 	for el := s.workloadDrivers.Front(); el != nil; el = el.Next() {
 		el.Value.LockDriver()
 	}
-	s.driversMutex.RUnlock()
 
 	payload, err := json.Marshal(&domain.WorkloadsResponse{
 		MessageId: msgId,
@@ -536,8 +528,6 @@ func (s *serverImpl) handleGetWorkloads(conn *websocket.Conn, msgId string) {
 		panic(err)
 	}
 
-	// for _, driver := range s.workloadDrivers {
-	s.driversMutex.RLock()
 	for el := s.workloadDrivers.Front(); el != nil; el = el.Next() {
 		el.Value.UnlockDriver()
 	}

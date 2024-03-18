@@ -93,7 +93,7 @@ type Workload struct {
 	WorkloadPresetName  string          `json:"workload_preset_name"`
 	WorkloadPresetKey   string          `json:"workload_preset_key"`
 	DebugLoggingEnabled bool            `json:"debug_logging_enabled"`
-	Error               error           `json:"error"`
+	ErrorMessage        string          `json:"error_message"`
 
 	Seed int64 `json:"seed"`
 

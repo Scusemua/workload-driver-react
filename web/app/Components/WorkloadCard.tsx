@@ -23,23 +23,25 @@ import {
     Tooltip,
 } from '@patternfly/react-core';
 
+import text from '@patternfly/react-styles/css/utilities/Text/text';
+
 import {
     BlueprintIcon,
     CheckCircleIcon,
     ClockIcon,
     CodeIcon,
     DiceIcon,
-    ExclamationCircleIcon,
+    ExclamationTriangleIcon,
+    HourglassStartIcon,
     MonitoringIcon,
     OutlinedCalendarAltIcon,
-    PendingIcon,
     PlayIcon,
     PlusIcon,
-    PowerOffIcon,
     SpinnerIcon,
     StopCircleIcon,
     StopIcon,
     SyncIcon,
+    TimesCircleIcon,
 } from '@patternfly/react-icons';
 
 import {
@@ -128,6 +130,12 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                             aria-label="stop-workloads-button"
                             id="stop-workloads-button"
                             variant="plain"
+                            isDanger
+                            isDisabled={
+                                props.workloads.filter((workload: Workload) => {
+                                    return workload.workload_state == WORKLOAD_STATE_RUNNING;
+                                }).length == 0
+                            }
                             onClick={props.onStopAllWorkloadsClicked} // () => setIsConfirmDeleteKernelsModalOpen(true)
                         >
                             <StopCircleIcon />
@@ -157,6 +165,26 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
             </ToolbarGroup>
         </React.Fragment>
     );
+
+    const getWorkloadStatusTooltip = (workload: Workload) => {
+        switch (workload.workload_state) {
+            case WORKLOAD_STATE_READY:
+                return 'The workload has been registered and is ready to begin.';
+            case WORKLOAD_STATE_RUNNING:
+                return 'The workload is actively-running.';
+            case WORKLOAD_STATE_FINISHED:
+                return 'The workload has completed successfully.';
+            case WORKLOAD_STATE_ERRED:
+                return 'The workload has been aborted due to a critical error: ' + workload.error_message;
+            case WORKLOAD_STATE_TERMINATED:
+                return 'The workload has been explicitly/manually terminated.';
+        }
+
+        console.error(
+            `Workload ${workload.name} (ID=${workload.id}) is in an unsupported/unknown state: ${workload.workload_state}`,
+        );
+        return 'The workload is currently in an unknown/unsupported state.';
+    };
 
     return (
         <Card isRounded isExpanded={isCardExpanded}>
@@ -332,42 +360,63 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                                                                 <Flex spaceItems={{ default: 'spaceItemsMd' }}>
                                                                     <FlexItem>
                                                                         <Tooltip
-                                                                            content={'Workload status/state.'}
+                                                                            content={getWorkloadStatusTooltip(workload)}
                                                                             position="bottom"
                                                                         >
                                                                             <React.Fragment>
                                                                                 {workload.workload_state ==
                                                                                     WORKLOAD_STATE_READY && (
                                                                                     <React.Fragment>
-                                                                                        <PendingIcon />
+                                                                                        <HourglassStartIcon
+                                                                                            className={
+                                                                                                text.successColor_100
+                                                                                            }
+                                                                                        />
                                                                                         {' Ready'}
                                                                                     </React.Fragment>
                                                                                 )}
                                                                                 {workload.workload_state ==
                                                                                     WORKLOAD_STATE_RUNNING && (
                                                                                     <React.Fragment>
-                                                                                        <SpinnerIcon className="loading-icon-spin" />
+                                                                                        <SpinnerIcon
+                                                                                            className={
+                                                                                                'loading-icon-spin ' +
+                                                                                                text.successColor_100
+                                                                                            }
+                                                                                        />
                                                                                         {' Running'}
                                                                                     </React.Fragment>
                                                                                 )}
                                                                                 {workload.workload_state ==
                                                                                     WORKLOAD_STATE_FINISHED && (
                                                                                     <React.Fragment>
-                                                                                        <CheckCircleIcon />
+                                                                                        <CheckCircleIcon
+                                                                                            className={
+                                                                                                text.successColor_100
+                                                                                            }
+                                                                                        />
                                                                                         {' Complete'}
                                                                                     </React.Fragment>
                                                                                 )}
                                                                                 {workload.workload_state ==
                                                                                     WORKLOAD_STATE_ERRED && (
                                                                                     <React.Fragment>
-                                                                                        <ExclamationCircleIcon />
+                                                                                        <TimesCircleIcon
+                                                                                            className={
+                                                                                                text.dangerColor_100
+                                                                                            }
+                                                                                        />
                                                                                         {' Erred'}
                                                                                     </React.Fragment>
                                                                                 )}
                                                                                 {workload.workload_state ==
                                                                                     WORKLOAD_STATE_TERMINATED && (
                                                                                     <React.Fragment>
-                                                                                        <PowerOffIcon />
+                                                                                        <ExclamationTriangleIcon
+                                                                                            className={
+                                                                                                text.warningColor_100
+                                                                                            }
+                                                                                        />
                                                                                         {' Terminated'}
                                                                                     </React.Fragment>
                                                                                 )}

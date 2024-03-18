@@ -9,10 +9,10 @@ import {
     JupyterKernelReplica,
     KubernetesNode,
     SingleWorkloadResponse,
+    WORKLOAD_STATE_RUNNING,
     Workload,
     WorkloadPreset,
     WorkloadsResponse,
-    WORKLOAD_STATE_RUNNING,
 } from '@app/Data';
 import { MigrationModal, RegisterWorkloadModal } from '@app/Components/Modals';
 
@@ -445,7 +445,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
     };
 
     const onStopAllWorkloadsClicked = () => {
-        let activeWorkloadsIDs: string[] = [];
+        const activeWorkloadsIDs: string[] = [];
         workloads.forEach((workload: Workload) => {
             if (workload.workload_state == WORKLOAD_STATE_RUNNING) {
                 activeWorkloadsIDs.push(workload.id);
@@ -470,11 +470,11 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
         <PageSection>
             <Grid hasGutter>
                 <GridItem span={6} rowSpan={2}>
-                    <KernelList kernelsPerPage={5} openMigrationModal={openMigrationModal} />
+                    <KernelList kernelsPerPage={3} openMigrationModal={openMigrationModal} />
                 </GridItem>
                 <GridItem span={6} rowSpan={6}>
                     <KubernetesNodeList
-                        nodesPerPage={5}
+                        nodesPerPage={3}
                         manuallyRefreshNodes={manuallyRefreshNodes}
                         nodes={nodes}
                         refreshInterval={120}
@@ -483,7 +483,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
                 </GridItem>
                 <GridItem span={6} rowSpan={1}>
                     <WorkloadCard
-                        workloadsPerPage={5}
+                        workloadsPerPage={3}
                         toggleDebugLogs={toggleDebugLogs}
                         onStartWorkloadClicked={onStartWorkloadClicked}
                         onStopWorkloadClicked={onStopWorkloadClicked}

@@ -749,6 +749,8 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                             aria-label="delete-kernels-button"
                             id="delete-kernels-button"
                             variant="plain"
+                            isDanger
+                            isDisabled={kernels.current.length == 0 || selectedKernels.length == 0}
                             onClick={() => setIsConfirmDeleteKernelsModalOpen(true)}
                         >
                             <TrashIcon />

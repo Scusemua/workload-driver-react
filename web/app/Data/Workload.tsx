@@ -29,6 +29,7 @@ interface Workload {
     num_events_processed: number;
     num_active_trainings: number;
     debug_logging_enabled: boolean;
+    error_message: string;
 }
 
 // Response containing a single workload.
