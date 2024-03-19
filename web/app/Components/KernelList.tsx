@@ -54,7 +54,7 @@ import {
     PauseIcon,
     PlusIcon,
     RebootingIcon,
-    SearchIcon,
+    // SearchIcon,
     SkullIcon,
     SpinnerIcon,
     StopCircleIcon,
@@ -64,7 +64,7 @@ import {
 } from '@patternfly/react-icons';
 
 import { IKernelConnection } from '@jupyterlab/services/lib/kernel/kernel';
-import { IInfoReplyMsg } from '@jupyterlab/services/lib/kernel/messages';
+// import { IInfoReplyMsg } from '@jupyterlab/services/lib/kernel/messages';
 
 import {
     ConfirmationModal,
@@ -244,43 +244,43 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         setIsExecuteCodeModalOpen(true);
     };
 
-    async function onInspectKernelClicked(kernelIndex: number) {
-        const kernelId: string | undefined = filteredKernels[kernelIndex].kernelId;
-        console.log('User is inspecting kernel ' + kernelId);
+    // async function onInspectKernelClicked(kernelIndex: number) {
+    //     const kernelId: string | undefined = filteredKernels[kernelIndex].kernelId;
+    //     console.log('User is inspecting kernel ' + kernelId);
 
-        if (!kernelManager.current) {
-            console.error('Kernel Manager is not available. Will try to connect...');
-            initializeKernelManagers();
-            return;
-        }
+    //     if (!kernelManager.current) {
+    //         console.error('Kernel Manager is not available. Will try to connect...');
+    //         initializeKernelManagers();
+    //         return;
+    //     }
 
-        const kernelConnection: IKernelConnection = kernelManager.current.connectTo({
-            model: { id: kernelId, name: kernelId },
-        });
+    //     const kernelConnection: IKernelConnection = kernelManager.current.connectTo({
+    //         model: { id: kernelId, name: kernelId },
+    //     });
 
-        console.log(`Connection status of kernel ${kernelId}: ${kernelConnection.connectionStatus}`);
+    //     console.log(`Connection status of kernel ${kernelId}: ${kernelConnection.connectionStatus}`);
 
-        if (kernelConnection.connectionStatus == 'connected') {
-            kernelConnection.requestKernelInfo().then((resp: IInfoReplyMsg | undefined) => {
-                if (resp == undefined) {
-                    console.error('Failed to retrieve information about kernel ' + kernelId);
-                } else {
-                    console.log('Received info from kernel ' + kernelId + ': ' + JSON.stringify(resp));
-                }
-            });
-        } else {
-            kernelConnection.info.then((info) => {
-                console.log('Received info from kernel ' + kernelId + ': ' + JSON.stringify(info));
-            });
-            // console.error('Could not retrieve information for kernel %s. Not connected to the kernel.', kernelId);
-            // setErrorMessage(
-            //     'Could not retrieve information about kernel ' +
-            //         kernelId +
-            //         ' as a connection to the kernel was not established successfully.',
-            // );
-            // setIsErrorModalOpen(true);
-        }
-    }
+    //     if (kernelConnection.connectionStatus == 'connected') {
+    //         kernelConnection.requestKernelInfo().then((resp: IInfoReplyMsg | undefined) => {
+    //             if (resp == undefined) {
+    //                 console.error('Failed to retrieve information about kernel ' + kernelId);
+    //             } else {
+    //                 console.log('Received info from kernel ' + kernelId + ': ' + JSON.stringify(resp));
+    //             }
+    //         });
+    //     } else {
+    //         kernelConnection.info.then((info) => {
+    //             console.log('Received info from kernel ' + kernelId + ': ' + JSON.stringify(info));
+    //         });
+    //         // console.error('Could not retrieve information for kernel %s. Not connected to the kernel.', kernelId);
+    //         // setErrorMessage(
+    //         //     'Could not retrieve information about kernel ' +
+    //         //         kernelId +
+    //         //         ' as a connection to the kernel was not established successfully.',
+    //         // );
+    //         // setIsErrorModalOpen(true);
+    //     }
+    // }
 
     const onInterruptKernelClicked = (index: number) => {
         const kernelId: string | undefined = filteredKernels[index].kernelId;
