@@ -323,8 +323,7 @@ func (d *WorkloadDriver) DriveWorkload(wg *sync.WaitGroup) {
 				if err != nil {
 					d.logger.Error("Failed to handle event.", zap.Any("event-name", evt.Name()), zap.Any("event-id", evt.Id()), zap.String("error-message", err.Error()))
 					d.errorChan <- err
-
-					continue
+					time.Sleep(time.Millisecond * time.Duration(100))
 				}
 				d.mu.Lock()
 				d.workload.NumEventsProcessed += 1

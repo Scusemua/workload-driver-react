@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"time"
 
 	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
 	"go.uber.org/zap"
@@ -118,17 +119,19 @@ func (m *KernelManager) CreateSession(localSessionId string, sessionName string,
 		return err
 	}
 
+	m.logger.Debug("Issuing 'CREATE-SESSION' request now.", zap.String("request-args", requestBody.String()))
+
 	url := fmt.Sprintf("http://%s/api/sessions", m.jupyterServerAddress)
 	req, err := http.NewRequest("POST", url, bytes.NewBuffer(requestBodyJson))
 	if err != nil {
-		m.logger.Error("Error encountered while creating request for CreateFile operation.", zap.String("path", path), zap.String("url", url), zap.Error(err))
+		m.logger.Error("Error encountered while creating request for CreateFile operation.", zap.String("request-args", requestBody.String()), zap.String("path", path), zap.String("url", url), zap.Error(err))
 		return err
 	}
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		m.logger.Error("Received error when creating new session.", zap.String("local-session-id", localSessionId), zap.String("url", url), zap.Error(err))
+		m.logger.Error("Received error when creating new session.", zap.String("request-args", requestBody.String()), zap.String("local-session-id", localSessionId), zap.String("url", url), zap.Error(err))
 		return err
 	}
 
@@ -159,6 +162,29 @@ func (m *KernelManager) CreateSession(localSessionId string, sessionName string,
 			m.sessionMap[localSessionId] = sessionConnection
 
 			m.logger.Debug("Successfully created and setup session.", zap.String("local-session-id", localSessionId), zap.String("jupyter-session-id", jupyterSessionId), zap.String("kernel-id", kernelId))
+			m.logger.Debug("Issuing 'RequestKernelInfo' now.", zap.String("local-session-id", localSessionId), zap.String("jupyter-session-id", jupyterSessionId), zap.String("kernel-id", kernelId))
+
+			numTries := 0
+			maxNumTries := 3
+
+			for numTries < maxNumTries {
+				m.logger.Debug("Requesting kernel info now", zap.Int("attempt", numTries+1), zap.String("local-session-id", localSessionId), zap.String("jupyter-session-id", jupyterSessionId), zap.String("kernel-id", kernelId))
+				resp, err := sessionConnection.RequestKernelInfo()
+
+				if err != nil {
+					m.logger.Error("Error when issuing `RequestKernelInfo`", zap.String("local-session-id", localSessionId), zap.String("jupyter-session-id", jupyterSessionId), zap.String("kernel-id", kernelId), zap.Error(err))
+
+					numTries += 1
+
+					if numTries < maxNumTries {
+						time.Sleep(time.Second * time.Duration(numTries))
+					} else {
+						return err
+					}
+				} else {
+					m.logger.Debug("Received response for `RequestKernelInfo`", zap.String("local-session-id", localSessionId), zap.String("jupyter-session-id", jupyterSessionId), zap.String("kernel-id", kernelId), zap.String("response", resp.String()))
+				}
+			}
 		}
 	case http.StatusBadRequest:
 		{
@@ -170,11 +196,9 @@ func (m *KernelManager) CreateSession(localSessionId string, sessionName string,
 	default:
 		var responseJson map[string]interface{}
 		json.Unmarshal(body, &responseJson)
-		m.logger.Warn("Unexpected respone status code when creating a new session.", zap.Int("status-code", resp.StatusCode), zap.String("status", resp.Status), zap.Any("headers", resp.Header), zap.Any("body", body))
+		m.logger.Warn("Unexpected respone status code when creating a new session.", zap.Int("status-code", resp.StatusCode), zap.String("status", resp.Status), zap.Any("headers", resp.Header), zap.Any("body", body), zap.String("request-args", requestBody.String()))
 
-		if resp.StatusCode >= 400 {
-			return fmt.Errorf("ErrCreateSessionUnknownFailure %w: %s", ErrCreateSessionUnknownFailure, string(body))
-		}
+		return fmt.Errorf("ErrCreateSessionUnknownFailure %w: %s", ErrCreateSessionUnknownFailure, string(body))
 	}
 
 	m.metrics.SessionCreated()

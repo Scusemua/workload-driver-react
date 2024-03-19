@@ -258,6 +258,8 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             model: { id: kernelId, name: kernelId },
         });
 
+        console.log(`Connection status of kernel ${kernelId}: ${kernelConnection.connectionStatus}`);
+
         if (kernelConnection.connectionStatus == 'connected') {
             kernelConnection.requestKernelInfo().then((resp: IInfoReplyMsg | undefined) => {
                 if (resp == undefined) {
@@ -267,13 +269,16 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                 }
             });
         } else {
-            console.error('Could not retrieve information for kernel %s. Not connected to the kernel.', kernelId);
-            setErrorMessage(
-                'Could not retrieve information about kernel ' +
-                    kernelId +
-                    ' as a connection to the kernel was not established successfully.',
-            );
-            setIsErrorModalOpen(true);
+            kernelConnection.info.then((info) => {
+                console.log('Received info from kernel ' + kernelId + ': ' + JSON.stringify(info));
+            });
+            // console.error('Could not retrieve information for kernel %s. Not connected to the kernel.', kernelId);
+            // setErrorMessage(
+            //     'Could not retrieve information about kernel ' +
+            //         kernelId +
+            //         ' as a connection to the kernel was not established successfully.',
+            // );
+            // setIsErrorModalOpen(true);
         }
     }
 
@@ -295,14 +300,6 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             kernelConnection.interrupt().then(() => {
                 console.log('Successfully interrupted kernel ' + kernelId);
             });
-        } else {
-            console.error('Could not interrupt kernel %s. Not connected to the kernel.', kernelId);
-            setErrorMessage(
-                'Could not interrupt kernel ' +
-                    kernelId +
-                    ' as a connection to the kernel was not established successfully.',
-            );
-            setIsErrorModalOpen(true);
         }
     };
 

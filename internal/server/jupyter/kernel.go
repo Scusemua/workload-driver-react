@@ -1,20 +1,20 @@
 package jupyter
 
 import (
-	"encoding/json"
 	"errors"
 	"fmt"
 	"net/url"
 	"os"
+	"time"
 
-	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
 
 const (
-	kernelServiceApi = "api/kernels"
+	JavascriptISOString = "2006-01-02T15:04:05.999Z07:00"
+	kernelServiceApi    = "api/kernels"
 )
 
 var (
@@ -31,9 +31,9 @@ type KernelConnection struct {
 	model     *jupyterKernel
 }
 
-func NewKernelConnection(model *jupyterKernel, jupyterServerAddress string, atom *zap.AtomicLevel) *KernelConnection {
+func NewKernelConnection(model *jupyterKernel, clientId string, jupyterServerAddress string, atom *zap.AtomicLevel) *KernelConnection {
 	conn := &KernelConnection{
-		clientId: uuid.NewString(),
+		clientId: clientId,
 		model:    model,
 		atom:     atom,
 	}
@@ -47,8 +47,6 @@ func NewKernelConnection(model *jupyterKernel, jupyterServerAddress string, atom
 	if err != nil {
 		panic(err)
 	}
-
-	go conn.serveMessages()
 
 	return conn
 }
@@ -69,13 +67,7 @@ func (conn *KernelConnection) setupWebsocket(jupyterServerAddress string) error 
 	}
 
 	conn.sugaredLogger.Debugf("Created partial kernel websocket URL: '%s'", partialUrl)
-	url, err := url.JoinPath(
-		partialUrl,
-		fmt.Sprintf("channels?session_id=%s", url.PathEscape(conn.clientId)))
-	if err != nil {
-		conn.logger.Error("Error when creating full URL.", zap.String("partialUrl", partialUrl), zap.String("wsUrl", wsUrl), zap.String("kernelServiceApi", kernelServiceApi), zap.String("idUrl", idUrl), zap.Error(err))
-		return err
-	}
+	url := partialUrl + "/" + fmt.Sprintf("channels?session_id=%s", url.PathEscape(conn.clientId))
 
 	conn.sugaredLogger.Debugf("Created full kernel websocket URL: '%s'", url)
 
@@ -89,19 +81,26 @@ func (conn *KernelConnection) setupWebsocket(jupyterServerAddress string) error 
 	return nil
 }
 
-func (conn *KernelConnection) serveMessages() {
-	for {
-		_, message, err := conn.webSocket.ReadMessage()
-		if err != nil {
-			conn.logger.Error("Websocket::Read error.", zap.Error(err))
-		}
-
-		var kernelMessage *KernelMessage
-		err = json.Unmarshal(message, &kernelMessage)
-		if err != nil {
-			conn.logger.Error("Error while unmarshalling message from kernel.", zap.Any("message", message), zap.Error(err))
-		}
-
-		conn.logger.Debug("Received message from kernel.", zap.Any("message", kernelMessage.String()))
+func (conn *KernelConnection) requestKernelInfo(sessionId string, username string, messageId string) error {
+	var message *KernelMessage = &KernelMessage{
+		Header: &KernelMessageHeader{
+			Date:        time.Now().UTC().Format(JavascriptISOString),
+			MessageId:   messageId,
+			MessageType: "kernel_info_request",
+			Session:     sessionId,
+			Username:    username,
+			Version:     "5.2",
+		},
+		Content:  make(map[string]interface{}),
+		Metadata: make(map[string]interface{}),
 	}
+
+	conn.logger.Debug("Writing message of type `kernel_info_request` now.", zap.String("message-id", messageId))
+	err := conn.webSocket.WriteJSON(message)
+	if err != nil {
+		conn.logger.Error("Error while writing 'RequestKernelInfo' message.", zap.Error(err))
+		return err
+	}
+
+	return nil
 }
