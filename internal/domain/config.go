@@ -101,9 +101,9 @@ type Configuration struct {
 	// If enabled, then ables the base idle interval to be scaled down. This can occur if an instance type has less of a resource than the configured 'baseResourceAmount' parameter.
 	VariableIdleHostReclaimerAllowScalingDown bool `name:"variable-idle-host-reclaimer-allow-scaling-down" description:"If enabled, then ables the base idle interval to be scaled down. This can occur if an instance type has less of a resource than the configured 'baseResourceAmount' parameter."`
 
-	PushUpdateInterval int `name:"push-update-interval" description:"How frequently the server should push updates about active workloads to the frontend"`
-
-	WorkloadDriverKernelSpec string `name:"workload-driver-kernel-spec-name" description:"The name of the Jupyter kernel spec to be used by the workload driver when creating new kernels."`
+	PushUpdateInterval           int    `name:"push-update-interval" description:"How frequently the server should push updates about active workloads to the frontend"`
+	WorkloadDriverKernelSpec     string `name:"workload-driver-kernel-spec-name" description:"The name of the Jupyter kernel spec to be used by the workload driver when creating new kernels."`
+	ConnectToKernelTimeoutMillis int64  `name:"kernel-connection-timeout-milliseconds" description:"The amount of time, in milliseconds, to wait while establishing a connection to a new kernel (from the workload driver) before returning with an error. Defaults to 60,000 milliseconds (i.e., 60 seconds, or 1 minute)."` // The amount of time, in milliseconds, to wait while establishing a connection to a new kernel (from the workload driver) before returning with an error. Defaults to 60,000 milliseconds (i.e., 60 seconds, or 1 minute).
 
 	////////////////////////////
 	// Instance type selector //
@@ -187,16 +187,17 @@ func GetDefaultConfig() *Configuration {
 	}
 
 	return &Configuration{
-		InCluster:                false,
-		KernelQueryInterval:      "60s",
-		NodeQueryInterval:        "120s",
-		KubeConfig:               kubeconfigDefaultValue,
-		GatewayAddress:           "localhost:9990",
-		KernelSpecQueryInterval:  "600s",
-		JupyterServerAddress:     "localhost:8888",
-		ServerPort:               8000,
-		WorkloadDriverKernelSpec: "distributed",
-		PushUpdateInterval:       1,
+		InCluster:                    false,
+		KernelQueryInterval:          "60s",
+		NodeQueryInterval:            "120s",
+		KubeConfig:                   kubeconfigDefaultValue,
+		GatewayAddress:               "localhost:9990",
+		KernelSpecQueryInterval:      "600s",
+		JupyterServerAddress:         "localhost:8888",
+		ServerPort:                   8000,
+		WorkloadDriverKernelSpec:     "distributed",
+		PushUpdateInterval:           1,
+		ConnectToKernelTimeoutMillis: 60000,
 		// SpoofKubeNodes:          true,
 		// SpoofKernels:            true,
 		// SpoofKernelSpecs:        true,
