@@ -1,10 +1,8 @@
 package jupyter
 
 import (
-	"context"
 	"encoding/json"
 	"errors"
-	"fmt"
 	"os"
 	"time"
 
@@ -81,6 +79,15 @@ type jupyterKernel struct {
 	Connections    int    `json:"connections"`
 }
 
+func (k *jupyterKernel) String() string {
+	out, err := json.Marshal(k)
+	if err != nil {
+		panic(err)
+	}
+
+	return string(out)
+}
+
 func newJupyterKernel(id string, name string) *jupyterKernel {
 	return &jupyterKernel{
 		Id:   id,
@@ -118,16 +125,16 @@ type SessionConnection struct {
 	logger        *zap.Logger
 	sugaredLogger *zap.SugaredLogger
 	atom          *zap.AtomicLevel
-
-	responseChannels map[string]chan *KernelMessage
 }
 
-func NewSessionConnection(model *jupyterSession, jupyterServerAddress string, atom *zap.AtomicLevel) *SessionConnection {
+// Create a new SessionConnection.
+//
+// We do not return until we've successfully connected to the kernel.
+func NewSessionConnection(model *jupyterSession, jupyterServerAddress string, atom *zap.AtomicLevel, timeout time.Duration) *SessionConnection {
 	conn := &SessionConnection{
 		model:                model,
 		jupyterServerAddress: jupyterServerAddress,
 		atom:                 atom,
-		responseChannels:     make(map[string]chan *KernelMessage),
 	}
 
 	core := zapcore.NewCore(zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()), os.Stdout, atom)
@@ -135,81 +142,27 @@ func NewSessionConnection(model *jupyterSession, jupyterServerAddress string, at
 
 	conn.sugaredLogger = conn.logger.Sugar()
 
-	err := conn.connectToKernel()
+	err := conn.connectToKernel(timeout)
 	if err != nil {
 		panic(err)
 	}
 
 	conn.logger.Debug("Successfully connected to kernel.", zap.String("kernel-id", model.JupyterKernel.Id))
 
-	go conn.serveMessages()
-
 	return conn
 }
 
-func (conn *SessionConnection) RequestKernelInfo() (*KernelMessage, error) {
-
-	var message *KernelMessage = conn.kernel.createKernelMessage("kernel_info_request", conn.model.JupyterSessionId, "", ShellChannel)
-	var messageId string = message.Header.MessageId
-	responseChan := make(chan *KernelMessage)
-	conn.responseChannels[messageId] = responseChan
-
-	err := conn.kernel.sendMessage(message)
-	if err != nil {
-		return nil, err
-	}
-
-	timeout := time.Second * time.Duration(10)
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-
-	go func() {
-		time.Sleep(timeout)
-		cancel()
-	}()
-
-	select {
-	case <-ctx.Done():
-		return nil, fmt.Errorf("RequestTimedOut %w : %s", ErrRequestTimedOut, "")
-	case resp := <-responseChan:
-		{
-			conn.logger.Debug("Received response to 'RequestKernelInfo' request.", zap.String("response", resp.String()))
-			return resp, nil
-		}
-	}
-}
-
-// Listen for messages from the kernel.
-func (conn *SessionConnection) serveMessages() {
-	for {
-		_, message, err := conn.kernel.webSocket.ReadMessage()
-		if err != nil {
-			conn.logger.Error("Websocket::Read error.", zap.Error(err))
-		}
-
-		var kernelMessage *KernelMessage
-		err = json.Unmarshal(message, &kernelMessage)
-		if err != nil {
-			conn.logger.Error("Error while unmarshalling message from kernel.", zap.Any("message", kernelMessage.String()), zap.Error(err))
-		}
-
-		conn.logger.Debug("Received message from kernel.", zap.Any("message", kernelMessage.String()))
-
-		if responseChannel, ok := conn.responseChannels[kernelMessage.ParentHeader.MessageId]; ok {
-			conn.logger.Debug("Found response channel for message.", zap.String("message-id", kernelMessage.ParentHeader.MessageId))
-			responseChannel <- kernelMessage
-		} else {
-			conn.logger.Debug("Could not find response channel for message.", zap.String("message-id", kernelMessage.ParentHeader.MessageId))
-		}
-	}
-}
-
 // Side-effect: set the `kernel` field of the SessionConnection.
-func (conn *SessionConnection) connectToKernel() error {
+func (conn *SessionConnection) connectToKernel(timeout time.Duration) error {
 	if conn.kernel != nil {
 		return ErrAlreadyConnectedToKernel
 	}
 
-	conn.kernel = NewKernelConnection(conn.model.JupyterKernel, conn.model.JupyterSessionId, conn.model.JupyterSessionId, conn.jupyterServerAddress, conn.atom)
+	var err error
+	conn.kernel, err = NewKernelConnection(conn.model.JupyterKernel.Id, conn.model.JupyterSessionId, conn.atom, conn.jupyterServerAddress, timeout)
+	return err // Will be nil if everything went OK.
+}
 
-	return nil
+func (conn *SessionConnection) Kernel() *KernelConnection {
+	return conn.kernel
 }

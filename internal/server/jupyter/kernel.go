@@ -32,6 +32,7 @@ var (
 	ErrWebsocketCreationFailed = errors.New("creation of websocket connection to kernel has failed")
 	ErrKernelNotFound          = errors.New("received HTTP 404 status when requesting info for kernel")
 	ErrNetworkIssue            = errors.New("received HTTP 503 or HTTP 424 in response to request")
+	ErrUnexpectedFailure       = errors.New("the request could not be completed for some unexpected reason")
 )
 
 type KernelConnectionStatus string
@@ -261,7 +262,7 @@ func (conn *KernelConnection) websocketClosed(code int, text string) error {
 
 func (conn *KernelConnection) getKernelModel() (*jupyterKernel, error) {
 	url := fmt.Sprintf("http://%s/api/kernels/%s", conn.jupyterServerAddress, conn.kernelId)
-	req, err := http.NewRequest(http.MethodPost, url, nil)
+	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
 		conn.logger.Error("Error encountered while creating HTTP request to get model for kernel.", zap.String("kernel-id", conn.kernelId), zap.String("url", url), zap.Error(err))
 		return nil, err
@@ -283,6 +284,8 @@ func (conn *KernelConnection) getKernelModel() (*jupyterKernel, error) {
 	} else {
 		conn.logger.Error("Kernel died unexpectedly.", zap.String("kernel-id", conn.kernelId), zap.Int("http-status-code", resp.StatusCode), zap.String("http-status", resp.Status))
 		conn.updateConnectionStatus(KernelDead)
+
+		return nil, fmt.Errorf("ErrUnexpectedFailure %w : HTTP %d -- %s", ErrUnexpectedFailure, resp.StatusCode, resp.Status)
 	}
 
 	defer resp.Body.Close()

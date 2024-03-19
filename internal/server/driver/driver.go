@@ -39,6 +39,8 @@ type WorkloadDriver struct {
 
 	workloadGenerator domain.WorkloadGenerator
 
+	sessionsMap map[string]*jupyter.SessionConnection
+
 	logger        *zap.Logger
 	sugaredLogger *zap.SugaredLogger
 	atom          *zap.AtomicLevel
@@ -75,6 +77,7 @@ func NewWorkloadDriver(opts *domain.Configuration) *WorkloadDriver {
 		rpc:           handlers.NewGrpcClient(opts, !opts.SpoofKernels),
 		kernelManager: jupyter.NewKernelManager(opts, &atom),
 		kernels:       make(map[string]struct{}),
+		sessionsMap:   make(map[string]*jupyter.SessionConnection),
 	}
 
 	core := zapcore.NewCore(zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()), os.Stdout, driver.atom)
@@ -354,7 +357,7 @@ func (d *WorkloadDriver) handleEvent(evt domain.Event) error {
 		d.logger.Debug("Received SessionStarted event.", zap.String("session-id", sessionId))
 
 		// TODO: Start session.
-		err := d.createKernel(sessionId)
+		_, err := d.createSession(sessionId)
 		if err != nil {
 			return err
 		}
@@ -365,6 +368,7 @@ func (d *WorkloadDriver) handleEvent(evt domain.Event) error {
 		d.workload.NumActiveSessions += 1
 		d.workload.NumSessionsCreated += 1
 		d.mu.Unlock()
+		d.logger.Debug("Handled SessionStarted event.", zap.String("session-id", sessionId))
 	case generator.EventSessionTrainingStarted:
 		d.logger.Debug("Received TrainingStarted event.", zap.String("session", sessionId))
 
@@ -377,9 +381,11 @@ func (d *WorkloadDriver) handleEvent(evt domain.Event) error {
 		d.mu.Lock()
 		d.workload.NumActiveTrainings += 1
 		d.mu.Unlock()
+		d.logger.Debug("Handled TrainingStarted event.", zap.String("session", sessionId))
 	case generator.EventSessionUpdateGpuUtil:
 		d.logger.Debug("Received UpdateGpuUtil event.", zap.String("session", sessionId))
 		// TODO: Update GPU utilization.
+		d.logger.Debug("Handled UpdateGpuUtil event.", zap.String("session", sessionId))
 	case generator.EventSessionTrainingEnded:
 		d.logger.Debug("Received TrainingEnded event.", zap.String("session", sessionId))
 
@@ -393,11 +399,12 @@ func (d *WorkloadDriver) handleEvent(evt domain.Event) error {
 		d.workload.NumTasksExecuted += 1
 		d.workload.NumActiveTrainings -= 1
 		d.mu.Unlock()
+		d.logger.Debug("Handled TrainingEnded event.", zap.String("session", sessionId))
 	case generator.EventSessionStopped:
 		d.logger.Debug("Received SessionStopped event.", zap.String("session", sessionId))
 
 		// TODO: Stop session.
-		err := d.stopKernel(sessionId)
+		err := d.stopSession(sessionId)
 		if err != nil {
 			return err
 		}
@@ -407,19 +414,28 @@ func (d *WorkloadDriver) handleEvent(evt domain.Event) error {
 		d.mu.Lock()
 		d.workload.NumActiveSessions -= 1
 		d.mu.Unlock()
+		d.logger.Debug("Handled SessionStopped event.", zap.String("session", sessionId))
 	}
 
 	return nil
 }
 
-func (d *WorkloadDriver) createKernel(id string) error {
-	d.logger.Debug("Creating new kernel.", zap.String("kernel-id", id))
-	return d.kernelManager.CreateSession(id, id, fmt.Sprintf("%s.ipynb", id), "notebook", "distributed")
+func (d *WorkloadDriver) createSession(sessionId string) (*jupyter.SessionConnection, error) {
+	d.logger.Debug("Creating new kernel.", zap.String("kernel-id", sessionId))
+	sessionConnection, err := d.kernelManager.CreateSession(sessionId, sessionId, fmt.Sprintf("%s.ipynb", sessionId), "notebook", "distributed")
+	if err != nil {
+		d.logger.Error("Failed to create session.", zap.String("session-id", sessionId))
+		return nil, err
+	}
+
+	d.sessionsMap[sessionId] = sessionConnection
+
+	return sessionConnection, nil
 }
 
-func (d *WorkloadDriver) stopKernel(id string) error {
-	d.logger.Debug("Stopping kernel.", zap.String("kernel-id", id))
-	return d.kernelManager.StopKernel(id)
+func (d *WorkloadDriver) stopSession(sessionId string) error {
+	d.logger.Debug("Stopping session.", zap.String("kernel-id", sessionId))
+	return d.kernelManager.StopKernel(sessionId)
 }
 
 // Return the Workload Driver's "done" channel, which is used to signal that the simulation is complete.

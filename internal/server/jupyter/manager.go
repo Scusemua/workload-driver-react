@@ -63,6 +63,9 @@ type KernelManager struct {
 	// Maintains some metrics.
 	metrics *KernelManagerMetrics
 
+	// The amount of time, in milliseconds, to wait while establishing a connection to a new kernel (from the workload driver) before returning with an error. Defaults to 60,000 milliseconds (i.e., 60 seconds, or 1 minute).
+	connectToKernelTimeout time.Duration
+
 	localSessionIdToKernelId map[string]string // Map from "local" (provided by us) Session IDs to Kernel IDs. We provide the Session IDs, while Jupyter provides the Kernel IDs.
 	kernelIdToLocalSessionId map[string]string // Map from Kernel IDs to Jupyter Session IDs. We provide the Session IDs, while Jupyter provides the Kernel IDs.
 
@@ -79,6 +82,7 @@ func NewKernelManager(opts *domain.Configuration, atom *zap.AtomicLevel) *Kernel
 	manager := &KernelManager{
 		jupyterServerAddress:             opts.JupyterServerAddress,
 		metrics:                          &KernelManagerMetrics{},
+		connectToKernelTimeout:           time.Duration(time.Millisecond * time.Duration(opts.ConnectToKernelTimeoutMillis)),
 		localSessionIdToKernelId:         make(map[string]string),
 		localSessionIdToJupyterSessionId: make(map[string]string),
 		jupyterSessionIdLocalSessionIdTo: make(map[string]string),
@@ -103,41 +107,35 @@ func (m *KernelManager) StartNew(kernelSpec string) error {
 }
 
 // Create a new session.
-func (m *KernelManager) CreateSession(localSessionId string, sessionName string, path string, sessionType string, kernelSpecName string) error {
-	// First, create the notebook file.
-	// err := m.CreateFile(filepath.Join("./", path))
-	// if err != nil {
-	// 	m.logger.Error("Failed to create notebook file while creating new session.", zap.String("session-id", id), zap.Error(err))
-	// 	return err
-	// }
-
+func (m *KernelManager) CreateSession(localSessionId string, sessionName string, path string, sessionType string, kernelSpecName string) (*SessionConnection, error) {
 	requestBody := newJupyterSessionForRequest(sessionName, path, sessionType, kernelSpecName)
 
 	requestBodyJson, err := json.Marshal(&requestBody)
 	if err != nil {
 		m.logger.Error("Error encountered while marshalling payload for CreateSession operation.", zap.Error(err))
-		return err
+		return nil, err
 	}
 
 	m.logger.Debug("Issuing 'CREATE-SESSION' request now.", zap.String("request-args", requestBody.String()))
 
 	url := fmt.Sprintf("http://%s/api/sessions", m.jupyterServerAddress)
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(requestBodyJson))
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(requestBodyJson))
 	if err != nil {
 		m.logger.Error("Error encountered while creating request for CreateFile operation.", zap.String("request-args", requestBody.String()), zap.String("path", path), zap.String("url", url), zap.Error(err))
-		return err
+		return nil, err
 	}
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
 		m.logger.Error("Received error when creating new session.", zap.String("request-args", requestBody.String()), zap.String("local-session-id", localSessionId), zap.String("url", url), zap.Error(err))
-		return err
+		return nil, err
 	}
 
 	defer resp.Body.Close()
 
 	body, _ := io.ReadAll(resp.Body)
+	var sessionConnection *SessionConnection
 	switch resp.StatusCode {
 	case http.StatusCreated:
 		{
@@ -156,54 +154,33 @@ func (m *KernelManager) CreateSession(localSessionId string, sessionName string,
 			m.kernelIdToLocalSessionId[kernelId] = localSessionId
 			m.jupyterSessionIdToKernelId[jupyterSessionId] = kernelId
 
+			st := time.Now()
 			// Connect to the Session and to the associated kernel.
-			sessionConnection := NewSessionConnection(jupyterSession, m.jupyterServerAddress, m.atom)
+			sessionConnection = NewSessionConnection(jupyterSession, m.jupyterServerAddress, m.atom, m.connectToKernelTimeout)
+			creationTime := time.Since(st)
 
 			m.sessionMap[localSessionId] = sessionConnection
 
-			m.logger.Debug("Successfully created and setup session.", zap.String("local-session-id", localSessionId), zap.String("jupyter-session-id", jupyterSessionId), zap.String("kernel-id", kernelId))
-			m.logger.Debug("Issuing 'RequestKernelInfo' now.", zap.String("local-session-id", localSessionId), zap.String("jupyter-session-id", jupyterSessionId), zap.String("kernel-id", kernelId))
-
-			numTries := 0
-			maxNumTries := 3
-
-			for numTries < maxNumTries {
-				m.logger.Debug("Requesting kernel info now", zap.Int("attempt", numTries+1), zap.String("local-session-id", localSessionId), zap.String("jupyter-session-id", jupyterSessionId), zap.String("kernel-id", kernelId))
-				resp, err := sessionConnection.RequestKernelInfo()
-
-				if err != nil {
-					m.logger.Error("Error when issuing `RequestKernelInfo`", zap.String("local-session-id", localSessionId), zap.String("jupyter-session-id", jupyterSessionId), zap.String("kernel-id", kernelId), zap.Error(err))
-
-					numTries += 1
-
-					if numTries < maxNumTries {
-						time.Sleep(time.Second * time.Duration(numTries))
-					} else {
-						return err
-					}
-				} else {
-					m.logger.Debug("Received response for `RequestKernelInfo`", zap.String("local-session-id", localSessionId), zap.String("jupyter-session-id", jupyterSessionId), zap.String("kernel-id", kernelId), zap.String("response", resp.String()))
-				}
-			}
+			m.logger.Debug("Successfully created and setup session.", zap.Duration("time-to-create", creationTime), zap.String("local-session-id", localSessionId), zap.String("jupyter-session-id", jupyterSessionId), zap.String("kernel-id", kernelId))
 		}
 	case http.StatusBadRequest:
 		{
 			var responseJson map[string]interface{}
 			json.Unmarshal(body, &responseJson)
 			m.logger.Error("Received HTTP 400 'Bad Request' when creating session", zap.String("status", resp.Status), zap.Any("headers", resp.Header), zap.Any("body", body))
-			return fmt.Errorf("ErrCreateSessionBadRequest %w : %s", ErrCreateSessionBadRequest, string(body))
+			return nil, fmt.Errorf("ErrCreateSessionBadRequest %w : %s", ErrCreateSessionBadRequest, string(body))
 		}
 	default:
 		var responseJson map[string]interface{}
 		json.Unmarshal(body, &responseJson)
 		m.logger.Warn("Unexpected respone status code when creating a new session.", zap.Int("status-code", resp.StatusCode), zap.String("status", resp.Status), zap.Any("headers", resp.Header), zap.Any("body", body), zap.String("request-args", requestBody.String()))
 
-		return fmt.Errorf("ErrCreateSessionUnknownFailure %w: %s", ErrCreateSessionUnknownFailure, string(body))
+		return nil, fmt.Errorf("ErrCreateSessionUnknownFailure %w: %s", ErrCreateSessionUnknownFailure, string(body))
 	}
 
 	m.metrics.SessionCreated()
 	// TODO(Ben): Does this also create a new kernel?
-	return nil
+	return sessionConnection, nil
 }
 
 func (m *KernelManager) CreateFile(path string) error {
@@ -216,7 +193,7 @@ func (m *KernelManager) CreateFile(path string) error {
 		return err
 	}
 
-	req, err := http.NewRequest("POST", url, bytes.NewBuffer(payload))
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(payload))
 	if err != nil {
 		m.logger.Error("Error encountered while creating request for CreateFile operation.", zap.String("path", path), zap.String("url", url), zap.Error(err))
 		return err
