@@ -205,7 +205,7 @@ func (conn *KernelConnection) setupWebsocket(jupyterServerAddress string, timeou
 	conn.updateConnectionStatus(KernelConnecting)
 
 	wsUrl := "ws://" + jupyterServerAddress
-	idUrl := url.PathEscape(conn.jupyterSessionId)
+	idUrl := url.PathEscape(conn.kernelId)
 
 	partialUrl, err := url.JoinPath(wsUrl, kernelServiceApi, idUrl)
 	if err != nil {
