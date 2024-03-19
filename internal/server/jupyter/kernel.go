@@ -97,12 +97,14 @@ func (conn *KernelConnection) RequestKernelInfo() (*KernelMessage, error) {
 	responseChan := make(chan *KernelMessage)
 	conn.responseChannels[messageId] = responseChan
 
+	conn.logger.Debug("Sending 'request-info' message now.", zap.String("message", message.String()))
+
 	err := conn.sendMessage(message)
 	if err != nil {
 		return nil, err
 	}
 
-	timeout := time.Second * time.Duration(10)
+	timeout := time.Second * time.Duration(30)
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 
 	go func() {
@@ -219,15 +221,19 @@ func (conn *KernelConnection) setupWebsocket(jupyterServerAddress string, timeou
 
 	conn.sugaredLogger.Debugf("Created full kernel websocket URL: '%s'", url)
 
-	ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	defer cancel()
-	ws, _, err := websocket.DefaultDialer.DialContext(ctx, url, nil)
+	// ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	// defer cancel()
+	st := time.Now()
+	// ws, _, err := websocket.DefaultDialer.DialContext(ctx, url, nil)
+	ws, _, err := websocket.DefaultDialer.Dial(url, nil)
 	if err != nil {
 		conn.logger.Error("Failed to dial kernel websocket.", zap.String("url", url), zap.Error(err))
 		return fmt.Errorf("ErrWebsocketCreationFailed %w : %s", ErrWebsocketCreationFailed, err.Error())
 	}
 
+	conn.logger.Debug("Successfully connected to the kernel.", zap.Duration("connection-duration", time.Since(st)), zap.String("kernel-id", conn.kernelId))
 	conn.webSocket = ws
+
 	conn.updateConnectionStatus(KernelConnected)
 
 	// Setup the close handler, which automatically tries to reconnect.
@@ -240,7 +246,7 @@ func (conn *KernelConnection) setupWebsocket(jupyterServerAddress string, timeou
 	conn.model, err = conn.getKernelModel()
 
 	if err != nil {
-		if errors.As(err, &ErrNetworkIssue) {
+		if errors.Is(err, ErrNetworkIssue) {
 			conn.updateConnectionStatus(KernelDisconnected)
 			return fmt.Errorf("ErrWebsocketCreationFailed %w : %s", ErrWebsocketCreationFailed, err.Error())
 		} else {
@@ -281,7 +287,7 @@ func (conn *KernelConnection) getKernelModel() (*jupyterKernel, error) {
 	} else if resp.StatusCode == http.StatusServiceUnavailable /* 503 */ || resp.StatusCode == http.StatusFailedDependency /* 424 */ {
 		// Network errors. We should retry.
 		return nil, ErrNetworkIssue
-	} else {
+	} else if resp.StatusCode != http.StatusOK {
 		conn.logger.Error("Kernel died unexpectedly.", zap.String("kernel-id", conn.kernelId), zap.Int("http-status-code", resp.StatusCode), zap.String("http-status", resp.Status))
 		conn.updateConnectionStatus(KernelDead)
 
@@ -296,11 +302,11 @@ func (conn *KernelConnection) getKernelModel() (*jupyterKernel, error) {
 	err = json.Unmarshal(body, &model)
 	if err != nil {
 		conn.logger.Error("Failed to unmarshal JSON response when requesting model for new kernel.", zap.String("kernel-id", conn.kernelId), zap.String("url", url), zap.Error(err))
-	} else {
-		conn.logger.Debug("Successfully retrieved model for kernel.", zap.String("model", model.String()))
+		return nil, err
 	}
 
-	return model, err
+	conn.logger.Debug("Successfully retrieved model for kernel.", zap.String("model", model.String()))
+	return model, nil
 }
 
 func (conn *KernelConnection) sendMessage(message *KernelMessage) error {
