@@ -106,6 +106,9 @@ service LocalGateway {
   // This involves writing the contents of the etcd-raft data directory to HDFS so that
   // it can be read back from HDFS by the new replica.
   rpc PrepareToMigrate(ReplicaInfo) returns (PrepareToMigrateResponse) {}
+
+  // Return the current GPU resource metrics on the node.
+  rpc GetGpuInfo(Void) returns (GpuInfo) {}
 }
 
 // message GetKubernetesNodesResponse {
@@ -125,6 +128,18 @@ service LocalGateway {
 //   float allocatedVGPUs = 10;
 // }
 
+// Encapsulates the current GPU resource usage on a paritcular node. 
+message GpuInfo {
+  int32 specGPUs= 1; // The total number of GPUs c onfigured/present on this node.
+  int32 idleGPUs= 2; // The number of GPUs that are uncommitted and therefore available on this node. This quantity is equal to specGPUs - committedGPUs.
+  int32 committedGPUs= 3; // The number of GPUs that are actively committed and allocated to replicas that are scheduled onto this node.
+  int32 pendingGPUs= 4; // The sum of the outstanding GPUs of all replicas scheduled onto this node. Pending GPUs are not allocated or committed to a particular replica yet. The time at which resources are actually committed to a replica depends upon the policy being used. In some cases, they're committed immediately. In other cases, they're committed only when the replica is actively training.
+  int32 numPendingAllocations= 5; // Number of individual allocations consisting of GPUs that have NOT been fully committed to a kernel.
+  int32 numAllocations= 6; // Number of individual allocations such that the GPUs have been committed to a container. 
+  string gpuSchedulerID = 7; // Unique ID of the gpu scheduler (which is a component of a local daemon) that is reporting these metrics. 
+  string localDaemonID = 8; // Unique ID of the associated local daemon.
+}
+
 // The input for starting a kernel replica.
 message KernelReplicaSpec {
   KernelSpec kernel = 1;
@@ -138,7 +153,7 @@ message KernelReplicaSpec {
 message ResourceSpec {
   int32 cpu = 1;  // In 1/100 core.
   int32 memory = 2; // In MB.
-  int32 gpu = 3; // In 1/100 core.
+  int32 gpu = 3; // Number of GPUs.
 }
 
 // The kernel id.
