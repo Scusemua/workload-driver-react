@@ -26,16 +26,22 @@ type KernelConnection struct {
 	sugaredLogger *zap.SugaredLogger
 	atom          *zap.AtomicLevel
 
+	// How many messages we've sent. Used when creating message IDs.
+	messageCount int
+
+	sessionId string
 	clientId  string
 	webSocket *websocket.Conn
 	model     *jupyterKernel
 }
 
-func NewKernelConnection(model *jupyterKernel, clientId string, jupyterServerAddress string, atom *zap.AtomicLevel) *KernelConnection {
+func NewKernelConnection(model *jupyterKernel, sessionId string, clientId string, jupyterServerAddress string, atom *zap.AtomicLevel) *KernelConnection {
 	conn := &KernelConnection{
-		clientId: clientId,
-		model:    model,
-		atom:     atom,
+		clientId:     clientId,
+		sessionId:    sessionId,
+		model:        model,
+		atom:         atom,
+		messageCount: 0,
 	}
 
 	core := zapcore.NewCore(zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()), os.Stdout, atom)
@@ -49,6 +55,34 @@ func NewKernelConnection(model *jupyterKernel, clientId string, jupyterServerAdd
 	}
 
 	return conn
+}
+
+func (conn *KernelConnection) createKernelMessage(messageType string, sessionId string, username string, channel KernelSocketChannel) *KernelMessage {
+	header := &KernelMessageHeader{
+		Date:        time.Now().UTC().Format(JavascriptISOString),
+		MessageId:   conn.getNextMessageId(),
+		MessageType: messageType,
+		Session:     sessionId,
+		Username:    username,
+		Version:     "5.2",
+	}
+
+	message := &KernelMessage{
+		Channel:      channel,
+		Header:       header,
+		Content:      make(map[string]interface{}),
+		Metadata:     make(map[string]interface{}),
+		Buffers:      make([]byte, 0),
+		ParentHeader: &KernelMessageHeader{},
+	}
+
+	return message
+}
+
+func (conn *KernelConnection) getNextMessageId() string {
+	messageId := fmt.Sprintf("%s_%d_%d", conn.sessionId, os.Getpid(), conn.messageCount)
+	conn.messageCount += 1
+	return messageId
 }
 
 // Side-effect: updates the KernelConnection's `webSocket` field.
@@ -81,21 +115,8 @@ func (conn *KernelConnection) setupWebsocket(jupyterServerAddress string) error 
 	return nil
 }
 
-func (conn *KernelConnection) requestKernelInfo(sessionId string, username string, messageId string) error {
-	var message *KernelMessage = &KernelMessage{
-		Header: &KernelMessageHeader{
-			Date:        time.Now().UTC().Format(JavascriptISOString),
-			MessageId:   messageId,
-			MessageType: "kernel_info_request",
-			Session:     sessionId,
-			Username:    username,
-			Version:     "5.2",
-		},
-		Content:  make(map[string]interface{}),
-		Metadata: make(map[string]interface{}),
-	}
-
-	conn.logger.Debug("Writing message of type `kernel_info_request` now.", zap.String("message-id", messageId))
+func (conn *KernelConnection) sendMessage(message *KernelMessage) error {
+	conn.logger.Debug("Writing message of type `kernel_info_request` now.", zap.String("message-id", message.Header.MessageId))
 	err := conn.webSocket.WriteJSON(message)
 	if err != nil {
 		conn.logger.Error("Error while writing 'RequestKernelInfo' message.", zap.Error(err))

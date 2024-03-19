@@ -119,8 +119,6 @@ type SessionConnection struct {
 	sugaredLogger *zap.SugaredLogger
 	atom          *zap.AtomicLevel
 
-	messageCount int
-
 	responseChannels map[string]chan *KernelMessage
 }
 
@@ -129,7 +127,6 @@ func NewSessionConnection(model *jupyterSession, jupyterServerAddress string, at
 		model:                model,
 		jupyterServerAddress: jupyterServerAddress,
 		atom:                 atom,
-		messageCount:         0,
 		responseChannels:     make(map[string]chan *KernelMessage),
 	}
 
@@ -150,19 +147,14 @@ func NewSessionConnection(model *jupyterSession, jupyterServerAddress string, at
 	return conn
 }
 
-func (conn *SessionConnection) getNextMessageId() string {
-	messageId := fmt.Sprintf("%s_%d_%d", conn.model.JupyterSessionId, os.Getpid(), conn.messageCount)
-	conn.messageCount += 1
-	return messageId
-}
-
 func (conn *SessionConnection) RequestKernelInfo() (*KernelMessage, error) {
-	messageId := conn.getNextMessageId()
 
+	var message *KernelMessage = conn.kernel.createKernelMessage("kernel_info_request", conn.model.JupyterSessionId, "", ShellChannel)
+	var messageId string = message.Header.MessageId
 	responseChan := make(chan *KernelMessage)
 	conn.responseChannels[messageId] = responseChan
 
-	err := conn.kernel.requestKernelInfo(conn.model.JupyterSessionId, "", messageId)
+	err := conn.kernel.sendMessage(message)
 	if err != nil {
 		return nil, err
 	}
@@ -186,6 +178,7 @@ func (conn *SessionConnection) RequestKernelInfo() (*KernelMessage, error) {
 	}
 }
 
+// Listen for messages from the kernel.
 func (conn *SessionConnection) serveMessages() {
 	for {
 		_, message, err := conn.kernel.webSocket.ReadMessage()
@@ -196,16 +189,16 @@ func (conn *SessionConnection) serveMessages() {
 		var kernelMessage *KernelMessage
 		err = json.Unmarshal(message, &kernelMessage)
 		if err != nil {
-			conn.logger.Error("Error while unmarshalling message from kernel.", zap.Any("message", message), zap.Error(err))
+			conn.logger.Error("Error while unmarshalling message from kernel.", zap.Any("message", kernelMessage.String()), zap.Error(err))
 		}
 
 		conn.logger.Debug("Received message from kernel.", zap.Any("message", kernelMessage.String()))
 
-		if responseChannel, ok := conn.responseChannels[kernelMessage.Header.MessageId]; ok {
-			conn.logger.Debug("Found response channel for message.", zap.String("message-id", kernelMessage.Header.MessageId))
+		if responseChannel, ok := conn.responseChannels[kernelMessage.ParentHeader.MessageId]; ok {
+			conn.logger.Debug("Found response channel for message.", zap.String("message-id", kernelMessage.ParentHeader.MessageId))
 			responseChannel <- kernelMessage
 		} else {
-			conn.logger.Debug("Could not find response channel for message.", zap.String("message-id", kernelMessage.Header.MessageId))
+			conn.logger.Debug("Could not find response channel for message.", zap.String("message-id", kernelMessage.ParentHeader.MessageId))
 		}
 	}
 }
@@ -216,7 +209,7 @@ func (conn *SessionConnection) connectToKernel() error {
 		return ErrAlreadyConnectedToKernel
 	}
 
-	conn.kernel = NewKernelConnection(conn.model.JupyterKernel, conn.model.JupyterSessionId, conn.jupyterServerAddress, conn.atom)
+	conn.kernel = NewKernelConnection(conn.model.JupyterKernel, conn.model.JupyterSessionId, conn.model.JupyterSessionId, conn.jupyterServerAddress, conn.atom)
 
 	return nil
 }

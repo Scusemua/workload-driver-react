@@ -1,15 +1,26 @@
 package jupyter
 
-import "encoding/json"
+import (
+	"encoding/json"
+)
+
+const (
+	ShellChannel   KernelSocketChannel = "shell"
+	ControlChannel KernelSocketChannel = "control"
+	IOPubChannel   KernelSocketChannel = "iopub"
+	StdinChannel   KernelSocketChannel = "stdin"
+)
 
 type KernelMessage struct {
 	Header       *KernelMessageHeader   `json:"header"`
-	Channel      string                 `json:"channel"`
+	Channel      KernelSocketChannel    `json:"channel"`
 	Content      map[string]interface{} `json:"content"`
 	Buffers      []byte                 `json:"buffers"`
 	Metadata     map[string]interface{} `json:"metadata"`
-	ParentHeader map[string]interface{} `json:"parent_header"`
+	ParentHeader *KernelMessageHeader   `json:"parent_header"`
 }
+
+type KernelSocketChannel string
 
 func (m *KernelMessage) String() string {
 	out, err := json.Marshal(m)
