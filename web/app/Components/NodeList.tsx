@@ -200,7 +200,9 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
             <Tbody>
                 {kubeNode.Pods.map((pod) => (
                     <Tr key={pod.PodName}>
-                        <Td dataLabel="Pod ID">{pod.PodName}</Td>
+                        <Td dataLabel="Pod ID" modifier={'truncate'}>
+                            {pod.PodName}
+                        </Td>
                         <Td dataLabel="Phase">{pod.PodPhase}</Td>
                         <Td dataLabel="Age">{pod.PodAge}</Td>
                         <Td dataLabel="IP">{pod.PodIP}</Td>
@@ -299,7 +301,12 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                                                         <FlexItem>
                                                             <DescriptionList
                                                                 className="node-list-description-list"
-                                                                columnModifier={{ lg: '3Col', xl: '3Col' }}
+                                                                columnModifier={{
+                                                                    sm: '2Col',
+                                                                    md: '2Col',
+                                                                    lg: '3Col',
+                                                                    xl: '3Col',
+                                                                }}
                                                             >
                                                                 <DescriptionListGroup>
                                                                     <DescriptionListTerm icon={<VirtualMachineIcon />}>

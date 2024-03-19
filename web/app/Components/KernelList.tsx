@@ -792,7 +792,6 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                         {' Node'}
                     </Th>
                     <Th />
-                    <Th />
                 </Tr>
             </Thead>
             <Tbody>
@@ -800,49 +799,54 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                     kernel.replicas.map((replica, replicaIdx) => (
                         <Tr key={replica.replicaId}>
                             <Td dataLabel="ID">{replica.replicaId}</Td>
-                            <Td dataLabel="Pod" modifier="truncate">
+                            <Td dataLabel="Pod" width={30} modifier="truncate">
                                 {replica.podId}
                             </Td>
-                            <Td dataLabel="Node" modifier="truncate">
+                            <Td dataLabel="Node" width={30} modifier="truncate">
                                 {replica.nodeId}
                             </Td>
-                            <Td>
-                                <Tooltip
-                                    exitDelay={20}
-                                    entryDelay={175}
-                                    content={
-                                        <div>
-                                            Execute Python code on replica {kernel.replicas[replicaIdx].replicaId}.
-                                        </div>
-                                    }
-                                >
-                                    <Button
-                                        variant={'link'}
-                                        icon={<CodeIcon />}
-                                        onClick={() => onExecuteCodeClicked(kernel, replicaIdx)}
-                                    >
-                                        Execute
-                                    </Button>
-                                </Tooltip>
-                            </Td>
-                            <Td>
-                                <Tooltip
-                                    exitDelay={20}
-                                    entryDelay={175}
-                                    content={<div>Migrate this replica to another node.</div>}
-                                >
-                                    <Button
-                                        variant={'link'}
-                                        isLoading={replica.isMigrating}
-                                        isDisabled={replica.isMigrating}
-                                        icon={replica.isMigrating ? null : <MigrationIcon />}
-                                        onClick={() => {
-                                            props.openMigrationModal(kernel, replica);
-                                        }}
-                                    >
-                                        Migrate
-                                    </Button>
-                                </Tooltip>
+                            <Td width={35}>
+                                <Flex direction={{ default: 'row' }} spaceItems={{ default: 'spaceItemsXs' }}>
+                                    <FlexItem>
+                                        <Tooltip
+                                            exitDelay={20}
+                                            entryDelay={175}
+                                            content={
+                                                <div>
+                                                    Execute Python code on replica{' '}
+                                                    {kernel.replicas[replicaIdx].replicaId}.
+                                                </div>
+                                            }
+                                        >
+                                            <Button
+                                                variant={'link'}
+                                                icon={<CodeIcon />}
+                                                onClick={() => onExecuteCodeClicked(kernel, replicaIdx)}
+                                            >
+                                                Execute
+                                            </Button>
+                                        </Tooltip>
+                                    </FlexItem>
+                                    <FlexItem>
+                                        <Tooltip
+                                            exitDelay={20}
+                                            entryDelay={175}
+                                            content={<div>Migrate this replica to another node.</div>}
+                                        >
+                                            <Button
+                                                variant={'link'}
+                                                isLoading={replica.isMigrating}
+                                                isDisabled={replica.isMigrating}
+                                                icon={replica.isMigrating ? null : <MigrationIcon />}
+                                                onClick={() => {
+                                                    props.openMigrationModal(kernel, replica);
+                                                }}
+                                            >
+                                                Migrate
+                                            </Button>
+                                        </Tooltip>
+                                    </FlexItem>
+                                </Flex>
                             </Td>
                         </Tr>
                     ))}
