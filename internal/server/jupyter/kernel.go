@@ -82,8 +82,6 @@ func NewKernelConnection(kernelId string, jupyterSessionId string, atom *zap.Ato
 		return nil, err
 	}
 
-	go conn.serveMessages()
-
 	return conn, nil
 }
 
@@ -104,7 +102,7 @@ func (conn *KernelConnection) RequestKernelInfo() (*KernelMessage, error) {
 		return nil, err
 	}
 
-	timeout := time.Second * time.Duration(30)
+	timeout := time.Second * time.Duration(5)
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 
 	go func() {
@@ -112,13 +110,19 @@ func (conn *KernelConnection) RequestKernelInfo() (*KernelMessage, error) {
 		cancel()
 	}()
 
-	select {
-	case <-ctx.Done():
-		return nil, fmt.Errorf("RequestTimedOut %w : %s", ErrRequestTimedOut, "")
-	case resp := <-responseChan:
-		{
-			conn.logger.Debug("Received response to 'RequestKernelInfo' request.", zap.String("response", resp.String()))
-			return resp, nil
+	for {
+		select {
+		case <-ctx.Done():
+			return nil, fmt.Errorf("ErrRequestTimedOut %w : %s", ErrRequestTimedOut, ctx.Err())
+		case resp := <-responseChan:
+			{
+				conn.logger.Debug("Received response to 'request-info' request.", zap.String("response", resp.String()))
+				return resp, nil
+			}
+		default:
+			{
+				time.Sleep(time.Millisecond * 250)
+			}
 		}
 	}
 }
@@ -126,15 +130,17 @@ func (conn *KernelConnection) RequestKernelInfo() (*KernelMessage, error) {
 // Listen for messages from the kernel.
 func (conn *KernelConnection) serveMessages() {
 	for {
-		_, message, err := conn.webSocket.ReadMessage()
+		var kernelMessage *KernelMessage
+		err := conn.webSocket.ReadJSON(&kernelMessage)
+
 		if err != nil {
 			conn.logger.Error("Websocket::Read error.", zap.Error(err))
-		}
 
-		var kernelMessage *KernelMessage
-		err = json.Unmarshal(message, &kernelMessage)
-		if err != nil {
-			conn.logger.Error("Error while unmarshalling message from kernel.", zap.Any("message", kernelMessage.String()), zap.Error(err))
+			if errors.Is(err, &websocket.CloseError{}) {
+				return
+			}
+
+			continue
 		}
 
 		conn.logger.Debug("Received message from kernel.", zap.Any("message", kernelMessage.String()))
@@ -189,12 +195,29 @@ func (conn *KernelConnection) updateConnectionStatus(status KernelConnectionStat
 	// established. If we are restarting, this message will skip the queue
 	// and be sent immediately.
 	if conn.connectionStatus == KernelConnected {
-		statusMessage, err := conn.RequestKernelInfo()
+		st := time.Now()
+
+		num_tries := 0
+		max_num_tries := 3
+
+		var statusMessage *KernelMessage
+		var err error
+
+		for num_tries <= max_num_tries {
+			time.Sleep(time.Duration(1.5*float64(num_tries)) * time.Second) // Will be 0 initially.
+			statusMessage, err = conn.RequestKernelInfo()
+			if err != nil {
+				num_tries += 1
+				continue
+			} else {
+				break
+			}
+		}
 
 		if err != nil {
-			conn.logger.Error("We've supposedly connected, but the RequestKernelInfo request FAILED.", zap.Error(err))
+			conn.logger.Error("We've supposedly connected, but the 'request-info' request FAILED.", zap.Error(err), zap.Duration("time-elapsed", time.Since(st)))
 		} else {
-			conn.logger.Debug("Successfully retrieved kernel info on connected.", zap.String("kernel-info", statusMessage.String()))
+			conn.logger.Debug("Successfully retrieved kernel info on connected-status-changed.", zap.String("kernel-info", statusMessage.String()), zap.Duration("time-elapsed", time.Since(st)))
 		}
 	}
 }
@@ -231,10 +254,10 @@ func (conn *KernelConnection) setupWebsocket(jupyterServerAddress string, timeou
 		return fmt.Errorf("ErrWebsocketCreationFailed %w : %s", ErrWebsocketCreationFailed, err.Error())
 	}
 
-	conn.logger.Debug("Successfully connected to the kernel.", zap.Duration("connection-duration", time.Since(st)), zap.String("kernel-id", conn.kernelId))
+	conn.logger.Debug("Successfully connected to the kernel.", zap.Duration("time-taken-to-connect", time.Since(st)), zap.String("kernel-id", conn.kernelId))
 	conn.webSocket = ws
 
-	conn.updateConnectionStatus(KernelConnected)
+	go conn.serveMessages()
 
 	// Setup the close handler, which automatically tries to reconnect.
 	if conn.originalWebsocketCloseHandler == nil {
@@ -242,7 +265,6 @@ func (conn *KernelConnection) setupWebsocket(jupyterServerAddress string, timeou
 		conn.originalWebsocketCloseHandler = handler
 	}
 	conn.webSocket.SetCloseHandler(conn.websocketClosed)
-
 	conn.model, err = conn.getKernelModel()
 
 	if err != nil {
@@ -255,6 +277,7 @@ func (conn *KernelConnection) setupWebsocket(jupyterServerAddress string, timeou
 		}
 	}
 
+	conn.updateConnectionStatus(KernelConnected)
 	return nil
 }
 
@@ -263,7 +286,63 @@ func (conn *KernelConnection) websocketClosed(code int, text string) error {
 		panic("Original websocket close-handler is not set.")
 	}
 
-	return conn.originalWebsocketCloseHandler(code, text)
+	// Try to get the model.
+	model, err := conn.getKernelModel()
+	if err != nil {
+		if errors.Is(err, ErrNetworkIssue) && conn.reconnect() {
+			// If it was a network error and we were able to reconnect, then exit the 'websocket closed' handler.
+			return nil
+		}
+
+		// If it was not a network error, or it was, but we failed to reconnect, then call the original 'websocket closed' handler.
+		conn.updateConnectionStatus(KernelDead)
+		return conn.originalWebsocketCloseHandler(code, text)
+	}
+
+	// If we get the model and the execution state is dead, then we terminate.
+	// If we get the model and the execution state is NOT dead, then we try to reconnect.
+	conn.model = model
+	if model.ExecutionState == string(KernelDead) {
+		// Kernel is dead. Call the original 'websocket closed' handler.
+		conn.updateConnectionStatus(KernelDead)
+		return conn.originalWebsocketCloseHandler(code, text)
+	} else {
+		success := conn.reconnect()
+
+		// If we reconnected, then just return. If we failed to reconnect, call the original 'websocket closed' handler.
+		if success {
+			return nil
+		} else {
+			return conn.originalWebsocketCloseHandler(code, text)
+		}
+	}
+}
+
+func (conn *KernelConnection) reconnect() bool {
+	num_tries := 0
+	max_num_tries := 5
+
+	for num_tries < max_num_tries {
+		err := conn.setupWebsocket(conn.jupyterServerAddress, time.Duration(30)*time.Second)
+		if err != nil {
+			if errors.Is(err, ErrNetworkIssue) && (num_tries+1) <= max_num_tries {
+				num_tries += 1
+				sleepInterval := time.Second * time.Duration(2*num_tries)
+				conn.logger.Error("Network error encountered while trying to reconnect to kernel.", zap.String("kernel-id", conn.kernelId), zap.Error(err), zap.Duration("next-sleep-interval", sleepInterval))
+				conn.updateConnectionStatus(KernelDisconnected)
+				time.Sleep(sleepInterval)
+				continue
+			}
+
+			conn.logger.Error("Connection to kernel is dead.", zap.String("kernel-id", conn.kernelId))
+			conn.updateConnectionStatus(KernelDead)
+			return false
+		} else {
+			return true
+		}
+	}
+
+	return false
 }
 
 func (conn *KernelConnection) getKernelModel() (*jupyterKernel, error) {
@@ -313,7 +392,7 @@ func (conn *KernelConnection) sendMessage(message *KernelMessage) error {
 	conn.logger.Debug("Writing message of type `kernel_info_request` now.", zap.String("message-id", message.Header.MessageId))
 	err := conn.webSocket.WriteJSON(message)
 	if err != nil {
-		conn.logger.Error("Error while writing 'RequestKernelInfo' message.", zap.Error(err))
+		conn.logger.Error("Error while writing 'request-info' message.", zap.Error(err))
 		return err
 	}
 
