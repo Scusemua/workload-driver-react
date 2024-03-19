@@ -800,10 +800,10 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                     kernel.replicas.map((replica, replicaIdx) => (
                         <Tr key={replica.replicaId}>
                             <Td dataLabel="ID">{replica.replicaId}</Td>
-                            <Td dataLabel="Pod" modifier="nowrap">
+                            <Td dataLabel="Pod" modifier="truncate">
                                 {replica.podId}
                             </Td>
-                            <Td dataLabel="Node" modifier="nowrap">
+                            <Td dataLabel="Node" modifier="truncate">
                                 {replica.nodeId}
                             </Td>
                             <Td>
@@ -946,28 +946,6 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                                 <Tooltip
                                                     exitDelay={75}
                                                     entryDelay={250}
-                                                    content={
-                                                        <div>Inspect and obtain information about this kernel.</div>
-                                                    }
-                                                >
-                                                    <Button
-                                                        variant={'link'}
-                                                        icon={<SearchIcon />}
-                                                        isDisabled={kernel == null}
-                                                        onClick={() => onInspectKernelClicked(idx)}
-                                                    >
-                                                        Inspect
-                                                    </Button>
-                                                </Tooltip>
-                                            </FlexItem>
-                                        </Flex>
-                                    </FlexItem>
-                                    <FlexItem>
-                                        <Flex spaceItems={{ default: 'spaceItemsSm' }} direction={{ default: 'row' }}>
-                                            <FlexItem>
-                                                <Tooltip
-                                                    exitDelay={75}
-                                                    entryDelay={250}
                                                     content={<div>Interrupt this kernel.</div>}
                                                 >
                                                     <Button
@@ -1006,7 +984,31 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                                     </Button>
                                                 </Tooltip>
                                             </FlexItem>
+                                            {/* <FlexItem>
+                                                <Tooltip
+                                                    exitDelay={75}
+                                                    entryDelay={250}
+                                                    content={
+                                                        <div>Inspect and obtain information about this kernel.</div>
+                                                    }
+                                                >
+                                                    <Button
+                                                        variant={'link'}
+                                                        icon={<SearchIcon />}
+                                                        isDisabled={kernel == null}
+                                                        onClick={() => onInspectKernelClicked(idx)}
+                                                    >
+                                                        Inspect
+                                                    </Button>
+                                                </Tooltip>
+                                            </FlexItem> */}
                                         </Flex>
+                                    </FlexItem>
+                                    <FlexItem>
+                                        <Flex
+                                            spaceItems={{ default: 'spaceItemsSm' }}
+                                            direction={{ default: 'row' }}
+                                        ></Flex>
                                     </FlexItem>
                                 </Flex>
                             </DataListAction>,
