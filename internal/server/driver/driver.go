@@ -8,9 +8,9 @@ import (
 	"os"
 	"sync"
 	"time"
+	"unsafe"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/generator"
@@ -18,6 +18,14 @@ import (
 	"github.com/scusemua/workload-driver-react/m/v2/internal/server/jupyter"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+)
+
+// Used in generating random IDs for workloads.
+const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+const (
+	letterIdxBits = 6                    // 6 bits to represent a letter index
+	letterIdxMask = 1<<letterIdxBits - 1 // All 1-bits, as many as letterIdxBits
+	letterIdxMax  = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
 )
 
 var (
@@ -28,6 +36,8 @@ var (
 
 	ErrTrainingStartedUnknownSession = errors.New("received 'training-started' event for unknown session")
 	ErrTrainingStoppedUnknownSession = errors.New("received 'training-ended' event for unknown session")
+
+	src = rand.NewSource(time.Now().UnixNano())
 )
 
 // The Workload Driver consumes events from the Workload Generator and takes action accordingly.
@@ -64,10 +74,28 @@ type WorkloadDriver struct {
 	opts *domain.Configuration
 }
 
+func GenerateWorkloadID(n int) string {
+	b := make([]byte, n)
+	// A src.Int63() generates 63 random bits, enough for letterIdxMax characters!
+	for i, cache, remain := n-1, src.Int63(), letterIdxMax; i >= 0; {
+		if remain == 0 {
+			cache, remain = src.Int63(), letterIdxMax
+		}
+		if idx := int(cache & letterIdxMask); idx < len(letterBytes) {
+			b[i] = letterBytes[idx]
+			i--
+		}
+		cache >>= letterIdxBits
+		remain--
+	}
+
+	return *(*string)(unsafe.Pointer(&b))
+}
+
 func NewWorkloadDriver(opts *domain.Configuration) *WorkloadDriver {
 	atom := zap.NewAtomicLevelAt(zapcore.DebugLevel)
 	driver := &WorkloadDriver{
-		id:            uuid.NewString(),
+		id:            GenerateWorkloadID(8),
 		opts:          opts,
 		doneChan:      make(chan struct{}, 1),
 		eventChan:     make(chan domain.Event, 1),
@@ -351,7 +379,10 @@ func (d *WorkloadDriver) DriveWorkload(wg *sync.WaitGroup) {
 }
 
 func (d *WorkloadDriver) handleEvent(evt domain.Event) error {
-	sessionId := evt.Data().(*generator.Session).Pod
+	traceSessionId := evt.Data().(*generator.Session).Pod
+	// Append the workload ID to the session ID so sessions are unique across workloads.
+	sessionId := fmt.Sprintf("%s-%s", traceSessionId, d.id)
+
 	switch evt.Name() {
 	case generator.EventSessionStarted:
 		d.logger.Debug("Received SessionStarted event.", zap.String("session-id", sessionId))
