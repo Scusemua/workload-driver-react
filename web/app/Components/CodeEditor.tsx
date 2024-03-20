@@ -1,6 +1,8 @@
 import React from 'react';
-import { ChangeHandler, CodeEditor, Language } from '@patternfly/react-code-editor';
+import { ChangeHandler, CodeEditor, CodeEditorControl, Language } from '@patternfly/react-code-editor';
 import { Button, Chip, Grid, GridItem, Switch } from '@patternfly/react-core';
+import { editor } from 'monaco-editor/esm/vs/editor/editor.api';
+import { CodeIcon } from '@patternfly/react-icons';
 
 export interface CodeEditorComponent {
     children?: React.ReactNode;
@@ -9,6 +11,7 @@ export interface CodeEditorComponent {
 
 export const CodeEditorComponent: React.FunctionComponent<CodeEditorComponent> = (props) => {
     const [isDarkMode, setIsDarkMode] = React.useState(false);
+    const [code, setCode] = React.useState('');
 
     const onEditorDidMount = (editor, monaco) => {
         editor.layout();
@@ -58,7 +61,7 @@ export const CodeEditorComponent: React.FunctionComponent<CodeEditorComponent> =
         'aria-label': 'Shortcuts',
     };
 
-    const customControl = (
+    const darkLightThemeSwitch = (
         // <CodeEditorControl
         //     aria-label={'Toggle darkmode' + ((isDarkMode && ' off') || ' on')}
         //     tooltipProps={{
@@ -93,16 +96,50 @@ export const CodeEditorComponent: React.FunctionComponent<CodeEditorComponent> =
         </div>
     );
 
+    const defaultCodeTemplate1 = (
+        <CodeEditorControl
+            icon={<CodeIcon />}
+            aria-label="Execute code"
+            tooltipProps={{ content: 'Sample Code #1' }}
+            onClick={() => {
+                setCode(
+                    `a = 15
+print("a = %d" % a)`,
+                );
+            }}
+        />
+    );
+
+    const defaultCodeTemplate2 = (
+        <CodeEditorControl
+            icon={<CodeIcon />}
+            aria-label="Execute code"
+            tooltipProps={{ content: 'Sample Code #2' }}
+            onClick={() => {
+                setCode(
+                    `b = a * 2
+print("a = %d, b = %d" % (a, b))`,
+                );
+            }}
+        />
+    );
+
     return (
         <CodeEditor
             isDarkTheme={isDarkMode}
             shortcutsPopoverProps={shortcutsPopoverProps}
-            customControls={customControl}
+            customControls={[defaultCodeTemplate1, defaultCodeTemplate2, darkLightThemeSwitch]}
             isLanguageLabelVisible
             isUploadEnabled
             isDownloadEnabled
             isCopyEnabled
-            onChange={props.onChange}
+            code={code}
+            onChange={(value: string, event: editor.IModelContentChangedEvent) => {
+                setCode(value);
+                if (props.onChange) {
+                    props.onChange(value, event);
+                }
+            }}
             language={Language.python}
             onEditorDidMount={onEditorDidMount}
             height="400px"

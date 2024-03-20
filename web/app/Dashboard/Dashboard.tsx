@@ -1,9 +1,9 @@
 import '@patternfly/react-core/dist/styles/base.css';
 
 import React, { useCallback, useEffect, useRef } from 'react';
-import { Grid, GridItem, PageSection } from '@patternfly/react-core';
+import { Grid, GridItem, gridSpans, PageSection } from '@patternfly/react-core';
 
-import { KernelList, KernelSpecList, KubernetesNodeList, WorkloadCard } from '@app/Components';
+import { KernelList, KernelSpecList, KubernetesNodeList, WorkloadCard } from '@app/Components/Cards/';
 import {
     DistributedJupyterKernel,
     JupyterKernelReplica,
@@ -34,10 +34,12 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
     const [nodes, setNodes] = React.useState<KubernetesNode[]>([]);
     const [workloads, setWorkloads] = React.useState(new Map());
     const [workloadPresets, setWorkloadPresets] = React.useState<WorkloadPreset[]>([]);
-    const [isStartWorkloadModalOpen, setIsStartWorkloadOpen] = React.useState(false);
+    const [isRegisterWorkloadModalOpen, setIsRegisterWorkloadModalOpen] = React.useState(false);
     const [isMigrateModalOpen, setIsMigrateModalOpen] = React.useState(false);
     const [migrateKernel, setMigrateKernel] = React.useState<DistributedJupyterKernel | null>(null);
     const [migrateReplica, setMigrateReplica] = React.useState<JupyterKernelReplica | null>(null);
+
+    const [workloadCardRowspan, setWorkloadCardRowspan] = React.useState<gridSpans>(workloads.size == 0 ? 1 : 2);
 
     const websocketCallbacks = React.useRef(new Map());
 
@@ -71,6 +73,12 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
             updatedWorkloads.forEach((workload: Workload) => {
                 setWorkloads((w) => new Map(w.set(workload.id, workload)));
             });
+
+            if (workloads.size > 0) {
+                setWorkloadCardRowspan(2);
+            } else {
+                setWorkloadCardRowspan(1);
+            }
         };
 
         // If there is a callback, then call it.
@@ -212,6 +220,12 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
                             JSON.stringify(respWorkloads),
                         );
 
+                        if (workloads.size > 0) {
+                            setWorkloadCardRowspan(2);
+                        } else {
+                            setWorkloadCardRowspan(1);
+                        }
+
                         if (callback != undefined) {
                             callback(respWorkloads);
                         }
@@ -339,14 +353,18 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
         setMigrateKernel(null);
     };
 
-    const onConfirmStartWorkload = (
+    const onConfirmRegisterWorkload = (
         workloadName: string,
         selectedPreset: WorkloadPreset,
         workloadSeedString: string,
         debugLoggingEnabled: boolean,
     ) => {
-        console.log("New workload '%s' started by user with preset:\n%s", workloadName, JSON.stringify(selectedPreset));
-        setIsStartWorkloadOpen(false);
+        console.log(
+            "New workload '%s' registered by user with preset:\n%s",
+            workloadName,
+            JSON.stringify(selectedPreset),
+        );
+        setIsRegisterWorkloadModalOpen(false);
 
         let workloadSeed = -1;
 
@@ -358,6 +376,12 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
         const callback = (result: SingleWorkloadResponse) => {
             console.log('Successfully registered workload %s', result.workload.id);
             setWorkloads(new Map(workloads.set(result.workload.id, result.workload)));
+
+            if (workloads.size >= 1) {
+                setWorkloadCardRowspan(2);
+            } else {
+                setWorkloadCardRowspan(1);
+            }
         };
         websocketCallbacks.current.set(messageId, callback);
         sendJsonMessage({
@@ -375,7 +399,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
 
     const onCancelStartWorkload = () => {
         console.log('New workload cancelled by user before starting.');
-        setIsStartWorkloadOpen(false);
+        setIsRegisterWorkloadModalOpen(false);
     };
 
     const openMigrationModal = (kernel: DistributedJupyterKernel, replica: JupyterKernelReplica) => {
@@ -472,16 +496,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
                 <GridItem span={6} rowSpan={2}>
                     <KernelList kernelsPerPage={3} openMigrationModal={openMigrationModal} />
                 </GridItem>
-                <GridItem span={6} rowSpan={6}>
-                    <KubernetesNodeList
-                        nodesPerPage={3}
-                        manuallyRefreshNodes={manuallyRefreshNodes}
-                        nodes={nodes}
-                        refreshInterval={120}
-                        selectable={false}
-                    />
-                </GridItem>
-                <GridItem span={6} rowSpan={1}>
+                <GridItem span={6} rowSpan={workloadCardRowspan}>
                     <WorkloadCard
                         workloadsPerPage={3}
                         toggleDebugLogs={toggleDebugLogs}
@@ -503,8 +518,17 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
                             }
 
                             defaultWorkloadTitle.current = uuidv4(); // Regenerate the default workload title as we're opening the modal again.
-                            setIsStartWorkloadOpen(true);
+                            setIsRegisterWorkloadModalOpen(true);
                         }}
+                    />
+                </GridItem>
+                <GridItem span={6} rowSpan={3}>
+                    <KubernetesNodeList
+                        nodesPerPage={3}
+                        manuallyRefreshNodes={manuallyRefreshNodes}
+                        nodes={nodes}
+                        refreshInterval={120}
+                        selectable={false}
                     />
                 </GridItem>
                 <GridItem span={6} rowSpan={1}>
@@ -521,9 +545,9 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
                 targetReplica={migrateReplica}
             />
             <RegisterWorkloadModal
-                isOpen={isStartWorkloadModalOpen}
+                isOpen={isRegisterWorkloadModalOpen}
                 onClose={onCancelStartWorkload}
-                onConfirm={onConfirmStartWorkload}
+                onConfirm={onConfirmRegisterWorkload}
                 workloadPresets={workloadPresets}
                 defaultWorkloadTitle={defaultWorkloadTitle.current}
             />

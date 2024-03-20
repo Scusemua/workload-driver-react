@@ -1,5 +1,5 @@
 import React from 'react';
-import { KubernetesNodeList } from '@app/Components/NodeList';
+import { KubernetesNodeList } from '@app/Components/Cards/NodeList';
 import { Button, Modal, ModalVariant, Text, TextContent, TextVariants } from '@patternfly/react-core';
 import { DistributedJupyterKernel, JupyterKernelReplica } from '@data/Kernel';
 import { KubernetesNode } from '@data/Kubernetes';
