@@ -74,14 +74,14 @@ import {
 } from '@app/Components/Modals';
 import { DistributedJupyterKernel, JupyterKernelReplica } from '@data/Kernel';
 
-function isNumber(value?: string | number): boolean {
-    return value != null && value !== '' && !isNaN(Number(value.toString()));
-}
-
 function range(start: number, end: number) {
     const nums: number[] = [];
     for (let i: number = start; i < end; i++) nums.push(i);
     return nums;
+}
+
+function isNumber(value?: string | number): boolean {
+    return value != null && value !== '' && !isNaN(Number(value.toString()));
 }
 
 // Map from kernel status to the associated icon.
@@ -98,7 +98,16 @@ const kernelStatusIcons = {
 
 export interface KernelListProps {
     openMigrationModal: (DistributedJupyterKernel, JupyterKernelReplica) => void;
-    kernelsPerPage: number;
+    kernelsPerPageInitialValue: number;
+    onChangeKernelsPerPage: (kernelsPerPage: number) => void;
+    kernels: DistributedJupyterKernel[];
+    refreshingKernels: boolean;
+    manuallyRefreshKernels: (callback: () => void | undefined) => void; // Function to manually refresh the nodes.
+    numKernelsCreating: number;
+    displayErrorMessage: (message: string, preamble: string) => void;
+    startKernel: () => Promise<void>;
+    kernelManager: KernelManager;
+    onInterruptKernelClicked: (kernelId: string) => void;
 }
 
 export const KernelList: React.FunctionComponent<KernelListProps> = (props: KernelListProps) => {
@@ -109,20 +118,13 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
     const [isConfirmCreateModalOpen, setIsConfirmCreateModalOpen] = React.useState(false);
     const [isConfirmDeleteKernelsModalOpen, setIsConfirmDeleteKernelsModalOpen] = React.useState(false);
     const [isConfirmDeleteKernelModalOpen, setIsConfirmDeleteKernelModalOpen] = React.useState(false);
-    const [isErrorModalOpen, setIsErrorModalOpen] = React.useState(false);
-    const [errorMessage, setErrorMessage] = React.useState('');
-    const [errorMessagePreamble, setErrorMessagePreamble] = React.useState('');
     const [isExecuteCodeModalOpen, setIsExecuteCodeModalOpen] = React.useState(false);
     const [executeCodeKernel, setExecuteCodeKernel] = React.useState<DistributedJupyterKernel | null>(null);
     const [executeCodeKernelReplica, setExecuteCodeKernelReplica] = React.useState<JupyterKernelReplica | null>(null);
     const [selectedKernels, setSelectedKernels] = React.useState<string[]>([]);
     const [kernelToDelete, setKernelToDelete] = React.useState<string>('');
-    const [refreshingKernels, setRefreshingKernels] = React.useState(false);
     const [page, setPage] = React.useState(1);
-    const [perPage, setPerPage] = React.useState(props.kernelsPerPage);
-
-    const numKernelsCreating = useRef(0); // Used to display "pending" entries in the kernel list.
-    const kernelManager = useRef<KernelManager | null>(null);
+    const [perPage, setPerPage] = React.useState(props.kernelsPerPageInitialValue);
 
     const onSetPage = (_event: React.MouseEvent | React.KeyboardEvent | MouseEvent, newPage: number) => {
         setPage(newPage);
@@ -147,33 +149,6 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         );
     };
 
-    async function initializeKernelManagers() {
-        if (kernelManager.current === null) {
-            const kernelSpecManagerOptions: KernelManager.IOptions = {
-                serverSettings: ServerConnection.makeSettings({
-                    token: '',
-                    appendToken: false,
-                    baseUrl: '/jupyter',
-                    wsUrl: 'ws://localhost:8888/',
-                    fetch: fetch,
-                }),
-            };
-            kernelManager.current = new KernelManager(kernelSpecManagerOptions);
-
-            console.log('Waiting for Kernel Manager to be ready.');
-
-            kernelManager.current.connectionFailure.connect((_sender: KernelManager, err: Error) => {
-                console.error(
-                    'An error has occurred while preparing the Kernel Manager. ' + err.name + ': ' + err.message,
-                );
-            });
-
-            await kernelManager.current.ready.then(() => {
-                console.log('Kernel Manager is ready!');
-            });
-        }
-    }
-
     const onSelectKernel = (
         _event: React.FormEvent<HTMLInputElement>,
         _checked: boolean,
@@ -192,12 +167,46 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         console.log('selectedKernels: ' + selectedKernels);
     };
 
-    useEffect(() => {
-        initializeKernelManagers();
-    }, []);
-
     const onCardExpand = () => {
         setIsCardExpanded(!isCardExpanded);
+    };
+
+    const onConfirmCreateKernelClicked = (input: string) => {
+        let numKernelsToCreate: number = 1;
+        input = input.trim();
+
+        // If the user specified a particular number of kernels to create, then parse it.
+        if (input != '') {
+            if (isNumber(input)) {
+                numKernelsToCreate = parseInt(input);
+            } else {
+                console.error('Failed to convert number of kernels to a number: "' + input + '"');
+                props.displayErrorMessage(`Failed to convert number of kernels to a number: \"${input}\"`, '');
+            }
+        }
+
+        // console.log(`Creating ${numKernelsToCreate} new Kernel(s).`);
+        // setNumKernelsCreating(numKernelsCreating + numKernelsToCreate);
+        // console.log("We're now creating %d kernel(s).", numKernelsToCreate);
+
+        // Close the confirmation dialogue.
+        setIsConfirmCreateModalOpen(false);
+
+        let errorOccurred = false;
+        for (let i = 0; i < numKernelsToCreate; i++) {
+            if (errorOccurred) break;
+
+            console.log(`Creating kernel ${i + 1} / ${numKernelsToCreate} now.`);
+
+            // Create a new kernel.
+            props.startKernel().catch((error) => {
+                // console.error('Error while trying to start a new kernel:\n' + error);
+                // setErrorMessagePreamble('An error occurred while trying to start a new kernel:');
+                // setErrorMessage(error.toString());
+                // setIsErrorModalOpen(true);
+                errorOccurred = true;
+            });
+        }
     };
 
     const onSearchChange = (value: string) => {
@@ -248,13 +257,13 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
     //     const kernelId: string | undefined = filteredKernels[kernelIndex].kernelId;
     //     console.log('User is inspecting kernel ' + kernelId);
 
-    //     if (!kernelManager.current) {
+    //     if (!props.kernelManager) {
     //         console.error('Kernel Manager is not available. Will try to connect...');
     //         initializeKernelManagers();
     //         return;
     //     }
 
-    //     const kernelConnection: IKernelConnection = kernelManager.current.connectTo({
+    //     const kernelConnection: IKernelConnection = props.kernelManager.connectTo({
     //         model: { id: kernelId, name: kernelId },
     //     });
 
@@ -282,30 +291,9 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
     //     }
     // }
 
-    const onInterruptKernelClicked = (index: number) => {
-        const kernelId: string | undefined = filteredKernels[index].kernelId;
-        console.log('User is interrupting kernel ' + kernelId);
-
-        if (!kernelManager.current) {
-            console.error('Kernel Manager is not available. Will try to connect...');
-            initializeKernelManagers();
-            return;
-        }
-
-        const kernelConnection: IKernelConnection = kernelManager.current.connectTo({
-            model: { id: kernelId, name: kernelId },
-        });
-
-        if (kernelConnection.connectionStatus == 'connected') {
-            kernelConnection.interrupt().then(() => {
-                console.log('Successfully interrupted kernel ' + kernelId);
-            });
-        }
-    };
-
     async function startKernel() {
         // Precondition: The KernelManager is defined.
-        const manager: KernelManager = kernelManager.current!;
+        const manager: KernelManager = props.kernelManager!;
 
         console.log('Starting kernel now...');
 
@@ -321,8 +309,9 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
 
         // Update/refresh the kernels since we know a new one was just created.
         setTimeout(() => {
-            ignoreResponse.current = false;
-            fetchKernels();
+            // ignoreResponse.current = false;
+            // fetchKernels();
+            props.manuallyRefreshKernels(() => {});
         }, 3000);
     }
 
@@ -341,13 +330,13 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             return;
         }
 
-        if (!kernelManager.current) {
+        if (!props.kernelManager) {
             console.error('Kernel Manager is not available. Will try to connect...');
-            initializeKernelManagers();
+            // initializeKernelManagers();
             return;
         }
 
-        const kernelConnection: IKernelConnection = kernelManager.current.connectTo({
+        const kernelConnection: IKernelConnection = props.kernelManager.connectTo({
             model: { id: kernelId, name: kernelId },
         });
 
@@ -393,9 +382,9 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         setIsConfirmDeleteKernelModalOpen(false);
 
         // Create a new kernel.
-        if (!kernelManager.current) {
+        if (!props.kernelManager) {
             console.error('Kernel Manager is not available. Will try to connect...');
-            initializeKernelManagers();
+            // initializeKernelManagers();
             return;
         }
 
@@ -407,16 +396,17 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         async function delete_kernel(id: string) {
             console.log('Deleting Kernel ' + id + ' now.');
 
-            await kernelManager.current?.shutdownAll().then(() => {
+            await props.kernelManager?.shutdownAll().then(() => {
                 console.log('Shutdown ALL kernels.');
             });
 
-            await kernelManager.current?.shutdown(id).then(() => {
+            await props.kernelManager?.shutdown(id).then(() => {
                 console.log('Successfully deleted Kernel ' + id + ' now.');
 
                 // Update/refresh the kernels since we know that we just deleted one of them.
-                ignoreResponse.current = false;
-                fetchKernels();
+                // ignoreResponse.current = false;
+                // fetchKernels();
+                props.manuallyRefreshKernels(() => {});
             });
         }
 
@@ -425,52 +415,6 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         kernelIds.forEach((kernelId) => {
             delete_kernel(kernelId);
         });
-    };
-
-    const onConfirmCreateKernelClicked = (input: string) => {
-        let numKernelsToCreate: number = 1;
-        input = input.trim();
-
-        // If the user specified a particular number of kernels to create, then parse it.
-        if (input != '') {
-            if (isNumber(input)) {
-                numKernelsToCreate = parseInt(input);
-            } else {
-                console.error('Failed to convert number of kernels to a number: "' + input + '"');
-                setErrorMessage('Failed to convert number of kernels to a number: "' + input + '"');
-                setIsErrorModalOpen(true);
-            }
-        }
-
-        console.log(`Creating ${numKernelsToCreate} new Kernel(s).`);
-        numKernelsCreating.current = numKernelsCreating.current + numKernelsToCreate;
-        console.log("We're now creating %d kernel(s).", numKernelsToCreate);
-
-        // Close the confirmation dialogue.
-        setIsConfirmCreateModalOpen(false);
-
-        // Create a new kernel.
-        if (!kernelManager.current) {
-            console.error('Kernel Manager is not available. Will try to connect...');
-            initializeKernelManagers();
-            return;
-        }
-
-        let errorOccurred = false;
-        for (let i = 0; i < numKernelsToCreate; i++) {
-            if (errorOccurred) break;
-
-            console.log(`Creating kernel ${i + 1} / ${numKernelsToCreate} now.`);
-
-            // Create a new kernel.
-            startKernel().catch((error) => {
-                console.error('Error while trying to start a new kernel:\n' + error);
-                setErrorMessagePreamble('An error occurred while trying to start a new kernel:');
-                setErrorMessage(error.toString());
-                setIsErrorModalOpen(true);
-                errorOccurred = true;
-            });
-        }
     };
 
     // Set up status single select
@@ -502,81 +446,6 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             window.removeEventListener('click', handleStatusClickOutside);
         };
     }, [isStatusMenuOpen, statusMenuRef]);
-
-    const ignoreResponse = useRef(false);
-    const fetchKernels = useCallback(() => {
-        const startTime = performance.now();
-        try {
-            setRefreshingKernels(true);
-            console.log('Refreshing kernels now.');
-            // Make a network request to the backend. The server infrastructure handles proxying/routing the request to the correct host.
-            // We're specifically targeting the API endpoint I setup called "get-kernels".
-            fetch('api/get-kernels').then((response: Response) => {
-                if (response.status == 200) {
-                    response.json().then((respKernels: DistributedJupyterKernel[]) => {
-                        if (!ignoreResponse.current) {
-                            console.log('Received kernels: ' + JSON.stringify(respKernels));
-                            console.log("We're currently creating %d kernel(s).", numKernelsCreating.current);
-
-                            // Only bother with this next bit if we're waiting on some kernels that we just created.
-                            if (numKernelsCreating.current > 0) {
-                                // For each kernel that we receive, we'll check if it is a new kernel.
-                                respKernels.forEach((newKernel) => {
-                                    for (let i = 0; i < kernels.current.length; i++) {
-                                        // If we've already seen this kernel, then return immediately.
-                                        // No need to compare it against all the other kernels; we already know that it isn't new.
-                                        if (kernels[i].kernelId == newKernel.kernelId) {
-                                            console.log(
-                                                'Kernel %s is NOT a new kernel (i.e., we already knew about it).',
-                                                newKernel.kernelId,
-                                            );
-                                            return;
-                                        }
-                                    }
-
-                                    // If we're currently creating any kernels and we just received a kernel that we've never seen before,
-                                    // then this must be one of the newly-created kernels that we're waiting on! So, we decrement the
-                                    // 'numKernelsCreating' counter.
-                                    if (numKernelsCreating.current > 0) {
-                                        console.log(
-                                            'Kernel %s is a NEW kernel (i.e., it was just created).',
-                                            newKernel.kernelId,
-                                        );
-                                        numKernelsCreating.current -= 1;
-                                    }
-                                });
-                            }
-
-                            kernels.current = respKernels;
-                            ignoreResponse.current = true;
-                        } else {
-                            console.log("Received %d kernel(s), but we're ignoring the response.", respKernels.length);
-                        }
-                        setRefreshingKernels(false);
-                    });
-                }
-            });
-        } catch (e) {
-            console.error(e);
-        }
-        console.log(`Refresh kernels: ${(performance.now() - startTime).toFixed(4)} ms`);
-    }, []);
-
-    const kernels = React.useRef<DistributedJupyterKernel[]>([]);
-    useEffect(() => {
-        ignoreResponse.current = false;
-        fetchKernels();
-
-        // Periodically refresh the automatically kernels every 30 seconds.
-        setInterval(() => {
-            ignoreResponse.current = false;
-            fetchKernels();
-        }, 120000);
-
-        return () => {
-            ignoreResponse.current = true;
-        };
-    }, [fetchKernels]);
 
     function onStatusMenuSelect(_event: React.MouseEvent | undefined, itemId: string | number | undefined) {
         if (typeof itemId === 'undefined') {
@@ -611,7 +480,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
 
         return (searchValue === '' || matchesSearchValue) && (statusSelections.length === 0 || matchesStatusValue);
     };
-    const filteredKernels = kernels.current.filter(onFilter);
+    const filteredKernels = props.kernels.filter(onFilter);
 
     const statusMenu = (
         <Menu
@@ -747,7 +616,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                             id="delete-kernels-button"
                             variant="plain"
                             isDanger
-                            isDisabled={kernels.current.length == 0 || selectedKernels.length == 0}
+                            isDisabled={props.kernels.length == 0 || selectedKernels.length == 0}
                             onClick={() => setIsConfirmDeleteKernelsModalOpen(true)}
                         >
                             <TrashIcon />
@@ -759,15 +628,16 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                             aria-label="refresh-kernels-button"
                             id="refresh-kernels-button"
                             variant="plain"
-                            isDisabled={refreshingKernels}
+                            isDisabled={props.refreshingKernels}
                             className={
-                                (refreshingKernels && 'loading-icon-spin-toggleable') ||
+                                (props.refreshingKernels && 'loading-icon-spin-toggleable') ||
                                 'loading-icon-spin-toggleable paused'
                             }
                             onClick={() => {
-                                ignoreResponse.current = false;
-                                console.log('Manually refreshing kernels.');
-                                fetchKernels();
+                                // ignoreResponse.current = false;
+                                // console.log('Manually refreshing kernels.');
+                                // fetchKernels();
+                                props.manuallyRefreshKernels(() => {});
                             }}
                         >
                             <SyncIcon />
@@ -863,7 +733,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         setExpandedKernels(newExpanded);
     };
 
-    const pendingKernelArr = range(0, numKernelsCreating.current);
+    const pendingKernelArr = range(0, props.numKernelsCreating);
 
     const getKernelDataListRow = (kernel: DistributedJupyterKernel | null, idx: number) => {
         return (
@@ -957,7 +827,11 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                                         isDanger
                                                         icon={<PauseIcon />}
                                                         isDisabled={kernel == null}
-                                                        onClick={() => onInterruptKernelClicked(idx)}
+                                                        onClick={() =>
+                                                            props.onInterruptKernelClicked(
+                                                                filteredKernels[idx].kernelId,
+                                                            )
+                                                        }
                                                     >
                                                         Interrupt
                                                     </Button>
@@ -1034,7 +908,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
     };
 
     return (
-        <Card isRounded isExpanded={isCardExpanded}>
+        <Card isCompact isRounded isExpanded={isCardExpanded}>
             <CardHeader
                 onExpand={onCardExpand}
                 actions={{ actions: cardHeaderActions, hasNoOffset: true }}
@@ -1050,7 +924,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                     </Title>
                 </CardTitle>
                 <Toolbar
-                    hidden={kernels.current.length == 0}
+                    hidden={props.kernels.length == 0}
                     id="content-padding-data-toolbar"
                     usePageInsets
                     clearAllFilters={() => {
@@ -1065,7 +939,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                     <DataList
                         isCompact
                         aria-label="data list"
-                        hidden={kernels.current.length == 0 && pendingKernelArr.length == 0}
+                        hidden={props.kernels.length == 0 && pendingKernelArr.length == 0}
                     >
                         {pendingKernelArr.map((_, idx) => getKernelDataListRow(null, idx))}
                         {filteredKernels
@@ -1101,21 +975,9 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                         onClose={onCancelExecuteCodeClicked}
                         onSubmit={onConfirmExecuteCodeClicked}
                     />
-                    <InformationModal
-                        isOpen={isErrorModalOpen}
-                        onClose={() => {
-                            setIsErrorModalOpen(false);
-                            setErrorMessage('');
-                            setErrorMessagePreamble('');
-                        }}
-                        title="An Error has Occurred"
-                        titleIconVariant="danger"
-                        message1={errorMessagePreamble}
-                        message2={errorMessage}
-                    />
                     <Pagination
-                        isDisabled={kernels.current.length == 0}
-                        itemCount={kernels.current.length}
+                        isDisabled={props.kernels.length == 0}
+                        itemCount={props.kernels.length}
                         widgetId="bottom-example"
                         perPage={perPage}
                         page={page}

@@ -1,5 +1,5 @@
 import React from 'react';
-import { KubernetesNodeList } from '@app/Components/NodeList';
+import { KubernetesNodeList } from '@cards/NodeList';
 import { Button, Modal, ModalVariant, Text, TextContent, TextVariants } from '@patternfly/react-core';
 import { DistributedJupyterKernel, JupyterKernelReplica } from '@data/Kernel';
 import { KubernetesNode } from '@data/Kubernetes';
@@ -46,7 +46,7 @@ export const MigrationModal: React.FunctionComponent<MigrationModalProps> = (pro
             </TextContent>
             <br />
             <KubernetesNodeList
-                nodesPerPage={5}
+                nodesPerPageInitialValue={5}
                 nodes={props.nodes}
                 manuallyRefreshNodes={props.manuallyRefreshNodes}
                 refreshInterval={604800} // Once per week (i.e., never).

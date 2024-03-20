@@ -54,7 +54,7 @@ export interface NodeListProps {
     disableRadiosWithKernel?: string; // KernelID such that, if a node has a Pod for that kernel, its radio button is disabled.
     hideControlPlaneNode?: boolean;
     onSelectNode?: (nodeId: string) => void; // Function to call when a node is selected; used in case parent wants to do something when node is selected, such as update state.
-    nodesPerPage: number;
+    nodesPerPageInitialValue: number;
 }
 
 export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props: NodeListProps) => {
@@ -64,7 +64,7 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
     const [selectedNode, setSelectedNode] = React.useState('');
     const [refreshingNodes, setRefreshingNodes] = React.useState(false);
     const [page, setPage] = React.useState(1);
-    const [perPage, setPerPage] = React.useState(props.nodesPerPage);
+    const [perPage, setPerPage] = React.useState(props.nodesPerPageInitialValue);
 
     const onSetPage = (_event: React.MouseEvent | React.KeyboardEvent | MouseEvent, newPage: number) => {
         setPage(newPage);
@@ -237,7 +237,7 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
     };
 
     return (
-        <Card isRounded isExpanded={isCardExpanded}>
+        <Card isCompact isRounded isExpanded={isCardExpanded} className="node-list-card">
             <CardHeader
                 onExpand={onCardExpand}
                 actions={{ actions: toolbar, hasNoOffset: true }}

@@ -200,3 +200,7 @@ body {
 .workload-descriptive-icons {
   padding-top: 8px;
 }
+
+.node-list-card {
+  padding-bottom: -40px;
+}

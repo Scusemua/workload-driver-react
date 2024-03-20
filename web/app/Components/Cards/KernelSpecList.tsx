@@ -23,7 +23,9 @@ import { KernelSpecManager, ServerConnection } from '@jupyterlab/services';
 import { ISpecModel } from '@jupyterlab/services/lib/kernelspec/restapi';
 import { SyncIcon } from '@patternfly/react-icons';
 
-export const KernelSpecList: React.FunctionComponent = () => {
+export interface KernelSpecListProps {}
+
+export const KernelSpecList: React.FunctionComponent<KernelSpecListProps> = (props: KernelSpecListProps) => {
     const [activeTabKey, setActiveTabKey] = React.useState(0);
     const [isCardExpanded, setIsCardExpanded] = React.useState(true);
     const kernelSpecManager = useRef<KernelSpecManager | null>(null);
@@ -146,7 +148,7 @@ export const KernelSpecList: React.FunctionComponent = () => {
     );
 
     return (
-        <Card isRounded isExpanded={isCardExpanded}>
+        <Card isCompact isRounded isExpanded={isCardExpanded}>
             <CardHeader
                 onExpand={onCardExpand}
                 actions={{ actions: cardHeaderActions, hasNoOffset: true }}
@@ -201,22 +203,6 @@ export const KernelSpecList: React.FunctionComponent = () => {
                                         {kernelSpecs[key]?.language}
                                     </DescriptionListDescription>
                                 </DescriptionListGroup>
-                                {/* <DescriptionListGroup>
-                  <DescriptionListTerm>Interrupt Mode</DescriptionListTerm>
-                  <DescriptionListDescription>{kernelSpecs[key]?.interrupt_mode}</DescriptionListDescription>
-                </DescriptionListGroup> */}
-                                {/* {kernelSpec.kernelProvisioner.valid && (
-                  <React.Fragment>
-                    <DescriptionListGroup>
-                      <DescriptionListTerm>Provisioner</DescriptionListTerm>
-                      <DescriptionListDescription>{kernelSpec.kernelProvisioner.name}</DescriptionListDescription>
-                    </DescriptionListGroup>
-                    <DescriptionListGroup>
-                      <DescriptionListTerm>Provisioner Gateway</DescriptionListTerm>
-                      <DescriptionListDescription>{kernelSpec.kernelProvisioner.gateway}</DescriptionListDescription>
-                    </DescriptionListGroup>
-                  </React.Fragment>
-                )} */}
                             </DescriptionList>
                         </TabContent>
                     ))}

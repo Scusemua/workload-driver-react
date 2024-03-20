@@ -1,9 +1,18 @@
 import '@patternfly/react-core/dist/styles/base.css';
 
-import React, { useCallback, useEffect, useRef } from 'react';
-import { Grid, GridItem, PageSection } from '@patternfly/react-core';
+import { KernelManager, ServerConnection } from '@jupyterlab/services';
+import { IKernelConnection } from '@jupyterlab/services/lib/kernel/kernel';
 
-import { KernelList, KernelSpecList, KubernetesNodeList, WorkloadCard } from '@app/Components';
+import React, { useCallback, useEffect, useRef } from 'react';
+import { Grid, GridItem, gridSpans, PageSection } from '@patternfly/react-core';
+
+import {
+    KernelList,
+    KernelSpecList,
+    KubernetesNodeList,
+    WorkloadCard,
+    ClusterComponentsCard,
+} from '@app/Components/Cards';
 import {
     DistributedJupyterKernel,
     JupyterKernelReplica,
@@ -14,11 +23,12 @@ import {
     WorkloadPreset,
     WorkloadsResponse,
 } from '@app/Data';
-import { MigrationModal, RegisterWorkloadModal } from '@app/Components/Modals';
+import { InformationModal, MigrationModal, RegisterWorkloadModal } from '@app/Components/Modals';
 
 import useWebSocket from 'react-use-websocket';
 
 import { v4 as uuidv4 } from 'uuid';
+import { number } from 'prop-types';
 
 export interface DashboardProps {
     nodeRefreshInterval: number;
@@ -32,12 +42,24 @@ function wait<T>(ms: number, value: T) {
 
 const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProps) => {
     const [nodes, setNodes] = React.useState<KubernetesNode[]>([]);
+    const [kernels, setKernels] = React.useState<DistributedJupyterKernel[]>([]);
     const [workloads, setWorkloads] = React.useState(new Map());
     const [workloadPresets, setWorkloadPresets] = React.useState<WorkloadPreset[]>([]);
     const [isStartWorkloadModalOpen, setIsStartWorkloadOpen] = React.useState(false);
     const [isMigrateModalOpen, setIsMigrateModalOpen] = React.useState(false);
     const [migrateKernel, setMigrateKernel] = React.useState<DistributedJupyterKernel | null>(null);
     const [migrateReplica, setMigrateReplica] = React.useState<JupyterKernelReplica | null>(null);
+    const [refreshingKernels, setRefreshingKernels] = React.useState(false);
+    const [numKernelsCreating, setNumKernelsCreating] = React.useState(0);
+    const [isErrorModalOpen, setIsErrorModalOpen] = React.useState(false);
+    const [errorMessage, setErrorMessage] = React.useState('');
+    const [errorMessagePreamble, setErrorMessagePreamble] = React.useState('');
+
+    // const [kernelCardRowSpan, setKernelCardRowSpan] = React.useState<gridSpans>(2);
+    const [nodeCardRowSpan, setNodeCardRowSpan] = React.useState<gridSpans>(4);
+    const [workloadsCardRowSpan, setWorkloadsCardRowSpan] = React.useState<gridSpans>(1);
+
+    const kernelManager = React.useRef<KernelManager | null>(null);
 
     const websocketCallbacks = React.useRef(new Map());
 
@@ -49,19 +71,6 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
         },
     );
 
-    // Run when the connection state (readyState) changes.
-    // useEffect(() => {
-    //     console.log('Connection state changed: %s', readyState.toString());
-    //     if (readyState === ReadyState.OPEN) {
-    //         sendJsonMessage({
-    //             event: 'subscribe',
-    //             data: {
-    //                 channel: 'general-chatroom',
-    //             },
-    //         });
-    //     }
-    // }, [readyState]);
-
     const handleMessage = useCallback((message: Record<string, unknown>) => {
         console.log(`Got a new message: ${JSON.stringify(message)}`);
 
@@ -71,6 +80,9 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
             updatedWorkloads.forEach((workload: Workload) => {
                 setWorkloads((w) => new Map(w.set(workload.id, workload)));
             });
+
+            const rowSpan: gridSpans = Math.min(Math.max(workloads.size, 1), 3) as gridSpans;
+            setWorkloadsCardRowSpan(rowSpan);
         };
 
         // If there is a callback, then call it.
@@ -212,6 +224,9 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
                             JSON.stringify(respWorkloads),
                         );
 
+                        const rowSpan: gridSpans = Math.min(Math.max(workloads.size, 1), 3) as gridSpans;
+                        setWorkloadsCardRowSpan(rowSpan);
+
                         if (callback != undefined) {
                             callback(respWorkloads);
                         }
@@ -232,6 +247,81 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
         },
         [sendJsonMessage],
     );
+
+    const ignoreResponseForKernels = useRef(false);
+    const fetchKernels = useCallback(() => {
+        const startTime = performance.now();
+        try {
+            setRefreshingKernels(true);
+            console.log('Refreshing kernels now.');
+            // Make a network request to the backend. The server infrastructure handles proxying/routing the request to the correct host.
+            // We're specifically targeting the API endpoint I setup called "get-kernels".
+            fetch('api/get-kernels').then((response: Response) => {
+                if (response.status == 200) {
+                    response.json().then((respKernels: DistributedJupyterKernel[]) => {
+                        if (!ignoreResponseForKernels.current) {
+                            console.log('Received kernels: ' + JSON.stringify(respKernels));
+                            console.log("We're currently creating %d kernel(s).", numKernelsCreating);
+
+                            // Only bother with this next bit if we're waiting on some kernels that we just created.
+                            if (numKernelsCreating > 0) {
+                                // For each kernel that we receive, we'll check if it is a new kernel.
+                                respKernels.forEach((newKernel) => {
+                                    for (let i = 0; i < kernels.length; i++) {
+                                        // If we've already seen this kernel, then return immediately.
+                                        // No need to compare it against all the other kernels; we already know that it isn't new.
+                                        if (kernels[i].kernelId == newKernel.kernelId) {
+                                            console.log(
+                                                'Kernel %s is NOT a new kernel (i.e., we already knew about it).',
+                                                newKernel.kernelId,
+                                            );
+                                            return;
+                                        }
+                                    }
+
+                                    // If we're currently creating any kernels and we just received a kernel that we've never seen before,
+                                    // then this must be one of the newly-created kernels that we're waiting on! So, we decrement the
+                                    // 'numKernelsCreating' counter.
+                                    if (numKernelsCreating > 0) {
+                                        console.log(
+                                            'Kernel %s is a NEW kernel (i.e., it was just created).',
+                                            newKernel.kernelId,
+                                        );
+                                        setNumKernelsCreating(numKernelsCreating - 1);
+                                    }
+                                });
+                            }
+
+                            setKernels(respKernels);
+                            ignoreResponseForKernels.current = true;
+                        } else {
+                            console.log("Received %d kernel(s), but we're ignoring the response.", respKernels.length);
+                        }
+                        setRefreshingKernels(false);
+                    });
+                }
+            });
+        } catch (e) {
+            console.error(e);
+        }
+        console.log(`Refresh kernels: ${(performance.now() - startTime).toFixed(4)} ms`);
+    }, []);
+
+    // const kernels = React.useRef<DistributedJupyterKernel[]>([]);
+    useEffect(() => {
+        ignoreResponseForKernels.current = false;
+        fetchKernels();
+
+        // Periodically refresh the automatically kernels every 30 seconds.
+        setInterval(() => {
+            ignoreResponseForKernels.current = false;
+            fetchKernels();
+        }, 120000);
+
+        return () => {
+            ignoreResponseForKernels.current = true;
+        };
+    }, [fetchKernels]);
 
     // Fetch the kubernetes nodes from the backend (which itself makes a network call to the Kubernetes API).
     useEffect(() => {
@@ -296,6 +386,26 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
                 callback();
             }
         });
+    }
+
+    async function manuallyRefreshKernels(callback: () => void | undefined) {
+        const startTime = performance.now();
+        ignoreResponseForKernels.current = false;
+        fetchKernels();
+        ignoreResponseForNodes.current = true;
+        console.log(`Refresh kernels nodes: ${(performance.now() - startTime).toFixed(4)} ms`);
+
+        if (callback != undefined) {
+            callback();
+        }
+        // await fetchKernels().then(() => {
+        //     ignoreResponseForNodes.current = true;
+        //     console.log(`Refresh kernels nodes: ${(performance.now() - startTime).toFixed(4)} ms`);
+
+        //     if (callback != undefined) {
+        //         callback();
+        //     }
+        // });
     }
 
     const onConfirmMigrateReplica = (
@@ -466,22 +576,148 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
         });
     };
 
+    const kernelsPerPageChanged = (value: number) => {};
+
+    const WithGutters = () => (
+        <Grid hasGutter>
+            <GridItem span={8}>span = 8</GridItem>
+            <GridItem span={4} rowSpan={2}>
+                span = 4, rowSpan = 2
+            </GridItem>
+            <GridItem span={2} rowSpan={3}>
+                span = 2, rowSpan = 3
+            </GridItem>
+            <GridItem span={2}>span = 2</GridItem>
+            <GridItem span={4}>span = 4</GridItem>
+            <GridItem span={2}>span = 2</GridItem>
+            <GridItem span={2}>span = 2</GridItem>
+            <GridItem span={2}>span = 2</GridItem>
+            <GridItem span={4}>span = 4</GridItem>
+            <GridItem span={2}>span = 2</GridItem>
+            <GridItem span={4}>span = 4</GridItem>
+            <GridItem span={4}>span = 4</GridItem>
+        </Grid>
+    );
+
+    const displayErrorMessage = (message: string, preamble: string) => {
+        setErrorMessage(message);
+        setErrorMessagePreamble(preamble);
+        setIsErrorModalOpen(true);
+    };
+
+    async function initializeKernelManagers() {
+        if (kernelManager.current === null) {
+            const kernelSpecManagerOptions: KernelManager.IOptions = {
+                serverSettings: ServerConnection.makeSettings({
+                    token: '',
+                    appendToken: false,
+                    baseUrl: '/jupyter',
+                    wsUrl: 'ws://localhost:8888/',
+                    fetch: fetch,
+                }),
+            };
+            kernelManager.current = new KernelManager(kernelSpecManagerOptions);
+
+            console.log('Waiting for Kernel Manager to be ready.');
+
+            kernelManager.current.connectionFailure.connect((_sender: KernelManager, err: Error) => {
+                console.error(
+                    'An error has occurred while preparing the Kernel Manager. ' + err.name + ': ' + err.message,
+                );
+            });
+
+            await kernelManager.current.ready.then(() => {
+                console.log('Kernel Manager is ready!');
+            });
+        }
+    }
+
+    useEffect(() => {
+        initializeKernelManagers();
+    }, []);
+
+    const onInterruptKernelClicked = (kernelId: string) => {
+        console.log('User is interrupting kernel ' + kernelId);
+
+        if (!kernelManager.current) {
+            console.error('Kernel Manager is not available. Will try to connect...');
+            initializeKernelManagers().then(() => {}); // Wait for promise to resolve.
+        }
+
+        const kernelConnection: IKernelConnection = kernelManager.current!.connectTo({
+            model: { id: kernelId, name: kernelId },
+        });
+
+        if (kernelConnection.connectionStatus == 'connected') {
+            kernelConnection.interrupt().then(() => {
+                console.log('Successfully interrupted kernel ' + kernelId);
+            });
+        }
+    };
+
+    async function startKernel() {
+        // Create a new kernel.
+        if (!kernelManager.current) {
+            console.error('Kernel Manager is not available. Will try to connect...');
+            await initializeKernelManagers();
+        }
+
+        setNumKernelsCreating(numKernelsCreating + 1);
+
+        // Precondition: The KernelManager is defined.
+        const manager: KernelManager = kernelManager.current!;
+
+        console.log('Starting kernel now...');
+
+        // Start a python kernel
+        const kernel: IKernelConnection = await manager.startNew({ name: 'distributed' });
+
+        console.log('Successfully started kernel!');
+
+        // Register a callback for when the kernel changes state.
+        kernel.statusChanged.connect((_, status) => {
+            console.log(`New Kernel Status Update: ${status}`);
+        });
+
+        // Update/refresh the kernels since we know a new one was just created.
+        setTimeout(() => {
+            // ignoreResponse.current = false;
+            // fetchKernels();
+            manuallyRefreshKernels(() => {});
+        }, 3000);
+    }
+
     return (
         <PageSection>
             <Grid hasGutter>
                 <GridItem span={6} rowSpan={2}>
-                    <KernelList kernelsPerPage={3} openMigrationModal={openMigrationModal} />
+                    <KernelList
+                        kernels={kernels}
+                        kernelManager={kernelManager.current!}
+                        onInterruptKernelClicked={onInterruptKernelClicked}
+                        startKernel={startKernel}
+                        displayErrorMessage={displayErrorMessage}
+                        numKernelsCreating={numKernelsCreating}
+                        manuallyRefreshKernels={manuallyRefreshKernels}
+                        refreshingKernels={refreshingKernels}
+                        onChangeKernelsPerPage={kernelsPerPageChanged}
+                        kernelsPerPageInitialValue={1}
+                        openMigrationModal={openMigrationModal}
+                    />
                 </GridItem>
-                <GridItem span={6} rowSpan={6}>
+                <GridItem span={6} rowSpan={2}>
+                    <ClusterComponentsCard />
+                </GridItem>
+                <GridItem span={6} rowSpan={nodeCardRowSpan}>
                     <KubernetesNodeList
-                        nodesPerPage={3}
+                        nodesPerPageInitialValue={3}
                         manuallyRefreshNodes={manuallyRefreshNodes}
                         nodes={nodes}
                         refreshInterval={120}
                         selectable={false}
                     />
                 </GridItem>
-                <GridItem span={6} rowSpan={1}>
+                <GridItem span={6} rowSpan={workloadsCardRowSpan}>
                     <WorkloadCard
                         workloadsPerPage={3}
                         toggleDebugLogs={toggleDebugLogs}
@@ -526,6 +762,18 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
                 onConfirm={onConfirmStartWorkload}
                 workloadPresets={workloadPresets}
                 defaultWorkloadTitle={defaultWorkloadTitle.current}
+            />
+            <InformationModal
+                isOpen={isErrorModalOpen}
+                onClose={() => {
+                    setIsErrorModalOpen(false);
+                    setErrorMessage('');
+                    setErrorMessagePreamble('');
+                }}
+                title="An Error has Occurred"
+                titleIconVariant="danger"
+                message1={errorMessagePreamble}
+                message2={errorMessage}
             />
         </PageSection>
     );

@@ -27,6 +27,9 @@
       "@data/*": [
         "web/app/Data/*"
       ],
+      "@cards/*": [
+        "web/app/Components/Cards/*"
+      ],
       "@assets/*": [
         "node_modules/@patternfly/react-core/dist/styles/assets/*"
       ]

@@ -187,7 +187,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
     };
 
     return (
-        <Card isRounded isExpanded={isCardExpanded}>
+        <Card isCompact isRounded isExpanded={isCardExpanded}>
             <CardHeader
                 actions={{ actions: cardHeaderActions, hasNoOffset: true }}
                 onExpand={onCardExpand}
