@@ -1,7 +1,7 @@
 import '@patternfly/react-core/dist/styles/base.css';
 
 import React, { useCallback, useEffect, useRef } from 'react';
-import { Grid, GridItem, gridSpans, PageSection } from '@patternfly/react-core';
+import { Grid, GridItem, PageSection, gridSpans } from '@patternfly/react-core';
 
 import { KernelList, KernelSpecList, KubernetesNodeList, WorkloadCard } from '@app/Components/Cards/';
 import {
@@ -64,42 +64,45 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
     //     }
     // }, [readyState]);
 
-    const handleMessage = useCallback((message: Record<string, unknown>) => {
-        console.log(`Got a new message: ${JSON.stringify(message)}`);
+    const handleMessage = useCallback(
+        (message: Record<string, unknown>) => {
+            console.log(`Got a new message: ${JSON.stringify(message)}`);
 
-        const handleActiveWorkloadsUpdate = (updatedWorkloads: Workload[]) => {
-            console.log('Received update about %d active workload(s).', updatedWorkloads.length);
+            const handleActiveWorkloadsUpdate = (updatedWorkloads: Workload[]) => {
+                console.log('Received update about %d active workload(s).', updatedWorkloads.length);
 
-            updatedWorkloads.forEach((workload: Workload) => {
-                setWorkloads((w) => new Map(w.set(workload.id, workload)));
-            });
+                updatedWorkloads.forEach((workload: Workload) => {
+                    setWorkloads((w) => new Map(w.set(workload.id, workload)));
+                });
 
-            if (workloads.size > 0) {
-                setWorkloadCardRowspan(2);
-            } else {
-                setWorkloadCardRowspan(1);
-            }
-        };
+                if (workloads.size > 0) {
+                    setWorkloadCardRowspan(2);
+                } else {
+                    setWorkloadCardRowspan(1);
+                }
+            };
 
-        // If there is a callback, then call it.
-        if (message) {
-            if (websocketCallbacks.current.has(message['msg_id'])) {
-                console.log(`Found callback for message ${message['msg_id']}`);
-                websocketCallbacks.current.get(message['msg_id'])(message);
-            } else {
-                console.log(`No callback found for message ${message['msg_id']}`);
-                const op = message['op'];
+            // If there is a callback, then call it.
+            if (message) {
+                if (websocketCallbacks.current.has(message['msg_id'])) {
+                    console.log(`Found callback for message ${message['msg_id']}`);
+                    websocketCallbacks.current.get(message['msg_id'])(message);
+                } else {
+                    console.log(`No callback found for message ${message['msg_id']}`);
+                    const op = message['op'];
 
-                if (op == 'active_workloads_update') {
-                    const updatedWorkloads: Workload[] | unknown = message['updated_workloads'];
-                    if (!updatedWorkloads) {
-                        throw new Error("Unexpected response for 'updated_workloads' key.");
+                    if (op == 'active_workloads_update') {
+                        const updatedWorkloads: Workload[] | unknown = message['updated_workloads'];
+                        if (!updatedWorkloads) {
+                            throw new Error("Unexpected response for 'updated_workloads' key.");
+                        }
+                        handleActiveWorkloadsUpdate(updatedWorkloads as Workload[]);
                     }
-                    handleActiveWorkloadsUpdate(updatedWorkloads as Workload[]);
                 }
             }
-        }
-    }, []);
+        },
+        [workloads.size],
+    );
 
     // Run when a new WebSocket message is received (lastJsonMessage).
     useEffect(() => {
@@ -244,7 +247,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = (props: DashboardProp
             }
             console.log(`Refresh workloads: ${(performance.now() - startTime).toFixed(4)} ms`);
         },
-        [sendJsonMessage],
+        [sendJsonMessage, workloads.size],
     );
 
     // Fetch the kubernetes nodes from the backend (which itself makes a network call to the Kubernetes API).
