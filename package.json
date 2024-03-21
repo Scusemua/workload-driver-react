@@ -96,6 +96,7 @@
     "react-dom": "^18",
     "react-use-websocket": "^4.8.1",
     "sirv-cli": "^2.0.2",
+    "swr": "^2.2.5",
     "uuid": "^9.0.1"
   }
 }

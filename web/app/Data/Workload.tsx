@@ -32,18 +32,13 @@ interface Workload {
     error_message: string;
 }
 
-// Response containing a single workload.
-// Sent to the front-end by the back-end in response to registering a workload, starting a workload, stopping a workload, etc.
-interface SingleWorkloadResponse {
-    msg_id: string;
-    workload: Workload;
-}
-
 // Response for a 'get workloads' request.
 // Sent to the front-end by the back-end.
-interface WorkloadsResponse {
+interface WorkloadResponse {
     msg_id: string;
-    workloads: Workload[];
+    new_workloads: Workload[];
+    modified_workloads: Workload[];
+    deleted_workloads: Workload[];
 }
 
 export { WORKLOAD_STATE_READY as WORKLOAD_STATE_READY };
@@ -54,5 +49,4 @@ export { WORKLOAD_STATE_TERMINATED as WORKLOAD_STATE_TERMINATED };
 
 export type { Workload as Workload };
 export type { WorkloadPreset as WorkloadPreset };
-export type { SingleWorkloadResponse as SingleWorkloadResponse };
-export type { WorkloadsResponse as WorkloadsResponse };
+export type { WorkloadResponse as WorkloadResponse };

@@ -39,6 +39,8 @@ type serverImpl struct {
 	workloads          []*domain.Workload
 	pushUpdateInterval time.Duration
 
+	subscribers map[string]*websocket.Conn
+
 	driversMutex   sync.RWMutex
 	workloadsMutex sync.RWMutex
 }
@@ -51,6 +53,7 @@ func NewServer(opts *domain.Configuration) domain.Server {
 		workloadDrivers:    orderedmap.NewOrderedMap[string, *driver.WorkloadDriver](),
 		workloadsMap:       orderedmap.NewOrderedMap[string, *domain.Workload](),
 		workloads:          make([]*domain.Workload, 0),
+		subscribers:        make(map[string]*websocket.Conn),
 		// workloadDriver: driver.NewWorkloadDriver(opts),
 	}
 
@@ -151,10 +154,9 @@ func (s *serverImpl) serverPushRoutine(conn *websocket.Conn, workloadStartedChan
 			s.driversMutex.RUnlock()
 
 			msgId := uuid.NewString()
-			payload, err := json.Marshal(&domain.ActiveWorkloadsUpdate{
-				MessageId:        msgId,
-				Op:               "active_workloads_update",
-				UpdatedWorkloads: updatedWorkloads,
+			payload, err := json.Marshal(&domain.WorkloadResponse{
+				MessageId:         msgId,
+				ModifiedWorkloads: updatedWorkloads,
 			})
 
 			if err != nil {
@@ -170,7 +172,7 @@ func (s *serverImpl) serverPushRoutine(conn *websocket.Conn, workloadStartedChan
 			s.driversMutex.RUnlock()
 
 			// Send an update to the frontend.
-			conn.WriteMessage(websocket.BinaryMessage, payload)
+			s.broadcast(payload)
 
 			s.logger.Debug("Pushed 'Active Workloads' update to frontend.", zap.String("message-id", msgId))
 
@@ -268,35 +270,45 @@ func (s *serverImpl) serveWebsocket(c *gin.Context) {
 		op := op_val.(string)
 		msgId := msgIdVal.(string)
 		if op == "get_workloads" {
-			s.handleGetWorkloads(conn, msgId)
+			s.handleGetWorkloads(msgId, nil, true)
 		} else if op == "register_workload" {
 			var wrapper *domain.WorkloadRegistrationRequestWrapper
 			json.Unmarshal(message, &wrapper)
-			s.handleRegisterWorkload(wrapper.WorkloadRegistrationRequest, conn, msgId)
+			s.handleRegisterWorkload(wrapper.WorkloadRegistrationRequest, nil, msgId)
 		} else if op == "start_workload" {
 			var req *domain.StartStopWorkloadRequest
 			json.Unmarshal(message, &req)
-			s.handleStartWorkload(req, conn, workloadStartedChan)
+			s.handleStartWorkload(req, nil, workloadStartedChan)
 		} else if op == "stop_workload" {
 			var req *domain.StartStopWorkloadRequest
 			json.Unmarshal(message, &req)
-			s.handleStopWorkload(req, conn)
+			s.handleStopWorkload(req, nil)
 		} else if op == "stop_workloads" {
 			var req *domain.StartStopWorkloadsRequest
 			json.Unmarshal(message, &req)
-			s.handleStopWorkloads(req, conn)
+			s.handleStopWorkloads(req, nil)
 		} else if op == "toggle_debug_logs" {
 			var req *domain.ToggleDebugLogsRequest
 			json.Unmarshal(message, &req)
-			s.handleToggleDebugLogs(req, conn)
+			s.handleToggleDebugLogs(req, nil)
+		} else if op == "subscribe" {
+			var req *domain.SubscriptionRequest
+			json.Unmarshal(message, &req)
+			s.handleSubscriptionRequest(req, conn)
 		} else {
 			s.logger.Error("Unexpected or unsupported operation specified.", zap.String("op", op))
-			conn.WriteJSON(&domain.ErrorMessage{
-				Description:  "op",
-				ErrorMessage: "Unexpected or unsupported operation specified.",
-				Valid:        true,
-			})
 		}
+	}
+}
+
+func (s *serverImpl) handleSubscriptionRequest(req *domain.SubscriptionRequest, conn *websocket.Conn) {
+	s.subscribers[conn.RemoteAddr().String()] = conn
+	s.handleGetWorkloads(req.MessageId, conn, false)
+}
+
+func (s *serverImpl) broadcast(payload []byte) {
+	for _, conn := range s.subscribers {
+		conn.WriteMessage(websocket.BinaryMessage, payload)
 	}
 }
 
@@ -309,9 +321,9 @@ func (s *serverImpl) handleToggleDebugLogs(req *domain.ToggleDebugLogsRequest, c
 		workload := driver.ToggleDebugLogging(req.Enabled)
 
 		driver.LockDriver()
-		payload, err := json.Marshal(&domain.SingleWorkloadResponse{
-			MessageId: req.MessageId,
-			Workload:  workload,
+		payload, err := json.Marshal(&domain.WorkloadResponse{
+			MessageId:         req.MessageId,
+			ModifiedWorkloads: []*domain.Workload{workload},
 		})
 		driver.UnlockDriver()
 
@@ -320,7 +332,7 @@ func (s *serverImpl) handleToggleDebugLogs(req *domain.ToggleDebugLogsRequest, c
 			panic(err)
 		}
 
-		conn.WriteMessage(websocket.BinaryMessage, payload)
+		s.broadcast(payload)
 
 		s.logger.Debug("Wrote response for TOGGLE_DEBUG_LOGS to frontend.", zap.String("message-id", req.MessageId))
 	} else {
@@ -354,9 +366,9 @@ func (s *serverImpl) handleStartWorkload(req *domain.StartStopWorkloadRequest, c
 
 		// Lock the workload's driver while we marshal the workload to JSON.
 		workloadDriver.LockDriver()
-		payload, err := json.Marshal(&domain.SingleWorkloadResponse{
-			MessageId: req.MessageId,
-			Workload:  workload,
+		payload, err := json.Marshal(&domain.WorkloadResponse{
+			MessageId:         req.MessageId,
+			ModifiedWorkloads: []*domain.Workload{workload},
 		})
 		workloadDriver.UnlockDriver()
 
@@ -365,7 +377,7 @@ func (s *serverImpl) handleStartWorkload(req *domain.StartStopWorkloadRequest, c
 			panic(err)
 		}
 
-		conn.WriteMessage(websocket.BinaryMessage, payload)
+		s.broadcast(payload)
 
 		s.logger.Debug("Wrote response for START_WORKLOAD to frontend.", zap.String("message-id", req.MessageId), zap.String("workload-id", workloadDriver.ID()))
 
@@ -408,9 +420,9 @@ func (s *serverImpl) handleStopWorkloads(req *domain.StartStopWorkloadsRequest, 
 
 	// Lock the workload's driver while we marshal the workload to JSON.
 	msgId := uuid.NewString()
-	payload, err := json.Marshal(&domain.ActiveWorkloadsUpdate{
-		MessageId:        msgId,
-		UpdatedWorkloads: updatedWorkloads,
+	payload, err := json.Marshal(&domain.WorkloadResponse{
+		MessageId:         msgId,
+		ModifiedWorkloads: updatedWorkloads,
 	})
 
 	if err != nil {
@@ -425,7 +437,7 @@ func (s *serverImpl) handleStopWorkloads(req *domain.StartStopWorkloadsRequest, 
 	}
 	s.driversMutex.RUnlock()
 
-	conn.WriteMessage(websocket.BinaryMessage, payload)
+	s.broadcast(payload)
 
 	s.logger.Debug("Wrote response for STOP_WORKLOADS to frontend.", zap.String("message-id", req.MessageId), zap.Int("requested-num-workloads-stopped", len(req.WorkloadIDs)), zap.Int("actual-num-workloads-stopped", len(updatedWorkloads)))
 }
@@ -454,9 +466,9 @@ func (s *serverImpl) handleStopWorkload(req *domain.StartStopWorkloadRequest, co
 
 		// Lock the workload's driver while we marshal the workload to JSON.
 		workloadDriver.LockDriver()
-		payload, err := json.Marshal(&domain.SingleWorkloadResponse{
-			MessageId: req.MessageId,
-			Workload:  workloadDriver.GetWorkload(),
+		payload, err := json.Marshal(&domain.WorkloadResponse{
+			MessageId:         req.MessageId,
+			ModifiedWorkloads: []*domain.Workload{workloadDriver.GetWorkload()},
 		})
 		workloadDriver.UnlockDriver()
 
@@ -465,7 +477,7 @@ func (s *serverImpl) handleStopWorkload(req *domain.StartStopWorkloadRequest, co
 			panic(err)
 		}
 
-		conn.WriteMessage(websocket.BinaryMessage, payload)
+		s.broadcast(payload)
 
 		s.logger.Debug("Wrote response for STOP_WORKLOAD to frontend.", zap.String("message-id", req.MessageId), zap.String("workload-id", req.WorkloadId))
 	} else {
@@ -490,9 +502,9 @@ func (s *serverImpl) handleRegisterWorkload(request *domain.WorkloadRegistration
 
 		// Lock the workload's driver while we marshal the workload to JSON.
 		workloadDriver.LockDriver()
-		payload, err := json.Marshal(&domain.SingleWorkloadResponse{
-			MessageId: msgId,
-			Workload:  workload,
+		payload, err := json.Marshal(&domain.WorkloadResponse{
+			MessageId:    msgId,
+			NewWorkloads: []*domain.Workload{workload},
 		})
 		workloadDriver.UnlockDriver()
 
@@ -501,7 +513,7 @@ func (s *serverImpl) handleRegisterWorkload(request *domain.WorkloadRegistration
 			panic(err)
 		}
 
-		conn.WriteMessage(websocket.BinaryMessage, payload)
+		s.broadcast(payload)
 
 		s.logger.Debug("Wrote response for REGISTER_WORKLOAD to frontend.", zap.String("message-id", msgId), zap.Any("workload", workload))
 	} else {
@@ -509,18 +521,15 @@ func (s *serverImpl) handleRegisterWorkload(request *domain.WorkloadRegistration
 	}
 }
 
-func (s *serverImpl) handleGetWorkloads(conn *websocket.Conn, msgId string) {
-
-	// Lock the workloads' drivers while we marshal the workloads to JSON.
-	// for _, driver := range s.workloadDrivers {
+func (s *serverImpl) handleGetWorkloads(msgId string, conn *websocket.Conn, broadcast bool) {
 	s.driversMutex.RLock()
 	for el := s.workloadDrivers.Front(); el != nil; el = el.Next() {
 		el.Value.LockDriver()
 	}
 
-	payload, err := json.Marshal(&domain.WorkloadsResponse{
-		MessageId: msgId,
-		Workloads: s.workloads,
+	payload, err := json.Marshal(&domain.WorkloadResponse{
+		MessageId:         msgId,
+		ModifiedWorkloads: s.workloads, /* Send all as modified so they're all parsed */
 	})
 
 	if err != nil {
@@ -534,7 +543,14 @@ func (s *serverImpl) handleGetWorkloads(conn *websocket.Conn, msgId string) {
 	s.driversMutex.RUnlock()
 
 	s.sugaredLogger.Debugf("Returning %d workloads to user.", len(s.workloads))
-	conn.WriteMessage(websocket.BinaryMessage, payload)
+
+	if broadcast {
+		s.broadcast(payload)
+	}
+	if conn != nil {
+		conn.WriteMessage(websocket.BinaryMessage, payload)
+	}
+
 	s.logger.Debug("Wrote response for GET_WORKLOADS to frontend.", zap.String("message-id", msgId))
 }
 

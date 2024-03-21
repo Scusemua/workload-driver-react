@@ -188,6 +188,8 @@ func (h *KernelHttpHandler) getKernelsFromClusterGateway() []*gateway.Distribute
 				// If we failed to reconnect, just return.
 				h.logger.Error("Failed to reconnect to Cluster Gateway.", zap.Error(err))
 				return make([]*gateway.DistributedJupyterKernel, 0)
+			} else {
+				h.logger.Debug("Successfully reconnected to Cluster Gateway. Will try again to fetch list of kernels.")
 			}
 
 			// If we did reconnect, then we'll try one more time.

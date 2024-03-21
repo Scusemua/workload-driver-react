@@ -24,6 +24,11 @@ type WorkloadGenerator interface {
 	StopGeneratingWorkload()                                                                        // Stop generating the workload prematurely.
 }
 
+type SubscriptionRequest struct {
+	Op        string `json:"op"`
+	MessageId string `json:"msg_id"`
+}
+
 type ToggleDebugLogsRequest struct {
 	Op         string `json:"op"`
 	MessageId  string `json:"msg_id"`
@@ -31,24 +36,11 @@ type ToggleDebugLogsRequest struct {
 	Enabled    bool   `json:"enabled"`
 }
 
-// Response containing a single workload.
-// Sent to front-end in response to registering a workload, starting a workload, stopping a workload, etc.
-type SingleWorkloadResponse struct {
-	MessageId string    `json:"msg_id"`
-	Workload  *Workload `json:"workload"`
-}
-
-// Response for a 'get workloads' request.
-type WorkloadsResponse struct {
-	MessageId string      `json:"msg_id"`
-	Workloads []*Workload `json:"workloads"`
-}
-
-// Sent from the backend to the frontend. Proactively push updates for active workloads.
-type ActiveWorkloadsUpdate struct {
-	Op               string      `json:"op"`
-	MessageId        string      `json:"msg_id"`
-	UpdatedWorkloads []*Workload `json:"updated_workloads"`
+type WorkloadResponse struct {
+	MessageId         string      `json:"msg_id"`
+	NewWorkloads      []*Workload `json:"new_workloads"`
+	ModifiedWorkloads []*Workload `json:"modified_workloads"`
+	DeletedWorkloads  []*Workload `json:"deleted_workloads"`
 }
 
 // Wrapper around a WorkloadRegistrationRequest; contains the message ID and operation field.

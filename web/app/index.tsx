@@ -6,11 +6,7 @@ import '@app/app.css';
 
 const App: React.FunctionComponent = () => (
     <AppLayout>
-        <Dashboard
-            /* Refresh every 2min  */ nodeRefreshInterval={120}
-            /* Refresh every 10min */ workloadPresetRefreshInterval={600}
-            /* Refresh every 1min */ workloadRefreshInterval={60}
-        />
+        <Dashboard />
     </AppLayout>
 );
 

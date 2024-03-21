@@ -45,12 +45,10 @@ import {
     SyncIcon,
     VirtualMachineIcon,
 } from '@patternfly/react-icons';
+import { useNodes } from '../Providers/NodeProvider';
 
 export interface NodeListProps {
     selectable: boolean;
-    nodes: KubernetesNode[];
-    refreshInterval: number; // Refresh interval in seconds.
-    manuallyRefreshNodes: (callback: () => void | undefined) => void; // Function to manually refresh the nodes.
     disableRadiosWithKernel?: string; // KernelID such that, if a node has a Pod for that kernel, its radio button is disabled.
     hideControlPlaneNode?: boolean;
     onSelectNode?: (nodeId: string) => void; // Function to call when a node is selected; used in case parent wants to do something when node is selected, such as update state.
@@ -62,9 +60,9 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
     const [isCardExpanded, setIsCardExpanded] = React.useState(true);
     const [expandedNodes, setExpandedNodes] = React.useState<string[]>([]);
     const [selectedNode, setSelectedNode] = React.useState('');
-    const [refreshingNodes, setRefreshingNodes] = React.useState(false);
     const [page, setPage] = React.useState(1);
     const [perPage, setPerPage] = React.useState(props.nodesPerPage);
+    const { nodes, nodesAreLoading, refreshNodes } = useNodes();
 
     const onSetPage = (_event: React.MouseEvent | React.KeyboardEvent | MouseEvent, newPage: number) => {
         setPage(newPage);
@@ -126,7 +124,7 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
         // If the filter text box is empty, then match against everything. Otherwise, match against node ID.
         return searchValue === '' || matchesSearchValue;
     };
-    const filteredNodes = props.nodes.length > 0 ? props.nodes.filter(onFilter) : [];
+    const filteredNodes = nodes.length > 0 ? nodes.filter(onFilter) : [];
 
     const toolbar = (
         <React.Fragment>
@@ -152,7 +150,7 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                             </Tooltip>
                         </ToolbarItem>
                     </FlexItem>
-                    <FlexItem hidden={props.nodes.length == 0}>
+                    <FlexItem hidden={nodes.length == 0}>
                         <ToolbarItem>
                             <InputGroup>
                                 <InputGroupItem isFill>{searchInput}</InputGroupItem>
@@ -167,16 +165,13 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                         <Button
                             variant="plain"
                             onClick={() => {
-                                setRefreshingNodes(true);
-                                props.manuallyRefreshNodes(() => {
-                                    setRefreshingNodes(false);
-                                });
+                                refreshNodes();
                             }}
-                            isDisabled={refreshingNodes}
+                            isDisabled={nodesAreLoading}
                             label="refresh-nodes-button"
                             aria-label="refresh-nodes-button"
                             className={
-                                (refreshingNodes && 'loading-icon-spin-toggleable') ||
+                                (nodesAreLoading && 'loading-icon-spin-toggleable') ||
                                 'loading-icon-spin-toggleable paused'
                             }
                             icon={<SyncIcon />}
@@ -255,7 +250,7 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
             </CardHeader>
             <CardExpandableContent>
                 <CardBody>
-                    <DataList isCompact aria-label="data list" hidden={props.nodes.length == 0}>
+                    <DataList isCompact aria-label="data list" hidden={nodes.length == 0}>
                         {filteredNodes
                             .slice(perPage * (page - 1), perPage * (page - 1) + perPage)
                             .map((kubeNode: KubernetesNode, idx: number) => (
@@ -370,8 +365,8 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                             ))}
                     </DataList>
                     <Pagination
-                        isDisabled={props.nodes.length == 0}
-                        itemCount={props.nodes.length}
+                        isDisabled={nodes.length == 0}
+                        itemCount={nodes.length}
                         widgetId="bottom-example"
                         perPage={perPage}
                         page={page}

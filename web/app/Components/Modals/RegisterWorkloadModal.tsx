@@ -25,6 +25,7 @@ import HelpIcon from '@patternfly/react-icons/dist/esm/icons/help-icon';
 import styles from '@patternfly/react-styles/css/components/Form/form';
 
 import { WorkloadPreset } from '@app/Data';
+import { useWorkloadPresets } from '../Providers/WorkloadPresetProvider';
 
 export interface StartWorkloadModalProps {
     children?: React.ReactNode;
@@ -36,7 +37,6 @@ export interface StartWorkloadModalProps {
         workloadSeed: string,
         debugLoggingEnabled: boolean,
     ) => void;
-    workloadPresets: WorkloadPreset[];
     defaultWorkloadTitle: string;
 }
 
@@ -48,6 +48,8 @@ export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalPr
     const [isWorkloadDataDropdownOpen, setIsWorkloadDataDropdownOpen] = React.useState(false);
     const [selectedWorkloadPreset, setSelectedWorkloadPreset] = React.useState<WorkloadPreset | null>(null);
     const [debugLoggingEnabled, setDebugLoggingEnabled] = React.useState(false);
+
+    const { workloadPresets } = useWorkloadPresets();
 
     const handleWorkloadTitleChanged = (_event, title: string) => {
         setWorkloadTitle(title);
@@ -97,7 +99,7 @@ export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalPr
         console.log('selected', value);
 
         if (value != undefined) {
-            setSelectedWorkloadPreset(props.workloadPresets[value]);
+            setSelectedWorkloadPreset(workloadPresets[value]);
         } else {
             setSelectedWorkloadPreset(null);
         }
@@ -117,7 +119,7 @@ export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalPr
     };
 
     const isSubmitButtonDisabled = () => {
-        if (props.workloadPresets.length == 0) {
+        if (workloadPresets.length == 0) {
             return true;
         }
 
@@ -315,7 +317,7 @@ export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalPr
                                 </Popover>
                             }
                         >
-                            {props.workloadPresets.length == 0 && (
+                            {workloadPresets.length == 0 && (
                                 <TextInput
                                     label="workload-presetset-disabled-text"
                                     aria-label="workload-presetset-disabled-text"
@@ -326,7 +328,7 @@ export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalPr
                                     value="No workload presets available..."
                                 />
                             )}
-                            {props.workloadPresets.length > 0 && (
+                            {workloadPresets.length > 0 && (
                                 <Dropdown
                                     aria-label="workload-presetset-dropdown-menu"
                                     isOpen={isWorkloadDataDropdownOpen}
@@ -345,7 +347,7 @@ export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalPr
                                     shouldFocusToggleOnSelect
                                 >
                                     <DropdownList aria-label="workload-presetset-dropdown-list">
-                                        {props.workloadPresets.map((value: WorkloadPreset, index: number) => {
+                                        {workloadPresets.map((value: WorkloadPreset, index: number) => {
                                             return (
                                                 <DropdownItem
                                                     aria-label={'workload-presetset-dropdown-item' + index}

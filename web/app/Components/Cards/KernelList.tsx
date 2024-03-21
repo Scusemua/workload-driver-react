@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect, useRef } from 'react';
+import React, { useEffect, useRef } from 'react';
 import {
     Badge,
     Button,
@@ -73,6 +73,7 @@ import {
     InformationModal,
 } from '@app/Components/Modals';
 import { DistributedJupyterKernel, JupyterKernelReplica } from '@data/Kernel';
+import { useKernels } from '../Providers/KernelProvider';
 
 function isNumber(value?: string | number): boolean {
     return value != null && value !== '' && !isNaN(Number(value.toString()));
@@ -117,9 +118,9 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
     const [executeCodeKernelReplica, setExecuteCodeKernelReplica] = React.useState<JupyterKernelReplica | null>(null);
     const [selectedKernels, setSelectedKernels] = React.useState<string[]>([]);
     const [kernelToDelete, setKernelToDelete] = React.useState<string>('');
-    const [refreshingKernels, setRefreshingKernels] = React.useState(false);
     const [page, setPage] = React.useState(1);
     const [perPage, setPerPage] = React.useState(props.kernelsPerPage);
+    const { kernels, kernelsAreLoading, refreshKernels } = useKernels();
 
     const numKernelsCreating = useRef(0); // Used to display "pending" entries in the kernel list.
     const kernelManager = useRef<KernelManager | null>(null);
@@ -188,8 +189,6 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         } else {
             setSelectedKernels([...selectedKernels, item]);
         }
-
-        console.log('selectedKernels: ' + selectedKernels);
     };
 
     useEffect(() => {
@@ -321,8 +320,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
 
         // Update/refresh the kernels since we know a new one was just created.
         setTimeout(() => {
-            ignoreResponse.current = false;
-            fetchKernels();
+            refreshKernels();
         }, 3000);
     }
 
@@ -413,10 +411,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
 
             await kernelManager.current?.shutdown(id).then(() => {
                 console.log('Successfully deleted Kernel ' + id + ' now.');
-
-                // Update/refresh the kernels since we know that we just deleted one of them.
-                ignoreResponse.current = false;
-                fetchKernels();
+                refreshKernels();
             });
         }
 
@@ -503,81 +498,6 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         };
     }, [isStatusMenuOpen, statusMenuRef]);
 
-    const ignoreResponse = useRef(false);
-    const fetchKernels = useCallback(() => {
-        const startTime = performance.now();
-        try {
-            setRefreshingKernels(true);
-            console.log('Refreshing kernels now.');
-            // Make a network request to the backend. The server infrastructure handles proxying/routing the request to the correct host.
-            // We're specifically targeting the API endpoint I setup called "get-kernels".
-            fetch('api/get-kernels').then((response: Response) => {
-                if (response.status == 200) {
-                    response.json().then((respKernels: DistributedJupyterKernel[]) => {
-                        if (!ignoreResponse.current) {
-                            console.log('Received kernels: ' + JSON.stringify(respKernels));
-                            console.log("We're currently creating %d kernel(s).", numKernelsCreating.current);
-
-                            // Only bother with this next bit if we're waiting on some kernels that we just created.
-                            if (numKernelsCreating.current > 0) {
-                                // For each kernel that we receive, we'll check if it is a new kernel.
-                                respKernels.forEach((newKernel) => {
-                                    for (let i = 0; i < kernels.current.length; i++) {
-                                        // If we've already seen this kernel, then return immediately.
-                                        // No need to compare it against all the other kernels; we already know that it isn't new.
-                                        if (kernels[i].kernelId == newKernel.kernelId) {
-                                            console.log(
-                                                'Kernel %s is NOT a new kernel (i.e., we already knew about it).',
-                                                newKernel.kernelId,
-                                            );
-                                            return;
-                                        }
-                                    }
-
-                                    // If we're currently creating any kernels and we just received a kernel that we've never seen before,
-                                    // then this must be one of the newly-created kernels that we're waiting on! So, we decrement the
-                                    // 'numKernelsCreating' counter.
-                                    if (numKernelsCreating.current > 0) {
-                                        console.log(
-                                            'Kernel %s is a NEW kernel (i.e., it was just created).',
-                                            newKernel.kernelId,
-                                        );
-                                        numKernelsCreating.current -= 1;
-                                    }
-                                });
-                            }
-
-                            kernels.current = respKernels;
-                            ignoreResponse.current = true;
-                        } else {
-                            console.log("Received %d kernel(s), but we're ignoring the response.", respKernels.length);
-                        }
-                        setRefreshingKernels(false);
-                    });
-                }
-            });
-        } catch (e) {
-            console.error(e);
-        }
-        console.log(`Refresh kernels: ${(performance.now() - startTime).toFixed(4)} ms`);
-    }, []);
-
-    const kernels = React.useRef<DistributedJupyterKernel[]>([]);
-    useEffect(() => {
-        ignoreResponse.current = false;
-        fetchKernels();
-
-        // Periodically refresh the automatically kernels every 30 seconds.
-        setInterval(() => {
-            ignoreResponse.current = false;
-            fetchKernels();
-        }, 120000);
-
-        return () => {
-            ignoreResponse.current = true;
-        };
-    }, [fetchKernels]);
-
     function onStatusMenuSelect(_event: React.MouseEvent | undefined, itemId: string | number | undefined) {
         if (typeof itemId === 'undefined') {
             return;
@@ -611,7 +531,8 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
 
         return (searchValue === '' || matchesSearchValue) && (statusSelections.length === 0 || matchesStatusValue);
     };
-    const filteredKernels = kernels.current.filter(onFilter);
+
+    const filteredKernels = kernels.filter(onFilter);
 
     const statusMenu = (
         <Menu
@@ -747,7 +668,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                             id="delete-kernels-button"
                             variant="plain"
                             isDanger
-                            isDisabled={kernels.current.length == 0 || selectedKernels.length == 0}
+                            isDisabled={kernels.length == 0 || selectedKernels.length == 0}
                             onClick={() => setIsConfirmDeleteKernelsModalOpen(true)}
                         >
                             <TrashIcon />
@@ -759,15 +680,13 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                             aria-label="refresh-kernels-button"
                             id="refresh-kernels-button"
                             variant="plain"
-                            isDisabled={refreshingKernels}
+                            isDisabled={kernelsAreLoading}
                             className={
-                                (refreshingKernels && 'loading-icon-spin-toggleable') ||
+                                (kernelsAreLoading && 'loading-icon-spin-toggleable') ||
                                 'loading-icon-spin-toggleable paused'
                             }
                             onClick={() => {
-                                ignoreResponse.current = false;
-                                console.log('Manually refreshing kernels.');
-                                fetchKernels();
+                                refreshKernels();
                             }}
                         >
                             <SyncIcon />
@@ -1050,7 +969,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                     </Title>
                 </CardTitle>
                 <Toolbar
-                    hidden={kernels.current.length == 0}
+                    hidden={kernels.length == 0}
                     id="content-padding-data-toolbar"
                     usePageInsets
                     clearAllFilters={() => {
@@ -1065,7 +984,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                     <DataList
                         isCompact
                         aria-label="data list"
-                        hidden={kernels.current.length == 0 && pendingKernelArr.length == 0}
+                        hidden={kernels.length == 0 && pendingKernelArr.length == 0}
                     >
                         {pendingKernelArr.map((_, idx) => getKernelDataListRow(null, idx))}
                         {filteredKernels
@@ -1114,8 +1033,8 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                         message2={errorMessage}
                     />
                     <Pagination
-                        isDisabled={kernels.current.length == 0}
-                        itemCount={kernels.current.length}
+                        isDisabled={kernels.length == 0}
+                        itemCount={kernels.length}
                         widgetId="bottom-example"
                         perPage={perPage}
                         page={page}

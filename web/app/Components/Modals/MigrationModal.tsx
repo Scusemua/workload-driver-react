@@ -2,7 +2,6 @@ import React from 'react';
 import { KubernetesNodeList } from '@app/Components/Cards/NodeList';
 import { Button, Modal, ModalVariant, Text, TextContent, TextVariants } from '@patternfly/react-core';
 import { DistributedJupyterKernel, JupyterKernelReplica } from '@data/Kernel';
-import { KubernetesNode } from '@data/Kubernetes';
 
 export interface MigrationModalProps {
     children?: React.ReactNode;
@@ -11,8 +10,6 @@ export interface MigrationModalProps {
     onConfirm: (JupyterKernelReplica, DistributedJupyterKernel, string) => void;
     targetKernel?: DistributedJupyterKernel | null;
     targetReplica?: JupyterKernelReplica | null;
-    nodes: KubernetesNode[];
-    manuallyRefreshNodes: (callback: () => void | undefined) => void; // Function to manually refresh the nodes.
 }
 
 export const MigrationModal: React.FunctionComponent<MigrationModalProps> = (props) => {
@@ -47,9 +44,6 @@ export const MigrationModal: React.FunctionComponent<MigrationModalProps> = (pro
             <br />
             <KubernetesNodeList
                 nodesPerPage={5}
-                nodes={props.nodes}
-                manuallyRefreshNodes={props.manuallyRefreshNodes}
-                refreshInterval={604800} // Once per week (i.e., never).
                 selectable={true}
                 hideControlPlaneNode={true}
                 disableRadiosWithKernel={(props.targetReplica != null && props.targetReplica.kernelId) || undefined}
