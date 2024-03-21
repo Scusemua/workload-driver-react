@@ -166,8 +166,9 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
     };
 
     return (
-        <Card isRounded isExpanded={isCardExpanded}>
+        <Card isRounded isFullHeight isExpanded={isCardExpanded}>
             <CardHeader
+                height={1400}
                 actions={{ actions: cardHeaderActions, hasNoOffset: true }}
                 onExpand={onCardExpand}
                 toggleButtonProps={{
@@ -508,14 +509,14 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                                 title: '3',
                                 value: 3,
                             },
-                            {
-                                title: '4',
-                                value: 4,
-                            },
-                            {
-                                title: '5',
-                                value: 5,
-                            },
+                            // {
+                            //     title: '4',
+                            //     value: 4,
+                            // },
+                            // {
+                            //     title: '5',
+                            //     value: 5,
+                            // },
                         ]}
                         onSetPage={onSetPage}
                         onPerPageSelect={onPerPageSelect}

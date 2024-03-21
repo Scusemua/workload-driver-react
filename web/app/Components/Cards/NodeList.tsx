@@ -384,14 +384,14 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                                 title: '3',
                                 value: 3,
                             },
-                            {
-                                title: '4',
-                                value: 4,
-                            },
-                            {
-                                title: '5',
-                                value: 5,
-                            },
+                            // {
+                            //     title: '4',
+                            //     value: 4,
+                            // },
+                            // {
+                            //     title: '5',
+                            //     value: 5,
+                            // },
                         ]}
                         onSetPage={onSetPage}
                         onPerPageSelect={onPerPageSelect}

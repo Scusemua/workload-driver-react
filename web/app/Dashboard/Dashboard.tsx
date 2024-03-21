@@ -1,7 +1,7 @@
 import '@patternfly/react-core/dist/styles/base.css';
 
 import React, { useRef } from 'react';
-import { Grid, GridItem, PageSection } from '@patternfly/react-core';
+import { Grid, GridItem, gridSpans, PageSection } from '@patternfly/react-core';
 
 import { KernelList, KernelSpecList, KubernetesNodeList, WorkloadCard } from '@app/Components/Cards/';
 import {
@@ -15,6 +15,8 @@ import { MigrationModal, RegisterWorkloadModal } from '@app/Components/Modals';
 
 import { v4 as uuidv4 } from 'uuid';
 import { useWorkloads } from '@app/Components/Providers/WorkloadProvider';
+import { useNodes } from '@app/Components/Providers/NodeProvider';
+import { useKernels } from '@app/Components/Providers/KernelProvider';
 
 export interface DashboardProps {}
 
@@ -24,6 +26,8 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
     const [migrateKernel, setMigrateKernel] = React.useState<DistributedJupyterKernel | null>(null);
     const [migrateReplica, setMigrateReplica] = React.useState<JupyterKernelReplica | null>(null);
 
+    const { nodes } = useNodes();
+    const { kernels } = useKernels();
     const { workloads, sendJsonMessage } = useWorkloads();
 
     // const { sendJsonMessage, lastMessage, lastJsonMessage } = useWebSocket<Record<string, unknown>>(
@@ -345,13 +349,37 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
         });
     };
 
+    const getWorkloadCardRowspan = () => {
+        if (workloads.length == 0) {
+            return 1 as gridSpans;
+        }
+        return Math.min(workloads.length, 3) as gridSpans;
+    };
+
+    const getWorkloadCardOrder = () => {
+        if (kernels.length >= 1) {
+            return '1';
+        }
+        return '2';
+    };
+
+    const getKernelCardRowspan = () => {
+        if (kernels.length == 0) {
+            return 1 as gridSpans;
+        }
+        return Math.min(workloads.length, 3) as gridSpans;
+    };
+
     return (
         <PageSection>
             <Grid hasGutter>
-                <GridItem span={6} rowSpan={3}>
+                <GridItem span={6} rowSpan={getKernelCardRowspan()}>
                     <KernelList kernelsPerPage={3} openMigrationModal={openMigrationModal} />
                 </GridItem>
-                <GridItem span={6} rowSpan={workloads.length == 0 ? 1 : 2}>
+                <GridItem span={6} rowSpan={1}>
+                    <KernelSpecList />
+                </GridItem>
+                <GridItem span={6} rowSpan={getWorkloadCardRowspan()} order={{ default: getWorkloadCardOrder() }}>
                     <WorkloadCard
                         workloadsPerPage={3}
                         toggleDebugLogs={toggleDebugLogs}
@@ -364,11 +392,8 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
                         }}
                     />
                 </GridItem>
-                <GridItem span={6} rowSpan={3}>
+                <GridItem span={6} rowSpan={nodes.length == 0 ? 1 : 2}>
                     <KubernetesNodeList nodesPerPage={3} selectable={false} />
-                </GridItem>
-                <GridItem span={6} rowSpan={1}>
-                    <KernelSpecList />
                 </GridItem>
             </Grid>
             <MigrationModal

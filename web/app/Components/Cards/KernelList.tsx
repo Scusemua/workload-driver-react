@@ -618,8 +618,12 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
     );
 
     const ToolbarItems = (
-        <ToolbarToggleGroup toggleIcon={<FilterIcon />} breakpoint="xl">
-            <Flex alignItems={{ default: 'alignItemsFlexEnd' }}>
+        <ToolbarToggleGroup toggleIcon={<FilterIcon />} breakpoint="md">
+            <Flex
+                alignSelf={{ default: 'alignSelfFlexEnd' }}
+                alignItems={{ default: 'alignItemsFlexEnd' }}
+                spaceItems={{ default: 'spaceItemsSm' }}
+            >
                 <ToolbarItem>
                     <InputGroup>
                         <InputGroupItem isFill>
@@ -953,7 +957,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
     };
 
     return (
-        <Card isRounded isExpanded={isCardExpanded}>
+        <Card isRounded isFullHeight isExpanded={isCardExpanded}>
             <CardHeader
                 onExpand={onCardExpand}
                 actions={{ actions: cardHeaderActions, hasNoOffset: true }}
@@ -1052,14 +1056,14 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                 title: '3',
                                 value: 3,
                             },
-                            {
-                                title: '4',
-                                value: 4,
-                            },
-                            {
-                                title: '5',
-                                value: 5,
-                            },
+                            // {
+                            //     title: '4',
+                            //     value: 4,
+                            // },
+                            // {
+                            //     title: '5',
+                            //     value: 5,
+                            // },
                         ]}
                         onSetPage={onSetPage}
                         onPerPageSelect={onPerPageSelect}
