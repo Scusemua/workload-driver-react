@@ -55,7 +55,6 @@ func (h *KernelHttpHandler) HandleRequest(c *gin.Context) {
 			h.logger.Error("Failed to retrieve list of kernels from Jupyter Server.")
 			h.WriteError(c, "Failed to retrieve list of kernels from Jupyter Server.")
 			return
-		} else {
 		}
 	}
 
@@ -173,15 +172,37 @@ func (h *KernelHttpHandler) spoofedKernelsToSlice() []*gateway.DistributedJupyte
 
 func (h *KernelHttpHandler) getKernelsFromClusterGateway() []*gateway.DistributedJupyterKernel {
 	h.logger.Debug("Kernel Querier is refreshing kernels now.")
-	resp, err := h.rpcClient.ListKernels(context.TODO(), &gateway.Void{})
-	if err != nil || resp == nil {
-		h.logger.Error("[ERROR] Failed to fetch list of active kernels from the Cluster Gateway.", zap.Error(err))
-		return make([]*gateway.DistributedJupyterKernel, 0)
+
+	attempts := 1
+	maxAttempts := 2
+
+	for attempts <= maxAttempts {
+		resp, err := h.rpcClient.ListKernels(context.TODO(), &gateway.Void{})
+		if err != nil {
+			h.logger.Error("Failed to fetch list of active kernels from the Cluster Gateway.", zap.Error(err))
+
+			// Try to reconnect.
+			h.logger.Debug("Trying to reconnect to Cluster Gateway now...")
+			err := h.DialGatewayGRPC(h.gatewayAddress)
+			if err != nil {
+				// If we failed to reconnect, just return.
+				h.logger.Error("Failed to reconnect to Cluster Gateway.", zap.Error(err))
+				return make([]*gateway.DistributedJupyterKernel, 0)
+			}
+
+			// If we did reconnect, then we'll try one more time.
+			attempts += 1
+			continue
+		} else if resp.Kernels == nil {
+			// We successfully retrieved the kernels, so return them.
+			// The response can be nil if there are no kernels on the Gateway.
+			return make([]*gateway.DistributedJupyterKernel, 0)
+		} else {
+			// We successfully retrieved the kernels, so return them.
+			return resp.Kernels
+		}
 	}
 
-	if resp.Kernels == nil {
-		return make([]*gateway.DistributedJupyterKernel, 0)
-	}
-
-	return resp.Kernels
+	h.logger.Error("Failed to fetch list of active kernels from the Cluster Gateway.")
+	return make([]*gateway.DistributedJupyterKernel, 0)
 }
