@@ -3,6 +3,7 @@ import { ChangeHandler, CodeEditor, CodeEditorControl, Language } from '@pattern
 import { Button, Chip, Grid, GridItem, Switch } from '@patternfly/react-core';
 import { editor } from 'monaco-editor/esm/vs/editor/editor.api';
 import { CodeIcon } from '@patternfly/react-icons';
+import { Monaco } from '@monaco-editor/react';
 
 export interface CodeEditorComponent {
     children?: React.ReactNode;
@@ -13,7 +14,7 @@ export const CodeEditorComponent: React.FunctionComponent<CodeEditorComponent> =
     const [isDarkMode, setIsDarkMode] = React.useState(false);
     const [code, setCode] = React.useState('');
 
-    const onEditorDidMount = (editor, monaco) => {
+    const onEditorDidMount = (editor: editor.IStandaloneCodeEditor, monaco: Monaco) => {
         editor.layout();
         editor.focus();
         monaco.editor.getModels()[0].updateOptions({ tabSize: 5 });

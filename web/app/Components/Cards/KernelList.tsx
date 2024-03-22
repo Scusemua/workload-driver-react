@@ -1,10 +1,9 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useReducer } from 'react';
 import {
     Badge,
     Button,
     Card,
     CardBody,
-    CardExpandableContent,
     CardHeader,
     CardTitle,
     DataList,
@@ -29,6 +28,9 @@ import {
     PaginationVariant,
     Popper,
     SearchInput,
+    Skeleton,
+    Text,
+    TextVariants,
     Title,
     Toolbar,
     ToolbarContent,
@@ -54,7 +56,6 @@ import {
     PauseIcon,
     PlusIcon,
     RebootingIcon,
-    // SearchIcon,
     SkullIcon,
     SpinnerIcon,
     StopCircleIcon,
@@ -122,8 +123,19 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
     const [perPage, setPerPage] = React.useState(props.kernelsPerPage);
     const { kernels, kernelsAreLoading, refreshKernels } = useKernels();
 
+    const [, forceUpdate] = useReducer((x) => x + 1, 0);
+
+    const kernelIdSet = useRef<Set<string>>(new Set()); // Keep track of kernels we've seen before.
     const numKernelsCreating = useRef(0); // Used to display "pending" entries in the kernel list.
     const kernelManager = useRef<KernelManager | null>(null);
+
+    // If there are any new kernels, decrement `numKernelsCreating`.
+    kernels.forEach((kernel: DistributedJupyterKernel) => {
+        if (!kernelIdSet.current.has(kernel.kernelId)) {
+            kernelIdSet.current.add(kernel.kernelId);
+            numKernelsCreating.current -= 1;
+        }
+    });
 
     const onSetPage = (_event: React.MouseEvent | React.KeyboardEvent | MouseEvent, newPage: number) => {
         setPage(newPage);
@@ -466,6 +478,8 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                 errorOccurred = true;
             });
         }
+
+        forceUpdate();
     };
 
     // Set up status single select
@@ -734,6 +748,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                         <Tooltip
                                             exitDelay={20}
                                             entryDelay={175}
+                                            position={'right'}
                                             content={
                                                 <div>
                                                     Execute Python code on replica{' '}
@@ -754,6 +769,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                         <Tooltip
                                             exitDelay={20}
                                             entryDelay={175}
+                                            position={'right'}
                                             content={<div>Migrate this replica to another node.</div>}
                                         >
                                             <Button
@@ -787,12 +803,27 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
     };
 
     const pendingKernelArr = range(0, numKernelsCreating.current);
+    console.log('pendingKernelArr.length = %d', pendingKernelArr.length);
+
+    const getPendingKernelRow = (idx: number) => {
+        return (
+            <DataListItem
+                key={'pending-kernel-data-row-' + idx}
+                className="kernel-list-row"
+                id={'pending-kernel-data-list-' + idx}
+            >
+                <DataListItemRow>
+                    <Skeleton height="75%" width="75%" screenreaderText="Pending kernel" />
+                </DataListItemRow>
+            </DataListItem>
+        );
+    };
 
     const getKernelDataListRow = (kernel: DistributedJupyterKernel | null, idx: number) => {
         return (
             <DataListItem
                 isExpanded={expandedKernels.includes(kernel?.kernelId || 'Pending...')}
-                key={'Pending...' + idx}
+                key={'kernel-data-row-' + idx}
                 className="kernel-list-row"
                 id={'kernel-data-list-' + idx}
             >
@@ -957,16 +988,8 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
     };
 
     return (
-        <Card isRounded isFullHeight isExpanded={isCardExpanded}>
-            <CardHeader
-                onExpand={onCardExpand}
-                actions={{ actions: cardHeaderActions, hasNoOffset: true }}
-                toggleButtonProps={{
-                    id: 'toggle-kernels-button',
-                    'aria-label': 'toggle-kernels-button',
-                    'aria-expanded': isCardExpanded,
-                }}
-            >
+        <Card isRounded isFullHeight>
+            <CardHeader actions={{ actions: cardHeaderActions, hasNoOffset: true }}>
                 <CardTitle>
                     <Title headingLevel="h1" size="xl">
                         Active Kernels
@@ -983,93 +1006,95 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                     <ToolbarContent>{ToolbarItems}</ToolbarContent>
                 </Toolbar>
             </CardHeader>
-            <CardExpandableContent>
-                <CardBody>
+            <CardBody>
+                {(kernels.length > 0 || pendingKernelArr.length > 0) && (
                     <DataList
                         isCompact
                         aria-label="data list"
                         hidden={kernels.length == 0 && pendingKernelArr.length == 0}
                     >
-                        {pendingKernelArr.map((_, idx) => getKernelDataListRow(null, idx))}
+                        {pendingKernelArr.map((_, idx) => getPendingKernelRow(idx))}
                         {filteredKernels
                             .slice(perPage * (page - 1), perPage * (page - 1) + perPage)
                             .map((kernel, idx) => getKernelDataListRow(kernel, idx))}
                     </DataList>
-                    <ConfirmationWithTextInputModal
-                        isOpen={isConfirmCreateModalOpen}
-                        onConfirm={onConfirmCreateKernelClicked}
-                        onClose={onCancelCreateKernelClicked}
-                        title="Create a New Kernel"
-                        message="How many kernels would you like to create?"
-                        hint="1"
-                    />
-                    <ConfirmationModal
-                        isOpen={isConfirmDeleteKernelsModalOpen}
-                        onConfirm={() => onConfirmDeleteKernelsClicked(selectedKernels)}
-                        onClose={onCancelDeleteKernelsClicked}
-                        title={'Terminate Selected Kernels'}
-                        message={"Are you sure you'd like to delete the specified kernel(s)?"}
-                    />
-                    <ConfirmationModal
-                        isOpen={isConfirmDeleteKernelModalOpen}
-                        onConfirm={() => onConfirmDeleteKernelsClicked([kernelToDelete])}
-                        onClose={onCancelDeleteKernelClicked}
-                        title={'Terminate Kernel'}
-                        message={"Are you sure you'd like to delete the specified kernel?"}
-                    />
-                    <ExecuteCodeOnKernelModal
-                        kernelId={executeCodeKernel?.kernelId || 'N/A'}
-                        replicaId={executeCodeKernelReplica?.replicaId}
-                        isOpen={isExecuteCodeModalOpen}
-                        onClose={onCancelExecuteCodeClicked}
-                        onSubmit={onConfirmExecuteCodeClicked}
-                    />
-                    <InformationModal
-                        isOpen={isErrorModalOpen}
-                        onClose={() => {
-                            setIsErrorModalOpen(false);
-                            setErrorMessage('');
-                            setErrorMessagePreamble('');
-                        }}
-                        title="An Error has Occurred"
-                        titleIconVariant="danger"
-                        message1={errorMessagePreamble}
-                        message2={errorMessage}
-                    />
-                    <Pagination
-                        isDisabled={kernels.length == 0}
-                        itemCount={kernels.length}
-                        widgetId="bottom-example"
-                        perPage={perPage}
-                        page={page}
-                        variant={PaginationVariant.bottom}
-                        perPageOptions={[
-                            {
-                                title: '1',
-                                value: 1,
-                            },
-                            {
-                                title: '2',
-                                value: 2,
-                            },
-                            {
-                                title: '3',
-                                value: 3,
-                            },
-                            // {
-                            //     title: '4',
-                            //     value: 4,
-                            // },
-                            // {
-                            //     title: '5',
-                            //     value: 5,
-                            // },
-                        ]}
-                        onSetPage={onSetPage}
-                        onPerPageSelect={onPerPageSelect}
-                    />
-                </CardBody>
-            </CardExpandableContent>
+                )}
+                {kernels.length == 0 && <Text component={TextVariants.h2}>There are no active kernels.</Text>}
+                <ConfirmationWithTextInputModal
+                    isOpen={isConfirmCreateModalOpen}
+                    onConfirm={onConfirmCreateKernelClicked}
+                    onClose={onCancelCreateKernelClicked}
+                    title="Create a New Kernel"
+                    message="How many kernels would you like to create?"
+                    hint="1"
+                />
+                <ConfirmationModal
+                    isOpen={isConfirmDeleteKernelsModalOpen}
+                    onConfirm={() => onConfirmDeleteKernelsClicked(selectedKernels)}
+                    onClose={onCancelDeleteKernelsClicked}
+                    title={'Terminate Selected Kernels'}
+                    message={"Are you sure you'd like to delete the specified kernel(s)?"}
+                />
+                <ConfirmationModal
+                    isOpen={isConfirmDeleteKernelModalOpen}
+                    onConfirm={() => onConfirmDeleteKernelsClicked([kernelToDelete])}
+                    onClose={onCancelDeleteKernelClicked}
+                    title={'Terminate Kernel'}
+                    message={"Are you sure you'd like to delete the specified kernel?"}
+                />
+                <ExecuteCodeOnKernelModal
+                    kernelId={executeCodeKernel?.kernelId || 'N/A'}
+                    replicaId={executeCodeKernelReplica?.replicaId}
+                    isOpen={isExecuteCodeModalOpen}
+                    onClose={onCancelExecuteCodeClicked}
+                    onSubmit={onConfirmExecuteCodeClicked}
+                />
+                <InformationModal
+                    isOpen={isErrorModalOpen}
+                    onClose={() => {
+                        setIsErrorModalOpen(false);
+                        setErrorMessage('');
+                        setErrorMessagePreamble('');
+                    }}
+                    title="An Error has Occurred"
+                    titleIconVariant="danger"
+                    message1={errorMessagePreamble}
+                    message2={errorMessage}
+                />
+                <Pagination
+                    hidden={kernels.length == 0}
+                    isDisabled={kernels.length == 0}
+                    itemCount={kernels.length}
+                    widgetId="bottom-example"
+                    perPage={perPage}
+                    page={page}
+                    variant={PaginationVariant.bottom}
+                    perPageOptions={[
+                        {
+                            title: '1',
+                            value: 1,
+                        },
+                        {
+                            title: '2',
+                            value: 2,
+                        },
+                        {
+                            title: '3',
+                            value: 3,
+                        },
+                        // {
+                        //     title: '4',
+                        //     value: 4,
+                        // },
+                        // {
+                        //     title: '5',
+                        //     value: 5,
+                        // },
+                    ]}
+                    onSetPage={onSetPage}
+                    onPerPageSelect={onPerPageSelect}
+                />
+            </CardBody>
         </Card>
     );
 };

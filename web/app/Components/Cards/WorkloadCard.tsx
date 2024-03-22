@@ -304,28 +304,6 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                                                                             </FlexItem>
                                                                         </Flex>
                                                                     </FlexItem>
-                                                                    <FlexItem
-                                                                        alignSelf={{ default: 'alignSelfCenter' }}
-                                                                    >
-                                                                        <Switch
-                                                                            id={
-                                                                                'workload-' +
-                                                                                workload.id +
-                                                                                '-debug-logging-switch'
-                                                                            }
-                                                                            label={'Debug logs enabled'}
-                                                                            labelOff={'Debug logs disabled'}
-                                                                            aria-label="debug-logging-switch"
-                                                                            isChecked={workload.debug_logging_enabled}
-                                                                            ouiaId="DebugLoggingSwitch"
-                                                                            onChange={() => {
-                                                                                props.toggleDebugLogs(
-                                                                                    workload.id,
-                                                                                    !workload.debug_logging_enabled,
-                                                                                );
-                                                                            }}
-                                                                        />
-                                                                    </FlexItem>
                                                                 </Flex>
                                                             </FlexItem>
                                                         </Flex>
@@ -430,6 +408,29 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                                                                             <DiceIcon /> {workload.seed}
                                                                         </React.Fragment>
                                                                     </Tooltip>
+                                                                </FlexItem>
+                                                                <FlexItem
+                                                                    align={{ default: 'alignRight' }}
+                                                                    alignSelf={{ default: 'alignSelfFlexEnd' }}
+                                                                >
+                                                                    <Switch
+                                                                        id={
+                                                                            'workload-' +
+                                                                            workload.id +
+                                                                            '-debug-logging-switch'
+                                                                        }
+                                                                        label={'Debug logs enabled'}
+                                                                        labelOff={'Debug logs disabled'}
+                                                                        aria-label="debug-logging-switch"
+                                                                        isChecked={workload.debug_logging_enabled}
+                                                                        ouiaId="DebugLoggingSwitch"
+                                                                        onChange={() => {
+                                                                            props.toggleDebugLogs(
+                                                                                workload.id,
+                                                                                !workload.debug_logging_enabled,
+                                                                            );
+                                                                        }}
+                                                                    />
                                                                 </FlexItem>
                                                             </Flex>
                                                         </FlexItem>

@@ -352,22 +352,21 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
     const getWorkloadCardRowspan = () => {
         if (workloads.length == 0) {
             return 1 as gridSpans;
+        } else if (workloads.length == 1) {
+            return 1 as gridSpans;
         }
-        return Math.min(workloads.length, 3) as gridSpans;
-    };
 
-    const getWorkloadCardOrder = () => {
-        if (kernels.length >= 1) {
-            return '1';
-        }
-        return '2';
+        return 2 as gridSpans;
     };
 
     const getKernelCardRowspan = () => {
         if (kernels.length == 0) {
             return 1 as gridSpans;
+        } else if (kernels.length == 1) {
+            return 1 as gridSpans;
         }
-        return Math.min(workloads.length, 3) as gridSpans;
+
+        return 2 as gridSpans;
     };
 
     return (
@@ -376,10 +375,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
                 <GridItem span={6} rowSpan={getKernelCardRowspan()}>
                     <KernelList kernelsPerPage={3} openMigrationModal={openMigrationModal} />
                 </GridItem>
-                <GridItem span={6} rowSpan={1}>
-                    <KernelSpecList />
-                </GridItem>
-                <GridItem span={6} rowSpan={getWorkloadCardRowspan()} order={{ default: getWorkloadCardOrder() }}>
+                <GridItem span={6} rowSpan={getWorkloadCardRowspan()}>
                     <WorkloadCard
                         workloadsPerPage={3}
                         toggleDebugLogs={toggleDebugLogs}
@@ -391,6 +387,9 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
                             setIsRegisterWorkloadModalOpen(true);
                         }}
                     />
+                </GridItem>
+                <GridItem span={6} rowSpan={1}>
+                    <KernelSpecList />
                 </GridItem>
                 <GridItem span={6} rowSpan={nodes.length == 0 ? 1 : 2}>
                     <KubernetesNodeList nodesPerPage={3} selectable={false} />

@@ -146,66 +146,55 @@ export const KernelSpecList: React.FunctionComponent = () => {
     );
 
     return (
-        <Card isRounded isExpanded={isCardExpanded}>
-            <CardHeader
-                onExpand={onCardExpand}
-                actions={{ actions: cardHeaderActions, hasNoOffset: true }}
-                toggleButtonProps={{
-                    id: 'expand-kernel-specs-button',
-                    'aria-label': 'expand-kernel-specs-button',
-                    'aria-expanded': isCardExpanded,
-                }}
-            >
+        <Card isFullHeight isRounded>
+            <CardHeader actions={{ actions: cardHeaderActions, hasNoOffset: true }}>
                 <CardTitle>
                     <Title headingLevel="h1" size="xl">
                         Kernel Specs
                     </Title>
                 </CardTitle>
             </CardHeader>
-            <CardExpandableContent>
-                <CardBody>
-                    <Tabs isFilled id="status-tabs" activeKey={activeTabKey} onSelect={handleTabClick}>
-                        {Object.keys(kernelSpecs).map((key, tabIndex) => (
-                            <Tab
-                                key={tabIndex}
-                                eventKey={tabIndex}
-                                title={<TabTitleText>{kernelSpecs[key]?.display_name}</TabTitleText>}
-                                tabContentId={`tabContent${tabIndex}`}
-                            />
-                        ))}
-                    </Tabs>
-                </CardBody>
-                <CardBody>
+            <CardBody>
+                <Tabs isFilled id="status-tabs" activeKey={activeTabKey} onSelect={handleTabClick}>
                     {Object.keys(kernelSpecs).map((key, tabIndex) => (
-                        <TabContent
+                        <Tab
                             key={tabIndex}
                             eventKey={tabIndex}
-                            id={`tabContent${tabIndex}`}
-                            activeKey={activeTabKey}
-                            hidden={tabIndex !== activeTabKey}
-                        >
-                            <DescriptionList columnModifier={{ lg: '3Col' }}>
-                                <DescriptionListGroup>
-                                    <DescriptionListTerm>Name</DescriptionListTerm>
-                                    <DescriptionListDescription>{kernelSpecs[key]?.name}</DescriptionListDescription>
-                                </DescriptionListGroup>
-                                <DescriptionListGroup>
-                                    <DescriptionListTerm>Display Name</DescriptionListTerm>
-                                    <DescriptionListDescription>
-                                        {kernelSpecs[key]?.display_name}
-                                    </DescriptionListDescription>
-                                </DescriptionListGroup>
-                                <DescriptionListGroup>
-                                    <DescriptionListTerm>Language</DescriptionListTerm>
-                                    <DescriptionListDescription>
-                                        {kernelSpecs[key]?.language}
-                                    </DescriptionListDescription>
-                                </DescriptionListGroup>
-                                {/* <DescriptionListGroup>
+                            title={<TabTitleText>{kernelSpecs[key]?.display_name}</TabTitleText>}
+                            tabContentId={`tabContent${tabIndex}`}
+                        />
+                    ))}
+                </Tabs>
+            </CardBody>
+            <CardBody>
+                {Object.keys(kernelSpecs).map((key, tabIndex) => (
+                    <TabContent
+                        key={tabIndex}
+                        eventKey={tabIndex}
+                        id={`tabContent${tabIndex}`}
+                        activeKey={activeTabKey}
+                        hidden={tabIndex !== activeTabKey}
+                    >
+                        <DescriptionList columnModifier={{ lg: '3Col' }}>
+                            <DescriptionListGroup>
+                                <DescriptionListTerm>Name</DescriptionListTerm>
+                                <DescriptionListDescription>{kernelSpecs[key]?.name}</DescriptionListDescription>
+                            </DescriptionListGroup>
+                            <DescriptionListGroup>
+                                <DescriptionListTerm>Display Name</DescriptionListTerm>
+                                <DescriptionListDescription>
+                                    {kernelSpecs[key]?.display_name}
+                                </DescriptionListDescription>
+                            </DescriptionListGroup>
+                            <DescriptionListGroup>
+                                <DescriptionListTerm>Language</DescriptionListTerm>
+                                <DescriptionListDescription>{kernelSpecs[key]?.language}</DescriptionListDescription>
+                            </DescriptionListGroup>
+                            {/* <DescriptionListGroup>
                   <DescriptionListTerm>Interrupt Mode</DescriptionListTerm>
                   <DescriptionListDescription>{kernelSpecs[key]?.interrupt_mode}</DescriptionListDescription>
                 </DescriptionListGroup> */}
-                                {/* {kernelSpec.kernelProvisioner.valid && (
+                            {/* {kernelSpec.kernelProvisioner.valid && (
                   <React.Fragment>
                     <DescriptionListGroup>
                       <DescriptionListTerm>Provisioner</DescriptionListTerm>
@@ -217,11 +206,10 @@ export const KernelSpecList: React.FunctionComponent = () => {
                     </DescriptionListGroup>
                   </React.Fragment>
                 )} */}
-                            </DescriptionList>
-                        </TabContent>
-                    ))}
-                </CardBody>
-            </CardExpandableContent>
+                        </DescriptionList>
+                    </TabContent>
+                ))}
+            </CardBody>
         </Card>
     );
 };
