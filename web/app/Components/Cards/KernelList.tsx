@@ -28,7 +28,6 @@ import {
     PaginationVariant,
     Popper,
     SearchInput,
-    Skeleton,
     Text,
     TextVariants,
     Title,
@@ -134,6 +133,11 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         if (!kernelIdSet.current.has(kernel.kernelId)) {
             kernelIdSet.current.add(kernel.kernelId);
             numKernelsCreating.current -= 1;
+
+            if (numKernelsCreating.current < 0) {
+                console.warn("Tried to decrement 'numKernelsCreating' below 0...");
+                numKernelsCreating.current = 0;
+            }
         }
     });
 
@@ -368,16 +372,17 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         // Handle iopub messages
         future.onIOPub = (msg) => {
             console.log('Received IOPub message:\n%s\n', JSON.stringify(msg));
-            if (msg.header.msg_type == 'status') {
+            const messageType: string = msg.header.msg_type;
+            if (messageType == 'execute_input') {
+                // Do nothing.
+            } else if (messageType == 'status') {
                 logConsumer(
                     msg['header']['date'] +
                         ': Execution state changed to ' +
                         JSON.stringify(msg.content['execution_state']) +
                         '\n',
                 );
-            } else if (msg.header.msg_type == 'execute_input') {
-                // Do nothing.
-            } else if (msg.header.msg_type == 'stream') {
+            } else if (messageType == 'stream') {
                 if (msg['content']['name'] == 'stderr') {
                     logConsumer(msg['header']['date'] + ' <ERROR>: ' + JSON.stringify(msg.content['text']) + '\n');
                 } else if (msg['content']['name'] == 'stdout') {
@@ -388,10 +393,6 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             } else {
                 logConsumer(msg['header']['date'] + ': ' + JSON.stringify(msg.content) + '\n');
             }
-
-            // if (msg.header.msg_type !== 'status') {
-            //     logConsumer(JSON.stringify(msg.content));
-            // }
         };
         await future.done;
         console.log('Execution on Kernel ' + kernelId + ' is done.');
@@ -463,6 +464,8 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             return;
         }
 
+        forceUpdate();
+
         let errorOccurred = false;
         for (let i = 0; i < numKernelsToCreate; i++) {
             if (errorOccurred) break;
@@ -478,8 +481,6 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                 errorOccurred = true;
             });
         }
-
-        forceUpdate();
     };
 
     // Set up status single select
@@ -802,23 +803,6 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         setExpandedKernels(newExpanded);
     };
 
-    const pendingKernelArr = range(0, numKernelsCreating.current);
-    console.log('pendingKernelArr.length = %d', pendingKernelArr.length);
-
-    const getPendingKernelRow = (idx: number) => {
-        return (
-            <DataListItem
-                key={'pending-kernel-data-row-' + idx}
-                className="kernel-list-row"
-                id={'pending-kernel-data-list-' + idx}
-            >
-                <DataListItemRow>
-                    <Skeleton height="75%" width="75%" screenreaderText="Pending kernel" />
-                </DataListItemRow>
-            </DataListItem>
-        );
-    };
-
     const getKernelDataListRow = (kernel: DistributedJupyterKernel | null, idx: number) => {
         return (
             <DataListItem
@@ -942,24 +926,6 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                                     </Button>
                                                 </Tooltip>
                                             </FlexItem>
-                                            {/* <FlexItem>
-                                                <Tooltip
-                                                    exitDelay={75}
-                                                    entryDelay={250}
-                                                    content={
-                                                        <div>Inspect and obtain information about this kernel.</div>
-                                                    }
-                                                >
-                                                    <Button
-                                                        variant={'link'}
-                                                        icon={<SearchIcon />}
-                                                        isDisabled={kernel == null}
-                                                        onClick={() => onInspectKernelClicked(idx)}
-                                                    >
-                                                        Inspect
-                                                    </Button>
-                                                </Tooltip>
-                                            </FlexItem> */}
                                         </Flex>
                                     </FlexItem>
                                     <FlexItem>
@@ -987,6 +953,13 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         );
     };
 
+    const pendingKernelArr = range(0, numKernelsCreating.current);
+    console.log(
+        'numKernelsCreating.current = %d, pendingKernelArr.length = %d',
+        numKernelsCreating.current,
+        pendingKernelArr.length,
+    );
+
     return (
         <Card isRounded isFullHeight>
             <CardHeader actions={{ actions: cardHeaderActions, hasNoOffset: true }}>
@@ -1013,10 +986,10 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                         aria-label="data list"
                         hidden={kernels.length == 0 && pendingKernelArr.length == 0}
                     >
-                        {pendingKernelArr.map((_, idx) => getPendingKernelRow(idx))}
+                        {pendingKernelArr.map((_, idx) => getKernelDataListRow(null, idx))}
                         {filteredKernels
                             .slice(perPage * (page - 1), perPage * (page - 1) + perPage)
-                            .map((kernel, idx) => getKernelDataListRow(kernel, idx))}
+                            .map((kernel, idx) => getKernelDataListRow(kernel, idx + pendingKernelArr.length))}
                     </DataList>
                 )}
                 {kernels.length == 0 && <Text component={TextVariants.h2}>There are no active kernels.</Text>}

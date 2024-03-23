@@ -125,11 +125,25 @@ print("a = %d, b = %d" % (a, b))`,
         />
     );
 
+    const defaultCodeTemplate3 = (
+        <CodeEditorControl
+            icon={<CodeIcon />}
+            aria-label="Execute code"
+            tooltipProps={{ content: 'Sample Code #3' }}
+            onClick={() => {
+                setCode(
+                    `c = (b + 15) * ((a - 2) * a)
+print("a = %d, b = %d, c = %d" % (a, b, c))`,
+                );
+            }}
+        />
+    );
+
     return (
         <CodeEditor
             isDarkTheme={isDarkMode}
             shortcutsPopoverProps={shortcutsPopoverProps}
-            customControls={[defaultCodeTemplate1, defaultCodeTemplate2, darkLightThemeSwitch]}
+            customControls={[defaultCodeTemplate1, defaultCodeTemplate2, defaultCodeTemplate3, darkLightThemeSwitch]}
             isLanguageLabelVisible
             isUploadEnabled
             isDownloadEnabled
