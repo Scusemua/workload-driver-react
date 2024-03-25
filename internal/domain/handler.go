@@ -1,6 +1,10 @@
 package domain
 
-import "github.com/gin-gonic/gin"
+import (
+	"encoding/json"
+
+	"github.com/gin-gonic/gin"
+)
 
 type BackendHttpGetHandler interface {
 	// Write an error back to the client.
@@ -13,16 +17,25 @@ type BackendHttpGetHandler interface {
 	PrimaryHttpHandler() BackendHttpGetHandler
 }
 
-type BackendHttpGetPostHandler interface {
+type BackendHttpGetPatchHandler interface {
 	BackendHttpGetHandler
 
 	// Handle a message/request from the front-end.
-	HandlePostRequest(*gin.Context)
+	HandlePatchRequest(*gin.Context)
 }
 
 type EnableDisableNodeRequest struct {
 	NodeName string `json:"node_name"`
 	Enable   bool   `json:"enable"` // If true, enable the node. Otherwise, disable the node.
+}
+
+func (r *EnableDisableNodeRequest) String() string {
+	out, err := json.Marshal(r)
+	if err != nil {
+		panic(err)
+	}
+
+	return string(out)
 }
 
 type JupyterApiHttpHandler interface {

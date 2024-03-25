@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useReducer } from 'react';
 import {
     Button,
     Card,
@@ -27,6 +27,8 @@ import {
     Radio,
     SearchInput,
     Switch,
+    Text,
+    TextVariants,
     Title,
     ToolbarGroup,
     ToolbarItem,
@@ -65,6 +67,7 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
     const [page, setPage] = React.useState(1);
     const [perPage, setPerPage] = React.useState(props.nodesPerPage);
     const { nodes, nodesAreLoading, refreshNodes } = useNodes();
+    const [, forceUpdate] = useReducer((x) => x + 1, 0);
 
     const onSetPage = (_event: React.MouseEvent | React.KeyboardEvent | MouseEvent, newPage: number) => {
         setPage(newPage);
@@ -210,7 +213,7 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
         </Table>
     );
 
-    const toggleExpandedNode = (id: string) => {
+    const expandedOrCollapseNode = (id: string) => {
         const index = expandedNodes.indexOf(id);
         const newExpanded =
             index >= 0
@@ -245,7 +248,7 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
 
         // If the row is already expanded, then collapse it.
         // If the row is currently collapsed, then expand it.
-        toggleExpandedNode(filteredNodeName);
+        expandedOrCollapseNode(filteredNodeName);
     };
 
     return (
@@ -303,7 +306,7 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                                     <DataListToggle
                                         className="node-list-toggle-button"
                                         hidden={kubeNode.NodeId.includes('control-plane')}
-                                        onClick={() => toggleExpandedNode(kubeNode.NodeId)}
+                                        onClick={() => expandedOrCollapseNode(kubeNode.NodeId)}
                                         isExpanded={expandedNodes.includes(kubeNode.NodeId)}
                                         id={'expand-node-' + kubeNode.NodeId + '-toggle'}
                                         aria-controls={'expand-node-' + kubeNode.NodeId + '-toggle'}
@@ -396,8 +399,30 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                                                         >
                                                             <Switch
                                                                 id={'node-' + kubeNode.NodeId + '-scheduling-switch'}
-                                                                label={'Enabled'}
-                                                                labelOff={'Disabled'}
+                                                                label={
+                                                                    <React.Fragment>
+                                                                        <Flex
+                                                                            direction={{ default: 'row' }}
+                                                                            spaceItems={{ default: 'spaceItemsXs' }}
+                                                                        >
+                                                                            <Text component={TextVariants.h2}>
+                                                                                Enabled
+                                                                            </Text>
+                                                                        </Flex>
+                                                                    </React.Fragment>
+                                                                }
+                                                                labelOff={
+                                                                    <React.Fragment>
+                                                                        <Flex
+                                                                            direction={{ default: 'row' }}
+                                                                            spaceItems={{ default: 'spaceItemsXs' }}
+                                                                        >
+                                                                            <Text component={TextVariants.h2}>
+                                                                                Disabled
+                                                                            </Text>
+                                                                        </Flex>
+                                                                    </React.Fragment>
+                                                                }
                                                                 aria-label="node-scheduling-switch"
                                                                 isChecked={kubeNode.Enabled}
                                                                 ouiaId="node-scheduling-switch"
@@ -405,20 +430,46 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                                                                     _event: React.FormEvent<HTMLInputElement>,
                                                                     checked: boolean,
                                                                 ) => {
+                                                                    const requestBody = JSON.stringify({
+                                                                        node_name: kubeNode.NodeId,
+                                                                        enable: checked,
+                                                                    });
+
                                                                     const requestOptions = {
                                                                         method: 'PATCH',
                                                                         headers: {
                                                                             'Content-Type': 'application/json',
                                                                         },
-                                                                        body: JSON.stringify({
-                                                                            node_name: kubeNode.NodeId,
-                                                                            enabled: checked,
-                                                                        }),
+                                                                        body: requestBody,
                                                                     };
 
-                                                                    fetch('api/nodes', requestOptions);
+                                                                    fetch('api/nodes', requestOptions).then((resp) =>
+                                                                        resp
+                                                                            .json()
+                                                                            .then((updatedNode: KubernetesNode) => {
+                                                                                console.log(
+                                                                                    `Received updated Kubernetes node: ${JSON.stringify(
+                                                                                        updatedNode,
+                                                                                    )}`,
+                                                                                );
+                                                                                for (
+                                                                                    let i: number = 0;
+                                                                                    i < nodes.length;
+                                                                                    i++
+                                                                                ) {
+                                                                                    if (
+                                                                                        nodes[i].NodeId ==
+                                                                                        updatedNode.NodeId
+                                                                                    ) {
+                                                                                        nodes[i] = updatedNode;
+                                                                                        break;
+                                                                                    }
+                                                                                }
 
-                                                                    refreshNodes();
+                                                                                forceUpdate();
+                                                                            }),
+                                                                    );
+                                                                    // refreshNodes();
                                                                 }}
                                                             />
                                                         </Tooltip>

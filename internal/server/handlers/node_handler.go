@@ -13,7 +13,6 @@ import (
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	v1 "k8s.io/client-go/applyconfigurations/core/v1"
-	applyMetaV1 "k8s.io/client-go/applyconfigurations/meta/v1"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
@@ -28,7 +27,7 @@ type KubeNodeHttpHandler struct {
 	spoof         bool
 }
 
-func NewKubeNodeHttpHandler(opts *domain.Configuration) domain.BackendHttpGetPostHandler {
+func NewKubeNodeHttpHandler(opts *domain.Configuration) domain.BackendHttpGetPatchHandler {
 	handler := &KubeNodeHttpHandler{
 		BaseHandler: newBaseHandler(opts),
 		spoof:       opts.SpoofKubeNodes,
@@ -100,6 +99,75 @@ func (h *KubeNodeHttpHandler) createKubernetesClient(opts *domain.Configuration)
 	}
 }
 
+func (h *KubeNodeHttpHandler) parseKubernetesNode(node *corev1.Node) *domain.KubernetesNode {
+	allocatableCPU := node.Status.Capacity[corev1.ResourceCPU]
+	allocatableMemory := node.Status.Capacity[corev1.ResourceMemory]
+
+	allocCpu := allocatableCPU.AsApproximateFloat64()
+	allocMem := allocatableMemory.AsApproximateFloat64()
+
+	// h.logger.Info("Memory as inf.Dec.", zap.String("node-id", node.Name), zap.Any("mem inf.Dec", allocatableMemory.AsDec().String()))
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*15)
+	defer cancel()
+
+	pods, err := h.clientset.CoreV1().Pods("default").List(ctx, metav1.ListOptions{
+		FieldSelector: "spec.nodeName=" + node.Name,
+	})
+
+	if err != nil {
+		h.logger.Error("Could not retrieve Pods running on node.", zap.String("node", node.Name), zap.Error(err))
+	}
+
+	var schedulingDisabled bool = false
+	var executionDisabled bool = false
+	if len(node.Spec.Taints) > 0 {
+		h.sugaredLogger.Debugf("Discovered %d taint(s) on node %s.", len(node.Spec.Taints), node.Name)
+
+		for _, taint := range node.Spec.Taints {
+			h.logger.Debug("Discovered taint.", zap.String("effect", string(taint.Effect)), zap.String("taint-key", taint.Key), zap.String("taint-value", taint.Value))
+
+			if string(taint.Effect) == "NoSchedule" {
+				schedulingDisabled = true
+			} else if string(taint.Effect) == "NoExecute" {
+				executionDisabled = true
+			}
+		}
+	}
+
+	var kubePods []*domain.KubernetesPod
+	if pods != nil {
+		kubePods = make([]*domain.KubernetesPod, 0, len(pods.Items))
+
+		for _, pod := range pods.Items {
+			kubePod := &domain.KubernetesPod{
+				PodName:  pod.ObjectMeta.Name,
+				PodPhase: string(pod.Status.Phase),
+				PodIP:    pod.Status.PodIP,
+				PodAge:   time.Since(pod.GetCreationTimestamp().Time).Round(time.Second).String(),
+				Valid:    true,
+			}
+
+			kubePods = append(kubePods, kubePod)
+		}
+	}
+
+	sort.Slice(kubePods, func(i, j int) bool {
+		return kubePods[i].PodName < kubePods[j].PodName
+	})
+
+	return &domain.KubernetesNode{
+		NodeId:         node.Name,
+		CapacityCPU:    allocCpu,
+		CapacityMemory: allocMem / 976600.0, // Convert from Ki to GB.
+		Pods:           kubePods,
+		Age:            time.Since(node.GetCreationTimestamp().Time).Round(time.Second).String(),
+		IP:             node.Status.Addresses[0].Address,
+		Enabled:        !schedulingDisabled && !executionDisabled,
+	}
+
+}
+
 func (h *KubeNodeHttpHandler) HandleRequest(c *gin.Context) {
 	if h.spoof {
 		h.spoofNodes(c)
@@ -126,79 +194,7 @@ func (h *KubeNodeHttpHandler) HandleRequest(c *gin.Context) {
 	val := nodes.Items[0].Status.Capacity[corev1.ResourceCPU]
 	val.AsInt64()
 	for _, node := range nodes.Items {
-		allocatableCPU := node.Status.Capacity[corev1.ResourceCPU]
-		allocatableMemory := node.Status.Capacity[corev1.ResourceMemory]
-
-		allocCpu := allocatableCPU.AsApproximateFloat64()
-		allocMem := allocatableMemory.AsApproximateFloat64()
-
-		// h.logger.Info("Memory as inf.Dec.", zap.String("node-id", node.Name), zap.Any("mem inf.Dec", allocatableMemory.AsDec().String()))
-
-		ctx, cancel := context.WithTimeout(context.Background(), time.Second*15)
-		defer cancel()
-
-		pods, err := h.clientset.CoreV1().Pods("default").List(ctx, metav1.ListOptions{
-			FieldSelector: "spec.nodeName=" + node.Name,
-		})
-
-		if err != nil {
-			h.logger.Error("Could not retrieve Pods running on node.", zap.String("node", node.Name), zap.Error(err))
-		}
-
-		var schedulingDisabled bool = false
-		var executionDisabled bool = false
-		if len(node.Spec.Taints) > 0 {
-			h.sugaredLogger.Debugf("Discovered %d taint(s) on node %s.", len(node.Spec.Taints), node.Name)
-
-			for _, taint := range node.Spec.Taints {
-				h.logger.Debug("Discovered taint.", zap.String("effect", string(taint.Effect)), zap.String("taint-key", taint.Key), zap.String("taint-value", taint.Value))
-
-				if string(taint.Effect) == "NoSchedule" {
-					schedulingDisabled = true
-				} else if string(taint.Effect) == "NoExecute" {
-					executionDisabled = true
-				}
-			}
-		}
-
-		var kubePods []*domain.KubernetesPod
-		if pods != nil {
-			kubePods = make([]*domain.KubernetesPod, 0, len(pods.Items))
-
-			for _, pod := range pods.Items {
-				kubePod := &domain.KubernetesPod{
-					PodName:  pod.ObjectMeta.Name,
-					PodPhase: string(pod.Status.Phase),
-					PodIP:    pod.Status.PodIP,
-					PodAge:   time.Since(pod.GetCreationTimestamp().Time).Round(time.Second).String(),
-					Valid:    true,
-				}
-
-				kubePods = append(kubePods, kubePod)
-			}
-		}
-
-		sort.Slice(kubePods, func(i, j int) bool {
-			return kubePods[i].PodName < kubePods[j].PodName
-		})
-
-		kubernetesNode := domain.KubernetesNode{
-			NodeId:         node.Name,
-			CapacityCPU:    allocCpu,
-			CapacityMemory: allocMem / 976600.0, // Convert from Ki to GB.
-			Pods:           kubePods,
-			Age:            time.Since(node.GetCreationTimestamp().Time).Round(time.Second).String(),
-			IP:             node.Status.Addresses[0].Address,
-			Enabled:        !schedulingDisabled && !executionDisabled,
-			// CapacityGPUs:    0,
-			// CapacityVGPUs:   0,
-			// AllocatedCPU:    0,
-			// AllocatedMemory: 0,
-			// AllocatedGPUs:   0,
-			// AllocatedVGPUs:  0,
-		}
-
-		kubernetesNodes[node.Name] = &kubernetesNode
+		kubernetesNodes[node.Name] = h.parseKubernetesNode(&node)
 	}
 
 	for _, nodeMetric := range nodeUsageMetrics.Items {
@@ -245,7 +241,7 @@ func (h *KubeNodeHttpHandler) HandleRequest(c *gin.Context) {
 }
 
 // Handle enabling/disabling a particular kubernetes node, which amounts to adding/removing taints from the node.
-func (h *KubeNodeHttpHandler) HandlePostRequest(c *gin.Context) {
+func (h *KubeNodeHttpHandler) HandlePatchRequest(c *gin.Context) {
 	var req *domain.EnableDisableNodeRequest
 	err := c.BindJSON(&req)
 	if err != nil {
@@ -253,47 +249,24 @@ func (h *KubeNodeHttpHandler) HandlePostRequest(c *gin.Context) {
 		return
 	}
 
-	// var patchData string
-	// if req.Enable {
-	// 	h.sugaredLogger.Debugf("Will be enabling node %s.", req.NodeName)
-	// 	patchData = `{
-	// 		"spec": {
-	// 			"taints": [
-	// 				{
-	// 					"effect": "NoExecute",
-	// 					"key": "key1",
-	// 					"value": "value1"
-	// 				},
-	// 				{
-	// 					"effect": "NoSchedule",
-	// 					"key": "key2",
-	// 					"value": "value2"
-	// 				}
-	// 			]
-	// 		}
-	// 	}`
-	// } else {
-	// 	h.sugaredLogger.Debugf("Will be disabling node %s.", req.NodeName)
-	// 	patchData = `{
-	// 		"spec": {
-	// 			"taints": null
-	// 		}
-	// 	}`
-	// }
-
 	var nodeName string = req.NodeName
 
-	resp, err := h.clientset.CoreV1().Nodes().Apply(context.Background(), &v1.NodeApplyConfiguration{
-		ObjectMetaApplyConfiguration: &applyMetaV1.ObjectMetaApplyConfiguration{
-			Name: &nodeName,
-		},
-		Spec: &v1.NodeSpecApplyConfiguration{
-			Taints: []v1.TaintApplyConfiguration{
-				*v1.Taint().WithKey("key1").WithValue("value1").WithEffect(corev1.TaintEffectNoExecute),
-				*v1.Taint().WithKey("key1").WithValue("value1").WithEffect(corev1.TaintEffectNoSchedule),
-			},
-		},
-	}, metav1.ApplyOptions{})
+	h.logger.Debug("Received HTTP PATCH request to enable/disable kubernetes node.", zap.String("node-name", nodeName), zap.String("request", req.String()))
+
+	var applyConfig *v1.NodeApplyConfiguration
+	if req.Enable {
+		h.sugaredLogger.Debugf("Will be enabling node %s and therefore removing taints from the node.", nodeName)
+		applyConfig = v1.Node(nodeName).WithSpec(v1.NodeSpec().WithTaints())
+	} else {
+		h.sugaredLogger.Debugf("Will be disabling node %s.", nodeName)
+		applyConfig = v1.Node(nodeName).WithSpec(v1.NodeSpec().WithTaints(
+			v1.Taint().WithKey("key1").WithValue("value1").WithEffect(corev1.TaintEffectNoExecute),
+			v1.Taint().WithKey("key1").WithValue("value1").WithEffect(corev1.TaintEffectNoSchedule)))
+	}
+
+	resp, err := h.clientset.CoreV1().Nodes().Apply(context.Background(), applyConfig, metav1.ApplyOptions{
+		FieldManager: "application/apply-patch",
+	})
 
 	// resp, err := h.clientset.CoreV1().Nodes().Patch(context.Background(), nodeName, types.StrategicMergePatchType, []byte(patchData), metav1.PatchOptions{FieldValidation: "Strict"})
 	if err != nil {
@@ -310,13 +283,15 @@ func (h *KubeNodeHttpHandler) HandlePostRequest(c *gin.Context) {
 			Valid:        true,
 		})
 	} else {
-		h.logger.Debug("Received response after patching kubernetes node.", zap.String("node-name", nodeName), zap.Any("response", resp))
-
 		if req.Enable {
 			h.logger.Debug("Successfully removed the 'NoExecute' and 'NoSchedule' taints from the Kubernetes node.", zap.String("node-name", nodeName))
 		} else {
 			h.logger.Debug("Successfully added 'NoExecute' and 'NoSchedule' taints to the Kubernetes node.", zap.String("node-name", nodeName))
 		}
+
+		updatedNode := h.parseKubernetesNode(resp)
+		h.logger.Debug("Sending updated Kubernetes node back to frontend.", zap.String("node-name", nodeName), zap.String("updated-node", updatedNode.String()))
+		c.JSON(http.StatusOK, updatedNode)
 	}
 }
 

@@ -29,11 +29,29 @@ type SubscriptionRequest struct {
 	MessageId string `json:"msg_id"`
 }
 
+func (r *SubscriptionRequest) String() string {
+	out, err := json.Marshal(r)
+	if err != nil {
+		panic(err)
+	}
+
+	return string(out)
+}
+
 type ToggleDebugLogsRequest struct {
 	Op         string `json:"op"`
 	MessageId  string `json:"msg_id"`
 	WorkloadId string `json:"workload_id"`
 	Enabled    bool   `json:"enabled"`
+}
+
+func (r *ToggleDebugLogsRequest) String() string {
+	out, err := json.Marshal(r)
+	if err != nil {
+		panic(err)
+	}
+
+	return string(out)
 }
 
 type WorkloadResponse struct {
@@ -43,11 +61,29 @@ type WorkloadResponse struct {
 	DeletedWorkloads  []*Workload `json:"deleted_workloads"`
 }
 
+func (r *WorkloadResponse) String() string {
+	out, err := json.Marshal(r)
+	if err != nil {
+		panic(err)
+	}
+
+	return string(out)
+}
+
 // Wrapper around a WorkloadRegistrationRequest; contains the message ID and operation field.
 type WorkloadRegistrationRequestWrapper struct {
 	Operation                   string                       `json:"op"`
 	MessageId                   string                       `json:"msg_id"`
 	WorkloadRegistrationRequest *WorkloadRegistrationRequest `json:"workloadRegistrationRequest"`
+}
+
+func (r *WorkloadRegistrationRequestWrapper) String() string {
+	out, err := json.Marshal(r)
+	if err != nil {
+		panic(err)
+	}
+
+	return string(out)
 }
 
 // Request for starting/stopping a workload. Whether this starts or stops a workload depends on the value of the Operation field.
@@ -57,11 +93,29 @@ type StartStopWorkloadRequest struct {
 	WorkloadId string `json:"workload_id"`
 }
 
+func (r *StartStopWorkloadRequest) String() string {
+	out, err := json.Marshal(r)
+	if err != nil {
+		panic(err)
+	}
+
+	return string(out)
+}
+
 // Request for starting/stopping a workload. Whether this starts or stops a workload depends on the value of the Operation field.
 type StartStopWorkloadsRequest struct {
 	MessageId   string   `json:"msg_id"`
 	Operation   string   `json:"op"`
 	WorkloadIDs []string `json:"workload_ids"`
+}
+
+func (r *StartStopWorkloadsRequest) String() string {
+	out, err := json.Marshal(r)
+	if err != nil {
+		panic(err)
+	}
+
+	return string(out)
 }
 
 type WorkloadRegistrationRequest struct {
@@ -72,6 +126,15 @@ type WorkloadRegistrationRequest struct {
 	AdjustGpuReservations bool   `name:"adjust_gpu_reservations" json:"adjust_gpu_reservations" description:"By default, sessions reserve 'NUM_GPUS' GPUs when being scheduled. If this property is enabled, then sessions will instead reserve 'NUM_GPUs' * 'MAX_GPU_UTIL'. This will lead to many sessions reserving fewer GPUs than when this property is disabled (default)."`
 	WorkloadName          string `name:"name" json:"name" yaml:"name" description:"Non-unique identifier of the workload created/specified by the user when launching the workload."`
 	DebugLogging          bool   `name:"debug_logging" json:"debug_logging" yaml:"debug_logging" description:"Flag indicating whether debug-level logging should be enabled."`
+}
+
+func (r *WorkloadRegistrationRequest) String() string {
+	out, err := json.Marshal(r)
+	if err != nil {
+		panic(err)
+	}
+
+	return string(out)
 }
 
 type WorkloadState int
