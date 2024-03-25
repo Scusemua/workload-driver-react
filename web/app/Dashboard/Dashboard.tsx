@@ -10,8 +10,9 @@ import {
     WORKLOAD_STATE_RUNNING,
     Workload,
     WorkloadPreset,
+    KubernetesNode,
 } from '@app/Data';
-import { MigrationModal, RegisterWorkloadModal } from '@app/Components/Modals';
+import { MigrationModal, AdjustVirtualGPUsModal, RegisterWorkloadModal } from '@app/Components/Modals';
 
 import { v4 as uuidv4 } from 'uuid';
 import { useWorkloads } from '@app/Components/Providers/WorkloadProvider';
@@ -22,9 +23,11 @@ export interface DashboardProps {}
 
 const Dashboard: React.FunctionComponent<DashboardProps> = () => {
     const [isRegisterWorkloadModalOpen, setIsRegisterWorkloadModalOpen] = React.useState(false);
+    const [isAdjustVirtualGPUsModalOpen, setIsAdjustVirtualGPUsModalOpen] = React.useState(false);
     const [isMigrateModalOpen, setIsMigrateModalOpen] = React.useState(false);
     const [migrateKernel, setMigrateKernel] = React.useState<DistributedJupyterKernel | null>(null);
     const [migrateReplica, setMigrateReplica] = React.useState<JupyterKernelReplica | null>(null);
+    const [adjustVirtualGPUsNode, setAdjustVirtualGPUsNode] = React.useState<KubernetesNode | null>(null);
 
     const { nodes } = useNodes();
     const { kernels } = useKernels();
@@ -369,6 +372,11 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
         return 2 as gridSpans;
     };
 
+    const onAdjustVirtualGPUsClicked = (node: KubernetesNode) => {
+        setAdjustVirtualGPUsNode(node);
+        setIsAdjustVirtualGPUsModalOpen(true);
+    };
+
     return (
         <PageSection>
             <Grid hasGutter>
@@ -393,6 +401,8 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
                 </GridItem>
                 <GridItem span={6} rowSpan={nodes.length == 0 ? 1 : 2}>
                     <KubernetesNodeList
+                        hideAdjustVirtualGPUsButton={false}
+                        onAdjustVirtualGPUsClicked={onAdjustVirtualGPUsClicked}
                         hideControlPlaneNode={true}
                         nodesPerPage={3}
                         selectableViaCheckboxes={false}
@@ -412,6 +422,18 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
                 onClose={onCancelStartWorkload}
                 onConfirm={onConfirmRegisterWorkload}
                 defaultWorkloadTitle={defaultWorkloadTitle.current}
+            />
+            <AdjustVirtualGPUsModal
+                isOpen={isAdjustVirtualGPUsModalOpen}
+                onClose={() => {
+                    setIsAdjustVirtualGPUsModalOpen(false);
+                    setAdjustVirtualGPUsNode(null);
+                }}
+                onConfirm={() => {
+                    setIsAdjustVirtualGPUsModalOpen(false);
+                    setAdjustVirtualGPUsNode(null);
+                }}
+                node={adjustVirtualGPUsNode}
             />
         </PageSection>
     );

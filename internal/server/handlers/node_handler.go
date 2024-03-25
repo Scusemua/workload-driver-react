@@ -103,6 +103,14 @@ func (h *KubeNodeHttpHandler) parseKubernetesNode(node *corev1.Node) *domain.Kub
 	allocatableCPU := node.Status.Capacity[corev1.ResourceCPU]
 	allocatableMemory := node.Status.Capacity[corev1.ResourceMemory]
 
+	var allocVGPU float64 = 0.0
+	allocatableVirtualGPUs, ok := node.Status.Capacity["ds2-lab.github.io/deflated-gpu"]
+	if !ok {
+		allocVGPU = 0
+	} else {
+		allocVGPU = allocatableVirtualGPUs.AsApproximateFloat64()
+	}
+
 	allocCpu := allocatableCPU.AsApproximateFloat64()
 	allocMem := allocatableMemory.AsApproximateFloat64()
 
@@ -160,6 +168,7 @@ func (h *KubeNodeHttpHandler) parseKubernetesNode(node *corev1.Node) *domain.Kub
 		NodeId:         node.Name,
 		CapacityCPU:    allocCpu,
 		CapacityMemory: allocMem / 976600.0, // Convert from Ki to GB.
+		CapacityVGPUs:  allocVGPU,
 		Pods:           kubePods,
 		Age:            time.Since(node.GetCreationTimestamp().Time).Round(time.Second).String(),
 		IP:             node.Status.Addresses[0].Address,
@@ -200,19 +209,9 @@ func (h *KubeNodeHttpHandler) HandleRequest(c *gin.Context) {
 	for _, nodeMetric := range nodeUsageMetrics.Items {
 		nodeName := nodeMetric.ObjectMeta.Name
 		kubeNode := kubernetesNodes[nodeName]
-		// h.logger.Info("Node metric.", zap.String("node", nodeName), zap.Any("metric", nodeMetric))
 
 		cpu := nodeMetric.Usage.Cpu().AsApproximateFloat64()
-		// if !ok {
-		// 	h.logger.Error("Could not convert CPU usage metric to Int64.", zap.Any("cpu-metric", nodeMetric.Usage.Cpu()))
-		// }
-		// h.logger.Info("CPU metric.", zap.String("node-id", nodeName), zap.Float64("cpu", cpu))
-
 		mem := nodeMetric.Usage.Memory().AsApproximateFloat64()
-		// if !ok {
-		// 	h.logger.Error("Could not convert 	memory usage metric to Int64.", zap.Any("mem-metric", nodeMetric.Usage.Memory()))
-		// }
-		// h.logger.Info("Memory metric.", zap.String("node-id", nodeName), zap.Float64("memory", cpu))
 
 		kubeNode.AllocatedCPU = cpu
 		kubeNode.AllocatedMemory = mem / 976600.0 // Convert from Ki to GB.

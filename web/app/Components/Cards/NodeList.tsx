@@ -56,6 +56,8 @@ export interface NodeListProps {
     hideControlPlaneNode?: boolean;
     onSelectNode?: (nodeId: string) => void; // Function to call when a node is selected; used in case parent wants to do something when node is selected, such as update state.
     nodesPerPage: number;
+    hideAdjustVirtualGPUsButton: boolean;
+    onAdjustVirtualGPUsClicked?: (node: KubernetesNode) => void;
     displayNodeToggleSwitch: boolean; // If true, show the Switch that is used to enable/disable the node.
 }
 
@@ -369,8 +371,8 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                                                                 {kubeNode.CapacityMemory.toFixed(0)}
                                                             </FlexItem>
                                                             <FlexItem>
-                                                                <GpuIcon /> {kubeNode.AllocatedCPU.toFixed(2)} /{' '}
-                                                                {kubeNode.CapacityCPU}
+                                                                <GpuIcon /> {kubeNode.AllocatedVGPUs.toFixed(2)} /{' '}
+                                                                {kubeNode.CapacityVGPUs}
                                                             </FlexItem>
                                                         </Flex>
                                                     </FlexItem>
@@ -387,11 +389,17 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                                                 aria-label="Actions"
                                             >
                                                 <Flex
+                                                    alignContent={{ default: 'alignContentCenter' }}
+                                                    alignItems={{ default: 'alignItemsCenter' }}
+                                                    alignSelf={{ default: 'alignSelfCenter' }}
                                                     className="node-enable-disable-switch"
-                                                    spaceItems={{ default: 'spaceItemsNone' }}
-                                                    direction={{ default: 'row' }}
+                                                    spaceItems={{ default: 'spaceItemsXs' }}
+                                                    direction={{ default: 'column' }}
                                                 >
-                                                    <FlexItem hidden={kubeNode.NodeId.includes('control-plane')}>
+                                                    <FlexItem
+                                                        alignSelf={{ default: 'alignSelfCenter' }}
+                                                        hidden={kubeNode.NodeId.includes('control-plane')}
+                                                    >
                                                         <Tooltip
                                                             exitDelay={0.125}
                                                             content="Enable or disable a node, rendering it either available or unavailable, respectively, for hosting Distributed Notebook resources."
@@ -473,6 +481,22 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                                                                 }}
                                                             />
                                                         </Tooltip>
+                                                    </FlexItem>
+                                                    <FlexItem
+                                                        hidden={props.hideAdjustVirtualGPUsButton}
+                                                        alignSelf={{ default: 'alignSelfCenter' }}
+                                                    >
+                                                        <Button
+                                                            variant="link"
+                                                            onClick={(event: React.MouseEvent) => {
+                                                                event.stopPropagation();
+                                                                if (props.onAdjustVirtualGPUsClicked) {
+                                                                    props.onAdjustVirtualGPUsClicked(kubeNode);
+                                                                }
+                                                            }}
+                                                        >
+                                                            Adjust vGPUs
+                                                        </Button>
                                                     </FlexItem>
                                                 </Flex>
                                             </DataListCell>,
