@@ -351,18 +351,21 @@ var ClusterGateway_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	LocalGateway_SetID_FullMethodName              = "/gateway.LocalGateway/SetID"
-	LocalGateway_StartKernel_FullMethodName        = "/gateway.LocalGateway/StartKernel"
-	LocalGateway_StartKernelReplica_FullMethodName = "/gateway.LocalGateway/StartKernelReplica"
-	LocalGateway_GetKernelStatus_FullMethodName    = "/gateway.LocalGateway/GetKernelStatus"
-	LocalGateway_KillKernel_FullMethodName         = "/gateway.LocalGateway/KillKernel"
-	LocalGateway_StopKernel_FullMethodName         = "/gateway.LocalGateway/StopKernel"
-	LocalGateway_WaitKernel_FullMethodName         = "/gateway.LocalGateway/WaitKernel"
-	LocalGateway_SetClose_FullMethodName           = "/gateway.LocalGateway/SetClose"
-	LocalGateway_AddReplica_FullMethodName         = "/gateway.LocalGateway/AddReplica"
-	LocalGateway_UpdateReplicaAddr_FullMethodName  = "/gateway.LocalGateway/UpdateReplicaAddr"
-	LocalGateway_PrepareToMigrate_FullMethodName   = "/gateway.LocalGateway/PrepareToMigrate"
-	LocalGateway_GetGpuInfo_FullMethodName         = "/gateway.LocalGateway/GetGpuInfo"
+	LocalGateway_SetID_FullMethodName                    = "/gateway.LocalGateway/SetID"
+	LocalGateway_StartKernel_FullMethodName              = "/gateway.LocalGateway/StartKernel"
+	LocalGateway_StartKernelReplica_FullMethodName       = "/gateway.LocalGateway/StartKernelReplica"
+	LocalGateway_GetKernelStatus_FullMethodName          = "/gateway.LocalGateway/GetKernelStatus"
+	LocalGateway_KillKernel_FullMethodName               = "/gateway.LocalGateway/KillKernel"
+	LocalGateway_StopKernel_FullMethodName               = "/gateway.LocalGateway/StopKernel"
+	LocalGateway_WaitKernel_FullMethodName               = "/gateway.LocalGateway/WaitKernel"
+	LocalGateway_SetClose_FullMethodName                 = "/gateway.LocalGateway/SetClose"
+	LocalGateway_AddReplica_FullMethodName               = "/gateway.LocalGateway/AddReplica"
+	LocalGateway_UpdateReplicaAddr_FullMethodName        = "/gateway.LocalGateway/UpdateReplicaAddr"
+	LocalGateway_PrepareToMigrate_FullMethodName         = "/gateway.LocalGateway/PrepareToMigrate"
+	LocalGateway_GetGpuInfo_FullMethodName               = "/gateway.LocalGateway/GetGpuInfo"
+	LocalGateway_GetVirtualGPUs_FullMethodName           = "/gateway.LocalGateway/GetVirtualGPUs"
+	LocalGateway_SetTotalVirtualGPUs_FullMethodName      = "/gateway.LocalGateway/SetTotalVirtualGPUs"
+	LocalGateway_GetVirtualGpuAllocations_FullMethodName = "/gateway.LocalGateway/GetVirtualGpuAllocations"
 )
 
 // LocalGatewayClient is the client API for LocalGateway service.
@@ -396,6 +399,12 @@ type LocalGatewayClient interface {
 	PrepareToMigrate(ctx context.Context, in *ReplicaInfo, opts ...grpc.CallOption) (*PrepareToMigrateResponse, error)
 	// Return the current GPU resource metrics on the node.
 	GetGpuInfo(ctx context.Context, in *Void, opts ...grpc.CallOption) (*GpuInfo, error)
+	// Return the current vGPU (or "deflated GPU") resource metrics on the node.
+	GetVirtualGPUs(ctx context.Context, in *Void, opts ...grpc.CallOption) (*VirtualGpuInfo, error)
+	// Set the maximum number of vGPU resources availabe on the node.
+	SetTotalVirtualGPUs(ctx context.Context, in *SetVirtualGPUsRequest, opts ...grpc.CallOption) (*VirtualGpuInfo, error)
+	// Return the current vGPU allocations on this node.
+	GetVirtualGpuAllocations(ctx context.Context, in *Void, opts ...grpc.CallOption) (*VirtualGpuAllocations, error)
 }
 
 type localGatewayClient struct {
@@ -514,6 +523,33 @@ func (c *localGatewayClient) GetGpuInfo(ctx context.Context, in *Void, opts ...g
 	return out, nil
 }
 
+func (c *localGatewayClient) GetVirtualGPUs(ctx context.Context, in *Void, opts ...grpc.CallOption) (*VirtualGpuInfo, error) {
+	out := new(VirtualGpuInfo)
+	err := c.cc.Invoke(ctx, LocalGateway_GetVirtualGPUs_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *localGatewayClient) SetTotalVirtualGPUs(ctx context.Context, in *SetVirtualGPUsRequest, opts ...grpc.CallOption) (*VirtualGpuInfo, error) {
+	out := new(VirtualGpuInfo)
+	err := c.cc.Invoke(ctx, LocalGateway_SetTotalVirtualGPUs_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *localGatewayClient) GetVirtualGpuAllocations(ctx context.Context, in *Void, opts ...grpc.CallOption) (*VirtualGpuAllocations, error) {
+	out := new(VirtualGpuAllocations)
+	err := c.cc.Invoke(ctx, LocalGateway_GetVirtualGpuAllocations_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // LocalGatewayServer is the server API for LocalGateway service.
 // All implementations must embed UnimplementedLocalGatewayServer
 // for forward compatibility
@@ -545,6 +581,12 @@ type LocalGatewayServer interface {
 	PrepareToMigrate(context.Context, *ReplicaInfo) (*PrepareToMigrateResponse, error)
 	// Return the current GPU resource metrics on the node.
 	GetGpuInfo(context.Context, *Void) (*GpuInfo, error)
+	// Return the current vGPU (or "deflated GPU") resource metrics on the node.
+	GetVirtualGPUs(context.Context, *Void) (*VirtualGpuInfo, error)
+	// Set the maximum number of vGPU resources availabe on the node.
+	SetTotalVirtualGPUs(context.Context, *SetVirtualGPUsRequest) (*VirtualGpuInfo, error)
+	// Return the current vGPU allocations on this node.
+	GetVirtualGpuAllocations(context.Context, *Void) (*VirtualGpuAllocations, error)
 	mustEmbedUnimplementedLocalGatewayServer()
 }
 
@@ -587,6 +629,15 @@ func (UnimplementedLocalGatewayServer) PrepareToMigrate(context.Context, *Replic
 }
 func (UnimplementedLocalGatewayServer) GetGpuInfo(context.Context, *Void) (*GpuInfo, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetGpuInfo not implemented")
+}
+func (UnimplementedLocalGatewayServer) GetVirtualGPUs(context.Context, *Void) (*VirtualGpuInfo, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetVirtualGPUs not implemented")
+}
+func (UnimplementedLocalGatewayServer) SetTotalVirtualGPUs(context.Context, *SetVirtualGPUsRequest) (*VirtualGpuInfo, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetTotalVirtualGPUs not implemented")
+}
+func (UnimplementedLocalGatewayServer) GetVirtualGpuAllocations(context.Context, *Void) (*VirtualGpuAllocations, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetVirtualGpuAllocations not implemented")
 }
 func (UnimplementedLocalGatewayServer) mustEmbedUnimplementedLocalGatewayServer() {}
 
@@ -817,6 +868,60 @@ func _LocalGateway_GetGpuInfo_Handler(srv interface{}, ctx context.Context, dec 
 	return interceptor(ctx, in, info, handler)
 }
 
+func _LocalGateway_GetVirtualGPUs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Void)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LocalGatewayServer).GetVirtualGPUs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LocalGateway_GetVirtualGPUs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LocalGatewayServer).GetVirtualGPUs(ctx, req.(*Void))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LocalGateway_SetTotalVirtualGPUs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetVirtualGPUsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LocalGatewayServer).SetTotalVirtualGPUs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LocalGateway_SetTotalVirtualGPUs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LocalGatewayServer).SetTotalVirtualGPUs(ctx, req.(*SetVirtualGPUsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LocalGateway_GetVirtualGpuAllocations_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Void)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LocalGatewayServer).GetVirtualGpuAllocations(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LocalGateway_GetVirtualGpuAllocations_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LocalGatewayServer).GetVirtualGpuAllocations(ctx, req.(*Void))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // LocalGateway_ServiceDesc is the grpc.ServiceDesc for LocalGateway service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -871,6 +976,18 @@ var LocalGateway_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetGpuInfo",
 			Handler:    _LocalGateway_GetGpuInfo_Handler,
+		},
+		{
+			MethodName: "GetVirtualGPUs",
+			Handler:    _LocalGateway_GetVirtualGPUs_Handler,
+		},
+		{
+			MethodName: "SetTotalVirtualGPUs",
+			Handler:    _LocalGateway_SetTotalVirtualGPUs_Handler,
+		},
+		{
+			MethodName: "GetVirtualGpuAllocations",
+			Handler:    _LocalGateway_GetVirtualGpuAllocations_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
