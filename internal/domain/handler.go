@@ -13,6 +13,18 @@ type BackendHttpGetHandler interface {
 	PrimaryHttpHandler() BackendHttpGetHandler
 }
 
+type BackendHttpGetPostHandler interface {
+	BackendHttpGetHandler
+
+	// Handle a message/request from the front-end.
+	HandlePostRequest(*gin.Context)
+}
+
+type EnableDisableNodeRequest struct {
+	NodeName string `json:"node_name"`
+	Enable   bool   `json:"enable"` // If true, enable the node. Otherwise, disable the node.
+}
+
 type JupyterApiHttpHandler interface {
 	// Handle an HTTP GET request to get the jupyter kernel specs.
 	HandleGetKernelSpecRequest(*gin.Context)

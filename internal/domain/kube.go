@@ -15,6 +15,7 @@ type KubernetesNode struct {
 	AllocatedMemory float64          `json:"AllocatedMemory"`
 	AllocatedGPUs   float64          `json:"AllocatedGPUs"`
 	AllocatedVGPUs  float64          `json:"AllocatedVGPUs"`
+	Enabled         bool             `json:"Enabled"`
 }
 
 func (kn *KubernetesNode) String() string {

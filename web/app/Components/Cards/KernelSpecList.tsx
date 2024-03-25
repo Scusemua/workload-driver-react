@@ -3,7 +3,6 @@ import {
     Button,
     Card,
     CardBody,
-    CardExpandableContent,
     CardHeader,
     CardTitle,
     DescriptionList,
@@ -25,7 +24,6 @@ import { SyncIcon } from '@patternfly/react-icons';
 
 export const KernelSpecList: React.FunctionComponent = () => {
     const [activeTabKey, setActiveTabKey] = React.useState(0);
-    const [isCardExpanded, setIsCardExpanded] = React.useState(true);
     const kernelSpecManager = useRef<KernelSpecManager | null>(null);
     const [refreshingKernelSpecs, setRefreshingKernelSpecs] = React.useState(false);
 
@@ -61,10 +59,6 @@ export const KernelSpecList: React.FunctionComponent = () => {
 
         initializeKernelManagers();
     }, []);
-
-    const onCardExpand = () => {
-        setIsCardExpanded(!isCardExpanded);
-    };
 
     const handleTabClick = (_e: React.MouseEvent<HTMLElement, MouseEvent>, tabIndex: string | number) => {
         setActiveTabKey(Number(tabIndex));

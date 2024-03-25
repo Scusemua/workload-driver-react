@@ -94,6 +94,9 @@ func (s *serverImpl) setupRoutes() error {
 		// Used internally (by the frontend) to get the current kubernetes nodes from the backend  (i.e., the backend).
 		apiGroup.GET(domain.KUBERNETES_NODES_ENDPOINT, handlers.NewKubeNodeHttpHandler(s.opts).HandleRequest)
 
+		// Enable/disable Kubernetes nodes.
+		apiGroup.PATCH(domain.KUBERNETES_NODES_ENDPOINT, handlers.NewKubeNodeHttpHandler(s.opts).HandlePostRequest)
+
 		// Used internally (by the frontend) to get the system config from the backend  (i.e., the backend).
 		apiGroup.GET(domain.SYSTEM_CONFIG_ENDPOINT, handlers.NewConfigHttpHandler(s.opts).HandleRequest)
 

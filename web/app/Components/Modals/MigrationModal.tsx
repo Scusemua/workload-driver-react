@@ -43,8 +43,9 @@ export const MigrationModal: React.FunctionComponent<MigrationModalProps> = (pro
             </TextContent>
             <br />
             <KubernetesNodeList
+                displayNodeToggleSwitch={false}
                 nodesPerPage={5}
-                selectable={true}
+                selectableViaCheckboxes={true}
                 hideControlPlaneNode={true}
                 disableRadiosWithKernel={(props.targetReplica != null && props.targetReplica.kernelId) || undefined}
                 onSelectNode={(nodeId: string) => {

@@ -11,6 +11,7 @@ interface KubernetesNode {
     AllocatedMemory: number;
     AllocatedGPUs: number;
     AllocatedVGPUs: number;
+    Enabled: boolean;
 }
 
 interface KubernetesPod {

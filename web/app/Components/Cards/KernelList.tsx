@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useReducer } from 'react';
+import React, { useEffect, useReducer, useRef } from 'react';
 import {
     Badge,
     Button,
@@ -105,7 +105,6 @@ export interface KernelListProps {
 export const KernelList: React.FunctionComponent<KernelListProps> = (props: KernelListProps) => {
     const [searchValue, setSearchValue] = React.useState('');
     const [statusSelections, setStatusSelections] = React.useState<string[]>([]);
-    const [isCardExpanded, setIsCardExpanded] = React.useState(true);
     const [expandedKernels, setExpandedKernels] = React.useState<string[]>([]);
     const [isConfirmCreateModalOpen, setIsConfirmCreateModalOpen] = React.useState(false);
     const [isConfirmDeleteKernelsModalOpen, setIsConfirmDeleteKernelsModalOpen] = React.useState(false);
@@ -210,10 +209,6 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
     useEffect(() => {
         initializeKernelManagers();
     }, []);
-
-    const onCardExpand = () => {
-        setIsCardExpanded(!isCardExpanded);
-    };
 
     const onSearchChange = (value: string) => {
         setSearchValue(value);
@@ -547,7 +542,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         return (searchValue === '' || matchesSearchValue) && (statusSelections.length === 0 || matchesStatusValue);
     };
 
-    const filteredKernels = kernels.filter(onFilter);
+    const filteredKernels = kernels.filter(onFilter).slice(perPage * (page - 1), perPage * (page - 1) + perPage);
 
     const statusMenu = (
         <Menu
@@ -860,79 +855,69 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                 </Flex>
                             </DataListCell>,
                             <DataListAction
-                                key="actions"
+                                key={'kernel-' + idx + '-actions'}
                                 aria-labelledby={'kernel-data-list-' + idx + ' kernel-data-list-action-item-' + idx}
                                 id={'kernel-data-list-' + idx}
                                 aria-label="Actions"
                             >
-                                <Flex spaceItems={{ default: 'spaceItemsNone' }} direction={{ default: 'column' }}>
+                                <Flex spaceItems={{ default: 'spaceItemsSm' }} direction={{ default: 'row' }}>
                                     <FlexItem>
-                                        <Flex spaceItems={{ default: 'spaceItemsSm' }} direction={{ default: 'row' }}>
-                                            <FlexItem>
-                                                <Tooltip
-                                                    exitDelay={75}
-                                                    entryDelay={250}
-                                                    content={<div>Execute Python code on this kernel.</div>}
-                                                >
-                                                    <Button
-                                                        variant={'link'}
-                                                        icon={<CodeIcon />}
-                                                        isDisabled={kernel == null}
-                                                        onClick={() => onExecuteCodeClicked(kernel)}
-                                                    >
-                                                        Execute
-                                                    </Button>
-                                                </Tooltip>
-                                            </FlexItem>
-                                            <FlexItem>
-                                                <Tooltip
-                                                    exitDelay={75}
-                                                    entryDelay={250}
-                                                    content={<div>Interrupt this kernel.</div>}
-                                                >
-                                                    <Button
-                                                        variant={'link'}
-                                                        isDanger
-                                                        icon={<PauseIcon />}
-                                                        isDisabled={kernel == null}
-                                                        onClick={() => onInterruptKernelClicked(idx)}
-                                                    >
-                                                        Interrupt
-                                                    </Button>
-                                                </Tooltip>
-                                            </FlexItem>
-                                            <FlexItem>
-                                                <Tooltip
-                                                    exitDelay={75}
-                                                    entryDelay={250}
-                                                    content={<div>Terminate this kernel.</div>}
-                                                >
-                                                    <Button
-                                                        variant={'link'}
-                                                        icon={<TrashIcon />}
-                                                        isDanger
-                                                        isDisabled={kernel == null}
-                                                        onClick={() => {
-                                                            if (kernel == null) {
-                                                                return;
-                                                            }
-
-                                                            // We're trying to delete a specific kernel.
-                                                            setKernelToDelete(kernel.kernelId);
-                                                            setIsConfirmDeleteKernelModalOpen(true);
-                                                        }}
-                                                    >
-                                                        Terminate
-                                                    </Button>
-                                                </Tooltip>
-                                            </FlexItem>
-                                        </Flex>
+                                        <Tooltip
+                                            exitDelay={75}
+                                            entryDelay={250}
+                                            content={<div>Execute Python code on this kernel.</div>}
+                                        >
+                                            <Button
+                                                variant={'link'}
+                                                icon={<CodeIcon />}
+                                                isDisabled={kernel == null}
+                                                onClick={() => onExecuteCodeClicked(kernel)}
+                                            >
+                                                Execute
+                                            </Button>
+                                        </Tooltip>
                                     </FlexItem>
                                     <FlexItem>
-                                        <Flex
-                                            spaceItems={{ default: 'spaceItemsSm' }}
-                                            direction={{ default: 'row' }}
-                                        ></Flex>
+                                        <Tooltip
+                                            exitDelay={75}
+                                            entryDelay={250}
+                                            content={<div>Interrupt this kernel.</div>}
+                                        >
+                                            <Button
+                                                variant={'link'}
+                                                isDanger
+                                                icon={<PauseIcon />}
+                                                isDisabled={kernel == null}
+                                                onClick={() => onInterruptKernelClicked(idx)}
+                                            >
+                                                Interrupt
+                                            </Button>
+                                        </Tooltip>
+                                    </FlexItem>
+                                    <FlexItem>
+                                        <Tooltip
+                                            exitDelay={75}
+                                            entryDelay={250}
+                                            content={<div>Terminate this kernel.</div>}
+                                        >
+                                            <Button
+                                                variant={'link'}
+                                                icon={<TrashIcon />}
+                                                isDanger
+                                                isDisabled={kernel == null}
+                                                onClick={() => {
+                                                    if (kernel == null) {
+                                                        return;
+                                                    }
+
+                                                    // We're trying to delete a specific kernel.
+                                                    setKernelToDelete(kernel.kernelId);
+                                                    setIsConfirmDeleteKernelModalOpen(true);
+                                                }}
+                                            >
+                                                Terminate
+                                            </Button>
+                                        </Tooltip>
                                     </FlexItem>
                                 </Flex>
                             </DataListAction>,
@@ -954,11 +939,6 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
     };
 
     const pendingKernelArr = range(0, numKernelsCreating.current);
-    console.log(
-        'numKernelsCreating.current = %d, pendingKernelArr.length = %d',
-        numKernelsCreating.current,
-        pendingKernelArr.length,
-    );
 
     return (
         <Card isRounded isFullHeight>
@@ -987,9 +967,9 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                         hidden={kernels.length == 0 && pendingKernelArr.length == 0}
                     >
                         {pendingKernelArr.map((_, idx) => getKernelDataListRow(null, idx))}
-                        {filteredKernels
-                            .slice(perPage * (page - 1), perPage * (page - 1) + perPage)
-                            .map((kernel, idx) => getKernelDataListRow(kernel, idx + pendingKernelArr.length))}
+                        {filteredKernels.map((kernel, idx) =>
+                            getKernelDataListRow(kernel, idx + pendingKernelArr.length),
+                        )}
                     </DataList>
                 )}
                 {kernels.length == 0 && <Text component={TextVariants.h2}>There are no active kernels.</Text>}

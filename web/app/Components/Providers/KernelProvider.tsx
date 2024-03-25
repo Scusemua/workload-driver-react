@@ -1,7 +1,5 @@
 import { DistributedJupyterKernel } from '@data/Kernel';
 import useSWR, { mutate } from 'swr';
-import { useRef, useState } from 'react';
-import { v4 as uuidv4 } from 'uuid';
 
 const fetcher = (input: RequestInfo | URL) => fetch(input).then((response: Response) => response.json());
 

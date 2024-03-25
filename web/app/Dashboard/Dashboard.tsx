@@ -1,7 +1,7 @@
 import '@patternfly/react-core/dist/styles/base.css';
 
 import React, { useRef } from 'react';
-import { Grid, GridItem, gridSpans, PageSection } from '@patternfly/react-core';
+import { Grid, GridItem, PageSection, gridSpans } from '@patternfly/react-core';
 
 import { KernelList, KernelSpecList, KubernetesNodeList, WorkloadCard } from '@app/Components/Cards/';
 import {
@@ -392,7 +392,11 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
                     <KernelSpecList />
                 </GridItem>
                 <GridItem span={6} rowSpan={nodes.length == 0 ? 1 : 2}>
-                    <KubernetesNodeList nodesPerPage={3} selectable={false} />
+                    <KubernetesNodeList
+                        nodesPerPage={3}
+                        selectableViaCheckboxes={false}
+                        displayNodeToggleSwitch={true}
+                    />
                 </GridItem>
             </Grid>
             <MigrationModal

@@ -3,7 +3,6 @@ import {
     Button,
     Card,
     CardBody,
-    CardExpandableContent,
     CardHeader,
     DataList,
     DataListCell,
@@ -63,7 +62,6 @@ export interface WorkloadCardProps {
 }
 
 export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: WorkloadCardProps) => {
-    const [isCardExpanded, setIsCardExpanded] = React.useState(true);
     const [selectedWorkloadListId, setSelectedWorkloadListId] = React.useState('');
     const [page, setPage] = React.useState(1);
     const [perPage, setPerPage] = React.useState(props.workloadsPerPage);
@@ -91,10 +89,6 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
             newPerPage * (newPage - 1),
             newPerPage * (newPage - 1) + newPerPage,
         );
-    };
-
-    const onCardExpand = () => {
-        setIsCardExpanded(!isCardExpanded);
     };
 
     const onSelectWorkload = (_event: React.MouseEvent | React.KeyboardEvent, id: string) => {
