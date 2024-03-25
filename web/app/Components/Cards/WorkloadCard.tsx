@@ -405,8 +405,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                                                                             workload.id +
                                                                             '-debug-logging-switch'
                                                                         }
-                                                                        label={'Debug logs enabled'}
-                                                                        labelOff={'Debug logs disabled'}
+                                                                        label={'Debug logging'}
                                                                         aria-label="debug-logging-switch"
                                                                         isChecked={workload.debug_logging_enabled}
                                                                         ouiaId="DebugLoggingSwitch"

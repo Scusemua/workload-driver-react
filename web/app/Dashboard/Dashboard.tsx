@@ -393,6 +393,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
                 </GridItem>
                 <GridItem span={6} rowSpan={nodes.length == 0 ? 1 : 2}>
                     <KubernetesNodeList
+                        hideControlPlaneNode={true}
                         nodesPerPage={3}
                         selectableViaCheckboxes={false}
                         displayNodeToggleSwitch={true}
