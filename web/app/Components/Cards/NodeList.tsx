@@ -347,7 +347,7 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                                                                     {kubeNode.IP}
                                                                 </DescriptionListDescription>
                                                             </DescriptionListGroup>
-                                                            <DescriptionListGroup>
+                                                            <DescriptionListGroup className="node-data-list-age">
                                                                 <DescriptionListTerm icon={<OutlinedClockIcon />}>
                                                                     Age
                                                                 </DescriptionListTerm>
@@ -379,6 +379,7 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                                                 </Flex>
                                             </DataListCell>,
                                             <DataListCell
+                                                className="node-data-list-actions"
                                                 width={1}
                                                 hidden={!props.displayNodeToggleSwitch}
                                                 key={'node-' + idx + '-actions'}
@@ -392,7 +393,6 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                                                     alignContent={{ default: 'alignContentCenter' }}
                                                     alignItems={{ default: 'alignItemsCenter' }}
                                                     alignSelf={{ default: 'alignSelfCenter' }}
-                                                    className="node-enable-disable-switch"
                                                     spaceItems={{ default: 'spaceItemsXs' }}
                                                     direction={{ default: 'column' }}
                                                 >

@@ -201,12 +201,15 @@ body {
   padding-top: 8px;
 }
 
-.node-enable-disable-switch {
-  padding-left: -16px;
-  margin-left: -16px;
-}
-
 .node-list-toggle-button {
   margin-left: -16px;
   margin-right: -4px;
+}
+
+.node-data-list-age {
+  margin-left: -96px;
+}
+
+.node-data-list-actions {
+  margin-left: -196px;
 }
