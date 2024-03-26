@@ -77,7 +77,7 @@ export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalPr
         }
 
         // If it's greater than the max value, then it is invalid.
-        if (parsed > 2147483647) {
+        if (parsed > 2147483647 || parsed < 0) {
             setWorkloadSeedIsValid(false);
             setWorkloadSeed(seed);
             return;
