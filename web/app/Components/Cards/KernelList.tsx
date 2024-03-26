@@ -68,7 +68,7 @@ import { IKernelConnection } from '@jupyterlab/services/lib/kernel/kernel';
 
 import {
     ConfirmationModal,
-    ConfirmationWithTextInputModal,
+    CreateKernelsModal,
     ExecuteCodeOnKernelModal,
     InformationModal,
 } from '@app/Components/Modals';
@@ -973,13 +973,10 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                     </DataList>
                 )}
                 {kernels.length == 0 && <Text component={TextVariants.h2}>There are no active kernels.</Text>}
-                <ConfirmationWithTextInputModal
+                <CreateKernelsModal
                     isOpen={isConfirmCreateModalOpen}
                     onConfirm={onConfirmCreateKernelClicked}
                     onClose={onCancelCreateKernelClicked}
-                    title="Create a New Kernel"
-                    message="How many kernels would you like to create?"
-                    hint="1"
                 />
                 <ConfirmationModal
                     isOpen={isConfirmDeleteKernelsModalOpen}
