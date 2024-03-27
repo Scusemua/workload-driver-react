@@ -1,19 +1,26 @@
 import React from 'react';
 import { Button, Form, FormGroup, Modal, ModalVariant, TextInput, ValidatedOptions } from '@patternfly/react-core';
 import { KubernetesNode } from '@app/Data';
+import { CheckCircleIcon } from '@patternfly/react-icons';
+import { useNodes } from '@app/Providers';
 
 export interface AdjustVirtualGPUsModalProps {
     children?: React.ReactNode;
     isOpen: boolean;
     onClose: () => void;
-    onConfirm: (value: number) => void;
+    onConfirm: (value: number) => Promise<void>;
     node: KubernetesNode | null;
     titleIconVariant?: 'success' | 'danger' | 'warning' | 'info';
 }
 
 export const AdjustVirtualGPUsModal: React.FunctionComponent<AdjustVirtualGPUsModalProps> = (props) => {
     const [inputValidated, setInputValidated] = React.useState(true);
+    const [adjustmentState, setAdjustmentState] = React.useState('idle');
     const [adjustedGPUs, setAdjustedGPUs] = React.useState('');
+
+    const { refreshNodes } = useNodes();
+
+    console.log(`adjustmentState: ${adjustmentState}`);
 
     const handleAdjustedGPUsChanged = (_event, vgpus: string) => {
         const validValue: boolean = /[0-9]/.test(vgpus) || vgpus == '';
@@ -53,9 +60,25 @@ export const AdjustVirtualGPUsModal: React.FunctionComponent<AdjustVirtualGPUsMo
         setInputValidated(true);
     };
 
+    const onCloseclicked = () => {
+        if (adjustmentState === 'applied') {
+            setAdjustmentState('idle');
+        }
+        if (adjustmentState === 'applied' || adjustmentState === 'idle') {
+            setAdjustedGPUs('');
+        }
+        props.onClose();
+    };
+
     const onConfirmClicked = () => {
         if (!props.node) {
             console.error(`Cannot determine target node of adjust-vgpus operation...`);
+            return;
+        }
+
+        if (adjustmentState === 'applied') {
+            setAdjustmentState('idle');
+            props.onClose();
             return;
         }
 
@@ -65,9 +88,15 @@ export const AdjustVirtualGPUsModal: React.FunctionComponent<AdjustVirtualGPUsMo
             value = parseInt(adjustedGPUs, 10);
         }
 
-        props.onConfirm(value);
-
-        setAdjustedGPUs('');
+        setAdjustmentState('processing');
+        props.onConfirm(value).then(() => {
+            // Update/refresh the nodes since we know one of their virtual GPU resources changed.
+            setTimeout(() => {
+                refreshNodes();
+                setAdjustmentState('applied');
+                console.log(`Completed vGPU change of node ${props.node?.NodeId}`);
+            }, 5000);
+        });
     };
 
     return (
@@ -83,10 +112,14 @@ export const AdjustVirtualGPUsModal: React.FunctionComponent<AdjustVirtualGPUsMo
                     variant="primary"
                     onClick={onConfirmClicked}
                     isDisabled={!inputValidated}
+                    isLoading={adjustmentState == 'processing'}
+                    icon={adjustmentState === 'applied' ? <CheckCircleIcon /> : null}
                 >
-                    Confirm
+                    {adjustmentState === 'idle' && 'Confirm'}
+                    {adjustmentState === 'processing' && 'Applying...'}
+                    {adjustmentState === 'applied' && 'Done'}
                 </Button>,
-                <Button key="cancel-adjusted-vgpus" variant="link" onClick={props.onClose}>
+                <Button key="cancel-adjusted-vgpus" variant="link" onClick={onCloseclicked}>
                     Cancel
                 </Button>,
             ]}
@@ -97,6 +130,7 @@ export const AdjustVirtualGPUsModal: React.FunctionComponent<AdjustVirtualGPUsMo
                         id="adjusted-vgpus-value"
                         aria-label="adjusted-vgpus-value"
                         type="number"
+                        isDisabled={adjustmentState !== 'idle'}
                         value={adjustedGPUs}
                         onChange={handleAdjustedGPUsChanged}
                         validated={(inputValidated && ValidatedOptions.success) || ValidatedOptions.error}

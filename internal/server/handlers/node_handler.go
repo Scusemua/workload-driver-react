@@ -20,7 +20,7 @@ import (
 )
 
 type KubeNodeHttpHandler struct {
-	*BaseHandler
+	*GrpcClient
 
 	metricsClient *metrics.Clientset
 	clientset     *kubernetes.Clientset
@@ -29,8 +29,8 @@ type KubeNodeHttpHandler struct {
 
 func NewKubeNodeHttpHandler(opts *domain.Configuration) domain.BackendHttpGetPatchHandler {
 	handler := &KubeNodeHttpHandler{
-		BaseHandler: newBaseHandler(opts),
-		spoof:       opts.SpoofKubeNodes,
+		GrpcClient: NewGrpcClient(opts, !opts.SpoofKernels),
+		spoof:      opts.SpoofKubeNodes,
 	}
 	handler.BackendHttpGetHandler = handler
 

@@ -29,8 +29,9 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
     const [migrateKernel, setMigrateKernel] = React.useState<DistributedJupyterKernel | null>(null);
     const [migrateReplica, setMigrateReplica] = React.useState<JupyterKernelReplica | null>(null);
     const [adjustVirtualGPUsNode, setAdjustVirtualGPUsNode] = React.useState<KubernetesNode | null>(null);
+    const [changeVirtualGpusIsLoading, setChangeVirtualGpusIsLoading] = React.useState(false);
 
-    const { nodes } = useNodes();
+    const { nodes, refreshNodes } = useNodes();
     const { kernels } = useKernels();
     const { workloads, sendJsonMessage } = useWorkloads();
 
@@ -383,7 +384,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
         setAdjustVirtualGPUsNode(null);
     };
 
-    const doAdjustVirtualGPUs = (value: number) => {
+    async function doAdjustVirtualGPUs(value: number) {
         if (adjustVirtualGPUsNode == null) {
             console.error("Field 'adjustVirtualGPUsNode' is null...");
             closeAdjustVirtualGPUsModal();
@@ -413,23 +414,15 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
 
         console.log(`Attempting to set vGPUs on node ${adjustVirtualGPUsNode?.NodeId} to ${value}`);
 
-        fetch('api/vgpus', requestOptions).then((response) =>
-            response
-                .json()
-                .catch((reason) => {
-                    console.error(
-                        `Failed to update vGPUs for node ${adjustVirtualGPUsNode.NodeId} because: ${JSON.stringify(
-                            reason,
-                        )}`,
-                    );
-                })
-                .then((virtualGpuInfo: VirtualGpuInfo) => {
-                    console.log(`Received updated virtual GPU info: ${JSON.stringify(virtualGpuInfo)}`);
-                }),
-        );
-
-        closeAdjustVirtualGPUsModal();
-    };
+        setChangeVirtualGpusIsLoading(true);
+        const response: Response = await fetch('api/vgpus', requestOptions);
+        const virtualGpuInfo: VirtualGpuInfo = await response.json().catch((reason) => {
+            console.error(
+                `Failed to update vGPUs for node ${adjustVirtualGPUsNode.NodeId} because: ${JSON.stringify(reason)}`,
+            );
+        });
+        console.log(`Received updated virtual GPU info: ${JSON.stringify(virtualGpuInfo)}`);
+    }
 
     return (
         <PageSection>

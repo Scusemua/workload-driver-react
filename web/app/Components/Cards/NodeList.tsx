@@ -249,7 +249,7 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
         expandedOrCollapseNode(filteredNodeName);
     };
 
-    const adjustNodeVirtualGPUs = (kubeNode: KubernetesNode, checked: boolean) => {
+    const enableOrDisableNode = (kubeNode: KubernetesNode, checked: boolean) => {
         const requestBody = JSON.stringify({
             node_name: kubeNode.NodeId,
             enable: checked,
@@ -348,15 +348,19 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                     <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
                         <Flex spaceItems={{ default: 'spaceItemsSm' }}>
                             <FlexItem align={{ default: 'alignLeft' }}>
-                                {kubeNode.AllocatedVGPUs.toFixed(2)} / {kubeNode.CapacityVGPUs}
+                                {kubeNode.AllocatedVGPUs.toFixed(0)} / {kubeNode.CapacityVGPUs}
                             </FlexItem>
-                            <FlexItem align={{ default: 'alignRight' }}>(Virtual)</FlexItem>
+                            <FlexItem align={{ default: 'alignRight' }}>
+                                <Text component={TextVariants.small}>(vGPUs)</Text>
+                            </FlexItem>
                         </Flex>
                         <Flex spaceItems={{ default: 'spaceItemsSm' }}>
                             <FlexItem align={{ default: 'alignLeft' }}>
-                                {kubeNode.AllocatedGPUs.toFixed(2)} / {kubeNode.CapacityGPUs}
+                                {kubeNode.AllocatedGPUs.toFixed(0)} / {kubeNode.CapacityGPUs}
                             </FlexItem>
-                            <FlexItem align={{ default: 'alignRight' }}>(Actual)</FlexItem>
+                            <FlexItem align={{ default: 'alignRight' }}>
+                                <Text component={TextVariants.small}>(GPUs)</Text>
+                            </FlexItem>
                         </Flex>
                     </Flex>
                 </Flex>
@@ -368,9 +372,10 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
     const nodeDataListActions = (kubeNode: KubernetesNode) => {
         return (
             <Flex
-                spaceItems={{ default: 'spaceItemsMd' }}
+                spaceItems={{ default: 'spaceItemsMd', '2xl': 'spaceItemsXs' }}
                 direction={{ default: 'row', '2xl': 'column' }}
                 alignSelf={{ default: 'alignSelfCenter' }}
+                align={{ default: 'alignRight' }}
             >
                 <FlexItem hidden={props.hideAdjustVirtualGPUsButton} alignSelf={{ default: 'alignSelfCenter' }}>
                     <Button
@@ -411,7 +416,7 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                             isChecked={kubeNode.Enabled}
                             ouiaId="node-scheduling-switch"
                             onChange={(_event: React.FormEvent<HTMLInputElement>, checked: boolean) => {
-                                adjustNodeVirtualGPUs(kubeNode, checked);
+                                enableOrDisableNode(kubeNode, checked);
                             }}
                         />
                     </Tooltip>
@@ -508,10 +513,10 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                                     dataListCells={[
                                         <DataListCell key={`node-${kubeNode.NodeId}-primary-content`}>
                                             <Flex
-                                                fullWidth={{ default: 'fullWidth' }}
-                                                direction={{ default: 'row' }}
+                                                direction={{ default: 'column', '2xl': 'row' }}
                                                 spaceItems={{
                                                     default: 'spaceItemsNone',
+                                                    '2xl': 'spaceItems2xl',
                                                 }}
                                             >
                                                 <Flex
@@ -528,12 +533,7 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                                                     <FlexItem>{nodeDescriptionList(kubeNode)}</FlexItem>
                                                     <FlexItem>{nodeResourceAmounts(kubeNode)}</FlexItem>
                                                 </Flex>
-                                                <FlexItem
-                                                    align={{ default: 'alignRight' }}
-                                                    alignSelf={{ default: 'alignSelfCenter' }}
-                                                >
-                                                    {nodeDataListActions(kubeNode)}
-                                                </FlexItem>
+                                                {nodeDataListActions(kubeNode)}
                                             </Flex>
                                         </DataListCell>,
                                         // <DataListCell
