@@ -25,7 +25,7 @@ import HelpIcon from '@patternfly/react-icons/dist/esm/icons/help-icon';
 import styles from '@patternfly/react-styles/css/components/Form/form';
 
 import { WorkloadPreset } from '@app/Data';
-import { useWorkloadPresets } from '../Providers/WorkloadPresetProvider';
+import { useWorkloadPresets } from '@providers/WorkloadPresetProvider';
 
 export interface StartWorkloadModalProps {
     children?: React.ReactNode;

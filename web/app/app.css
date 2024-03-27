@@ -206,10 +206,14 @@ body {
   margin-right: -4px;
 }
 
+.node-data-list-ip {
+  margin-right: 0px;
+}
+
 .node-data-list-age {
-  margin-left: -96px;
+  margin-left: 0px;
 }
 
 .node-data-list-actions {
-  margin-left: -196px;
+  margin-left: 0;
 }

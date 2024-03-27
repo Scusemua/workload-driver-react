@@ -6,7 +6,7 @@ export interface AdjustVirtualGPUsModalProps {
     children?: React.ReactNode;
     isOpen: boolean;
     onClose: () => void;
-    onConfirm: () => void;
+    onConfirm: (value: number) => void;
     node: KubernetesNode | null;
     titleIconVariant?: 'success' | 'danger' | 'warning' | 'info';
 }
@@ -18,10 +18,16 @@ export const AdjustVirtualGPUsModal: React.FunctionComponent<AdjustVirtualGPUsMo
     const handleAdjustedGPUsChanged = (_event, vgpus: string) => {
         const validValue: boolean = /[0-9]/.test(vgpus) || vgpus == '';
 
-        // If it's either the empty string, or we can't even convert the value to a number,
-        // then update the state accordingly.
-        if (!validValue || vgpus == '') {
-            setInputValidated(validValue);
+        // If it is the empty string, then we'll default to the current value, which will ultimately do nothing.
+        if (vgpus == '') {
+            setAdjustedGPUs('');
+            setInputValidated(true);
+            return;
+        }
+
+        // If we can't even convert the value to a number, then update the state accordingly.
+        if (!validValue) {
+            setInputValidated(false);
             setAdjustedGPUs('');
             return;
         }
@@ -31,6 +37,7 @@ export const AdjustVirtualGPUsModal: React.FunctionComponent<AdjustVirtualGPUsMo
 
         // If it's a float or something, then just default to no seed.
         if (Number.isNaN(parsed)) {
+            setInputValidated(false);
             setAdjustedGPUs('');
             return;
         }
@@ -38,12 +45,29 @@ export const AdjustVirtualGPUsModal: React.FunctionComponent<AdjustVirtualGPUsMo
         // If it's greater than the max value, then it is invalid.
         if (parsed > 2147483647 || parsed < 0) {
             setInputValidated(false);
-            setAdjustedGPUs(vgpus);
+            setAdjustedGPUs(vgpus); // Leave the string unchanged.
             return;
         }
 
         setAdjustedGPUs(parsed.toString());
         setInputValidated(true);
+    };
+
+    const onConfirmClicked = () => {
+        if (!props.node) {
+            console.error(`Cannot determine target node of adjust-vgpus operation...`);
+            return;
+        }
+
+        // The default value is the current number of vGPUs.
+        let value = props.node?.CapacityVGPUs;
+        if (adjustedGPUs != '') {
+            value = parseInt(adjustedGPUs, 10);
+        }
+
+        props.onConfirm(value);
+
+        setAdjustedGPUs('');
     };
 
     return (
@@ -54,10 +78,15 @@ export const AdjustVirtualGPUsModal: React.FunctionComponent<AdjustVirtualGPUsMo
             isOpen={props.isOpen}
             onClose={props.onClose}
             actions={[
-                <Button key="confirm" variant="primary" onClick={props.onConfirm}>
+                <Button
+                    key="confirm-adjusted-vgpus"
+                    variant="primary"
+                    onClick={onConfirmClicked}
+                    isDisabled={!inputValidated}
+                >
                     Confirm
                 </Button>,
-                <Button key="cancel" variant="link" onClick={props.onClose}>
+                <Button key="cancel-adjusted-vgpus" variant="link" onClick={props.onClose}>
                     Cancel
                 </Button>,
             ]}
@@ -65,6 +94,8 @@ export const AdjustVirtualGPUsModal: React.FunctionComponent<AdjustVirtualGPUsMo
             <Form>
                 <FormGroup label={`New vGPUs value? (Current total vGPUs: ${props.node?.CapacityVGPUs})`}>
                     <TextInput
+                        id="adjusted-vgpus-value"
+                        aria-label="adjusted-vgpus-value"
                         type="number"
                         value={adjustedGPUs}
                         onChange={handleAdjustedGPUsChanged}

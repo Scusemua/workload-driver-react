@@ -73,7 +73,7 @@ import {
     InformationModal,
 } from '@app/Components/Modals';
 import { DistributedJupyterKernel, JupyterKernelReplica } from '@data/Kernel';
-import { useKernels } from '../Providers/KernelProvider';
+import { useKernels } from '@providers/KernelProvider';
 
 function isNumber(value?: string | number): boolean {
     return value != null && value !== '' && !isNaN(Number(value.toString()));
@@ -1015,7 +1015,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                     hidden={kernels.length == 0}
                     isDisabled={kernels.length == 0}
                     itemCount={kernels.length}
-                    widgetId="bottom-example"
+                    widgetId="kernel-list-pagination"
                     perPage={perPage}
                     page={page}
                     variant={PaginationVariant.bottom}

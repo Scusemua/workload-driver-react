@@ -50,7 +50,7 @@ import {
     WORKLOAD_STATE_TERMINATED,
     Workload,
 } from '@app/Data/Workload';
-import { useWorkloads } from '../Providers/WorkloadProvider';
+import { useWorkloads } from '@providers/WorkloadProvider';
 
 export interface WorkloadCardProps {
     onLaunchWorkloadClicked: () => void;
@@ -480,7 +480,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                     hidden={workloads.length == 0}
                     isDisabled={workloads.length == 0}
                     itemCount={workloads.length}
-                    widgetId="bottom-example"
+                    widgetId="workload-list-pagination"
                     perPage={perPage}
                     page={page}
                     variant={PaginationVariant.bottom}

@@ -7,17 +7,18 @@ import { KernelList, KernelSpecList, KubernetesNodeList, WorkloadCard } from '@a
 import {
     DistributedJupyterKernel,
     JupyterKernelReplica,
+    KubernetesNode,
+    VirtualGpuInfo,
     WORKLOAD_STATE_RUNNING,
     Workload,
     WorkloadPreset,
-    KubernetesNode,
 } from '@app/Data';
-import { MigrationModal, AdjustVirtualGPUsModal, RegisterWorkloadModal } from '@app/Components/Modals';
+import { AdjustVirtualGPUsModal, MigrationModal, RegisterWorkloadModal } from '@app/Components/Modals';
 
 import { v4 as uuidv4 } from 'uuid';
-import { useWorkloads } from '@app/Components/Providers/WorkloadProvider';
-import { useNodes } from '@app/Components/Providers/NodeProvider';
-import { useKernels } from '@app/Components/Providers/KernelProvider';
+import { useWorkloads } from '@providers/WorkloadProvider';
+import { useNodes } from '@providers/NodeProvider';
+import { useKernels } from '@app/Providers/KernelProvider';
 
 export interface DashboardProps {}
 
@@ -377,6 +378,59 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
         setIsAdjustVirtualGPUsModalOpen(true);
     };
 
+    const closeAdjustVirtualGPUsModal = () => {
+        setIsAdjustVirtualGPUsModalOpen(false);
+        setAdjustVirtualGPUsNode(null);
+    };
+
+    const doAdjustVirtualGPUs = (value: number) => {
+        if (adjustVirtualGPUsNode == null) {
+            console.error("Field 'adjustVirtualGPUsNode' is null...");
+            closeAdjustVirtualGPUsModal();
+            return;
+        }
+
+        if (Number.isNaN(value)) {
+            console.error('Specified value is NaN...');
+            closeAdjustVirtualGPUsModal();
+            return;
+        }
+
+        if (adjustVirtualGPUsNode.CapacityVGPUs == value) {
+            console.log('Adjusted vGPUs value is same as current value. Doing nothing.');
+            closeAdjustVirtualGPUsModal();
+            return;
+        }
+
+        const requestOptions = {
+            method: 'PATCH',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                value: value,
+                kubernetesNodeName: adjustVirtualGPUsNode?.NodeId,
+            }),
+        };
+
+        console.log(`Attempting to set vGPUs on node ${adjustVirtualGPUsNode?.NodeId} to ${value}`);
+
+        fetch('api/vgpus', requestOptions).then((response) =>
+            response
+                .json()
+                .catch((reason) => {
+                    console.error(
+                        `Failed to update vGPUs for node ${adjustVirtualGPUsNode.NodeId} because: ${JSON.stringify(
+                            reason,
+                        )}`,
+                    );
+                })
+                .then((virtualGpuInfo: VirtualGpuInfo) => {
+                    console.log(`Received updated virtual GPU info: ${JSON.stringify(virtualGpuInfo)}`);
+                }),
+        );
+
+        closeAdjustVirtualGPUsModal();
+    };
+
     return (
         <PageSection>
             <Grid hasGutter>
@@ -425,14 +479,8 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
             />
             <AdjustVirtualGPUsModal
                 isOpen={isAdjustVirtualGPUsModalOpen}
-                onClose={() => {
-                    setIsAdjustVirtualGPUsModalOpen(false);
-                    setAdjustVirtualGPUsNode(null);
-                }}
-                onConfirm={() => {
-                    setIsAdjustVirtualGPUsModalOpen(false);
-                    setAdjustVirtualGPUsNode(null);
-                }}
+                onClose={closeAdjustVirtualGPUsModal}
+                onConfirm={doAdjustVirtualGPUs}
                 node={adjustVirtualGPUsNode}
             />
         </PageSection>

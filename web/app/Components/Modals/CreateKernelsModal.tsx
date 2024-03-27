@@ -59,6 +59,8 @@ export const CreateKernelsModal: React.FunctionComponent<CreateKernelsModalProps
                 <FormGroup label="How many kernels would you like to create?" isRequired>
                     <TextInputGroup>
                         <TextInputGroupMain
+                            id="num-kernels-textinput"
+                            aria-label="num-kernels-textinput"
                             hint={numKernelsHintText}
                             value={numKernels}
                             type="number"
@@ -79,6 +81,8 @@ export const CreateKernelsModal: React.FunctionComponent<CreateKernelsModalProps
                         <FormGroup label="CPUs? (millicpus)">
                             <TextInputGroup>
                                 <TextInputGroupMain
+                                    id="num-cpus-textinput"
+                                    aria-label="num-cpus-textinput"
                                     hint={cpuHintText}
                                     type={'number'}
                                     value={cpus}
@@ -99,6 +103,8 @@ export const CreateKernelsModal: React.FunctionComponent<CreateKernelsModalProps
                         <FormGroup label="Memory?">
                             <TextInputGroup>
                                 <TextInputGroupMain
+                                    id="amount-mem-textinput"
+                                    aria-label="amount-mem-textinput"
                                     hint={memHintText}
                                     type={'number'}
                                     value={memory}
@@ -118,6 +124,8 @@ export const CreateKernelsModal: React.FunctionComponent<CreateKernelsModalProps
                     <GridItem span={4} rowSpan={1}>
                         <FormGroup label="GPUs?">
                             <TextInput
+                                id="num-gpus-textinput"
+                                aria-label="num-gpus-textinput"
                                 placeholder={gpuHintText}
                                 type={'number'}
                                 value={gpus}

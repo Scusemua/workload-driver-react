@@ -13,6 +13,9 @@ const (
 	// Used internally (by the frontend) to get the current kubernetes nodes from the backend.
 	KUBERNETES_NODES_ENDPOINT = "/nodes"
 
+	// Used internally (by the frontend) to adjust the vGPUs offered by a particular kubernetes nodes.
+	ADJUST_VGPUS_ENDPOINT = "/vgpus"
+
 	// Used internally (by the frontend) to get the system config from the backend.
 	SYSTEM_CONFIG_ENDPOINT = "/config"
 

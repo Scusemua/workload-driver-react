@@ -29,6 +29,9 @@
       ],
       "@assets/*": [
         "node_modules/@patternfly/react-core/dist/styles/assets/*"
+      ],
+      "@providers/*": [
+        "web/app/Providers/*"
       ]
     },
     "importHelpers": true,
