@@ -15,6 +15,8 @@ import {
     DataListItemCells,
     DataListItemRow,
     DataListToggle,
+    Dropdown,
+    DropdownList,
     Flex,
     FlexItem,
     InputGroup,
@@ -24,6 +26,12 @@ import {
     MenuItem,
     MenuList,
     MenuToggle,
+    OverflowMenu,
+    OverflowMenuControl,
+    OverflowMenuContent,
+    OverflowMenuGroup,
+    OverflowMenuItem,
+    OverflowMenuDropdownItem,
     Pagination,
     PaginationVariant,
     Popper,
@@ -48,6 +56,7 @@ import {
     CheckCircleIcon,
     CodeIcon,
     CubesIcon,
+    EllipsisVIcon,
     ExclamationTriangleIcon,
     FilterIcon,
     HourglassHalfIcon,
@@ -120,12 +129,33 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
     const [page, setPage] = React.useState(1);
     const [perPage, setPerPage] = React.useState(props.kernelsPerPage);
     const { kernels, kernelsAreLoading, refreshKernels } = useKernels();
+    const [openReplicaDropdownMenu, setOpenReplicaDropdownMenu] = React.useState<string>('');
+    const [openKernelDropdownMenu, setOpenKernelDropdownMenu] = React.useState<string>('');
 
     const [, forceUpdate] = useReducer((x) => x + 1, 0);
 
     const kernelIdSet = useRef<Set<string>>(new Set()); // Keep track of kernels we've seen before.
     const numKernelsCreating = useRef(0); // Used to display "pending" entries in the kernel list.
     const kernelManager = useRef<KernelManager | null>(null);
+
+    const onToggleOrSelectReplicaDropdown = (replica: JupyterKernelReplica) => {
+        const entryId: string = `${replica.kernelId}-${replica.replicaId}`;
+        if (openReplicaDropdownMenu === entryId) {
+            setOpenReplicaDropdownMenu('');
+        } else {
+            setOpenReplicaDropdownMenu(entryId);
+            setOpenKernelDropdownMenu('');
+        }
+    };
+
+    const onToggleOrSelectKernelDropdown = (kernel: DistributedJupyterKernel | null) => {
+        if (openKernelDropdownMenu === kernel?.kernelId) {
+            setOpenKernelDropdownMenu('');
+        } else {
+            setOpenKernelDropdownMenu(kernel?.kernelId || '');
+            setOpenReplicaDropdownMenu('');
+        }
+    };
 
     // If there are any new kernels, decrement `numKernelsCreating`.
     kernels.forEach((kernel: DistributedJupyterKernel) => {
@@ -732,62 +762,127 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                     kernel.replicas.map((replica, replicaIdx) => (
                         <Tr key={replica.replicaId}>
                             <Td dataLabel="ID">{replica.replicaId}</Td>
-                            <Td dataLabel="Pod" width={30} modifier="truncate">
+                            <Td dataLabel="Pod" width={25} modifier="truncate">
                                 {replica.podId}
                             </Td>
-                            <Td dataLabel="Node" width={30} modifier="truncate">
+                            <Td dataLabel="Node" width={25} modifier="truncate">
                                 {replica.nodeId}
                             </Td>
-                            <Td width={35}>
-                                <Flex direction={{ default: 'row' }} spaceItems={{ default: 'spaceItemsXs' }}>
-                                    <FlexItem>
-                                        <Tooltip
-                                            exitDelay={20}
-                                            entryDelay={175}
-                                            position={'right'}
-                                            content={
-                                                <div>
-                                                    Execute Python code on replica{' '}
-                                                    {kernel.replicas[replicaIdx].replicaId}.
-                                                </div>
+                            <Td width={45}>
+                                <OverflowMenu breakpoint="xl">
+                                    <OverflowMenuContent>
+                                        <OverflowMenuItem>
+                                            <Tooltip
+                                                exitDelay={20}
+                                                entryDelay={175}
+                                                position={'right'}
+                                                content={
+                                                    <div>
+                                                        Execute Python code on replica{' '}
+                                                        {kernel.replicas[replicaIdx].replicaId}.
+                                                    </div>
+                                                }
+                                            >
+                                                <Button
+                                                    variant={'link'}
+                                                    icon={<CodeIcon />}
+                                                    onClick={() => onExecuteCodeClicked(kernel, replicaIdx)}
+                                                >
+                                                    Execute
+                                                </Button>
+                                            </Tooltip>
+                                        </OverflowMenuItem>
+                                        <OverflowMenuItem>
+                                            <Tooltip
+                                                exitDelay={20}
+                                                entryDelay={175}
+                                                position={'right'}
+                                                content={<div>Migrate this replica to another node.</div>}
+                                            >
+                                                <Button
+                                                    variant={'link'}
+                                                    isLoading={replica.isMigrating}
+                                                    isDisabled={replica.isMigrating}
+                                                    icon={replica.isMigrating ? null : <MigrationIcon />}
+                                                    onClick={() => {
+                                                        props.openMigrationModal(kernel, replica);
+                                                    }}
+                                                >
+                                                    Migrate
+                                                </Button>
+                                            </Tooltip>
+                                        </OverflowMenuItem>
+                                    </OverflowMenuContent>
+                                    <OverflowMenuControl>
+                                        <Dropdown
+                                            onSelect={() => {
+                                                onToggleOrSelectReplicaDropdown(replica);
+                                            }}
+                                            isOpen={
+                                                openReplicaDropdownMenu === `${replica.kernelId}-${replica.replicaId}`
                                             }
+                                            toggle={(toggleRef) => (
+                                                <MenuToggle
+                                                    ref={toggleRef}
+                                                    aria-label="Replica dropdown toggle"
+                                                    variant="plain"
+                                                    onClick={() => {
+                                                        onToggleOrSelectReplicaDropdown(replica);
+                                                    }}
+                                                    isExpanded={
+                                                        openReplicaDropdownMenu ===
+                                                        `${replica.kernelId}-${replica.replicaId}`
+                                                    }
+                                                >
+                                                    <EllipsisVIcon />
+                                                </MenuToggle>
+                                            )}
                                         >
-                                            <Button
-                                                variant={'link'}
-                                                icon={<CodeIcon />}
-                                                onClick={() => onExecuteCodeClicked(kernel, replicaIdx)}
-                                            >
-                                                Execute
-                                            </Button>
-                                        </Tooltip>
-                                    </FlexItem>
-                                    <FlexItem>
-                                        <Tooltip
-                                            exitDelay={20}
-                                            entryDelay={175}
-                                            position={'right'}
-                                            content={<div>Migrate this replica to another node.</div>}
-                                        >
-                                            <Button
-                                                variant={'link'}
-                                                isLoading={replica.isMigrating}
-                                                isDisabled={replica.isMigrating}
-                                                icon={replica.isMigrating ? null : <MigrationIcon />}
-                                                onClick={() => {
-                                                    props.openMigrationModal(kernel, replica);
-                                                }}
-                                            >
-                                                Migrate
-                                            </Button>
-                                        </Tooltip>
-                                    </FlexItem>
-                                </Flex>
+                                            <DropdownList>
+                                                <OverflowMenuDropdownItem
+                                                    itemId={0}
+                                                    key="execute-code-replica-dropdown"
+                                                    aria-label="execute-code-replica-dropdown"
+                                                    isShared
+                                                    icon={<CodeIcon />}
+                                                    onClick={() => {
+                                                        onExecuteCodeClicked(kernel, replicaIdx);
+                                                    }}
+                                                >
+                                                    Execute
+                                                </OverflowMenuDropdownItem>
+                                                ,
+                                                <OverflowMenuDropdownItem
+                                                    itemId={1}
+                                                    key="migrate-replica-dropdown"
+                                                    aria-label="migrate-replica-dropdown"
+                                                    icon={<MigrationIcon />}
+                                                    onClick={() => {
+                                                        props.openMigrationModal(kernel, replica);
+                                                    }}
+                                                >
+                                                    Migrate
+                                                </OverflowMenuDropdownItem>
+                                            </DropdownList>
+                                        </Dropdown>
+                                    </OverflowMenuControl>
+                                </OverflowMenu>
                             </Td>
                         </Tr>
                     ))}
             </Tbody>
         </Table>
     );
+
+    const onTerminateKernelClicked = (kernel: DistributedJupyterKernel | null) => {
+        if (kernel == null) {
+            return;
+        }
+
+        // We're trying to delete a specific kernel.
+        setKernelToDelete(kernel.kernelId);
+        setIsConfirmDeleteKernelModalOpen(true);
+    };
 
     const toggleExpandedKernel = (id) => {
         const index = expandedKernels.indexOf(id);
@@ -860,66 +955,117 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                 id={'kernel-data-list-' + idx}
                                 aria-label="Actions"
                             >
-                                <Flex spaceItems={{ default: 'spaceItemsSm' }} direction={{ default: 'row' }}>
-                                    <FlexItem>
-                                        <Tooltip
-                                            exitDelay={75}
-                                            entryDelay={250}
-                                            content={<div>Execute Python code on this kernel.</div>}
-                                        >
-                                            <Button
-                                                variant={'link'}
-                                                icon={<CodeIcon />}
-                                                isDisabled={kernel == null}
-                                                onClick={() => onExecuteCodeClicked(kernel)}
+                                <OverflowMenu breakpoint="xl">
+                                    <OverflowMenuContent>
+                                        <OverflowMenuItem>
+                                            <Tooltip
+                                                exitDelay={75}
+                                                entryDelay={250}
+                                                content={<div>Execute Python code on this kernel.</div>}
                                             >
-                                                Execute
-                                            </Button>
-                                        </Tooltip>
-                                    </FlexItem>
-                                    <FlexItem>
-                                        <Tooltip
-                                            exitDelay={75}
-                                            entryDelay={250}
-                                            content={<div>Interrupt this kernel.</div>}
-                                        >
-                                            <Button
-                                                variant={'link'}
-                                                isDanger
-                                                icon={<PauseIcon />}
-                                                isDisabled={kernel == null}
-                                                onClick={() => onInterruptKernelClicked(idx)}
+                                                <Button
+                                                    variant={'link'}
+                                                    icon={<CodeIcon />}
+                                                    isDisabled={kernel == null}
+                                                    onClick={() => onExecuteCodeClicked(kernel)}
+                                                >
+                                                    Execute
+                                                </Button>
+                                            </Tooltip>
+                                        </OverflowMenuItem>
+                                        <OverflowMenuItem>
+                                            <Tooltip
+                                                exitDelay={75}
+                                                entryDelay={250}
+                                                content={<div>Interrupt this kernel.</div>}
                                             >
-                                                Interrupt
-                                            </Button>
-                                        </Tooltip>
-                                    </FlexItem>
-                                    <FlexItem>
-                                        <Tooltip
-                                            exitDelay={75}
-                                            entryDelay={250}
-                                            content={<div>Terminate this kernel.</div>}
-                                        >
-                                            <Button
-                                                variant={'link'}
-                                                icon={<TrashIcon />}
-                                                isDanger
-                                                isDisabled={kernel == null}
-                                                onClick={() => {
-                                                    if (kernel == null) {
-                                                        return;
-                                                    }
-
-                                                    // We're trying to delete a specific kernel.
-                                                    setKernelToDelete(kernel.kernelId);
-                                                    setIsConfirmDeleteKernelModalOpen(true);
-                                                }}
+                                                <Button
+                                                    variant={'link'}
+                                                    isDanger
+                                                    icon={<PauseIcon />}
+                                                    isDisabled={kernel == null}
+                                                    onClick={() => onInterruptKernelClicked(idx)}
+                                                >
+                                                    Interrupt
+                                                </Button>
+                                            </Tooltip>
+                                        </OverflowMenuItem>
+                                        <OverflowMenuItem>
+                                            <Tooltip
+                                                exitDelay={75}
+                                                entryDelay={250}
+                                                content={<div>Terminate this kernel.</div>}
                                             >
-                                                Terminate
-                                            </Button>
-                                        </Tooltip>
-                                    </FlexItem>
-                                </Flex>
+                                                <Button
+                                                    variant={'link'}
+                                                    icon={<TrashIcon />}
+                                                    isDanger
+                                                    isDisabled={kernel == null}
+                                                    onClick={() => onTerminateKernelClicked(kernel)}
+                                                >
+                                                    Terminate
+                                                </Button>
+                                            </Tooltip>
+                                        </OverflowMenuItem>
+                                    </OverflowMenuContent>
+                                    <OverflowMenuControl>
+                                        <Dropdown
+                                            onSelect={() => {
+                                                onToggleOrSelectKernelDropdown(kernel);
+                                            }}
+                                            isOpen={openKernelDropdownMenu === kernel?.kernelId}
+                                            toggle={(toggleRef) => (
+                                                <MenuToggle
+                                                    ref={toggleRef}
+                                                    aria-label="Kernel dropdown menu"
+                                                    variant="plain"
+                                                    onClick={() => {
+                                                        onToggleOrSelectKernelDropdown(kernel);
+                                                    }}
+                                                    isExpanded={openKernelDropdownMenu === kernel?.kernelId}
+                                                >
+                                                    <EllipsisVIcon />
+                                                </MenuToggle>
+                                            )}
+                                        >
+                                            <DropdownList>
+                                                <OverflowMenuDropdownItem
+                                                    itemId={0}
+                                                    key="execute-code-kernel-dropdown"
+                                                    isShared
+                                                    icon={<CodeIcon />}
+                                                    onClick={() => {
+                                                        onExecuteCodeClicked(kernel);
+                                                    }}
+                                                >
+                                                    Execute
+                                                </OverflowMenuDropdownItem>
+                                                ,
+                                                <OverflowMenuDropdownItem
+                                                    itemId={1}
+                                                    key="terminate-kernel-dropdown"
+                                                    icon={<TrashIcon />}
+                                                    isDanger
+                                                    onClick={() => onTerminateKernelClicked(kernel)}
+                                                >
+                                                    Terminate
+                                                </OverflowMenuDropdownItem>
+                                                ,
+                                                <OverflowMenuDropdownItem
+                                                    itemId={1}
+                                                    key="interrupt-kernel-dropdown"
+                                                    isDanger
+                                                    icon={<PauseIcon />}
+                                                    onClick={() => {
+                                                        onInterruptKernelClicked(idx);
+                                                    }}
+                                                >
+                                                    Interrupt
+                                                </OverflowMenuDropdownItem>
+                                            </DropdownList>
+                                        </Dropdown>
+                                    </OverflowMenuControl>
+                                </OverflowMenu>
                             </DataListAction>,
                         ]}
                     />
@@ -930,6 +1076,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                         id={'kernel-' + kernel.kernelId + '-expandable-content'}
                         className="kernel-list-expandable-content"
                         isHidden={!expandedKernels.includes(kernel.kernelId)}
+                        hasNoPadding={true}
                     >
                         {kernel != null && expandedKernelContent(kernel)}
                     </DataListContent>
@@ -972,7 +1119,9 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                         )}
                     </DataList>
                 )}
-                {kernels.length == 0 && <Text component={TextVariants.h2}>There are no active kernels.</Text>}
+                {kernels.length == 0 && pendingKernelArr.length == 0 && (
+                    <Text component={TextVariants.h2}>There are no active kernels.</Text>
+                )}
                 <CreateKernelsModal
                     isOpen={isConfirmCreateModalOpen}
                     onConfirm={onConfirmCreateKernelClicked}

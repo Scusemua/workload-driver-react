@@ -345,18 +345,22 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                     <FlexItem alignSelf={{ default: 'alignSelfCenter' }}>
                         <GpuIconAlt2 scale={1.5} />
                     </FlexItem>
-                    <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
-                        <Flex spaceItems={{ default: 'spaceItemsSm' }}>
-                            <FlexItem align={{ default: 'alignLeft' }}>
-                                {kubeNode.AllocatedVGPUs.toFixed(0)} / {kubeNode.CapacityVGPUs}
-                            </FlexItem>
+                    <Flex direction={{ default: 'row' }} spaceItems={{ default: 'spaceItemsSm' }}>
+                        <Flex spaceItems={{ default: 'spaceItemsNone' }} direction={{ default: 'column' }}>
+                            <FlexItem align={{ default: 'alignRight' }}>{kubeNode.AllocatedVGPUs.toFixed(0)}</FlexItem>
+                            <FlexItem align={{ default: 'alignRight' }}>{kubeNode.AllocatedGPUs.toFixed(0)}</FlexItem>
+                        </Flex>
+                        <Flex spaceItems={{ default: 'spaceItemsNone' }} direction={{ default: 'column' }}>
+                            <FlexItem align={{ default: 'alignRight' }}>/</FlexItem>
+                            <FlexItem align={{ default: 'alignRight' }}>/</FlexItem>
+                        </Flex>
+                        <Flex spaceItems={{ default: 'spaceItemsNone' }} direction={{ default: 'column' }}>
+                            <FlexItem align={{ default: 'alignRight' }}> {kubeNode.CapacityVGPUs}</FlexItem>
+                            <FlexItem align={{ default: 'alignRight' }}>{kubeNode.CapacityGPUs}</FlexItem>
+                        </Flex>
+                        <Flex spaceItems={{ default: 'spaceItemsNone' }} direction={{ default: 'column' }}>
                             <FlexItem align={{ default: 'alignRight' }}>
                                 <Text component={TextVariants.small}>(vGPUs)</Text>
-                            </FlexItem>
-                        </Flex>
-                        <Flex spaceItems={{ default: 'spaceItemsSm' }}>
-                            <FlexItem align={{ default: 'alignLeft' }}>
-                                {kubeNode.AllocatedGPUs.toFixed(0)} / {kubeNode.CapacityGPUs}
                             </FlexItem>
                             <FlexItem align={{ default: 'alignRight' }}>
                                 <Text component={TextVariants.small}>(GPUs)</Text>
