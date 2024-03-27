@@ -217,3 +217,19 @@ body {
 .node-data-list-actions {
   margin-left: 0;
 }
+
+.node-pods-icon {
+  transform: scale(1.25);
+}
+
+.node-memory-icon {
+  transform: scale(1.75);
+}
+
+.node-cpu-icon {
+  transform: scale(1.75);
+}
+
+.node-list-content {
+  /* padding-right: 64px; */
+}

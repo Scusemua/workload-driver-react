@@ -35,7 +35,9 @@ import {
     Tooltip,
 } from '@patternfly/react-core';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
-import GpuIcon from '@app/Icons/GpuIcon';
+import { GpuIcon } from 'web/app/Icons/GpuIcon';
+import { GpuIconAlt } from 'web/app/Icons/GpuIconAlt';
+import { GpuIconAlt2 } from 'web/app/Icons/GpuIconAlt2';
 import { KubernetesNode, KubernetesPod } from '@data/Kubernetes';
 import {
     CpuIcon,
@@ -280,13 +282,14 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
     const nodeDescriptionList = (kubeNode: KubernetesNode) => {
         return (
             <DescriptionList
-                isCompact
+                isAutoColumnWidths
                 className="node-list-description-list"
                 columnModifier={{
                     sm: '2Col',
                     md: '2Col',
                     lg: '2Col',
                     xl: '3Col',
+                    '2xl': '3Col',
                 }}
             >
                 <DescriptionListGroup>
@@ -308,19 +311,55 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
     // The current resource usage of the node.
     const nodeResourceAmounts = (kubeNode: KubernetesNode) => {
         return (
-            <Flex spaceItems={{ default: 'spaceItems2xl' }}>
-                <FlexItem>
-                    <CubeIcon /> {kubeNode.Pods.length}
-                </FlexItem>
-                <FlexItem>
-                    <CpuIcon /> {kubeNode.AllocatedCPU.toFixed(2)} / {kubeNode.CapacityCPU}
-                </FlexItem>
-                <FlexItem>
-                    <MemoryIcon /> {kubeNode.AllocatedMemory.toFixed(2)} / {kubeNode.CapacityMemory.toFixed(0)}
-                </FlexItem>
-                <FlexItem>
-                    <GpuIcon /> {kubeNode.AllocatedVGPUs.toFixed(2)} / {kubeNode.CapacityVGPUs}
-                </FlexItem>
+            <Flex
+                spaceItems={{
+                    md: 'spaceItemsLg',
+                    lg: 'spaceItemsLg',
+                    xl: 'spaceItemsXl',
+                    '2xl': 'spaceItemsXl',
+                }}
+            >
+                <Flex spaceItems={{ default: 'spaceItemsSm' }} alignSelf={{ default: 'alignSelfCenter' }}>
+                    <FlexItem>
+                        <CubeIcon className="node-pods-icon" />
+                    </FlexItem>
+                    <FlexItem>{kubeNode.Pods.length}</FlexItem>
+                </Flex>
+                <Flex spaceItems={{ default: 'spaceItemsSm' }} alignSelf={{ default: 'alignSelfCenter' }}>
+                    <FlexItem>
+                        <CpuIcon className="node-cpu-icon" />
+                    </FlexItem>
+                    <FlexItem>
+                        {kubeNode.AllocatedCPU.toFixed(2)} / {kubeNode.CapacityCPU}
+                    </FlexItem>
+                </Flex>
+                <Flex spaceItems={{ default: 'spaceItemsSm' }} alignSelf={{ default: 'alignSelfCenter' }}>
+                    <FlexItem>
+                        <MemoryIcon className="node-memory-icon" />
+                    </FlexItem>
+                    <FlexItem>
+                        {kubeNode.AllocatedMemory.toFixed(2)} / {kubeNode.CapacityMemory.toFixed(0)}
+                    </FlexItem>
+                </Flex>
+                <Flex spaceItems={{ default: 'spaceItemsSm' }}>
+                    <FlexItem alignSelf={{ default: 'alignSelfCenter' }}>
+                        <GpuIconAlt2 scale={1.5} />
+                    </FlexItem>
+                    <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
+                        <Flex spaceItems={{ default: 'spaceItemsSm' }}>
+                            <FlexItem align={{ default: 'alignLeft' }}>
+                                {kubeNode.AllocatedVGPUs.toFixed(2)} / {kubeNode.CapacityVGPUs}
+                            </FlexItem>
+                            <FlexItem align={{ default: 'alignRight' }}>(Virtual)</FlexItem>
+                        </Flex>
+                        <Flex spaceItems={{ default: 'spaceItemsSm' }}>
+                            <FlexItem align={{ default: 'alignLeft' }}>
+                                {kubeNode.AllocatedGPUs.toFixed(2)} / {kubeNode.CapacityGPUs}
+                            </FlexItem>
+                            <FlexItem align={{ default: 'alignRight' }}>(Actual)</FlexItem>
+                        </Flex>
+                    </Flex>
+                </Flex>
             </Flex>
         );
     };
@@ -329,12 +368,23 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
     const nodeDataListActions = (kubeNode: KubernetesNode) => {
         return (
             <Flex
-                alignContent={{ default: 'alignContentCenter' }}
-                alignItems={{ default: 'alignItemsCenter' }}
+                spaceItems={{ default: 'spaceItemsMd' }}
+                direction={{ default: 'row', '2xl': 'column' }}
                 alignSelf={{ default: 'alignSelfCenter' }}
-                spaceItems={{ default: 'spaceItemsXs' }}
-                direction={{ default: 'column' }}
             >
+                <FlexItem hidden={props.hideAdjustVirtualGPUsButton} alignSelf={{ default: 'alignSelfCenter' }}>
+                    <Button
+                        variant="link"
+                        onClick={(event: React.MouseEvent) => {
+                            event.stopPropagation();
+                            if (props.onAdjustVirtualGPUsClicked) {
+                                props.onAdjustVirtualGPUsClicked(kubeNode);
+                            }
+                        }}
+                    >
+                        Adjust vGPUs
+                    </Button>
+                </FlexItem>
                 <FlexItem alignSelf={{ default: 'alignSelfCenter' }} hidden={kubeNode.NodeId.includes('control-plane')}>
                     <Tooltip
                         exitDelay={0.125}
@@ -365,19 +415,6 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                             }}
                         />
                     </Tooltip>
-                </FlexItem>
-                <FlexItem hidden={props.hideAdjustVirtualGPUsButton} alignSelf={{ default: 'alignSelfCenter' }}>
-                    <Button
-                        variant="link"
-                        onClick={(event: React.MouseEvent) => {
-                            event.stopPropagation();
-                            if (props.onAdjustVirtualGPUsClicked) {
-                                props.onAdjustVirtualGPUsClicked(kubeNode);
-                            }
-                        }}
-                    >
-                        Adjust vGPUs
-                    </Button>
                 </FlexItem>
             </Flex>
         );
@@ -469,28 +506,49 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                                 />
                                 <DataListItemCells
                                     dataListCells={[
-                                        <DataListCell width={4} key="primary-content">
+                                        <DataListCell key={`node-${kubeNode.NodeId}-primary-content`}>
                                             <Flex
-                                                spaceItems={{ default: 'spaceItemsMd' }}
-                                                direction={{ default: 'column' }}
+                                                fullWidth={{ default: 'fullWidth' }}
+                                                direction={{ default: 'row' }}
+                                                spaceItems={{
+                                                    default: 'spaceItemsNone',
+                                                }}
                                             >
-                                                <FlexItem>{nodeDescriptionList(kubeNode)}</FlexItem>
-                                                <FlexItem>{nodeResourceAmounts(kubeNode)}</FlexItem>
+                                                <Flex
+                                                    className="node-list-content"
+                                                    spaceItems={{
+                                                        default: 'spaceItemsNone',
+                                                        sm: 'spaceItemsNone',
+                                                        md: 'spaceItemsNone',
+                                                        lg: 'spaceItemsNone',
+                                                        xl: 'spaceItemsSm',
+                                                    }}
+                                                    direction={{ default: 'column' }}
+                                                >
+                                                    <FlexItem>{nodeDescriptionList(kubeNode)}</FlexItem>
+                                                    <FlexItem>{nodeResourceAmounts(kubeNode)}</FlexItem>
+                                                </Flex>
+                                                <FlexItem
+                                                    align={{ default: 'alignRight' }}
+                                                    alignSelf={{ default: 'alignSelfCenter' }}
+                                                >
+                                                    {nodeDataListActions(kubeNode)}
+                                                </FlexItem>
                                             </Flex>
                                         </DataListCell>,
-                                        <DataListCell
-                                            className="node-data-list-actions"
-                                            width={1}
-                                            hidden={!props.displayNodeToggleSwitch}
-                                            key={'node-' + idx + '-actions'}
-                                            aria-labelledby={
-                                                'node-data-list-' + idx + ' node-data-list-action-item-' + idx
-                                            }
-                                            id={'node-data-list-' + idx}
-                                            aria-label="Actions"
-                                        >
-                                            {nodeDataListActions(kubeNode)}
-                                        </DataListCell>,
+                                        // <DataListCell
+                                        //     className="node-data-list-actions"
+                                        //     width={1}
+                                        //     hidden={!props.displayNodeToggleSwitch}
+                                        //     key={'node-' + idx + '-actions'}
+                                        //     aria-labelledby={
+                                        //         'node-data-list-' + idx + ' node-data-list-action-item-' + idx
+                                        //     }
+                                        //     id={'node-data-list-' + idx}
+                                        //     aria-label="Actions"
+                                        // >
+                                        //     {nodeDataListActions(kubeNode)}
+                                        // </DataListCell>,
                                     ]}
                                 />
                             </DataListItemRow>

@@ -1,17 +1,26 @@
 import { SVGIconProps } from '@patternfly/react-icons/dist/esm/createIcon';
 import React from 'react';
 
-class GpuIcon extends React.Component<SVGIconProps> {
+interface GpuIconProps extends SVGIconProps {
+    scale?: number;
+}
+
+export class GpuIcon extends React.Component<GpuIconProps> {
     static displayName = 'GpuIcon';
 
     id = `icon-title-gpu-icon`;
 
     render() {
+        let scale = 1;
+        if (this.props.scale) {
+            scale = this.props.scale;
+        }
+
         const { title, className, ...props } = this.props;
         const classes = className ? `pf-v5-svg ${className}` : 'pf-v5-svg';
 
         const hasTitle = Boolean(title);
-        const viewBox = [0, 25, 832, 1024].join(' ');
+        const viewBox = [0, 0, 1024, 1024].join(' ');
 
         return (
             <svg
@@ -23,6 +32,7 @@ class GpuIcon extends React.Component<SVGIconProps> {
                 role="img"
                 width="1em"
                 height="1em"
+                transform={`scale(${scale})`}
                 {...(props as Omit<React.SVGProps<SVGElement>, 'ref'>)} // Lie.
             >
                 {hasTitle && <title id={this.id}>{title}</title>}
@@ -35,5 +45,3 @@ class GpuIcon extends React.Component<SVGIconProps> {
         );
     }
 }
-
-export default GpuIcon;

@@ -32,6 +32,9 @@
       ],
       "@providers/*": [
         "web/app/Providers/*"
+      ],
+      "@icons/*": [
+        "web/app/Icons/*"
       ]
     },
     "importHelpers": true,
