@@ -16,6 +16,9 @@ const (
 	// Used internally (by the frontend) to adjust the vGPUs offered by a particular kubernetes nodes.
 	ADJUST_VGPUS_ENDPOINT = "/vgpus"
 
+	// Used to get/set resource specs of kernels.
+	RESOURCE_SPEC_ENDPOINT = "/resourcespecs"
+
 	// Used internally (by the frontend) to get the system config from the backend.
 	SYSTEM_CONFIG_ENDPOINT = "/config"
 

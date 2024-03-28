@@ -6,6 +6,7 @@ interface DistributedJupyterKernel {
     status: string;
     aggregateBusyStatus: string;
     replicas: JupyterKernelReplica[];
+    kernelSpec: DistributedKernelSpec;
     kernel?: IKernelConnection;
 }
 
@@ -17,7 +18,24 @@ interface JupyterKernelReplica {
     isMigrating: boolean;
 }
 
-interface KernelSpec {
+// The KernelSpec used within the Distributed Notebook cluster.
+interface DistributedKernelSpec {
+    id: string;
+    session: string;
+    argv: string[];
+    signatureScheme: string;
+    key: string;
+    resource: ResourceSpec;
+}
+
+interface ResourceSpec {
+    cpu: number;
+    memory: number;
+    gpu: number;
+}
+
+// The KernelSpec used within JupyterServer when provisioning kernels.
+interface JupyterKernelSpec {
     name: string;
     displayName: string;
     language: string;
@@ -34,5 +52,5 @@ interface KernelProvisioner {
 
 export type { DistributedJupyterKernel as DistributedJupyterKernel };
 export type { JupyterKernelReplica as JupyterKernelReplica };
-export type { KernelSpec as KernelSpec };
-export type { KernelSpec as KernelProvisioner };
+export type { JupyterKernelSpec as KernelSpec };
+export type { JupyterKernelSpec as KernelProvisioner };

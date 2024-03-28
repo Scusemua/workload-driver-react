@@ -91,13 +91,17 @@ func (s *serverImpl) setupRoutes() error {
 
 	apiGroup := s.app.Group(domain.BASE_API_GROUP_ENDPOINT)
 	{
+		nodeHandler := handlers.NewKubeNodeHttpHandler(s.opts)
 		// Used internally (by the frontend) to get the current kubernetes nodes from the backend  (i.e., the backend).
-		apiGroup.GET(domain.KUBERNETES_NODES_ENDPOINT, handlers.NewKubeNodeHttpHandler(s.opts).HandleRequest)
-
+		apiGroup.GET(domain.KUBERNETES_NODES_ENDPOINT, nodeHandler.HandleRequest)
 		// Enable/disable Kubernetes nodes.
-		apiGroup.PATCH(domain.KUBERNETES_NODES_ENDPOINT, handlers.NewKubeNodeHttpHandler(s.opts).HandlePatchRequest)
+		apiGroup.PATCH(domain.KUBERNETES_NODES_ENDPOINT, nodeHandler.HandlePatchRequest)
 
+		// Adjust vGPUs availabe on a particular Kubernetes node.
 		apiGroup.PATCH(domain.ADJUST_VGPUS_ENDPOINT, handlers.NewAdjustVirtualGpusHandler(s.opts).HandlePatchRequest)
+
+		// Used to register a ResourceSpec for a kernel.
+		apiGroup.PATCH(domain.RESOURCE_SPEC_ENDPOINT, handlers.NewRegisterKernelResourceSpecHandler(s.opts).HandlePatchRequest)
 
 		// Used internally (by the frontend) to get the system config from the backend  (i.e., the backend).
 		apiGroup.GET(domain.SYSTEM_CONFIG_ENDPOINT, handlers.NewConfigHttpHandler(s.opts).HandleRequest)

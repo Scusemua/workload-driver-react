@@ -36,10 +36,21 @@ service ClusterGateway {
   rpc SetTotalVirtualGPUs(SetVirtualGPUsRequest) returns (VirtualGpuInfo) {}
 
   // Return the current GPU resource metrics on the node.
-  rpc GetClusterGpuInfo(Void) returns (ClusterActualGpuInfo) {}
+  rpc GetClusterActualGpuInfo(Void) returns (ClusterActualGpuInfo) {}
 
   // Return the current vGPU (or "deflated GPU") resource metrics on the node.
   rpc GetClusterVirtualGpuInfo(Void) returns (ClusterVirtualGpuInfo) {}
+
+  // Register a ResourceSpec definining the resource limits/maximum resources required by a particular kernel.
+  // If I find a nice way to pass this directly through the usual Jupyter launch-kernel path, then I'll use that instead.
+  rpc RegisterKernelResourceSpec(ResourceSpecRegistration) returns (Void) {}
+}
+
+// Used to register the ResourceSpec to be used by a particular kernel.
+// If I find a nice way to pass this directly through the usual Jupyter launch-kernel path, then I'll use that instead.
+message ResourceSpecRegistration {
+  string kernelId = 1; // The ID of the kernel.
+  ResourceSpec resourceSpec = 2; // The kernel's resource spec, which should define the resource limits/maximum resources required during the kernel's lifetime.
 }
 
 // Mapping from Kubernetes node name to the actual GPU info for that node.
@@ -64,7 +75,8 @@ message DistributedJupyterKernel {
   int32 numReplicas = 2;
   string status = 3;
   string aggregateBusyStatus = 4;
-  repeated JupyterKernelReplica replicas = 5;
+  KernelSpec kernelSpec = 5;
+  repeated JupyterKernelReplica replicas = 6;
 }
 
 message ListKernelsResponse {
@@ -285,15 +297,20 @@ message KernelRegistrationNotification {
   string kernelIp = 6; // The hostname of the kernel itself (not its LocalDaemon).
   string podName = 7; // The name of the Pod hosting the kernel container.
   string nodeName = 8; // Name of the node that the Pod is running on.
+  ResourceSpec resourceSpec = 9; // ResourceSpec of the kernel.
+  int32 cpu = 10;  // In 1/100 core.
+  int32 memory = 11; // In MB.
+  int32 gpu = 12; // Number of GPUs.
 }
 
 // Returned by the Cluster Gateway for the NotifyKernelRegistered RPC.
 message KernelRegistrationNotificationResponse {
   int32 id = 1;
   map<int32,string> replicas = 2;
-  optional string persistentId = 3;
-  int32 smrPort = 4;
-  optional string dataDirectory = 5;
+  int32 smrPort = 3;
+  ResourceSpec resourceSpec = 4;
+  optional string persistentId = 5;
+  optional string dataDirectory = 6;
 }
 
 // The status of a kernel.
