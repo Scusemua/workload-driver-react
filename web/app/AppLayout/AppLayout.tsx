@@ -19,16 +19,18 @@ interface IAppLayout {
 }
 
 const AppLayout: React.FunctionComponent<IAppLayout> = ({ children }) => {
-    const lightModeToggleId: string = 'theme-toggle-lightmode';
-    const darkModeToggleId: string = 'theme-toggle-darkmode';
+    const lightModeId: string = 'theme-toggle-lightmode';
+    const darkModeId: string = 'theme-toggle-darkmode';
+    const lightModeButtonId: string = lightModeId + '-button';
+    const darkModeButtonId: string = darkModeId + '-button';
     const { darkMode, toggleDarkMode } = React.useContext(DarkModeContext);
-    const [isSelected, setIsSelected] = React.useState(darkMode ? darkModeToggleId : lightModeToggleId);
+    const [isSelected, setIsSelected] = React.useState(darkMode ? darkModeButtonId : lightModeButtonId);
 
     const handleThemeToggleClick = (event) => {
         const id = event.currentTarget.id;
         setIsSelected(id);
 
-        if ((id === lightModeToggleId && darkMode) || (id == darkModeToggleId && !darkMode)) {
+        if ((id === lightModeButtonId && darkMode) || (id == darkModeButtonId && !darkMode)) {
             toggleDarkMode();
         }
     };
@@ -43,20 +45,20 @@ const AppLayout: React.FunctionComponent<IAppLayout> = ({ children }) => {
                     <div className="pf-v5-theme-dark">
                         <ToggleGroup>
                             <ToggleGroupItem
-                                aria-label="theme-toggle-lightmode"
-                                id="theme-toggle-lightmode"
-                                buttonId="theme-toggle-lightmode"
+                                aria-label={lightModeId}
+                                id={lightModeId}
+                                buttonId={lightModeButtonId}
                                 icon={<SunIcon />}
                                 onChange={handleThemeToggleClick}
-                                isSelected={isSelected === 'theme-toggle-lightmode'}
+                                isSelected={isSelected === lightModeButtonId}
                             />
                             <ToggleGroupItem
-                                aria-label="theme-toggle-darkmode"
-                                id="theme-toggle-darkmode"
-                                buttonId="theme-toggle-darkmode"
+                                aria-label={darkModeId}
+                                id={darkModeId}
+                                buttonId={darkModeButtonId}
                                 icon={<MoonIcon />}
                                 onChange={handleThemeToggleClick}
-                                isSelected={isSelected === 'theme-toggle-darkmode'}
+                                isSelected={isSelected === darkModeButtonId}
                             />
                         </ToggleGroup>
                     </div>

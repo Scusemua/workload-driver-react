@@ -20,8 +20,6 @@ export const AdjustVirtualGPUsModal: React.FunctionComponent<AdjustVirtualGPUsMo
 
     const { refreshNodes } = useNodes();
 
-    console.log(`adjustmentState: ${adjustmentState}`);
-
     const handleAdjustedGPUsChanged = (_event, vgpus: string) => {
         const validValue: boolean = /[0-9]/.test(vgpus) || vgpus == '';
 

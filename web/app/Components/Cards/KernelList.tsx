@@ -50,6 +50,8 @@ import {
 import { KernelManager, ServerConnection } from '@jupyterlab/services';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 
+import { v4 as uuidv4 } from 'uuid';
+
 import {
     BundleIcon,
     CheckCircleIcon,
@@ -319,8 +321,32 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
 
         console.log('Starting kernel now...');
 
+        // let generatedClientId: boolean = false;
+        // if (clientId === '') {
+        //     clientId = uuidv4();
+        //     generatedClientId = true;
+        // }
+        const clientId: string = uuidv4();
+
+        // if (username === '') {
+        //     username = 'jupyter-user-';
+
+        //     if (generatedClientId) {
+        //         username += clientId.slice(0, 8);
+        //     } else {
+        //         const randId: string = uuidv4();
+        //         clientId += randId.slice(0, 8);
+        //     }
+        // }
+        const username: string = 'jupyter-user-' + clientId.slice(0, 8);
+
+        console.log(`Starting new 'distributed' kernel for user ${username} with clientID=${clientId}.`);
+
         // Start a python kernel
-        const kernel: IKernelConnection = await manager.startNew({ name: 'distributed' });
+        const kernel: IKernelConnection = await manager.startNew(
+            { name: 'distributed' },
+            { username: username, clientId: clientId },
+        );
 
         console.log(`Successfully launched new kernel: kernel ${kernel.id}`);
 

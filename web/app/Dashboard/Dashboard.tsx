@@ -3,7 +3,7 @@ import '@patternfly/react-core/dist/styles/base.css';
 import React, { useRef } from 'react';
 import { Grid, GridItem, PageSection, gridSpans } from '@patternfly/react-core';
 
-import { KernelList, KernelSpecList, KubernetesNodeList, WorkloadCard } from '@app/Components/Cards/';
+import { ConsoleLogCard, KernelList, KernelSpecList, KubernetesNodeList, WorkloadCard } from '@app/Components/Cards/';
 import {
     DistributedJupyterKernel,
     JupyterKernelReplica,
@@ -30,160 +30,11 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
     const [migrateReplica, setMigrateReplica] = React.useState<JupyterKernelReplica | null>(null);
     const [adjustVirtualGPUsNode, setAdjustVirtualGPUsNode] = React.useState<KubernetesNode | null>(null);
 
+    const defaultWorkloadTitle = useRef(uuidv4());
+
     const { nodes } = useNodes();
     const { kernels } = useKernels();
     const { workloads, sendJsonMessage } = useWorkloads();
-
-    // const { sendJsonMessage, lastMessage, lastJsonMessage } = useWebSocket<Record<string, unknown>>(
-    //     'ws://localhost:8000/workload',
-    //     {
-    //         share: false,
-    //         shouldReconnect: () => true,
-    //     },
-    // );
-
-    // Run when the connection state (readyState) changes.
-    // useEffect(() => {
-    //     console.log('Connection state changed: %s', readyState.toString());
-    //     if (readyState === ReadyState.OPEN) {
-    //         sendJsonMessage({
-    //             event: 'subscribe',
-    //             data: {
-    //                 channel: 'general-chatroom',
-    //             },
-    //         });
-    //     }
-    // }, [readyState]);
-
-    // const handleMessage = useCallback(
-    //     (message: Record<string, unknown>) => {
-    //         console.log(`Got a new message: ${JSON.stringify(message)}`);
-
-    //         const handleActiveWorkloadsUpdate = (updatedWorkloads: Workload[]) => {
-    //             console.log('Received update about %d active workload(s).', updatedWorkloads.length);
-
-    //             updatedWorkloads.forEach((workload: Workload) => {
-    //                 setWorkloads((w) => new Map(w.set(workload.id, workload)));
-    //             });
-
-    //             if (workloads.size > 0) {
-    //                 setWorkloadCardRowspan(2);
-    //             } else {
-    //                 setWorkloadCardRowspan(1);
-    //             }
-    //         };
-
-    //         // If there is a callback, then call it.
-    //         if (message) {
-    //             if (websocketCallbacks.current.has(message['msg_id'])) {
-    //                 console.log(`Found callback for message ${message['msg_id']}`);
-    //                 websocketCallbacks.current.get(message['msg_id'])(message);
-    //             } else {
-    //                 console.log(`No callback found for message ${message['msg_id']}`);
-    //                 const op = message['op'];
-
-    //                 if (op == 'active_workloads_update') {
-    //                     const updatedWorkloads: Workload[] | unknown = message['updated_workloads'];
-    //                     if (!updatedWorkloads) {
-    //                         throw new Error("Unexpected response for 'updated_workloads' key.");
-    //                     }
-    //                     handleActiveWorkloadsUpdate(updatedWorkloads as Workload[]);
-    //                 }
-    //             }
-    //         }
-    //     },
-    //     [workloads.size],
-    // );
-
-    // Run when a new WebSocket message is received (lastJsonMessage).
-    // useEffect(() => {
-    //     handleMessage(lastJsonMessage);
-    // }, [lastJsonMessage, handleMessage]);
-
-    // useEffect(() => {
-    //     if (lastMessage && lastMessage.data) {
-    //         const promise: Promise<string> = lastMessage.data.text();
-    //         promise.then((data) => {
-    //             console.log(data);
-    //             const messageJson: Record<string, unknown> = JSON.parse(data);
-    //             handleMessage(messageJson);
-    //         });
-    //     }
-    // }, [lastMessage, handleMessage]);
-
-    /**
-     * The following references are used to handle the fact that network responses can return at random/arbitrary/misordered times.
-     * We ignore network responses except when we're expecting one.
-     */
-
-    const defaultWorkloadTitle = useRef(uuidv4());
-
-    // /**
-    //  * Retrieve the current workloads from the backend.
-    //  */
-    // const fetchWorkloads = useCallback(
-    //     (callback: (presets: Workload[]) => void | undefined) => {
-    //         const startTime = performance.now();
-    //         try {
-    //             console.log('Refreshing workloads.');
-
-    //             const messageId: string = uuidv4();
-    //             const onResponse = (response: WorkloadsResponse) => {
-    //                 const respWorkloads: Workload[] = response.workloads;
-
-    //                 if (!ignoreResponseForWorkloads.current) {
-    //                     setWorkloads(new Map());
-    //                     respWorkloads.forEach((workload: Workload) => {
-    //                         setWorkloads((w) => new Map(w.set(workload.id, workload)));
-    //                     });
-    //                     console.log(
-    //                         'Successfully refreshed workloads. Discovered %d workload(s):\n%s',
-    //                         respWorkloads.length,
-    //                         JSON.stringify(respWorkloads),
-    //                     );
-
-    //                     if (workloads.size > 0) {
-    //                         setWorkloadCardRowspan(2);
-    //                     } else {
-    //                         setWorkloadCardRowspan(1);
-    //                     }
-
-    //                     if (callback != undefined) {
-    //                         callback(respWorkloads);
-    //                     }
-    //                     ignoreResponseForWorkloads.current = true;
-    //                 } else {
-    //                     console.log("Refreshed workloads, but we're ignoring the response...");
-    //                 }
-    //             };
-    //             websocketCallbacks.current.set(messageId, onResponse);
-    //             sendJsonMessage({
-    // op: 'get_workloads',
-    // msg_id: messageId,
-    //             });
-    //         } catch (e) {
-    //             console.error(e);
-    //         }
-    //         console.log(`Refresh workloads: ${(performance.now() - startTime).toFixed(4)} ms`);
-    //     },
-    //     [sendJsonMessage, workloads.size],
-    // );
-
-    // // Fetch the workloads from the backend.
-    // useEffect(() => {
-    //     ignoreResponseForWorkloads.current = false;
-    //     fetchWorkloads(() => {});
-
-    //     // Periodically refresh the Kubernetes nodes every `props.workloadPresetRefreshInterval` seconds, or when the user clicks the "refresh" button.
-    //     setInterval(() => {
-    //         ignoreResponseForWorkloads.current = false;
-    //         fetchWorkloads(() => {});
-    //     }, props.workloadRefreshInterval * 1000);
-
-    //     return () => {
-    //         ignoreResponseForWorkloads.current = true;
-    //     };
-    // }, [props.workloadRefreshInterval, fetchWorkloads]);
 
     const onConfirmMigrateReplica = (
         targetReplica: JupyterKernelReplica,
@@ -441,8 +292,8 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
                         }}
                     />
                 </GridItem>
-                <GridItem span={6} rowSpan={1}>
-                    <KernelSpecList />
+                <GridItem span={6} rowSpan={2}>
+                    <ConsoleLogCard />
                 </GridItem>
                 <GridItem span={6} rowSpan={nodes.length == 0 ? 1 : 2}>
                     <KubernetesNodeList
@@ -453,6 +304,9 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
                         selectableViaCheckboxes={false}
                         displayNodeToggleSwitch={true}
                     />
+                </GridItem>
+                <GridItem span={6} rowSpan={1}>
+                    <KernelSpecList />
                 </GridItem>
             </Grid>
             <MigrationModal
