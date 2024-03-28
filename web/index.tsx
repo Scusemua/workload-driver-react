@@ -1,6 +1,7 @@
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import App from '@app/index';
+import { DarkModeProvider } from '@app/Providers/DarkModeProvider';
 
 if (process.env.NODE_ENV !== 'production') {
     const config = {
@@ -20,6 +21,8 @@ const root = ReactDOM.createRoot(document.getElementById('root') as Element);
 
 root.render(
     <React.StrictMode>
-        <App />
+        <DarkModeProvider>
+            <App />
+        </DarkModeProvider>
     </React.StrictMode>,
 );

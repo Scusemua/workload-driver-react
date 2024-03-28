@@ -161,7 +161,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
 
     return (
         <Card isRounded isFullHeight>
-            <CardHeader height={1400} actions={{ actions: cardHeaderActions, hasNoOffset: true }}>
+            <CardHeader height={1400} actions={{ actions: cardHeaderActions, hasNoOffset: false }}>
                 <Title headingLevel="h1" size="xl">
                     Workloads
                 </Title>

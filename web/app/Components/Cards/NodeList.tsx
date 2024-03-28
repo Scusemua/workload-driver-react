@@ -35,9 +35,6 @@ import {
     Tooltip,
 } from '@patternfly/react-core';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
-import { GpuIcon } from 'web/app/Icons/GpuIcon';
-import { GpuIconAlt } from 'web/app/Icons/GpuIconAlt';
-import { GpuIconAlt2 } from 'web/app/Icons/GpuIconAlt2';
 import { KubernetesNode, KubernetesPod } from '@data/Kubernetes';
 import {
     CpuIcon,
@@ -50,6 +47,7 @@ import {
     VirtualMachineIcon,
 } from '@patternfly/react-icons';
 import { useNodes } from '@providers/NodeProvider';
+import { GpuIcon } from '@app/Icons';
 
 export interface NodeListProps {
     selectableViaCheckboxes: boolean;
@@ -343,12 +341,20 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                 </Flex>
                 <Flex spaceItems={{ default: 'spaceItemsSm' }}>
                     <FlexItem alignSelf={{ default: 'alignSelfCenter' }}>
-                        <GpuIconAlt2 scale={1.5} />
+                        <GpuIcon scale={2.25} />
                     </FlexItem>
-                    <Flex direction={{ default: 'row' }} spaceItems={{ default: 'spaceItemsSm' }}>
+                    <Flex direction={{ default: 'row' }} spaceItems={{ default: 'spaceItemsMd' }}>
                         <Flex spaceItems={{ default: 'spaceItemsNone' }} direction={{ default: 'column' }}>
-                            <FlexItem align={{ default: 'alignRight' }}>{kubeNode.AllocatedVGPUs.toFixed(0)}</FlexItem>
-                            <FlexItem align={{ default: 'alignRight' }}>{kubeNode.AllocatedGPUs.toFixed(0)}</FlexItem>
+                            <FlexItem className="node-allocated-vgpu" align={{ default: 'alignRight' }}>
+                                <Text component={TextVariants.p} className="node-allocated-vgpu">
+                                    {kubeNode.AllocatedVGPUs.toFixed(0)}
+                                </Text>
+                            </FlexItem>
+                            <FlexItem className="node-allocated-gpu" align={{ default: 'alignRight' }}>
+                                <Text component={TextVariants.p} className="node-allocated-gpu">
+                                    {kubeNode.AllocatedGPUs.toFixed(0)}
+                                </Text>
+                            </FlexItem>
                         </Flex>
                         <Flex spaceItems={{ default: 'spaceItemsNone' }} direction={{ default: 'column' }}>
                             <FlexItem align={{ default: 'alignRight' }}>/</FlexItem>
@@ -459,7 +465,7 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
     return (
         <Card isRounded>
             <CardHeader
-                actions={{ actions: toolbar, hasNoOffset: true }}
+                actions={{ actions: toolbar, hasNoOffset: false }}
                 toggleButtonProps={{
                     id: 'expand-kube-nodes-button',
                     'aria-label': 'expand-kube-nodes-button',

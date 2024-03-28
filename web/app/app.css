@@ -229,3 +229,21 @@ body {
 .node-cpu-icon {
   transform: scale(1.75);
 }
+
+.kernel-list-card-actions {
+  margin-left: -128px;
+}
+
+.node-allocated-vgpu {
+  padding-left: 1px;
+  margin-right: -4px;
+}
+
+.node-allocated-gpu {
+  padding-left: 1px;
+  margin-right: -4px;
+}
+
+.node-gpu-vgpu-column {
+  margin-right: -0px;
+}

@@ -11,7 +11,7 @@ export interface CodeEditorComponent {
 }
 
 export const CodeEditorComponent: React.FunctionComponent<CodeEditorComponent> = (props) => {
-    const [isDarkMode, setIsDarkMode] = React.useState(false);
+    const [isEditorDarkMode, setIsEditorDarkMode] = React.useState(false);
     const [code, setCode] = React.useState('');
 
     const onEditorDidMount = (editor: editor.IStandaloneCodeEditor, monaco: Monaco) => {
@@ -64,12 +64,12 @@ export const CodeEditorComponent: React.FunctionComponent<CodeEditorComponent> =
 
     const darkLightThemeSwitch = (
         // <CodeEditorControl
-        //     aria-label={'Toggle darkmode' + ((isDarkMode && ' off') || ' on')}
+        //     aria-label={'Toggle darkmode' + ((isEditorDarkMode && ' off') || ' on')}
         //     tooltipProps={{
-        //         content: 'Toggle darkmode' + ((isDarkMode && ' off') || ' on'),
+        //         content: 'Toggle darkmode' + ((isEditorDarkMode && ' off') || ' on'),
         //     }}
         //     onClick={() => {
-        //         setIsDarkMode(!isDarkMode);
+        //         setIsEditorDarkMode(!isEditorDarkMode);
         //     }}
         //     icon={<LightbulbIcon />}
         // />
@@ -84,13 +84,13 @@ export const CodeEditorComponent: React.FunctionComponent<CodeEditorComponent> =
                 }}
             >
                 <Switch
-                    id="darkmode-switch"
+                    id="code-editor-darkmode-switch"
                     aria-label="darkmode-switch"
                     label="Dark Theme"
                     labelOff="Light Theme"
-                    isChecked={isDarkMode}
+                    isChecked={isEditorDarkMode}
                     onChange={(_event: React.FormEvent<HTMLInputElement>, checked: boolean) => {
-                        setIsDarkMode(checked);
+                        setIsEditorDarkMode(checked);
                     }}
                 />
             </Button>
@@ -141,7 +141,7 @@ print("a = %d, b = %d, c = %d" % (a, b, c))`,
 
     return (
         <CodeEditor
-            isDarkTheme={isDarkMode}
+            isDarkTheme={isEditorDarkMode}
             shortcutsPopoverProps={shortcutsPopoverProps}
             customControls={[defaultCodeTemplate1, defaultCodeTemplate2, defaultCodeTemplate3, darkLightThemeSwitch]}
             isLanguageLabelVisible

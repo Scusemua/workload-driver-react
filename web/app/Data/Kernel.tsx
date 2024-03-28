@@ -5,8 +5,8 @@ interface DistributedJupyterKernel {
     numReplicas: number;
     status: string;
     aggregateBusyStatus: string;
-    replicas: JupyterKernelReplica[];
     kernelSpec: DistributedKernelSpec;
+    replicas: JupyterKernelReplica[];
     kernel?: IKernelConnection;
 }
 
@@ -54,3 +54,4 @@ export type { DistributedJupyterKernel as DistributedJupyterKernel };
 export type { JupyterKernelReplica as JupyterKernelReplica };
 export type { JupyterKernelSpec as KernelSpec };
 export type { JupyterKernelSpec as KernelProvisioner };
+export type { ResourceSpec as ResourceSpec };

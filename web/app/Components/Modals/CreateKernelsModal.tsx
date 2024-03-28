@@ -12,11 +12,13 @@ import {
     TextInputGroupMain,
 } from '@patternfly/react-core';
 
+import { ResourceSpec } from '@app/Data';
+
 export interface CreateKernelsModalProps {
     children?: React.ReactNode;
     isOpen: boolean;
     onClose: () => void;
-    onConfirm: (input: string) => void;
+    onConfirm: (input: string, resourceSpec: ResourceSpec) => void;
     defaultInputValue?: string; // Default value for the text input box. Optional; will default to the empty string if none specified.
 }
 
@@ -33,6 +35,15 @@ export const CreateKernelsModal: React.FunctionComponent<CreateKernelsModalProps
     const [memHintText, setMemHintText] = React.useState(originalResourceAmountHint);
     const [gpuHintText, setGpuHintText] = React.useState(originalResourceAmountHint);
 
+    const onConfirmClicked = () => {
+        const resourceSpec: ResourceSpec = {
+            cpu: Number.parseInt(cpus),
+            memory: Number.parseInt(memory),
+            gpu: Number.parseInt(gpus),
+        };
+        props.onConfirm(numKernels, resourceSpec);
+    };
+
     return (
         <Modal
             variant={ModalVariant.small}
@@ -41,13 +52,7 @@ export const CreateKernelsModal: React.FunctionComponent<CreateKernelsModalProps
             onClose={props.onClose}
             titleIconVariant={'info'}
             actions={[
-                <Button
-                    key="confirm"
-                    variant="primary"
-                    onClick={() => {
-                        props.onConfirm(numKernels);
-                    }}
-                >
+                <Button key="confirm" variant="primary" onClick={onConfirmClicked}>
                     Confirm
                 </Button>,
                 <Button key="cancel" variant="link" onClick={props.onClose}>

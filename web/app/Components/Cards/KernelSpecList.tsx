@@ -141,7 +141,7 @@ export const KernelSpecList: React.FunctionComponent = () => {
 
     return (
         <Card isFullHeight isRounded>
-            <CardHeader actions={{ actions: cardHeaderActions, hasNoOffset: true }}>
+            <CardHeader actions={{ actions: cardHeaderActions, hasNoOffset: false }}>
                 <CardTitle>
                     <Title headingLevel="h1" size="xl">
                         Kernel Specs

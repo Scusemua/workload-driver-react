@@ -29,9 +29,8 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
     const [migrateKernel, setMigrateKernel] = React.useState<DistributedJupyterKernel | null>(null);
     const [migrateReplica, setMigrateReplica] = React.useState<JupyterKernelReplica | null>(null);
     const [adjustVirtualGPUsNode, setAdjustVirtualGPUsNode] = React.useState<KubernetesNode | null>(null);
-    const [changeVirtualGpusIsLoading, setChangeVirtualGpusIsLoading] = React.useState(false);
 
-    const { nodes, refreshNodes } = useNodes();
+    const { nodes } = useNodes();
     const { kernels } = useKernels();
     const { workloads, sendJsonMessage } = useWorkloads();
 
@@ -414,7 +413,6 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
 
         console.log(`Attempting to set vGPUs on node ${adjustVirtualGPUsNode?.NodeId} to ${value}`);
 
-        setChangeVirtualGpusIsLoading(true);
         const response: Response = await fetch('api/vgpus', requestOptions);
         const virtualGpuInfo: VirtualGpuInfo = await response.json().catch((reason) => {
             console.error(
