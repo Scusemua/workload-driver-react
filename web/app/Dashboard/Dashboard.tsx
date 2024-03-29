@@ -66,8 +66,6 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
     const { kernels } = useKernels();
     const { workloads, sendJsonMessage } = useWorkloads();
 
-    console.log(`workloads.length: ${workloads.length}`);
-
     const [workloadItemsPerPage, setWorkloadItemsPerPage] = React.useState(3);
     const [kernelItemsPerPage, setKernelItemsPerPage] = React.useState(3);
     const [kubeNodeItemsPerPage, setKubeNodeItemsPerPage] = React.useState(3);
@@ -375,6 +373,9 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
                         />
                     </WorkloadsPerPageContext.Provider>
                 </GridItem>
+                <GridItem span={6} rowSpan={1}>
+                    <KernelSpecList />
+                </GridItem>
                 <GridItem span={6} rowSpan={2}>
                     <ConsoleLogCard />
                 </GridItem>
@@ -395,9 +396,6 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
                             displayNodeToggleSwitch={true}
                         />
                     </KubernetesNodePerPageContext.Provider>
-                </GridItem>
-                <GridItem span={6} rowSpan={1}>
-                    <KernelSpecList />
                 </GridItem>
             </Grid>
             <MigrationModal

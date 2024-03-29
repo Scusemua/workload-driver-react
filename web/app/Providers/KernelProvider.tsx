@@ -38,8 +38,6 @@ export function useKernels() {
 
     const kernels: DistributedJupyterKernel[] = data || [];
 
-    console.log(`kernels: ${JSON.stringify(kernels)}`);
-
     return {
         kernels: kernels,
         kernelsAreLoading: isMutating,
