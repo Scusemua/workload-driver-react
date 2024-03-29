@@ -48,6 +48,7 @@ import {
 } from '@patternfly/react-icons';
 import { useNodes } from '@providers/NodeProvider';
 import { GpuIcon } from '@app/Icons';
+import { toast } from 'react-hot-toast';
 
 export interface NodeListProps {
     selectableViaCheckboxes: boolean;
@@ -167,7 +168,25 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                         <Button
                             variant="plain"
                             onClick={() => {
-                                refreshNodes();
+                                toast.promise(refreshNodes(), {
+                                    loading: 'Refreshing Kubernetes nodes...',
+                                    success: <b>Refreshed Kubernetes nodes!</b>,
+                                    error: (reason: Error) => {
+                                        return (
+                                            <div>
+                                                <Flex
+                                                    direction={{ default: 'column' }}
+                                                    spaceItems={{ default: 'spaceItemsNone' }}
+                                                >
+                                                    <FlexItem>
+                                                        <b>Could not refresh Kubernetes nodes.</b>
+                                                    </FlexItem>
+                                                    <FlexItem>{reason.message}</FlexItem>
+                                                </Flex>
+                                            </div>
+                                        );
+                                    },
+                                });
                             }}
                             isDisabled={nodesAreLoading}
                             label="refresh-nodes-button"

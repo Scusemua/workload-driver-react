@@ -32,11 +32,7 @@ function DarkModeProvider(props) {
             root.className = '';
         }
     };
-    return (
-        <div>
-            <DarkModeContext.Provider value={{ darkMode, toggleDarkMode }}>{props.children}</DarkModeContext.Provider>
-        </div>
-    );
+    return <DarkModeContext.Provider value={{ darkMode, toggleDarkMode }}>{props.children}</DarkModeContext.Provider>;
 }
 
 export { DarkModeContext, DarkModeProvider };

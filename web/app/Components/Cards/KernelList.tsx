@@ -47,6 +47,8 @@ import {
     Tooltip,
 } from '@patternfly/react-core';
 
+import toast from 'react-hot-toast';
+
 import { KernelManager, ServerConnection } from '@jupyterlab/services';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 
@@ -88,6 +90,7 @@ import {
 import { DistributedJupyterKernel, JupyterKernelReplica, ResourceSpec } from '@data/Kernel';
 import { useKernels } from '@providers/KernelProvider';
 import { GpuIcon } from '@app/Icons';
+import { CardHeightContext, KernelCardHeightContext } from '@app/Dashboard/Dashboard';
 
 function isNumber(value?: string | number): boolean {
     return value != null && value !== '' && !isNaN(Number(value.toString()));
@@ -136,6 +139,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
     const { kernels, kernelsAreLoading, refreshKernels } = useKernels();
     const [openReplicaDropdownMenu, setOpenReplicaDropdownMenu] = React.useState<string>('');
     const [openKernelDropdownMenu, setOpenKernelDropdownMenu] = React.useState<string>('');
+    const heightContext: CardHeightContext = React.useContext(KernelCardHeightContext);
 
     const [, forceUpdate] = useReducer((x) => x + 1, 0);
 
@@ -196,6 +200,14 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             newPerPage * (newPage - 1),
             newPerPage * (newPage - 1) + newPerPage,
         );
+
+        const heightFactor: number = Math.min(kernels.length, newPerPage);
+        if (heightFactor <= 1) {
+            heightContext.setHeight(1);
+        } else {
+            console.log('Setting kernel card height to 2.');
+            heightContext.setHeight(2);
+        }
     };
 
     async function initializeKernelManagers() {
@@ -342,11 +354,20 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
 
         console.log(`Starting new 'distributed' kernel for user ${username} with clientID=${clientId}.`);
 
-        // Start a python kernel
-        const kernel: IKernelConnection = await manager.startNew(
-            { name: 'distributed' },
-            { username: username, clientId: clientId },
+        const kernel: IKernelConnection = await toast.promise(
+            manager.startNew({ name: 'distributed' }, { username: username, clientId: clientId }),
+            {
+                loading: <b>Starting a new kernel.</b>,
+                success: <b>Successfully started a new kernel.</b>,
+                error: <b>Failed to start new kernel.</b>,
+            },
         );
+
+        // Start a python kernel
+        // const kernel: IKernelConnection = await manager.startNew(
+        //     { name: 'distributed' },
+        //     { username: username, clientId: clientId },
+        // );
 
         console.log(`Successfully launched new kernel: kernel ${kernel.id}`);
 
@@ -372,10 +393,12 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             console.log(`New Kernel Status Update: ${status}`);
         });
 
+        refreshKernels();
+
         // Update/refresh the kernels since we know a new one was just created.
-        setTimeout(() => {
-            refreshKernels();
-        }, 3000);
+        // setTimeout(() => {
+        //     refreshKernels();
+        // }, 3000);
     }
 
     async function onConfirmExecuteCodeClicked(code: string, logConsumer: (logMessage: string) => void) {
@@ -456,21 +479,23 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         async function delete_kernel(id: string) {
             console.log('Deleting Kernel ' + id + ' now.');
 
-            await kernelManager.current?.shutdownAll().then(() => {
-                console.log('Shutdown ALL kernels.');
-            });
-
             await kernelManager.current?.shutdown(id).then(() => {
                 console.log('Successfully deleted Kernel ' + id + ' now.');
                 refreshKernels();
             });
         }
 
+        for (let i: number = 0; i < kernelIds.length; i++) {
+            const kernelId: string = kernelIds[i];
+            toast.promise(delete_kernel(kernelId), {
+                loading: <b>Deleting kernel {kernelId}</b>,
+                success: <b>Successfully deleted kernel {kernelId}</b>,
+                error: <b>Failed to delete kernel {kernelId}</b>,
+            });
+        }
+
         setSelectedKernels([]);
         setKernelToDelete('');
-        kernelIds.forEach((kernelId) => {
-            delete_kernel(kernelId);
-        });
     };
 
     const onConfirmCreateKernelClicked = (input: string, resourceSpec: ResourceSpec) => {
@@ -743,7 +768,23 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                 'loading-icon-spin-toggleable paused'
                             }
                             onClick={() => {
-                                refreshKernels();
+                                toast.promise(refreshKernels(), {
+                                    loading: 'Refreshing kernels...',
+                                    success: <b>Refreshed kernels!</b>,
+                                    error: (reason: Error) => {
+                                        return (
+                                            <Flex
+                                                direction={{ default: 'column' }}
+                                                spaceItems={{ default: 'spaceItemsNone' }}
+                                            >
+                                                <FlexItem>
+                                                    <b>Could not refresh kernels.</b>
+                                                </FlexItem>
+                                                <FlexItem>{reason.message}</FlexItem>
+                                            </Flex>
+                                        );
+                                    },
+                                });
                             }}
                         >
                             <SyncIcon />

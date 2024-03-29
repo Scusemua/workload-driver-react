@@ -1,63 +1,43 @@
-import { KernelSpecManager, ServerConnection } from '@jupyterlab/services';
-import { ISpecModel } from '@jupyterlab/services/lib/kernelspec/restapi';
-import { useEffect, useRef } from 'react';
-import useSWR, { mutate } from 'swr';
+import { JupyterKernelSpec, JupyterKernelSpecWrapper } from '@app/Data';
+import useSWR from 'swr';
+import useSWRMutation from 'swr/mutation';
+
+const fetcher = async (input: RequestInfo | URL) => {
+    const abortController: AbortController = new AbortController();
+    const signal: AbortSignal = abortController.signal;
+    const timeout: number = 5000;
+
+    setTimeout(() => {
+        abortController.abort(`The request timed-out after ${timeout} milliseconds.`);
+    }, timeout);
+
+    try {
+        const response: Response = await fetch(input, { signal: signal });
+        return await response.json();
+    } catch (e) {
+        if (signal.aborted) {
+            console.error(`Request timed out.`);
+            throw new Error(`The request timed out.`); // Different error.
+        } else {
+            console.error(`Failed to fetch kernels because: ${e}`);
+            throw e; // Re-throw e.
+        }
+    }
+};
 
 export function useKernelSpecs() {
-    const kernelSpecManager = useRef<KernelSpecManager | null>(null);
-    const fetcher = () => {
-        if (!kernelSpecManager.current) {
-            throw new Error('The KernelSpecManager is still initializing or is otherwise unavailable right now.');
-        }
-        return kernelSpecManager.current?.refreshSpecs().then(() => {
-            const kernelSpecs: { [key: string]: ISpecModel | undefined } =
-                kernelSpecManager.current?.specs?.kernelspecs || {};
-            return kernelSpecs;
-        });
-    };
+    const { data, error, isLoading } = useSWR('jupyter/api/kernelspecs', fetcher, { refreshInterval: 5000 });
+    const { trigger, isMutating } = useSWRMutation('jupyter/api/kernelspecs', fetcher);
 
-    useEffect(() => {
-        async function initializeKernelManagers() {
-            if (kernelSpecManager.current === null) {
-                const kernelSpecManagerOptions: KernelSpecManager.IOptions = {
-                    serverSettings: ServerConnection.makeSettings({
-                        token: '',
-                        appendToken: false,
-                        baseUrl: 'jupyter',
-                        fetch: fetch,
-                    }),
-                };
-                kernelSpecManager.current = new KernelSpecManager(kernelSpecManagerOptions);
-
-                console.log('Waiting for kernel spec manager to be ready.');
-
-                kernelSpecManager.current.connectionFailure.connect((_sender: KernelSpecManager, err: Error) => {
-                    console.log(
-                        '[ERROR] An error has occurred while preparing the Kernel Spec Manager. ' +
-                            err.name +
-                            ': ' +
-                            err.message,
-                    );
-                });
-
-                await kernelSpecManager.current.ready.then(() => {
-                    console.log('Kernel spec manager is ready!');
-                });
-            }
-        }
-
-        initializeKernelManagers();
-    }, []);
-
-    const { data, error, isLoading } = useSWR('/', fetcher, { refreshInterval: 5000 });
-    const kernelSpecs: { [key: string]: ISpecModel | undefined } = data || {};
+    let kernelSpecs: { [key: string]: JupyterKernelSpecWrapper } = {};
+    if (data) {
+        kernelSpecs = JSON.parse(JSON.stringify(data['kernelspecs']));
+    }
 
     return {
         kernelSpecs: kernelSpecs,
-        kernelSpecsAreLoading: isLoading,
-        refreshKernelSpecs: () => {
-            mutate('/');
-        },
+        kernelSpecsAreLoading: isMutating || isLoading, // We'll use both here since this has weird connection problems and it'd be easier to notice those if we used both.
+        refreshKernelSpecs: trigger,
         isError: error,
     };
 }

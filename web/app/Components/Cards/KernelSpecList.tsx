@@ -17,48 +17,16 @@ import {
     ToolbarGroup,
     ToolbarItem,
     Tooltip,
+    Flex,
+    FlexItem,
 } from '@patternfly/react-core';
-import { KernelSpecManager, ServerConnection } from '@jupyterlab/services';
 import { SyncIcon } from '@patternfly/react-icons';
 import { useKernelSpecs } from '@app/Providers';
+import { toast } from 'react-hot-toast';
 
 export const KernelSpecList: React.FunctionComponent = () => {
     const [activeTabKey, setActiveTabKey] = React.useState(0);
-    const kernelSpecManager = useRef<KernelSpecManager | null>(null);
     const { kernelSpecs, kernelSpecsAreLoading, refreshKernelSpecs } = useKernelSpecs();
-
-    useEffect(() => {
-        async function initializeKernelManagers() {
-            if (kernelSpecManager.current === null) {
-                const kernelSpecManagerOptions: KernelSpecManager.IOptions = {
-                    serverSettings: ServerConnection.makeSettings({
-                        token: '',
-                        appendToken: false,
-                        baseUrl: 'jupyter',
-                        fetch: fetch,
-                    }),
-                };
-                kernelSpecManager.current = new KernelSpecManager(kernelSpecManagerOptions);
-
-                console.log('Waiting for kernel spec manager to be ready.');
-
-                kernelSpecManager.current.connectionFailure.connect((_sender: KernelSpecManager, err: Error) => {
-                    console.log(
-                        '[ERROR] An error has occurred while preparing the Kernel Spec Manager. ' +
-                            err.name +
-                            ': ' +
-                            err.message,
-                    );
-                });
-
-                await kernelSpecManager.current.ready.then(() => {
-                    console.log('Kernel spec manager is ready!');
-                });
-            }
-        }
-
-        initializeKernelManagers();
-    }, []);
 
     const handleTabClick = (_e: React.MouseEvent<HTMLElement, MouseEvent>, tabIndex: string | number) => {
         setActiveTabKey(Number(tabIndex));
@@ -78,9 +46,37 @@ export const KernelSpecList: React.FunctionComponent = () => {
                             'loading-icon-spin-toggleable paused'
                         }
                         onClick={() => {
-                            // ignoreResponse.current = false;
-                            // fetchKernelSpecs();
-                            refreshKernelSpecs();
+                            toast.promise(
+                                refreshKernelSpecs(),
+                                {
+                                    loading: 'Refreshing Jupyter KernelSpecs...',
+                                    success: <b>Refreshed Jupyter KernelSpecs!</b>,
+                                    error: (reason: Error) => {
+                                        let reasonUI = <FlexItem>{reason.message}</FlexItem>;
+
+                                        if (reason.message.includes("Unexpected token 'E'")) {
+                                            reasonUI = <FlexItem>HTTP 504: Gateway Timeout</FlexItem>;
+                                        }
+
+                                        return (
+                                            <Flex
+                                                direction={{ default: 'column' }}
+                                                spaceItems={{ default: 'spaceItemsNone' }}
+                                            >
+                                                <FlexItem>
+                                                    <b>Could not refresh Jupyter KernelSpecs.</b>
+                                                </FlexItem>
+                                                {reasonUI}
+                                            </Flex>
+                                        );
+                                    },
+                                },
+                                {
+                                    style: {
+                                        padding: '8px',
+                                    },
+                                },
+                            );
                         }}
                         icon={<SyncIcon />}
                     />
@@ -104,7 +100,7 @@ export const KernelSpecList: React.FunctionComponent = () => {
                         <Tab
                             key={tabIndex}
                             eventKey={tabIndex}
-                            title={<TabTitleText>{kernelSpecs[key]?.display_name}</TabTitleText>}
+                            title={<TabTitleText>{kernelSpecs[key]?.spec.display_name}</TabTitleText>}
                             tabContentId={`tabContent${tabIndex}`}
                         />
                     ))}
@@ -122,34 +118,20 @@ export const KernelSpecList: React.FunctionComponent = () => {
                         <DescriptionList columnModifier={{ lg: '3Col' }}>
                             <DescriptionListGroup>
                                 <DescriptionListTerm>Name</DescriptionListTerm>
-                                <DescriptionListDescription>{kernelSpecs[key]?.name}</DescriptionListDescription>
+                                <DescriptionListDescription>{kernelSpecs[key].name}</DescriptionListDescription>
                             </DescriptionListGroup>
                             <DescriptionListGroup>
                                 <DescriptionListTerm>Display Name</DescriptionListTerm>
                                 <DescriptionListDescription>
-                                    {kernelSpecs[key]?.display_name}
+                                    {kernelSpecs[key]?.spec.display_name}
                                 </DescriptionListDescription>
                             </DescriptionListGroup>
                             <DescriptionListGroup>
                                 <DescriptionListTerm>Language</DescriptionListTerm>
-                                <DescriptionListDescription>{kernelSpecs[key]?.language}</DescriptionListDescription>
+                                <DescriptionListDescription>
+                                    {kernelSpecs[key]?.spec.language}
+                                </DescriptionListDescription>
                             </DescriptionListGroup>
-                            {/* <DescriptionListGroup>
-                  <DescriptionListTerm>Interrupt Mode</DescriptionListTerm>
-                  <DescriptionListDescription>{kernelSpecs[key]?.interrupt_mode}</DescriptionListDescription>
-                </DescriptionListGroup> */}
-                            {/* {kernelSpec.kernelProvisioner.valid && (
-                  <React.Fragment>
-                    <DescriptionListGroup>
-                      <DescriptionListTerm>Provisioner</DescriptionListTerm>
-                      <DescriptionListDescription>{kernelSpec.kernelProvisioner.name}</DescriptionListDescription>
-                    </DescriptionListGroup>
-                    <DescriptionListGroup>
-                      <DescriptionListTerm>Provisioner Gateway</DescriptionListTerm>
-                      <DescriptionListDescription>{kernelSpec.kernelProvisioner.gateway}</DescriptionListDescription>
-                    </DescriptionListGroup>
-                  </React.Fragment>
-                )} */}
                         </DescriptionList>
                     </TabContent>
                 ))}

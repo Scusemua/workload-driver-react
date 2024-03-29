@@ -35,23 +35,46 @@ interface ResourceSpec {
 }
 
 // The KernelSpec used within JupyterServer when provisioning kernels.
-interface JupyterKernelSpec {
+interface JupyterKernelSpecWrapper {
+    /**
+     * The name of the kernel spec.
+     */
     name: string;
-    displayName: string;
+    spec: JupyterKernelSpec;
+}
+
+interface JupyterKernelSpec {
+    /**
+     * The name of the language of the kernel.
+     */
     language: string;
-    interruptMode: string;
-    kernelProvisioner: KernelProvisioner;
-    argV: string[];
+    /**
+     * The kernel’s name as it should be displayed in the UI.
+     */
+    display_name: string;
+    interrupt_mode: string;
+    metadata: JupyterKernelSpecMetadata;
+    argv: string[];
+}
+
+interface JupyterKernelSpecMetadata {
+    kernel_provisioner: KernelProvisioner;
 }
 
 interface KernelProvisioner {
-    name: string;
+    provisioner_name: string;
+    config: KernelProvisionerConfig;
+}
+
+interface KernelProvisionerConfig {
     gateway: string;
-    valid: boolean;
 }
 
 export type { DistributedJupyterKernel as DistributedJupyterKernel };
 export type { JupyterKernelReplica as JupyterKernelReplica };
-export type { JupyterKernelSpec as KernelSpec };
-export type { JupyterKernelSpec as KernelProvisioner };
+export type { JupyterKernelSpecWrapper as JupyterKernelSpecWrapper };
+export type { JupyterKernelSpec as JupyterKernelSpec };
+export type { JupyterKernelSpecMetadata as JupyterKernelSpecMetadata };
+export type { KernelProvisioner as KernelProvisioner };
+export type { KernelProvisionerConfig as KernelProvisionerConfig };
 export type { ResourceSpec as ResourceSpec };
