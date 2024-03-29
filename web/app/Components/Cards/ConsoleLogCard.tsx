@@ -1,5 +1,5 @@
 /* eslint-disable camelcase */
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useRef, useState } from 'react';
 import {
     Card,
     CardBody,
@@ -13,24 +13,23 @@ import {
     TabContent,
     TabTitleText,
     Tabs,
-    DescriptionList,
-    DescriptionListGroup,
-    DescriptionListTerm,
     Flex,
     FlexItem,
-    DescriptionListDescription,
     Button,
     ToolbarGroup,
     ToolbarItem,
     Tooltip,
     CodeBlock,
     CodeBlockCode,
+    useInterval,
 } from '@patternfly/react-core';
+
+import { AnsiUp } from 'ansi_up';
 
 import { Console, Hook, Unhook } from 'console-feed';
 import { Message } from 'console-feed/lib/definitions/Console';
 import { Message as MessageComponent } from 'console-feed/lib/definitions/Component';
-import { CheckCircleIcon, ExclamationCircleIcon, SyncIcon } from '@patternfly/react-icons';
+import { SyncIcon } from '@patternfly/react-icons';
 import { toast } from 'react-hot-toast';
 
 export const ConsoleLogCard: React.FunctionComponent = () => {
@@ -39,13 +38,19 @@ export const ConsoleLogCard: React.FunctionComponent = () => {
     const [browserConsoleLogs, setLogsBrowserConsoleLogs] = useState<MessageComponent[]>([]);
     const [podsAreRefreshing, setPodsAreRefreshing] = useState(false);
 
-    const [gatewayPodLogs, setGatewayPodLogs] = useState('');
-    const [jupyterPodLogs, setJupyterPodLogs] = useState('');
+    const doConvertAnsi: boolean = false;
+
+    const gatewayPodLogs = useRef('');
+    const jupyterPodLogs = useRef('');
 
     const [gatewayPod, setGatewayPod] = React.useState('');
     const [jupyterPod, setJupyterPod] = React.useState('');
 
-    const [localDaemonLogs, setLocalDaemonLogs] = React.useState<Map<number, string>>(new Map());
+    const logPollIntervalSeconds = 60;
+
+    const ansi_up = new AnsiUp();
+
+    const localDaemonLogs = useRef(new Map());
 
     useEffect(() => {
         const hookedConsole = Hook(
@@ -67,59 +72,92 @@ export const ConsoleLogCard: React.FunctionComponent = () => {
         setActiveLocalDaemonTabKey(Number(tabIndex));
     };
 
-    const fetchLogs = useCallback(
-        async (podName: string, containerName: string) => {
-            console.log(`Fetching logs for container ${containerName} of pod ${podName} now...`);
-            const resp: Response = await fetch(
-                `kubernetes/api/v1/namespaces/default/pods/${podName}/log?container=${containerName}`,
-            );
-            return await resp.text();
+    const fetchLogs = useCallback(async (podName: string, containerName: string, allLogs: boolean) => {
+        let url: string = `kubernetes/api/v1/namespaces/default/pods/${podName}/log?container=${containerName}`;
+        if (!allLogs) {
+            console.log(`Only retrieving most-recent logs for container ${containerName} of pod ${podName}`);
+            url = `kubernetes/api/v1/namespaces/default/pods/${podName}/log?container=${containerName}&sinceSeconds=${logPollIntervalSeconds}`;
+        } else {
+            console.log(`Retrieving all logs for container ${containerName} of pod ${podName}`);
+        }
+
+        console.log(`Fetching logs for container ${containerName} of pod ${podName} now...`);
+        const resp: Response = await fetch(url);
+        return await resp.text();
+    }, []);
+
+    const refreshPods = useCallback(
+        async (getLogs: boolean) => {
+            const requestOptions = {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'application/json',
+                    'Sec-Fetch-Dest': 'document',
+                },
+            };
+
+            console.log('Retrieving Pods now.');
+            const response: Response = await fetch('kubernetes/api/v1/namespaces/default/pods', requestOptions);
+            console.log(`Response for Pods refresh: ${response.status} ${response.statusText}`);
+            const responseJson: Record<string, any> = await response.json();
+
+            const podsJson: Record<string, any>[] = responseJson['items'];
+            podsJson.map((pod: Record<string, any>) => {
+                const podName: string = pod['metadata']['name'];
+                const containerName: string = pod['spec']['containers'][0]['name'];
+                console.log(`Discovered Pod ${podName} with Container ${containerName}`);
+
+                if (podName.includes('gateway')) {
+                    setGatewayPod(podName);
+                    if (getLogs) {
+                        fetchLogs(podName, containerName, gatewayPodLogs.current.length == 0).then((logs: string) => {
+                            if (doConvertAnsi) {
+                                gatewayPodLogs.current += ansi_up.ansi_to_html(logs);
+                            } else {
+                                gatewayPodLogs.current += logs;
+                            }
+                        });
+                    }
+                } else if (podName.includes('jupyter')) {
+                    setJupyterPod(podName);
+                    if (getLogs) {
+                        fetchLogs(podName, containerName, jupyterPodLogs.current.length == 0).then((logs: string) => {
+                            if (doConvertAnsi) {
+                                jupyterPodLogs.current += ansi_up.ansi_to_html(logs);
+                            } else {
+                                jupyterPodLogs.current += logs;
+                            }
+                        });
+                    }
+                } else if (podName.includes('local-daemon')) {
+                    if (getLogs) {
+                        const idx: number = Number.parseInt(
+                            podName.slice(podName.lastIndexOf('-') + 1, podName.length),
+                        );
+                        fetchLogs(podName, containerName, localDaemonLogs.current.get(idx)?.length == 0).then(
+                            (logs: string) => {
+                                const oldLogs: string = localDaemonLogs.current[idx] || '';
+                                let updatedLogs = '';
+                                if (doConvertAnsi) {
+                                    updatedLogs = oldLogs + ansi_up.ansi_to_html(logs);
+                                } else {
+                                    updatedLogs = oldLogs + logs;
+                                }
+                                localDaemonLogs.current.set(idx, updatedLogs);
+                            },
+                        );
+                    }
+                }
+            });
         },
-        [setGatewayPodLogs, setJupyterPodLogs],
+        [setGatewayPod, setJupyterPod, fetchLogs],
     );
 
-    const refreshPods = useCallback(async () => {
-        const requestOptions = {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                'Sec-Fetch-Dest': 'document',
-            },
-        };
-
-        console.log('Retrieving Pods now.');
-        const response: Response = await fetch('kubernetes/api/v1/namespaces/default/pods', requestOptions);
-        console.log(`Response for Pods refresh: ${response.status} ${response.statusText}`);
-        const responseJson: Record<string, any> = await response.json();
-
-        const podsJson: Record<string, any>[] = responseJson['items'];
-        podsJson.map((pod: Record<string, any>) => {
-            const podName: string = pod['metadata']['name'];
-            const containerName: string = pod['spec']['containers'][0]['name'];
-            console.log(`Discovered Pod ${podName} with Container ${containerName}`);
-
-            if (podName.includes('gateway')) {
-                fetchLogs(podName, containerName).then((logs: string) => {
-                    setGatewayPod(podName);
-                    setGatewayPodLogs(logs);
-                });
-            } else if (podName.includes('jupyter')) {
-                fetchLogs(podName, containerName).then((logs: string) => {
-                    setJupyterPod(podName);
-                    setJupyterPodLogs(logs);
-                });
-            } else if (podName.includes('local-daemon')) {
-                fetchLogs(podName, containerName).then((logs: string) => {
-                    const idx: number = Number.parseInt(podName.slice(podName.lastIndexOf('-') + 1, podName.length));
-                    setLocalDaemonLogs((m) => new Map(m).set(idx, logs));
-                });
-            }
-        });
-    }, [setGatewayPod, setJupyterPod, fetchLogs]);
-
     useEffect(() => {
-        refreshPods();
+        refreshPods(true);
     }, [refreshPods]);
+
+    useInterval(() => refreshPods(true), logPollIntervalSeconds * 1000);
 
     const cardHeaderActions = (
         <ToolbarGroup variant="icon-button-group">
@@ -138,7 +176,7 @@ export const ConsoleLogCard: React.FunctionComponent = () => {
                             setPodsAreRefreshing(true);
                             toast
                                 .promise(
-                                    refreshPods(),
+                                    refreshPods(true),
                                     {
                                         loading: <b>Refreshing Kubernetes Pods...</b>,
                                         success: <b>Refreshed Kubernetes Pods!</b>,
@@ -182,15 +220,53 @@ export const ConsoleLogCard: React.FunctionComponent = () => {
     const localDaemonIDs: number[] = [0, 1, 2, 3];
 
     const getLocalDaemonTabContent = (idx: number) => {
+        let html: string = localDaemonLogs.current.get(idx) || '';
+        const consoleId: string = `local-daemon-${idx}-console`;
+        var cdiv = document.getElementById(consoleId);
+        if (cdiv) {
+            cdiv.innerHTML = html;
+        }
         return (
             <Panel isScrollable variant="bordered">
                 <PanelMain maxHeight={'450px'}>
                     <PanelMainBody>
-                        <CodeBlock>
-                            <CodeBlockCode id="code-content">
-                                {localDaemonLogs.get(idx) || `No logs available for Local Daemon ${idx}`}
-                            </CodeBlockCode>
-                        </CodeBlock>
+                        <pre id={consoleId}></pre>
+                    </PanelMainBody>
+                </PanelMain>
+            </Panel>
+        );
+    };
+
+    const getGatewayTabContent = () => {
+        let html: string = gatewayPodLogs.current;
+        const consoleId: string = `gateway-console`;
+        var cdiv = document.getElementById(consoleId);
+        if (cdiv) {
+            cdiv.innerHTML = html;
+        }
+        return (
+            <Panel isScrollable variant="bordered">
+                <PanelMain maxHeight={'450px'}>
+                    <PanelMainBody>
+                        <pre id={consoleId}></pre>
+                    </PanelMainBody>
+                </PanelMain>
+            </Panel>
+        );
+    };
+
+    const getJupyterTabContent = () => {
+        let html: string = jupyterPodLogs.current;
+        const consoleId: string = `jupyter-console`;
+        var cdiv = document.getElementById(consoleId);
+        if (cdiv) {
+            cdiv.innerHTML = html;
+        }
+        return (
+            <Panel isScrollable variant="bordered">
+                <PanelMain maxHeight={'450px'}>
+                    <PanelMainBody>
+                        <pre id={consoleId}></pre>
                     </PanelMainBody>
                 </PanelMain>
             </Panel>
@@ -275,15 +351,7 @@ export const ConsoleLogCard: React.FunctionComponent = () => {
                     activeKey={activeTabKey}
                     hidden={1 !== activeTabKey}
                 >
-                    <Panel isScrollable variant="bordered">
-                        <PanelMain maxHeight={'450px'}>
-                            <PanelMainBody>
-                                <CodeBlock>
-                                    <CodeBlockCode id="code-content">{gatewayPodLogs}</CodeBlockCode>
-                                </CodeBlock>
-                            </PanelMainBody>
-                        </PanelMain>
-                    </Panel>
+                    {getGatewayTabContent()}
                 </TabContent>
                 <TabContent
                     key={2}
@@ -292,15 +360,7 @@ export const ConsoleLogCard: React.FunctionComponent = () => {
                     activeKey={activeTabKey}
                     hidden={2 !== activeTabKey}
                 >
-                    <Panel isScrollable variant="bordered">
-                        <PanelMain maxHeight={'450px'}>
-                            <PanelMainBody>
-                                <CodeBlock>
-                                    <CodeBlockCode id="code-content">{jupyterPodLogs}</CodeBlockCode>
-                                </CodeBlock>
-                            </PanelMainBody>
-                        </PanelMain>
-                    </Panel>
+                    {getJupyterTabContent()}
                 </TabContent>
                 {localDaemonIDs.map((id: number) => (
                     <TabContent
