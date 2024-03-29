@@ -49,7 +49,7 @@ export const KernelSpecList: React.FunctionComponent = () => {
                             toast.promise(
                                 refreshKernelSpecs(),
                                 {
-                                    loading: 'Refreshing Jupyter KernelSpecs...',
+                                    loading: <b>Refreshing Jupyter KernelSpecs...</b>,
                                     success: <b>Refreshed Jupyter KernelSpecs!</b>,
                                     error: (reason: Error) => {
                                         let reasonUI = <FlexItem>{reason.message}</FlexItem>;

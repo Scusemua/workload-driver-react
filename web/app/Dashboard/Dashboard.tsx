@@ -34,19 +34,23 @@ import { useKernels } from '@app/Providers';
 
 export interface DashboardProps {}
 
-export const KernelCardHeightContext = createContext<CardHeightContext>({
-    height: 1,
-    setHeight: (newHeight: number) => {},
-});
-export const WorkloadCardHeightContext = createContext<CardHeightContext>({
-    height: 1,
-    setHeight: (newHeight: number) => {},
-});
-
-export type CardHeightContext = {
-    height: number;
-    setHeight: (newHeight: number) => void;
+export type ItemsPerPageContext = {
+    itemsPerPage: number;
+    setItemsPerPage: (value: number) => void;
 };
+
+export const KernelsPerPageContext = createContext<ItemsPerPageContext>({
+    itemsPerPage: 1,
+    setItemsPerPage: (newHeight: number) => {},
+});
+export const KubernetesNodePerPageContext = createContext<ItemsPerPageContext>({
+    itemsPerPage: 3,
+    setItemsPerPage: (newHeight: number) => {},
+});
+export const WorkloadsPerPageContext = createContext<ItemsPerPageContext>({
+    itemsPerPage: 3,
+    setItemsPerPage: (newHeight: number) => {},
+});
 
 const Dashboard: React.FunctionComponent<DashboardProps> = () => {
     const [isRegisterWorkloadModalOpen, setIsRegisterWorkloadModalOpen] = React.useState(false);
@@ -64,8 +68,9 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
 
     console.log(`workloads.length: ${workloads.length}`);
 
-    const [workloadCardHeight, setWorkloadCardHeight] = React.useState(workloads.length >= 3 ? 2 : 1);
-    const [kernelCardHeight, setKernelCardHeight] = React.useState(kernels.length >= 3 ? 2 : 1);
+    const [workloadItemsPerPage, setWorkloadItemsPerPage] = React.useState(3);
+    const [kernelItemsPerPage, setKernelItemsPerPage] = React.useState(3);
+    const [kubeNodeItemsPerPage, setKubeNodeItemsPerPage] = React.useState(3);
 
     const onConfirmMigrateReplica = (
         targetReplica: JupyterKernelReplica,
@@ -310,24 +315,51 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
         console.log(`Received updated virtual GPU info: ${JSON.stringify(virtualGpuInfo)}`);
     }
 
+    const getWorkloadCardRowspan = () => {
+        const heightFactor: number = Math.min(workloads.length, workloadItemsPerPage);
+        if (heightFactor <= 2) {
+            return 1 as gridSpans;
+        } else {
+            return 2 as gridSpans;
+        }
+    };
+
+    const getKernelCardRowspan = () => {
+        const heightFactor: number = Math.min(kernels.length, kernelItemsPerPage);
+        if (heightFactor <= 2) {
+            return 1 as gridSpans;
+        } else {
+            return 2 as gridSpans;
+        }
+    };
+
+    const getKubeNodeCardRowspan = () => {
+        const heightFactor: number = Math.min(nodes.length, kubeNodeItemsPerPage);
+        if (heightFactor <= 2) {
+            return 1 as gridSpans;
+        } else {
+            return 2 as gridSpans;
+        }
+    };
+
     return (
         <PageSection>
             <Grid hasGutter>
-                <GridItem span={6} rowSpan={kernelCardHeight as gridSpans}>
-                    <KernelCardHeightContext.Provider
+                <GridItem span={6} rowSpan={getKernelCardRowspan()}>
+                    <KernelsPerPageContext.Provider
                         value={{
-                            height: kernelCardHeight,
-                            setHeight: (newHeight: number) => setKernelCardHeight(newHeight),
+                            itemsPerPage: kernelItemsPerPage,
+                            setItemsPerPage: (newHeight: number) => setKernelItemsPerPage(newHeight),
                         }}
                     >
                         <KernelList kernelsPerPage={3} openMigrationModal={openMigrationModal} />
-                    </KernelCardHeightContext.Provider>
+                    </KernelsPerPageContext.Provider>
                 </GridItem>
-                <GridItem span={6} rowSpan={workloadCardHeight as gridSpans}>
-                    <WorkloadCardHeightContext.Provider
+                <GridItem span={6} rowSpan={getWorkloadCardRowspan()}>
+                    <WorkloadsPerPageContext.Provider
                         value={{
-                            height: workloadCardHeight,
-                            setHeight: (newHeight: number) => setWorkloadCardHeight(newHeight),
+                            itemsPerPage: workloadItemsPerPage,
+                            setItemsPerPage: (value: number) => setWorkloadItemsPerPage(value),
                         }}
                     >
                         <WorkloadCard
@@ -341,20 +373,28 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
                                 setIsRegisterWorkloadModalOpen(true);
                             }}
                         />
-                    </WorkloadCardHeightContext.Provider>
+                    </WorkloadsPerPageContext.Provider>
                 </GridItem>
                 <GridItem span={6} rowSpan={2}>
                     <ConsoleLogCard />
                 </GridItem>
-                <GridItem span={6} rowSpan={nodes.length == 0 ? 1 : 2}>
-                    <KubernetesNodeList
-                        hideAdjustVirtualGPUsButton={false}
-                        onAdjustVirtualGPUsClicked={onAdjustVirtualGPUsClicked}
-                        hideControlPlaneNode={true}
-                        nodesPerPage={3}
-                        selectableViaCheckboxes={false}
-                        displayNodeToggleSwitch={true}
-                    />
+                <GridItem span={6} rowSpan={getKubeNodeCardRowspan()}>
+                    <KubernetesNodePerPageContext.Provider
+                        value={{
+                            itemsPerPage: kubeNodeItemsPerPage,
+                            setItemsPerPage: (value: number) => setKubeNodeItemsPerPage(value),
+                        }}
+                    >
+                        <KubernetesNodeList
+                            isDashboardList={true}
+                            hideAdjustVirtualGPUsButton={false}
+                            onAdjustVirtualGPUsClicked={onAdjustVirtualGPUsClicked}
+                            hideControlPlaneNode={true}
+                            nodesPerPage={3}
+                            selectableViaCheckboxes={false}
+                            displayNodeToggleSwitch={true}
+                        />
+                    </KubernetesNodePerPageContext.Provider>
                 </GridItem>
                 <GridItem span={6} rowSpan={1}>
                     <KernelSpecList />

@@ -16,7 +16,7 @@ const fetcher = async (input: RequestInfo | URL) => {
         return await response.json();
     } catch (e) {
         if (signal.aborted) {
-            console.error(`Request timed out.`);
+            console.error('refresh-kernels request timed out.');
             throw new Error(`The request timed out.`); // Different error.
         } else {
             console.error(`Failed to fetch kernels because: ${e}`);

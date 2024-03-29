@@ -43,6 +43,7 @@ export const MigrationModal: React.FunctionComponent<MigrationModalProps> = (pro
             </TextContent>
             <br />
             <KubernetesNodeList
+                isDashboardList={false}
                 hideAdjustVirtualGPUsButton={true}
                 displayNodeToggleSwitch={false}
                 nodesPerPage={5}

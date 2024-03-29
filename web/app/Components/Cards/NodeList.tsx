@@ -49,9 +49,11 @@ import {
 import { useNodes } from '@providers/NodeProvider';
 import { GpuIcon } from '@app/Icons';
 import { toast } from 'react-hot-toast';
+import { ItemsPerPageContext, WorkloadsPerPageContext } from '@app/Dashboard/Dashboard';
 
 export interface NodeListProps {
     selectableViaCheckboxes: boolean;
+    isDashboardList: boolean; // Indicates whether the node list is the primary list that appears on the dashboard
     disableRadiosWithKernel?: string; // KernelID such that, if a node has a Pod for that kernel, its radio button is disabled.
     hideControlPlaneNode?: boolean;
     onSelectNode?: (nodeId: string) => void; // Function to call when a node is selected; used in case parent wants to do something when node is selected, such as update state.
@@ -69,6 +71,7 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
     const [perPage, setPerPage] = React.useState(props.nodesPerPage);
     const { nodes, nodesAreLoading, refreshNodes } = useNodes();
     const [, forceUpdate] = useReducer((x) => x + 1, 0);
+    const itemsPerPageContext: ItemsPerPageContext = React.useContext(WorkloadsPerPageContext);
 
     const onSetPage = (_event: React.MouseEvent | React.KeyboardEvent | MouseEvent, newPage: number) => {
         setPage(newPage);
@@ -91,6 +94,10 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
             newPerPage * (newPage - 1),
             newPerPage * (newPage - 1) + newPerPage,
         );
+
+        if (props.isDashboardList) {
+            itemsPerPageContext.setItemsPerPage(newPerPage);
+        }
     };
 
     // When the user types something into the node name filter, we update the associated state.
@@ -169,7 +176,7 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                             variant="plain"
                             onClick={() => {
                                 toast.promise(refreshNodes(), {
-                                    loading: 'Refreshing Kubernetes nodes...',
+                                    loading: <b>Refreshing Kubernetes nodes...</b>,
                                     success: <b>Refreshed Kubernetes nodes!</b>,
                                     error: (reason: Error) => {
                                         return (
@@ -482,7 +489,7 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
     );
 
     return (
-        <Card isRounded isFullHeight>
+        <Card isRounded>
             <CardHeader
                 actions={{ actions: toolbar, hasNoOffset: false }}
                 toggleButtonProps={{

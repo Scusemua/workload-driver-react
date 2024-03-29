@@ -90,7 +90,7 @@ import {
 import { DistributedJupyterKernel, JupyterKernelReplica, ResourceSpec } from '@data/Kernel';
 import { useKernels } from '@providers/KernelProvider';
 import { GpuIcon } from '@app/Icons';
-import { CardHeightContext, KernelCardHeightContext } from '@app/Dashboard/Dashboard';
+import { ItemsPerPageContext, KernelsPerPageContext } from '@app/Dashboard/Dashboard';
 
 function isNumber(value?: string | number): boolean {
     return value != null && value !== '' && !isNaN(Number(value.toString()));
@@ -139,7 +139,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
     const { kernels, kernelsAreLoading, refreshKernels } = useKernels();
     const [openReplicaDropdownMenu, setOpenReplicaDropdownMenu] = React.useState<string>('');
     const [openKernelDropdownMenu, setOpenKernelDropdownMenu] = React.useState<string>('');
-    const heightContext: CardHeightContext = React.useContext(KernelCardHeightContext);
+    const itemsPerPageContext: ItemsPerPageContext = React.useContext(KernelsPerPageContext);
 
     const [, forceUpdate] = useReducer((x) => x + 1, 0);
 
@@ -201,13 +201,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             newPerPage * (newPage - 1) + newPerPage,
         );
 
-        const heightFactor: number = Math.min(kernels.length, newPerPage);
-        if (heightFactor <= 1) {
-            heightContext.setHeight(1);
-        } else {
-            console.log('Setting kernel card height to 2.');
-            heightContext.setHeight(2);
-        }
+        itemsPerPageContext.setItemsPerPage(newPerPage);
     };
 
     async function initializeKernelManagers() {
@@ -769,7 +763,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                             }
                             onClick={() => {
                                 toast.promise(refreshKernels(), {
-                                    loading: 'Refreshing kernels...',
+                                    loading: <b>Refreshing kernels...</b>,
                                     success: <b>Refreshed kernels!</b>,
                                     error: (reason: Error) => {
                                         return (

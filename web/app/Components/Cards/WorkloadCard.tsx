@@ -51,7 +51,7 @@ import {
     Workload,
 } from '@app/Data/Workload';
 import { useWorkloads } from '@providers/WorkloadProvider';
-import { CardHeightContext, WorkloadCardHeightContext } from '@app/Dashboard/Dashboard';
+import { ItemsPerPageContext, WorkloadsPerPageContext } from '@app/Dashboard/Dashboard';
 
 export interface WorkloadCardProps {
     onLaunchWorkloadClicked: () => void;
@@ -66,7 +66,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
     const [selectedWorkloadListId, setSelectedWorkloadListId] = React.useState('');
     const [page, setPage] = React.useState(1);
     const [perPage, setPerPage] = React.useState(props.workloadsPerPage);
-    const heightContext: CardHeightContext = React.useContext(WorkloadCardHeightContext);
+    const itemsPerPageContext: ItemsPerPageContext = React.useContext(WorkloadsPerPageContext);
 
     const { workloads } = useWorkloads();
 
@@ -92,13 +92,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
             newPerPage * (newPage - 1) + newPerPage,
         );
 
-        const heightFactor: number = Math.min(workloads.length, newPerPage);
-        if (heightFactor <= 2) {
-            heightContext.setHeight(1);
-        } else {
-            console.log('Setting workload card height to 2.');
-            heightContext.setHeight(2);
-        }
+        itemsPerPageContext.setItemsPerPage(newPerPage);
     };
 
     const onSelectWorkload = (_event: React.MouseEvent | React.KeyboardEvent, id: string) => {
