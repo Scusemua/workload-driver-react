@@ -19,13 +19,13 @@ import {
     Tooltip,
 } from '@patternfly/react-core';
 import { KernelSpecManager, ServerConnection } from '@jupyterlab/services';
-import { ISpecModel } from '@jupyterlab/services/lib/kernelspec/restapi';
 import { SyncIcon } from '@patternfly/react-icons';
+import { useKernelSpecs } from '@app/Providers';
 
 export const KernelSpecList: React.FunctionComponent = () => {
     const [activeTabKey, setActiveTabKey] = React.useState(0);
     const kernelSpecManager = useRef<KernelSpecManager | null>(null);
-    const [refreshingKernelSpecs, setRefreshingKernelSpecs] = React.useState(false);
+    const { kernelSpecs, kernelSpecsAreLoading, refreshKernelSpecs } = useKernelSpecs();
 
     useEffect(() => {
         async function initializeKernelManagers() {
@@ -64,57 +64,6 @@ export const KernelSpecList: React.FunctionComponent = () => {
         setActiveTabKey(Number(tabIndex));
     };
 
-    const ignoreResponse = useRef(false);
-    async function fetchKernelSpecs() {
-        const startTime = performance.now();
-        try {
-            setRefreshingKernelSpecs(true);
-            console.log('Refreshing kernel specs.');
-
-            // Make a network request to the backend. The server infrastructure handles proxying/routing the request to the correct host.
-            // We're specifically targeting the API endpoint I setup called "kernelspecs".
-            // const response = await fetch('/api/jupyter/kernelspecs');
-            // const respKernels: KernelSpec[] = await response.json();
-
-            kernelSpecManager.current?.refreshSpecs().then(() => {
-                if (!ignoreResponse.current && kernelSpecManager.current?.specs?.kernelspecs != undefined) {
-                    const respKernels: { [key: string]: ISpecModel | undefined } =
-                        kernelSpecManager.current?.specs.kernelspecs;
-
-                    if (respKernels !== undefined) {
-                        setKernelSpecs(respKernels!);
-                    }
-
-                    ignoreResponse.current = true;
-                }
-
-                setRefreshingKernelSpecs(false);
-            });
-        } catch (e) {
-            console.error(e);
-        }
-
-        console.log(`Refresh kernel specs: ${(performance.now() - startTime).toFixed(4)} ms`);
-    }
-
-    const [kernelSpecs, setKernelSpecs] = React.useState<{ [key: string]: ISpecModel | undefined }>({});
-    useEffect(() => {
-        ignoreResponse.current = false;
-        fetchKernelSpecs();
-
-        // Periodically refresh the automatically kernel specs every 5 minutes.
-        setInterval(() => {
-            ignoreResponse.current = false;
-            fetchKernelSpecs().then(() => {
-                ignoreResponse.current = true;
-            });
-        }, 300000);
-
-        return () => {
-            ignoreResponse.current = true;
-        };
-    }, []);
-
     const cardHeaderActions = (
         <ToolbarGroup variant="icon-button-group">
             <ToolbarItem>
@@ -123,14 +72,15 @@ export const KernelSpecList: React.FunctionComponent = () => {
                         label="refresh-kernel-specs-button"
                         aria-label="refresh-kernel-specs-button"
                         variant="plain"
-                        isDisabled={refreshingKernelSpecs}
+                        isDisabled={kernelSpecsAreLoading}
                         className={
-                            (refreshingKernelSpecs && 'loading-icon-spin-toggleable') ||
+                            (kernelSpecsAreLoading && 'loading-icon-spin-toggleable') ||
                             'loading-icon-spin-toggleable paused'
                         }
                         onClick={() => {
-                            ignoreResponse.current = false;
-                            fetchKernelSpecs();
+                            // ignoreResponse.current = false;
+                            // fetchKernelSpecs();
+                            refreshKernelSpecs();
                         }}
                         icon={<SyncIcon />}
                     />

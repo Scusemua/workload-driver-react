@@ -1177,7 +1177,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
 
     const pendingKernelArr = range(0, numKernelsCreating.current);
 
-    console.log(`Kernels: ${JSON.stringify(kernels)}`);
+    // console.log(`Kernels: ${JSON.stringify(kernels)}`);
 
     return (
         <Card isRounded isFullHeight>
