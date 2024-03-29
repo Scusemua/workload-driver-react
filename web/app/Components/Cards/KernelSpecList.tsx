@@ -19,6 +19,7 @@ import {
     Tooltip,
     Flex,
     FlexItem,
+    Panel,
 } from '@patternfly/react-core';
 import { SyncIcon } from '@patternfly/react-icons';
 import { useKernelSpecs } from '@app/Providers';

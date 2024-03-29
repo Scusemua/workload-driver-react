@@ -1,5 +1,5 @@
 /* eslint-disable camelcase */
-import React, { useEffect, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
     Card,
     CardBody,
@@ -19,22 +19,39 @@ import {
     Flex,
     FlexItem,
     DescriptionListDescription,
+    Button,
+    ToolbarGroup,
+    ToolbarItem,
+    Tooltip,
+    CodeBlock,
+    CodeBlockCode,
 } from '@patternfly/react-core';
 
 import { Console, Hook, Unhook } from 'console-feed';
 import { Message } from 'console-feed/lib/definitions/Console';
 import { Message as MessageComponent } from 'console-feed/lib/definitions/Component';
-import { CheckCircleIcon, ExclamationCircleIcon } from '@patternfly/react-icons';
+import { CheckCircleIcon, ExclamationCircleIcon, SyncIcon } from '@patternfly/react-icons';
+import { toast } from 'react-hot-toast';
 
 export const ConsoleLogCard: React.FunctionComponent = () => {
     const [activeTabKey, setActiveTabKey] = React.useState(0);
     const [activeLocalDaemonTabKey, setActiveLocalDaemonTabKey] = React.useState(0);
-    const [logs, setLogs] = useState<MessageComponent[]>([]);
+    const [browserConsoleLogs, setLogsBrowserConsoleLogs] = useState<MessageComponent[]>([]);
+    const [podsAreRefreshing, setPodsAreRefreshing] = useState(false);
+
+    const [gatewayPodLogs, setGatewayPodLogs] = useState('');
+    const [jupyterPodLogs, setJupyterPodLogs] = useState('');
+
+    const [gatewayPod, setGatewayPod] = React.useState('');
+    const [jupyterPod, setJupyterPod] = React.useState('');
+
+    const [localDaemonLogs, setLocalDaemonLogs] = React.useState<Map<number, string>>(new Map());
 
     useEffect(() => {
         const hookedConsole = Hook(
             window.console,
-            (log: Message) => setLogs((currLogs: MessageComponent[]) => [...currLogs, log as MessageComponent]),
+            (log: Message) =>
+                setLogsBrowserConsoleLogs((currLogs: MessageComponent[]) => [...currLogs, log as MessageComponent]),
             false,
         );
         return () => {
@@ -50,61 +67,139 @@ export const ConsoleLogCard: React.FunctionComponent = () => {
         setActiveLocalDaemonTabKey(Number(tabIndex));
     };
 
-    const descriptionListData = [
-        {
-            status: 'Running',
-            resourceName: 'Resource name that is long and can wrap',
-            detail: '121 Systems',
-            icon: <CheckCircleIcon />,
+    const fetchLogs = useCallback(
+        async (podName: string, containerName: string) => {
+            console.log(`Fetching logs for container ${containerName} of pod ${podName} now...`);
+            const resp: Response = await fetch(
+                `kubernetes/api/v1/namespaces/default/pods/${podName}/log?container=${containerName}`,
+            );
+            return await resp.text();
         },
-        {
-            status: 'Ready',
-            resourceName: 'Resource name that is long and can wrap',
-            detail: '123 Systems',
-            icon: <ExclamationCircleIcon />,
-        },
-        {
-            status: 'Running',
-            resourceName: 'Resource name that is long and can wrap',
-            detail: '122 Systems',
-            icon: <CheckCircleIcon />,
-        },
-        {
-            status: 'Ready',
-            resourceName: 'Resource name that is long and can wrap',
-            detail: '124 Systems',
-            icon: <ExclamationCircleIcon />,
-        },
-    ];
+        [setGatewayPodLogs, setJupyterPodLogs],
+    );
 
-    const tabContent = (
-        <DescriptionList isHorizontal columnModifier={{ lg: '2Col' }}>
-            {descriptionListData.map(({ status, resourceName, detail, icon }, index) => (
-                <DescriptionListGroup key={index}>
-                    <DescriptionListTerm>
-                        <Flex>
-                            <FlexItem>{icon}</FlexItem>
-                            <FlexItem>
-                                <Title headingLevel="h4" size="md">
-                                    {status}
-                                </Title>
-                            </FlexItem>
-                        </Flex>
-                    </DescriptionListTerm>
-                    <DescriptionListDescription>
-                        <a href="#">{resourceName}</a>
-                        <div>{detail}</div>
-                    </DescriptionListDescription>
-                </DescriptionListGroup>
-            ))}
-        </DescriptionList>
+    const refreshPods = useCallback(async () => {
+        const requestOptions = {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Sec-Fetch-Dest': 'document',
+            },
+        };
+
+        console.log('Retrieving Pods now.');
+        const response: Response = await fetch('kubernetes/api/v1/namespaces/default/pods', requestOptions);
+        console.log(`Response for Pods refresh: ${response.status} ${response.statusText}`);
+        const responseJson: Record<string, any> = await response.json();
+
+        const podsJson: Record<string, any>[] = responseJson['items'];
+        podsJson.map((pod: Record<string, any>) => {
+            const podName: string = pod['metadata']['name'];
+            const containerName: string = pod['spec']['containers'][0]['name'];
+            console.log(`Discovered Pod ${podName} with Container ${containerName}`);
+
+            if (podName.includes('gateway')) {
+                fetchLogs(podName, containerName).then((logs: string) => {
+                    setGatewayPod(podName);
+                    setGatewayPodLogs(logs);
+                });
+            } else if (podName.includes('jupyter')) {
+                fetchLogs(podName, containerName).then((logs: string) => {
+                    setJupyterPod(podName);
+                    setJupyterPodLogs(logs);
+                });
+            } else if (podName.includes('local-daemon')) {
+                fetchLogs(podName, containerName).then((logs: string) => {
+                    const idx: number = Number.parseInt(podName.slice(podName.lastIndexOf('-') + 1, podName.length));
+                    setLocalDaemonLogs((m) => new Map(m).set(idx, logs));
+                });
+            }
+        });
+    }, [setGatewayPod, setJupyterPod, fetchLogs]);
+
+    useEffect(() => {
+        refreshPods();
+    }, [refreshPods]);
+
+    const cardHeaderActions = (
+        <ToolbarGroup variant="icon-button-group">
+            <ToolbarItem>
+                <Tooltip exitDelay={75} content={<div>Refresh kernel specs.</div>}>
+                    <Button
+                        label="refresh-kernel-specs-button"
+                        aria-label="refresh-kernel-specs-button"
+                        variant="plain"
+                        isDisabled={podsAreRefreshing}
+                        className={
+                            (podsAreRefreshing && 'loading-icon-spin-toggleable') ||
+                            'loading-icon-spin-toggleable paused'
+                        }
+                        onClick={() => {
+                            setPodsAreRefreshing(true);
+                            toast
+                                .promise(
+                                    refreshPods(),
+                                    {
+                                        loading: <b>Refreshing Kubernetes Pods...</b>,
+                                        success: <b>Refreshed Kubernetes Pods!</b>,
+                                        error: (reason: Error) => {
+                                            let reasonUI = <FlexItem>{reason.message}</FlexItem>;
+
+                                            if (reason.message.includes("Unexpected token 'E'")) {
+                                                reasonUI = <FlexItem>HTTP 504: Gateway Timeout</FlexItem>;
+                                            }
+
+                                            return (
+                                                <Flex
+                                                    direction={{ default: 'column' }}
+                                                    spaceItems={{ default: 'spaceItemsNone' }}
+                                                >
+                                                    <FlexItem>
+                                                        <b>Could not refresh Kuberentes Pods.</b>
+                                                    </FlexItem>
+                                                    {reasonUI}
+                                                </Flex>
+                                            );
+                                        },
+                                    },
+                                    {
+                                        style: {
+                                            padding: '8px',
+                                        },
+                                    },
+                                )
+                                .then(() => {
+                                    setPodsAreRefreshing(false);
+                                });
+                        }}
+                        icon={<SyncIcon />}
+                    />
+                </Tooltip>
+            </ToolbarItem>
+        </ToolbarGroup>
     );
 
     const localDaemonIDs: number[] = [0, 1, 2, 3];
 
+    const getLocalDaemonTabContent = (idx: number) => {
+        return (
+            <Panel isScrollable variant="bordered">
+                <PanelMain maxHeight={'450px'}>
+                    <PanelMainBody>
+                        <CodeBlock>
+                            <CodeBlockCode id="code-content">
+                                {localDaemonLogs.get(idx) || `No logs available for Local Daemon ${idx}`}
+                            </CodeBlockCode>
+                        </CodeBlock>
+                    </PanelMainBody>
+                </PanelMain>
+            </Panel>
+        );
+    };
+
     return (
         <Card isRounded id="console-log-view-card">
-            <CardHeader>
+            <CardHeader actions={{ actions: cardHeaderActions, hasNoOffset: false }}>
                 <CardTitle>
                     <Title headingLevel="h1" size="xl">
                         Logs
@@ -135,7 +230,7 @@ export const ConsoleLogCard: React.FunctionComponent = () => {
                         key={3}
                         eventKey={3}
                         title={<TabTitleText>{'Local Daemons'}</TabTitleText>}
-                        tabContentId={`tab-content-local-daemon-logs`}
+                        tabContentId={`tab-content-local-daemon-browserConsoleLogs`}
                     >
                         <Tabs
                             isFilled
@@ -168,7 +263,41 @@ export const ConsoleLogCard: React.FunctionComponent = () => {
                     <Panel isScrollable variant="bordered">
                         <PanelMain maxHeight={'450px'}>
                             <PanelMainBody>
-                                <Console logs={logs} variant="dark" />
+                                <Console logs={browserConsoleLogs} variant="dark" />
+                            </PanelMainBody>
+                        </PanelMain>
+                    </Panel>
+                </TabContent>
+                <TabContent
+                    key={1}
+                    eventKey={1}
+                    id={`tabContent${1}`}
+                    activeKey={activeTabKey}
+                    hidden={1 !== activeTabKey}
+                >
+                    <Panel isScrollable variant="bordered">
+                        <PanelMain maxHeight={'450px'}>
+                            <PanelMainBody>
+                                <CodeBlock>
+                                    <CodeBlockCode id="code-content">{gatewayPodLogs}</CodeBlockCode>
+                                </CodeBlock>
+                            </PanelMainBody>
+                        </PanelMain>
+                    </Panel>
+                </TabContent>
+                <TabContent
+                    key={2}
+                    eventKey={2}
+                    id={`tabContent${2}`}
+                    activeKey={activeTabKey}
+                    hidden={2 !== activeTabKey}
+                >
+                    <Panel isScrollable variant="bordered">
+                        <PanelMain maxHeight={'450px'}>
+                            <PanelMainBody>
+                                <CodeBlock>
+                                    <CodeBlockCode id="code-content">{jupyterPodLogs}</CodeBlockCode>
+                                </CodeBlock>
                             </PanelMainBody>
                         </PanelMain>
                     </Panel>
@@ -181,26 +310,7 @@ export const ConsoleLogCard: React.FunctionComponent = () => {
                         activeKey={activeLocalDaemonTabKey}
                         hidden={id !== activeLocalDaemonTabKey || 3 !== activeTabKey}
                     >
-                        <DescriptionList isHorizontal columnModifier={{ lg: '2Col' }}>
-                            {descriptionListData.map(({ status, resourceName, detail, icon }, index) => (
-                                <DescriptionListGroup key={index}>
-                                    <DescriptionListTerm>
-                                        <Flex>
-                                            <FlexItem>{icon}</FlexItem>
-                                            <FlexItem>
-                                                <Title headingLevel="h4" size="md">
-                                                    {status}
-                                                </Title>
-                                            </FlexItem>
-                                        </Flex>
-                                    </DescriptionListTerm>
-                                    <DescriptionListDescription>
-                                        <a href="#">{resourceName}</a>
-                                        <div>{detail}</div>
-                                    </DescriptionListDescription>
-                                </DescriptionListGroup>
-                            ))}
-                        </DescriptionList>
+                        {getLocalDaemonTabContent(id)}
                     </TabContent>
                 ))}
             </CardBody>

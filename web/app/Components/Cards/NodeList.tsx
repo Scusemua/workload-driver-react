@@ -489,7 +489,7 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
     );
 
     return (
-        <Card isRounded>
+        <Card isFullHeight isRounded>
             <CardHeader
                 actions={{ actions: toolbar, hasNoOffset: false }}
                 toggleButtonProps={{

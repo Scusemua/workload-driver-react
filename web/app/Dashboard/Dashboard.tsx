@@ -343,6 +343,9 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
     return (
         <PageSection>
             <Grid hasGutter>
+                <GridItem span={12} rowSpan={8}>
+                    <ConsoleLogCard />
+                </GridItem>
                 <GridItem span={6} rowSpan={getKernelCardRowspan()}>
                     <KernelsPerPageContext.Provider
                         value={{
@@ -375,9 +378,6 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
                 </GridItem>
                 <GridItem span={6} rowSpan={1}>
                     <KernelSpecList />
-                </GridItem>
-                <GridItem span={6} rowSpan={2}>
-                    <ConsoleLogCard />
                 </GridItem>
                 <GridItem span={6} rowSpan={getKubeNodeCardRowspan()}>
                     <KubernetesNodePerPageContext.Provider
