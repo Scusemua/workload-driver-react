@@ -5,9 +5,6 @@ import {
     CardBody,
     CardHeader,
     CardTitle,
-    Panel,
-    PanelMain,
-    PanelMainBody,
     Title,
     Tab,
     TabContent,
@@ -19,50 +16,37 @@ import {
     ToolbarGroup,
     ToolbarItem,
     Tooltip,
-    CodeBlock,
-    CodeBlockCode,
-    useInterval,
+    TabTitleIcon,
+    CardExpandableContent,
 } from '@patternfly/react-core';
 
 import { AnsiUp } from 'ansi_up';
 
-import { Console, Hook, Unhook } from 'console-feed';
-import { Message } from 'console-feed/lib/definitions/Console';
-import { Message as MessageComponent } from 'console-feed/lib/definitions/Component';
-import { SyncIcon } from '@patternfly/react-icons';
+import {
+    BugIcon,
+    DumpsterIcon,
+    EraserIcon,
+    LaptopCodeIcon,
+    ServerAltIcon,
+    ServerGroupIcon,
+    ServerIcon,
+    SyncIcon,
+    TrashAltIcon,
+    TrashIcon,
+} from '@patternfly/react-icons';
 import { toast } from 'react-hot-toast';
+import { ConsoleLogViewComponent } from '../ConsoleLogView';
+import { KubernetesLogViewComponent } from '../KubernetesLogView';
 
 export const ConsoleLogCard: React.FunctionComponent = () => {
     const [activeTabKey, setActiveTabKey] = React.useState(0);
     const [activeLocalDaemonTabKey, setActiveLocalDaemonTabKey] = React.useState(0);
-    const [browserConsoleLogs, setLogsBrowserConsoleLogs] = useState<MessageComponent[]>([]);
     const [podsAreRefreshing, setPodsAreRefreshing] = useState(false);
 
-    const doConvertAnsi: boolean = false;
-
-    const gatewayPodLogs = useRef('');
-    const jupyterPodLogs = useRef('');
+    const [isCardExpanded, setIsCardExpanded] = useState(true);
 
     const [gatewayPod, setGatewayPod] = React.useState('');
     const [jupyterPod, setJupyterPod] = React.useState('');
-
-    const logPollIntervalSeconds = 60;
-
-    const ansi_up = new AnsiUp();
-
-    const localDaemonLogs = useRef(new Map());
-
-    useEffect(() => {
-        const hookedConsole = Hook(
-            window.console,
-            (log: Message) =>
-                setLogsBrowserConsoleLogs((currLogs: MessageComponent[]) => [...currLogs, log as MessageComponent]),
-            false,
-        );
-        return () => {
-            Unhook(hookedConsole);
-        };
-    }, []);
 
     const handleTabClick = (_e: React.MouseEvent<HTMLElement, MouseEvent>, tabIndex: string | number) => {
         setActiveTabKey(Number(tabIndex));
@@ -72,97 +56,42 @@ export const ConsoleLogCard: React.FunctionComponent = () => {
         setActiveLocalDaemonTabKey(Number(tabIndex));
     };
 
-    const fetchLogs = useCallback(async (podName: string, containerName: string, allLogs: boolean) => {
-        let url: string = `kubernetes/api/v1/namespaces/default/pods/${podName}/log?container=${containerName}`;
-        if (!allLogs) {
-            console.log(`Only retrieving most-recent logs for container ${containerName} of pod ${podName}`);
-            url = `kubernetes/api/v1/namespaces/default/pods/${podName}/log?container=${containerName}&sinceSeconds=${logPollIntervalSeconds}`;
-        } else {
-            console.log(`Retrieving all logs for container ${containerName} of pod ${podName}`);
-        }
+    const refreshPods = useCallback(async () => {
+        const requestOptions = {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                'Sec-Fetch-Dest': 'document',
+            },
+        };
 
-        console.log(`Fetching logs for container ${containerName} of pod ${podName} now...`);
-        const resp: Response = await fetch(url);
-        return await resp.text();
-    }, []);
+        console.log('Retrieving Pods now.');
+        const response: Response = await fetch('kubernetes/api/v1/namespaces/default/pods', requestOptions);
+        console.log(`Response for Pods refresh: ${response.status} ${response.statusText}`);
+        const responseJson: Record<string, any> = await response.json();
 
-    const refreshPods = useCallback(
-        async (getLogs: boolean) => {
-            const requestOptions = {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'application/json',
-                    'Sec-Fetch-Dest': 'document',
-                },
-            };
+        const podsJson: Record<string, any>[] = responseJson['items'];
+        podsJson.map((pod: Record<string, any>) => {
+            const podName: string = pod['metadata']['name'];
+            const containerName: string = pod['spec']['containers'][0]['name'];
+            console.log(`Discovered Pod ${podName} with Container ${containerName}`);
 
-            console.log('Retrieving Pods now.');
-            const response: Response = await fetch('kubernetes/api/v1/namespaces/default/pods', requestOptions);
-            console.log(`Response for Pods refresh: ${response.status} ${response.statusText}`);
-            const responseJson: Record<string, any> = await response.json();
-
-            const podsJson: Record<string, any>[] = responseJson['items'];
-            podsJson.map((pod: Record<string, any>) => {
-                const podName: string = pod['metadata']['name'];
-                const containerName: string = pod['spec']['containers'][0]['name'];
-                console.log(`Discovered Pod ${podName} with Container ${containerName}`);
-
-                if (podName.includes('gateway')) {
-                    setGatewayPod(podName);
-                    if (getLogs) {
-                        fetchLogs(podName, containerName, gatewayPodLogs.current.length == 0).then((logs: string) => {
-                            if (doConvertAnsi) {
-                                gatewayPodLogs.current += ansi_up.ansi_to_html(logs);
-                            } else {
-                                gatewayPodLogs.current += logs;
-                            }
-                        });
-                    }
-                } else if (podName.includes('jupyter')) {
-                    setJupyterPod(podName);
-                    if (getLogs) {
-                        fetchLogs(podName, containerName, jupyterPodLogs.current.length == 0).then((logs: string) => {
-                            if (doConvertAnsi) {
-                                jupyterPodLogs.current += ansi_up.ansi_to_html(logs);
-                            } else {
-                                jupyterPodLogs.current += logs;
-                            }
-                        });
-                    }
-                } else if (podName.includes('local-daemon')) {
-                    if (getLogs) {
-                        const idx: number = Number.parseInt(
-                            podName.slice(podName.lastIndexOf('-') + 1, podName.length),
-                        );
-                        fetchLogs(podName, containerName, localDaemonLogs.current.get(idx)?.length == 0).then(
-                            (logs: string) => {
-                                const oldLogs: string = localDaemonLogs.current[idx] || '';
-                                let updatedLogs = '';
-                                if (doConvertAnsi) {
-                                    updatedLogs = oldLogs + ansi_up.ansi_to_html(logs);
-                                } else {
-                                    updatedLogs = oldLogs + logs;
-                                }
-                                localDaemonLogs.current.set(idx, updatedLogs);
-                            },
-                        );
-                    }
-                }
-            });
-        },
-        [setGatewayPod, setJupyterPod, fetchLogs],
-    );
+            if (podName.includes('gateway')) {
+                setGatewayPod(podName);
+            } else if (podName.includes('jupyter')) {
+                setJupyterPod(podName);
+            }
+        });
+    }, [setGatewayPod, setJupyterPod]);
 
     useEffect(() => {
-        refreshPods(true);
+        refreshPods();
     }, [refreshPods]);
-
-    useInterval(() => refreshPods(true), logPollIntervalSeconds * 1000);
 
     const cardHeaderActions = (
         <ToolbarGroup variant="icon-button-group">
             <ToolbarItem>
-                <Tooltip exitDelay={75} content={<div>Refresh kernel specs.</div>}>
+                <Tooltip exitDelay={75} content={<div>Refresh pod names.</div>}>
                     <Button
                         label="refresh-kernel-specs-button"
                         aria-label="refresh-kernel-specs-button"
@@ -176,10 +105,10 @@ export const ConsoleLogCard: React.FunctionComponent = () => {
                             setPodsAreRefreshing(true);
                             toast
                                 .promise(
-                                    refreshPods(true),
+                                    refreshPods(),
                                     {
-                                        loading: <b>Refreshing Kubernetes Pods...</b>,
-                                        success: <b>Refreshed Kubernetes Pods!</b>,
+                                        loading: <b>Refreshing Kubernetes pod names...</b>,
+                                        success: <b>Refreshed Kubernetes pod names!</b>,
                                         error: (reason: Error) => {
                                             let reasonUI = <FlexItem>{reason.message}</FlexItem>;
 
@@ -193,7 +122,7 @@ export const ConsoleLogCard: React.FunctionComponent = () => {
                                                     spaceItems={{ default: 'spaceItemsNone' }}
                                                 >
                                                     <FlexItem>
-                                                        <b>Could not refresh Kuberentes Pods.</b>
+                                                        <b>Could not refresh Kuberentes pod names.</b>
                                                     </FlexItem>
                                                     {reasonUI}
                                                 </Flex>
@@ -219,161 +148,164 @@ export const ConsoleLogCard: React.FunctionComponent = () => {
 
     const localDaemonIDs: number[] = [0, 1, 2, 3];
 
-    const getLocalDaemonTabContent = (idx: number) => {
-        let html: string = localDaemonLogs.current.get(idx) || '';
-        const consoleId: string = `local-daemon-${idx}-console`;
-        var cdiv = document.getElementById(consoleId);
-        if (cdiv) {
-            cdiv.innerHTML = html;
-        }
-        return (
-            <Panel isScrollable variant="bordered">
-                <PanelMain maxHeight={'450px'}>
-                    <PanelMainBody>
-                        <pre id={consoleId}></pre>
-                    </PanelMainBody>
-                </PanelMain>
-            </Panel>
-        );
-    };
-
-    const getGatewayTabContent = () => {
-        let html: string = gatewayPodLogs.current;
-        const consoleId: string = `gateway-console`;
-        var cdiv = document.getElementById(consoleId);
-        if (cdiv) {
-            cdiv.innerHTML = html;
-        }
-        return (
-            <Panel isScrollable variant="bordered">
-                <PanelMain maxHeight={'450px'}>
-                    <PanelMainBody>
-                        <pre id={consoleId}></pre>
-                    </PanelMainBody>
-                </PanelMain>
-            </Panel>
-        );
-    };
-
-    const getJupyterTabContent = () => {
-        let html: string = jupyterPodLogs.current;
-        const consoleId: string = `jupyter-console`;
-        var cdiv = document.getElementById(consoleId);
-        if (cdiv) {
-            cdiv.innerHTML = html;
-        }
-        return (
-            <Panel isScrollable variant="bordered">
-                <PanelMain maxHeight={'450px'}>
-                    <PanelMainBody>
-                        <pre id={consoleId}></pre>
-                    </PanelMainBody>
-                </PanelMain>
-            </Panel>
-        );
+    const onCardExpand = (event: React.MouseEvent, id: string) => {
+        setIsCardExpanded(!isCardExpanded);
     };
 
     return (
-        <Card isRounded id="console-log-view-card">
-            <CardHeader actions={{ actions: cardHeaderActions, hasNoOffset: false }}>
+        <Card isRounded id="console-log-view-card" isExpanded={isCardExpanded}>
+            <CardHeader
+                actions={{ actions: cardHeaderActions, hasNoOffset: false }}
+                onExpand={onCardExpand}
+                toggleButtonProps={{
+                    id: 'expand-kube-nodes-button',
+                    'aria-label': 'expand-kube-nodes-button',
+                }}
+            >
                 <CardTitle>
                     <Title headingLevel="h1" size="xl">
                         Logs
                     </Title>
                 </CardTitle>
             </CardHeader>
-            <CardBody>
-                <Tabs isFilled id="cluster-component-log-tabs" activeKey={activeTabKey} onSelect={handleTabClick}>
-                    <Tab
+            <CardExpandableContent>
+                <CardBody>
+                    <Tabs isFilled id="cluster-component-log-tabs" activeKey={activeTabKey} onSelect={handleTabClick}>
+                        <Tab
+                            key={0}
+                            eventKey={0}
+                            title={
+                                <>
+                                    <TabTitleIcon>
+                                        <BugIcon />
+                                    </TabTitleIcon>
+                                    <TabTitleText>{'Browser Debug Console'}</TabTitleText>
+                                </>
+                            }
+                            tabContentId={`tab-content-browser-debug-console`}
+                        />
+                        <Tab
+                            key={1}
+                            eventKey={1}
+                            title={
+                                <>
+                                    <TabTitleIcon>
+                                        <ServerAltIcon />
+                                    </TabTitleIcon>
+                                    <TabTitleText>{'Cluster Gateway'}</TabTitleText>
+                                </>
+                            }
+                            tabContentId={`tab-content-gateway`}
+                        />
+                        <Tab
+                            key={2}
+                            eventKey={2}
+                            title={
+                                <>
+                                    <TabTitleIcon>
+                                        <LaptopCodeIcon />
+                                    </TabTitleIcon>
+                                    <TabTitleText>{'Jupyter Server'}</TabTitleText>
+                                </>
+                            }
+                            tabContentId={`tab-content-jupyter-server`}
+                        />
+                        <Tab
+                            key={3}
+                            eventKey={3}
+                            title={
+                                <>
+                                    <TabTitleIcon>
+                                        <ServerGroupIcon />
+                                    </TabTitleIcon>
+                                    <TabTitleText>{'Local Daemons'}</TabTitleText>
+                                </>
+                            }
+                            tabContentId={`tab-content-local-daemon-browserConsoleLogs`}
+                        >
+                            <Tabs
+                                isFilled
+                                id="local-daemon-tabs"
+                                activeKey={activeLocalDaemonTabKey}
+                                onSelect={handleLocalDaemonTabClick}
+                            >
+                                {localDaemonIDs.map((id: number) => {
+                                    return (
+                                        <Tab
+                                            key={id}
+                                            eventKey={id}
+                                            title={
+                                                <>
+                                                    <TabTitleIcon>
+                                                        <ServerIcon />
+                                                    </TabTitleIcon>
+                                                    <TabTitleText>{`Local Daemon ${id}`}</TabTitleText>
+                                                </>
+                                            }
+                                            tabContentId={`tab-content-local-daemon${id}`}
+                                        ></Tab>
+                                    );
+                                })}
+                            </Tabs>
+                        </Tab>
+                    </Tabs>
+                </CardBody>
+                <CardBody>
+                    <TabContent
                         key={0}
                         eventKey={0}
-                        title={<TabTitleText>{'Browser Debug Console'}</TabTitleText>}
-                        tabContentId={`tab-content-browser-debug-console`}
-                    />
-                    <Tab
+                        id={`tabContent${0}`}
+                        activeKey={activeTabKey}
+                        hidden={0 !== activeTabKey}
+                    >
+                        <ConsoleLogViewComponent />
+                    </TabContent>
+                    <TabContent
                         key={1}
                         eventKey={1}
-                        title={<TabTitleText>{'Cluster Gateway'}</TabTitleText>}
-                        tabContentId={`tab-content-gateway`}
-                    />
-                    <Tab
+                        id={`tabContent${1}`}
+                        activeKey={activeTabKey}
+                        hidden={1 !== activeTabKey}
+                    >
+                        <KubernetesLogViewComponent
+                            podName={gatewayPod}
+                            containerName={'gateway'}
+                            logPollIntervalSeconds={1}
+                            convertToHtml={true}
+                        />
+                    </TabContent>
+                    <TabContent
                         key={2}
                         eventKey={2}
-                        title={<TabTitleText>{'Jupyter Server'}</TabTitleText>}
-                        tabContentId={`tab-content-jupyter-server`}
-                    />
-                    <Tab
-                        key={3}
-                        eventKey={3}
-                        title={<TabTitleText>{'Local Daemons'}</TabTitleText>}
-                        tabContentId={`tab-content-local-daemon-browserConsoleLogs`}
+                        id={`tabContent${2}`}
+                        activeKey={activeTabKey}
+                        hidden={2 !== activeTabKey}
                     >
-                        <Tabs
-                            isFilled
-                            id="local-daemon-tabs"
-                            activeKey={activeLocalDaemonTabKey}
-                            onSelect={handleLocalDaemonTabClick}
-                        >
-                            {localDaemonIDs.map((id: number) => {
-                                return (
-                                    <Tab
-                                        key={id}
-                                        eventKey={id}
-                                        title={<TabTitleText>{`Local Daemon ${id}`}</TabTitleText>}
-                                        tabContentId={`tab-content-local-daemon${id}`}
-                                    ></Tab>
-                                );
-                            })}
-                        </Tabs>
-                    </Tab>
-                </Tabs>
-            </CardBody>
-            <CardBody>
-                <TabContent
-                    key={0}
-                    eventKey={0}
-                    id={`tabContent${0}`}
-                    activeKey={activeTabKey}
-                    hidden={0 !== activeTabKey}
-                >
-                    <Panel isScrollable variant="bordered">
-                        <PanelMain maxHeight={'450px'}>
-                            <PanelMainBody>
-                                <Console logs={browserConsoleLogs} variant="dark" />
-                            </PanelMainBody>
-                        </PanelMain>
-                    </Panel>
-                </TabContent>
-                <TabContent
-                    key={1}
-                    eventKey={1}
-                    id={`tabContent${1}`}
-                    activeKey={activeTabKey}
-                    hidden={1 !== activeTabKey}
-                >
-                    {getGatewayTabContent()}
-                </TabContent>
-                <TabContent
-                    key={2}
-                    eventKey={2}
-                    id={`tabContent${2}`}
-                    activeKey={activeTabKey}
-                    hidden={2 !== activeTabKey}
-                >
-                    {getJupyterTabContent()}
-                </TabContent>
-                {localDaemonIDs.map((id: number) => (
-                    <TabContent
-                        key={id}
-                        eventKey={id}
-                        id={`local-daemin-${id}-tabcontent`}
-                        activeKey={activeLocalDaemonTabKey}
-                        hidden={id !== activeLocalDaemonTabKey || 3 !== activeTabKey}
-                    >
-                        {getLocalDaemonTabContent(id)}
+                        <KubernetesLogViewComponent
+                            podName={jupyterPod}
+                            containerName={'jupyter-notebook'}
+                            logPollIntervalSeconds={1}
+                            convertToHtml={false}
+                        />
                     </TabContent>
-                ))}
-            </CardBody>
+                    {localDaemonIDs.map((id: number) => (
+                        <TabContent
+                            key={id}
+                            eventKey={id}
+                            id={`local-daemin-${id}-tabcontent`}
+                            activeKey={activeLocalDaemonTabKey}
+                            hidden={id !== activeLocalDaemonTabKey || 3 !== activeTabKey}
+                        >
+                            <KubernetesLogViewComponent
+                                podName={`local-daemon-${id}`}
+                                containerName={'local-daemon'}
+                                logPollIntervalSeconds={1}
+                                convertToHtml={true}
+                            />
+                        </TabContent>
+                    ))}
+                </CardBody>
+            </CardExpandableContent>
         </Card>
     );
 };

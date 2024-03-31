@@ -19,6 +19,10 @@ body,
   content: '';
 }
 
+.code-panel {
+  --pf-v5-c-panel--BackgroundColor: "#eb7a34";
+}
+
 @keyframes dotty {
     0%   { content: ''; }
     25%  { content: '.'; }
