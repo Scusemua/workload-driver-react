@@ -20,23 +20,10 @@ import {
     CardExpandableContent,
 } from '@patternfly/react-core';
 
-import { AnsiUp } from 'ansi_up';
-
-import {
-    BugIcon,
-    DumpsterIcon,
-    EraserIcon,
-    LaptopCodeIcon,
-    ServerAltIcon,
-    ServerGroupIcon,
-    ServerIcon,
-    SyncIcon,
-    TrashAltIcon,
-    TrashIcon,
-} from '@patternfly/react-icons';
+import { BugIcon, LaptopCodeIcon, ServerAltIcon, ServerGroupIcon, ServerIcon, SyncIcon } from '@patternfly/react-icons';
 import { toast } from 'react-hot-toast';
-import { ConsoleLogViewComponent } from '../ConsoleLogView';
-import { KubernetesLogViewComponent } from '../KubernetesLogView';
+import { ConsoleLogViewComponent } from '@components/LogViews/ConsoleLogView';
+import { KubernetesLogViewComponent } from '@components/LogViews/KubernetesLogView';
 
 export const ConsoleLogCard: React.FunctionComponent = () => {
     const [activeTabKey, setActiveTabKey] = React.useState(0);
@@ -153,7 +140,7 @@ export const ConsoleLogCard: React.FunctionComponent = () => {
     };
 
     return (
-        <Card isRounded id="console-log-view-card" isExpanded={isCardExpanded}>
+        <Card isFullHeight isRounded id="console-log-view-card" isExpanded={isCardExpanded}>
             <CardHeader
                 actions={{ actions: cardHeaderActions, hasNoOffset: false }}
                 onExpand={onCardExpand}
@@ -267,12 +254,14 @@ export const ConsoleLogCard: React.FunctionComponent = () => {
                         activeKey={activeTabKey}
                         hidden={1 !== activeTabKey}
                     >
-                        <KubernetesLogViewComponent
-                            podName={gatewayPod}
-                            containerName={'gateway'}
-                            logPollIntervalSeconds={1}
-                            convertToHtml={true}
-                        />
+                        {gatewayPod.length > 0 && (
+                            <KubernetesLogViewComponent
+                                podName={gatewayPod}
+                                containerName={'gateway'}
+                                logPollIntervalSeconds={1}
+                                convertToHtml={true}
+                            />
+                        )}
                     </TabContent>
                     <TabContent
                         key={2}
@@ -281,12 +270,14 @@ export const ConsoleLogCard: React.FunctionComponent = () => {
                         activeKey={activeTabKey}
                         hidden={2 !== activeTabKey}
                     >
-                        <KubernetesLogViewComponent
-                            podName={jupyterPod}
-                            containerName={'jupyter-notebook'}
-                            logPollIntervalSeconds={1}
-                            convertToHtml={false}
-                        />
+                        {jupyterPod.length > 0 && (
+                            <KubernetesLogViewComponent
+                                podName={jupyterPod}
+                                containerName={'jupyter-notebook'}
+                                logPollIntervalSeconds={1}
+                                convertToHtml={false}
+                            />
+                        )}
                     </TabContent>
                     {localDaemonIDs.map((id: number) => (
                         <TabContent

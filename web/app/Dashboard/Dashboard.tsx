@@ -343,7 +343,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
     return (
         <PageSection>
             <Grid hasGutter>
-                <GridItem span={12} rowSpan={8}>
+                <GridItem span={12} rowSpan={6}>
                     <ConsoleLogCard />
                 </GridItem>
                 <GridItem span={6} rowSpan={getKernelCardRowspan()}>

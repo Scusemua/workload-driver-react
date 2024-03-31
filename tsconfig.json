@@ -30,6 +30,9 @@
       "@assets/*": [
         "node_modules/@patternfly/react-core/dist/styles/assets/*"
       ],
+      "@components/*": [
+        "web/app/Components",
+      ],
       "@providers/*": [
         "web/app/Providers/*"
       ],
