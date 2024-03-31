@@ -1,16 +1,6 @@
 import React, { useCallback, useRef } from 'react';
 import { AnsiUp } from 'ansi_up';
-import {
-    Button,
-    Chip,
-    Grid,
-    GridItem,
-    Panel,
-    PanelMain,
-    PanelMainBody,
-    Switch,
-    useInterval,
-} from '@patternfly/react-core';
+import { Panel, PanelMain, PanelMainBody, useInterval } from '@patternfly/react-core';
 
 export interface KubernetesLogViewProps {
     children?: React.ReactNode;
@@ -48,13 +38,13 @@ export const KubernetesLogViewComponent: React.FunctionComponent<KubernetesLogVi
         }
     }, []);
 
-    useInterval(() => fetchLogs(props.podName, props.containerName), props.logPollIntervalSeconds * 1000);
+    useInterval(() => fetchLogs(props.podName, props.containerName), props.logPollIntervalSeconds * 500);
 
     return (
-        <Panel isScrollable variant="bordered">
+        <Panel isScrollable variant="bordered" className="--pf-v5-global--BackgroundColor--200">
             <PanelMain maxHeight={'450px'}>
                 <PanelMainBody>
-                    <pre id={`${props.podName}-${props.containerName}-console`}></pre>
+                    <pre id={`${props.podName}-${props.containerName}-console`} />
                 </PanelMainBody>
             </PanelMain>
         </Panel>

@@ -20,27 +20,19 @@ import {
     CardExpandableContent,
 } from '@patternfly/react-core';
 
-import { AnsiUp } from 'ansi_up';
-
-import {
-    BugIcon,
-    DumpsterIcon,
-    EraserIcon,
-    LaptopCodeIcon,
-    ServerAltIcon,
-    ServerGroupIcon,
-    ServerIcon,
-    SyncIcon,
-    TrashAltIcon,
-    TrashIcon,
-} from '@patternfly/react-icons';
+import { BugIcon, LaptopCodeIcon, ServerAltIcon, ServerGroupIcon, ServerIcon, SyncIcon } from '@patternfly/react-icons';
 import { toast } from 'react-hot-toast';
 import { ConsoleLogViewComponent } from '../ConsoleLogView';
 import { KubernetesLogViewComponent } from '../KubernetesLogView';
+import { useKernels } from '@app/Providers';
+import { DistributedJupyterKernel, JupyterKernelReplica } from '@app/Data';
+import { CloudServerIcon, ClusterIcon } from '@app/Icons';
 
 export const ConsoleLogCard: React.FunctionComponent = () => {
     const [activeTabKey, setActiveTabKey] = React.useState(0);
     const [activeLocalDaemonTabKey, setActiveLocalDaemonTabKey] = React.useState(0);
+    const [activeKernelTabKey, setActiveKernelTabKey] = React.useState(0);
+    const [activeKernelReplicaTabKey, setActiveKernelReplicaTabKey] = React.useState(0);
     const [podsAreRefreshing, setPodsAreRefreshing] = useState(false);
 
     const [isCardExpanded, setIsCardExpanded] = useState(true);
@@ -48,12 +40,22 @@ export const ConsoleLogCard: React.FunctionComponent = () => {
     const [gatewayPod, setGatewayPod] = React.useState('');
     const [jupyterPod, setJupyterPod] = React.useState('');
 
+    const { kernels } = useKernels();
+
     const handleTabClick = (_e: React.MouseEvent<HTMLElement, MouseEvent>, tabIndex: string | number) => {
         setActiveTabKey(Number(tabIndex));
     };
 
     const handleLocalDaemonTabClick = (_e: React.MouseEvent<HTMLElement, MouseEvent>, tabIndex: string | number) => {
         setActiveLocalDaemonTabKey(Number(tabIndex));
+    };
+
+    const handleKernelTabClick = (_e: React.MouseEvent<HTMLElement, MouseEvent>, tabIndex: string | number) => {
+        setActiveKernelTabKey(Number(tabIndex));
+    };
+
+    const handleKernelReplicaTabClick = (_e: React.MouseEvent<HTMLElement, MouseEvent>, tabIndex: string | number) => {
+        setActiveKernelReplicaTabKey(Number(tabIndex));
     };
 
     const refreshPods = useCallback(async () => {
@@ -248,6 +250,80 @@ export const ConsoleLogCard: React.FunctionComponent = () => {
                                 })}
                             </Tabs>
                         </Tab>
+                        <Tab
+                            key={4}
+                            eventKey={4}
+                            isDisabled={kernels.length == 0}
+                            title={
+                                <>
+                                    <TabTitleIcon>
+                                        <CloudServerIcon scale={1.25} />
+                                    </TabTitleIcon>
+                                    <TabTitleText>{`Kernels`}</TabTitleText>
+                                </>
+                            }
+                            tabContentId={'tab-content-kernels'}
+                        >
+                            <Tabs
+                                isFilled
+                                id="kernel-tabs"
+                                activeKey={activeKernelTabKey}
+                                onSelect={handleKernelTabClick}
+                            >
+                                {kernels.map((kernel: DistributedJupyterKernel, idx: number) => {
+                                    return (
+                                        <Tab
+                                            key={idx}
+                                            eventKey={idx}
+                                            title={
+                                                <>
+                                                    <TabTitleIcon>
+                                                        <ServerIcon />
+                                                    </TabTitleIcon>
+                                                    <TabTitleText>{`Kernel ${kernel.kernelId.slice(
+                                                        0,
+                                                        8,
+                                                    )}...`}</TabTitleText>
+                                                </>
+                                            }
+                                            tabContentId={`tab-content-kernel-${kernel.kernelId}`}
+                                        >
+                                            <Tabs
+                                                isFilled
+                                                id="kernel-tabs"
+                                                activeKey={activeKernelReplicaTabKey}
+                                                onSelect={handleKernelReplicaTabClick}
+                                            >
+                                                {kernel?.replicas?.map((replica: JupyterKernelReplica) => {
+                                                    return (
+                                                        <Tab
+                                                            key={replica.replicaId}
+                                                            eventKey={replica.replicaId}
+                                                            title={
+                                                                <>
+                                                                    <TabTitleIcon>
+                                                                        <ServerIcon />
+                                                                    </TabTitleIcon>
+                                                                    <TabTitleText>{`Replica ${replica.replicaId}`}</TabTitleText>
+                                                                </>
+                                                            }
+                                                            tabContentId={`tab-content-kernel-${kernel.kernelId}-${replica.replicaId}`}
+                                                        >
+                                                            <KubernetesLogViewComponent
+                                                                podName={replica.podId}
+                                                                containerName="kernel"
+                                                                convertToHtml={false}
+                                                                logPollIntervalSeconds={1}
+                                                            />
+                                                        </Tab>
+                                                    );
+                                                })}
+                                            </Tabs>
+                                        </Tab>
+                                    );
+                                })}
+                            </Tabs>
+                        </Tab>
                     </Tabs>
                 </CardBody>
                 <CardBody>
@@ -267,12 +343,14 @@ export const ConsoleLogCard: React.FunctionComponent = () => {
                         activeKey={activeTabKey}
                         hidden={1 !== activeTabKey}
                     >
-                        <KubernetesLogViewComponent
-                            podName={gatewayPod}
-                            containerName={'gateway'}
-                            logPollIntervalSeconds={1}
-                            convertToHtml={true}
-                        />
+                        {gatewayPod.length > 0 && (
+                            <KubernetesLogViewComponent
+                                podName={gatewayPod}
+                                containerName={'gateway'}
+                                logPollIntervalSeconds={1}
+                                convertToHtml={true}
+                            />
+                        )}
                     </TabContent>
                     <TabContent
                         key={2}
@@ -281,12 +359,14 @@ export const ConsoleLogCard: React.FunctionComponent = () => {
                         activeKey={activeTabKey}
                         hidden={2 !== activeTabKey}
                     >
-                        <KubernetesLogViewComponent
-                            podName={jupyterPod}
-                            containerName={'jupyter-notebook'}
-                            logPollIntervalSeconds={1}
-                            convertToHtml={false}
-                        />
+                        {jupyterPod.length > 0 && (
+                            <KubernetesLogViewComponent
+                                podName={jupyterPod}
+                                containerName={'jupyter-notebook'}
+                                logPollIntervalSeconds={1}
+                                convertToHtml={false}
+                            />
+                        )}
                     </TabContent>
                     {localDaemonIDs.map((id: number) => (
                         <TabContent
