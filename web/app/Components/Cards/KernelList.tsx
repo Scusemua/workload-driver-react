@@ -49,7 +49,7 @@ import {
 
 import toast from 'react-hot-toast';
 
-import { KernelManager, ServerConnection } from '@jupyterlab/services';
+import { KernelManager, ServerConnection, SessionManager } from '@jupyterlab/services';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 
 import { v4 as uuidv4 } from 'uuid';
@@ -91,6 +91,7 @@ import { DistributedJupyterKernel, JupyterKernelReplica, ResourceSpec } from '@d
 import { useKernels } from '@providers/KernelProvider';
 import { GpuIcon } from '@app/Icons';
 import { ItemsPerPageContext, KernelsPerPageContext } from '@app/Dashboard/Dashboard';
+import { ISessionConnection } from '@jupyterlab/services/lib/session/session';
 
 function isNumber(value?: string | number): boolean {
     return value != null && value !== '' && !isNaN(Number(value.toString()));
@@ -146,6 +147,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
     const kernelIdSet = useRef<Set<string>>(new Set()); // Keep track of kernels we've seen before.
     const numKernelsCreating = useRef(0); // Used to display "pending" entries in the kernel list.
     const kernelManager = useRef<KernelManager | null>(null);
+    const sessionManager = useRef<SessionManager | null>(null);
 
     const onToggleOrSelectReplicaDropdown = (replica: JupyterKernelReplica) => {
         const entryId: string = `${replica.kernelId}-${replica.replicaId}`;
@@ -228,6 +230,26 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             await kernelManager.current.ready.then(() => {
                 console.log('Kernel Manager is ready!');
             });
+        }
+
+        if (sessionManager.current === null) {
+            if (kernelManager.current === null) {
+                console.error('Cannot create Session Manager as Kernel Mangaer is null.');
+                return;
+            }
+
+            sessionManager.current = new SessionManager({
+                kernelManager: kernelManager.current,
+                serverSettings: ServerConnection.makeSettings({
+                    token: '',
+                    appendToken: false,
+                    baseUrl: '/jupyter',
+                    wsUrl: 'ws://localhost:8888/',
+                    fetch: fetch,
+                }),
+            });
+
+            await sessionManager.current.ready;
         }
     }
 
@@ -321,46 +343,80 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         }
     };
 
+    /**
+     * Register a resource spec with the Cluster Gateway.
+     * @param sessionId The ID of the Session who owns (or will own) the kernel.
+     * @param resourceSpec The resource spec to be associated with the kernel.
+     */
+    async function registerResourceSpec(sessionId: string, resourceSpec: ResourceSpec) {
+        fetch('');
+    }
+
     async function startKernel(resourceSpec: ResourceSpec) {
         // Precondition: The KernelManager is defined.
-        const manager: KernelManager = kernelManager.current!;
+        // const manager: KernelManager = kernelManager.current!;
 
         console.log('Starting kernel now...');
 
-        // let generatedClientId: boolean = false;
-        // if (clientId === '') {
-        //     clientId = uuidv4();
-        //     generatedClientId = true;
-        // }
         const clientId: string = uuidv4();
-
-        // if (username === '') {
-        //     username = 'jupyter-user-';
-
-        //     if (generatedClientId) {
-        //         username += clientId.slice(0, 8);
-        //     } else {
-        //         const randId: string = uuidv4();
-        //         clientId += randId.slice(0, 8);
-        //     }
-        // }
         const username: string = 'jupyter-user-' + clientId.slice(0, 8);
 
         console.log(`Starting new 'distributed' kernel for user ${username} with clientID=${clientId}.`);
 
-        const kernel: IKernelConnection = await toast.promise(
-            manager.startNew({ name: 'distributed' }, { username: username, clientId: clientId }),
+        // First, register the ResourceSpec with the Cluster Gateway.
+        await toast.promise(registerResourceSpec(clientId, resourceSpec), {
+            loading: <b>Registering resource spec with Cluster Gateway for new session {clientId}...</b>,
+            success: <b>Successfully registered resource spec with Cluster Gateway for new session {clientId}.</b>,
+            error: (reason: Error) => {
+                return (
+                    <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
+                        <FlexItem>
+                            <b>Could not register resource spec with Cluster Gateway for new session {clientId}.</b>
+                        </FlexItem>
+                        <FlexItem>
+                            <b>Reason:</b> {reason.message}
+                        </FlexItem>
+                    </Flex>
+                );
+            },
+        });
+
+        // Next, create the Session.
+        const session: ISessionConnection | undefined = await toast.promise(
+            sessionManager.current!.startNew(
+                {
+                    kernel: {
+                        name: 'distributed',
+                    },
+                    type: 'notebook',
+                    path: `${clientId}.ipbyn`,
+                    name: clientId,
+                },
+                {
+                    username: username,
+                    clientId: clientId,
+                },
+            ),
             {
-                loading: <b>Starting a new kernel.</b>,
-                success: <b>Successfully started a new kernel.</b>,
-                error: <b>Failed to start new kernel.</b>,
+                loading: <b>Starting new Jupyter Session and Jupyter Kernel...</b>,
+                success: <b>Successfully started new Jupyter Session and Jupyter Kernel.</b>,
+                error: <b>Failed to start new Jupyter Session and Jupyter Kernel.</b>,
             },
         );
 
-        // Start a python kernel
-        // const kernel: IKernelConnection = await manager.startNew(
-        //     { name: 'distributed' },
-        //     { username: username, clientId: clientId },
+        if (session.kernel === null) {
+            toast.error(`Kernel for newly-created Session ${session.id} is null...`);
+            return;
+        }
+        const kernel: IKernelConnection = session.kernel!;
+
+        // const kernel: IKernelConnection = await toast.promise(
+        //     manager.startNew({ name: 'distributed' }, { username: username, clientId: clientId }),
+        //     {
+        //         loading: <b>Starting a new kernel.</b>,
+        //         success: <b>Successfully started a new kernel.</b>,
+        //         error: <b>Failed to start new kernel.</b>,
+        //     },
         // );
 
         console.log(`Successfully launched new kernel: kernel ${kernel.id}`);
@@ -517,6 +573,12 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         // Create a new kernel.
         if (!kernelManager.current) {
             console.error('Kernel Manager is not available. Will try to connect...');
+            initializeKernelManagers();
+            return;
+        }
+
+        if (!sessionManager.current) {
+            console.error('Session Manager is not available. Will try to connect...');
             initializeKernelManagers();
             return;
         }
