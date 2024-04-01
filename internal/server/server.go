@@ -101,7 +101,7 @@ func (s *serverImpl) setupRoutes() error {
 		apiGroup.PATCH(domain.ADJUST_VGPUS_ENDPOINT, handlers.NewAdjustVirtualGpusHandler(s.opts).HandlePatchRequest)
 
 		// Used to register a ResourceSpec for a kernel.
-		apiGroup.PATCH(domain.RESOURCE_SPEC_ENDPOINT, handlers.NewRegisterKernelResourceSpecHandler(s.opts).HandlePatchRequest)
+		apiGroup.POST(domain.RESOURCE_SPEC_ENDPOINT, handlers.NewRegisterKernelResourceSpecHandler(s.opts).HandleRequest)
 
 		// Used internally (by the frontend) to get the system config from the backend  (i.e., the backend).
 		apiGroup.GET(domain.SYSTEM_CONFIG_ENDPOINT, handlers.NewConfigHttpHandler(s.opts).HandleRequest)

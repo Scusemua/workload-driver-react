@@ -14,7 +14,7 @@ type RegisterKernelResourceSpecHandler struct {
 	*GrpcClient
 }
 
-func NewRegisterKernelResourceSpecHandler(opts *domain.Configuration) domain.BackendHttpGetPatchHandler {
+func NewRegisterKernelResourceSpecHandler(opts *domain.Configuration) domain.BackendHttpPostHandler {
 	handler := &RegisterKernelResourceSpecHandler{
 		GrpcClient: NewGrpcClient(opts, !opts.SpoofKernels),
 	}
@@ -26,10 +26,6 @@ func NewRegisterKernelResourceSpecHandler(opts *domain.Configuration) domain.Bac
 }
 
 func (h *RegisterKernelResourceSpecHandler) HandleRequest(c *gin.Context) {
-	panic("Not implemented.")
-}
-
-func (h *RegisterKernelResourceSpecHandler) HandlePatchRequest(c *gin.Context) {
 	if h.opts.SpoofKernels {
 		// Do nothing.
 		return

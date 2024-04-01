@@ -24,6 +24,10 @@ type BackendHttpGetPatchHandler interface {
 	HandlePatchRequest(*gin.Context)
 }
 
+type BackendHttpPostHandler interface {
+	BackendHttpGetHandler
+}
+
 type EnableDisableNodeRequest struct {
 	NodeName string `json:"node_name"`
 	Enable   bool   `json:"enable"` // If true, enable the node. Otherwise, disable the node.
