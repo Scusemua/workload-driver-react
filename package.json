@@ -83,6 +83,7 @@
   },
   "dependencies": {
     "@jupyterlab/services": "^7.1.2",
+    "@melloware/react-logviewer": "^5.0.5",
     "@patternfly/react-charts": "^7.2.0",
     "@patternfly/react-code-editor": "^5.2.1",
     "@patternfly/react-core": "^5.1.1",
@@ -101,5 +102,13 @@
     "sirv-cli": "^2.0.2",
     "swr": "^2.2.5",
     "uuid": "^9.0.1"
+  },
+  "browser": {
+    "fs": false,
+    "path": false,
+    "os": false,
+    "net": false,
+    "tls": false,
+    "child_process": false
   }
 }

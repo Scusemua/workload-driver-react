@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -35,11 +36,9 @@ func (h *RegisterKernelResourceSpecHandler) HandleRequest(c *gin.Context) {
 	if err := c.BindJSON(&resourceSpecRegistration); err != nil {
 		h.logger.Error("Failed to extract and/or unmarshal ResourceSpecRegistration request from request body.")
 
-		c.JSON(http.StatusBadRequest, &domain.ErrorMessage{
-			Description:  "Failed to extract ResourceSpecRegistration request from request body.",
-			ErrorMessage: err.Error(),
-			Valid:        true,
-		})
+		// Failed to extract ResourceSpecRegistration request from request body.
+		c.AbortWithError(http.StatusBadRequest, err)
+		return
 	}
 
 	h.logger.Info("Received ResourceSpecRegistration request.", zap.String("target-kernel", resourceSpecRegistration.KernelId), zap.Any("resource-spec", resourceSpecRegistration.ResourceSpec))
@@ -48,11 +47,8 @@ func (h *RegisterKernelResourceSpecHandler) HandleRequest(c *gin.Context) {
 	if err != nil {
 		h.logger.Error("An error occurred while changing virtual GPUs on node.", zap.String("target-kernel", resourceSpecRegistration.KernelId), zap.Any("resource-spec", resourceSpecRegistration.ResourceSpec), zap.Error(err))
 
-		c.JSON(http.StatusNotModified, &domain.ErrorMessage{
-			Description:  "An error occurred while changing virtual GPUs on node",
-			ErrorMessage: err.Error(),
-			Valid:        true,
-		})
+		c.AbortWithError(http.StatusBadRequest, fmt.Errorf("an error occurred while changing virtual GPUs on node: %w : %s", err, err.Error()))
+		return
 	} else {
 		h.logger.Info("Successfully changed the virtual GPUs available on node.", zap.String("target-kernel", resourceSpecRegistration.KernelId), zap.Any("resource-spec", resourceSpecRegistration.ResourceSpec), zap.Any("response", resp))
 		c.JSON(http.StatusOK, resp)

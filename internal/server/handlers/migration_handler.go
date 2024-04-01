@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -35,11 +36,8 @@ func (h *MigrationHttpHandler) HandleRequest(c *gin.Context) {
 	if err := c.BindJSON(&migrationRequest); err != nil {
 		h.logger.Error("Failed to extract and/or unmarshal migration request from request body.")
 
-		c.JSON(http.StatusBadRequest, &domain.ErrorMessage{
-			Description:  "Failed to extract migration request from request body.",
-			ErrorMessage: err.Error(),
-			Valid:        true,
-		})
+		c.AbortWithError(http.StatusBadRequest, fmt.Errorf("ErrBadRequest %w: %s", err, err.Error()))
+		return
 	}
 
 	h.logger.Info("Received migration request.", zap.Int32("replica-smr-id", migrationRequest.TargetReplica.ReplicaId), zap.String("kernel-id", migrationRequest.TargetReplica.KernelId), zap.String("target-k8s-node-id", migrationRequest.GetTargetNodeId()))
@@ -48,11 +46,8 @@ func (h *MigrationHttpHandler) HandleRequest(c *gin.Context) {
 	if err != nil {
 		h.logger.Error("An error occurred while triggering or performing the kernel replica migration.", zap.String("kernelID", migrationRequest.TargetReplica.KernelId), zap.Int32("replicaID", migrationRequest.TargetReplica.ReplicaId), zap.String("target-node", migrationRequest.GetTargetNodeId()), zap.Error(err))
 
-		c.JSON(http.StatusInternalServerError, &domain.ErrorMessage{
-			Description:  "An error occurred while triggering or performing the kernel replica migration.",
-			ErrorMessage: err.Error(),
-			Valid:        true,
-		})
+		c.AbortWithError(http.StatusInternalServerError, err)
+		return
 	} else {
 		h.logger.Info("Successfully triggered kernel replica migration.", zap.String("kernelID", migrationRequest.TargetReplica.KernelId), zap.Int32("replicaID", migrationRequest.TargetReplica.ReplicaId), zap.String("target-node", migrationRequest.GetTargetNodeId()), zap.Any("response", resp))
 	}

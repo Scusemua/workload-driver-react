@@ -25,6 +25,9 @@ const (
 	// Used internally (by the frontend) to trigger kernel replica migrations.
 	MIGRATION_ENDPOINT = "/migrate"
 
+	// Used to stream logs to the frontend from Kubernetes.
+	LOGS_ENDPOINT = "/logs"
+
 	// Used internally (by the frontend) to trigger the start of a new workload or retrieve the list of workloads.
 	WORKLOAD_ENDPOINT = "/workload"
 

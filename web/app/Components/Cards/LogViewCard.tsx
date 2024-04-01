@@ -80,8 +80,10 @@ export const LogViewCard: React.FunctionComponent = () => {
             console.log(`Discovered Pod ${podName} with Container ${containerName}`);
 
             if (podName.includes('gateway')) {
+                console.log(`Identified Gateway Pod: ${podName}`);
                 setGatewayPod(podName);
             } else if (podName.includes('jupyter')) {
+                console.log(`Identified Jupyter Pod: ${podName}`);
                 setJupyterPod(podName);
             }
         });

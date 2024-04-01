@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 	"time"
 
@@ -42,11 +43,7 @@ func NewGrpcClient(opts *domain.Configuration, shouldConnect bool) *GrpcClient {
 // Write an error back to the client.
 func (h *GrpcClient) WriteError(c *gin.Context, errorMessage string) {
 	// Write error back to front-end.
-	msg := &domain.ErrorMessage{
-		ErrorMessage: errorMessage,
-		Valid:        true,
-	}
-	c.JSON(http.StatusInternalServerError, msg)
+	c.AbortWithError(http.StatusInternalServerError, fmt.Errorf("could not handle request: %s", errorMessage))
 }
 
 func (h *GrpcClient) HandleRequest(c *gin.Context) {

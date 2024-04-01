@@ -70,6 +70,17 @@ func NewServer(opts *domain.Configuration) domain.Server {
 	return s
 }
 
+func (s *serverImpl) ErrorHandlerMiddleware(c *gin.Context) {
+	c.Next()
+
+	errors := make([]*gin.Error, 0, len(c.Errors))
+	for _, err := range c.Errors {
+		errors = append(errors, err)
+	}
+
+	c.JSON(-1, errors)
+}
+
 func (s *serverImpl) setupRoutes() error {
 	s.app = &proxy.JupyterProxyRouter{
 		ContextPath:  domain.JUPYTER_GROUP_ENDPOINT,
@@ -114,6 +125,9 @@ func (s *serverImpl) setupRoutes() error {
 
 		// Used internally (by the frontend) to trigger kernel replica migrations.
 		apiGroup.POST(domain.MIGRATION_ENDPOINT, handlers.NewMigrationHttpHandler(s.opts).HandleRequest)
+
+		// Used to stream logs from Kubernetes.
+		apiGroup.GET(fmt.Sprintf("%s/pods/:pod", domain.LOGS_ENDPOINT), handlers.NewLogHttpHandler(s.opts).HandleRequest)
 	}
 
 	if s.opts.SpoofKernelSpecs {
@@ -122,6 +136,8 @@ func (s *serverImpl) setupRoutes() error {
 			jupyterGroup.GET(domain.BASE_API_GROUP_ENDPOINT+domain.KERNEL_SPEC_ENDPOINT, handlers.NewJupyterAPIHandler(s.opts).HandleGetKernelSpecRequest)
 		}
 	}
+
+	s.app.Use(s.ErrorHandlerMiddleware)
 
 	return nil
 }

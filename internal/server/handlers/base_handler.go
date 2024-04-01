@@ -1,6 +1,7 @@
 package handlers
 
 import (
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -43,11 +44,7 @@ func (h *BaseHandler) PrimaryHttpHandler() domain.BackendHttpGetHandler {
 // Write an error back to the client.
 func (h *BaseHandler) WriteError(c *gin.Context, errorMessage string) {
 	// Write error back to front-end.
-	msg := &domain.ErrorMessage{
-		ErrorMessage: errorMessage,
-		Valid:        true,
-	}
-	c.JSON(http.StatusInternalServerError, msg)
+	c.AbortWithError(http.StatusInternalServerError, fmt.Errorf("could not handle request: %s", errorMessage))
 }
 
 func (h *BaseHandler) HandleRequest(c *gin.Context) {
