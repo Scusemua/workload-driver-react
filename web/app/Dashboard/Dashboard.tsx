@@ -13,7 +13,7 @@ import {
     Text,
 } from '@patternfly/react-core';
 
-import { ConsoleLogCard, KernelList, KernelSpecList, KubernetesNodeList, WorkloadCard } from '@app/Components/Cards/';
+import { LogViewCard, KernelList, KernelSpecList, KubernetesNodeList, WorkloadCard } from '@app/Components/Cards/';
 import {
     DistributedJupyterKernel,
     JupyterKernelReplica,
@@ -344,7 +344,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
         <PageSection>
             <Grid hasGutter>
                 <GridItem span={12} rowSpan={8}>
-                    <ConsoleLogCard />
+                    <LogViewCard />
                 </GridItem>
                 <GridItem span={6} rowSpan={getKernelCardRowspan()}>
                     <KernelsPerPageContext.Provider
