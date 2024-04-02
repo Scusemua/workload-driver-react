@@ -1,8 +1,10 @@
 package server
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"net/url"
@@ -98,7 +100,8 @@ func (s *serverImpl) setupRoutes() error {
 	s.app.Use(gin.Logger())
 	s.app.Use(cors.Default())
 
-	s.app.GET(domain.WORKLOAD_ENDPOINT, s.serveWebsocket)
+	s.app.GET(domain.WORKLOAD_ENDPOINT, s.serveWorkloadWebsocket)
+	s.app.GET(domain.LOGS_ENDPOINT, s.serveLogWebsocket)
 
 	apiGroup := s.app.Group(domain.BASE_API_GROUP_ENDPOINT)
 	{
@@ -234,7 +237,161 @@ func (s *serverImpl) serverPushRoutine(conn *websocket.Conn, workloadStartedChan
 	}
 }
 
-func (s *serverImpl) serveWebsocket(c *gin.Context) {
+func (s *serverImpl) serveLogWebsocket(c *gin.Context) {
+	s.logger.Debug("Handling websocket connection")
+
+	upgrader.CheckOrigin = func(r *http.Request) bool {
+		if r.Header.Get("Origin") == "http://127.0.0.1:9001" || r.Header.Get("Origin") == "http://localhost:9001" {
+			return true
+		}
+
+		s.sugaredLogger.Errorf("Unexpected origin: %v", r.Header.Get("Origin"))
+		return false
+	}
+
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		log.Print("upgrade:", err)
+		return
+	}
+	defer conn.Close()
+
+	// Used to notify the server-push goroutine that a new workload has been registered.
+	workloadStartedChan := make(chan string)
+	doneChan := make(chan struct{})
+	go s.serverPushRoutine(conn, workloadStartedChan, doneChan)
+
+	closeHandler := conn.CloseHandler()
+	conn.SetCloseHandler(func(code int, text string) error {
+		doneChan <- struct{}{} // Tell the server-push goroutine that this connection has been terminated.
+		err := closeHandler(code, text)
+		return err
+	})
+
+	for {
+		_, message, err := conn.ReadMessage()
+		if err != nil {
+			s.logger.Error("Error while reading message from websocket.", zap.Error(err))
+			break
+		}
+
+		var request map[string]interface{}
+		err = json.Unmarshal(message, &request)
+		if err != nil {
+			s.logger.Error("Error while unmarshalling data message from websocket.", zap.Error(err))
+			break
+		}
+
+		s.sugaredLogger.Debugf("Received WebSocket message: %v", request)
+
+		var op_val interface{}
+		var ok bool
+		if op_val, ok = request["op"]; !ok {
+			s.logger.Error("Received unexpected message on websocket. It did not contain an 'op' field.", zap.Binary("message", message))
+			break
+		}
+
+		if _, ok := request["msg_id"]; !ok {
+			s.logger.Error("Received unexpected message on websocket. It did not contain a 'msg_id' field.", zap.Binary("message", message))
+			break
+		}
+
+		if op_val == "get_logs" {
+			var req *domain.GetLogsRequest
+			json.Unmarshal(message, &req)
+			s.getLogsWebsocket(req, conn)
+		}
+	}
+}
+
+func (s *serverImpl) getLogsWebsocket(req *domain.GetLogsRequest, conn *websocket.Conn) {
+	s.logger.Debug("Retrieiving logs.", zap.Any("request", req))
+
+	pod := req.Pod
+	container := req.Container
+	doFollow := req.Follow
+
+	url := fmt.Sprintf("http://localhost:8889/api/v1/namespaces/default/pods/%s/log?container=%s&follow=%v&sinceSeconds=3600", pod, container, doFollow)
+	s.logger.Debug("Retrieving logs now.", zap.String("pod", pod), zap.String("container", container), zap.String("url", url))
+	resp, err := http.Get(url)
+	if err != nil {
+		s.logger.Error("Failed to get logs.", zap.String("pod", pod), zap.String("container", container), zap.Error(err))
+		return
+	}
+
+	if resp.StatusCode != http.StatusOK {
+		s.logger.Error("Failed to retrieve logs.", zap.Int("status-code", resp.StatusCode), zap.String("status", resp.Status))
+		payload, err := io.ReadAll(resp.Body)
+		if err != nil {
+			s.sugaredLogger.Errorf("failed to retrieve logs: received HTTP %d %s", resp.StatusCode, resp.Status)
+		} else {
+			s.sugaredLogger.Errorf("failed to retrieve logs (received HTTP %d %s): %s", resp.StatusCode, resp.Status, payload)
+		}
+	}
+
+	firstReadCompleted := false
+	amountToRead := -1
+	reader := bufio.NewReader(resp.Body)
+	buf := make([]byte, 0)
+	// messageChan := make(chan []byte, 32)
+	for {
+		msg, err := reader.ReadString('\n')
+		if err != nil {
+			s.logger.Error("Failed to read logs from Kubernetes", zap.Error(err))
+			return
+		}
+
+		buf = append(buf, msg...)
+
+		if !firstReadCompleted {
+			amountToRead = reader.Buffered()
+			s.sugaredLogger.Debugf("First read: %d bytes. Bytes buffered: %d. (From container %s of pod %s)", len(msg), amountToRead, container, pod)
+			firstReadCompleted = true
+
+			if amountToRead > 0 {
+				continue
+			}
+		}
+
+		if len(buf) < amountToRead {
+			s.sugaredLogger.Debugf("Read %d / %d bytes so far.", len(buf), amountToRead)
+			continue
+		}
+
+		// messageChan <- buf
+
+		err = conn.WriteMessage(websocket.BinaryMessage, buf)
+		if err != nil {
+			s.logger.Error("Error while writing stream response for logs.", zap.String("pod", pod), zap.String("container", container), zap.Error(err))
+			return
+		}
+
+		buf = buf[:0]
+		firstReadCompleted = false
+		amountToRead = -1
+	}
+
+	// for {
+	// 	buf := make([]byte, 0)
+	// 	if len(messageChan) > 0 {
+	// 		msg := <-messageChan
+
+	// 		buf = append(buf, msg...)
+	// 	} else {
+
+	// 	}
+	// 	for msg := range messageChan {
+	// 		s.logger.Debug("Writing logs back to frontend.", zap.Int("bytes", len(buf)), zap.String("pod", pod), zap.String("container", container))
+	// 		err = conn.WriteMessage(websocket.BinaryMessage, msg)
+	// 		if err != nil {
+	// 			s.logger.Error("Error while writing stream response for logs.", zap.String("pod", pod), zap.String("container", container), zap.Error(err))
+	// 			return
+	// 		}
+	// 	}
+	// }
+}
+
+func (s *serverImpl) serveWorkloadWebsocket(c *gin.Context) {
 	s.logger.Debug("Handling websocket connection")
 
 	upgrader.CheckOrigin = func(r *http.Request) bool {

@@ -1,6 +1,8 @@
-import React, { useEffect, useRef, useState } from 'react';
-import { Divider, Panel, PanelMain, PanelMainBody, Title } from '@patternfly/react-core';
-import { LazyLog, ScrollFollow } from '@melloware/react-logviewer';
+import React, { useEffect, useRef } from 'react';
+import { Panel, PanelMain, PanelMainBody } from '@patternfly/react-core';
+import { LazyLog } from '@melloware/react-logviewer';
+import { useWebSocket } from 'react-use-websocket/dist/lib/use-websocket';
+import { v4 as uuidv4 } from 'uuid';
 
 export interface KubernetesLogViewProps {
     children?: React.ReactNode;
@@ -8,61 +10,59 @@ export interface KubernetesLogViewProps {
     containerName: string;
     logPollIntervalSeconds: number;
     convertToHtml: boolean;
+    signal: AbortSignal | undefined;
 }
 
 export const KubernetesLogViewComponent: React.FunctionComponent<KubernetesLogViewProps> = (props) => {
-    const url: string = `api/logs/pods/${props.podName}?container=${props.containerName}&follow=true`;
+    // const url: string = `api/logs/pods/${props.podName}?container=${props.containerName}&follow=true`;
 
-    const alreadyGettingLogs = useRef(false);
     const logs = useRef('');
 
+    // Just use websockets. Ugh.
+    const { sendMessage, lastMessage } = useWebSocket('ws://localhost:8000/logs');
+
     useEffect(() => {
-        async function get_logs(pod: string, container: string) {
-            if (alreadyGettingLogs.current) {
-                return;
-            }
+        console.log(`Requesting logs for container ${props.containerName} of pod ${props.podName}`);
+        sendMessage(
+            JSON.stringify({
+                op: 'get_logs',
+                msg_id: uuidv4(),
+                pod: props.podName,
+                container: props.containerName,
+                follow: true,
+            }),
+        );
+    }, [sendMessage, props.podName, props.containerName]);
 
-            alreadyGettingLogs.current = true;
+    useEffect(() => {
+        async function readFromStream(reader: ReadableStreamDefaultReader<Uint8Array>) {
+            let response: ReadableStreamReadResult<Uint8Array> = await reader.read();
+            while (!response?.done) {
+                const text: string = new TextDecoder().decode(response!.value);
+                logs.current = logs.current + text;
 
-            const req: RequestInit = {
-                method: 'GET',
-                headers: {
-                    'Content-Type': 'text/plain',
-                    'Transfer-Encoding': 'chunked',
-                    // 'Cache-Control': 'no-cache, no-transform, no-store',
-                },
-            };
-
-            const randNumber: number = Math.floor(Math.random() * 1e9); // ?randNumber=${randNumber}
-            console.log(`Getting logs for container ${container} of pod ${pod}: ${randNumber}`);
-            const response: Response = await fetch(
-                `api/logs/pods/${pod}?randNumber=${randNumber}&container=${container}&follow=true`,
-                req,
-            );
-
-            const reader: ReadableStreamDefaultReader<Uint8Array> | undefined = response.body?.getReader();
-
-            while (true) {
-                const response: ReadableStreamReadResult<Uint8Array> | undefined = await reader?.read();
-
-                if (response?.done) {
-                    return;
-                }
-
-                const logsAsString: string = String.fromCharCode.apply(null, response!.value);
-                logs.current = logs.current + logsAsString;
+                response = await reader.read();
             }
         }
 
-        get_logs(props.podName, props.containerName);
-    }, []);
+        if (lastMessage !== null) {
+            const data: Blob = lastMessage.data;
+            const stream: ReadableStream<Uint8Array> = data.stream();
+            const reader: ReadableStreamDefaultReader<Uint8Array> | undefined = stream.getReader();
+
+            if (reader === undefined) {
+                console.error('Could not get reader for message stream...');
+                return;
+            }
+
+            readFromStream(reader);
+        }
+    }, [lastMessage]);
 
     return (
         <Panel isScrollable variant="bordered">
             <PanelMain maxHeight={'500px'}>
                 <PanelMainBody>
-                    {/* <Title headingLevel="h1">{`Logs for Container ${props.containerName} of Pod ${props.podName}`}</Title>
-                    <Divider /> */}
                     <LazyLog
                         text={logs.current}
                         enableSearch

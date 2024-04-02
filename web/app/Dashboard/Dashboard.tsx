@@ -1,9 +1,9 @@
 import '@patternfly/react-core/dist/styles/base.css';
 
 import React, { createContext, useRef } from 'react';
-import { Grid, GridItem, PageSection, gridSpans, Flex, FlexItem, TextVariants, Text } from '@patternfly/react-core';
+import { Flex, FlexItem, Grid, GridItem, PageSection, Text, TextVariants, gridSpans } from '@patternfly/react-core';
 
-import { LogViewCard, KernelList, KernelSpecList, KubernetesNodeList, WorkloadCard } from '@app/Components/Cards/';
+import { KernelList, KernelSpecList, KubernetesNodeList, LogViewCard, WorkloadCard } from '@app/Components/Cards/';
 import {
     DistributedJupyterKernel,
     JupyterKernelReplica,
@@ -31,15 +31,15 @@ export type ItemsPerPageContext = {
 
 export const KernelsPerPageContext = createContext<ItemsPerPageContext>({
     itemsPerPage: 1,
-    setItemsPerPage: (newHeight: number) => {},
+    setItemsPerPage: () => {},
 });
 export const KubernetesNodePerPageContext = createContext<ItemsPerPageContext>({
     itemsPerPage: 3,
-    setItemsPerPage: (newHeight: number) => {},
+    setItemsPerPage: () => {},
 });
 export const WorkloadsPerPageContext = createContext<ItemsPerPageContext>({
     itemsPerPage: 3,
-    setItemsPerPage: (newHeight: number) => {},
+    setItemsPerPage: () => {},
 });
 
 const Dashboard: React.FunctionComponent<DashboardProps> = () => {
@@ -130,17 +130,6 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
         }
 
         const messageId: string = uuidv4();
-        // const callback = (result: SingleWorkloadResponse) => {
-        //     console.log('Successfully registered workload %s', result.workload.id);
-        //     setWorkloads(new Map(workloads.set(result.workload.id, result.workload)));
-
-        //     if (workloads.size >= 1) {
-        //         setWorkloadCardRowspan(2);
-        //     } else {
-        //         setWorkloadCardRowspan(1);
-        //     }
-        // };
-        // websocketCallbacks.current.set(messageId, callback);
         sendJsonMessage({
             op: 'register_workload',
             msg_id: messageId,
@@ -186,7 +175,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
     };
 
     const onStartWorkloadClicked = (workload: Workload) => {
-        toast((t) => (
+        toast(() => (
             <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
                 <FlexItem>
                     <b>Starting workload {workload.name}</b>
@@ -200,7 +189,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
             </Flex>
         ));
 
-        console.log("Starting workload '%s' (ID=%s)", workload.name, workload.id);
+        console.log(`Starting workload '${workload.name}' (ID=${workload.id})`);
 
         const messageId: string = uuidv4();
         // const callback = (result: SingleWorkloadResponse) => {

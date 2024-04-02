@@ -1,5 +1,5 @@
 /* eslint-disable camelcase */
-import React, { useCallback, useEffect, useState } from 'react';
+import React, { useState } from 'react';
 import {
     Button,
     Card,
@@ -8,6 +8,7 @@ import {
     CardTitle,
     Flex,
     FlexItem,
+    Skeleton,
     Tab,
     TabContent,
     TabTitleIcon,
@@ -17,10 +18,17 @@ import {
     ToolbarGroup,
     ToolbarItem,
     Tooltip,
-    Skeleton,
 } from '@patternfly/react-core';
 
-import { BugIcon, LaptopCodeIcon, ServerAltIcon, ServerGroupIcon, ServerIcon, SyncIcon } from '@patternfly/react-icons';
+import {
+    BugIcon,
+    LaptopCodeIcon,
+    ServerAltIcon,
+    ServerGroupIcon,
+    ServerIcon,
+    StopIcon,
+    SyncIcon,
+} from '@patternfly/react-icons';
 import { toast } from 'react-hot-toast';
 import { ConsoleLogViewComponent } from '../ConsoleLogView';
 import { KubernetesLogViewComponent } from '../KubernetesLogView';
@@ -34,8 +42,6 @@ export const LogViewCard: React.FunctionComponent = () => {
     const [activeKernelTabKey, setActiveKernelTabKey] = React.useState(0);
     const [activeKernelReplicaTabKey, setActiveKernelReplicaTabKey] = React.useState(0);
     const [podsAreRefreshing, setPodsAreRefreshing] = useState(false);
-
-    const [isCardExpanded, setIsCardExpanded] = useState(true);
 
     const { gatewayPod, jupyterPod, refreshPodNames } = usePodNames();
 
@@ -57,8 +63,27 @@ export const LogViewCard: React.FunctionComponent = () => {
         setActiveKernelReplicaTabKey(Number(tabIndex));
     };
 
+    const abortController = React.useRef<AbortController | null>(null);
+    if (abortController.current == null) {
+        abortController.current = new AbortController();
+    }
+
     const cardHeaderActions = (
         <ToolbarGroup variant="icon-button-group">
+            <ToolbarItem>
+                <Button
+                    variant="plain"
+                    icon={<StopIcon />}
+                    onClick={() => {
+                        try {
+                            console.warn('Aborting all Kuberntes logs now.');
+                            abortController.current?.abort();
+                        } catch (error) {
+                            console.error(`Error occurred whilst aborting: ${error}`);
+                        }
+                    }}
+                />
+            </ToolbarItem>
             <ToolbarItem>
                 <Tooltip exitDelay={75} content={<div>Refresh pod names.</div>}>
                     <Button
@@ -283,6 +308,7 @@ export const LogViewCard: React.FunctionComponent = () => {
                                                             containerName="kernel"
                                                             convertToHtml={false}
                                                             logPollIntervalSeconds={1}
+                                                            signal={abortController.current?.signal}
                                                         />
                                                     </Tab>
                                                 );
@@ -317,6 +343,7 @@ export const LogViewCard: React.FunctionComponent = () => {
                         containerName={'gateway'}
                         logPollIntervalSeconds={1}
                         convertToHtml={false}
+                        signal={abortController.current?.signal}
                     />
                 </TabContent>
                 <TabContent
@@ -331,6 +358,7 @@ export const LogViewCard: React.FunctionComponent = () => {
                         containerName={'jupyter-notebook'}
                         logPollIntervalSeconds={1}
                         convertToHtml={false}
+                        signal={abortController.current?.signal}
                     />
                 </TabContent>
                 {localDaemonIDs.map((id: number) => (
@@ -346,6 +374,7 @@ export const LogViewCard: React.FunctionComponent = () => {
                             containerName={'local-daemon'}
                             logPollIntervalSeconds={1}
                             convertToHtml={false}
+                            signal={abortController.current?.signal}
                         />
                     </TabContent>
                 ))}
