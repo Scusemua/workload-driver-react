@@ -70,7 +70,7 @@ export const LogViewCard: React.FunctionComponent = () => {
 
     const cardHeaderActions = (
         <ToolbarGroup variant="icon-button-group">
-            <ToolbarItem>
+            {/* <ToolbarItem>
                 <Button
                     variant="plain"
                     icon={<StopIcon />}
@@ -83,7 +83,7 @@ export const LogViewCard: React.FunctionComponent = () => {
                         }
                     }}
                 />
-            </ToolbarItem>
+            </ToolbarItem> */}
             <ToolbarItem>
                 <Tooltip exitDelay={75} content={<div>Refresh pod names.</div>}>
                     <Button

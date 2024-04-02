@@ -345,7 +345,7 @@ func (s *serverImpl) getLogsWebsocket(req *domain.GetLogsRequest, conn *websocke
 
 		if !firstReadCompleted {
 			amountToRead = reader.Buffered()
-			s.sugaredLogger.Debugf("First read: %d bytes. Bytes buffered: %d. (From container %s of pod %s)", len(msg), amountToRead, container, pod)
+			// s.sugaredLogger.Debugf("First read: %d bytes. Bytes buffered: %d. (From container %s of pod %s)", len(msg), amountToRead, container, pod)
 			firstReadCompleted = true
 
 			if amountToRead > 0 {
@@ -354,7 +354,7 @@ func (s *serverImpl) getLogsWebsocket(req *domain.GetLogsRequest, conn *websocke
 		}
 
 		if len(buf) < amountToRead {
-			s.sugaredLogger.Debugf("Read %d / %d bytes so far.", len(buf), amountToRead)
+			// s.sugaredLogger.Debugf("Read %d / %d bytes so far.", len(buf), amountToRead)
 			continue
 		}
 
@@ -370,25 +370,6 @@ func (s *serverImpl) getLogsWebsocket(req *domain.GetLogsRequest, conn *websocke
 		firstReadCompleted = false
 		amountToRead = -1
 	}
-
-	// for {
-	// 	buf := make([]byte, 0)
-	// 	if len(messageChan) > 0 {
-	// 		msg := <-messageChan
-
-	// 		buf = append(buf, msg...)
-	// 	} else {
-
-	// 	}
-	// 	for msg := range messageChan {
-	// 		s.logger.Debug("Writing logs back to frontend.", zap.Int("bytes", len(buf)), zap.String("pod", pod), zap.String("container", container))
-	// 		err = conn.WriteMessage(websocket.BinaryMessage, msg)
-	// 		if err != nil {
-	// 			s.logger.Error("Error while writing stream response for logs.", zap.String("pod", pod), zap.String("container", container), zap.Error(err))
-	// 			return
-	// 		}
-	// 	}
-	// }
 }
 
 func (s *serverImpl) serveWorkloadWebsocket(c *gin.Context) {
