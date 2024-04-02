@@ -1,33 +1,32 @@
 /* eslint-disable camelcase */
-import React, { useCallback, useEffect, useRef, useState } from 'react';
+import React, { useCallback, useEffect, useState } from 'react';
 import {
+    Button,
     Card,
     CardBody,
     CardHeader,
     CardTitle,
-    Title,
-    Tab,
-    TabContent,
-    TabTitleText,
-    Tabs,
     Flex,
     FlexItem,
-    Button,
+    Tab,
+    TabContent,
+    TabTitleIcon,
+    TabTitleText,
+    Tabs,
+    Title,
     ToolbarGroup,
     ToolbarItem,
     Tooltip,
-    TabTitleIcon,
-    CardExpandableContent,
+    Skeleton,
 } from '@patternfly/react-core';
 
 import { BugIcon, LaptopCodeIcon, ServerAltIcon, ServerGroupIcon, ServerIcon, SyncIcon } from '@patternfly/react-icons';
 import { toast } from 'react-hot-toast';
 import { ConsoleLogViewComponent } from '../ConsoleLogView';
 import { KubernetesLogViewComponent } from '../KubernetesLogView';
-import { useKernels } from '@app/Providers';
+import { useKernels, usePodNames } from '@app/Providers';
 import { DistributedJupyterKernel, JupyterKernelReplica } from '@app/Data';
-import { CloudServerIcon, ClusterIcon } from '@app/Icons';
-import { LazyLog } from '@melloware/react-logviewer';
+import { CloudServerIcon } from '@app/Icons';
 
 export const LogViewCard: React.FunctionComponent = () => {
     const [activeTabKey, setActiveTabKey] = React.useState(0);
@@ -38,8 +37,7 @@ export const LogViewCard: React.FunctionComponent = () => {
 
     const [isCardExpanded, setIsCardExpanded] = useState(true);
 
-    const [gatewayPod, setGatewayPod] = React.useState('');
-    const [jupyterPod, setJupyterPod] = React.useState('');
+    const { gatewayPod, jupyterPod, refreshPodNames } = usePodNames();
 
     const { kernels } = useKernels();
 
@@ -59,40 +57,6 @@ export const LogViewCard: React.FunctionComponent = () => {
         setActiveKernelReplicaTabKey(Number(tabIndex));
     };
 
-    const refreshPods = useCallback(async () => {
-        const requestOptions = {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json',
-                'Sec-Fetch-Dest': 'document',
-            },
-        };
-
-        console.log('Retrieving Pods now.');
-        const response: Response = await fetch('kubernetes/api/v1/namespaces/default/pods', requestOptions);
-        console.log(`Response for Pods refresh: ${response.status} ${response.statusText}`);
-        const responseJson: Record<string, any> = await response.json();
-
-        const podsJson: Record<string, any>[] = responseJson['items'];
-        podsJson.map((pod: Record<string, any>) => {
-            const podName: string = pod['metadata']['name'];
-            const containerName: string = pod['spec']['containers'][0]['name'];
-            console.log(`Discovered Pod ${podName} with Container ${containerName}`);
-
-            if (podName.includes('gateway')) {
-                console.log(`Identified Gateway Pod: ${podName}`);
-                setGatewayPod(podName);
-            } else if (podName.includes('jupyter')) {
-                console.log(`Identified Jupyter Pod: ${podName}`);
-                setJupyterPod(podName);
-            }
-        });
-    }, [setGatewayPod, setJupyterPod]);
-
-    useEffect(() => {
-        refreshPods();
-    }, [refreshPods]);
-
     const cardHeaderActions = (
         <ToolbarGroup variant="icon-button-group">
             <ToolbarItem>
@@ -110,7 +74,7 @@ export const LogViewCard: React.FunctionComponent = () => {
                             setPodsAreRefreshing(true);
                             toast
                                 .promise(
-                                    refreshPods(),
+                                    refreshPodNames(),
                                     {
                                         loading: <b>Refreshing Kubernetes pod names...</b>,
                                         success: <b>Refreshed Kubernetes pod names!</b>,
@@ -153,9 +117,22 @@ export const LogViewCard: React.FunctionComponent = () => {
 
     const localDaemonIDs: number[] = [0, 1, 2, 3];
 
-    const onCardExpand = (event: React.MouseEvent, id: string) => {
-        setIsCardExpanded(!isCardExpanded);
-    };
+    if (!gatewayPod || !jupyterPod || gatewayPod.length == 0 || jupyterPod.length == 0) {
+        return (
+            <Card isRounded id="console-log-view-card">
+                <CardHeader actions={{ actions: cardHeaderActions, hasNoOffset: false }}>
+                    <CardTitle>
+                        <Title headingLevel="h1" size="xl">
+                            Logs
+                        </Title>
+                    </CardTitle>
+                </CardHeader>
+                <CardBody>
+                    <Skeleton height={'400'} />
+                </CardBody>
+            </Card>
+        );
+    }
 
     return (
         <Card isRounded id="console-log-view-card">
@@ -179,7 +156,7 @@ export const LogViewCard: React.FunctionComponent = () => {
                                 <TabTitleText>{'Browser Debug Console'}</TabTitleText>
                             </>
                         }
-                        tabContentId={`tab-content-browser-debug-console`}
+                        tabContentId={`browser-console-logs-tab-content`}
                     />
                     <Tab
                         key={1}
@@ -192,7 +169,7 @@ export const LogViewCard: React.FunctionComponent = () => {
                                 <TabTitleText>{'Cluster Gateway'}</TabTitleText>
                             </>
                         }
-                        tabContentId={`tab-content-gateway`}
+                        tabContentId={`cluster-gateway-logs-tab-content`}
                     />
                     <Tab
                         key={2}
@@ -205,7 +182,7 @@ export const LogViewCard: React.FunctionComponent = () => {
                                 <TabTitleText>{'Jupyter Server'}</TabTitleText>
                             </>
                         }
-                        tabContentId={`tab-content-jupyter-server`}
+                        tabContentId={`jupyter-notebook-server-tab-content`}
                     />
                     <Tab
                         key={3}
@@ -218,7 +195,7 @@ export const LogViewCard: React.FunctionComponent = () => {
                                 <TabTitleText>{'Local Daemons'}</TabTitleText>
                             </>
                         }
-                        tabContentId={`tab-content-local-daemon-browserConsoleLogs`}
+                        tabContentId={`local-daemon-tab-content`}
                     >
                         <Tabs
                             isFilled
@@ -240,8 +217,8 @@ export const LogViewCard: React.FunctionComponent = () => {
                                                 <TabTitleText>{`Local Daemon ${id}`}</TabTitleText>
                                             </>
                                         }
-                                        tabContentId={`tab-content-local-daemon${id}`}
-                                    ></Tab>
+                                        tabContentId={`local-daemon-${id}-tab-content`}
+                                    />
                                 );
                             })}
                         </Tabs>
@@ -322,7 +299,7 @@ export const LogViewCard: React.FunctionComponent = () => {
                 <TabContent
                     key={0}
                     eventKey={0}
-                    id={`tabContent${0}`}
+                    id={`browser-console-logs-tab-content`}
                     activeKey={activeTabKey}
                     hidden={0 !== activeTabKey}
                 >
@@ -331,40 +308,36 @@ export const LogViewCard: React.FunctionComponent = () => {
                 <TabContent
                     key={1}
                     eventKey={1}
-                    id={`tabContent${1}`}
+                    id={`cluster-gateway-logs-tab-content`}
                     activeKey={activeTabKey}
                     hidden={1 !== activeTabKey}
                 >
-                    {gatewayPod.length > 0 && (
-                        <KubernetesLogViewComponent
-                            podName={gatewayPod}
-                            containerName={'gateway'}
-                            logPollIntervalSeconds={1}
-                            convertToHtml={false}
-                        />
-                    )}
+                    <KubernetesLogViewComponent
+                        podName={gatewayPod}
+                        containerName={'gateway'}
+                        logPollIntervalSeconds={1}
+                        convertToHtml={false}
+                    />
                 </TabContent>
                 <TabContent
                     key={2}
                     eventKey={2}
-                    id={`tabContent${2}`}
+                    id={`jupyter-notebook-server-tab-content`}
                     activeKey={activeTabKey}
                     hidden={2 !== activeTabKey}
                 >
-                    {jupyterPod.length > 0 && (
-                        <KubernetesLogViewComponent
-                            podName={jupyterPod}
-                            containerName={'jupyter-notebook'}
-                            logPollIntervalSeconds={1}
-                            convertToHtml={false}
-                        />
-                    )}
+                    <KubernetesLogViewComponent
+                        podName={jupyterPod}
+                        containerName={'jupyter-notebook'}
+                        logPollIntervalSeconds={1}
+                        convertToHtml={false}
+                    />
                 </TabContent>
                 {localDaemonIDs.map((id: number) => (
                     <TabContent
                         key={id}
                         eventKey={id}
-                        id={`local-daemin-${id}-tabcontent`}
+                        id={`local-daemon-${id}-tab-content`}
                         activeKey={activeLocalDaemonTabKey}
                         hidden={id !== activeLocalDaemonTabKey || 3 !== activeTabKey}
                     >

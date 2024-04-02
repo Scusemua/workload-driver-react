@@ -36,10 +36,25 @@ export const CreateKernelsModal: React.FunctionComponent<CreateKernelsModalProps
     const [gpuHintText, setGpuHintText] = React.useState(originalResourceAmountHint);
 
     const onConfirmClicked = () => {
+        let cpu: number = Number.parseInt(cpus);
+        if (Number.isNaN(cpu)) {
+            cpu = 0;
+        }
+
+        let gpu: number = Number.parseInt(gpus);
+        if (Number.isNaN(gpu)) {
+            gpu = 0;
+        }
+
+        let mem: number = Number.parseInt(memory);
+        if (Number.isNaN(mem)) {
+            mem = 0;
+        }
+
         const resourceSpec: ResourceSpec = {
-            cpu: Number.parseInt(cpus),
-            memory: Number.parseInt(memory),
-            gpu: Number.parseInt(gpus),
+            cpu: cpu,
+            memory: mem,
+            gpu: gpu,
         };
         props.onConfirm(numKernels, resourceSpec);
     };

@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React from 'react';
 import {
     Button,
     Card,
@@ -9,6 +9,8 @@ import {
     DescriptionListDescription,
     DescriptionListGroup,
     DescriptionListTerm,
+    Flex,
+    FlexItem,
     Tab,
     TabContent,
     TabTitleText,
@@ -17,9 +19,6 @@ import {
     ToolbarGroup,
     ToolbarItem,
     Tooltip,
-    Flex,
-    FlexItem,
-    Panel,
 } from '@patternfly/react-core';
 import { SyncIcon } from '@patternfly/react-icons';
 import { useKernelSpecs } from '@app/Providers';
@@ -102,7 +101,7 @@ export const KernelSpecList: React.FunctionComponent = () => {
                             key={tabIndex}
                             eventKey={tabIndex}
                             title={<TabTitleText>{kernelSpecs[key]?.spec.display_name}</TabTitleText>}
-                            tabContentId={`tabContent${tabIndex}`}
+                            tabContentId={`kernel-spec-${tabIndex}-tab-content`}
                         />
                     ))}
                 </Tabs>
@@ -112,7 +111,7 @@ export const KernelSpecList: React.FunctionComponent = () => {
                     <TabContent
                         key={tabIndex}
                         eventKey={tabIndex}
-                        id={`tabContent${tabIndex}`}
+                        id={`kernel-spec-${tabIndex}-tab-content`}
                         activeKey={activeTabKey}
                         hidden={tabIndex !== activeTabKey}
                     >

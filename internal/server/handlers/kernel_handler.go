@@ -59,7 +59,7 @@ func (h *KernelHttpHandler) HandleRequest(c *gin.Context) {
 	}
 
 	h.sugaredLogger.Infof("Sending %d kernel(s) back to client now.", len(kernels))
-	h.sugaredLogger.Debugf("Kernels: %v.", kernels)
+	// h.sugaredLogger.Debugf("Kernels: %v.", kernels)
 	c.JSON(http.StatusOK, kernels)
 }
 

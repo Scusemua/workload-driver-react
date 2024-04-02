@@ -1,4 +1,4 @@
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { Divider, Panel, PanelMain, PanelMainBody, Title } from '@patternfly/react-core';
 import { LazyLog, ScrollFollow } from '@melloware/react-logviewer';
 
@@ -13,62 +13,65 @@ export interface KubernetesLogViewProps {
 export const KubernetesLogViewComponent: React.FunctionComponent<KubernetesLogViewProps> = (props) => {
     const url: string = `api/logs/pods/${props.podName}?container=${props.containerName}&follow=true`;
 
-    // useEffect(() => {
-    //     if (props.containerName !== 'jupyter-notebook') {
-    //         return;
-    //     }
+    const alreadyGettingLogs = useRef(false);
+    const logs = useRef('');
 
-    //     const req: RequestInit = {
-    //         method: 'GET',
-    //         headers: {
-    //             'Content-Type': 'text/plain',
-    //             'Transfer-Encoding': 'chunked',
-    //         },
-    //     };
+    useEffect(() => {
+        async function get_logs(pod: string, container: string) {
+            if (alreadyGettingLogs.current) {
+                return;
+            }
 
-    //     fetch(`api/logs/pods/${props.podName}?container=${props.containerName}&follow=true`, req).then((response) => {
-    //         const reader: ReadableStreamDefaultReader<Uint8Array> | undefined = response.body?.getReader();
+            alreadyGettingLogs.current = true;
 
-    //         function readChunk() {
-    //             return reader?.read().then(({ done, value }) => {
-    //                 if (done) {
-    //                     return;
-    //                 }
+            const req: RequestInit = {
+                method: 'GET',
+                headers: {
+                    'Content-Type': 'text/plain',
+                    'Transfer-Encoding': 'chunked',
+                    'Cache-Control': 'no-cache, no-transform, no-store',
+                },
+            };
 
-    //                 console.log(`Chunk received: ${String.fromCharCode.apply(null, value)}`);
+            const randNumber: number = Math.floor(Math.random() * 1e9); // ?randNumber=${randNumber}
+            console.log(`Getting logs for container ${container} of pod ${pod}: ${randNumber}`);
+            const response: Response = await fetch(
+                `api/logs/pods/${pod}?randNumber=${randNumber}&container=${container}&follow=true`,
+                req,
+            );
 
-    //                 return readChunk();
-    //             });
-    //         }
+            const reader: ReadableStreamDefaultReader<Uint8Array> | undefined = response.body?.getReader();
 
-    //         return readChunk();
-    //     });
-    // }, []);
+            while (true) {
+                const response: ReadableStreamReadResult<Uint8Array> | undefined = await reader?.read();
 
-    console.log(`Querying data from \"${url}\"`);
+                if (response?.done) {
+                    return;
+                }
+
+                const logsAsString: string = String.fromCharCode.apply(null, response!.value);
+                logs.current = logs.current + logsAsString;
+            }
+        }
+
+        get_logs(props.podName, props.containerName);
+    }, []);
 
     return (
         <Panel isScrollable variant="bordered">
-            <PanelMain maxHeight={'450px'}>
+            <PanelMain maxHeight={'500px'}>
                 <PanelMainBody>
-                    <Title headingLevel="h1">{`Logs for Container ${props.containerName} of Pod ${props.podName}`}</Title>
-                    <Divider />
-                    <ScrollFollow
-                        startFollowing
-                        render={({ onScroll, follow, startFollowing, stopFollowing }) => (
-                            <LazyLog
-                                stream={true}
-                                extraLines={1}
-                                url={url}
-                                enableSearch
-                                enableSearchNavigation
-                                follow={follow}
-                                onScroll={onScroll}
-                                enableHotKeys
-                                selectableLines
-                                height={400}
-                            />
-                        )}
+                    {/* <Title headingLevel="h1">{`Logs for Container ${props.containerName} of Pod ${props.podName}`}</Title>
+                    <Divider /> */}
+                    <LazyLog
+                        text={logs.current}
+                        enableSearch
+                        enableSearchNavigation
+                        follow={true}
+                        extraLines={1}
+                        enableHotKeys
+                        selectableLines
+                        height={400}
                     />
                 </PanelMainBody>
             </PanelMain>

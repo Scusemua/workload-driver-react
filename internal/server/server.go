@@ -137,6 +137,8 @@ func (s *serverImpl) setupRoutes() error {
 		}
 	}
 
+	gin.SetMode(gin.DebugMode)
+
 	s.app.Use(s.ErrorHandlerMiddleware)
 
 	return nil

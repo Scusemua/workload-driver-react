@@ -249,7 +249,9 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                 }),
             });
 
-            await sessionManager.current.ready;
+            await sessionManager.current.ready.then(() => {
+                console.log('Session Manager is ready!');
+            });
         }
     }
 
@@ -349,7 +351,25 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
      * @param resourceSpec The resource spec to be associated with the kernel.
      */
     async function registerResourceSpec(sessionId: string, resourceSpec: ResourceSpec) {
-        fetch('');
+        const req: RequestInit = {
+            method: 'POST',
+            body: JSON.stringify({ KernelId: sessionId, ResourceSpec: resourceSpec }),
+        };
+
+        console.log(`Registering resource spec ${JSON.stringify(resourceSpec)} for session ${sessionId}`);
+        const resp: Response = await fetch('/api/resourcespecs', req);
+
+        if (resp.status != 200) {
+            console.error(
+                `Failed to register resource spec for session ${sessionId}: received HTTP ${resp.status} ${resp.statusText} in response.`,
+            );
+            throw new Error(
+                `failed to register resource spec for session ${sessionId}: received HTTP ${resp.status} ${resp.statusText} in response`,
+            );
+        } else {
+            console.log(`Registered resource spec ${JSON.stringify(resourceSpec)} for session ${sessionId}`);
+            return true;
+        }
     }
 
     async function startKernel(resourceSpec: ResourceSpec) {
@@ -364,14 +384,14 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         console.log(`Starting new 'distributed' kernel for user ${username} with clientID=${clientId}.`);
 
         // First, register the ResourceSpec with the Cluster Gateway.
-        await toast.promise(registerResourceSpec(clientId, resourceSpec), {
+        const registeredSuccessfully: boolean = await toast.promise(registerResourceSpec(clientId, resourceSpec), {
             loading: <b>Registering resource spec with Cluster Gateway for new session {clientId}...</b>,
             success: <b>Successfully registered resource spec with Cluster Gateway for new session {clientId}.</b>,
             error: (reason: Error) => {
                 return (
                     <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
                         <FlexItem>
-                            <b>Could not register resource spec with Cluster Gateway for new session {clientId}.</b>
+                            <b>Failed to register resource spec new session/kernel.</b>
                         </FlexItem>
                         <FlexItem>
                             <b>Reason:</b> {reason.message}
@@ -380,6 +400,26 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                 );
             },
         });
+
+        if (!registeredSuccessfully) {
+            toast.error('Could not create new kernel.');
+            numKernelsCreating.current -= 1;
+            return;
+        }
+
+        console.log(`Creating new Jupyter Session ${clientId} now...`);
+        if (!sessionManager.current || !sessionManager.current.isReady) {
+            console.error(
+                `SessionManager is NOT ready... will try to initialize the SessionManager before proceeding.`,
+            );
+            await initializeKernelManagers();
+            console.warn(`Trying again...`);
+
+            if (!sessionManager.current || !sessionManager.current.isReady) {
+                toast.error('Cannot establish connection with Jupyter Server.');
+                return;
+            }
+        }
 
         // Next, create the Session.
         const session: ISessionConnection | undefined = await toast.promise(
@@ -404,6 +444,8 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             },
         );
 
+        console.log(`Successfully created new Jupyter Session ${clientId}.`);
+
         if (session.kernel === null) {
             toast.error(`Kernel for newly-created Session ${session.id} is null...`);
             return;
@@ -425,6 +467,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             method: 'PATCH',
             headers: {
                 'Content-Type': 'application/json',
+                'Cache-Control': 'no-cache, no-transform, no-store',
             },
             body: JSON.stringify({
                 resourceSpec: resourceSpec,
@@ -575,11 +618,19 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             console.error('Kernel Manager is not available. Will try to connect...');
             initializeKernelManagers();
             return;
+        } else if (!kernelManager.current.isReady) {
+            console.warn("Kernel Manager isn't ready yet!");
+            toast.error("Kernel Manager isn't ready yet.");
+            return;
         }
 
         if (!sessionManager.current) {
             console.error('Session Manager is not available. Will try to connect...');
             initializeKernelManagers();
+            return;
+        } else if (!sessionManager.current.isReady) {
+            console.warn("Session Manager isn't ready yet!");
+            toast.error("Session Manager isn't ready yet.");
             return;
         }
 

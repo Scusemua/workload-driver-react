@@ -33,7 +33,6 @@ func NewLogHttpHandler(opts *domain.Configuration) domain.BackendHttpGetHandler 
 }
 
 func (h *LogHttpHandler) HandleRequest(c *gin.Context) {
-
 	pod := c.Param("pod")
 	container := c.Query("container")
 	follow := c.Query("follow")
@@ -100,7 +99,7 @@ func (h *LogHttpHandler) streamLogs(c *gin.Context, resp *http.Response, pod str
 	h.logger.Debug("Streaming logs to client.", zap.String("pod", pod), zap.String("container", container))
 	c.Header("Transfer-Encoding", "chunked")
 
-	streamChan := make(chan []byte, 32)
+	streamChan := make(chan []byte)
 	go func() {
 		reader := bufio.NewReader(resp.Body)
 		for {
@@ -114,6 +113,8 @@ func (h *LogHttpHandler) streamLogs(c *gin.Context, resp *http.Response, pod str
 		}
 	}()
 
+	var messagesSent int = 0
+	var printEvery int = 100
 	c.Stream(func(w io.Writer) bool {
 		if msg, ok := <-streamChan; ok {
 			_, err := w.Write(msg)
@@ -121,8 +122,17 @@ func (h *LogHttpHandler) streamLogs(c *gin.Context, resp *http.Response, pod str
 				h.logger.Error("Error while writing stream response for logs.", zap.String("pod", pod), zap.String("container", container), zap.Error(err))
 			}
 			c.Writer.Flush()
-			return true
+
+			messagesSent += 1
+
+			if messagesSent%printEvery == 0 {
+				h.sugaredLogger.Debugf("Transmitted %d messages of logs for container %s of pod %s", messagesSent, container, pod)
+				printEvery = 500
+			}
+			return true // Keep open
 		}
-		return false
+
+		h.logger.Error("Client disconnected in the middle of the stream.", zap.String("pod", pod), zap.String("container", container))
+		return false // Close stream
 	})
 }

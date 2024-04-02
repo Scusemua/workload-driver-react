@@ -4,3 +4,4 @@ export * from './WorkloadPresetProvider';
 export * from './WorkloadProvider';
 export * from './KernelSpecProvider';
 export * from './DarkModeProvider';
+export * from './PodNameProvider';

@@ -1,4 +1,4 @@
-import useSWR, { mutate } from 'swr';
+import useSWR from 'swr';
 import { KubernetesNode } from '@app/Data';
 import useSWRMutation from 'swr/mutation';
 
@@ -7,14 +7,20 @@ const api_endpoint: string = 'api/nodes';
 const fetcher = async (input: RequestInfo | URL) => {
     const abortController: AbortController = new AbortController();
     const signal: AbortSignal = abortController.signal;
-    const timeout: number = 5000;
+    const timeout: number = 10000;
+
+    const randNumber: number = Math.floor(Math.random() * 1e9);
+    input += `?randNumber=${randNumber}`;
 
     setTimeout(() => {
         abortController.abort(`The request timed-out after ${timeout} milliseconds.`);
     }, timeout);
 
     try {
-        const response: Response = await fetch(input, { signal: signal });
+        const response: Response = await fetch(input, {
+            signal: signal,
+            headers: { 'Cache-Control': 'no-cache, no-transform, no-store' },
+        });
         return await response.json();
     } catch (e) {
         if (signal.aborted) {

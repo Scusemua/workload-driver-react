@@ -1,17 +1,7 @@
 import '@patternfly/react-core/dist/styles/base.css';
 
 import React, { createContext, useRef } from 'react';
-import {
-    Grid,
-    GridItem,
-    PageSection,
-    gridSpans,
-    Button,
-    Flex,
-    FlexItem,
-    TextVariants,
-    Text,
-} from '@patternfly/react-core';
+import { Grid, GridItem, PageSection, gridSpans, Flex, FlexItem, TextVariants, Text } from '@patternfly/react-core';
 
 import { LogViewCard, KernelList, KernelSpecList, KubernetesNodeList, WorkloadCard } from '@app/Components/Cards/';
 import {
@@ -77,7 +67,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
     ) => {
         const requestOptions = {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache, no-transform, no-store' },
             body: JSON.stringify({
                 targetReplica: {
                     replicaId: targetReplica.replicaId,
@@ -295,7 +285,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
 
         const requestOptions = {
             method: 'PATCH',
-            headers: { 'Content-Type': 'application/json' },
+            headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache, no-transform, no-store' },
             body: JSON.stringify({
                 value: value,
                 kubernetesNodeName: adjustVirtualGPUsNode?.NodeId,

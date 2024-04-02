@@ -195,7 +195,7 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                                     },
                                 });
                             }}
-                            isDisabled={nodesAreLoading}
+                            // isDisabled={nodesAreLoading}
                             label="refresh-nodes-button"
                             aria-label="refresh-nodes-button"
                             className={
@@ -283,6 +283,7 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
             method: 'PATCH',
             headers: {
                 'Content-Type': 'application/json',
+                'Cache-Control': 'no-cache, no-transform, no-store',
             },
             body: requestBody,
         };
