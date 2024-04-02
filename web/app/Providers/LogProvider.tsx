@@ -16,7 +16,7 @@ export function useLogProvider(pod: string, container: string) {
             headers: {
                 'Content-Type': 'text/plain',
                 'Transfer-Encoding': 'chunked',
-                'Cache-Control': 'no-cache, no-transform, no-store',
+                // 'Cache-Control': 'no-cache, no-transform, no-store',
             },
             signal: signal,
         };

@@ -421,6 +421,27 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             }
         }
 
+        console.log(`sessionManager.current.isReady: ${sessionManager.current.isReady}`);
+
+        const req: RequestInit = {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                // 'Cache-Control': 'no-cache, no-transform, no-store',
+            },
+            body: JSON.stringify({
+                id: clientId,
+                kernel: clientId,
+                name: clientId,
+                path: `${clientId}.ipynb`,
+                type: 'notebook',
+            }),
+        };
+
+        const resp: Response = await fetch('api/sessions', req);
+
+        console.log(`Create-Session Response: ${resp.status} ${resp.statusText}`);
+
         // Next, create the Session.
         const session: ISessionConnection | undefined = await toast.promise(
             sessionManager.current!.startNew(
@@ -437,6 +458,16 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                     clientId: clientId,
                 },
             ),
+            // fetch('jupyter/api/sessions', {
+            //     method: 'POST',
+            //     body: JSON.stringify({
+            //         id: clientId,
+            //         kernel: clientId,
+            //         name: clientId,
+            //         path: `${clientId}.ipynb`,
+            //         type: 'notebook',
+            //     }),
+            // }),
             {
                 loading: <b>Starting new Jupyter Session and Jupyter Kernel...</b>,
                 success: <b>Successfully started new Jupyter Session and Jupyter Kernel.</b>,
@@ -467,7 +498,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             method: 'PATCH',
             headers: {
                 'Content-Type': 'application/json',
-                'Cache-Control': 'no-cache, no-transform, no-store',
+                // 'Cache-Control': 'no-cache, no-transform, no-store',
             },
             body: JSON.stringify({
                 resourceSpec: resourceSpec,

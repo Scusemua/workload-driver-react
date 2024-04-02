@@ -29,7 +29,7 @@ export const KubernetesLogViewComponent: React.FunctionComponent<KubernetesLogVi
                 headers: {
                     'Content-Type': 'text/plain',
                     'Transfer-Encoding': 'chunked',
-                    'Cache-Control': 'no-cache, no-transform, no-store',
+                    // 'Cache-Control': 'no-cache, no-transform, no-store',
                 },
             };
 

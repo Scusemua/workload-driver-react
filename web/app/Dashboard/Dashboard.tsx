@@ -67,7 +67,10 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
     ) => {
         const requestOptions = {
             method: 'POST',
-            headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache, no-transform, no-store' },
+            headers: {
+                'Content-Type': 'application/json',
+                // 'Cache-Control': 'no-cache, no-transform, no-store',
+            },
             body: JSON.stringify({
                 targetReplica: {
                     replicaId: targetReplica.replicaId,
@@ -285,7 +288,10 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
 
         const requestOptions = {
             method: 'PATCH',
-            headers: { 'Content-Type': 'application/json', 'Cache-Control': 'no-cache, no-transform, no-store' },
+            headers: {
+                'Content-Type': 'application/json',
+                // 'Cache-Control': 'no-cache, no-transform, no-store'
+            },
             body: JSON.stringify({
                 value: value,
                 kubernetesNodeName: adjustVirtualGPUsNode?.NodeId,

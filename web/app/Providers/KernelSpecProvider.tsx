@@ -8,7 +8,6 @@ const fetcher = async (input: RequestInfo | URL) => {
     const timeout: number = 10000;
 
     const randNumber: number = Math.floor(Math.random() * 1e9);
-    input += `?randNumber=${randNumber}`;
 
     setTimeout(() => {
         abortController.abort(`The request timed-out after ${timeout} milliseconds.`);
@@ -17,7 +16,7 @@ const fetcher = async (input: RequestInfo | URL) => {
     try {
         const response: Response = await fetch(input, {
             signal: signal,
-            headers: { 'Cache-Control': 'no-cache, no-transform, no-store' },
+            // headers: { 'Cache-Control': 'no-cache, no-transform, no-store' },
         });
         return await response.json();
     } catch (e) {

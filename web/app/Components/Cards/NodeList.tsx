@@ -283,7 +283,7 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
             method: 'PATCH',
             headers: {
                 'Content-Type': 'application/json',
-                'Cache-Control': 'no-cache, no-transform, no-store',
+                // 'Cache-Control': 'no-cache, no-transform, no-store',
             },
             body: requestBody,
         };

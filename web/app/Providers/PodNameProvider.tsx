@@ -14,7 +14,7 @@ const fetcher = async (input: RequestInfo | URL) => {
     try {
         const response: Response = await fetch(input, {
             signal: signal,
-            headers: { 'Cache-Control': 'no-cache, no-transform, no-store' },
+            // headers: { 'Cache-Control': 'no-cache, no-transform, no-store' },
         });
         const responseJson: Record<string, any> = await response.json();
         const podsJson: Record<string, any>[] = responseJson['items'];

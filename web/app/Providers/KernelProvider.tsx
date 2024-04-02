@@ -17,7 +17,7 @@ const fetcher = async (input: RequestInfo | URL) => {
     try {
         const response: Response = await fetch(input, {
             signal: signal,
-            headers: { 'Cache-Control': 'no-cache, no-transform, no-store' },
+            // headers: { 'Cache-Control': 'no-cache, no-transform, no-store' },
         });
         return await response.json();
     } catch (e) {
