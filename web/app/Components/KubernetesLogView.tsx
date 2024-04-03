@@ -1,7 +1,5 @@
-import React, { useEffect, useRef } from 'react';
-import { Panel, PanelMain, PanelMainBody } from '@patternfly/react-core';
+import React from 'react';
 import { LazyLog, ScrollFollow } from '@melloware/react-logviewer';
-import { useWebSocket } from 'react-use-websocket/dist/lib/use-websocket';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface KubernetesLogViewProps {
@@ -11,10 +9,11 @@ export interface KubernetesLogViewProps {
     logPollIntervalSeconds: number;
     convertToHtml: boolean;
     signal: AbortSignal | undefined;
+    height: number;
 }
 
 export const KubernetesLogViewComponent: React.FunctionComponent<KubernetesLogViewProps> = (props) => {
-    const logs = useRef('');
+    // const logs = useRef('');
 
     // Just use websockets. Ugh.
     // const { sendMessage, lastMessage } = useWebSocket('ws://localhost:8000/logs');
@@ -58,50 +57,55 @@ export const KubernetesLogViewComponent: React.FunctionComponent<KubernetesLogVi
     // }, [lastMessage]);
 
     return (
-        <Panel isScrollable variant="bordered">
-            <PanelMain maxHeight={'500px'}>
-                <PanelMainBody>
-                    <ScrollFollow
-                        startFollowing={true}
-                        render={({ follow, onScroll }) => (
-                            <LazyLog
-                                // text={logs.current}
-                                url={'ws://localhost:8000/logs'}
-                                enableSearch
-                                enableSearchNavigation
-                                websocket={true}
-                                follow={follow}
-                                stream={true}
-                                onScroll={onScroll}
-                                websocketOptions={{
-                                    onOpen: (_e: Event, socket: WebSocket) => {
-                                        console.log(
-                                            `Sending 'get-logs' message for container ${props.containerName} of pod ${props.podName}`,
-                                        );
-                                        socket.binaryType = 'arraybuffer';
-                                        socket.send(
-                                            JSON.stringify({
-                                                op: 'get_logs',
-                                                msg_id: uuidv4(),
-                                                pod: props.podName,
-                                                container: props.containerName,
-                                                follow: true,
-                                            }),
-                                        );
-                                    },
-                                    formatMessage: (message: any) => {
-                                        return new TextDecoder().decode(message);
-                                    },
-                                }}
-                                extraLines={1}
-                                enableHotKeys
-                                selectableLines
-                                height={400}
-                            />
-                        )}
-                    />
-                </PanelMainBody>
-            </PanelMain>
-        </Panel>
+        <ScrollFollow
+            startFollowing={true}
+            render={({ follow, onScroll }) => (
+                <LazyLog
+                    // text={logs.current}
+                    url={'ws://localhost:8000/logs'}
+                    enableSearch
+                    enableSearchNavigation
+                    websocket={true}
+                    follow={follow}
+                    height={props.height}
+                    stream={true}
+                    onScroll={onScroll}
+                    websocketOptions={{
+                        onOpen: (_e: Event, socket: WebSocket) => {
+                            console.log(
+                                `Sending 'get-logs' message for container ${props.containerName} of pod ${props.podName}`,
+                            );
+                            socket.binaryType = 'arraybuffer';
+                            socket.send(
+                                JSON.stringify({
+                                    op: 'get_logs',
+                                    msg_id: uuidv4(),
+                                    pod: props.podName,
+                                    container: props.containerName,
+                                    follow: true,
+                                }),
+                            );
+                        },
+                        formatMessage: (message: ArrayBuffer) => {
+                            return new TextDecoder().decode(message);
+                        },
+                        onClose: () => {
+                            console.warn(
+                                `Websocket Log connection closed for container ${props.containerName} of pod ${props.podName}`,
+                            );
+                        },
+                        onError: (e: Event) => {
+                            console.error(
+                                `Error encountered by Log Websocket for container ${props.containerName} of pod ${props.podName}: `,
+                                e,
+                            );
+                        },
+                    }}
+                    extraLines={1}
+                    enableHotKeys
+                    selectableLines
+                />
+            )}
+        />
     );
 };

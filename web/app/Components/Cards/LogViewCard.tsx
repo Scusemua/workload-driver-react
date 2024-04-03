@@ -14,21 +14,17 @@ import {
     TabTitleIcon,
     TabTitleText,
     Tabs,
+    TextInput,
+    TextInputProps,
     Title,
     ToolbarGroup,
     ToolbarItem,
     Tooltip,
+    Toolbar,
+    ToolbarContent,
 } from '@patternfly/react-core';
 
-import {
-    BugIcon,
-    LaptopCodeIcon,
-    ServerAltIcon,
-    ServerGroupIcon,
-    ServerIcon,
-    StopIcon,
-    SyncIcon,
-} from '@patternfly/react-icons';
+import { BugIcon, LaptopCodeIcon, ServerAltIcon, ServerGroupIcon, ServerIcon, SyncIcon } from '@patternfly/react-icons';
 import { toast } from 'react-hot-toast';
 import { ConsoleLogViewComponent } from '../ConsoleLogView';
 import { KubernetesLogViewComponent } from '../KubernetesLogView';
@@ -36,12 +32,18 @@ import { useKernels, usePodNames } from '@app/Providers';
 import { DistributedJupyterKernel, JupyterKernelReplica } from '@app/Data';
 import { CloudServerIcon } from '@app/Icons';
 
+const default_card_height: number = 400;
+const min_card_height: number = 100;
+const max_card_height: number = 2500;
+
 export const LogViewCard: React.FunctionComponent = () => {
     const [activeTabKey, setActiveTabKey] = React.useState(0);
     const [activeLocalDaemonTabKey, setActiveLocalDaemonTabKey] = React.useState(0);
     const [activeKernelTabKey, setActiveKernelTabKey] = React.useState(0);
     const [activeKernelReplicaTabKey, setActiveKernelReplicaTabKey] = React.useState(0);
     const [podsAreRefreshing, setPodsAreRefreshing] = useState(false);
+    const [logHeight, setLogHeight] = useState(default_card_height);
+    const [logHeightValidated, setLogHeightValidated] = React.useState<TextInputProps['validated']>('default');
 
     const { gatewayPod, jupyterPod, refreshPodNames } = usePodNames();
 
@@ -68,76 +70,109 @@ export const LogViewCard: React.FunctionComponent = () => {
         abortController.current = new AbortController();
     }
 
+    const onHeightTextboxChanged = (_event: React.FormEvent<HTMLInputElement>, value: string) => {
+        if (value == '') {
+            setLogHeight(default_card_height);
+            return;
+        }
+
+        const height: number = Number.parseInt(value);
+        if (Number.isNaN(height)) {
+            setLogHeightValidated('error');
+            return;
+        }
+
+        if (height < min_card_height) {
+            setLogHeightValidated('error');
+            return;
+        }
+
+        if (height > max_card_height) {
+            setLogHeightValidated('error');
+            return;
+        }
+
+        setLogHeightValidated('default');
+        setLogHeight(height);
+    };
+
     const cardHeaderActions = (
-        <ToolbarGroup variant="icon-button-group">
-            {/* <ToolbarItem>
-                <Button
-                    variant="plain"
-                    icon={<StopIcon />}
-                    onClick={() => {
-                        try {
-                            console.warn('Aborting all Kuberntes logs now.');
-                            abortController.current?.abort();
-                        } catch (error) {
-                            console.error(`Error occurred whilst aborting: ${error}`);
-                        }
-                    }}
-                />
-            </ToolbarItem> */}
-            <ToolbarItem>
-                <Tooltip exitDelay={75} content={<div>Refresh pod names.</div>}>
-                    <Button
-                        label="refresh-kernel-specs-button"
-                        aria-label="refresh-kernel-specs-button"
-                        variant="plain"
-                        isDisabled={podsAreRefreshing}
-                        className={
-                            (podsAreRefreshing && 'loading-icon-spin-toggleable') ||
-                            'loading-icon-spin-toggleable paused'
-                        }
-                        onClick={() => {
-                            setPodsAreRefreshing(true);
-                            toast
-                                .promise(
-                                    refreshPodNames(),
-                                    {
-                                        loading: <b>Refreshing Kubernetes pod names...</b>,
-                                        success: <b>Refreshed Kubernetes pod names!</b>,
-                                        error: (reason: Error) => {
-                                            let reasonUI = <FlexItem>{reason.message}</FlexItem>;
+        <Toolbar>
+            <ToolbarContent>
+                <React.Fragment>
+                    <ToolbarGroup>
+                        <ToolbarItem>
+                            <Tooltip
+                                exitDelay={75}
+                                content={<div>Specify the height of the &quot;Logs&quot; card.</div>}
+                            >
+                                <TextInput
+                                    placeholder={logHeight.toString()}
+                                    type="number"
+                                    validated={logHeightValidated}
+                                    onChange={onHeightTextboxChanged}
+                                />
+                            </Tooltip>
+                        </ToolbarItem>
+                    </ToolbarGroup>
+                    <ToolbarGroup variant="icon-button-group">
+                        <ToolbarItem>
+                            <Tooltip exitDelay={75} content={<div>Refresh pod names.</div>}>
+                                <Button
+                                    label="refresh-kernel-specs-button"
+                                    aria-label="refresh-kernel-specs-button"
+                                    variant="plain"
+                                    isDisabled={podsAreRefreshing}
+                                    className={
+                                        (podsAreRefreshing && 'loading-icon-spin-toggleable') ||
+                                        'loading-icon-spin-toggleable paused'
+                                    }
+                                    onClick={() => {
+                                        setPodsAreRefreshing(true);
+                                        toast
+                                            .promise(
+                                                refreshPodNames(),
+                                                {
+                                                    loading: <b>Refreshing Kubernetes pod names...</b>,
+                                                    success: <b>Refreshed Kubernetes pod names!</b>,
+                                                    error: (reason: Error) => {
+                                                        let reasonUI = <FlexItem>{reason.message}</FlexItem>;
 
-                                            if (reason.message.includes("Unexpected token 'E'")) {
-                                                reasonUI = <FlexItem>HTTP 504: Gateway Timeout</FlexItem>;
-                                            }
+                                                        if (reason.message.includes("Unexpected token 'E'")) {
+                                                            reasonUI = <FlexItem>HTTP 504: Gateway Timeout</FlexItem>;
+                                                        }
 
-                                            return (
-                                                <Flex
-                                                    direction={{ default: 'column' }}
-                                                    spaceItems={{ default: 'spaceItemsNone' }}
-                                                >
-                                                    <FlexItem>
-                                                        <b>Could not refresh Kuberentes pod names.</b>
-                                                    </FlexItem>
-                                                    {reasonUI}
-                                                </Flex>
-                                            );
-                                        },
-                                    },
-                                    {
-                                        style: {
-                                            padding: '8px',
-                                        },
-                                    },
-                                )
-                                .then(() => {
-                                    setPodsAreRefreshing(false);
-                                });
-                        }}
-                        icon={<SyncIcon />}
-                    />
-                </Tooltip>
-            </ToolbarItem>
-        </ToolbarGroup>
+                                                        return (
+                                                            <Flex
+                                                                direction={{ default: 'column' }}
+                                                                spaceItems={{ default: 'spaceItemsNone' }}
+                                                            >
+                                                                <FlexItem>
+                                                                    <b>Could not refresh Kuberentes pod names.</b>
+                                                                </FlexItem>
+                                                                {reasonUI}
+                                                            </Flex>
+                                                        );
+                                                    },
+                                                },
+                                                {
+                                                    style: {
+                                                        padding: '8px',
+                                                    },
+                                                },
+                                            )
+                                            .then(() => {
+                                                setPodsAreRefreshing(false);
+                                            });
+                                    }}
+                                    icon={<SyncIcon />}
+                                />
+                            </Tooltip>
+                        </ToolbarItem>
+                    </ToolbarGroup>
+                </React.Fragment>
+            </ToolbarContent>
+        </Toolbar>
     );
 
     const localDaemonIDs: number[] = [0, 1, 2, 3];
@@ -160,8 +195,8 @@ export const LogViewCard: React.FunctionComponent = () => {
     }
 
     return (
-        <Card isRounded id="console-log-view-card">
-            <CardHeader actions={{ actions: cardHeaderActions, hasNoOffset: false }}>
+        <Card isRounded id="console-log-view-card" isFullHeight>
+            <CardHeader actions={{ actions: cardHeaderActions, hasNoOffset: true }}>
                 <CardTitle>
                     <Title headingLevel="h1" size="xl">
                         Logs
@@ -304,6 +339,7 @@ export const LogViewCard: React.FunctionComponent = () => {
                                                         tabContentId={`tab-content-kernel-${kernel.kernelId}-${replica.replicaId}`}
                                                     >
                                                         <KubernetesLogViewComponent
+                                                            height={logHeight}
                                                             podName={replica.podId}
                                                             containerName="kernel"
                                                             convertToHtml={false}
@@ -329,7 +365,7 @@ export const LogViewCard: React.FunctionComponent = () => {
                     activeKey={activeTabKey}
                     hidden={0 !== activeTabKey}
                 >
-                    <ConsoleLogViewComponent />
+                    <ConsoleLogViewComponent height={logHeight} />
                 </TabContent>
                 <TabContent
                     key={1}
@@ -344,6 +380,7 @@ export const LogViewCard: React.FunctionComponent = () => {
                         logPollIntervalSeconds={1}
                         convertToHtml={false}
                         signal={abortController.current?.signal}
+                        height={logHeight}
                     />
                 </TabContent>
                 <TabContent
@@ -359,6 +396,7 @@ export const LogViewCard: React.FunctionComponent = () => {
                         logPollIntervalSeconds={1}
                         convertToHtml={false}
                         signal={abortController.current?.signal}
+                        height={logHeight}
                     />
                 </TabContent>
                 {localDaemonIDs.map((id: number) => (
@@ -375,6 +413,7 @@ export const LogViewCard: React.FunctionComponent = () => {
                             logPollIntervalSeconds={1}
                             convertToHtml={false}
                             signal={abortController.current?.signal}
+                            height={logHeight}
                         />
                     </TabContent>
                 ))}

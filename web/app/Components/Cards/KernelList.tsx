@@ -423,24 +423,24 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
 
         console.log(`sessionManager.current.isReady: ${sessionManager.current.isReady}`);
 
-        const req: RequestInit = {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                // 'Cache-Control': 'no-cache, no-transform, no-store',
-            },
-            body: JSON.stringify({
-                id: clientId,
-                kernel: clientId,
-                name: clientId,
-                path: `${clientId}.ipynb`,
-                type: 'notebook',
-            }),
-        };
+        // const req: RequestInit = {
+        //     method: 'POST',
+        //     headers: {
+        //         'Content-Type': 'application/json',
+        //         // 'Cache-Control': 'no-cache, no-transform, no-store',
+        //     },
+        //     body: JSON.stringify({
+        //         id: clientId,
+        //         kernel: clientId,
+        //         name: clientId,
+        //         path: `${clientId}.ipynb`,
+        //         type: 'notebook',
+        //     }),
+        // };
 
-        const resp: Response = await fetch('api/sessions', req);
+        // const resp: Response = await fetch('jupyter/api/sessions', req);
 
-        console.log(`Create-Session Response: ${resp.status} ${resp.statusText}`);
+        // console.log(`Create-Session Response: ${resp.status} ${resp.statusText}`);
 
         // Next, create the Session.
         const session: ISessionConnection | undefined = await toast.promise(
@@ -452,22 +452,13 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                     type: 'notebook',
                     path: `${clientId}.ipbyn`,
                     name: clientId,
+                    sessionId: clientId,
                 },
                 {
                     username: username,
                     clientId: clientId,
                 },
             ),
-            // fetch('jupyter/api/sessions', {
-            //     method: 'POST',
-            //     body: JSON.stringify({
-            //         id: clientId,
-            //         kernel: clientId,
-            //         name: clientId,
-            //         path: `${clientId}.ipynb`,
-            //         type: 'notebook',
-            //     }),
-            // }),
             {
                 loading: <b>Starting new Jupyter Session and Jupyter Kernel...</b>,
                 success: <b>Successfully started new Jupyter Session and Jupyter Kernel.</b>,
@@ -475,7 +466,9 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             },
         );
 
-        console.log(`Successfully created new Jupyter Session ${clientId}.`);
+        console.log(
+            `Successfully created new Jupyter Session. ClientID=${clientId}, SessionID=${session.id}, SessionName=${session.name}, SessionKernelClientID=${session.kernel?.clientId}, SessionKernelName=${session.kernel?.name}, SessionKernelID=${session.kernel?.id}.`,
+        );
 
         if (session.kernel === null) {
             toast.error(`Kernel for newly-created Session ${session.id} is null...`);

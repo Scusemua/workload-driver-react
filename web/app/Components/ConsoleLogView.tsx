@@ -6,9 +6,10 @@ import { Message as MessageComponent } from 'console-feed/lib/definitions/Compon
 
 export interface ConsoleLogViewProps {
     children?: React.ReactNode;
+    height: number;
 }
 
-export const ConsoleLogViewComponent: React.FunctionComponent<ConsoleLogViewProps> = () => {
+export const ConsoleLogViewComponent: React.FunctionComponent<ConsoleLogViewProps> = (props: ConsoleLogViewProps) => {
     const logs = useRef<MessageComponent[]>([]);
 
     useEffect(() => {
@@ -25,8 +26,8 @@ export const ConsoleLogViewComponent: React.FunctionComponent<ConsoleLogViewProp
     }, []);
 
     return (
-        <Panel isScrollable variant="bordered">
-            <PanelMain maxHeight={'450px'}>
+        <Panel isScrollable>
+            <PanelMain maxHeight={`${props.height.toString()}px`}>
                 <PanelMainBody>
                     <Console logs={logs.current} variant="dark" />
                 </PanelMainBody>
