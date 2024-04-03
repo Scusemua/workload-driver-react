@@ -11,3 +11,4 @@ storybook-static
 ./config-files
 config-files/
 config-files/*
+./output.txt
