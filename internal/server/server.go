@@ -47,8 +47,9 @@ type serverImpl struct {
 	// This is used if the websocket connection is terminated. Otherwise, the loop will continue forever.
 	getLogsResponseBodies map[string]io.ReadCloser
 
-	driversMutex   sync.RWMutex
-	workloadsMutex sync.RWMutex
+	logResponseBodyMutex sync.RWMutex
+	driversMutex         sync.RWMutex
+	workloadsMutex       sync.RWMutex
 }
 
 func NewServer(opts *domain.Configuration) domain.Server {
@@ -267,9 +268,12 @@ func (s *serverImpl) serveLogWebsocket(c *gin.Context) {
 		if err != nil {
 			s.logger.Error("Error while reading message from websocket.", zap.Error(err), zap.String("connection-id", connectionId))
 
+			s.logResponseBodyMutex.RLock()
+			// If we're already processing a get_logs request for this websocket, then terminate that request.
 			if responseBody, ok := s.getLogsResponseBodies[connectionId]; ok {
 				responseBody.Close()
 			}
+			s.logResponseBodyMutex.RUnlock()
 
 			break
 		}
@@ -279,9 +283,12 @@ func (s *serverImpl) serveLogWebsocket(c *gin.Context) {
 		if err != nil {
 			s.logger.Error("Error while unmarshalling data message from websocket.", zap.Error(err), zap.String("connection-id", connectionId))
 
+			s.logResponseBodyMutex.RLock()
+			// If we're already processing a get_logs request for this websocket, then terminate that request.
 			if responseBody, ok := s.getLogsResponseBodies[connectionId]; ok {
 				responseBody.Close()
 			}
+			s.logResponseBodyMutex.RUnlock()
 
 			break
 		}
@@ -293,9 +300,12 @@ func (s *serverImpl) serveLogWebsocket(c *gin.Context) {
 		if op_val, ok = request["op"]; !ok {
 			s.logger.Error("Received unexpected message on websocket. It did not contain an 'op' field.", zap.Binary("message", message), zap.String("connection-id", connectionId))
 
+			s.logResponseBodyMutex.RLock()
+			// If we're already processing a get_logs request for this websocket, then terminate that request.
 			if responseBody, ok := s.getLogsResponseBodies[connectionId]; ok {
 				responseBody.Close()
 			}
+			s.logResponseBodyMutex.RUnlock()
 
 			break
 		}
@@ -303,9 +313,12 @@ func (s *serverImpl) serveLogWebsocket(c *gin.Context) {
 		if _, ok := request["msg_id"]; !ok {
 			s.logger.Error("Received unexpected message on websocket. It did not contain a 'msg_id' field.", zap.Binary("message", message), zap.String("connection-id", connectionId))
 
+			s.logResponseBodyMutex.RLock()
+			// If we're already processing a get_logs request for this websocket, then terminate that request.
 			if responseBody, ok := s.getLogsResponseBodies[connectionId]; ok {
 				responseBody.Close()
 			}
+			s.logResponseBodyMutex.RUnlock()
 
 			break
 		}
@@ -349,11 +362,16 @@ func (s *serverImpl) getLogsWebsocket(req *domain.GetLogsRequest, conn *websocke
 		}
 	}
 
+	s.logResponseBodyMutex.RLock()
 	// If we're already processing a get_logs request for this websocket, then terminate that request.
 	if responseBody, ok := s.getLogsResponseBodies[connectionId]; ok {
 		responseBody.Close()
 	}
+	s.logResponseBodyMutex.RUnlock()
+
+	s.logResponseBodyMutex.Lock()
 	s.getLogsResponseBodies[connectionId] = resp.Body
+	s.logResponseBodyMutex.Unlock()
 
 	firstReadCompleted := false
 	amountToRead := -1
