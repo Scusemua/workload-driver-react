@@ -261,23 +261,11 @@ func (s *serverImpl) serveLogWebsocket(c *gin.Context) {
 	}
 	defer conn.Close()
 
-	// Used to notify the server-push goroutine that a new workload has been registered.
-	workloadStartedChan := make(chan string)
-	doneChan := make(chan struct{})
-	go s.serverPushRoutine(conn, workloadStartedChan, doneChan)
-
-	closeHandler := conn.CloseHandler()
-	conn.SetCloseHandler(func(code int, text string) error {
-		doneChan <- struct{}{} // Tell the server-push goroutine that this connection has been terminated.
-		err := closeHandler(code, text)
-		return err
-	})
-
 	var connectionId string = uuid.NewString()
 	for {
 		_, message, err := conn.ReadMessage()
 		if err != nil {
-			s.logger.Error("Error while reading message from websocket.", zap.Error(err))
+			s.logger.Error("Error while reading message from websocket.", zap.Error(err), zap.String("connection-id", connectionId))
 
 			if responseBody, ok := s.getLogsResponseBodies[connectionId]; ok {
 				responseBody.Close()
@@ -289,7 +277,7 @@ func (s *serverImpl) serveLogWebsocket(c *gin.Context) {
 		var request map[string]interface{}
 		err = json.Unmarshal(message, &request)
 		if err != nil {
-			s.logger.Error("Error while unmarshalling data message from websocket.", zap.Error(err))
+			s.logger.Error("Error while unmarshalling data message from websocket.", zap.Error(err), zap.String("connection-id", connectionId))
 
 			if responseBody, ok := s.getLogsResponseBodies[connectionId]; ok {
 				responseBody.Close()
@@ -303,7 +291,7 @@ func (s *serverImpl) serveLogWebsocket(c *gin.Context) {
 		var op_val interface{}
 		var ok bool
 		if op_val, ok = request["op"]; !ok {
-			s.logger.Error("Received unexpected message on websocket. It did not contain an 'op' field.", zap.Binary("message", message))
+			s.logger.Error("Received unexpected message on websocket. It did not contain an 'op' field.", zap.Binary("message", message), zap.String("connection-id", connectionId))
 
 			if responseBody, ok := s.getLogsResponseBodies[connectionId]; ok {
 				responseBody.Close()
@@ -313,7 +301,7 @@ func (s *serverImpl) serveLogWebsocket(c *gin.Context) {
 		}
 
 		if _, ok := request["msg_id"]; !ok {
-			s.logger.Error("Received unexpected message on websocket. It did not contain a 'msg_id' field.", zap.Binary("message", message))
+			s.logger.Error("Received unexpected message on websocket. It did not contain a 'msg_id' field.", zap.Binary("message", message), zap.String("connection-id", connectionId))
 
 			if responseBody, ok := s.getLogsResponseBodies[connectionId]; ok {
 				responseBody.Close()
@@ -327,7 +315,7 @@ func (s *serverImpl) serveLogWebsocket(c *gin.Context) {
 			err = json.Unmarshal(message, &req)
 
 			if err != nil {
-				s.logger.Error("Failed to unmarshal GetLogsRequest.", zap.Error(err))
+				s.logger.Error("Failed to unmarshal GetLogsRequest.", zap.Error(err), zap.String("connection-id", connectionId))
 				return
 			}
 
@@ -337,22 +325,22 @@ func (s *serverImpl) serveLogWebsocket(c *gin.Context) {
 }
 
 func (s *serverImpl) getLogsWebsocket(req *domain.GetLogsRequest, conn *websocket.Conn, connectionId string) {
-	s.logger.Debug("Retrieiving logs.", zap.Any("request", req))
+	s.logger.Debug("Retrieiving logs.", zap.Any("request", req), zap.String("connection-id", connectionId))
 
 	pod := req.Pod
 	container := req.Container
 	doFollow := req.Follow
 
 	url := fmt.Sprintf("http://localhost:8889/api/v1/namespaces/default/pods/%s/log?container=%s&follow=%v&sinceSeconds=3600", pod, container, doFollow)
-	s.logger.Debug("Retrieving logs now.", zap.String("pod", pod), zap.String("container", container), zap.String("url", url))
+	s.logger.Debug("Retrieving logs now.", zap.String("pod", pod), zap.String("container", container), zap.String("url", url), zap.String("connection-id", connectionId))
 	resp, err := http.Get(url)
 	if err != nil {
-		s.logger.Error("Failed to get logs.", zap.String("pod", pod), zap.String("container", container), zap.Error(err))
+		s.logger.Error("Failed to get logs.", zap.String("pod", pod), zap.String("container", container), zap.Error(err), zap.String("connection-id", connectionId))
 		return
 	}
 
 	if resp.StatusCode != http.StatusOK {
-		s.logger.Error("Failed to retrieve logs.", zap.Int("status-code", resp.StatusCode), zap.String("status", resp.Status))
+		s.logger.Error("Failed to retrieve logs.", zap.Int("status-code", resp.StatusCode), zap.String("status", resp.Status), zap.String("connection-id", connectionId))
 		payload, err := io.ReadAll(resp.Body)
 		if err != nil {
 			s.sugaredLogger.Errorf("failed to retrieve logs: received HTTP %d %s", resp.StatusCode, resp.Status)
@@ -374,7 +362,7 @@ func (s *serverImpl) getLogsWebsocket(req *domain.GetLogsRequest, conn *websocke
 	for {
 		msg, err := reader.ReadString('\n')
 		if err != nil {
-			s.logger.Error("Failed to read logs from Kubernetes", zap.Error(err))
+			s.logger.Error("Failed to read logs from Kubernetes", zap.Error(err), zap.String("connection-id", connectionId))
 			return
 		}
 
@@ -399,7 +387,7 @@ func (s *serverImpl) getLogsWebsocket(req *domain.GetLogsRequest, conn *websocke
 
 		err = conn.WriteMessage(websocket.BinaryMessage, buf)
 		if err != nil {
-			s.logger.Error("Error while writing stream response for logs.", zap.String("pod", pod), zap.String("container", container), zap.Error(err))
+			s.logger.Error("Error while writing stream response for logs.", zap.String("pod", pod), zap.String("container", container), zap.Error(err), zap.String("connection-id", connectionId))
 			return
 		}
 
@@ -433,17 +421,12 @@ func (s *serverImpl) serveWorkloadWebsocket(c *gin.Context) {
 	doneChan := make(chan struct{})
 	go s.serverPushRoutine(conn, workloadStartedChan, doneChan)
 
-	closeHandler := conn.CloseHandler()
-	conn.SetCloseHandler(func(code int, text string) error {
-		doneChan <- struct{}{} // Tell the server-push goroutine that this connection has been terminated.
-		err := closeHandler(code, text)
-		return err
-	})
-
 	for {
 		_, message, err := conn.ReadMessage()
 		if err != nil {
 			s.logger.Error("Error while reading message from websocket.", zap.Error(err))
+			doneChan <- struct{}{}
+			s.logger.Error("Sent 'close' instruction to server-push goroutine.")
 			break
 		}
 
@@ -451,6 +434,8 @@ func (s *serverImpl) serveWorkloadWebsocket(c *gin.Context) {
 		err = json.Unmarshal(message, &request)
 		if err != nil {
 			s.logger.Error("Error while unmarshalling data message from websocket.", zap.Error(err))
+			doneChan <- struct{}{}
+			s.logger.Error("Sent 'close' instruction to server-push goroutine.")
 			break
 		}
 
@@ -461,11 +446,15 @@ func (s *serverImpl) serveWorkloadWebsocket(c *gin.Context) {
 		var ok bool
 		if op_val, ok = request["op"]; !ok {
 			s.logger.Error("Received unexpected message on websocket. It did not contain an 'op' field.", zap.Binary("message", message))
+			doneChan <- struct{}{}
+			s.logger.Error("Sent 'close' instruction to server-push goroutine.")
 			break
 		}
 
 		if msgIdVal, ok = request["msg_id"]; !ok {
 			s.logger.Error("Received unexpected message on websocket. It did not contain a 'msg_id' field.", zap.Binary("message", message))
+			doneChan <- struct{}{}
+			s.logger.Error("Sent 'close' instruction to server-push goroutine.")
 			break
 		}
 
