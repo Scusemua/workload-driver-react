@@ -14,12 +14,11 @@ const fetcher = async (input: RequestInfo | URL) => {
         abortController.abort(`The request timed-out after ${timeout} milliseconds.`);
     }, timeout);
 
+    let response: Response | null = null;
     try {
-        const response: Response = await fetch(input, {
+        response = await fetch(input, {
             signal: signal,
-            // headers: { 'Cache-Control': 'no-cache, no-transform, no-store' },
         });
-        return await response.json();
     } catch (e) {
         if (signal.aborted) {
             console.error('refresh-kernels request timed out.');
@@ -29,6 +28,17 @@ const fetcher = async (input: RequestInfo | URL) => {
             throw e; // Re-throw e.
         }
     }
+
+    if (response.status != 200) {
+        const responseBody: string = await response.text();
+        console.error(`Refresh Nodes Failed (${response.status} ${response.statusText}): ${responseBody}`);
+        throw {
+            name: `${response.status} ${response.statusText}`,
+            message: `${response.status} ${response.statusText}: ${responseBody}`,
+        };
+    }
+
+    return await response.json();
 };
 
 const api_endpoint: string = 'api/get-kernels';
