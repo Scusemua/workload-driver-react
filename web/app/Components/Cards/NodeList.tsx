@@ -179,6 +179,11 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                                     loading: <b>Refreshing Kubernetes nodes...</b>,
                                     success: <b>Refreshed Kubernetes nodes!</b>,
                                     error: (reason: Error) => {
+                                        let explanation: string = reason.message;
+                                        if (reason.name === 'SyntaxError') {
+                                            explanation = 'HTTP 504 Gateway Timeout';
+                                        }
+
                                         return (
                                             <div>
                                                 <Flex
@@ -188,7 +193,7 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                                                     <FlexItem>
                                                         <b>Could not refresh Kubernetes nodes.</b>
                                                     </FlexItem>
-                                                    <FlexItem>{reason.message}</FlexItem>
+                                                    <FlexItem>{explanation}</FlexItem>
                                                 </Flex>
                                             </div>
                                         );
