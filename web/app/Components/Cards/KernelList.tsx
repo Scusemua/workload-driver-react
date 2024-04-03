@@ -78,7 +78,6 @@ import {
     VirtualMachineIcon,
 } from '@patternfly/react-icons';
 
-import { IKernelConnection } from '@jupyterlab/services/lib/kernel/kernel';
 // import { IInfoReplyMsg } from '@jupyterlab/services/lib/kernel/messages';
 
 import {
@@ -91,7 +90,10 @@ import { DistributedJupyterKernel, JupyterKernelReplica, ResourceSpec } from '@d
 import { useKernels } from '@providers/KernelProvider';
 import { GpuIcon } from '@app/Icons';
 import { ItemsPerPageContext, KernelsPerPageContext } from '@app/Dashboard/Dashboard';
+import { IKernelConnection } from '@jupyterlab/services/lib/kernel/kernel';
+import { IModel as IKernelModel } from '@jupyterlab/services/lib/kernel/kernel';
 import { ISessionConnection } from '@jupyterlab/services/lib/session/session';
+import { IModel as ISessionModel } from '@jupyterlab/services/lib/session/session';
 
 function isNumber(value?: string | number): boolean {
     return value != null && value !== '' && !isNaN(Number(value.toString()));
@@ -372,21 +374,22 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         }
     }
 
-    async function startKernel(resourceSpec: ResourceSpec) {
+    async function startKernel(kernelId: string, sessionId: string, resourceSpec: ResourceSpec) {
         // Precondition: The KernelManager is defined.
         // const manager: KernelManager = kernelManager.current!;
 
         console.log('Starting kernel now...');
 
-        const clientId: string = uuidv4();
-        const username: string = 'jupyter-user-' + clientId.slice(0, 8);
+        // const sessionId: string = uuidv4();
+        // const kernelId: string = uuidv4();
+        const username: string = 'jupyter-user-' + sessionId.slice(0, 8);
 
-        console.log(`Starting new 'distributed' kernel for user ${username} with clientID=${clientId}.`);
+        console.log(`Starting new 'distributed' kernel for user ${username} with clientID=${sessionId}.`);
 
         // First, register the ResourceSpec with the Cluster Gateway.
-        const registeredSuccessfully: boolean = await toast.promise(registerResourceSpec(clientId, resourceSpec), {
-            loading: <b>Registering resource spec with Cluster Gateway for new session {clientId}...</b>,
-            success: <b>Successfully registered resource spec with Cluster Gateway for new session {clientId}.</b>,
+        const registeredSuccessfully: boolean = await toast.promise(registerResourceSpec(sessionId, resourceSpec), {
+            loading: <b>Registering resource spec with Cluster Gateway for new session {sessionId}...</b>,
+            success: <b>Successfully registered resource spec with Cluster Gateway for new session {sessionId}.</b>,
             error: (reason: Error) => {
                 return (
                     <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
@@ -407,7 +410,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             return;
         }
 
-        console.log(`Creating new Jupyter Session ${clientId} now...`);
+        console.log(`Creating new Jupyter Session ${sessionId} now...`);
         if (!sessionManager.current || !sessionManager.current.isReady) {
             console.error(
                 `SessionManager is NOT ready... will try to initialize the SessionManager before proceeding.`,
@@ -423,51 +426,94 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
 
         console.log(`sessionManager.current.isReady: ${sessionManager.current.isReady}`);
 
-        // const req: RequestInit = {
-        //     method: 'POST',
-        //     headers: {
-        //         'Content-Type': 'application/json',
-        //         // 'Cache-Control': 'no-cache, no-transform, no-store',
-        //     },
-        //     body: JSON.stringify({
-        //         id: clientId,
-        //         kernel: clientId,
-        //         name: clientId,
-        //         path: `${clientId}.ipynb`,
-        //         type: 'notebook',
-        //     }),
-        // };
-
-        // const resp: Response = await fetch('jupyter/api/sessions', req);
-
         // console.log(`Create-Session Response: ${resp.status} ${resp.statusText}`);
 
         // Next, create the Session.
-        const session: ISessionConnection | undefined = await toast.promise(
-            sessionManager.current!.startNew(
-                {
-                    kernel: {
-                        name: 'distributed',
-                    },
-                    type: 'notebook',
-                    path: `${clientId}.ipbyn`,
-                    name: clientId,
-                    sessionId: clientId,
-                },
-                {
-                    username: username,
-                    clientId: clientId,
-                },
-            ),
-            {
-                loading: <b>Starting new Jupyter Session and Jupyter Kernel...</b>,
-                success: <b>Successfully started new Jupyter Session and Jupyter Kernel.</b>,
-                error: <b>Failed to start new Jupyter Session and Jupyter Kernel.</b>,
+        // const session: ISessionConnection | undefined = await toast.promise(
+        // sessionManager.current!.startNew(
+        //         {
+        //             kernel: {
+        //                 name: 'distributed',
+        //             },
+        //             type: 'notebook',
+        //             path: `${clientId}.ipbyn`,
+        //             name: clientId,
+        //         },
+        //         {
+        //             username: username,
+        //             clientId: clientId,
+        //         },
+        //     ),
+        //     {
+        //         loading: <b>Starting new Jupyter Session and Jupyter Kernel...</b>,
+        //         success: <b>Successfully started new Jupyter Session and Jupyter Kernel.</b>,
+        //         error: <b>Failed to start new Jupyter Session and Jupyter Kernel.</b>,
+        //     },
+        // );
+
+        const req: RequestInit = {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                // 'Cache-Control': 'no-cache, no-transform, no-store',
             },
-        );
+            body: JSON.stringify({
+                id: sessionId,
+                kernel: {
+                    name: 'distributed',
+                    kernel_id: '',
+                },
+                name: sessionId,
+                path: sessionId,
+                type: 'notebook',
+            }),
+        };
+
+        async function start_session() {
+            const response: Response = await fetch('jupyter/api/sessions', req);
+
+            if (response.status != 201) {
+                const responseBody: string = await response.text();
+                console.error(
+                    `Failed to create new Session. Received (${response.status} ${response.statusText}): ${responseBody}`,
+                );
+                throw {
+                    name: `${response.status} ${response.statusText}`,
+                    message: `${response.status} ${response.statusText}: ${responseBody}`,
+                };
+            }
+
+            return await response.json();
+        }
+
+        const sessionModel: ISessionModel = await toast.promise(start_session(), {
+            loading: <b>Starting new Jupyter Session and Jupyter Kernel...</b>,
+            success: <b>Successfully started new Jupyter Session and Jupyter Kernel.</b>,
+            error: (reason: Error) => {
+                return (
+                    <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
+                        <FlexItem>
+                            <b>Failed to start new Jupyter Session and Jupyter Kernel.</b>
+                        </FlexItem>
+                        <FlexItem>
+                            <b>Reason:</b> {reason.message}
+                        </FlexItem>
+                    </Flex>
+                );
+            },
+        });
+
+        const session: ISessionConnection = sessionManager.current.connectTo({
+            model: sessionModel,
+            kernelConnectionOptions: {
+                handleComms: true,
+            },
+            username: sessionId,
+            clientId: sessionId,
+        });
 
         console.log(
-            `Successfully created new Jupyter Session. ClientID=${clientId}, SessionID=${session.id}, SessionName=${session.name}, SessionKernelClientID=${session.kernel?.clientId}, SessionKernelName=${session.kernel?.name}, SessionKernelID=${session.kernel?.id}.`,
+            `Successfully created new Jupyter Session. ClientID=${sessionId}, SessionID=${session.id}, SessionName=${session.name}, SessionKernelClientID=${session.kernel?.clientId}, SessionKernelName=${session.kernel?.name}, SessionKernelID=${session.kernel?.id}.`,
         );
 
         if (session.kernel === null) {
@@ -615,21 +661,12 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         setKernelToDelete('');
     };
 
-    const onConfirmCreateKernelClicked = (input: string, resourceSpec: ResourceSpec) => {
-        let numKernelsToCreate: number = 1;
-        input = input.trim();
-
-        // If the user specified a particular number of kernels to create, then parse it.
-        if (input != '') {
-            if (isNumber(input)) {
-                numKernelsToCreate = parseInt(input);
-            } else {
-                console.error('Failed to convert number of kernels to a number: "' + input + '"');
-                setErrorMessage('Failed to convert number of kernels to a number: "' + input + '"');
-                setIsErrorModalOpen(true);
-            }
-        }
-
+    const onConfirmCreateKernelClicked = (
+        numKernelsToCreate: number,
+        kernelIds: string[],
+        sessionIds: string[],
+        resourceSpecs: ResourceSpec[],
+    ) => {
         console.log(`Creating ${numKernelsToCreate} new Kernel(s).`);
         numKernelsCreating.current = numKernelsCreating.current + numKernelsToCreate;
         console.log("We're now creating %d kernel(s).", numKernelsToCreate);
@@ -667,7 +704,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             console.log(`Creating kernel ${i + 1} / ${numKernelsToCreate} now.`);
 
             // Create a new kernel.
-            startKernel(resourceSpec).catch((error) => {
+            startKernel(kernelIds[i], sessionIds[i], resourceSpecs[i]).catch((error) => {
                 console.error('Error while trying to start a new kernel:\n' + error);
                 setErrorMessagePreamble('An error occurred while trying to start a new kernel:');
                 setErrorMessage(error.toString());
@@ -903,6 +940,11 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                     loading: <b>Refreshing kernels...</b>,
                                     success: <b>Refreshed kernels!</b>,
                                     error: (reason: Error) => {
+                                        let explanation: string = reason.message;
+                                        if (reason.name === 'SyntaxError') {
+                                            explanation = 'HTTP 504 Gateway Timeout';
+                                        }
+
                                         return (
                                             <Flex
                                                 direction={{ default: 'column' }}
@@ -911,7 +953,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                                 <FlexItem>
                                                     <b>Could not refresh kernels.</b>
                                                 </FlexItem>
-                                                <FlexItem>{reason.message}</FlexItem>
+                                                <FlexItem>{explanation}</FlexItem>
                                             </Flex>
                                         );
                                     },
