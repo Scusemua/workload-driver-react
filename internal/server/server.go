@@ -43,19 +43,24 @@ type serverImpl struct {
 
 	subscribers map[string]*websocket.Conn
 
+	// Used to tell a goroutine to break out of the for-loop in which it is reading logs from Kubernetes.
+	// This is used if the websocket connection is terminated. Otherwise, the loop will continue forever.
+	getLogsResponseBodies map[string]io.ReadCloser
+
 	driversMutex   sync.RWMutex
 	workloadsMutex sync.RWMutex
 }
 
 func NewServer(opts *domain.Configuration) domain.Server {
 	s := &serverImpl{
-		opts:               opts,
-		pushUpdateInterval: time.Second * time.Duration(opts.PushUpdateInterval),
-		engine:             gin.New(),
-		workloadDrivers:    orderedmap.NewOrderedMap[string, *driver.WorkloadDriver](),
-		workloadsMap:       orderedmap.NewOrderedMap[string, *domain.Workload](),
-		workloads:          make([]*domain.Workload, 0),
-		subscribers:        make(map[string]*websocket.Conn),
+		opts:                  opts,
+		pushUpdateInterval:    time.Second * time.Duration(opts.PushUpdateInterval),
+		engine:                gin.New(),
+		workloadDrivers:       orderedmap.NewOrderedMap[string, *driver.WorkloadDriver](),
+		workloadsMap:          orderedmap.NewOrderedMap[string, *domain.Workload](),
+		workloads:             make([]*domain.Workload, 0),
+		subscribers:           make(map[string]*websocket.Conn),
+		getLogsResponseBodies: make(map[string]io.ReadCloser),
 		// workloadDriver: driver.NewWorkloadDriver(opts),
 	}
 
@@ -268,10 +273,16 @@ func (s *serverImpl) serveLogWebsocket(c *gin.Context) {
 		return err
 	})
 
+	var connectionId string = uuid.NewString()
 	for {
 		_, message, err := conn.ReadMessage()
 		if err != nil {
 			s.logger.Error("Error while reading message from websocket.", zap.Error(err))
+
+			if responseBody, ok := s.getLogsResponseBodies[connectionId]; ok {
+				responseBody.Close()
+			}
+
 			break
 		}
 
@@ -279,6 +290,11 @@ func (s *serverImpl) serveLogWebsocket(c *gin.Context) {
 		err = json.Unmarshal(message, &request)
 		if err != nil {
 			s.logger.Error("Error while unmarshalling data message from websocket.", zap.Error(err))
+
+			if responseBody, ok := s.getLogsResponseBodies[connectionId]; ok {
+				responseBody.Close()
+			}
+
 			break
 		}
 
@@ -288,23 +304,39 @@ func (s *serverImpl) serveLogWebsocket(c *gin.Context) {
 		var ok bool
 		if op_val, ok = request["op"]; !ok {
 			s.logger.Error("Received unexpected message on websocket. It did not contain an 'op' field.", zap.Binary("message", message))
+
+			if responseBody, ok := s.getLogsResponseBodies[connectionId]; ok {
+				responseBody.Close()
+			}
+
 			break
 		}
 
 		if _, ok := request["msg_id"]; !ok {
 			s.logger.Error("Received unexpected message on websocket. It did not contain a 'msg_id' field.", zap.Binary("message", message))
+
+			if responseBody, ok := s.getLogsResponseBodies[connectionId]; ok {
+				responseBody.Close()
+			}
+
 			break
 		}
 
 		if op_val == "get_logs" {
 			var req *domain.GetLogsRequest
-			json.Unmarshal(message, &req)
-			s.getLogsWebsocket(req, conn)
+			err = json.Unmarshal(message, &req)
+
+			if err != nil {
+				s.logger.Error("Failed to unmarshal GetLogsRequest.", zap.Error(err))
+				return
+			}
+
+			s.getLogsWebsocket(req, conn, connectionId)
 		}
 	}
 }
 
-func (s *serverImpl) getLogsWebsocket(req *domain.GetLogsRequest, conn *websocket.Conn) {
+func (s *serverImpl) getLogsWebsocket(req *domain.GetLogsRequest, conn *websocket.Conn, connectionId string) {
 	s.logger.Debug("Retrieiving logs.", zap.Any("request", req))
 
 	pod := req.Pod
@@ -329,11 +361,16 @@ func (s *serverImpl) getLogsWebsocket(req *domain.GetLogsRequest, conn *websocke
 		}
 	}
 
+	// If we're already processing a get_logs request for this websocket, then terminate that request.
+	if responseBody, ok := s.getLogsResponseBodies[connectionId]; ok {
+		responseBody.Close()
+	}
+	s.getLogsResponseBodies[connectionId] = resp.Body
+
 	firstReadCompleted := false
 	amountToRead := -1
 	reader := bufio.NewReader(resp.Body)
 	buf := make([]byte, 0)
-	// messageChan := make(chan []byte, 32)
 	for {
 		msg, err := reader.ReadString('\n')
 		if err != nil {
