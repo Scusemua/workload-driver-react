@@ -52,8 +52,6 @@ import toast from 'react-hot-toast';
 import { KernelManager, ServerConnection, SessionManager } from '@jupyterlab/services';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 
-import { v4 as uuidv4 } from 'uuid';
-
 import {
     BundleIcon,
     CheckCircleIcon,
@@ -78,8 +76,6 @@ import {
     VirtualMachineIcon,
 } from '@patternfly/react-icons';
 
-// import { IInfoReplyMsg } from '@jupyterlab/services/lib/kernel/messages';
-
 import {
     ConfirmationModal,
     CreateKernelsModal,
@@ -89,15 +85,10 @@ import {
 import { DistributedJupyterKernel, JupyterKernelReplica, ResourceSpec } from '@data/Kernel';
 import { useKernels } from '@providers/KernelProvider';
 import { GpuIcon } from '@app/Icons';
-import { ItemsPerPageContext, KernelsPerPageContext } from '@app/Dashboard/Dashboard';
+import { HeightFactorContext, KernelHeightFactorContext } from '@app/Dashboard/Dashboard';
 import { IKernelConnection } from '@jupyterlab/services/lib/kernel/kernel';
-import { IModel as IKernelModel } from '@jupyterlab/services/lib/kernel/kernel';
 import { ISessionConnection } from '@jupyterlab/services/lib/session/session';
 import { IModel as ISessionModel } from '@jupyterlab/services/lib/session/session';
-
-function isNumber(value?: string | number): boolean {
-    return value != null && value !== '' && !isNaN(Number(value.toString()));
-}
 
 function range(start: number, end: number) {
     const nums: number[] = [];
@@ -142,7 +133,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
     const { kernels, kernelsAreLoading, refreshKernels } = useKernels();
     const [openReplicaDropdownMenu, setOpenReplicaDropdownMenu] = React.useState<string>('');
     const [openKernelDropdownMenu, setOpenKernelDropdownMenu] = React.useState<string>('');
-    const itemsPerPageContext: ItemsPerPageContext = React.useContext(KernelsPerPageContext);
+    const heightFactorContext: HeightFactorContext = React.useContext(KernelHeightFactorContext);
 
     const [, forceUpdate] = useReducer((x) => x + 1, 0);
 
@@ -205,7 +196,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             newPerPage * (newPage - 1) + newPerPage,
         );
 
-        itemsPerPageContext.setItemsPerPage(newPerPage);
+        heightFactorContext.setHeightFactor(Math.min(newPerPage, kernels.length));
     };
 
     async function initializeKernelManagers() {
@@ -347,70 +338,18 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         }
     };
 
-    /**
-     * Register a resource spec with the Cluster Gateway.
-     * @param sessionId The ID of the Session who owns (or will own) the kernel.
-     * @param resourceSpec The resource spec to be associated with the kernel.
-     */
-    async function registerResourceSpec(sessionId: string, resourceSpec: ResourceSpec) {
-        const req: RequestInit = {
-            method: 'POST',
-            body: JSON.stringify({ KernelId: sessionId, ResourceSpec: resourceSpec }),
-        };
-
-        console.log(`Registering resource spec ${JSON.stringify(resourceSpec)} for session ${sessionId}`);
-        const resp: Response = await fetch('/api/resourcespecs', req);
-
-        if (resp.status != 200) {
-            console.error(
-                `Failed to register resource spec for session ${sessionId}: received HTTP ${resp.status} ${resp.statusText} in response.`,
-            );
-            throw new Error(
-                `failed to register resource spec for session ${sessionId}: received HTTP ${resp.status} ${resp.statusText} in response`,
-            );
-        } else {
-            console.log(`Registered resource spec ${JSON.stringify(resourceSpec)} for session ${sessionId}`);
-            return true;
-        }
-    }
-
     async function startKernel(kernelId: string, sessionId: string, resourceSpec: ResourceSpec) {
-        // Precondition: The KernelManager is defined.
-        // const manager: KernelManager = kernelManager.current!;
+        numKernelsCreating.current = numKernelsCreating.current + 1;
 
-        console.log('Starting kernel now...');
+        console.log(
+            `Starting kernel ${kernelId} (sessionId=${sessionId}) now. ResourceSpec: ${JSON.stringify(resourceSpec)}`,
+        );
 
-        // const sessionId: string = uuidv4();
-        // const kernelId: string = uuidv4();
-        const username: string = 'jupyter-user-' + sessionId.slice(0, 8);
+        const username: string = sessionId;
 
         console.log(`Starting new 'distributed' kernel for user ${username} with clientID=${sessionId}.`);
-
-        // First, register the ResourceSpec with the Cluster Gateway.
-        const registeredSuccessfully: boolean = await toast.promise(registerResourceSpec(sessionId, resourceSpec), {
-            loading: <b>Registering resource spec with Cluster Gateway for new session {sessionId}...</b>,
-            success: <b>Successfully registered resource spec with Cluster Gateway for new session {sessionId}.</b>,
-            error: (reason: Error) => {
-                return (
-                    <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
-                        <FlexItem>
-                            <b>Failed to register resource spec new session/kernel.</b>
-                        </FlexItem>
-                        <FlexItem>
-                            <b>Reason:</b> {reason.message}
-                        </FlexItem>
-                    </Flex>
-                );
-            },
-        });
-
-        if (!registeredSuccessfully) {
-            toast.error('Could not create new kernel.');
-            numKernelsCreating.current -= 1;
-            return;
-        }
-
         console.log(`Creating new Jupyter Session ${sessionId} now...`);
+
         if (!sessionManager.current || !sessionManager.current.isReady) {
             console.error(
                 `SessionManager is NOT ready... will try to initialize the SessionManager before proceeding.`,
@@ -420,36 +359,12 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
 
             if (!sessionManager.current || !sessionManager.current.isReady) {
                 toast.error('Cannot establish connection with Jupyter Server.');
+                numKernelsCreating.current -= 1;
                 return;
             }
         }
 
         console.log(`sessionManager.current.isReady: ${sessionManager.current.isReady}`);
-
-        // console.log(`Create-Session Response: ${resp.status} ${resp.statusText}`);
-
-        // Next, create the Session.
-        // const session: ISessionConnection | undefined = await toast.promise(
-        // sessionManager.current!.startNew(
-        //         {
-        //             kernel: {
-        //                 name: 'distributed',
-        //             },
-        //             type: 'notebook',
-        //             path: `${clientId}.ipbyn`,
-        //             name: clientId,
-        //         },
-        //         {
-        //             username: username,
-        //             clientId: clientId,
-        //         },
-        //     ),
-        //     {
-        //         loading: <b>Starting new Jupyter Session and Jupyter Kernel...</b>,
-        //         success: <b>Successfully started new Jupyter Session and Jupyter Kernel.</b>,
-        //         error: <b>Failed to start new Jupyter Session and Jupyter Kernel.</b>,
-        //     },
-        // );
 
         const req: RequestInit = {
             method: 'POST',
@@ -461,11 +376,12 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                 id: sessionId,
                 kernel: {
                     name: 'distributed',
-                    kernel_id: '',
+                    kernel_id: kernelId,
                 },
                 name: sessionId,
                 path: sessionId,
                 type: 'notebook',
+                resource_spec: resourceSpec,
             }),
         };
 
@@ -473,14 +389,32 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             const response: Response = await fetch('jupyter/api/sessions', req);
 
             if (response.status != 201) {
-                const responseBody: string = await response.text();
-                console.error(
-                    `Failed to create new Session. Received (${response.status} ${response.statusText}): ${responseBody}`,
-                );
-                throw {
-                    name: `${response.status} ${response.statusText}`,
-                    message: `${response.status} ${response.statusText}: ${responseBody}`,
-                };
+                numKernelsCreating.current -= 1;
+                const responseText: string = await response.text();
+                let err: Error | null = null;
+                try {
+                    const responseJson = JSON.parse(responseText);
+                    console.error(
+                        `Failed to create new Session. Received (${response.status} ${response.statusText}): ${responseJson.message}`,
+                    );
+                    err = {
+                        name: `${response.status} ${response.statusText}`,
+                        message: `${response.status} ${response.statusText}: ${responseJson.message}`,
+                        stack: new Error().stack,
+                    };
+                } catch (e) {
+                    console.log(e);
+                    console.error(
+                        `Failed to create new Session. Received (${response.status} ${response.statusText}): ${responseText}`,
+                    );
+                    err = {
+                        name: `${response.status} ${response.statusText}`,
+                        message: `${response.status} ${response.statusText}: ${responseText}`,
+                        stack: new Error().stack,
+                    };
+                }
+
+                throw err;
             }
 
             return await response.json();
@@ -521,15 +455,6 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             return;
         }
         const kernel: IKernelConnection = session.kernel!;
-
-        // const kernel: IKernelConnection = await toast.promise(
-        //     manager.startNew({ name: 'distributed' }, { username: username, clientId: clientId }),
-        //     {
-        //         loading: <b>Starting a new kernel.</b>,
-        //         success: <b>Successfully started a new kernel.</b>,
-        //         error: <b>Failed to start new kernel.</b>,
-        //     },
-        // );
 
         console.log(`Successfully launched new kernel: kernel ${kernel.id}`);
 
@@ -668,8 +593,6 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         resourceSpecs: ResourceSpec[],
     ) => {
         console.log(`Creating ${numKernelsToCreate} new Kernel(s).`);
-        numKernelsCreating.current = numKernelsCreating.current + numKernelsToCreate;
-        console.log("We're now creating %d kernel(s).", numKernelsToCreate);
 
         // Close the confirmation dialogue.
         setIsConfirmCreateModalOpen(false);
@@ -695,19 +618,24 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             return;
         }
 
+        console.log("We're now creating %d kernel(s).", numKernelsToCreate);
         forceUpdate();
 
         let errorOccurred = false;
         for (let i = 0; i < numKernelsToCreate; i++) {
             if (errorOccurred) break;
 
-            console.log(`Creating kernel ${i + 1} / ${numKernelsToCreate} now.`);
+            console.log(
+                `Creating kernel ${i + 1} / ${numKernelsToCreate} now. KernelID: ${kernelIds[i]}, SessionID: ${
+                    sessionIds[i]
+                }, ResourceSpec: ${JSON.stringify(resourceSpecs[i])}`,
+            );
 
             // Create a new kernel.
             startKernel(kernelIds[i], sessionIds[i], resourceSpecs[i]).catch((error) => {
-                console.error('Error while trying to start a new kernel:\n' + error);
-                setErrorMessagePreamble('An error occurred while trying to start a new kernel:');
-                setErrorMessage(error.toString());
+                console.error('Error while trying to start a new kernel:\n' + JSON.stringify(error));
+                setErrorMessagePreamble(`An error occurred while trying to start a new kernel: ${error.name}`);
+                setErrorMessage(`${error.message}`);
                 setIsErrorModalOpen(true);
                 errorOccurred = true;
             });
@@ -1177,10 +1105,10 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                                 <CpuIcon className="node-cpu-icon" />
                                             </FlexItem>
                                             <FlexItem>
-                                                {kernel != null &&
-                                                    kernel.kernelSpec.resource != null &&
-                                                    kernel.kernelSpec.resource.cpu.toFixed(2)}
-                                                {kernel != null && kernel.kernelSpec.resource == null && 'N/A'}
+                                                {(kernel != null &&
+                                                    kernel.kernelSpec.resourceSpec.cpu != null &&
+                                                    kernel.kernelSpec.resourceSpec.cpu.toFixed(2)) ||
+                                                    '0'}
                                             </FlexItem>
                                         </Flex>
                                         <Flex spaceItems={{ default: 'spaceItemsSm' }}>
@@ -1188,10 +1116,10 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                                 <MemoryIcon className="node-memory-icon" />{' '}
                                             </FlexItem>
                                             <FlexItem>
-                                                {kernel != null &&
-                                                    kernel.kernelSpec.resource != null &&
-                                                    kernel.kernelSpec.resource.memory.toFixed(2)}
-                                                {kernel != null && kernel.kernelSpec.resource == null && 'N/A'}
+                                                {(kernel != null &&
+                                                    kernel.kernelSpec.resourceSpec.memory != null &&
+                                                    kernel.kernelSpec.resourceSpec.memory.toFixed(2)) ||
+                                                    '0'}
                                             </FlexItem>
                                         </Flex>
                                         <Flex spaceItems={{ default: 'spaceItemsSm' }}>
@@ -1199,10 +1127,10 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                                 <GpuIcon className="node-memory-icon" />{' '}
                                             </FlexItem>
                                             <FlexItem>
-                                                {kernel != null &&
-                                                    kernel.kernelSpec.resource != null &&
-                                                    kernel.kernelSpec.resource.gpu.toFixed(2)}
-                                                {kernel != null && kernel.kernelSpec.resource == null && 'N/A'}
+                                                {(kernel != null &&
+                                                    kernel.kernelSpec.resourceSpec.gpu != null &&
+                                                    kernel.kernelSpec.resourceSpec.gpu.toFixed(0)) ||
+                                                    '0'}
                                             </FlexItem>
                                         </Flex>
                                     </Flex>

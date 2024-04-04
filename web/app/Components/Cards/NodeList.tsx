@@ -49,7 +49,7 @@ import {
 import { useNodes } from '@providers/NodeProvider';
 import { GpuIcon } from '@app/Icons';
 import { toast } from 'react-hot-toast';
-import { ItemsPerPageContext, WorkloadsPerPageContext } from '@app/Dashboard/Dashboard';
+import { HeightFactorContext, KubernetesNodeHeightFactorContext } from '@app/Dashboard/Dashboard';
 
 export interface NodeListProps {
     selectableViaCheckboxes: boolean;
@@ -71,7 +71,7 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
     const [perPage, setPerPage] = React.useState(props.nodesPerPage);
     const { nodes, nodesAreLoading, refreshNodes } = useNodes();
     const [, forceUpdate] = useReducer((x) => x + 1, 0);
-    const itemsPerPageContext: ItemsPerPageContext = React.useContext(WorkloadsPerPageContext);
+    const heightFactorContext: HeightFactorContext = React.useContext(KubernetesNodeHeightFactorContext);
 
     const onSetPage = (_event: React.MouseEvent | React.KeyboardEvent | MouseEvent, newPage: number) => {
         setPage(newPage);
@@ -96,7 +96,7 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
         );
 
         if (props.isDashboardList) {
-            itemsPerPageContext.setItemsPerPage(newPerPage);
+            heightFactorContext.setHeightFactor(Math.min(newPerPage, nodes.length));
         }
     };
 

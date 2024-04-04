@@ -13,13 +13,15 @@ const fetcher = async (input: RequestInfo | URL) => {
     try {
         const response: Response = await fetch(input, {
             signal: signal,
-            // headers: { 'Cache-Control': 'no-cache, no-transform, no-store' },
         });
+        /* eslint-disable @typescript-eslint/no-explicit-any */
         const responseJson: Record<string, any> = await response.json();
+        /* eslint-disable @typescript-eslint/no-explicit-any */
         const podsJson: Record<string, any>[] = responseJson['items'];
 
         let gatewayPod: string = '';
         let jupyterPod: string = '';
+        /* eslint-disable @typescript-eslint/no-explicit-any */
         podsJson.map((pod: Record<string, any>) => {
             const podName: string = pod['metadata']['name'];
             const containerName: string = pod['spec']['containers'][0]['name'];

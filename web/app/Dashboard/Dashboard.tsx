@@ -17,29 +17,28 @@ import { AdjustVirtualGPUsModal, MigrationModal, RegisterWorkloadModal } from '@
 
 import { v4 as uuidv4 } from 'uuid';
 import { useWorkloads } from '@providers/WorkloadProvider';
-import { useNodes } from '@providers/NodeProvider';
 
 import toast, { Toaster } from 'react-hot-toast';
 import { useKernels } from '@app/Providers';
 
 export interface DashboardProps {}
 
-export type ItemsPerPageContext = {
-    itemsPerPage: number;
-    setItemsPerPage: (value: number) => void;
+export type HeightFactorContext = {
+    heightFactor: number;
+    setHeightFactor: (value: number) => void;
 };
 
-export const KernelsPerPageContext = createContext<ItemsPerPageContext>({
-    itemsPerPage: 1,
-    setItemsPerPage: () => {},
+export const KernelHeightFactorContext = createContext<HeightFactorContext>({
+    heightFactor: 1,
+    setHeightFactor: () => {},
 });
-export const KubernetesNodePerPageContext = createContext<ItemsPerPageContext>({
-    itemsPerPage: 3,
-    setItemsPerPage: () => {},
+export const KubernetesNodeHeightFactorContext = createContext<HeightFactorContext>({
+    heightFactor: 3,
+    setHeightFactor: () => {},
 });
-export const WorkloadsPerPageContext = createContext<ItemsPerPageContext>({
-    itemsPerPage: 3,
-    setItemsPerPage: () => {},
+export const WorkloadsHeightFactorContext = createContext<HeightFactorContext>({
+    heightFactor: 3,
+    setHeightFactor: () => {},
 });
 
 const Dashboard: React.FunctionComponent<DashboardProps> = () => {
@@ -52,13 +51,12 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
 
     const defaultWorkloadTitle = useRef(uuidv4());
 
-    const { nodes } = useNodes();
     const { kernels } = useKernels();
     const { workloads, sendJsonMessage } = useWorkloads();
 
     const [workloadItemsPerPage, setWorkloadItemsPerPage] = React.useState(3);
     const [kernelItemsPerPage, setKernelItemsPerPage] = React.useState(3);
-    const [kubeNodeItemsPerPage, setKubeNodeItemsPerPage] = React.useState(3);
+    const [kubeNodeHeightFactor, setKubeNodeHeightFactor] = React.useState(3);
 
     const onConfirmMigrateReplica = (
         targetReplica: JupyterKernelReplica,
@@ -317,8 +315,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
     };
 
     const getKubeNodeCardRowspan = () => {
-        const heightFactor: number = Math.min(nodes.length, kubeNodeItemsPerPage);
-        if (heightFactor <= 2) {
+        if (kubeNodeHeightFactor <= 2) {
             return 1 as gridSpans;
         } else {
             return 2 as gridSpans;
@@ -332,20 +329,20 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
                     <LogViewCard />
                 </GridItem>
                 <GridItem span={6} rowSpan={getKernelCardRowspan()}>
-                    <KernelsPerPageContext.Provider
+                    <KernelHeightFactorContext.Provider
                         value={{
-                            itemsPerPage: kernelItemsPerPage,
-                            setItemsPerPage: (newHeight: number) => setKernelItemsPerPage(newHeight),
+                            heightFactor: kernelItemsPerPage,
+                            setHeightFactor: (newHeight: number) => setKernelItemsPerPage(newHeight),
                         }}
                     >
                         <KernelList kernelsPerPage={3} openMigrationModal={openMigrationModal} />
-                    </KernelsPerPageContext.Provider>
+                    </KernelHeightFactorContext.Provider>
                 </GridItem>
                 <GridItem span={6} rowSpan={getWorkloadCardRowspan()}>
-                    <WorkloadsPerPageContext.Provider
+                    <WorkloadsHeightFactorContext.Provider
                         value={{
-                            itemsPerPage: workloadItemsPerPage,
-                            setItemsPerPage: (value: number) => setWorkloadItemsPerPage(value),
+                            heightFactor: workloadItemsPerPage,
+                            setHeightFactor: (value: number) => setWorkloadItemsPerPage(value),
                         }}
                     >
                         <WorkloadCard
@@ -359,16 +356,16 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
                                 setIsRegisterWorkloadModalOpen(true);
                             }}
                         />
-                    </WorkloadsPerPageContext.Provider>
+                    </WorkloadsHeightFactorContext.Provider>
                 </GridItem>
                 <GridItem span={6} rowSpan={1}>
                     <KernelSpecList />
                 </GridItem>
                 <GridItem span={6} rowSpan={getKubeNodeCardRowspan()}>
-                    <KubernetesNodePerPageContext.Provider
+                    <KubernetesNodeHeightFactorContext.Provider
                         value={{
-                            itemsPerPage: kubeNodeItemsPerPage,
-                            setItemsPerPage: (value: number) => setKubeNodeItemsPerPage(value),
+                            heightFactor: kubeNodeHeightFactor,
+                            setHeightFactor: (value: number) => setKubeNodeHeightFactor(value),
                         }}
                     >
                         <KubernetesNodeList
@@ -380,7 +377,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
                             selectableViaCheckboxes={false}
                             displayNodeToggleSwitch={true}
                         />
-                    </KubernetesNodePerPageContext.Provider>
+                    </KubernetesNodeHeightFactorContext.Provider>
                 </GridItem>
             </Grid>
             <MigrationModal

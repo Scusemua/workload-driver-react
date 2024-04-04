@@ -25,7 +25,7 @@ interface DistributedKernelSpec {
     argv: string[];
     signatureScheme: string;
     key: string;
-    resource: ResourceSpec;
+    resourceSpec: ResourceSpec;
 }
 
 interface ResourceSpec {

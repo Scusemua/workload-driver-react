@@ -251,3 +251,13 @@ body {
 .node-gpu-vgpu-column {
   margin-right: -0px;
 }
+
+.create-kernel-properties-section {
+  padding-bottom: 0px;
+  margin-top: -16px;
+}
+
+.create-kernel-section-divider {
+  padding-bottom: 0px;
+  margin-bottom: -32px;
+}

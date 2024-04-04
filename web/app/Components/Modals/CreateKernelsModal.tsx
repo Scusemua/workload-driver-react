@@ -1,4 +1,4 @@
-import React, { useRef } from 'react';
+import React from 'react';
 import {
     Button,
     Divider,
@@ -13,7 +13,6 @@ import {
     ModalVariant,
     TextInput,
     TextInputGroup,
-    TextInputGroupMain,
     TextInputProps,
 } from '@patternfly/react-core';
 
@@ -55,9 +54,9 @@ export const CreateKernelsModal: React.FunctionComponent<CreateKernelsModalProps
 
     const [currentKernelIndex, setCurrentKernelIndex] = React.useState(0);
 
-    const [cpuHintText, setCpuHintText] = React.useState(originalResourceAmountHint);
-    const [memHintText, setMemHintText] = React.useState(originalResourceAmountHint);
-    const [gpuHintText, setGpuHintText] = React.useState(originalResourceAmountHint);
+    const [cpuHintText] = React.useState(originalResourceAmountHint);
+    const [memHintText] = React.useState(originalResourceAmountHint);
+    const [gpuHintText] = React.useState(originalResourceAmountHint);
 
     const defaultKernelId = React.useRef<Map<number, string> | null>(null);
     const defaultSessionId = React.useRef<Map<number, string> | null>(null);
@@ -110,11 +109,37 @@ export const CreateKernelsModal: React.FunctionComponent<CreateKernelsModalProps
             };
 
             resourceSpecsList.push(resourceSpec);
-            kernelIdList.push(kernelIds[i] || uuidv4());
-            sessionIdList.push(sessionIds[i] || uuidv4());
+            kernelIdList.push(kernelIds.get(i) || uuidv4());
+            sessionIdList.push(sessionIds.get(i) || uuidv4());
         }
 
         props.onConfirm(numKernels, kernelIdList, sessionIdList, resourceSpecsList);
+
+        // Reset the form.
+        setCpusValidated('default');
+        setMemValidated('default');
+        setGpusValidated('default');
+        setCpus(new Map());
+        setMemory(new Map());
+        setGpus(new Map());
+        setNumKernels(1);
+        setNumKernelsText('1');
+        setNumKernelsValidated('default');
+        defaultKernelId.current = new Map<number, string>();
+        defaultSessionId.current = new Map<number, string>();
+
+        for (let i: number = 0; i < 100; i++) {
+            defaultKernelId.current.set(i, uuidv4());
+        }
+
+        for (let i: number = 0; i < 100; i++) {
+            defaultSessionId.current.set(i, uuidv4());
+        }
+
+        setSessionIds(new Map());
+        setKernelIds(new Map());
+
+        setCurrentKernelIndex(0);
     };
 
     // Returns true if confirm button should be disabled.
@@ -133,7 +158,7 @@ export const CreateKernelsModal: React.FunctionComponent<CreateKernelsModalProps
 
     return (
         <Modal
-            variant={ModalVariant.small}
+            variant={ModalVariant.medium}
             title={'Create a New Kernel'}
             isOpen={props.isOpen}
             onClose={props.onClose}
@@ -178,7 +203,7 @@ export const CreateKernelsModal: React.FunctionComponent<CreateKernelsModalProps
                                     return;
                                 }
 
-                                if (valueAsNumber > 100 || valueAsNumber <= 0) {
+                                if (valueAsNumber > 128 || valueAsNumber <= 0) {
                                     setNumKernelsValidated('error');
                                     return;
                                 }
@@ -205,8 +230,12 @@ export const CreateKernelsModal: React.FunctionComponent<CreateKernelsModalProps
                         ))}
                     </FormSelect>
                 </FormGroup>
-                <Divider />
-                <FormSection title={`Kernel ${currentKernelIndex + 1}`} titleElement="h2">
+                <Divider className="create-kernel-section-divider" />
+                <FormSection
+                    title={`Kernel ${currentKernelIndex + 1}`}
+                    titleElement="h2"
+                    className="create-kernel-properties-section"
+                >
                     <Grid span={12} hasGutter>
                         <GridItem span={6} rowSpan={1}>
                             <FormGroup label="Kernel ID">
@@ -217,10 +246,7 @@ export const CreateKernelsModal: React.FunctionComponent<CreateKernelsModalProps
                                         placeholder={defaultKernelId.current.get(currentKernelIndex)}
                                         type="text"
                                         maxLength={36}
-                                        value={
-                                            (kernelIds.get(currentKernelIndex) && kernelIds.get(currentKernelIndex)) ||
-                                            ''
-                                        }
+                                        value={kernelIds.get(currentKernelIndex) || ''}
                                         onChange={(_event: React.FormEvent<HTMLInputElement>, value: string) => {
                                             setKernelIds(new Map(kernelIds).set(currentKernelIndex, value));
                                         }}
@@ -236,11 +262,7 @@ export const CreateKernelsModal: React.FunctionComponent<CreateKernelsModalProps
                                         arial-label="session-id-text-input"
                                         placeholder={defaultSessionId.current.get(currentKernelIndex)}
                                         type="text"
-                                        value={
-                                            (sessionIds.get(currentKernelIndex) &&
-                                                sessionIds.get(currentKernelIndex)) ||
-                                            ''
-                                        }
+                                        value={sessionIds.get(currentKernelIndex) || ''}
                                         onChange={(_event: React.FormEvent<HTMLInputElement>, value: string) => {
                                             setSessionIds(new Map(sessionIds).set(currentKernelIndex, value));
                                         }}
@@ -278,7 +300,8 @@ export const CreateKernelsModal: React.FunctionComponent<CreateKernelsModalProps
                                                 return;
                                             }
 
-                                            if (valueAsNumber > 128 || valueAsNumber <= 0) {
+                                            // 128,000 milliCPUs is 128 vCPUs.
+                                            if (valueAsNumber > 128000 || valueAsNumber <= 0) {
                                                 setCpusValidated('error');
                                                 return;
                                             }
@@ -290,7 +313,7 @@ export const CreateKernelsModal: React.FunctionComponent<CreateKernelsModalProps
                             </FormGroup>
                         </GridItem>
                         <GridItem span={4} rowSpan={1}>
-                            <FormGroup label="Memory">
+                            <FormGroup label="Memory (MiB)">
                                 <TextInputGroup>
                                     <TextInput
                                         id="amount-mem-textinput"
@@ -318,7 +341,8 @@ export const CreateKernelsModal: React.FunctionComponent<CreateKernelsModalProps
                                                 return;
                                             }
 
-                                            if (valueAsNumber > 128 || valueAsNumber <= 0) {
+                                            // Probably won't have a node with over 16.3TB of RAM. Can adjust later if necessary.
+                                            if (valueAsNumber > 16384 || valueAsNumber <= 0) {
                                                 setMemValidated('error');
                                                 return;
                                             }
@@ -355,7 +379,8 @@ export const CreateKernelsModal: React.FunctionComponent<CreateKernelsModalProps
                                             return;
                                         }
 
-                                        if (valueAsNumber > 128 || valueAsNumber <= 0) {
+                                        // For now, we assuem 8 GPUs is the maximum availabe on a node.
+                                        if (valueAsNumber > 8 || valueAsNumber <= 0) {
                                             setGpusValidated('error');
                                             return;
                                         }

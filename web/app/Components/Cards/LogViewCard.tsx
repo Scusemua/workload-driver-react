@@ -17,11 +17,11 @@ import {
     TextInput,
     TextInputProps,
     Title,
+    Toolbar,
+    ToolbarContent,
     ToolbarGroup,
     ToolbarItem,
     Tooltip,
-    Toolbar,
-    ToolbarContent,
 } from '@patternfly/react-core';
 
 import { BugIcon, LaptopCodeIcon, ServerAltIcon, ServerGroupIcon, ServerIcon, SyncIcon } from '@patternfly/react-icons';
@@ -43,6 +43,7 @@ export const LogViewCard: React.FunctionComponent = () => {
     const [activeKernelReplicaTabKey, setActiveKernelReplicaTabKey] = React.useState(0);
     const [podsAreRefreshing, setPodsAreRefreshing] = useState(false);
     const [logHeight, setLogHeight] = useState(default_card_height);
+    const [logHeightString, setLogHeightString] = React.useState(default_card_height.toString());
     const [logHeightValidated, setLogHeightValidated] = React.useState<TextInputProps['validated']>('default');
 
     const { gatewayPod, jupyterPod, refreshPodNames } = usePodNames();
@@ -71,6 +72,8 @@ export const LogViewCard: React.FunctionComponent = () => {
     }
 
     const onHeightTextboxChanged = (_event: React.FormEvent<HTMLInputElement>, value: string) => {
+        setLogHeightString(value);
+
         if (value == '') {
             setLogHeight(default_card_height);
             return;
@@ -103,11 +106,16 @@ export const LogViewCard: React.FunctionComponent = () => {
                     <ToolbarGroup>
                         <ToolbarItem>
                             <Tooltip
+                                id="log-card-height-text-input-tooltip"
+                                aria-label="log-card-height-text-input-tooltip"
                                 exitDelay={75}
                                 content={<div>Specify the height of the &quot;Logs&quot; card.</div>}
                             >
                                 <TextInput
+                                    aria-label="log-card-height-text-input"
+                                    id="log-card-height-text-input"
                                     placeholder={logHeight.toString()}
+                                    value={logHeightString}
                                     type="number"
                                     validated={logHeightValidated}
                                     onChange={onHeightTextboxChanged}
@@ -374,14 +382,16 @@ export const LogViewCard: React.FunctionComponent = () => {
                     activeKey={activeTabKey}
                     hidden={1 !== activeTabKey}
                 >
-                    <KubernetesLogViewComponent
-                        podName={gatewayPod}
-                        containerName={'gateway'}
-                        logPollIntervalSeconds={1}
-                        convertToHtml={false}
-                        signal={abortController.current?.signal}
-                        height={logHeight}
-                    />
+                    {gatewayPod !== '' && (
+                        <KubernetesLogViewComponent
+                            podName={gatewayPod}
+                            containerName={'gateway'}
+                            logPollIntervalSeconds={1}
+                            convertToHtml={false}
+                            signal={abortController.current?.signal}
+                            height={logHeight}
+                        />
+                    )}
                 </TabContent>
                 <TabContent
                     key={2}
@@ -390,14 +400,16 @@ export const LogViewCard: React.FunctionComponent = () => {
                     activeKey={activeTabKey}
                     hidden={2 !== activeTabKey}
                 >
-                    <KubernetesLogViewComponent
-                        podName={jupyterPod}
-                        containerName={'jupyter-notebook'}
-                        logPollIntervalSeconds={1}
-                        convertToHtml={false}
-                        signal={abortController.current?.signal}
-                        height={logHeight}
-                    />
+                    {jupyterPod !== '' && (
+                        <KubernetesLogViewComponent
+                            podName={jupyterPod}
+                            containerName={'jupyter-notebook'}
+                            logPollIntervalSeconds={1}
+                            convertToHtml={false}
+                            signal={abortController.current?.signal}
+                            height={logHeight}
+                        />
+                    )}
                 </TabContent>
                 {localDaemonIDs.map((id: number) => (
                     <TabContent

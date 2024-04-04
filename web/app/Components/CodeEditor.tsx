@@ -4,6 +4,7 @@ import { Button, Chip, Grid, GridItem, Switch } from '@patternfly/react-core';
 import { editor } from 'monaco-editor/esm/vs/editor/editor.api';
 import { CodeIcon } from '@patternfly/react-icons';
 import { Monaco } from '@monaco-editor/react';
+import { DarkModeContext } from '@app/Providers';
 
 export interface CodeEditorComponent {
     children?: React.ReactNode;
@@ -11,7 +12,8 @@ export interface CodeEditorComponent {
 }
 
 export const CodeEditorComponent: React.FunctionComponent<CodeEditorComponent> = (props) => {
-    const [isEditorDarkMode, setIsEditorDarkMode] = React.useState(false);
+    const { darkMode } = React.useContext(DarkModeContext);
+    const [isEditorDarkMode, setIsEditorDarkMode] = React.useState(darkMode);
     const [code, setCode] = React.useState('');
 
     const onEditorDidMount = (editor: editor.IStandaloneCodeEditor, monaco: Monaco) => {
@@ -63,16 +65,6 @@ export const CodeEditorComponent: React.FunctionComponent<CodeEditorComponent> =
     };
 
     const darkLightThemeSwitch = (
-        // <CodeEditorControl
-        //     aria-label={'Toggle darkmode' + ((isEditorDarkMode && ' off') || ' on')}
-        //     tooltipProps={{
-        //         content: 'Toggle darkmode' + ((isEditorDarkMode && ' off') || ' on'),
-        //     }}
-        //     onClick={() => {
-        //         setIsEditorDarkMode(!isEditorDarkMode);
-        //     }}
-        //     icon={<LightbulbIcon />}
-        // />
         <div>
             <Button
                 variant="link"

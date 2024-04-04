@@ -26,7 +26,9 @@ export const InformationModal: React.FunctionComponent<InformationModalProps> = 
             ]}
         >
             <TextContent>
-                <Text component={TextVariants.p}>{props.message1 || ''}</Text>
+                <Text component={TextVariants.p}>
+                    <b>{props.message1 || ''}</b>
+                </Text>
                 <Text component={TextVariants.p}>{props.message2 || ''}</Text>
             </TextContent>
         </Modal>
