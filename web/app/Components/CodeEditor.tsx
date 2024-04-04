@@ -5,6 +5,7 @@ import { editor } from 'monaco-editor/esm/vs/editor/editor.api';
 import { CodeIcon } from '@patternfly/react-icons';
 import { Monaco } from '@monaco-editor/react';
 import { DarkModeContext } from '@app/Providers';
+import { CodeContext } from './Modals';
 
 export interface CodeEditorComponent {
     children?: React.ReactNode;
@@ -14,7 +15,8 @@ export interface CodeEditorComponent {
 export const CodeEditorComponent: React.FunctionComponent<CodeEditorComponent> = (props) => {
     const { darkMode } = React.useContext(DarkModeContext);
     const [isEditorDarkMode, setIsEditorDarkMode] = React.useState(darkMode);
-    const [code, setCode] = React.useState('');
+
+    const { code, setCode } = React.useContext(CodeContext);
 
     const onEditorDidMount = (editor: editor.IStandaloneCodeEditor, monaco: Monaco) => {
         editor.layout();
@@ -123,10 +125,8 @@ print("a = %d, b = %d" % (a, b))`,
             aria-label="Execute code"
             tooltipProps={{ content: 'Sample Code #3' }}
             onClick={() => {
-                setCode(
-                    `c = (b + 15) * ((a - 2) * a)
-print("a = %d, b = %d, c = %d" % (a, b, c))`,
-                );
+                setCode(`c = (b + 15) * ((a - 2) * a)
+print("a = %d, b = %d, c = %d" % (a, b, c))`);
             }}
         />
     );
@@ -143,9 +143,6 @@ print("a = %d, b = %d, c = %d" % (a, b, c))`,
             code={code}
             onChange={(value: string, event: editor.IModelContentChangedEvent) => {
                 setCode(value);
-                if (props.onChange) {
-                    props.onChange(value, event);
-                }
             }}
             language={Language.python}
             onEditorDidMount={onEditorDidMount}

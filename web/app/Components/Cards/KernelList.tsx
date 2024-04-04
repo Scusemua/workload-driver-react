@@ -458,35 +458,12 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
 
         console.log(`Successfully launched new kernel: kernel ${kernel.id}`);
 
-        const requestOptions = {
-            method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json',
-                // 'Cache-Control': 'no-cache, no-transform, no-store',
-            },
-            body: JSON.stringify({
-                resourceSpec: resourceSpec,
-                kernelId: kernel.id,
-            }),
-        };
-
-        fetch('api/resourcespecs', requestOptions).catch((reason) => {
-            console.error(
-                `Failed to register ResourceSpec for newly-created kernel, kernel ${kernel.id}, because: ${reason}`,
-            );
-        });
-
         // Register a callback for when the kernel changes state.
         kernel.statusChanged.connect((_, status) => {
             console.log(`New Kernel Status Update: ${status}`);
         });
 
         refreshKernels();
-
-        // Update/refresh the kernels since we know a new one was just created.
-        // setTimeout(() => {
-        //     refreshKernels();
-        // }, 3000);
     }
 
     async function onConfirmExecuteCodeClicked(code: string, logConsumer: (logMessage: string) => void) {
@@ -513,6 +490,8 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         const kernelConnection: IKernelConnection = kernelManager.current.connectTo({
             model: { id: kernelId, name: kernelId },
         });
+
+        console.log(`Sending 'execute-request' to kernel ${kernelId} for code: '${code}'`);
 
         const future = kernelConnection.requestExecute({ code: code }, undefined, {
             target_replica: executeCodeKernelReplica?.replicaId || -1,
@@ -1107,7 +1086,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                             <FlexItem>
                                                 {(kernel != null &&
                                                     kernel.kernelSpec.resourceSpec.cpu != null &&
-                                                    kernel.kernelSpec.resourceSpec.cpu.toFixed(2)) ||
+                                                    kernel.kernelSpec.resourceSpec.cpu) ||
                                                     '0'}
                                             </FlexItem>
                                         </Flex>
@@ -1118,7 +1097,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                             <FlexItem>
                                                 {(kernel != null &&
                                                     kernel.kernelSpec.resourceSpec.memory != null &&
-                                                    kernel.kernelSpec.resourceSpec.memory.toFixed(2)) ||
+                                                    kernel.kernelSpec.resourceSpec.memory) ||
                                                     '0'}
                                             </FlexItem>
                                         </Flex>

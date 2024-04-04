@@ -21,6 +21,9 @@ export const KubernetesLogViewComponent: React.FunctionComponent<KubernetesLogVi
                     url={'ws://localhost:8000/logs'}
                     enableSearch
                     enableSearchNavigation
+                    enableLineNumbers
+                    enableMultilineHighlight
+                    enableLinks
                     websocket={true}
                     follow={follow}
                     height={props.height}

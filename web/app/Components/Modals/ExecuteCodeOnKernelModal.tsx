@@ -22,6 +22,13 @@ export interface ExecuteCodeOnKernelProps {
     onSubmit: (code: string, logConsumer: (msg: string) => void) => Promise<void>;
 }
 
+export type CodeContext = {
+    code: string;
+    setCode: (newCode: string) => void;
+};
+
+export const CodeContext = React.createContext({ code: '', setCode: (newCode: string) => {} });
+
 export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKernelProps> = (props) => {
     const [code, setCode] = React.useState('');
     const [executionState, setExecutionState] = React.useState('idle');
@@ -48,10 +55,6 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
         }
 
         runUserCode();
-    };
-
-    const onChange = (code) => {
-        setCode(code);
     };
 
     // Reset state, then call user-supplied onClose function.
@@ -128,7 +131,9 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
         >
             Enter the code to be executed below. Once you&apos;re ready, press &apos;Submit&apos; to submit the code to
             the kernel for execution.
-            <CodeEditorComponent onChange={onChange} />
+            <CodeContext.Provider value={{ code: code, setCode: setCode }}>
+                <CodeEditorComponent />
+            </CodeContext.Provider>
             <br />
             <Title headingLevel="h2">Output</Title>
             <CodeBlock actions={outputLogActions}>

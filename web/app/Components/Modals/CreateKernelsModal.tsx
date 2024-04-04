@@ -32,9 +32,11 @@ export interface CreateKernelsModalProps {
     defaultInputValue?: string; // Default value for the text input box. Optional; will default to the empty string if none specified.
 }
 
-export const CreateKernelsModal: React.FunctionComponent<CreateKernelsModalProps> = (props) => {
-    const originalResourceAmountHint: string = '0';
+const defaultCPUs: string = '100'; // milli-cpus
+const defaultGPUs: string = '1';
+const defaultMemory: string = '1250'; // Mi
 
+export const CreateKernelsModal: React.FunctionComponent<CreateKernelsModalProps> = (props) => {
     const [numKernelsText, setNumKernelsText] = React.useState('1');
     const [numKernels, setNumKernels] = React.useState(1);
 
@@ -54,9 +56,9 @@ export const CreateKernelsModal: React.FunctionComponent<CreateKernelsModalProps
 
     const [currentKernelIndex, setCurrentKernelIndex] = React.useState(0);
 
-    const [cpuHintText] = React.useState(originalResourceAmountHint);
-    const [memHintText] = React.useState(originalResourceAmountHint);
-    const [gpuHintText] = React.useState(originalResourceAmountHint);
+    const [cpuHintText] = React.useState(defaultCPUs);
+    const [memHintText] = React.useState(defaultMemory);
+    const [gpuHintText] = React.useState(defaultGPUs);
 
     const defaultKernelId = React.useRef<Map<number, string> | null>(null);
     const defaultSessionId = React.useRef<Map<number, string> | null>(null);
@@ -87,19 +89,19 @@ export const CreateKernelsModal: React.FunctionComponent<CreateKernelsModalProps
         const sessionIdList: string[] = [];
 
         for (let i = 0; i < numKernels; i++) {
-            let cpu: number = Number.parseInt(cpus.get(i) || '0');
+            let cpu: number = Number.parseInt(cpus.get(i) || defaultCPUs);
             if (Number.isNaN(cpu)) {
-                cpu = 0;
+                cpu = Number.parseInt(defaultCPUs);
             }
 
-            let gpu: number = Number.parseInt(gpus.get(i) || '0');
+            let gpu: number = Number.parseInt(gpus.get(i) || defaultGPUs);
             if (Number.isNaN(gpu)) {
-                gpu = 0;
+                gpu = Number.parseInt(defaultGPUs);
             }
 
-            let mem: number = Number.parseInt(memory.get(i) || '0');
+            let mem: number = Number.parseInt(memory.get(i) || defaultMemory);
             if (Number.isNaN(mem)) {
-                mem = 0;
+                mem = Number.parseInt(defaultMemory);
             }
 
             const resourceSpec: ResourceSpec = {
