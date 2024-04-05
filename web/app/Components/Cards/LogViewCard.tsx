@@ -196,7 +196,37 @@ export const LogViewCard: React.FunctionComponent = () => {
                     </CardTitle>
                 </CardHeader>
                 <CardBody>
-                    <Skeleton height={'400'} />
+                    <div style={{ height: '200px' }}>
+                        <Skeleton height="15%" width="40%" style={{ float: 'left', margin: '8px' }} />
+                        <Skeleton height="15%" width="40%" style={{ float: 'left', margin: '8px' }} />
+                        <Skeleton height="15%" width="10%" style={{ float: 'left', margin: '8px' }} />
+                        <Skeleton height="15%" width="5%" style={{ float: 'left', margin: '8px' }} />
+
+                        <Skeleton height="15%" width="10%" style={{ float: 'left', margin: '8px' }} />
+                        <Skeleton height="15%" width="20%" style={{ float: 'left', margin: '8px' }} />
+                        <Skeleton height="15%" width="30%" style={{ float: 'left', margin: '8px' }} />
+                        <Skeleton height="15%" width="35%" style={{ float: 'left', margin: '8px' }} />
+
+                        <Skeleton height="15%" width="25%" style={{ float: 'left', margin: '8px' }} />
+                        <Skeleton height="15%" width="45%" style={{ float: 'left', margin: '8px' }} />
+                        <Skeleton height="15%" width="10%" style={{ float: 'left', margin: '8px' }} />
+                        <Skeleton height="15%" width="15%" style={{ float: 'left', margin: '8px' }} />
+
+                        <Skeleton height="15%" width="15%" style={{ float: 'left', margin: '8px' }} />
+                        <Skeleton height="15%" width="25%" style={{ float: 'left', margin: '8px' }} />
+                        <Skeleton height="15%" width="45%" style={{ float: 'left', margin: '8px' }} />
+                        <Skeleton height="15%" width="10%" style={{ float: 'left', margin: '8px' }} />
+
+                        <Skeleton height="15%" width="20%" style={{ float: 'left', margin: '8px' }} />
+                        <Skeleton height="15%" width="35%" style={{ float: 'left', margin: '8px' }} />
+                        <Skeleton height="15%" width="20%" style={{ float: 'left', margin: '8px' }} />
+                        <Skeleton height="15%" width="20%" style={{ float: 'left', margin: '8px' }} />
+
+                        <Skeleton height="15%" width="25%" style={{ float: 'left', margin: '8px' }} />
+                        <Skeleton height="15%" width="40%" style={{ float: 'left', margin: '8px' }} />
+                        <Skeleton height="15%" width="20%" style={{ float: 'left', margin: '8px' }} />
+                        <Skeleton height="15%" width="10%" style={{ float: 'left', margin: '8px' }} />
+                    </div>
                 </CardBody>
             </Card>
         );

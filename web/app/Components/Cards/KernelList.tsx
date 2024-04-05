@@ -89,12 +89,7 @@ import { HeightFactorContext, KernelHeightFactorContext } from '@app/Dashboard/D
 import { IKernelConnection } from '@jupyterlab/services/lib/kernel/kernel';
 import { ISessionConnection } from '@jupyterlab/services/lib/session/session';
 import { IModel as ISessionModel } from '@jupyterlab/services/lib/session/session';
-
-function range(start: number, end: number) {
-    const nums: number[] = [];
-    for (let i: number = start; i < end; i++) nums.push(i);
-    return nums;
-}
+import { numberArrayFromRange } from '@app/utils/utils';
 
 // Map from kernel status to the associated icon.
 const kernelStatusIcons = {
@@ -920,6 +915,8 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                                 <Button
                                                     variant={'link'}
                                                     icon={<CodeIcon />}
+                                                    /* Disable the 'Execute' button if we have no replicas, or if we don't have at least 3. */
+                                                    isDisabled={kernel.replicas === null || kernel.replicas.length < 3}
                                                     onClick={() => onExecuteCodeClicked(kernel, replicaIdx)}
                                                 >
                                                     Execute
@@ -978,6 +975,8 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                                     key="execute-code-replica-dropdown"
                                                     aria-label="execute-code-replica-dropdown"
                                                     isShared
+                                                    /* Disable the 'Execute' button if we have no replicas, or if we don't have at least 3. */
+                                                    isDisabled={kernel.replicas === null || kernel.replicas.length < 3}
                                                     icon={<CodeIcon />}
                                                     onClick={() => {
                                                         onExecuteCodeClicked(kernel, replicaIdx);
@@ -1137,7 +1136,13 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                                         <Button
                                                             variant={'link'}
                                                             icon={<CodeIcon />}
-                                                            isDisabled={kernel == null}
+                                                            /* Disable the 'Execute' button if we have no replicas, or if we don't have at least 3. */
+                                                            isDisabled={
+                                                                kernel?.replicas === null ||
+                                                                (kernel !== null &&
+                                                                    kernel.replicas !== null &&
+                                                                    kernel?.replicas.length < 3)
+                                                            }
                                                             onClick={() => onExecuteCodeClicked(kernel)}
                                                         >
                                                             Execute
@@ -1296,7 +1301,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         );
     };
 
-    const pendingKernelArr = range(0, numKernelsCreating.current);
+    const pendingKernelArr = numberArrayFromRange(0, numKernelsCreating.current);
 
     // console.log(`Kernels: ${JSON.stringify(kernels)}`);
 

@@ -25,6 +25,7 @@ import {
     PaginationVariant,
     Radio,
     SearchInput,
+    Skeleton,
     Switch,
     Text,
     TextVariants,
@@ -50,6 +51,7 @@ import { useNodes } from '@providers/NodeProvider';
 import { GpuIcon } from '@app/Icons';
 import { toast } from 'react-hot-toast';
 import { HeightFactorContext, KubernetesNodeHeightFactorContext } from '@app/Dashboard/Dashboard';
+import { numberArrayFromRange } from '@app/utils/utils';
 
 export interface NodeListProps {
     selectableViaCheckboxes: boolean;
@@ -494,6 +496,8 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
         />
     );
 
+    const loadingNodes: number[] = numberArrayFromRange(0, 2);
+
     return (
         <Card isFullHeight isRounded>
             <CardHeader
@@ -510,6 +514,42 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                 </CardTitle>
             </CardHeader>
             <CardBody>
+                <DataList isCompact aria-label="nodes-loading-list" hidden={nodes.length > 0}>
+                    {loadingNodes.map((idx: number) => {
+                        console.log(`Creating 'loading-node' ${idx}`);
+                        return (
+                            <DataListItem
+                                key={`loading-kube-node-${idx}`}
+                                id={'loading-kube-node-list-item-' + idx}
+                                isExpanded={false}
+                            >
+                                <DataListItemCells
+                                    dataListCells={[
+                                        <DataListCell key={`loading-node-${idx}-primary-content`}>
+                                            <Flex
+                                                direction={{ default: 'column' }}
+                                                spaceItems={{ default: 'spaceItemsXs' }}
+                                            >
+                                                <FlexItem>
+                                                    <Skeleton screenreaderText="Loading Kubernetes nodes" width="10%" />
+                                                </FlexItem>
+                                                <FlexItem>
+                                                    <div style={{ height: '90px' }}>
+                                                        <Skeleton
+                                                            screenreaderText="Loading Kubernetes nodes"
+                                                            width="100%"
+                                                            height="85%"
+                                                        />
+                                                    </div>
+                                                </FlexItem>
+                                            </Flex>
+                                        </DataListCell>,
+                                    ]}
+                                />
+                            </DataListItem>
+                        );
+                    })}
+                </DataList>
                 <DataList
                     onSelectDataListItem={onClickNodeRow}
                     isCompact

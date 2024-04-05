@@ -19,6 +19,7 @@ import {
     ToolbarGroup,
     ToolbarItem,
     Tooltip,
+    Skeleton,
 } from '@patternfly/react-core';
 import { SyncIcon } from '@patternfly/react-icons';
 import { useKernelSpecs } from '@app/Providers';
@@ -26,7 +27,7 @@ import { toast } from 'react-hot-toast';
 
 export const KernelSpecList: React.FunctionComponent = () => {
     const [activeTabKey, setActiveTabKey] = React.useState(0);
-    const { kernelSpecs, kernelSpecsAreLoading, refreshKernelSpecs } = useKernelSpecs();
+    const { kernelSpecs, numSpecs, kernelSpecsAreLoading, refreshKernelSpecs } = useKernelSpecs();
 
     const handleTabClick = (_e: React.MouseEvent<HTMLElement, MouseEvent>, tabIndex: string | number) => {
         setActiveTabKey(Number(tabIndex));
@@ -95,7 +96,13 @@ export const KernelSpecList: React.FunctionComponent = () => {
                 </CardTitle>
             </CardHeader>
             <CardBody>
-                <Tabs isFilled id="status-tabs" activeKey={activeTabKey} onSelect={handleTabClick}>
+                <Tabs
+                    isFilled
+                    id="status-tabs"
+                    activeKey={activeTabKey}
+                    onSelect={handleTabClick}
+                    hidden={numSpecs == 0}
+                >
                     {Object.keys(kernelSpecs).map((key, tabIndex) => (
                         <Tab
                             key={tabIndex}
@@ -105,8 +112,19 @@ export const KernelSpecList: React.FunctionComponent = () => {
                         />
                     ))}
                 </Tabs>
+                <div style={{ height: '50px' }} hidden={numSpecs > 0}>
+                    <Skeleton height="70%" width="40%" style={{ float: 'left', margin: '8px' }} />
+                    <Skeleton height="70%" width="15%" style={{ float: 'left', margin: '8px' }} />
+                    <Skeleton height="70%" width="35%" style={{ float: 'left', margin: '8px' }} />
+
+                    <Skeleton height="70%" width="35%" style={{ float: 'left', margin: '8px' }} />
+                    <Skeleton height="70%" width="25%" style={{ float: 'left', margin: '8px' }} />
+                    <Skeleton height="70%" width="30%" style={{ float: 'left', margin: '8px' }} />
+
+                    <Skeleton height="100%" width="93.5%" style={{ float: 'left', margin: '8px' }} />
+                </div>
             </CardBody>
-            <CardBody>
+            <CardBody hidden={numSpecs == 0}>
                 {Object.keys(kernelSpecs).map((key, tabIndex) => (
                     <TabContent
                         key={tabIndex}

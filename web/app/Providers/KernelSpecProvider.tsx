@@ -32,12 +32,15 @@ export function useKernelSpecs() {
     const { trigger, isMutating } = useSWRMutation('jupyter/api/kernelspecs', fetcher);
 
     let kernelSpecs: { [key: string]: JupyterKernelSpecWrapper } = {};
+    let numSpecs: number = 0;
     if (data) {
+        numSpecs = data['kernelspecs'].length;
         kernelSpecs = JSON.parse(JSON.stringify(data['kernelspecs']));
     }
 
     return {
         kernelSpecs: kernelSpecs,
+        numSpecs: numSpecs,
         kernelSpecsAreLoading: isMutating || isLoading, // We'll use both here since this has weird connection problems and it'd be easier to notice those if we used both.
         refreshKernelSpecs: trigger,
         isError: error,

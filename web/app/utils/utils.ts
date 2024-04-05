@@ -5,3 +5,9 @@ export function GetRowspan(val: number) {
         return val + 1;
     }
 }
+
+export function numberArrayFromRange(start: number, end: number) {
+    const nums: number[] = [];
+    for (let i: number = start; i < end; i++) nums.push(i);
+    return nums;
+}
