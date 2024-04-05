@@ -8,10 +8,9 @@ import { useWebSocket } from 'react-use-websocket/dist/lib/use-websocket';
 export const useWorkloads = () => {
     const subscriberSocket = useRef<WebSocket | null>(null);
 
-    const { sendJsonMessage } = useWebSocket<Record<string, unknown>>('ws://localhost:8000/workload', {
-        share: false,
-        shouldReconnect: () => true,
-    });
+    const sendJsonMessage = (msg: string) => {
+        subscriberSocket.current?.send(msg);
+    };
 
     function refreshWorkloads() {
         sendJsonMessage(
@@ -65,6 +64,14 @@ export const useWorkloads = () => {
                             return nextData;
                         }),
                     );
+            });
+
+            subscriberSocket.current.addEventListener('close', (event: CloseEvent) => {
+                console.error(`Workloads Subscriber WebSocket closed: ${event}`);
+            });
+
+            subscriberSocket.current.addEventListener('error', (event: Event) => {
+                console.log(`Workloads Subscriber WebSocket encountered error: ${event}`);
             });
         }
         return () => {};

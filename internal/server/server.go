@@ -448,7 +448,7 @@ func (s *serverImpl) serveWorkloadWebsocket(c *gin.Context) {
 		var request map[string]interface{}
 		err = json.Unmarshal(message, &request)
 		if err != nil {
-			s.logger.Error("Error while unmarshalling data message from websocket.", zap.Error(err))
+			s.logger.Error("Error while unmarshalling data message from websocket.", zap.Error(err), zap.ByteString("message-bytes", message), zap.String("message-string", string(message)))
 			doneChan <- struct{}{}
 			s.logger.Error("Sent 'close' instruction to server-push goroutine.")
 			break

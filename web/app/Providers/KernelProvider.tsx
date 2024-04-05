@@ -45,7 +45,7 @@ const api_endpoint: string = 'api/get-kernels';
 
 export function useKernelsNamesOnly() {
     const { data, error } = useSWR(api_endpoint, fetcher, {
-        refreshInterval: 5000,
+        refreshInterval: 10000,
         onError: (error: Error) => {
             console.error(`Automatic refresh of kernels failed because: ${error.message}`);
         },
@@ -65,7 +65,7 @@ export function useKernelsNamesOnly() {
 
 export function useKernels() {
     const { data, error } = useSWR(api_endpoint, fetcher, {
-        refreshInterval: 5000,
+        refreshInterval: 2500,
         onError: (error: Error) => {
             console.error(`Automatic refresh of kernels failed because: ${error.message}`);
         },

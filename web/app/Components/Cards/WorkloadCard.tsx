@@ -103,17 +103,19 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
         }
 
         const messageId: string = uuidv4();
-        sendJsonMessage({
-            op: 'register_workload',
-            msg_id: messageId,
-            workloadRegistrationRequest: {
-                adjust_gpu_reservations: false,
-                seed: workloadSeed,
-                key: selectedPreset.key,
-                name: workloadName,
-                debug_logging: debugLoggingEnabled,
-            },
-        });
+        sendJsonMessage(
+            JSON.stringify({
+                op: 'register_workload',
+                msg_id: messageId,
+                workloadRegistrationRequest: {
+                    adjust_gpu_reservations: false,
+                    seed: workloadSeed,
+                    key: selectedPreset.key,
+                    name: workloadName,
+                    debug_logging: debugLoggingEnabled,
+                },
+            }),
+        );
     };
 
     const onCancelStartWorkload = () => {
@@ -132,11 +134,13 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
         });
 
         const messageId: string = uuidv4();
-        sendJsonMessage({
-            op: 'stop_workloads',
-            msg_id: messageId,
-            workload_ids: activeWorkloadsIDs,
-        });
+        sendJsonMessage(
+            JSON.stringify({
+                op: 'stop_workloads',
+                msg_id: messageId,
+                workload_ids: activeWorkloadsIDs,
+            }),
+        );
     };
 
     const onPerPageSelect = (
@@ -146,11 +150,6 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
     ) => {
         setPerPage(newPerPage);
         setPage(newPage);
-        // console.log(
-        //     'onPerPageSelect: Displaying workloads %d through %d.',
-        //     newPerPage * (newPage - 1),
-        //     newPerPage * (newPage - 1) + newPerPage,
-        // );
 
         heightFactorContext.setHeightFactor(Math.min(workloads.length, newPerPage));
     };
@@ -174,12 +173,14 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
         }
 
         const messageId: string = uuidv4();
-        sendJsonMessage({
-            op: 'toggle_debug_logs',
-            msg_id: messageId,
-            workload_id: workloadId,
-            enabled: enabled,
-        });
+        sendJsonMessage(
+            JSON.stringify({
+                op: 'toggle_debug_logs',
+                msg_id: messageId,
+                workload_id: workloadId,
+                enabled: enabled,
+            }),
+        );
     };
 
     const onStartWorkloadClicked = (workload: Workload) => {
@@ -200,11 +201,13 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
         console.log(`Starting workload '${workload.name}' (ID=${workload.id})`);
 
         const messageId: string = uuidv4();
-        sendJsonMessage({
-            op: 'start_workload',
-            msg_id: messageId,
-            workload_id: workload.id,
-        });
+        sendJsonMessage(
+            JSON.stringify({
+                op: 'start_workload',
+                msg_id: messageId,
+                workload_id: workload.id,
+            }),
+        );
     };
 
     const onStopWorkloadClicked = (workload: Workload) => {
@@ -213,11 +216,13 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
         console.log("Stopping workload '%s' (ID=%s)", workload.name, workload.id);
 
         const messageId: string = uuidv4();
-        sendJsonMessage({
-            op: 'stop_workload',
-            msg_id: messageId,
-            workload_id: workload.id,
-        });
+        sendJsonMessage(
+            JSON.stringify({
+                op: 'stop_workload',
+                msg_id: messageId,
+                workload_id: workload.id,
+            }),
+        );
     };
 
     const cardHeaderActions = (
