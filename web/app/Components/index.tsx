@@ -1,3 +1,2 @@
 export * from './CodeEditor';
-export * from './ConsoleLogView';
-export * from './KubernetesLogView';
+export * from './Cards/LogViewCard/Views/KubernetesPodLogView';

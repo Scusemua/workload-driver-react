@@ -51,7 +51,6 @@ import { useNodes } from '@providers/NodeProvider';
 import { GpuIcon } from '@app/Icons';
 import { toast } from 'react-hot-toast';
 import { HeightFactorContext, KubernetesNodeHeightFactorContext } from '@app/Dashboard/Dashboard';
-import { numberArrayFromRange } from '@app/utils/utils';
 
 export interface NodeListProps {
     selectableViaCheckboxes: boolean;
@@ -91,11 +90,11 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
     ) => {
         setPerPage(newPerPage);
         setPage(newPage);
-        console.log(
-            'onPerPageSelect: Displaying workloads %d through %d.',
-            newPerPage * (newPage - 1),
-            newPerPage * (newPage - 1) + newPerPage,
-        );
+        // console.log(
+        //     'onPerPageSelect: Displaying workloads %d through %d.',
+        //     newPerPage * (newPage - 1),
+        //     newPerPage * (newPage - 1) + newPerPage,
+        // );
 
         if (props.isDashboardList) {
             heightFactorContext.setHeightFactor(Math.min(newPerPage, nodes.length));

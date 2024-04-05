@@ -4,12 +4,14 @@ import { Console, Hook, Unhook } from 'console-feed';
 import { Message } from 'console-feed/lib/definitions/Console';
 import { Message as MessageComponent } from 'console-feed/lib/definitions/Component';
 
-export interface ConsoleLogViewProps {
+export interface BrowserDebugConsoleLogViewProps {
     children?: React.ReactNode;
     height: number;
 }
 
-export const ConsoleLogViewComponent: React.FunctionComponent<ConsoleLogViewProps> = (props: ConsoleLogViewProps) => {
+export const BrowserDebugConsoleLogView: React.FunctionComponent<BrowserDebugConsoleLogViewProps> = (
+    props: BrowserDebugConsoleLogViewProps,
+) => {
     const logs = useRef<MessageComponent[]>([]);
 
     useEffect(() => {

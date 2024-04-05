@@ -33,6 +33,12 @@
       "@providers/*": [
         "web/app/Providers/*"
       ],
+      "@components/*": [
+        "web/app/Components/*"
+      ],
+      "@cards/*": [
+        "web/app/Components/Cards/*"
+      ],
       "@icons/*": [
         "web/app/Icons/*"
       ]

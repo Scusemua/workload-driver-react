@@ -2,7 +2,7 @@ import React from 'react';
 import { LazyLog, ScrollFollow } from '@melloware/react-logviewer';
 import { v4 as uuidv4 } from 'uuid';
 
-export interface KubernetesLogViewProps {
+export interface KubernetesPodLogViewProps {
     children?: React.ReactNode;
     podName: string;
     containerName: string;
@@ -12,7 +12,9 @@ export interface KubernetesLogViewProps {
     height: number;
 }
 
-export const KubernetesLogViewComponent: React.FunctionComponent<KubernetesLogViewProps> = (props) => {
+export const KubernetesPodLogView: React.FunctionComponent<KubernetesPodLogViewProps> = (
+    props: KubernetesPodLogViewProps,
+) => {
     return (
         <ScrollFollow
             startFollowing={true}

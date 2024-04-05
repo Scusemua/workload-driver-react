@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChangeHandler, CodeEditor, CodeEditorControl, Language } from '@patternfly/react-code-editor';
+import { CodeEditor, CodeEditorControl, Language } from '@patternfly/react-code-editor';
 import { Button, Chip, Grid, GridItem, Switch } from '@patternfly/react-core';
 import { editor } from 'monaco-editor/esm/vs/editor/editor.api';
 import { CodeIcon } from '@patternfly/react-icons';
@@ -7,12 +7,11 @@ import { Monaco } from '@monaco-editor/react';
 import { DarkModeContext } from '@app/Providers';
 import { CodeContext } from './Modals';
 
-export interface CodeEditorComponent {
-    children?: React.ReactNode;
-    onChange?: ChangeHandler;
-}
+// export interface CodeEditorComponent {
+//     children?: React.ReactNode;
+// }
 
-export const CodeEditorComponent: React.FunctionComponent<CodeEditorComponent> = (props) => {
+export const CodeEditorComponent: React.FunctionComponent = () => {
     const { darkMode } = React.useContext(DarkModeContext);
     const [isEditorDarkMode, setIsEditorDarkMode] = React.useState(darkMode);
 
@@ -141,6 +140,7 @@ print("a = %d, b = %d, c = %d" % (a, b, c))`);
             isDownloadEnabled
             isCopyEnabled
             code={code}
+            /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
             onChange={(value: string, event: editor.IModelContentChangedEvent) => {
                 setCode(value);
             }}

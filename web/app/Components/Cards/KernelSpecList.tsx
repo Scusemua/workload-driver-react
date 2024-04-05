@@ -5,12 +5,15 @@ import {
     CardBody,
     CardHeader,
     CardTitle,
+    CodeBlock,
+    CodeBlockCode,
     DescriptionList,
     DescriptionListDescription,
     DescriptionListGroup,
     DescriptionListTerm,
     Flex,
     FlexItem,
+    Skeleton,
     Tab,
     TabContent,
     TabTitleText,
@@ -19,9 +22,6 @@ import {
     ToolbarGroup,
     ToolbarItem,
     Tooltip,
-    Skeleton,
-    CodeBlock,
-    CodeBlockCode,
 } from '@patternfly/react-core';
 import { SyncIcon } from '@patternfly/react-icons';
 import { useKernelSpecs } from '@app/Providers';

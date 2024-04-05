@@ -35,6 +35,7 @@ import {
     PaginationVariant,
     Popper,
     SearchInput,
+    Skeleton,
     Text,
     TextVariants,
     Title,
@@ -185,11 +186,11 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
     ) => {
         setPerPage(newPerPage);
         setPage(newPage);
-        console.log(
-            'onPerPageSelect: Displaying workloads %d through %d.',
-            newPerPage * (newPage - 1),
-            newPerPage * (newPage - 1) + newPerPage,
-        );
+        // console.log(
+        //     'onPerPageSelect: Displaying workloads %d through %d.',
+        //     newPerPage * (newPage - 1),
+        //     newPerPage * (newPage - 1) + newPerPage,
+        // );
 
         heightFactorContext.setHeightFactor(Math.min(newPerPage, kernels.length));
     };
@@ -870,6 +871,23 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         </React.Fragment>
     );
 
+    const getPendingReplicaRow = (id: number) => {
+        return (
+            <Tr key={`pending-replica-${id}`}>
+                <Td dataLabel="ID">
+                    <Skeleton width="100%" />
+                </Td>
+                <Td dataLabel="Pod" width={25} modifier="truncate">
+                    <Skeleton width="100%" />
+                </Td>
+                <Td dataLabel="Node" width={25} modifier="truncate">
+                    <Skeleton width="100%" />
+                </Td>
+                <Td width={45} />
+            </Tr>
+        );
+    };
+
     const expandedKernelContent = (kernel: DistributedJupyterKernel) => (
         <Table isStriped aria-label="Pods Table" variant={'compact'} borders={true}>
             <Thead>
@@ -887,7 +905,12 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                 </Tr>
             </Thead>
             <Tbody>
-                {kernel.replicas != null &&
+                {(kernel.replicas == undefined || kernel.replicas.length == 0) && [
+                    getPendingReplicaRow(0),
+                    getPendingReplicaRow(1),
+                    getPendingReplicaRow(2),
+                ]}
+                {kernel.replicas != undefined &&
                     kernel.replicas.map((replica, replicaIdx) => (
                         <Tr key={replica.replicaId}>
                             <Td dataLabel="ID">{replica.replicaId}</Td>
@@ -1138,9 +1161,9 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                                             icon={<CodeIcon />}
                                                             /* Disable the 'Execute' button if we have no replicas, or if we don't have at least 3. */
                                                             isDisabled={
-                                                                kernel?.replicas === null ||
-                                                                (kernel !== null &&
-                                                                    kernel.replicas !== null &&
+                                                                kernel?.replicas === undefined ||
+                                                                (kernel !== undefined &&
+                                                                    kernel.replicas !== undefined &&
                                                                     kernel?.replicas.length < 3)
                                                             }
                                                             onClick={() => onExecuteCodeClicked(kernel)}

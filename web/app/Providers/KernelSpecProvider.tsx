@@ -31,13 +31,12 @@ export function useKernelSpecs() {
     const { data, error, isLoading } = useSWR('jupyter/api/kernelspecs', fetcher, { refreshInterval: 5000 });
     const { trigger, isMutating } = useSWRMutation('jupyter/api/kernelspecs', fetcher);
 
-    let kernelSpecs: JupyterKernelSpecWrapper[] = [];
+    const kernelSpecs: JupyterKernelSpecWrapper[] = [];
     if (data) {
         const kernelSpecsParsed: { [key: string]: JupyterKernelSpecWrapper } = JSON.parse(
             JSON.stringify(data['kernelspecs']),
         );
         Object.keys(kernelSpecsParsed).map((key: string) => {
-            console.log(`Found kernel spec ${key}: ${JSON.stringify(kernelSpecsParsed[key])}`);
             kernelSpecs.push(kernelSpecsParsed[key]);
         });
     }

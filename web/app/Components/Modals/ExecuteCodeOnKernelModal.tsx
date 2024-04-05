@@ -27,6 +27,7 @@ export type CodeContext = {
     setCode: (newCode: string) => void;
 };
 
+/* eslint-disable-next-line @typescript-eslint/no-unused-vars */
 export const CodeContext = React.createContext({ code: '', setCode: (newCode: string) => {} });
 
 export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKernelProps> = (props) => {
