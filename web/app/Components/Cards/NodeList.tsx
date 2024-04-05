@@ -496,7 +496,10 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
         />
     );
 
-    const loadingNodes: number[] = numberArrayFromRange(0, 2);
+    let loadingNodes: number[] = [];
+    if (nodes.length == 0) {
+        loadingNodes = [0, 1];
+    }
 
     return (
         <Card isFullHeight isRounded>
@@ -515,40 +518,37 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
             </CardHeader>
             <CardBody>
                 <DataList isCompact aria-label="nodes-loading-list" hidden={nodes.length > 0}>
-                    {loadingNodes.map((idx: number) => {
-                        console.log(`Creating 'loading-node' ${idx}`);
-                        return (
-                            <DataListItem
-                                key={`loading-kube-node-${idx}`}
-                                id={'loading-kube-node-list-item-' + idx}
-                                isExpanded={false}
-                            >
-                                <DataListItemCells
-                                    dataListCells={[
-                                        <DataListCell key={`loading-node-${idx}-primary-content`}>
-                                            <Flex
-                                                direction={{ default: 'column' }}
-                                                spaceItems={{ default: 'spaceItemsXs' }}
-                                            >
-                                                <FlexItem>
-                                                    <Skeleton screenreaderText="Loading Kubernetes nodes" width="10%" />
-                                                </FlexItem>
-                                                <FlexItem>
-                                                    <div style={{ height: '90px' }}>
-                                                        <Skeleton
-                                                            screenreaderText="Loading Kubernetes nodes"
-                                                            width="100%"
-                                                            height="85%"
-                                                        />
-                                                    </div>
-                                                </FlexItem>
-                                            </Flex>
-                                        </DataListCell>,
-                                    ]}
-                                />
-                            </DataListItem>
-                        );
-                    })}
+                    {loadingNodes.map((idx: number) => (
+                        <DataListItem
+                            key={`loading-kube-node-${idx}`}
+                            id={'loading-kube-node-list-item-' + idx}
+                            isExpanded={false}
+                        >
+                            <DataListItemCells
+                                dataListCells={[
+                                    <DataListCell key={`loading-node-${idx}-primary-content`}>
+                                        <Flex
+                                            direction={{ default: 'column' }}
+                                            spaceItems={{ default: 'spaceItemsXs' }}
+                                        >
+                                            <FlexItem>
+                                                <Skeleton screenreaderText="Loading Kubernetes nodes" width="10%" />
+                                            </FlexItem>
+                                            <FlexItem>
+                                                <div style={{ height: '90px' }}>
+                                                    <Skeleton
+                                                        screenreaderText="Loading Kubernetes nodes"
+                                                        width="100%"
+                                                        height="85%"
+                                                    />
+                                                </div>
+                                            </FlexItem>
+                                        </Flex>
+                                    </DataListCell>,
+                                ]}
+                            />
+                        </DataListItem>
+                    ))}
                 </DataList>
                 <DataList
                     onSelectDataListItem={onClickNodeRow}

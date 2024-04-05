@@ -20,17 +20,20 @@ import {
     ToolbarItem,
     Tooltip,
     Skeleton,
+    CodeBlock,
+    CodeBlockCode,
 } from '@patternfly/react-core';
 import { SyncIcon } from '@patternfly/react-icons';
 import { useKernelSpecs } from '@app/Providers';
 import { toast } from 'react-hot-toast';
+import { JupyterKernelSpecWrapper } from '@app/Data';
 
 export const KernelSpecList: React.FunctionComponent = () => {
     const [activeTabKey, setActiveTabKey] = React.useState(0);
-    const { kernelSpecs, numSpecs, kernelSpecsAreLoading, refreshKernelSpecs } = useKernelSpecs();
+    const { kernelSpecs, kernelSpecsAreLoading, refreshKernelSpecs } = useKernelSpecs();
 
-    const handleTabClick = (_e: React.MouseEvent<HTMLElement, MouseEvent>, tabIndex: string | number) => {
-        setActiveTabKey(Number(tabIndex));
+    const handleTabClick = (_e: React.MouseEvent<HTMLElement, MouseEvent>, idx: string | number) => {
+        setActiveTabKey(Number(idx));
     };
 
     const cardHeaderActions = (
@@ -101,18 +104,20 @@ export const KernelSpecList: React.FunctionComponent = () => {
                     id="status-tabs"
                     activeKey={activeTabKey}
                     onSelect={handleTabClick}
-                    hidden={numSpecs == 0}
+                    hidden={kernelSpecs.length == 0}
                 >
-                    {Object.keys(kernelSpecs).map((key, tabIndex) => (
-                        <Tab
-                            key={tabIndex}
-                            eventKey={tabIndex}
-                            title={<TabTitleText>{kernelSpecs[key]?.spec.display_name}</TabTitleText>}
-                            tabContentId={`kernel-spec-${tabIndex}-tab-content`}
-                        />
-                    ))}
+                    {kernelSpecs.map((kernelSpec: JupyterKernelSpecWrapper, idx: number) => {
+                        return (
+                            <Tab
+                                key={idx}
+                                eventKey={idx}
+                                title={<TabTitleText>{kernelSpec.spec.display_name}</TabTitleText>}
+                                tabContentId={`kernel-spec-${idx}-tab-content`}
+                            />
+                        );
+                    })}
                 </Tabs>
-                <div style={{ height: '50px' }} hidden={numSpecs > 0}>
+                <div style={{ height: '50px' }} hidden={kernelSpecs.length > 0}>
                     <Skeleton height="70%" width="40%" style={{ float: 'left', margin: '8px' }} />
                     <Skeleton height="70%" width="15%" style={{ float: 'left', margin: '8px' }} />
                     <Skeleton height="70%" width="35%" style={{ float: 'left', margin: '8px' }} />
@@ -124,30 +129,41 @@ export const KernelSpecList: React.FunctionComponent = () => {
                     <Skeleton height="100%" width="93.5%" style={{ float: 'left', margin: '8px' }} />
                 </div>
             </CardBody>
-            <CardBody hidden={numSpecs == 0}>
-                {Object.keys(kernelSpecs).map((key, tabIndex) => (
+            <CardBody hidden={kernelSpecs.length == 0}>
+                {kernelSpecs.map((kernelSpec: JupyterKernelSpecWrapper, idx: number) => (
                     <TabContent
-                        key={tabIndex}
-                        eventKey={tabIndex}
-                        id={`kernel-spec-${tabIndex}-tab-content`}
+                        key={idx}
+                        eventKey={idx}
+                        id={`kernel-spec-${idx}-tab-content`}
                         activeKey={activeTabKey}
-                        hidden={tabIndex !== activeTabKey}
+                        hidden={idx !== activeTabKey}
                     >
-                        <DescriptionList columnModifier={{ lg: '3Col' }}>
+                        <DescriptionList isCompact isFillColumns columnModifier={{ default: '3Col' }}>
                             <DescriptionListGroup>
                                 <DescriptionListTerm>Name</DescriptionListTerm>
-                                <DescriptionListDescription>{kernelSpecs[key].name}</DescriptionListDescription>
+                                <DescriptionListDescription>{kernelSpec.name}</DescriptionListDescription>
                             </DescriptionListGroup>
                             <DescriptionListGroup>
                                 <DescriptionListTerm>Display Name</DescriptionListTerm>
-                                <DescriptionListDescription>
-                                    {kernelSpecs[key]?.spec.display_name}
-                                </DescriptionListDescription>
+                                <DescriptionListDescription>{kernelSpec.spec.display_name}</DescriptionListDescription>
                             </DescriptionListGroup>
                             <DescriptionListGroup>
                                 <DescriptionListTerm>Language</DescriptionListTerm>
+                                <DescriptionListDescription>{kernelSpec.spec.language}</DescriptionListDescription>
+                            </DescriptionListGroup>
+                            <DescriptionListGroup>
+                                <DescriptionListTerm>Interrupt Mode</DescriptionListTerm>
                                 <DescriptionListDescription>
-                                    {kernelSpecs[key]?.spec.language}
+                                    {kernelSpec.spec.interrupt_mode}
+                                </DescriptionListDescription>
+                            </DescriptionListGroup>
+
+                            <DescriptionListGroup>
+                                <DescriptionListTerm>Command Line Arguments</DescriptionListTerm>
+                                <DescriptionListDescription>
+                                    <CodeBlock>
+                                        <CodeBlockCode>{kernelSpec.spec.argv.join(' ')}</CodeBlockCode>
+                                    </CodeBlock>
                                 </DescriptionListDescription>
                             </DescriptionListGroup>
                         </DescriptionList>

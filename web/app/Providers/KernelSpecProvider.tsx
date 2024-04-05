@@ -31,16 +31,19 @@ export function useKernelSpecs() {
     const { data, error, isLoading } = useSWR('jupyter/api/kernelspecs', fetcher, { refreshInterval: 5000 });
     const { trigger, isMutating } = useSWRMutation('jupyter/api/kernelspecs', fetcher);
 
-    let kernelSpecs: { [key: string]: JupyterKernelSpecWrapper } = {};
-    let numSpecs: number = 0;
+    let kernelSpecs: JupyterKernelSpecWrapper[] = [];
     if (data) {
-        numSpecs = data['kernelspecs'].length;
-        kernelSpecs = JSON.parse(JSON.stringify(data['kernelspecs']));
+        const kernelSpecsParsed: { [key: string]: JupyterKernelSpecWrapper } = JSON.parse(
+            JSON.stringify(data['kernelspecs']),
+        );
+        Object.keys(kernelSpecsParsed).map((key: string) => {
+            console.log(`Found kernel spec ${key}: ${JSON.stringify(kernelSpecsParsed[key])}`);
+            kernelSpecs.push(kernelSpecsParsed[key]);
+        });
     }
 
     return {
         kernelSpecs: kernelSpecs,
-        numSpecs: numSpecs,
         kernelSpecsAreLoading: isMutating || isLoading, // We'll use both here since this has weird connection problems and it'd be easier to notice those if we used both.
         refreshKernelSpecs: trigger,
         isError: error,
