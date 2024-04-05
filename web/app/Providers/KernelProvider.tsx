@@ -1,4 +1,4 @@
-import { DistributedJupyterKernel } from '@data/Kernel';
+import { DistributedJupyterKernel, JupyterKernelReplica } from '@data/Kernel';
 import useSWR from 'swr';
 import useSWRMutation from 'swr/mutation';
 
@@ -43,6 +43,26 @@ const fetcher = async (input: RequestInfo | URL) => {
 
 const api_endpoint: string = 'api/get-kernels';
 
+export function useKernelsNamesOnly() {
+    const { data, error } = useSWR(api_endpoint, fetcher, {
+        refreshInterval: 5000,
+        onError: (error: Error) => {
+            console.error(`Automatic refresh of kernels failed because: ${error.message}`);
+        },
+    });
+    const { trigger, isMutating } = useSWRMutation(api_endpoint, fetcher);
+
+    const kernels: Pick<DistributedJupyterKernel<JupyterKernelReplica>, 'kernelId' | 'numReplicas' | 'replicas'>[] =
+        data || [];
+
+    return {
+        kernels: kernels,
+        kernelsAreLoading: isMutating,
+        refreshKernels: trigger,
+        isError: error,
+    };
+}
+
 export function useKernels() {
     const { data, error } = useSWR(api_endpoint, fetcher, {
         refreshInterval: 5000,
@@ -52,7 +72,7 @@ export function useKernels() {
     });
     const { trigger, isMutating } = useSWRMutation(api_endpoint, fetcher);
 
-    const kernels: DistributedJupyterKernel[] = data || [];
+    const kernels: DistributedJupyterKernel<JupyterKernelReplica>[] = data || [];
 
     return {
         kernels: kernels,

@@ -120,7 +120,8 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
     const [errorMessage, setErrorMessage] = React.useState('');
     const [errorMessagePreamble, setErrorMessagePreamble] = React.useState('');
     const [isExecuteCodeModalOpen, setIsExecuteCodeModalOpen] = React.useState(false);
-    const [executeCodeKernel, setExecuteCodeKernel] = React.useState<DistributedJupyterKernel | null>(null);
+    const [executeCodeKernel, setExecuteCodeKernel] =
+        React.useState<DistributedJupyterKernel<JupyterKernelReplica> | null>(null);
     const [executeCodeKernelReplica, setExecuteCodeKernelReplica] = React.useState<JupyterKernelReplica | null>(null);
     const [selectedKernels, setSelectedKernels] = React.useState<string[]>([]);
     const [kernelToDelete, setKernelToDelete] = React.useState<string>('');
@@ -148,7 +149,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         }
     };
 
-    const onToggleOrSelectKernelDropdown = (kernel: DistributedJupyterKernel | null) => {
+    const onToggleOrSelectKernelDropdown = (kernel: DistributedJupyterKernel<JupyterKernelReplica> | null) => {
         if (openKernelDropdownMenu === kernel?.kernelId) {
             setOpenKernelDropdownMenu('');
         } else {
@@ -158,7 +159,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
     };
 
     // If there are any new kernels, decrement `numKernelsCreating`.
-    kernels.forEach((kernel: DistributedJupyterKernel) => {
+    kernels.forEach((kernel: DistributedJupyterKernel<JupyterKernelReplica>) => {
         if (!kernelIdSet.current.has(kernel.kernelId)) {
             kernelIdSet.current.add(kernel.kernelId);
             numKernelsCreating.current -= 1;
@@ -280,7 +281,10 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         setExecuteCodeKernelReplica(null);
     };
 
-    const onExecuteCodeClicked = (kernel: DistributedJupyterKernel | null, replicaIdx?: number | undefined) => {
+    const onExecuteCodeClicked = (
+        kernel: DistributedJupyterKernel<JupyterKernelReplica> | null,
+        replicaIdx?: number | undefined,
+    ) => {
         if (kernel == null) {
             return;
         }
@@ -302,13 +306,19 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         setIsExecuteCodeModalOpen(true);
     };
 
-    async function onInspectKernelClicked(kernel: DistributedJupyterKernel) {
+    async function onInspectKernelClicked(kernel: DistributedJupyterKernel<JupyterKernelReplica>) {
         const kernelId: string = kernel.kernelId;
         console.log('User is inspecting kernel ' + kernelId);
     }
 
     const onInterruptKernelClicked = (index: number) => {
         const kernelId: string | undefined = filteredKernels[index].kernelId;
+
+        if (kernelId === undefined) {
+            console.error('Undefined kernel specified for interrupt target...');
+            return;
+        }
+
         console.log('User is interrupting kernel ' + kernelId);
 
         if (!kernelManager.current) {
@@ -655,7 +665,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         );
     }
 
-    const onFilter = (repo: DistributedJupyterKernel) => {
+    const onFilter = (repo: DistributedJupyterKernel<JupyterKernelReplica>) => {
         // Search name with search value
         let searchValueInput: RegExp;
         try {
@@ -882,7 +892,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         );
     };
 
-    const expandedKernelContent = (kernel: DistributedJupyterKernel) => (
+    const expandedKernelContent = (kernel: DistributedJupyterKernel<JupyterKernelReplica>) => (
         <Table isStriped aria-label="Pods Table" variant={'compact'} borders={true}>
             <Thead>
                 <Tr>
@@ -1023,7 +1033,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         </Table>
     );
 
-    const onTerminateKernelClicked = (kernel: DistributedJupyterKernel | null) => {
+    const onTerminateKernelClicked = (kernel: DistributedJupyterKernel<JupyterKernelReplica> | null) => {
         if (kernel == null) {
             return;
         }
@@ -1042,7 +1052,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         setExpandedKernels(newExpanded);
     };
 
-    const getKernelDataListRow = (kernel: DistributedJupyterKernel | null, idx: number) => {
+    const getKernelDataListRow = (kernel: DistributedJupyterKernel<JupyterKernelReplica> | null, idx: number) => {
         return (
             <DataListItem
                 isExpanded={expandedKernels.includes(kernel?.kernelId || 'Pending...')}
