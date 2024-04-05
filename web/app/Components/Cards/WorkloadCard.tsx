@@ -49,26 +49,26 @@ import {
     WORKLOAD_STATE_RUNNING,
     WORKLOAD_STATE_TERMINATED,
     Workload,
+    WorkloadPreset,
 } from '@app/Data/Workload';
 import { useWorkloads } from '@providers/WorkloadProvider';
 import { HeightFactorContext, WorkloadsHeightFactorContext } from '@app/Dashboard/Dashboard';
+import { toast } from 'react-hot-toast';
+import { v4 as uuidv4 } from 'uuid';
+import { RegisterWorkloadModal } from '../Modals';
 
 export interface WorkloadCardProps {
-    onLaunchWorkloadClicked: () => void;
-    onStartWorkloadClicked: (workload: Workload) => void;
-    onStopWorkloadClicked: (workload: Workload) => void;
-    onStopAllWorkloadsClicked: () => void;
-    toggleDebugLogs: (workloadId: string, enabled: boolean) => void;
     workloadsPerPage: number;
 }
 
 export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: WorkloadCardProps) => {
+    const [isRegisterWorkloadModalOpen, setIsRegisterWorkloadModalOpen] = React.useState(false);
     const [selectedWorkloadListId, setSelectedWorkloadListId] = React.useState('');
     const [page, setPage] = React.useState(1);
     const [perPage, setPerPage] = React.useState(props.workloadsPerPage);
     const heightFactorContext: HeightFactorContext = React.useContext(WorkloadsHeightFactorContext);
 
-    const { workloads } = useWorkloads();
+    const { workloads, sendJsonMessage } = useWorkloads();
 
     const onSetPage = (_event: React.MouseEvent | React.KeyboardEvent | MouseEvent, newPage: number) => {
         setPage(newPage);
@@ -77,6 +77,66 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
             perPage * (newPage - 1),
             perPage * (newPage - 1) + perPage,
         );
+    };
+
+    const onConfirmRegisterWorkload = (
+        workloadName: string,
+        selectedPreset: WorkloadPreset,
+        workloadSeedString: string,
+        debugLoggingEnabled: boolean,
+    ) => {
+        toast('Registering workload now.', {
+            icon: '🛈',
+        });
+
+        console.log(
+            "New workload '%s' registered by user with preset:\n%s",
+            workloadName,
+            JSON.stringify(selectedPreset),
+        );
+        setIsRegisterWorkloadModalOpen(false);
+
+        let workloadSeed = -1;
+
+        if (workloadSeedString != '') {
+            workloadSeed = parseInt(workloadSeedString);
+        }
+
+        const messageId: string = uuidv4();
+        sendJsonMessage({
+            op: 'register_workload',
+            msg_id: messageId,
+            workloadRegistrationRequest: {
+                adjust_gpu_reservations: false,
+                seed: workloadSeed,
+                key: selectedPreset.key,
+                name: workloadName,
+                debug_logging: debugLoggingEnabled,
+            },
+        });
+    };
+
+    const onCancelStartWorkload = () => {
+        console.log('New workload cancelled by user before starting.');
+        setIsRegisterWorkloadModalOpen(false);
+    };
+
+    const onStopAllWorkloadsClicked = () => {
+        toast('Stopping all workload');
+
+        const activeWorkloadsIDs: string[] = [];
+        workloads.forEach((workload: Workload) => {
+            if (workload.workload_state == WORKLOAD_STATE_RUNNING) {
+                activeWorkloadsIDs.push(workload.id);
+            }
+        });
+
+        const messageId: string = uuidv4();
+        sendJsonMessage({
+            op: 'stop_workloads',
+            msg_id: messageId,
+            workload_ids: activeWorkloadsIDs,
+        });
     };
 
     const onPerPageSelect = (
@@ -106,6 +166,60 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
         }
     };
 
+    const toggleDebugLogs = (workloadId: string, enabled: boolean) => {
+        if (enabled) {
+            console.log("Enabling debug logging for workload '%s'", workloadId);
+        } else {
+            console.log("Disabling debug logging for workload '%s'", workloadId);
+        }
+
+        const messageId: string = uuidv4();
+        sendJsonMessage({
+            op: 'toggle_debug_logs',
+            msg_id: messageId,
+            workload_id: workloadId,
+            enabled: enabled,
+        });
+    };
+
+    const onStartWorkloadClicked = (workload: Workload) => {
+        toast(() => (
+            <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
+                <FlexItem>
+                    <b>Starting workload {workload.name}</b>
+                </FlexItem>
+                <FlexItem>
+                    <Text component={TextVariants.small}>
+                        <b>Workload ID: </b>
+                        {workload.id}
+                    </Text>
+                </FlexItem>
+            </Flex>
+        ));
+
+        console.log(`Starting workload '${workload.name}' (ID=${workload.id})`);
+
+        const messageId: string = uuidv4();
+        sendJsonMessage({
+            op: 'start_workload',
+            msg_id: messageId,
+            workload_id: workload.id,
+        });
+    };
+
+    const onStopWorkloadClicked = (workload: Workload) => {
+        toast('Stop workload');
+
+        console.log("Stopping workload '%s' (ID=%s)", workload.name, workload.id);
+
+        const messageId: string = uuidv4();
+        sendJsonMessage({
+            op: 'stop_workload',
+            msg_id: messageId,
+            workload_id: workload.id,
+        });
+    };
+
     const cardHeaderActions = (
         <React.Fragment>
             <ToolbarGroup variant="icon-button-group">
@@ -116,7 +230,9 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                             aria-label="launch-workload-button"
                             id="launch-workload-button"
                             variant="plain"
-                            onClick={props.onLaunchWorkloadClicked}
+                            onClick={() => {
+                                setIsRegisterWorkloadModalOpen(true);
+                            }}
                         >
                             <PlusIcon />
                         </Button>
@@ -133,7 +249,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                                     return workload.workload_state == WORKLOAD_STATE_RUNNING;
                                 }).length == 0
                             }
-                            onClick={props.onStopAllWorkloadsClicked} // () => setIsConfirmDeleteKernelsModalOpen(true)
+                            onClick={onStopAllWorkloadsClicked} // () => setIsConfirmDeleteKernelsModalOpen(true)
                         >
                             <StopCircleIcon />
                         </Button>
@@ -249,7 +365,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                                                                                                 MouseEvent
                                                                                             >,
                                                                                         ) => {
-                                                                                            props.onStartWorkloadClicked(
+                                                                                            onStartWorkloadClicked(
                                                                                                 workload,
                                                                                             );
 
@@ -281,7 +397,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                                                                                                 MouseEvent
                                                                                             >,
                                                                                         ) => {
-                                                                                            props.onStopWorkloadClicked(
+                                                                                            onStopWorkloadClicked(
                                                                                                 workload,
                                                                                             );
 
@@ -414,7 +530,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                                                                         isChecked={workload.debug_logging_enabled}
                                                                         ouiaId="DebugLoggingSwitch"
                                                                         onChange={() => {
-                                                                            props.toggleDebugLogs(
+                                                                            toggleDebugLogs(
                                                                                 workload.id,
                                                                                 !workload.debug_logging_enabled,
                                                                             );
@@ -512,6 +628,12 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                     ]}
                     onSetPage={onSetPage}
                     onPerPageSelect={onPerPageSelect}
+                />
+
+                <RegisterWorkloadModal
+                    isOpen={isRegisterWorkloadModalOpen}
+                    onClose={onCancelStartWorkload}
+                    onConfirm={onConfirmRegisterWorkload}
                 />
             </CardBody>
         </Card>

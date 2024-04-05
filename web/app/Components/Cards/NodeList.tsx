@@ -617,19 +617,6 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                                                 {nodeDataListActions(kubeNode)}
                                             </Flex>
                                         </DataListCell>,
-                                        // <DataListCell
-                                        //     className="node-data-list-actions"
-                                        //     width={1}
-                                        //     hidden={!props.displayNodeToggleSwitch}
-                                        //     key={'node-' + idx + '-actions'}
-                                        //     aria-labelledby={
-                                        //         'node-data-list-' + idx + ' node-data-list-action-item-' + idx
-                                        //     }
-                                        //     id={'node-data-list-' + idx}
-                                        //     aria-label="Actions"
-                                        // >
-                                        //     {nodeDataListActions(kubeNode)}
-                                        // </DataListCell>,
                                     ]}
                                 />
                             </DataListItemRow>

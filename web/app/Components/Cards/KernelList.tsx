@@ -186,12 +186,6 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
     ) => {
         setPerPage(newPerPage);
         setPage(newPage);
-        // console.log(
-        //     'onPerPageSelect: Displaying workloads %d through %d.',
-        //     newPerPage * (newPage - 1),
-        //     newPerPage * (newPage - 1) + newPerPage,
-        // );
-
         heightFactorContext.setHeightFactor(Math.min(newPerPage, kernels.length));
     };
 

@@ -21,6 +21,7 @@ import {
     ValidatedOptions,
 } from '@patternfly/react-core';
 
+import { v4 as uuidv4 } from 'uuid';
 import HelpIcon from '@patternfly/react-icons/dist/esm/icons/help-icon';
 import styles from '@patternfly/react-styles/css/components/Form/form';
 
@@ -37,7 +38,6 @@ export interface StartWorkloadModalProps {
         workloadSeed: string,
         debugLoggingEnabled: boolean,
     ) => void;
-    defaultWorkloadTitle: string;
 }
 
 export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalProps> = (props) => {
@@ -48,6 +48,8 @@ export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalPr
     const [isWorkloadDataDropdownOpen, setIsWorkloadDataDropdownOpen] = React.useState(false);
     const [selectedWorkloadPreset, setSelectedWorkloadPreset] = React.useState<WorkloadPreset | null>(null);
     const [debugLoggingEnabled, setDebugLoggingEnabled] = React.useState(false);
+
+    const defaultWorkloadTitle = React.useRef(uuidv4());
 
     const { workloadPresets } = useWorkloadPresets();
 
@@ -143,7 +145,7 @@ export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalPr
         // If the user left the workload title blank, then use the default workload title, which is a randomly-generated UUID.
         let workloadTitleToSubmit: string = workloadTitle;
         if (workloadTitleToSubmit.length == 0) {
-            workloadTitleToSubmit = props.defaultWorkloadTitle;
+            workloadTitleToSubmit = defaultWorkloadTitle.current;
         }
 
         props.onConfirm(workloadTitleToSubmit, selectedWorkloadPreset!, workloadSeed, debugLoggingEnabled);
@@ -152,6 +154,8 @@ export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalPr
         setSelectedWorkloadPreset(null);
         setWorkloadSeed('');
         setWorkloadTitle('');
+
+        defaultWorkloadTitle.current = uuidv4();
     };
 
     return (
@@ -208,7 +212,7 @@ export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalPr
                                 name="workload-title-text-input"
                                 aria-describedby="workload-title-text-input-helper"
                                 value={workloadTitle}
-                                placeholder={props.defaultWorkloadTitle}
+                                placeholder={defaultWorkloadTitle.current}
                                 validated={(workloadTitleIsValid && ValidatedOptions.success) || ValidatedOptions.error}
                                 onChange={handleWorkloadTitleChanged}
                             />

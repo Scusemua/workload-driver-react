@@ -18,7 +18,9 @@ export const KernelLogTabContent: React.FunctionComponent<KernelLogTabContentPro
 ) => {
     const { kernels } = useKernels();
 
-    const [activeKernelTabKey, setActiveKernelTabKey] = React.useState(kernels.length >= 1 ? kernels[0].kernelId : '');
+    const [activeKernelTabKey, setActiveKernelTabKey] = React.useState(
+        kernels.length >= 1 ? `kernel-${kernels[0].kernelId}-tab` : '',
+    );
     const [activeKernelReplicaTabKey, setActiveKernelReplicaTabKey] = React.useState(1);
 
     const logHeight = React.useContext(LogHeightContext);

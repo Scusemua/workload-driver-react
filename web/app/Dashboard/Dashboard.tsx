@@ -1,25 +1,13 @@
 import '@patternfly/react-core/dist/styles/base.css';
 
-import React, { createContext, useRef } from 'react';
-import { Flex, FlexItem, Grid, GridItem, PageSection, Text, TextVariants, gridSpans } from '@patternfly/react-core';
+import React, { createContext } from 'react';
+import { Grid, GridItem, PageSection, gridSpans } from '@patternfly/react-core';
 
 import { KernelList, KernelSpecList, KubernetesNodeList, LogViewCard, WorkloadCard } from '@app/Components/Cards/';
-import {
-    DistributedJupyterKernel,
-    JupyterKernelReplica,
-    KubernetesNode,
-    VirtualGpuInfo,
-    WORKLOAD_STATE_RUNNING,
-    Workload,
-    WorkloadPreset,
-} from '@app/Data';
-import { AdjustVirtualGPUsModal, MigrationModal, RegisterWorkloadModal } from '@app/Components/Modals';
-
-import { v4 as uuidv4 } from 'uuid';
-import { useWorkloads } from '@providers/WorkloadProvider';
+import { DistributedJupyterKernel, JupyterKernelReplica, KubernetesNode, VirtualGpuInfo } from '@app/Data';
+import { AdjustVirtualGPUsModal, MigrationModal } from '@app/Components/Modals';
 
 import toast, { Toaster } from 'react-hot-toast';
-import { useKernels } from '@app/Providers';
 
 export interface DashboardProps {}
 
@@ -42,20 +30,14 @@ export const WorkloadsHeightFactorContext = createContext<HeightFactorContext>({
 });
 
 const Dashboard: React.FunctionComponent<DashboardProps> = () => {
-    const [isRegisterWorkloadModalOpen, setIsRegisterWorkloadModalOpen] = React.useState(false);
     const [isAdjustVirtualGPUsModalOpen, setIsAdjustVirtualGPUsModalOpen] = React.useState(false);
     const [isMigrateModalOpen, setIsMigrateModalOpen] = React.useState(false);
     const [migrateKernel, setMigrateKernel] = React.useState<DistributedJupyterKernel | null>(null);
     const [migrateReplica, setMigrateReplica] = React.useState<JupyterKernelReplica | null>(null);
     const [adjustVirtualGPUsNode, setAdjustVirtualGPUsNode] = React.useState<KubernetesNode | null>(null);
 
-    const defaultWorkloadTitle = useRef(uuidv4());
-
-    const { kernels } = useKernels();
-    const { workloads, sendJsonMessage } = useWorkloads();
-
-    const [workloadItemsPerPage, setWorkloadItemsPerPage] = React.useState(3);
-    const [kernelItemsPerPage, setKernelItemsPerPage] = React.useState(3);
+    const [workloadHeightFactor, setWorkloadHeightFactor] = React.useState(3);
+    const [kernelHeightFactor, setKernelHeightFactor] = React.useState(3);
     const [kubeNodeHeightFactor, setKubeNodeHeightFactor] = React.useState(3);
 
     const onConfirmMigrateReplica = (
@@ -104,142 +86,10 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
         setMigrateKernel(null);
     };
 
-    const onConfirmRegisterWorkload = (
-        workloadName: string,
-        selectedPreset: WorkloadPreset,
-        workloadSeedString: string,
-        debugLoggingEnabled: boolean,
-    ) => {
-        toast('Registering workload now.', {
-            icon: '🛈',
-        });
-
-        console.log(
-            "New workload '%s' registered by user with preset:\n%s",
-            workloadName,
-            JSON.stringify(selectedPreset),
-        );
-        setIsRegisterWorkloadModalOpen(false);
-
-        let workloadSeed = -1;
-
-        if (workloadSeedString != '') {
-            workloadSeed = parseInt(workloadSeedString);
-        }
-
-        const messageId: string = uuidv4();
-        sendJsonMessage({
-            op: 'register_workload',
-            msg_id: messageId,
-            workloadRegistrationRequest: {
-                adjust_gpu_reservations: false,
-                seed: workloadSeed,
-                key: selectedPreset.key,
-                name: workloadName,
-                debug_logging: debugLoggingEnabled,
-            },
-        });
-    };
-
-    const onCancelStartWorkload = () => {
-        console.log('New workload cancelled by user before starting.');
-        setIsRegisterWorkloadModalOpen(false);
-    };
-
     const openMigrationModal = (kernel: DistributedJupyterKernel, replica: JupyterKernelReplica) => {
         setMigrateReplica(replica);
         setMigrateKernel(kernel);
         setIsMigrateModalOpen(true);
-    };
-
-    const toggleDebugLogs = (workloadId: string, enabled: boolean) => {
-        if (enabled) {
-            console.log("Enabling debug logging for workload '%s'", workloadId);
-        } else {
-            console.log("Disabling debug logging for workload '%s'", workloadId);
-        }
-
-        const messageId: string = uuidv4();
-        // const callback = (result: SingleWorkloadResponse) => {
-        //     setWorkloads(new Map(workloads.set(result.workload.id, result.workload)));
-        // };
-        // websocketCallbacks.current.set(messageId, callback);
-        sendJsonMessage({
-            op: 'toggle_debug_logs',
-            msg_id: messageId,
-            workload_id: workloadId,
-            enabled: enabled,
-        });
-    };
-
-    const onStartWorkloadClicked = (workload: Workload) => {
-        toast(() => (
-            <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
-                <FlexItem>
-                    <b>Starting workload {workload.name}</b>
-                </FlexItem>
-                <FlexItem>
-                    <Text component={TextVariants.small}>
-                        <b>Workload ID: </b>
-                        {workload.id}
-                    </Text>
-                </FlexItem>
-            </Flex>
-        ));
-
-        console.log(`Starting workload '${workload.name}' (ID=${workload.id})`);
-
-        const messageId: string = uuidv4();
-        // const callback = (result: SingleWorkloadResponse) => {
-        //     setWorkloads(new Map(workloads.set(result.workload.id, result.workload)));
-        // };
-        // websocketCallbacks.current.set(messageId, callback);
-        sendJsonMessage({
-            op: 'start_workload',
-            msg_id: messageId,
-            workload_id: workload.id,
-        });
-    };
-
-    const onStopWorkloadClicked = (workload: Workload) => {
-        toast('Stop workload');
-
-        console.log("Stopping workload '%s' (ID=%s)", workload.name, workload.id);
-
-        const messageId: string = uuidv4();
-        // const callback = (result: SingleWorkloadResponse) => {
-        //     setWorkloads(new Map(workloads.set(result.workload.id, result.workload)));
-        // };
-        // websocketCallbacks.current.set(messageId, callback);
-        sendJsonMessage({
-            op: 'stop_workload',
-            msg_id: messageId,
-            workload_id: workload.id,
-        });
-    };
-
-    const onStopAllWorkloadsClicked = () => {
-        toast('Stopping all workload');
-
-        const activeWorkloadsIDs: string[] = [];
-        workloads.forEach((workload: Workload) => {
-            if (workload.workload_state == WORKLOAD_STATE_RUNNING) {
-                activeWorkloadsIDs.push(workload.id);
-            }
-        });
-
-        const messageId: string = uuidv4();
-        // const callback = (result: WorkloadsResponse) => {
-        //     result.workloads.forEach((workload: Workload) => {
-        //         setWorkloads((w) => new Map(w.set(workload.id, workload)));
-        //     });
-        // };
-        // websocketCallbacks.current.set(messageId, callback);
-        sendJsonMessage({
-            op: 'stop_workloads',
-            msg_id: messageId,
-            workload_ids: activeWorkloadsIDs,
-        });
     };
 
     const onAdjustVirtualGPUsClicked = (node: KubernetesNode) => {
@@ -297,8 +147,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
     }
 
     const getWorkloadCardRowspan = () => {
-        const heightFactor: number = Math.min(workloads.length, workloadItemsPerPage);
-        if (heightFactor <= 2) {
+        if (workloadHeightFactor <= 2) {
             return 1 as gridSpans;
         } else {
             return 2 as gridSpans;
@@ -306,8 +155,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
     };
 
     const getKernelCardRowspan = () => {
-        const heightFactor: number = Math.min(kernels.length, kernelItemsPerPage);
-        if (heightFactor <= 2) {
+        if (kernelHeightFactor <= 2) {
             return 1 as gridSpans;
         } else {
             return 2 as gridSpans;
@@ -331,8 +179,8 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
                 <GridItem span={6} rowSpan={getKernelCardRowspan()}>
                     <KernelHeightFactorContext.Provider
                         value={{
-                            heightFactor: kernelItemsPerPage,
-                            setHeightFactor: (newHeight: number) => setKernelItemsPerPage(newHeight),
+                            heightFactor: kernelHeightFactor,
+                            setHeightFactor: (newHeight: number) => setKernelHeightFactor(newHeight),
                         }}
                     >
                         <KernelList kernelsPerPage={3} openMigrationModal={openMigrationModal} />
@@ -341,21 +189,11 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
                 <GridItem span={6} rowSpan={getWorkloadCardRowspan()}>
                     <WorkloadsHeightFactorContext.Provider
                         value={{
-                            heightFactor: workloadItemsPerPage,
-                            setHeightFactor: (value: number) => setWorkloadItemsPerPage(value),
+                            heightFactor: workloadHeightFactor,
+                            setHeightFactor: (value: number) => setWorkloadHeightFactor(value),
                         }}
                     >
-                        <WorkloadCard
-                            workloadsPerPage={3}
-                            toggleDebugLogs={toggleDebugLogs}
-                            onStartWorkloadClicked={onStartWorkloadClicked}
-                            onStopWorkloadClicked={onStopWorkloadClicked}
-                            onStopAllWorkloadsClicked={onStopAllWorkloadsClicked}
-                            onLaunchWorkloadClicked={() => {
-                                defaultWorkloadTitle.current = uuidv4(); // Regenerate the default workload title as we're opening the modal again.
-                                setIsRegisterWorkloadModalOpen(true);
-                            }}
-                        />
+                        <WorkloadCard workloadsPerPage={3} />
                     </WorkloadsHeightFactorContext.Provider>
                 </GridItem>
                 <GridItem span={6} rowSpan={1}>
@@ -386,12 +224,6 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
                 onConfirm={onConfirmMigrateReplica}
                 targetKernel={migrateKernel}
                 targetReplica={migrateReplica}
-            />
-            <RegisterWorkloadModal
-                isOpen={isRegisterWorkloadModalOpen}
-                onClose={onCancelStartWorkload}
-                onConfirm={onConfirmRegisterWorkload}
-                defaultWorkloadTitle={defaultWorkloadTitle.current}
             />
             <AdjustVirtualGPUsModal
                 isOpen={isAdjustVirtualGPUsModalOpen}
