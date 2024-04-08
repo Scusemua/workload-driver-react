@@ -36,7 +36,7 @@ import {
     Tooltip,
 } from '@patternfly/react-core';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
-import { KubernetesNode, KubernetesPod } from '@data/Kubernetes';
+import { KubernetesNode, KubernetesPod, VirtualGpuInfo } from '@data/Kubernetes';
 import {
     CpuIcon,
     CubeIcon,
@@ -51,6 +51,7 @@ import { useNodes } from '@providers/NodeProvider';
 import { GpuIcon } from '@app/Icons';
 import { toast } from 'react-hot-toast';
 import { HeightFactorContext, KubernetesNodeHeightFactorContext } from '@app/Dashboard/Dashboard';
+import { AdjustVirtualGPUsModal } from '../Modals';
 
 export interface NodeListProps {
     selectableViaCheckboxes: boolean;
@@ -60,7 +61,6 @@ export interface NodeListProps {
     onSelectNode?: (nodeId: string) => void; // Function to call when a node is selected; used in case parent wants to do something when node is selected, such as update state.
     nodesPerPage: number;
     hideAdjustVirtualGPUsButton: boolean;
-    onAdjustVirtualGPUsClicked?: (node: KubernetesNode) => void;
     displayNodeToggleSwitch: boolean; // If true, show the Switch that is used to enable/disable the node.
 }
 
@@ -73,6 +73,8 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
     const { nodes, nodesAreLoading, refreshNodes } = useNodes();
     const [, forceUpdate] = useReducer((x) => x + 1, 0);
     const heightFactorContext: HeightFactorContext = React.useContext(KubernetesNodeHeightFactorContext);
+    const [adjustVirtualGPUsNodes, setAdjustVirtualGPUsNodes] = React.useState<KubernetesNode[]>([]);
+    const [isAdjustVirtualGPUsModalOpen, setIsAdjustVirtualGPUsModalOpen] = React.useState(false);
 
     const onSetPage = (_event: React.MouseEvent | React.KeyboardEvent | MouseEvent, newPage: number) => {
         setPage(newPage);
@@ -115,6 +117,89 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
             onClear={() => onSearchChange('')}
         />
     );
+
+    const onAdjustVirtualGPUsClicked = (nodes: KubernetesNode[]) => {
+        setAdjustVirtualGPUsNodes(nodes);
+        setIsAdjustVirtualGPUsModalOpen(true);
+    };
+
+    const closeAdjustVirtualGPUsModal = () => {
+        setIsAdjustVirtualGPUsModalOpen(false);
+        setAdjustVirtualGPUsNodes([]);
+    };
+
+    async function doAdjustVirtualGPUs(value: number) {
+        if (adjustVirtualGPUsNodes.length == 0) {
+            console.error("Field 'adjustVirtualGPUsNode' is null...");
+            closeAdjustVirtualGPUsModal();
+            return;
+        }
+
+        if (Number.isNaN(value)) {
+            console.error('Specified value is NaN...');
+            closeAdjustVirtualGPUsModal();
+            return;
+        }
+
+        adjustVirtualGPUsNodes.forEach((node: KubernetesNode) => {
+            if (node.CapacityVGPUs == value) {
+                console.log('Adjusted vGPUs value is same as current value. Doing nothing.');
+                closeAdjustVirtualGPUsModal();
+                return;
+            }
+
+            const requestOptions = {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    // 'Cache-Control': 'no-cache, no-transform, no-store'
+                },
+                body: JSON.stringify({
+                    value: value,
+                    kubernetesNodeName: node?.NodeId,
+                }),
+            };
+
+            console.log(`Attempting to set vGPUs on node ${node?.NodeId} to ${value}`);
+
+            toast.promise(
+                fetch('api/vgpus', requestOptions),
+                {
+                    loading: 'Adjusting GPUs...',
+                    success: (
+                        <div>
+                            <Flex>
+                                <FlexItem>
+                                    <Text component={TextVariants.p}>
+                                        <b>Successfully updated vGPU capacity for node {node.NodeId}.</b>
+                                    </Text>
+                                </FlexItem>
+                                <FlexItem>
+                                    <Text component={TextVariants.small}>
+                                        It may take several seconds for the updated value to appear.
+                                    </Text>
+                                </FlexItem>
+                            </Flex>
+                        </div>
+                    ),
+                    error: (reason) => (
+                        <div>
+                            <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
+                                <FlexItem>
+                                    <b>Failed to update vGPUs for node ${node.NodeId} because:</b>
+                                </FlexItem>
+                                <FlexItem>{JSON.stringify(reason)}</FlexItem>
+                            </Flex>
+                        </div>
+                    ),
+                },
+                {
+                    duration: 5000,
+                    style: { maxWidth: 500 },
+                },
+            );
+        });
+    }
 
     // Handler for when the user filters by node name.
     const onFilter = (repo: KubernetesNode) => {
@@ -170,6 +255,21 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                     </FlexItem>
                 </Flex>
             </ToolbarToggleGroup>
+            <ToolbarGroup variant="button-group">
+                <ToolbarItem>
+                    <Tooltip content="Adjust the number of vGPUs available on ALL nodes.">
+                        <Button
+                            variant="link"
+                            onClick={(event: React.MouseEvent) => {
+                                event.stopPropagation();
+                                onAdjustVirtualGPUsClicked(nodes);
+                            }}
+                        >
+                            Adjust vGPUs
+                        </Button>
+                    </Tooltip>
+                </ToolbarItem>
+            </ToolbarGroup>
             <ToolbarGroup variant="icon-button-group">
                 <ToolbarItem>
                     <Tooltip exitDelay={75} content={<div>Refresh nodes.</div>}>
@@ -431,9 +531,7 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                         variant="link"
                         onClick={(event: React.MouseEvent) => {
                             event.stopPropagation();
-                            if (props.onAdjustVirtualGPUsClicked) {
-                                props.onAdjustVirtualGPUsClicked(kubeNode);
-                            }
+                            onAdjustVirtualGPUsClicked([kubeNode]);
                         }}
                     >
                         Adjust vGPUs
@@ -638,6 +736,12 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                     ))}
                 </DataList>
                 {pagination}
+                <AdjustVirtualGPUsModal
+                    isOpen={isAdjustVirtualGPUsModalOpen}
+                    onClose={closeAdjustVirtualGPUsModal}
+                    onConfirm={doAdjustVirtualGPUs}
+                    nodes={adjustVirtualGPUsNodes}
+                />
             </CardBody>
         </Card>
     );

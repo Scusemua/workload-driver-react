@@ -9,7 +9,7 @@ export interface AdjustVirtualGPUsModalProps {
     isOpen: boolean;
     onClose: () => void;
     onConfirm: (value: number) => Promise<void>;
-    node: KubernetesNode | null;
+    nodes: KubernetesNode[];
     titleIconVariant?: 'success' | 'danger' | 'warning' | 'info';
 }
 
@@ -17,8 +17,16 @@ export const AdjustVirtualGPUsModal: React.FunctionComponent<AdjustVirtualGPUsMo
     const [inputValidated, setInputValidated] = React.useState(true);
     const [adjustmentState, setAdjustmentState] = React.useState('idle');
     const [adjustedGPUs, setAdjustedGPUs] = React.useState('');
-
+    const [minVirtualGPUs, setMinVirtualGPUs] = React.useState(Number.MAX_SAFE_INTEGER);
     const { refreshNodes } = useNodes();
+
+    React.useEffect(() => {
+        props.nodes.forEach((node: KubernetesNode) => {
+            if (node.CapacityVGPUs < minVirtualGPUs) {
+                setMinVirtualGPUs(node.CapacityVGPUs);
+            }
+        });
+    }, [props.nodes]);
 
     const handleAdjustedGPUsChanged = (_event, vgpus: string) => {
         const validValue: boolean = /[0-9]/.test(vgpus) || vgpus == '';
@@ -69,7 +77,7 @@ export const AdjustVirtualGPUsModal: React.FunctionComponent<AdjustVirtualGPUsMo
     };
 
     const onConfirmClicked = () => {
-        if (!props.node) {
+        if (props.nodes.length == 0) {
             console.error(`Cannot determine target node of adjust-vgpus operation...`);
             return;
         }
@@ -81,27 +89,27 @@ export const AdjustVirtualGPUsModal: React.FunctionComponent<AdjustVirtualGPUsMo
         }
 
         // The default value is the current number of vGPUs.
-        let value = props.node?.CapacityVGPUs;
+        let value = minVirtualGPUs;
         if (adjustedGPUs != '') {
             value = parseInt(adjustedGPUs, 10);
         }
 
         setAdjustmentState('processing');
         props.onConfirm(value).then(() => {
-            // Update/refresh the nodes since we know one of their virtual GPU resources changed.
-            setTimeout(() => {
-                refreshNodes();
-                setAdjustmentState('applied');
-                console.log(`Completed vGPU change of node ${props.node?.NodeId}`);
-            }, 5000);
+            setAdjustmentState('applied');
+            refreshNodes();
         });
     };
 
     return (
         <Modal
-            variant={ModalVariant.medium}
+            variant={ModalVariant.large}
             titleIconVariant={props.titleIconVariant}
-            title={`Adjust vGPUs of Node ${props.node?.NodeId}`}
+            title={
+                props.nodes.length == 1
+                    ? `Adjust vGPUs of Node ${props.nodes[0].NodeId}`
+                    : `Adjust vGPUs of Nodes ${props.nodes.map((node: KubernetesNode) => node.NodeId).join(', ')}`
+            }
             isOpen={props.isOpen}
             onClose={props.onClose}
             actions={[
@@ -123,7 +131,7 @@ export const AdjustVirtualGPUsModal: React.FunctionComponent<AdjustVirtualGPUsMo
             ]}
         >
             <Form>
-                <FormGroup label={`New vGPUs value? (Current total vGPUs: ${props.node?.CapacityVGPUs})`}>
+                <FormGroup label={`New vGPUs value? (Current total vGPUs ≥ ${minVirtualGPUs})`}>
                     <TextInput
                         id="adjusted-vgpus-value"
                         aria-label="adjusted-vgpus-value"
@@ -132,7 +140,7 @@ export const AdjustVirtualGPUsModal: React.FunctionComponent<AdjustVirtualGPUsMo
                         value={adjustedGPUs}
                         onChange={handleAdjustedGPUsChanged}
                         validated={(inputValidated && ValidatedOptions.success) || ValidatedOptions.error}
-                        placeholder={`${props.node?.CapacityVGPUs}`}
+                        placeholder={`${minVirtualGPUs}`}
                     />
                 </FormGroup>
             </Form>

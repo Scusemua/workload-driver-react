@@ -156,6 +156,8 @@ func (h *KubeNodeHttpHandler) parseKubernetesNode(node *corev1.Node) *domain.Kub
 }
 
 func (h *KubeNodeHttpHandler) HandleRequest(c *gin.Context) {
+	st := time.Now()
+	h.logger.Debug("Handling 'get-nodes' request now.")
 	if h.spoof {
 		h.spoofNodes(c)
 		return
@@ -168,12 +170,10 @@ func (h *KubeNodeHttpHandler) HandleRequest(c *gin.Context) {
 		return
 	}
 
-	h.logger.Info(fmt.Sprintf("Sending a list of %d nodes back to the client.", len(nodes.Items)), zap.Int("num-nodes", len(nodes.Items)))
-
 	actualGpuInformation, err := h.rpcClient.GetClusterActualGpuInfo(context.TODO(), &gateway.Void{})
 	if err != nil {
 		h.logger.Error("Failed to retrieve 'actual' GPU usage from Cluster Gateway.", zap.Error(err))
-		c.Error(fmt.Errorf("Failed to retrieve 'actual' GPU usage from Cluster Gateway: %v", err.Error()))
+		c.Error(fmt.Errorf("failed to retrieve 'actual' GPU usage from Cluster Gateway: %v", err.Error()))
 	}
 
 	var resp []*domain.KubernetesNode = make([]*domain.KubernetesNode, 0, len(nodes.Items))
@@ -214,15 +214,14 @@ func (h *KubeNodeHttpHandler) HandleRequest(c *gin.Context) {
 		parsedNode.AllocatedVGPUs = allocatedVirtualGPUs
 		parsedNode.AllocatedMemory = allocatedMemory
 
-		if !strings.HasSuffix(node.Name, "control-plane") && actualGpuInformation != nil && actualGpuInformation.GetGpuInfo() != nil {
+		// The control-plane node won't have any GPU information whatsoever.
+		if !strings.HasSuffix(node.Name, "control-plane") && actualGpuInformation != nil {
 			if gpuInfo, ok := actualGpuInformation.GetGpuInfo()[node.Name]; ok {
 				parsedNode.AllocatedGPUs = float64(gpuInfo.CommittedGPUs)
 				parsedNode.CapacityGPUs = float64(gpuInfo.SpecGPUs)
 			} else {
 				h.logger.Error("Could not retrieve 'actual' GPU information for node.", zap.String("node", node.Name))
 			}
-		} else {
-			h.logger.Error("Could not retrieve 'actual' GPU information for node.", zap.String("node", node.Name))
 		}
 	}
 
@@ -233,7 +232,7 @@ func (h *KubeNodeHttpHandler) HandleRequest(c *gin.Context) {
 		})
 	}
 
-	h.logger.Info("Sending nodes back to client now.", zap.Int("num-nodes", len(resp)))
+	h.sugaredLogger.Infof("Sending a list of %d nodes back to the client. Time elapsed: %v.", len(resp), time.Since(st))
 	c.JSON(http.StatusOK, resp)
 }
 
