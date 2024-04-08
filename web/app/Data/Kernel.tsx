@@ -1,12 +1,12 @@
 import { IKernelConnection } from '@jupyterlab/services/lib/kernel/kernel';
 
-interface DistributedJupyterKernel<T extends JupyterKernelReplica> {
+interface DistributedJupyterKernel {
     kernelId: string;
     numReplicas: number;
     status: string;
     aggregateBusyStatus: string;
     kernelSpec: DistributedKernelSpec;
-    replicas: T[];
+    replicas: JupyterKernelReplica[];
     kernel?: IKernelConnection;
 }
 

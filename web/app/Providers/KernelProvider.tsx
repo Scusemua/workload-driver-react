@@ -1,14 +1,23 @@
 import { DistributedJupyterKernel, JupyterKernelReplica } from '@data/Kernel';
 import useSWR from 'swr';
 import useSWRMutation from 'swr/mutation';
+import hash from 'stable-hash';
 
-const fetcher = async (input: RequestInfo | URL) => {
+function omit(obj, ...props) {
+    const result = { ...obj };
+    props.forEach(function (prop) {
+        delete result[prop];
+    });
+    return result;
+}
+
+const baseFetcher = async (input: RequestInfo | URL) => {
     const abortController: AbortController = new AbortController();
     const signal: AbortSignal = abortController.signal;
     const timeout: number = 10000;
 
-    const randNumber: number = Math.floor(Math.random() * 1e9);
-    input += `?randNumber=${randNumber}`;
+    // const randNumber: number = Math.floor(Math.random() * 1e9);
+    // input += `?randNumber=${randNumber}`;
 
     setTimeout(() => {
         abortController.abort(`The request timed-out after ${timeout} milliseconds.`);
@@ -38,41 +47,59 @@ const fetcher = async (input: RequestInfo | URL) => {
         };
     }
 
-    return await response.json();
+    return response;
+};
+
+const fetcher = async (input: RequestInfo | URL, forLogging: boolean) => {
+    const response: Response = await baseFetcher(input);
+    let kernels: DistributedJupyterKernel[] = await response.json();
+
+    if (forLogging) {
+        kernels = kernels.map((kernel: DistributedJupyterKernel) =>
+            omit(kernel, 'status', 'aggregateBusyStatus', 'kernelSpec', 'kernel'),
+        );
+
+        return kernels;
+    }
+
+    return kernels;
 };
 
 const api_endpoint: string = 'api/get-kernels';
 
-export function useKernelsNamesOnly() {
-    const { data, error } = useSWR(api_endpoint, fetcher, {
-        refreshInterval: 10000,
+export function useKernels(forLogging: boolean) {
+    const { data, error } = useSWR([api_endpoint, forLogging], ([url, forLogging]) => fetcher(url, forLogging), {
+        refreshInterval: 5000,
         onError: (error: Error) => {
             console.error(`Automatic refresh of kernels failed because: ${error.message}`);
         },
+        // onSuccess: (data, key) => {
+        //     console.log(`Refreshed kernels. Key: "${key}".`);
+        // },
+        // onDiscarded: () => {
+        //     console.log('Refreshed kernels.');
+        // },
+        // compare: (a: any, b: any) => {
+        //     console.log('');
+        //     console.log('');
+        //     console.log('');
+
+        //     if (hash(a) !== hash(b)) {
+        //         console.warn('Data IS new!');
+        //         console.log(`Old data: ${JSON.stringify(a)}`);
+        //         console.log(`New data: ${JSON.stringify(b)}`);
+        //         return false;
+        //     } else {
+        //         console.log('Data is not new.');
+        //         return true;
+        //     }
+        // },
     });
-    const { trigger, isMutating } = useSWRMutation(api_endpoint, fetcher);
+    const { trigger, isMutating } = useSWRMutation([api_endpoint, forLogging], ([url, forLogging]) =>
+        fetcher(url, forLogging),
+    );
 
-    const kernels: Pick<DistributedJupyterKernel<JupyterKernelReplica>, 'kernelId' | 'numReplicas' | 'replicas'>[] =
-        data || [];
-
-    return {
-        kernels: kernels,
-        kernelsAreLoading: isMutating,
-        refreshKernels: trigger,
-        isError: error,
-    };
-}
-
-export function useKernels() {
-    const { data, error } = useSWR(api_endpoint, fetcher, {
-        refreshInterval: 2500,
-        onError: (error: Error) => {
-            console.error(`Automatic refresh of kernels failed because: ${error.message}`);
-        },
-    });
-    const { trigger, isMutating } = useSWRMutation(api_endpoint, fetcher);
-
-    const kernels: DistributedJupyterKernel<JupyterKernelReplica>[] = data || [];
+    const kernels: DistributedJupyterKernel[] = data || [];
 
     return {
         kernels: kernels,

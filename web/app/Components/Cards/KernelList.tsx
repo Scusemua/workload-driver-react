@@ -120,14 +120,13 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
     const [errorMessage, setErrorMessage] = React.useState('');
     const [errorMessagePreamble, setErrorMessagePreamble] = React.useState('');
     const [isExecuteCodeModalOpen, setIsExecuteCodeModalOpen] = React.useState(false);
-    const [executeCodeKernel, setExecuteCodeKernel] =
-        React.useState<DistributedJupyterKernel<JupyterKernelReplica> | null>(null);
+    const [executeCodeKernel, setExecuteCodeKernel] = React.useState<DistributedJupyterKernel | null>(null);
     const [executeCodeKernelReplica, setExecuteCodeKernelReplica] = React.useState<JupyterKernelReplica | null>(null);
     const [selectedKernels, setSelectedKernels] = React.useState<string[]>([]);
     const [kernelToDelete, setKernelToDelete] = React.useState<string>('');
     const [page, setPage] = React.useState(1);
     const [perPage, setPerPage] = React.useState(props.kernelsPerPage);
-    const { kernels, kernelsAreLoading, refreshKernels } = useKernels();
+    const { kernels, kernelsAreLoading, refreshKernels } = useKernels(false);
     const [openReplicaDropdownMenu, setOpenReplicaDropdownMenu] = React.useState<string>('');
     const [openKernelDropdownMenu, setOpenKernelDropdownMenu] = React.useState<string>('');
     const heightFactorContext: HeightFactorContext = React.useContext(KernelHeightFactorContext);
@@ -149,7 +148,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         }
     };
 
-    const onToggleOrSelectKernelDropdown = (kernel: DistributedJupyterKernel<JupyterKernelReplica> | null) => {
+    const onToggleOrSelectKernelDropdown = (kernel: DistributedJupyterKernel | null) => {
         if (openKernelDropdownMenu === kernel?.kernelId) {
             setOpenKernelDropdownMenu('');
         } else {
@@ -159,7 +158,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
     };
 
     // If there are any new kernels, decrement `numKernelsCreating`.
-    kernels.forEach((kernel: DistributedJupyterKernel<JupyterKernelReplica>) => {
+    kernels.forEach((kernel: DistributedJupyterKernel) => {
         if (!kernelIdSet.current.has(kernel.kernelId)) {
             kernelIdSet.current.add(kernel.kernelId);
             numKernelsCreating.current -= 1;
@@ -281,10 +280,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         setExecuteCodeKernelReplica(null);
     };
 
-    const onExecuteCodeClicked = (
-        kernel: DistributedJupyterKernel<JupyterKernelReplica> | null,
-        replicaIdx?: number | undefined,
-    ) => {
+    const onExecuteCodeClicked = (kernel: DistributedJupyterKernel | null, replicaIdx?: number | undefined) => {
         if (kernel == null) {
             return;
         }
@@ -306,7 +302,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         setIsExecuteCodeModalOpen(true);
     };
 
-    async function onInspectKernelClicked(kernel: DistributedJupyterKernel<JupyterKernelReplica>) {
+    async function onInspectKernelClicked(kernel: DistributedJupyterKernel) {
         const kernelId: string = kernel.kernelId;
         console.log('User is inspecting kernel ' + kernelId);
     }
@@ -665,7 +661,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         );
     }
 
-    const onFilter = (repo: DistributedJupyterKernel<JupyterKernelReplica>) => {
+    const onFilter = (repo: DistributedJupyterKernel) => {
         // Search name with search value
         let searchValueInput: RegExp;
         try {
@@ -892,7 +888,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         );
     };
 
-    const expandedKernelContent = (kernel: DistributedJupyterKernel<JupyterKernelReplica>) => (
+    const expandedKernelContent = (kernel: DistributedJupyterKernel) => (
         <Table isStriped aria-label="Pods Table" variant={'compact'} borders={true}>
             <Thead>
                 <Tr>
@@ -1033,7 +1029,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         </Table>
     );
 
-    const onTerminateKernelClicked = (kernel: DistributedJupyterKernel<JupyterKernelReplica> | null) => {
+    const onTerminateKernelClicked = (kernel: DistributedJupyterKernel | null) => {
         if (kernel == null) {
             return;
         }
@@ -1052,7 +1048,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         setExpandedKernels(newExpanded);
     };
 
-    const getKernelDataListRow = (kernel: DistributedJupyterKernel<JupyterKernelReplica> | null, idx: number) => {
+    const getKernelDataListRow = (kernel: DistributedJupyterKernel | null, idx: number) => {
         return (
             <DataListItem
                 isExpanded={expandedKernels.includes(kernel?.kernelId || 'Pending...')}
@@ -1096,40 +1092,49 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                     </FlexItem>
                                     <Flex className="kernel-list-stat-icons" spaceItems={{ default: 'spaceItemsMd' }}>
                                         <FlexItem>
-                                            <CubesIcon /> {kernel != null && kernel.numReplicas}{' '}
+                                            <Tooltip content="Number of replicas">
+                                                <CubesIcon />
+                                            </Tooltip>
+                                            {kernel != null && kernel.numReplicas}
                                             {kernel == null && 'TBD'}
                                         </FlexItem>
                                         <FlexItem>
-                                            {kernel != null && kernelStatusIcons[kernel.aggregateBusyStatus]}{' '}
+                                            {kernel != null && kernelStatusIcons[kernel.aggregateBusyStatus]}
                                             {kernel != null && kernel.aggregateBusyStatus}
-                                            {kernel == null && kernelStatusIcons['starting']}{' '}
+                                            {kernel == null && kernelStatusIcons['starting']}
                                             {kernel == null && 'starting'}
                                         </FlexItem>
                                         <Flex spaceItems={{ default: 'spaceItemsSm' }}>
                                             <FlexItem>
-                                                <CpuIcon className="node-cpu-icon" />
+                                                <Tooltip content="millicpus (1/1000th of a CPU core)">
+                                                    <CpuIcon className="node-cpu-icon" />
+                                                </Tooltip>
                                             </FlexItem>
                                             <FlexItem>
                                                 {(kernel != null &&
                                                     kernel.kernelSpec.resourceSpec.cpu != null &&
-                                                    kernel.kernelSpec.resourceSpec.cpu) ||
+                                                    kernel.kernelSpec.resourceSpec.cpu / 1000.0) ||
                                                     '0'}
                                             </FlexItem>
                                         </Flex>
                                         <Flex spaceItems={{ default: 'spaceItemsSm' }}>
                                             <FlexItem>
-                                                <MemoryIcon className="node-memory-icon" />{' '}
+                                                <Tooltip content="RAM usage limit in Gigabytes (GB)">
+                                                    <MemoryIcon className="node-memory-icon" />
+                                                </Tooltip>
                                             </FlexItem>
                                             <FlexItem>
                                                 {(kernel != null &&
                                                     kernel.kernelSpec.resourceSpec.memory != null &&
-                                                    kernel.kernelSpec.resourceSpec.memory) ||
+                                                    kernel.kernelSpec.resourceSpec.memory / 1000.0) ||
                                                     '0'}
                                             </FlexItem>
                                         </Flex>
                                         <Flex spaceItems={{ default: 'spaceItemsSm' }}>
                                             <FlexItem>
-                                                <GpuIcon className="node-memory-icon" />{' '}
+                                                <Tooltip content="GPU resource usage limit">
+                                                    <GpuIcon className="node-memory-icon" />
+                                                </Tooltip>
                                             </FlexItem>
                                             <FlexItem>
                                                 {(kernel != null &&
@@ -1201,7 +1206,6 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                                 spaceItems={{ default: 'spaceItemsNone' }}
                                             >
                                                 <FlexItem>
-                                                    {' '}
                                                     <Tooltip
                                                         exitDelay={75}
                                                         entryDelay={250}

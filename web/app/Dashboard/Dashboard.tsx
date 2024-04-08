@@ -32,9 +32,7 @@ export const WorkloadsHeightFactorContext = createContext<HeightFactorContext>({
 const Dashboard: React.FunctionComponent<DashboardProps> = () => {
     const [isAdjustVirtualGPUsModalOpen, setIsAdjustVirtualGPUsModalOpen] = React.useState(false);
     const [isMigrateModalOpen, setIsMigrateModalOpen] = React.useState(false);
-    const [migrateKernel, setMigrateKernel] = React.useState<DistributedJupyterKernel<JupyterKernelReplica> | null>(
-        null,
-    );
+    const [migrateKernel, setMigrateKernel] = React.useState<DistributedJupyterKernel | null>(null);
     const [migrateReplica, setMigrateReplica] = React.useState<JupyterKernelReplica | null>(null);
     const [adjustVirtualGPUsNode, setAdjustVirtualGPUsNode] = React.useState<KubernetesNode | null>(null);
 
@@ -44,7 +42,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
 
     const onConfirmMigrateReplica = (
         targetReplica: JupyterKernelReplica,
-        targetKernel: DistributedJupyterKernel<JupyterKernelReplica>,
+        targetKernel: DistributedJupyterKernel,
         targetNodeId: string,
     ) => {
         const requestOptions = {
@@ -88,10 +86,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
         setMigrateKernel(null);
     };
 
-    const openMigrationModal = (
-        kernel: DistributedJupyterKernel<JupyterKernelReplica>,
-        replica: JupyterKernelReplica,
-    ) => {
+    const openMigrationModal = (kernel: DistributedJupyterKernel, replica: JupyterKernelReplica) => {
         setMigrateReplica(replica);
         setMigrateKernel(kernel);
         setIsMigrateModalOpen(true);

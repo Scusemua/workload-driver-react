@@ -16,15 +16,13 @@ import (
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
 	"k8s.io/client-go/tools/clientcmd"
-	metrics "k8s.io/metrics/pkg/client/clientset/versioned"
 )
 
 type KubeNodeHttpHandler struct {
 	*GrpcClient
 
-	metricsClient *metrics.Clientset
-	clientset     *kubernetes.Clientset
-	spoof         bool
+	clientset *kubernetes.Clientset
+	spoof     bool
 }
 
 func NewKubeNodeHttpHandler(opts *domain.Configuration) domain.BackendHttpGetPatchHandler {
@@ -59,18 +57,7 @@ func (h *KubeNodeHttpHandler) createKubernetesClient(opts *domain.Configuration)
 			panic(err.Error())
 		}
 
-		metricsConfig, err := rest.InClusterConfig()
-		if err != nil {
-			panic(err.Error())
-		}
-
-		metricsClient, err := metrics.NewForConfig(metricsConfig)
-		if err != nil {
-			panic(err)
-		}
-
 		h.clientset = clientset
-		h.metricsClient = metricsClient
 	} else {
 		// use the current context in kubeconfig
 		config, err := clientcmd.BuildConfigFromFlags("", opts.KubeConfig)
@@ -84,18 +71,7 @@ func (h *KubeNodeHttpHandler) createKubernetesClient(opts *domain.Configuration)
 			panic(err.Error())
 		}
 
-		metricsConfig, err := clientcmd.BuildConfigFromFlags("", opts.KubeConfig)
-		if err != nil {
-			panic(err.Error())
-		}
-
-		metricsClient, err := metrics.NewForConfig(metricsConfig)
-		if err != nil {
-			panic(err)
-		}
-
 		h.clientset = clientset
-		h.metricsClient = metricsClient
 	}
 }
 
@@ -190,42 +166,45 @@ func (h *KubeNodeHttpHandler) HandleRequest(c *gin.Context) {
 		return
 	}
 
-	nodeUsageMetrics, err := h.metricsClient.MetricsV1beta1().NodeMetricses().List(context.TODO(), metav1.ListOptions{})
-	if err != nil {
-		h.logger.Error("Failed to retrieve node metrics from Kubernetes.", zap.Error(err))
-		h.WriteError(c, "Failed to retrieve node metrics from Kubernetes.")
-		return
-	}
-
 	h.logger.Info(fmt.Sprintf("Sending a list of %d nodes back to the client.", len(nodes.Items)), zap.Int("num-nodes", len(nodes.Items)))
 
-	var kubernetesNodes map[string]*domain.KubernetesNode = make(map[string]*domain.KubernetesNode, len(nodes.Items))
+	var resp []*domain.KubernetesNode = make([]*domain.KubernetesNode, 0, len(nodes.Items))
 	val := nodes.Items[0].Status.Capacity[corev1.ResourceCPU]
 	val.AsInt64()
 	for _, node := range nodes.Items {
-		kubernetesNodes[node.Name] = h.parseKubernetesNode(&node)
-	}
+		parsedNode := h.parseKubernetesNode(&node)
 
-	for _, nodeMetric := range nodeUsageMetrics.Items {
-		nodeName := nodeMetric.ObjectMeta.Name
-		kubeNode := kubernetesNodes[nodeName]
-
-		cpu := nodeMetric.Usage.Cpu().AsApproximateFloat64()
-		mem := nodeMetric.Usage.Memory().AsApproximateFloat64()
-
-		kubeNode.AllocatedCPU = cpu
-		kubeNode.AllocatedMemory = mem / 976600.0 // Convert from Ki to GB.
-
-		kubernetesNodes[nodeName] = kubeNode
-	}
-
-	var resp []*domain.KubernetesNode = make([]*domain.KubernetesNode, 0, len(kubernetesNodes))
-	for _, node := range kubernetesNodes {
-		if node == nil {
+		podsOnNode, err := h.clientset.CoreV1().Pods("default").List(context.TODO(), metav1.ListOptions{
+			FieldSelector: fmt.Sprintf("spec.nodeName=%s", node.Name),
+		})
+		if err != nil {
+			h.logger.Error("Failed to retrieve list of Pods running on node.", zap.String("node", node.Name), zap.Error(err))
 			continue
 		}
 
-		resp = append(resp, node)
+		resp = append(resp, parsedNode)
+
+		allocatedCPUs := 0.0
+		allocatedMemory := 0.0
+		allocatedVirtualGPUs := 0.0
+
+		for _, pod := range podsOnNode.Items {
+			for _, container := range pod.Spec.Containers {
+				resources := container.Resources.Limits
+
+				allocatedCPUs += resources.Cpu().AsApproximateFloat64()
+				allocatedMemory += (resources.Memory().AsApproximateFloat64() / 1.0e9)
+
+				vgpus, ok := resources["ds2-lab.github.io/deflated-gpu"]
+				if ok {
+					allocatedVirtualGPUs += vgpus.AsApproximateFloat64()
+				}
+			}
+		}
+
+		parsedNode.AllocatedCPU = allocatedCPUs
+		parsedNode.AllocatedVGPUs = allocatedVirtualGPUs
+		parsedNode.AllocatedMemory = allocatedMemory
 	}
 
 	if len(resp) > 0 {

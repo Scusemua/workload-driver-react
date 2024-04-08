@@ -6,6 +6,7 @@ import (
 	"math"
 	"math/rand"
 	"net/http"
+	"sort"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -49,6 +50,12 @@ func (h *KernelHttpHandler) HandleRequest(c *gin.Context) {
 	} else {
 		h.logger.Info("Retrieving Jupyter kernels from the Jupyter Server now.", zap.String("jupyter-server-ip", h.gatewayAddress))
 		kernels = h.getKernelsFromClusterGateway()
+
+		for _, kernel := range kernels {
+			sort.SliceStable(kernel.Replicas, func(i, j int) bool {
+				return kernel.Replicas[i].ReplicaId < kernel.Replicas[j].ReplicaId
+			})
+		}
 
 		if kernels == nil {
 			// Write error back to front-end.

@@ -352,13 +352,17 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
             >
                 <Flex spaceItems={{ default: 'spaceItemsSm' }} alignSelf={{ default: 'alignSelfCenter' }}>
                     <FlexItem>
-                        <CubeIcon className="node-pods-icon" />
+                        <Tooltip content="Number of Pods scheduled onto this node">
+                            <CubeIcon className="node-pods-icon" />
+                        </Tooltip>
                     </FlexItem>
                     <FlexItem>{kubeNode.Pods.length}</FlexItem>
                 </Flex>
                 <Flex spaceItems={{ default: 'spaceItemsSm' }} alignSelf={{ default: 'alignSelfCenter' }}>
                     <FlexItem>
-                        <CpuIcon className="node-cpu-icon" />
+                        <Tooltip content="millicpus (1/1000th of a CPU core)">
+                            <CpuIcon className="node-cpu-icon" />
+                        </Tooltip>
                     </FlexItem>
                     <FlexItem>
                         {kubeNode.AllocatedCPU.toFixed(2)} / {kubeNode.CapacityCPU}
@@ -366,7 +370,9 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                 </Flex>
                 <Flex spaceItems={{ default: 'spaceItemsSm' }} alignSelf={{ default: 'alignSelfCenter' }}>
                     <FlexItem>
-                        <MemoryIcon className="node-memory-icon" />
+                        <Tooltip content="RAM in Gigabytes">
+                            <MemoryIcon className="node-memory-icon" />
+                        </Tooltip>
                     </FlexItem>
                     <FlexItem>
                         {kubeNode.AllocatedMemory.toFixed(2)} / {kubeNode.CapacityMemory.toFixed(0)}
