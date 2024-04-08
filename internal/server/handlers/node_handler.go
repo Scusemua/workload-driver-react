@@ -5,10 +5,12 @@ import (
 	"fmt"
 	"net/http"
 	"sort"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
+	gateway "github.com/scusemua/workload-driver-react/m/v2/internal/server/api/proto"
 	"go.uber.org/zap"
 	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -168,6 +170,12 @@ func (h *KubeNodeHttpHandler) HandleRequest(c *gin.Context) {
 
 	h.logger.Info(fmt.Sprintf("Sending a list of %d nodes back to the client.", len(nodes.Items)), zap.Int("num-nodes", len(nodes.Items)))
 
+	actualGpuInformation, err := h.rpcClient.GetClusterActualGpuInfo(context.TODO(), &gateway.Void{})
+	if err != nil {
+		h.logger.Error("Failed to retrieve 'actual' GPU usage from Cluster Gateway.", zap.Error(err))
+		c.Error(fmt.Errorf("Failed to retrieve 'actual' GPU usage from Cluster Gateway: %v", err.Error()))
+	}
+
 	var resp []*domain.KubernetesNode = make([]*domain.KubernetesNode, 0, len(nodes.Items))
 	val := nodes.Items[0].Status.Capacity[corev1.ResourceCPU]
 	val.AsInt64()
@@ -205,6 +213,17 @@ func (h *KubeNodeHttpHandler) HandleRequest(c *gin.Context) {
 		parsedNode.AllocatedCPU = allocatedCPUs
 		parsedNode.AllocatedVGPUs = allocatedVirtualGPUs
 		parsedNode.AllocatedMemory = allocatedMemory
+
+		if !strings.HasSuffix(node.Name, "control-plane") && actualGpuInformation != nil && actualGpuInformation.GetGpuInfo() != nil {
+			if gpuInfo, ok := actualGpuInformation.GetGpuInfo()[node.Name]; ok {
+				parsedNode.AllocatedGPUs = float64(gpuInfo.CommittedGPUs)
+				parsedNode.CapacityGPUs = float64(gpuInfo.SpecGPUs)
+			} else {
+				h.logger.Error("Could not retrieve 'actual' GPU information for node.", zap.String("node", node.Name))
+			}
+		} else {
+			h.logger.Error("Could not retrieve 'actual' GPU information for node.", zap.String("node", node.Name))
+		}
 	}
 
 	if len(resp) > 0 {
