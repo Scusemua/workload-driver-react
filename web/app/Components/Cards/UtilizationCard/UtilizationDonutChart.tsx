@@ -131,6 +131,13 @@ export const UtilizationDonutChart: React.FunctionComponent<UtilizationDonutChar
         }
     };
 
+    const getCapacity = (val: number) => {
+        if (val.toString().length > 6) {
+            return val.toExponential(2);
+        }
+        return val;
+    };
+
     return (
         <ChartDonutThreshold
             ariaDesc={`Cluster ${props.resourceDisplayName} resource usage`}
@@ -145,7 +152,7 @@ export const UtilizationDonutChart: React.FunctionComponent<UtilizationDonutChar
             padding={{
                 bottom: 0,
                 left: 10,
-                right: 170,
+                right: 200,
                 top: 0,
             }}
             theme={getTheme()}
@@ -165,8 +172,8 @@ export const UtilizationDonutChart: React.FunctionComponent<UtilizationDonutChar
                 legendOrientation="vertical"
                 title={`${resource?.PercentUtilization}%`}
                 titleComponent={getTitleComponent()}
-                subTitle={`${roundTo2Decimals(resource?.Allocated || 0)} ${props.resourceUnit} of ${roundTo2Decimals(
-                    resource?.Capacity || 0,
+                subTitle={`${roundTo2Decimals(resource?.Allocated || 0)} ${props.resourceUnit} of ${getCapacity(
+                    roundTo2Decimals(resource?.Capacity || 0),
                 )} ${props.resourceUnit}`}
                 subTitleComponent={getSubtitleComponent()}
                 theme={getTheme()}

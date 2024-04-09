@@ -13,6 +13,7 @@ import {
     CardHeader,
     Grid,
     GridItem,
+    TextInput,
 } from '@patternfly/react-core';
 import { SyncIcon } from '@patternfly/react-icons';
 import { UtilizationDonutChart } from './UtilizationDonutChart';
@@ -72,6 +73,7 @@ export const UtilizationCard: React.FunctionComponent<UtilizationCardProps> = (p
                     </Tooltip>
                 </ToolbarItem>
             </ToolbarGroup>
+            <ToolbarGroup variant="filter-group"></ToolbarGroup>
         </React.Fragment>
     );
 
