@@ -11,9 +11,7 @@ import {
     ToolbarItem,
     Tooltip,
     CardHeader,
-    Grid,
-    GridItem,
-    TextInput,
+    Checkbox,
 } from '@patternfly/react-core';
 import { SyncIcon } from '@patternfly/react-icons';
 import { UtilizationDonutChart } from './UtilizationDonutChart';
@@ -27,9 +25,22 @@ export interface UtilizationCardProps {
 
 export const UtilizationCard: React.FunctionComponent<UtilizationCardProps> = (props: UtilizationCardProps) => {
     const { refreshNodes, nodesAreLoading } = useNodes();
+    const [randomizeUtilizations, setRandomizeUtilizations] = React.useState(false);
 
     const toolbar = (
         <React.Fragment>
+            <ToolbarGroup variant="button-group">
+                <ToolbarItem variant="search-filter">
+                    <Checkbox
+                        label="Randomized utilizations"
+                        id={'randomized-utilizations-checkbox'}
+                        isChecked={randomizeUtilizations}
+                        onChange={(_event: React.FormEvent<HTMLInputElement>, checked: boolean) =>
+                            setRandomizeUtilizations(checked)
+                        }
+                    />
+                </ToolbarItem>
+            </ToolbarGroup>
             <ToolbarGroup variant="icon-button-group">
                 <ToolbarItem>
                     <Tooltip exitDelay={75} content={<div>Refresh cluster resource utilization data.</div>}>
@@ -73,7 +84,6 @@ export const UtilizationCard: React.FunctionComponent<UtilizationCardProps> = (p
                     </Tooltip>
                 </ToolbarItem>
             </ToolbarGroup>
-            <ToolbarGroup variant="filter-group"></ToolbarGroup>
         </React.Fragment>
     );
 
@@ -87,8 +97,16 @@ export const UtilizationCard: React.FunctionComponent<UtilizationCardProps> = (p
                 </CardTitle>
             </CardHeader>
             <CardBody>
-                <Flex spaceItems={{ default: 'spaceItemsXl' }} direction={{ default: 'column' }}>
-                    <Flex spaceItems={{ default: 'spaceItemsNone' }} direction={{ default: 'row' }}>
+                <Flex
+                    spaceItems={{ default: 'spaceItemsXl' }}
+                    direction={{ default: 'column' }}
+                    justifyContent={{ default: 'justifyContentCenter' }}
+                >
+                    <Flex
+                        spaceItems={{ default: 'spaceItemsNone' }}
+                        direction={{ default: 'row' }}
+                        justifyContent={{ default: 'justifyContentCenter' }}
+                    >
                         <FlexItem>
                             <div style={{ height: props.chartHeight, width: props.chartWidth }}>
                                 <UtilizationDonutChart
@@ -96,16 +114,18 @@ export const UtilizationCard: React.FunctionComponent<UtilizationCardProps> = (p
                                     chartWidth={props.chartWidth}
                                     resourceDisplayName="CPU"
                                     resourceUnit="vCPU"
+                                    randomizeUtilizations={randomizeUtilizations}
                                 />
                             </div>
                         </FlexItem>
-                        <FlexItem>
+                        <FlexItem style={{ margin: -36 }}>
                             <div style={{ height: props.chartHeight, width: props.chartWidth }}>
                                 <UtilizationDonutChart
                                     chartHeight={props.chartHeight}
                                     chartWidth={props.chartWidth}
                                     resourceDisplayName="Memory"
                                     resourceUnit="GB"
+                                    randomizeUtilizations={randomizeUtilizations}
                                     converter={(val: number) => {
                                         return val * 0.001048576; // Convert from MiB to GB.
                                     }}
@@ -113,7 +133,11 @@ export const UtilizationCard: React.FunctionComponent<UtilizationCardProps> = (p
                             </div>
                         </FlexItem>
                     </Flex>
-                    <Flex spaceItems={{ default: 'spaceItemsNone' }} direction={{ default: 'row' }}>
+                    <Flex
+                        spaceItems={{ default: 'spaceItemsNone' }}
+                        direction={{ default: 'row' }}
+                        justifyContent={{ default: 'justifyContentCenter' }}
+                    >
                         <FlexItem>
                             <div style={{ height: props.chartHeight, width: props.chartWidth }}>
                                 <UtilizationDonutChart
@@ -121,16 +145,18 @@ export const UtilizationCard: React.FunctionComponent<UtilizationCardProps> = (p
                                     chartWidth={props.chartWidth}
                                     resourceDisplayName="vGPU"
                                     resourceUnit="vGPUs"
+                                    randomizeUtilizations={randomizeUtilizations}
                                 />
                             </div>
                         </FlexItem>
-                        <FlexItem>
+                        <FlexItem style={{ margin: -36 }}>
                             <div style={{ height: props.chartHeight, width: props.chartWidth }}>
                                 <UtilizationDonutChart
                                     chartHeight={props.chartHeight}
                                     chartWidth={props.chartWidth}
                                     resourceDisplayName="GPU"
                                     resourceUnit="GPUs"
+                                    randomizeUtilizations={randomizeUtilizations}
                                 />
                             </div>
                         </FlexItem>

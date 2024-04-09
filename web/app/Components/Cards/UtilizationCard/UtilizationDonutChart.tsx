@@ -15,6 +15,7 @@ export interface UtilizationDonutChart {
     resourceUnit: string;
     chartWidth?: number;
     chartHeight?: number;
+    randomizeUtilizations?: boolean;
     converter?: (val: number) => number;
 }
 
@@ -38,8 +39,6 @@ export const UtilizationDonutChart: React.FunctionComponent<UtilizationDonutChar
         let sumCapacity: number = 0.0;
 
         nodes.forEach((node: KubernetesNode) => {
-            console.log(`node.AllocatedResources: ${JSON.stringify(node.AllocatedResources)}`);
-            console.log(`node.CapacityResources: ${JSON.stringify(node.CapacityResources)}\n`);
             if (node.NodeId.includes('control-plane')) {
                 return;
             }
@@ -60,7 +59,15 @@ export const UtilizationDonutChart: React.FunctionComponent<UtilizationDonutChar
             sumCapacity = roundTo2Decimals(props.converter(sumCapacity)); // Math.round((props.converter(sumCapacity) + Number.EPSILON) * 100) / 100;
         }
 
-        let percentUtilization: number = roundTo2Decimals(sumAllocated / sumCapacity);
+        if (props.randomizeUtilizations) {
+            if (sumCapacity == 0) {
+                sumCapacity = Math.floor(Math.random() * 100.0);
+                console.log(`Randomized sumCapacity for ${props.resourceDisplayName}: ${sumCapacity}`);
+            }
+            sumAllocated = Math.floor(Math.random() * sumCapacity);
+            console.log(`Randomized sumAllocated for ${props.resourceDisplayName}: ${sumAllocated}`);
+        }
+        let percentUtilization: number = roundTo2Decimals((sumAllocated * 100.0) / sumCapacity);
         if (Number.isNaN(percentUtilization)) {
             percentUtilization = 0.0;
         }
@@ -70,7 +77,7 @@ export const UtilizationDonutChart: React.FunctionComponent<UtilizationDonutChar
             Allocated: sumAllocated,
             PercentUtilization: percentUtilization,
         });
-    }, [nodes]);
+    }, [nodes, props.randomizeUtilizations]);
 
     // TODO: Convert this to a HoC where we pass the name of the target resource as a string in the props.
     // TODO: Update the KubernetesNode interface to contain a map of resource name to amount for both capacity and allocated.
@@ -131,7 +138,7 @@ export const UtilizationDonutChart: React.FunctionComponent<UtilizationDonutChar
         }
     };
 
-    const getCapacity = (val: number) => {
+    const possiblyConvertToExponent = (val: number) => {
         if (val.toString().length > 6) {
             return val.toExponential(2);
         }
@@ -157,6 +164,7 @@ export const UtilizationDonutChart: React.FunctionComponent<UtilizationDonutChar
             }}
             theme={getTheme()}
             width={props.chartWidth}
+            colorScale={['#F0F0F0', '#929496', '#6A6E73', '#ff0000']}
         >
             <ChartDonutUtilization
                 data={{
@@ -172,7 +180,7 @@ export const UtilizationDonutChart: React.FunctionComponent<UtilizationDonutChar
                 legendOrientation="vertical"
                 title={`${resource?.PercentUtilization}%`}
                 titleComponent={getTitleComponent()}
-                subTitle={`${roundTo2Decimals(resource?.Allocated || 0)} ${props.resourceUnit} of ${getCapacity(
+                subTitle={`${possiblyConvertToExponent(roundTo2Decimals(resource?.Allocated || 0))} ${props.resourceUnit} of ${possiblyConvertToExponent(
                     roundTo2Decimals(resource?.Capacity || 0),
                 )} ${props.resourceUnit}`}
                 subTitleComponent={getSubtitleComponent()}

@@ -168,7 +168,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
                     </KubernetesNodeHeightFactorContext.Provider>
                 </GridItem>
                 <GridItem span={6} rowSpan={2}>
-                    <UtilizationCard chartHeight={225} chartWidth={405} />
+                    <UtilizationCard chartHeight={250} chartWidth={500} />
                 </GridItem>
             </Grid>
             <MigrationModal
