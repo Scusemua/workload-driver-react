@@ -77,22 +77,22 @@ func (h *KubeNodeHttpHandler) createKubernetesClient(opts *domain.Configuration)
 	}
 }
 
-func (h *KubeNodeHttpHandler) parseKubernetesNode(node *corev1.Node) *domain.KubernetesNode {
-	allocatableCPU := node.Status.Capacity[corev1.ResourceCPU]
-	allocatableMemory := node.Status.Capacity[corev1.ResourceMemory]
+func (h *KubeNodeHttpHandler) parseKubernetesNode(node *corev1.Node, actualGpuInformation *gateway.ClusterActualGpuInfo) *domain.KubernetesNode {
+	capacityCpuAsQuantity := node.Status.Capacity[corev1.ResourceCPU]
+	capacityMemoryAsQuantity := node.Status.Capacity[corev1.ResourceMemory]
 
-	var allocVGPU float64 = 0.0
-	allocatableVirtualGPUs, ok := node.Status.Capacity["ds2-lab.github.io/deflated-gpu"]
+	var capacityVirtualGPUs float64 = 0.0
+	capacityVirtualGPUsAsQuantity, ok := node.Status.Capacity["ds2-lab.github.io/deflated-gpu"]
 	if !ok {
-		allocVGPU = 0
+		capacityVirtualGPUs = 0
 	} else {
-		allocVGPU = allocatableVirtualGPUs.AsApproximateFloat64()
+		capacityVirtualGPUs = capacityVirtualGPUsAsQuantity.AsApproximateFloat64()
 	}
 
-	allocCpu := allocatableCPU.AsApproximateFloat64()
-	allocMem := allocatableMemory.AsApproximateFloat64()
+	capacityCPUs := capacityCpuAsQuantity.AsApproximateFloat64()
+	capacityMemory := capacityMemoryAsQuantity.AsApproximateFloat64()
 
-	// h.logger.Info("Memory as inf.Dec.", zap.String("node-id", node.Name), zap.Any("mem inf.Dec", allocatableMemory.AsDec().String()))
+	// h.logger.Info("Memory as inf.Dec.", zap.String("node-id", node.Name), zap.Any("mem inf.Dec", capacityMemory.AsDec().String()))
 
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*15)
 	defer cancel()
@@ -142,17 +142,74 @@ func (h *KubeNodeHttpHandler) parseKubernetesNode(node *corev1.Node) *domain.Kub
 		return kubePods[i].PodName < kubePods[j].PodName
 	})
 
-	return &domain.KubernetesNode{
-		NodeId:         node.Name,
-		CapacityCPU:    allocCpu,
-		CapacityMemory: allocMem / 976600.0, // Convert from Ki to GB.
-		CapacityVGPUs:  allocVGPU,
-		Pods:           kubePods,
-		Age:            time.Since(node.GetCreationTimestamp().Time).Round(time.Second).String(),
-		IP:             node.Status.Addresses[0].Address,
-		Enabled:        !schedulingDisabled && !executionDisabled,
+	podsOnNode, err := h.clientset.CoreV1().Pods("default").List(context.TODO(), metav1.ListOptions{
+		FieldSelector: fmt.Sprintf("spec.nodeName=%s", node.Name),
+	})
+	if err != nil {
+		h.logger.Error("Failed to retrieve list of Pods running on node.", zap.String("node", node.Name), zap.Error(err))
+		return nil
 	}
 
+	allocatedCPUs := 0.0
+	allocatedMemory := 0.0
+	allocatedVirtualGPUs := 0.0
+	allocatedGPUs := 0.0
+	capacityGPUs := 0.0
+	allocatedResources := make(map[string]float64)
+	capacityResources := make(map[string]float64)
+
+	for _, pod := range podsOnNode.Items {
+		for _, container := range pod.Spec.Containers {
+			resources := container.Resources.Limits
+
+			allocatedCPUs += resources.Cpu().AsApproximateFloat64()
+			allocatedMemory += (resources.Memory().AsApproximateFloat64() / 1.0e9)
+
+			vgpus, ok := resources["ds2-lab.github.io/deflated-gpu"]
+			if ok {
+				allocatedVirtualGPUs += vgpus.AsApproximateFloat64()
+			}
+		}
+	}
+
+	// The control-plane node won't have any GPU information whatsoever.
+	if !strings.HasSuffix(node.Name, "control-plane") && actualGpuInformation != nil {
+		if gpuInfo, ok := actualGpuInformation.GetGpuInfo()[node.Name]; ok {
+			allocatedGPUs = float64(gpuInfo.CommittedGPUs)
+			capacityGPUs = float64(gpuInfo.SpecGPUs)
+		} else {
+			h.logger.Error("Could not retrieve 'actual' GPU information for node.", zap.String("node", node.Name))
+		}
+	}
+
+	allocatedResources["CPU"] = allocatedCPUs
+	capacityResources["CPU"] = capacityCPUs
+	allocatedResources["Memory"] = allocatedMemory
+	capacityResources["Memory"] = capacityMemory
+	allocatedResources["GPU"] = allocatedGPUs
+	capacityResources["GPU"] = capacityGPUs
+	allocatedResources["vGPU"] = allocatedVirtualGPUs
+	capacityResources["vGPU"] = capacityVirtualGPUs
+
+	parsedNode := &domain.KubernetesNode{
+		NodeId:             node.Name,
+		CapacityCPU:        capacityCPUs,
+		CapacityMemory:     capacityMemory / 976600.0, // Convert from Ki to GB.
+		CapacityGPUs:       capacityGPUs,
+		CapacityVGPUs:      capacityVirtualGPUs,
+		AllocatedCPU:       allocatedCPUs,
+		AllocatedMemory:    allocatedMemory,
+		AllocatedGPUs:      allocatedGPUs,
+		AllocatedVGPUs:     allocatedVirtualGPUs,
+		Pods:               kubePods,
+		Age:                time.Since(node.GetCreationTimestamp().Time).Round(time.Second).String(),
+		IP:                 node.Status.Addresses[0].Address,
+		Enabled:            !schedulingDisabled && !executionDisabled,
+		AllocatedResources: allocatedResources,
+		CapacityResources:  capacityResources,
+	}
+
+	return parsedNode
 }
 
 func (h *KubeNodeHttpHandler) HandleRequest(c *gin.Context) {
@@ -180,49 +237,9 @@ func (h *KubeNodeHttpHandler) HandleRequest(c *gin.Context) {
 	val := nodes.Items[0].Status.Capacity[corev1.ResourceCPU]
 	val.AsInt64()
 	for _, node := range nodes.Items {
-		parsedNode := h.parseKubernetesNode(&node)
-
-		podsOnNode, err := h.clientset.CoreV1().Pods("default").List(context.TODO(), metav1.ListOptions{
-			FieldSelector: fmt.Sprintf("spec.nodeName=%s", node.Name),
-		})
-		if err != nil {
-			h.logger.Error("Failed to retrieve list of Pods running on node.", zap.String("node", node.Name), zap.Error(err))
-			continue
-		}
+		parsedNode := h.parseKubernetesNode(&node, actualGpuInformation)
 
 		resp = append(resp, parsedNode)
-
-		allocatedCPUs := 0.0
-		allocatedMemory := 0.0
-		allocatedVirtualGPUs := 0.0
-
-		for _, pod := range podsOnNode.Items {
-			for _, container := range pod.Spec.Containers {
-				resources := container.Resources.Limits
-
-				allocatedCPUs += resources.Cpu().AsApproximateFloat64()
-				allocatedMemory += (resources.Memory().AsApproximateFloat64() / 1.0e9)
-
-				vgpus, ok := resources["ds2-lab.github.io/deflated-gpu"]
-				if ok {
-					allocatedVirtualGPUs += vgpus.AsApproximateFloat64()
-				}
-			}
-		}
-
-		parsedNode.AllocatedCPU = allocatedCPUs
-		parsedNode.AllocatedVGPUs = allocatedVirtualGPUs
-		parsedNode.AllocatedMemory = allocatedMemory
-
-		// The control-plane node won't have any GPU information whatsoever.
-		if !strings.HasSuffix(node.Name, "control-plane") && actualGpuInformation != nil {
-			if gpuInfo, ok := actualGpuInformation.GetGpuInfo()[node.Name]; ok {
-				parsedNode.AllocatedGPUs = float64(gpuInfo.CommittedGPUs)
-				parsedNode.CapacityGPUs = float64(gpuInfo.SpecGPUs)
-			} else {
-				h.logger.Error("Could not retrieve 'actual' GPU information for node.", zap.String("node", node.Name))
-			}
-		}
 	}
 
 	if len(resp) > 0 {
@@ -285,7 +302,7 @@ func (h *KubeNodeHttpHandler) HandlePatchRequest(c *gin.Context) {
 			h.logger.Debug("Successfully added 'NoExecute' and 'NoSchedule' taints to the Kubernetes node.", zap.String("node-name", nodeName))
 		}
 
-		updatedNode := h.parseKubernetesNode(resp)
+		updatedNode := h.parseKubernetesNode(resp, nil)
 		h.logger.Debug("Sending updated Kubernetes node back to frontend.", zap.String("node-name", nodeName), zap.String("updated-node", updatedNode.String()))
 		c.JSON(http.StatusOK, updatedNode)
 	}

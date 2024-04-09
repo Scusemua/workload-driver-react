@@ -11,6 +11,8 @@ interface KubernetesNode {
     AllocatedMemory: number;
     AllocatedGPUs: number;
     AllocatedVGPUs: number;
+    AllocatedResources: Map<string, number>;
+    CapacityResources: Map<string, number>;
     Enabled: boolean;
 }
 

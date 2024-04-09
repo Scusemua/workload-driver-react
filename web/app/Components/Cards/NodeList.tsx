@@ -275,6 +275,7 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                     <Tooltip exitDelay={75} content={<div>Refresh nodes.</div>}>
                         <Button
                             variant="plain"
+                            isDisabled={nodesAreLoading}
                             onClick={() => {
                                 toast.promise(refreshNodes(), {
                                     loading: <b>Refreshing Kubernetes nodes...</b>,
@@ -605,7 +606,7 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
     }
 
     return (
-        <Card isFullHeight isRounded>
+        <Card isFullHeight isRounded id={props.isDashboardList ? 'primary-node-list-card' : 'migration-node-list-card'}>
             <CardHeader
                 actions={{ actions: toolbar, hasNoOffset: false }}
                 toggleButtonProps={{

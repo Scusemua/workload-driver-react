@@ -3,19 +3,21 @@ package domain
 import "encoding/json"
 
 type KubernetesNode struct {
-	NodeId          string           `json:"NodeId"`
-	Pods            []*KubernetesPod `json:"Pods"`
-	Age             string           `json:"Age"` // Convert the time.Duration to a string
-	IP              string           `json:"IP"`
-	CapacityCPU     float64          `json:"CapacityCPU"`
-	CapacityMemory  float64          `json:"CapacityMemory"`
-	CapacityGPUs    float64          `json:"CapacityGPUs"`
-	CapacityVGPUs   float64          `json:"CapacityVGPUs"`
-	AllocatedCPU    float64          `json:"AllocatedCPU"`
-	AllocatedMemory float64          `json:"AllocatedMemory"`
-	AllocatedGPUs   float64          `json:"AllocatedGPUs"`
-	AllocatedVGPUs  float64          `json:"AllocatedVGPUs"`
-	Enabled         bool             `json:"Enabled"`
+	NodeId             string             `json:"NodeId"`
+	Pods               []*KubernetesPod   `json:"Pods"`
+	Age                string             `json:"Age"` // Convert the time.Duration to a string
+	IP                 string             `json:"IP"`
+	CapacityCPU        float64            `json:"CapacityCPU"`
+	CapacityMemory     float64            `json:"CapacityMemory"`
+	CapacityGPUs       float64            `json:"CapacityGPUs"`
+	CapacityVGPUs      float64            `json:"CapacityVGPUs"`
+	AllocatedCPU       float64            `json:"AllocatedCPU"`
+	AllocatedMemory    float64            `json:"AllocatedMemory"`
+	AllocatedGPUs      float64            `json:"AllocatedGPUs"`
+	AllocatedVGPUs     float64            `json:"AllocatedVGPUs"`
+	AllocatedResources map[string]float64 `json:"AllocatedResources"`
+	CapacityResources  map[string]float64 `json:"CapacityResources"`
+	Enabled            bool               `json:"Enabled"`
 }
 
 func (kn *KubernetesNode) String() string {

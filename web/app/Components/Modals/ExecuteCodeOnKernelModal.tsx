@@ -144,6 +144,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                             onClose();
                         }
                     }}
+                    isDisabled={code.trim().length == 0}
                     isLoading={executionState === 'busy'}
                     icon={executionState === 'done' ? <CheckCircleIcon /> : null}
                     spinnerAriaValueText="Loading..."

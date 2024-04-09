@@ -12,8 +12,9 @@ const PORT = process.env.port || '9001';
 console.log('HOST: %s. PORT: %s.', HOST, PORT);
 
 devServer = {
-    proxy: {
-        '/jupyter/*': {
+    proxy: [
+        {
+            context: ['/jupyter'],
             secure: false,
             logLevel: 'debug',
             pathRewrite: {
@@ -24,15 +25,15 @@ devServer = {
             },
             target: 'http://127.0.0.1:8888',
         },
-        '/api/*': {
+        {
             context: ['/api'],
             host: '127.0.0.1',
             port: PORT,
             scheme: 'http',
             target: 'http://127.0.0.1:8000',
         },
-        '/kubernetes/*': {
-            context: ['/api'],
+        {
+            context: ['/kubernetes'],
             pathRewrite: {
                 '^/kubernetes': '/',
             },
@@ -41,7 +42,7 @@ devServer = {
             scheme: 'http',
             target: 'http://127.0.0.1:8889',
         },
-    },
+    ],
     host: HOST,
     port: PORT,
     historyApiFallback: true,

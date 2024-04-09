@@ -1172,6 +1172,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                                     <Tooltip
                                                         exitDelay={75}
                                                         entryDelay={250}
+                                                        position="left"
                                                         content={<div>Execute Python code on this kernel.</div>}
                                                     >
                                                         <Button
@@ -1194,13 +1195,16 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                                     <Tooltip
                                                         exitDelay={75}
                                                         entryDelay={250}
+                                                        position="left"
                                                         content={<div>Interrupt this kernel.</div>}
                                                     >
                                                         <Button
                                                             variant={'link'}
                                                             isDanger
                                                             icon={<PauseIcon />}
-                                                            isDisabled={kernel == null}
+                                                            isDisabled={
+                                                                kernel == null || kernel?.aggregateBusyStatus === 'idle'
+                                                            }
                                                             onClick={() => onInterruptKernelClicked(idx)}
                                                         >
                                                             Interrupt
@@ -1218,6 +1222,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                                     <Tooltip
                                                         exitDelay={75}
                                                         entryDelay={250}
+                                                        position="right"
                                                         content={<div>View details about kernel.</div>}
                                                     >
                                                         <Button
@@ -1235,6 +1240,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                                         <Tooltip
                                                             exitDelay={75}
                                                             entryDelay={250}
+                                                            position="right"
                                                             content={<div>Terminate this kernel.</div>}
                                                         >
                                                             <Button
@@ -1311,6 +1317,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                                     itemId={1}
                                                     key="interrupt-kernel-dropdown"
                                                     isDanger
+                                                    isDisabled={kernel?.aggregateBusyStatus === 'idle'}
                                                     icon={<PauseIcon />}
                                                     onClick={() => {
                                                         onInterruptKernelClicked(idx);
@@ -1346,7 +1353,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
     // console.log(`Kernels: ${JSON.stringify(kernels)}`);
 
     return (
-        <Card isRounded isFullHeight>
+        <Card isRounded isFullHeight id="kernel-list-card">
             <CardHeader actions={{ actions: cardHeaderActions, hasNoOffset: false }}>
                 <CardTitle>
                     <Title headingLevel="h1" size="xl">

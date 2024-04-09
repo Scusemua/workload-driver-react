@@ -3,9 +3,16 @@ import '@patternfly/react-core/dist/styles/base.css';
 import React, { createContext } from 'react';
 import { Grid, GridItem, PageSection, gridSpans } from '@patternfly/react-core';
 
-import { KernelList, KernelSpecList, KubernetesNodeList, LogViewCard, WorkloadCard } from '@app/Components/Cards/';
+import {
+    KernelList,
+    KernelSpecList,
+    KubernetesNodeList,
+    LogViewCard,
+    UtilizationCard,
+    WorkloadCard,
+} from '@app/Components/Cards/';
 import { DistributedJupyterKernel, JupyterKernelReplica, KubernetesNode, VirtualGpuInfo } from '@app/Data';
-import { AdjustVirtualGPUsModal, MigrationModal } from '@app/Components/Modals';
+import { MigrationModal } from '@app/Components/Modals';
 
 import toast, { Toaster } from 'react-hot-toast';
 
@@ -159,6 +166,9 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
                             displayNodeToggleSwitch={true}
                         />
                     </KubernetesNodeHeightFactorContext.Provider>
+                </GridItem>
+                <GridItem span={6} rowSpan={2}>
+                    <UtilizationCard chartHeight={225} chartWidth={465} />
                 </GridItem>
             </Grid>
             <MigrationModal
