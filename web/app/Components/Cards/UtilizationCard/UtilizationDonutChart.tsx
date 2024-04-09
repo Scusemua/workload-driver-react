@@ -60,10 +60,15 @@ export const UtilizationDonutChart: React.FunctionComponent<UtilizationDonutChar
             sumCapacity = roundTo2Decimals(props.converter(sumCapacity)); // Math.round((props.converter(sumCapacity) + Number.EPSILON) * 100) / 100;
         }
 
+        let percentUtilization: number = roundTo2Decimals(sumAllocated / sumCapacity);
+        if (Number.isNaN(percentUtilization)) {
+            percentUtilization = 0.0;
+        }
+
         setResource({
             Capacity: sumCapacity,
             Allocated: sumAllocated,
-            PercentUtilization: roundTo2Decimals(sumAllocated / sumCapacity),
+            PercentUtilization: percentUtilization,
         });
     }, [nodes]);
 
@@ -140,7 +145,7 @@ export const UtilizationDonutChart: React.FunctionComponent<UtilizationDonutChar
             padding={{
                 bottom: 0,
                 left: 10,
-                right: 150,
+                right: 170,
                 top: 0,
             }}
             theme={getTheme()}

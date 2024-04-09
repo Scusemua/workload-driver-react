@@ -11,6 +11,8 @@ import {
     ToolbarItem,
     Tooltip,
     CardHeader,
+    Grid,
+    GridItem,
 } from '@patternfly/react-core';
 import { SyncIcon } from '@patternfly/react-icons';
 import { UtilizationDonutChart } from './UtilizationDonutChart';
@@ -85,7 +87,7 @@ export const UtilizationCard: React.FunctionComponent<UtilizationCardProps> = (p
             <CardBody>
                 <Flex spaceItems={{ default: 'spaceItemsXl' }} direction={{ default: 'column' }}>
                     <Flex spaceItems={{ default: 'spaceItemsNone' }} direction={{ default: 'row' }}>
-                        <FlexItem style={{ marginLeft: -30 }}>
+                        <FlexItem>
                             <div style={{ height: props.chartHeight, width: props.chartWidth }}>
                                 <UtilizationDonutChart
                                     chartHeight={props.chartHeight}
@@ -95,7 +97,7 @@ export const UtilizationCard: React.FunctionComponent<UtilizationCardProps> = (p
                                 />
                             </div>
                         </FlexItem>
-                        <FlexItem style={{ marginLeft: -30 }}>
+                        <FlexItem>
                             <div style={{ height: props.chartHeight, width: props.chartWidth }}>
                                 <UtilizationDonutChart
                                     chartHeight={props.chartHeight}
@@ -110,7 +112,7 @@ export const UtilizationCard: React.FunctionComponent<UtilizationCardProps> = (p
                         </FlexItem>
                     </Flex>
                     <Flex spaceItems={{ default: 'spaceItemsNone' }} direction={{ default: 'row' }}>
-                        <FlexItem style={{ marginLeft: -30 }}>
+                        <FlexItem>
                             <div style={{ height: props.chartHeight, width: props.chartWidth }}>
                                 <UtilizationDonutChart
                                     chartHeight={props.chartHeight}
@@ -120,7 +122,7 @@ export const UtilizationCard: React.FunctionComponent<UtilizationCardProps> = (p
                                 />
                             </div>
                         </FlexItem>
-                        <FlexItem style={{ marginLeft: -30 }}>
+                        <FlexItem>
                             <div style={{ height: props.chartHeight, width: props.chartWidth }}>
                                 <UtilizationDonutChart
                                     chartHeight={props.chartHeight}
