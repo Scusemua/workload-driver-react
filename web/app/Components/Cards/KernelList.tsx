@@ -462,13 +462,22 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         refreshKernels();
     }
 
-    async function onConfirmExecuteCodeClicked(code: string, logConsumer: (logMessage: string) => void) {
-        console.log(
-            'Executing code on kernel %s, replica %d:\n%s',
-            executeCodeKernel?.kernelId,
-            executeCodeKernelReplica?.replicaId,
-            code,
-        );
+    async function onConfirmExecuteCodeClicked(
+        code: string,
+        targetReplicaId: number,
+        forceFailure: boolean,
+        logConsumer: (logMessage: string) => void,
+    ) {
+        if (forceFailure) {
+            console.log(
+                `Executing code on kernel ${executeCodeKernel?.kernelId}, but we're forcing a failure:\n${code}`,
+            );
+            targetReplicaId = 0; // -1 is used for "auto", while 0 is never used as an actual ID. So, if we specify 0, then the execution will necessarily fail.
+        } else {
+            console.log(
+                `Executing code on kernel ${executeCodeKernel?.kernelId}, replica ${targetReplicaId}:\n${code}`,
+            );
+        }
 
         const kernelId: string | undefined = executeCodeKernel?.kernelId;
 
@@ -490,7 +499,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         console.log(`Sending 'execute-request' to kernel ${kernelId} for code: '${code}'`);
 
         const future = kernelConnection.requestExecute({ code: code }, undefined, {
-            target_replica: executeCodeKernelReplica?.replicaId || -1,
+            target_replica: targetReplicaId,
         });
 
         // Handle iopub messages
@@ -1391,7 +1400,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                     message={"Are you sure you'd like to delete the specified kernel?"}
                 />
                 <ExecuteCodeOnKernelModal
-                    kernelId={executeCodeKernel?.kernelId || 'N/A'}
+                    kernel={executeCodeKernel}
                     replicaId={executeCodeKernelReplica?.replicaId}
                     isOpen={isExecuteCodeModalOpen}
                     onClose={onCancelExecuteCodeClicked}

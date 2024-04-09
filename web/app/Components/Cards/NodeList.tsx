@@ -195,7 +195,7 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                 },
                 {
                     duration: 5000,
-                    style: { maxWidth: 500 },
+                    style: { maxWidth: 450 },
                 },
             );
         });
