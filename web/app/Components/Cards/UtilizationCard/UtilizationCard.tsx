@@ -98,7 +98,7 @@ export const UtilizationCard: React.FunctionComponent<UtilizationCardProps> = (p
             <CardHeader actions={{ actions: toolbar, hasNoOffset: false }}>
                 <CardTitle>
                     <Title headingLevel="h1" size="xl">
-                        Current Cluster Resource Utilization
+                        Resource Utilization
                     </Title>
                 </CardTitle>
             </CardHeader>

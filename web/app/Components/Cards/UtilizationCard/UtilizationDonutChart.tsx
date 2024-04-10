@@ -161,8 +161,8 @@ export const UtilizationDonutChart: React.FunctionComponent<UtilizationDonutChar
             labels={({ datum }) => (datum.x ? datum.x : null)}
             padding={{
                 bottom: 55,
-                left: 10,
-                right: 50,
+                left: 25,
+                right: 25,
                 top: 0,
             }}
             colorScale={['#F0F0F0', '#D2D2D2', '#6A6E73']}
