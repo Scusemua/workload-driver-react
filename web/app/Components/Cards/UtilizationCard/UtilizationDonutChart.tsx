@@ -16,6 +16,7 @@ export interface UtilizationDonutChart {
     chartWidth?: number;
     chartHeight?: number;
     randomizeUtilizations?: boolean;
+    showLegend?: boolean;
     converter?: (val: number) => number;
 }
 
@@ -88,7 +89,7 @@ export const UtilizationDonutChart: React.FunctionComponent<UtilizationDonutChar
                 <ChartLabel
                     style={{
                         fill: 'white',
-                        fontSize: 32,
+                        fontSize: 58,
                     }}
                 />
             );
@@ -103,8 +104,10 @@ export const UtilizationDonutChart: React.FunctionComponent<UtilizationDonutChar
                 <ChartLabel
                     style={{
                         fill: '#d4d4d4',
-                        fontSize: 16,
+                        fontSize: 32,
                     }}
+                    textAnchor={'middle'}
+                    transform="translate(0,16)"
                 />
             );
         } else {
@@ -157,9 +160,9 @@ export const UtilizationDonutChart: React.FunctionComponent<UtilizationDonutChar
             height={props.chartHeight}
             labels={({ datum }) => (datum.x ? datum.x : null)}
             padding={{
-                bottom: 25,
+                bottom: 55,
                 left: 10,
-                right: 175,
+                right: 50,
                 top: 0,
             }}
             colorScale={['#F0F0F0', '#D2D2D2', '#6A6E73']}
@@ -172,11 +175,14 @@ export const UtilizationDonutChart: React.FunctionComponent<UtilizationDonutChar
                     y: resource?.PercentUtilization,
                 }}
                 labels={({ datum }) => (datum.x ? `${datum.x}: ${datum.y}%` : null)}
-                legendData={[
-                    { name: `${props.resourceDisplayName} Utilization` },
-                    { name: `Warning at 60%`, symbol: { fill: '#D2D2D2' } },
-                    { name: `Danger at 90%`, symbol: { fill: '#6A6E73 ' } },
-                ]}
+                legendData={
+                    (props.showLegend && [
+                        { name: `${props.resourceDisplayName} Utilization` },
+                        { name: `Warning at 60%`, symbol: { fill: '#D2D2D2' } },
+                        { name: `Danger at 90%`, symbol: { fill: '#6A6E73 ' } },
+                    ]) ||
+                    []
+                }
                 legendOrientation="vertical"
                 title={`${resource?.PercentUtilization}%`}
                 titleComponent={getTitleComponent()}
