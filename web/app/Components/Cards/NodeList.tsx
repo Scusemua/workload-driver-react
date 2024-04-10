@@ -142,7 +142,7 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
         }
 
         adjustVirtualGPUsNodes.forEach((node: KubernetesNode) => {
-            if (node.CapacityVGPUs == value) {
+            if (node.CapacityResources['vGPU'] == value) {
                 console.log('Adjusted vGPUs value is same as current value. Doing nothing.');
                 closeAdjustVirtualGPUsModal();
                 return;
@@ -467,7 +467,7 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                         </Tooltip>
                     </FlexItem>
                     <FlexItem>
-                        {kubeNode.AllocatedCPU.toFixed(2)} / {kubeNode.CapacityCPU}
+                        {kubeNode.AllocatedResources['CPU'].toFixed(2)} / {kubeNode.CapacityResources['CPU']}
                     </FlexItem>
                 </Flex>
                 <Flex spaceItems={{ default: 'spaceItemsSm' }} alignSelf={{ default: 'alignSelfCenter' }}>
@@ -477,7 +477,8 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                         </Tooltip>
                     </FlexItem>
                     <FlexItem>
-                        {kubeNode.AllocatedMemory.toFixed(2)} / {kubeNode.CapacityMemory.toFixed(0)}
+                        {(kubeNode.AllocatedResources['Memory'] * 0.001048576).toFixed(2)} /
+                        {(kubeNode.CapacityResources['Memory'] * 0.001048576).toFixed(2)}
                     </FlexItem>
                 </Flex>
                 <Flex spaceItems={{ default: 'spaceItemsSm' }}>
@@ -488,12 +489,12 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                         <Flex spaceItems={{ default: 'spaceItemsNone' }} direction={{ default: 'column' }}>
                             <FlexItem className="node-allocated-vgpu" align={{ default: 'alignRight' }}>
                                 <Text component={TextVariants.p} className="node-allocated-vgpu">
-                                    {kubeNode.AllocatedVGPUs.toFixed(0)}
+                                    {kubeNode.AllocatedResources['vGPU'].toFixed(0)}
                                 </Text>
                             </FlexItem>
                             <FlexItem className="node-allocated-gpu" align={{ default: 'alignRight' }}>
                                 <Text component={TextVariants.p} className="node-allocated-gpu">
-                                    {kubeNode.AllocatedGPUs.toFixed(0)}
+                                    {kubeNode.AllocatedResources['GPU'].toFixed(0)}
                                 </Text>
                             </FlexItem>
                         </Flex>
@@ -502,8 +503,8 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                             <FlexItem align={{ default: 'alignRight' }}>/</FlexItem>
                         </Flex>
                         <Flex spaceItems={{ default: 'spaceItemsNone' }} direction={{ default: 'column' }}>
-                            <FlexItem align={{ default: 'alignRight' }}> {kubeNode.CapacityVGPUs}</FlexItem>
-                            <FlexItem align={{ default: 'alignRight' }}>{kubeNode.CapacityGPUs}</FlexItem>
+                            <FlexItem align={{ default: 'alignRight' }}> {kubeNode.CapacityResources['vGPU']}</FlexItem>
+                            <FlexItem align={{ default: 'alignRight' }}>{kubeNode.CapacityResources['GPU']}</FlexItem>
                         </Flex>
                         <Flex spaceItems={{ default: 'spaceItemsNone' }} direction={{ default: 'column' }}>
                             <FlexItem align={{ default: 'alignRight' }}>

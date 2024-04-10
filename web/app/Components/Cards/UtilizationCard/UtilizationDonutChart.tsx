@@ -186,8 +186,8 @@ export const UtilizationDonutChart: React.FunctionComponent<UtilizationDonutChar
                 legendOrientation="vertical"
                 title={`${resource?.PercentUtilization}%`}
                 titleComponent={getTitleComponent()}
-                subTitle={`${possiblyConvertToExponent(roundTo2Decimals(resource?.Allocated || 0))} ${props.resourceUnit} of ${possiblyConvertToExponent(
-                    roundTo2Decimals(resource?.Capacity || 0),
+                subTitle={`${roundTo2Decimals(resource?.Allocated || 0)} ${props.resourceUnit} of ${roundTo2Decimals(
+                    resource?.Capacity || 0,
                 )} ${props.resourceUnit}`}
                 subTitleComponent={getSubtitleComponent()}
                 theme={getTheme()}

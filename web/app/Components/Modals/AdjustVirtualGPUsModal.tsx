@@ -22,8 +22,8 @@ export const AdjustVirtualGPUsModal: React.FunctionComponent<AdjustVirtualGPUsMo
 
     React.useEffect(() => {
         props.nodes.forEach((node: KubernetesNode) => {
-            if (node.CapacityVGPUs < minVirtualGPUs) {
-                setMinVirtualGPUs(node.CapacityVGPUs);
+            if (node.CapacityResources['vGPU'] < minVirtualGPUs) {
+                setMinVirtualGPUs(node.CapacityResources['vGPU']);
             }
         });
     }, [props.nodes]);

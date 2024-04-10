@@ -3,14 +3,6 @@ interface KubernetesNode {
     Pods: KubernetesPod[];
     Age: string;
     IP: string;
-    CapacityCPU: number;
-    CapacityMemory: number;
-    CapacityGPUs: number;
-    CapacityVGPUs: number;
-    AllocatedCPU: number;
-    AllocatedMemory: number;
-    AllocatedGPUs: number;
-    AllocatedVGPUs: number;
     AllocatedResources: Map<string, number>;
     CapacityResources: Map<string, number>;
     Enabled: boolean;

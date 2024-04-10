@@ -79,19 +79,19 @@ func (h *KubeNodeHttpHandler) createKubernetesClient(opts *domain.Configuration)
 }
 
 func (h *KubeNodeHttpHandler) parseKubernetesNode(node *corev1.Node, actualGpuInformation *gateway.ClusterActualGpuInfo) *domain.KubernetesNode {
-	capacityCpuAsQuantity := node.Status.Capacity[corev1.ResourceCPU]
-	capacityMemoryAsQuantity := node.Status.Capacity[corev1.ResourceMemory]
+	capacityCpuAsQuantity := node.Status.Allocatable[corev1.ResourceCPU]
+	capacityMemoryAsQuantity := node.Status.Allocatable[corev1.ResourceMemory]
 
 	var capacityVirtualGPUs float64 = 0.0
-	capacityVirtualGPUsAsQuantity, ok := node.Status.Capacity["ds2-lab.github.io/deflated-gpu"]
+	capacityVirtualGPUsAsQuantity, ok := node.Status.Allocatable["ds2-lab.github.io/deflated-gpu"]
 	if !ok {
 		capacityVirtualGPUs = 0
 	} else {
-		capacityVirtualGPUs = capacityVirtualGPUsAsQuantity.AsApproximateFloat64()
+		capacityVirtualGPUs = float64(capacityVirtualGPUsAsQuantity.Value())
 	}
 
-	capacityCPUs := capacityCpuAsQuantity.AsApproximateFloat64()
-	capacityMemory := capacityMemoryAsQuantity.AsApproximateFloat64()
+	capacityCPUs := float64(capacityCpuAsQuantity.MilliValue()) / 1000.0 // Convert fro mCPU to CPU.
+	capacityMemory := float64(capacityMemoryAsQuantity.Value() / (1024 * 1024))
 
 	// h.logger.Info("Memory as inf.Dec.", zap.String("node-id", node.Name), zap.Any("mem inf.Dec", capacityMemory.AsDec().String()))
 
@@ -165,12 +165,12 @@ func (h *KubeNodeHttpHandler) parseKubernetesNode(node *corev1.Node, actualGpuIn
 		for _, container := range pod.Spec.Containers {
 			resources := container.Resources.Limits
 
-			allocatedCPUs += resources.Cpu().AsApproximateFloat64()
-			allocatedMemory += (resources.Memory().AsApproximateFloat64() / 1.0e9)
+			allocatedCPUs += float64(resources.Cpu().MilliValue() / 1000.0)
+			allocatedMemory += float64(resources.Memory().Value() / (1024 * 1024))
 
 			vgpus, ok := resources["ds2-lab.github.io/deflated-gpu"]
 			if ok {
-				allocatedVirtualGPUs += vgpus.AsApproximateFloat64()
+				allocatedVirtualGPUs += float64(vgpus.Value())
 			}
 		}
 	}
@@ -196,14 +196,6 @@ func (h *KubeNodeHttpHandler) parseKubernetesNode(node *corev1.Node, actualGpuIn
 
 	parsedNode := &domain.KubernetesNode{
 		NodeId:             node.Name,
-		CapacityCPU:        capacityCPUs,
-		CapacityMemory:     capacityMemory / 976600.0, // Convert from Ki to GB.
-		CapacityGPUs:       capacityGPUs,
-		CapacityVGPUs:      capacityVirtualGPUs,
-		AllocatedCPU:       allocatedCPUs,
-		AllocatedMemory:    allocatedMemory,
-		AllocatedGPUs:      allocatedGPUs,
-		AllocatedVGPUs:     allocatedVirtualGPUs,
 		Pods:               kubePods,
 		Age:                time.Since(node.GetCreationTimestamp().Time).Round(time.Second).String(),
 		IP:                 node.Status.Addresses[0].Address,
@@ -368,16 +360,8 @@ func (h *KubeNodeHttpHandler) spoofNodes(c *gin.Context) {
 					PodIP:    "148.122.32.3",
 				},
 			},
-			Age:             "121hr32m14sec",
-			IP:              "10.0.0.1",
-			CapacityCPU:     64,
-			CapacityMemory:  64,
-			CapacityGPUs:    8,
-			CapacityVGPUs:   72,
-			AllocatedCPU:    24,
-			AllocatedMemory: 54,
-			AllocatedGPUs:   2,
-			AllocatedVGPUs:  18,
+			Age: "121hr32m14sec",
+			IP:  "10.0.0.1",
 		},
 		{
 			NodeId: "spoofed-kubernetes-node-1",
@@ -401,16 +385,8 @@ func (h *KubeNodeHttpHandler) spoofNodes(c *gin.Context) {
 					PodIP:    "157.137.61.3",
 				},
 			},
-			Age:             "121hr32m14sec",
-			IP:              "10.0.0.2",
-			CapacityCPU:     64,
-			CapacityMemory:  64,
-			CapacityGPUs:    8,
-			CapacityVGPUs:   72,
-			AllocatedCPU:    48,
-			AllocatedMemory: 60,
-			AllocatedGPUs:   4,
-			AllocatedVGPUs:  36,
+			Age: "121hr32m14sec",
+			IP:  "10.0.0.2",
 		},
 	})
 }
