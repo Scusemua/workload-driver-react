@@ -205,8 +205,13 @@ export const UtilizationDonutChart: React.FunctionComponent<UtilizationDonutChar
                     resource?.Capacity || 0,
                 )} ${props.resourceUnit}`}
                 subTitleComponent={getSubtitleComponent()}
+                // colorScale={['#3E8635', '#F0AB00', '#C9190B']}
                 theme={getTheme()}
-                thresholds={[{ value: 75 }, { value: 90 }]}
+                thresholds={[
+                    { value: 0, color: '#3E8635' },
+                    { value: 75, color: '#F0AB00' },
+                    { value: 90, color: '#C9190B' },
+                ]}
             />
         </ChartDonutThreshold>
     );
