@@ -94,7 +94,13 @@ export const UtilizationDonutChart: React.FunctionComponent<UtilizationDonutChar
                 />
             );
         } else {
-            return undefined;
+            return (
+                <ChartLabel
+                    style={{
+                        fontSize: 58,
+                    }}
+                />
+            );
         }
     };
 
@@ -111,7 +117,16 @@ export const UtilizationDonutChart: React.FunctionComponent<UtilizationDonutChar
                 />
             );
         } else {
-            return undefined;
+            return (
+                <ChartLabel
+                    style={{
+                        fontSize: 32,
+                        fill: '#6A6E73',
+                    }}
+                    textAnchor={'middle'}
+                    transform="translate(0,16)"
+                />
+            );
         }
     };
 
