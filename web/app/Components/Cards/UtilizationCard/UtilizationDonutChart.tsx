@@ -130,11 +130,6 @@ export const UtilizationDonutChart: React.FunctionComponent<UtilizationDonutChar
                         },
                     },
                 },
-                pie: {
-                    height: 202,
-                    padding: 20,
-                    width: 202,
-                },
             });
 
             return theme;
@@ -167,7 +162,7 @@ export const UtilizationDonutChart: React.FunctionComponent<UtilizationDonutChar
                 right: 175,
                 top: 0,
             }}
-            // theme={getTheme()}
+            colorScale={['#F0F0F0', '#D2D2D2', '#6A6E73']}
             width={props.chartWidth}
             subTitlePosition="bottom"
         >
@@ -179,8 +174,8 @@ export const UtilizationDonutChart: React.FunctionComponent<UtilizationDonutChar
                 labels={({ datum }) => (datum.x ? `${datum.x}: ${datum.y}%` : null)}
                 legendData={[
                     { name: `${props.resourceDisplayName} Utilization` },
-                    { name: `Warning at 60%` },
-                    { name: `Danger at 90%` },
+                    { name: `Warning at 60%`, symbol: { fill: '#D2D2D2' } },
+                    { name: `Danger at 90%`, symbol: { fill: '#6A6E73 ' } },
                 ]}
                 legendOrientation="vertical"
                 title={`${resource?.PercentUtilization}%`}
