@@ -11,7 +11,7 @@ import {
     UtilizationCard,
     WorkloadCard,
 } from '@app/Components/Cards/';
-import { DistributedJupyterKernel, JupyterKernelReplica, KubernetesNode, VirtualGpuInfo } from '@app/Data';
+import { DistributedJupyterKernel, JupyterKernelReplica } from '@app/Data';
 import { MigrationModal } from '@app/Components/Modals';
 
 import toast, { Toaster } from 'react-hot-toast';
@@ -168,7 +168,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
                     </KubernetesNodeHeightFactorContext.Provider>
                 </GridItem>
                 <GridItem span={6} rowSpan={2}>
-                    <UtilizationCard chartHeight={250} chartWidth={500} />
+                    <UtilizationCard chartHeight={200} chartWidth={400} />
                 </GridItem>
             </Grid>
             <MigrationModal

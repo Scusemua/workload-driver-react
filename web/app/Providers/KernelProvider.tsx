@@ -1,7 +1,6 @@
-import { DistributedJupyterKernel, JupyterKernelReplica } from '@data/Kernel';
+import { DistributedJupyterKernel } from '@data/Kernel';
 import useSWR from 'swr';
 import useSWRMutation from 'swr/mutation';
-import hash from 'stable-hash';
 
 function omit(obj, ...props) {
     const result = { ...obj };

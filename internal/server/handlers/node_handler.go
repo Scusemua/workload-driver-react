@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"sort"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/gin-gonic/gin"
@@ -97,12 +98,14 @@ func (h *KubeNodeHttpHandler) parseKubernetesNode(node *corev1.Node, actualGpuIn
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*15)
 	defer cancel()
 
+	st := time.Now()
 	pods, err := h.clientset.CoreV1().Pods("default").List(ctx, metav1.ListOptions{
 		FieldSelector: "spec.nodeName=" + node.Name,
 	})
-
 	if err != nil {
 		h.logger.Error("Could not retrieve Pods running on node.", zap.String("node", node.Name), zap.Error(err))
+	} else {
+		h.sugaredLogger.Debugf("Retrieved Pods running on node %s in %v.", node.Name, time.Since(st))
 	}
 
 	var schedulingDisabled bool = false
@@ -226,30 +229,63 @@ func (h *KubeNodeHttpHandler) HandleRequest(c *gin.Context) {
 		h.WriteError(c, "Failed to retrieve nodes from Kubernetes.")
 		return
 	}
+	h.sugaredLogger.Debugf("Listed Kubernetes nodes via Kubernetes API in %v.", time.Since(st))
 
+	st2 := time.Now()
 	actualGpuInformation, err := h.rpcClient.GetClusterActualGpuInfo(context.TODO(), &gateway.Void{})
 	if err != nil {
 		h.logger.Error("Failed to retrieve 'actual' GPU usage from Cluster Gateway.", zap.Error(err))
 		c.Error(fmt.Errorf("failed to retrieve 'actual' GPU usage from Cluster Gateway: %v", err.Error()))
 	}
+	h.sugaredLogger.Debugf("Retrieved 'actual' GPU info from Cluster Gateway in %v. Total time elapsed: %v.", time.Since(st2), time.Since(st))
+	st3 := time.Now()
 
-	var resp []*domain.KubernetesNode = make([]*domain.KubernetesNode, 0, len(nodes.Items))
+	var resp []*domain.KubernetesNode = make([]*domain.KubernetesNode, 0, len(nodes.Items)-1)
 	val := nodes.Items[0].Status.Capacity[corev1.ResourceCPU]
 	val.AsInt64()
-	for _, node := range nodes.Items {
-		parsedNode := h.parseKubernetesNode(&node, actualGpuInformation)
 
-		resp = append(resp, parsedNode)
+	nodesChannel := make(chan *domain.KubernetesNode, len(nodes.Items)-1)
+	var (
+		waitGroup sync.WaitGroup
+		done      bool
+	)
+	waitGroup.Add(len(nodes.Items) - 1)
+
+	// Using goroutines to process/parse the nodes in parallel.
+	// Each node will require a Kubernetes API call and a gRPC call, so doing this in parallel should generally be faster.
+	for _, n := range nodes.Items {
+		if strings.HasSuffix(n.Name, "control-plane") {
+			continue
+		}
+		go func(resultChannel chan *domain.KubernetesNode, node corev1.Node, wg *sync.WaitGroup) {
+			parsedNode := h.parseKubernetesNode(&node, actualGpuInformation)
+			nodesChannel <- parsedNode
+			wg.Done()
+		}(nodesChannel, n, &waitGroup)
 	}
 
-	if len(resp) > 0 {
-		// This could be more efficient (converting from map to slice and then sorting; I could just do it in a single step).
-		sort.Slice(resp, func(i, j int) bool {
-			return resp[i].NodeId < resp[j].NodeId
-		})
+	// Wait for the goroutines to finish processing the nodes.
+	waitGroup.Wait()
+	for !done {
+		select {
+		case parsedNode := <-nodesChannel:
+			{
+				resp = append(resp, parsedNode)
+			}
+		default:
+			{
+				done = true
+				break
+			}
+		}
 	}
 
-	h.sugaredLogger.Infof("Sending a list of %d nodes back to the client. Time elapsed: %v.", len(resp), time.Since(st))
+	// Sort the nodes.
+	sort.Slice(resp, func(i, j int) bool {
+		return resp[i].NodeId < resp[j].NodeId
+	})
+
+	h.sugaredLogger.Debugf("Parsed %d Kubernetes nodes in %v. Total time elapsed: %v.", len(resp), time.Since(st3), time.Since(st))
 	c.JSON(http.StatusOK, resp)
 }
 

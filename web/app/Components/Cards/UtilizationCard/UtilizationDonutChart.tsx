@@ -88,7 +88,7 @@ export const UtilizationDonutChart: React.FunctionComponent<UtilizationDonutChar
                 <ChartLabel
                     style={{
                         fill: 'white',
-                        fontSize: 24,
+                        fontSize: 32,
                     }}
                 />
             );
@@ -103,7 +103,7 @@ export const UtilizationDonutChart: React.FunctionComponent<UtilizationDonutChar
                 <ChartLabel
                     style={{
                         fill: '#d4d4d4',
-                        fontSize: 14,
+                        fontSize: 16,
                     }}
                 />
             );
@@ -129,6 +129,11 @@ export const UtilizationDonutChart: React.FunctionComponent<UtilizationDonutChar
                             fill: 'white',
                         },
                     },
+                },
+                pie: {
+                    height: 202,
+                    padding: 20,
+                    width: 202,
                 },
             });
 
@@ -157,14 +162,14 @@ export const UtilizationDonutChart: React.FunctionComponent<UtilizationDonutChar
             height={props.chartHeight}
             labels={({ datum }) => (datum.x ? datum.x : null)}
             padding={{
-                bottom: 0,
+                bottom: 25,
                 left: 10,
-                right: 200,
+                right: 175,
                 top: 0,
             }}
-            theme={getTheme()}
+            // theme={getTheme()}
             width={props.chartWidth}
-            colorScale={['#F0F0F0', '#929496', '#6A6E73', '#ff0000']}
+            subTitlePosition="bottom"
         >
             <ChartDonutUtilization
                 data={{
@@ -173,7 +178,7 @@ export const UtilizationDonutChart: React.FunctionComponent<UtilizationDonutChar
                 }}
                 labels={({ datum }) => (datum.x ? `${datum.x}: ${datum.y}%` : null)}
                 legendData={[
-                    { name: `${props.resourceDisplayName} Utilization: 80%` },
+                    { name: `${props.resourceDisplayName} Utilization` },
                     { name: `Warning at 60%` },
                     { name: `Danger at 90%` },
                 ]}

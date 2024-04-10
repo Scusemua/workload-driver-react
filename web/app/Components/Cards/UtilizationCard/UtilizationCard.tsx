@@ -2,21 +2,24 @@ import React from 'react';
 import {
     Button,
     Card,
-    CardTitle,
     CardBody,
+    CardHeader,
+    CardTitle,
+    Checkbox,
     Flex,
     FlexItem,
+    Grid,
+    GridItem,
     Title,
     ToolbarGroup,
     ToolbarItem,
     Tooltip,
-    CardHeader,
-    Checkbox,
 } from '@patternfly/react-core';
 import { SyncIcon } from '@patternfly/react-icons';
 import { UtilizationDonutChart } from './UtilizationDonutChart';
 import { useNodes } from '@app/Providers';
 import { toast } from 'react-hot-toast';
+import { ChartDonutThreshold, ChartDonutUtilization } from '@patternfly/react-charts';
 
 export interface UtilizationCardProps {
     chartWidth?: number;
@@ -32,7 +35,7 @@ export const UtilizationCard: React.FunctionComponent<UtilizationCardProps> = (p
             <ToolbarGroup variant="button-group">
                 <ToolbarItem variant="search-filter">
                     <Checkbox
-                        label="Randomized utilizations"
+                        label="Randomize utilizations"
                         id={'randomized-utilizations-checkbox'}
                         isChecked={randomizeUtilizations}
                         onChange={(_event: React.FormEvent<HTMLInputElement>, checked: boolean) =>
@@ -92,76 +95,52 @@ export const UtilizationCard: React.FunctionComponent<UtilizationCardProps> = (p
             <CardHeader actions={{ actions: toolbar, hasNoOffset: false }}>
                 <CardTitle>
                     <Title headingLevel="h1" size="xl">
-                        Cluster Resource Utilization
+                        Current Cluster Resource Utilization
                     </Title>
                 </CardTitle>
             </CardHeader>
             <CardBody>
-                <Flex
-                    spaceItems={{ default: 'spaceItemsXl' }}
-                    direction={{ default: 'column' }}
-                    justifyContent={{ default: 'justifyContentCenter' }}
-                >
-                    <Flex
-                        spaceItems={{ default: 'spaceItemsNone' }}
-                        direction={{ default: 'row' }}
-                        justifyContent={{ default: 'justifyContentCenter' }}
-                    >
-                        <FlexItem>
-                            <div style={{ height: props.chartHeight, width: props.chartWidth }}>
-                                <UtilizationDonutChart
-                                    chartHeight={props.chartHeight}
-                                    chartWidth={props.chartWidth}
-                                    resourceDisplayName="CPU"
-                                    resourceUnit="vCPU"
-                                    randomizeUtilizations={randomizeUtilizations}
-                                />
-                            </div>
-                        </FlexItem>
-                        <FlexItem style={{ margin: -36 }}>
-                            <div style={{ height: props.chartHeight, width: props.chartWidth }}>
-                                <UtilizationDonutChart
-                                    chartHeight={props.chartHeight}
-                                    chartWidth={props.chartWidth}
-                                    resourceDisplayName="Memory"
-                                    resourceUnit="GB"
-                                    randomizeUtilizations={randomizeUtilizations}
-                                    converter={(val: number) => {
-                                        return val * 0.001048576; // Convert from MiB to GB.
-                                    }}
-                                />
-                            </div>
-                        </FlexItem>
-                    </Flex>
-                    <Flex
-                        spaceItems={{ default: 'spaceItemsNone' }}
-                        direction={{ default: 'row' }}
-                        justifyContent={{ default: 'justifyContentCenter' }}
-                    >
-                        <FlexItem>
-                            <div style={{ height: props.chartHeight, width: props.chartWidth }}>
-                                <UtilizationDonutChart
-                                    chartHeight={props.chartHeight}
-                                    chartWidth={props.chartWidth}
-                                    resourceDisplayName="vGPU"
-                                    resourceUnit="vGPUs"
-                                    randomizeUtilizations={randomizeUtilizations}
-                                />
-                            </div>
-                        </FlexItem>
-                        <FlexItem style={{ margin: -36 }}>
-                            <div style={{ height: props.chartHeight, width: props.chartWidth }}>
-                                <UtilizationDonutChart
-                                    chartHeight={props.chartHeight}
-                                    chartWidth={props.chartWidth}
-                                    resourceDisplayName="GPU"
-                                    resourceUnit="GPUs"
-                                    randomizeUtilizations={randomizeUtilizations}
-                                />
-                            </div>
-                        </FlexItem>
-                    </Flex>
-                </Flex>
+                <Grid>
+                    <GridItem span={6} rowSpan={1} style={{ marginRight: -16, marginLeft: -16 }}>
+                        <UtilizationDonutChart
+                            chartHeight={props.chartHeight}
+                            chartWidth={props.chartWidth}
+                            resourceDisplayName="CPU"
+                            resourceUnit="vCPU"
+                            randomizeUtilizations={randomizeUtilizations}
+                        />
+                    </GridItem>
+                    <GridItem span={6} rowSpan={1} style={{ marginLeft: -16, marginRight: 16 }}>
+                        <UtilizationDonutChart
+                            chartHeight={props.chartHeight}
+                            chartWidth={props.chartWidth}
+                            resourceDisplayName="Memory"
+                            resourceUnit="GB"
+                            randomizeUtilizations={randomizeUtilizations}
+                            converter={(val: number) => {
+                                return val * 0.001048576; // Convert from MiB to GB.
+                            }}
+                        />
+                    </GridItem>
+                    <GridItem span={6} rowSpan={1} style={{ marginRight: -16, marginLeft: -16 }}>
+                        <UtilizationDonutChart
+                            chartHeight={props.chartHeight}
+                            chartWidth={props.chartWidth}
+                            resourceDisplayName="vGPU"
+                            resourceUnit="vGPUs"
+                            randomizeUtilizations={randomizeUtilizations}
+                        />
+                    </GridItem>
+                    <GridItem span={6} rowSpan={1} style={{ marginLeft: -16, marginRight: 16 }}>
+                        <UtilizationDonutChart
+                            chartHeight={props.chartHeight}
+                            chartWidth={props.chartWidth}
+                            resourceDisplayName="GPU"
+                            resourceUnit="GPUs"
+                            randomizeUtilizations={randomizeUtilizations}
+                        />
+                    </GridItem>
+                </Grid>
             </CardBody>
         </Card>
     );

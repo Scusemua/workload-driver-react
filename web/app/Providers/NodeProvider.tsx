@@ -1,6 +1,5 @@
 import useSWR from 'swr';
 import { KubernetesNode } from '@app/Data';
-import useSWRMutation from 'swr/mutation';
 
 const api_endpoint: string = 'api/nodes';
 
@@ -44,15 +43,14 @@ const fetcher = async (input: RequestInfo | URL) => {
 };
 
 export function useNodes() {
-    const { data, error } = useSWR(api_endpoint, fetcher, { refreshInterval: 600000 });
-    const { trigger, isMutating } = useSWRMutation(api_endpoint, fetcher);
+    const { data, mutate, error, isLoading, isValidating } = useSWR(api_endpoint, fetcher, { refreshInterval: 600000 });
 
     const nodes: KubernetesNode[] = data || [];
 
     return {
         nodes: nodes,
-        nodesAreLoading: isMutating,
-        refreshNodes: trigger,
+        nodesAreLoading: isLoading || isValidating,
+        refreshNodes: mutate,
         isError: error,
     };
 }

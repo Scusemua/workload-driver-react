@@ -277,6 +277,7 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                             variant="plain"
                             isDisabled={nodesAreLoading}
                             onClick={() => {
+                                console.log('Refreshing Kubernetes nodes now.');
                                 toast.promise(refreshNodes(), {
                                     loading: <b>Refreshing Kubernetes nodes...</b>,
                                     success: <b>Refreshed Kubernetes nodes!</b>,

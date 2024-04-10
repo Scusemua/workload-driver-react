@@ -3,7 +3,6 @@ import useSWRSubscription from 'swr/subscription';
 import type { SWRSubscription } from 'swr/subscription';
 import { Workload, WorkloadResponse } from '@data/Workload';
 import { v4 as uuidv4 } from 'uuid';
-import { useWebSocket } from 'react-use-websocket/dist/lib/use-websocket';
 
 export const useWorkloads = () => {
     const subscriberSocket = useRef<WebSocket | null>(null);
