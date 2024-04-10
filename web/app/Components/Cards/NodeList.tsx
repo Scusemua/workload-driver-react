@@ -278,30 +278,53 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                             isDisabled={nodesAreLoading}
                             onClick={() => {
                                 console.log('Refreshing Kubernetes nodes now.');
-                                toast.promise(refreshNodes(), {
-                                    loading: <b>Refreshing Kubernetes nodes...</b>,
-                                    success: <b>Refreshed Kubernetes nodes!</b>,
-                                    error: (reason: Error) => {
-                                        let explanation: string = reason.message;
-                                        if (reason.name === 'SyntaxError') {
-                                            explanation = 'HTTP 504 Gateway Timeout';
-                                        }
-
-                                        return (
+                                const st: number = performance.now();
+                                toast.promise(
+                                    refreshNodes(),
+                                    {
+                                        loading: <b>Refreshing Kubernetes nodes...</b>,
+                                        success: (
                                             <div>
                                                 <Flex
                                                     direction={{ default: 'column' }}
                                                     spaceItems={{ default: 'spaceItemsNone' }}
                                                 >
                                                     <FlexItem>
-                                                        <b>Could not refresh Kubernetes nodes.</b>
+                                                        <b>Refreshed Kubernetes nodes.</b>
                                                     </FlexItem>
-                                                    <FlexItem>{explanation}</FlexItem>
+                                                    <FlexItem>
+                                                        <Text component={TextVariants.small}>
+                                                            Time elapsed: {performance.now() - st} seconds.
+                                                        </Text>
+                                                    </FlexItem>
                                                 </Flex>
                                             </div>
-                                        );
+                                        ),
+                                        error: (reason: Error) => {
+                                            let explanation: string = reason.message;
+                                            if (reason.name === 'SyntaxError') {
+                                                explanation = 'HTTP 504 Gateway Timeout';
+                                            }
+
+                                            return (
+                                                <div>
+                                                    <Flex
+                                                        direction={{ default: 'column' }}
+                                                        spaceItems={{ default: 'spaceItemsNone' }}
+                                                    >
+                                                        <FlexItem>
+                                                            <b>Could not refresh Kubernetes nodes.</b>
+                                                        </FlexItem>
+                                                        <FlexItem>{explanation}</FlexItem>
+                                                    </Flex>
+                                                </div>
+                                            );
+                                        },
                                     },
-                                });
+                                    {
+                                        style: { maxWidth: 450 },
+                                    },
+                                );
                             }}
                             // isDisabled={nodesAreLoading}
                             label="refresh-nodes-button"

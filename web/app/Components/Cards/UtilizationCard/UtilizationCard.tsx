@@ -53,30 +53,53 @@ export const UtilizationCard: React.FunctionComponent<UtilizationCardProps> = (p
                         <Button
                             variant="plain"
                             onClick={() => {
-                                toast.promise(refreshNodes(), {
-                                    loading: <b>Refreshing cluster resource utilization data...</b>,
-                                    success: <b>Refreshed cluster resource utilization data!</b>,
-                                    error: (reason: Error) => {
-                                        let explanation: string = reason.message;
-                                        if (reason.name === 'SyntaxError') {
-                                            explanation = 'HTTP 504 Gateway Timeout';
-                                        }
-
-                                        return (
+                                const st: number = performance.now();
+                                toast.promise(
+                                    refreshNodes(),
+                                    {
+                                        loading: <b>Refreshing cluster resource utilization data...</b>,
+                                        success: (
                                             <div>
                                                 <Flex
                                                     direction={{ default: 'column' }}
                                                     spaceItems={{ default: 'spaceItemsNone' }}
                                                 >
                                                     <FlexItem>
-                                                        <b>Could not refresh cluster resource utilization data.</b>
+                                                        <b>Refreshed cluster resource utilization data.</b>
                                                     </FlexItem>
-                                                    <FlexItem>{explanation}</FlexItem>
+                                                    <FlexItem>
+                                                        <Text component={TextVariants.small}>
+                                                            Time elapsed: {performance.now() - st} seconds.
+                                                        </Text>
+                                                    </FlexItem>
                                                 </Flex>
                                             </div>
-                                        );
+                                        ),
+                                        error: (reason: Error) => {
+                                            let explanation: string = reason.message;
+                                            if (reason.name === 'SyntaxError') {
+                                                explanation = 'HTTP 504 Gateway Timeout';
+                                            }
+
+                                            return (
+                                                <div>
+                                                    <Flex
+                                                        direction={{ default: 'column' }}
+                                                        spaceItems={{ default: 'spaceItemsNone' }}
+                                                    >
+                                                        <FlexItem>
+                                                            <b>Could not refresh cluster resource utilization data.</b>
+                                                        </FlexItem>
+                                                        <FlexItem>{explanation}</FlexItem>
+                                                    </Flex>
+                                                </div>
+                                            );
+                                        },
                                     },
-                                });
+                                    {
+                                        style: { maxWidth: 450 },
+                                    },
+                                );
                             }}
                             label="refresh-cluster-utilization-data-button"
                             aria-label="refresh-cluster-utilization-data-button"
