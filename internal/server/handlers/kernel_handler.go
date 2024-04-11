@@ -191,8 +191,7 @@ func (h *KernelHttpHandler) spoofedKernelsToSlice() []*gateway.DistributedJupyte
 }
 
 func (h *KernelHttpHandler) getKernelsFromClusterGateway() ([]*gateway.DistributedJupyterKernel, error) {
-	h.logger.Debug("Kernel Querier (%p) is refreshing kernels now.")
-	h.logger.Debug("", zap.Any("client", h.grpcClient))
+	h.logger.Debug("Kernel Querier is refreshing kernels now.")
 
 	resp, err := h.grpcClient.ListKernels(context.TODO(), &gateway.Void{})
 	if err != nil {
