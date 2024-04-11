@@ -109,28 +109,32 @@ func (s *serverImpl) setupRoutes() error {
 	s.app.GET(domain.WORKLOAD_ENDPOINT, s.serveWorkloadWebsocket)
 	s.app.GET(domain.LOGS_ENDPOINT, s.serveLogWebsocket)
 
+	gatewayRpcClient := handlers.NewClusterDashboardHandler(s.opts, true)
+
+	s.sugaredLogger.Debugf("Creating route groups now. (gatewayRpcClient == nil: %v)", gatewayRpcClient == nil)
+
 	apiGroup := s.app.Group(domain.BASE_API_GROUP_ENDPOINT)
 	{
-		nodeHandler := handlers.NewKubeNodeHttpHandler(s.opts)
+		nodeHandler := handlers.NewKubeNodeHttpHandler(s.opts, gatewayRpcClient)
 		// Used internally (by the frontend) to get the current kubernetes nodes from the backend  (i.e., the backend).
 		apiGroup.GET(domain.KUBERNETES_NODES_ENDPOINT, nodeHandler.HandleRequest)
 		// Enable/disable Kubernetes nodes.
 		apiGroup.PATCH(domain.KUBERNETES_NODES_ENDPOINT, nodeHandler.HandlePatchRequest)
 
 		// Adjust vGPUs availabe on a particular Kubernetes node.
-		apiGroup.PATCH(domain.ADJUST_VGPUS_ENDPOINT, handlers.NewAdjustVirtualGpusHandler(s.opts).HandlePatchRequest)
+		apiGroup.PATCH(domain.ADJUST_VGPUS_ENDPOINT, handlers.NewAdjustVirtualGpusHandler(s.opts, gatewayRpcClient).HandlePatchRequest)
 
 		// Used internally (by the frontend) to get the system config from the backend  (i.e., the backend).
 		apiGroup.GET(domain.SYSTEM_CONFIG_ENDPOINT, handlers.NewConfigHttpHandler(s.opts).HandleRequest)
 
 		// Used internally (by the frontend) to get the current set of Jupyter kernels from us (i.e., the backend).
-		apiGroup.GET(domain.GET_KERNELS_ENDPOINT, handlers.NewKernelHttpHandler(s.opts).HandleRequest)
+		apiGroup.GET(domain.GET_KERNELS_ENDPOINT, handlers.NewKernelHttpHandler(s.opts, gatewayRpcClient).HandleRequest)
 
 		// Used internally (by the frontend) to get the list of available workload presets from the backend.
 		apiGroup.GET(domain.WORKLOAD_PRESET_ENDPOINT, handlers.NewWorkloadPresetHttpHandler(s.opts).HandleRequest)
 
 		// Used internally (by the frontend) to trigger kernel replica migrations.
-		apiGroup.POST(domain.MIGRATION_ENDPOINT, handlers.NewMigrationHttpHandler(s.opts).HandleRequest)
+		apiGroup.POST(domain.MIGRATION_ENDPOINT, handlers.NewMigrationHttpHandler(s.opts, gatewayRpcClient).HandleRequest)
 
 		// Used to stream logs from Kubernetes.
 		apiGroup.GET(fmt.Sprintf("%s/pods/:pod", domain.LOGS_ENDPOINT), handlers.NewLogHttpHandler(s.opts).HandleRequest)

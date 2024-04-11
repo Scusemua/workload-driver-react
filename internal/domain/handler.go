@@ -52,10 +52,3 @@ type JupyterApiHttpHandler interface {
 	// Write an error back to the client.
 	WriteError(*gin.Context, string)
 }
-
-type BackendHttpGRPCHandler interface {
-	BackendHttpGetHandler
-
-	// Attempt to connect to the Cluster Gateway's gRPC server using the provided address. Returns an error if connection failed, or nil on success.
-	DialGatewayGRPC(string) error
-}

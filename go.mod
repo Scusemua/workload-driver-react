@@ -25,8 +25,9 @@ require (
 	k8s.io/api v0.29.2
 	k8s.io/apimachinery v0.29.2
 	k8s.io/client-go v0.29.2
-	k8s.io/metrics v0.29.2
 )
+
+require github.com/hashicorp/yamux v0.1.1
 
 require (
 	dario.cat/mergo v1.0.0 // indirect

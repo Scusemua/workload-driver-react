@@ -17,16 +17,22 @@ import (
 )
 
 type KernelHttpHandler struct {
-	*GrpcClient
+	*BaseHandler
+	grpcClient *ClusterDashboardHandler
 
 	spoofKernels   bool                                                           // If we're creating and returning fake/mocked kernels.
 	spoofedKernels *cmap.ConcurrentMap[string, *gateway.DistributedJupyterKernel] // Latest spoofedKernels.
 }
 
-func NewKernelHttpHandler(opts *domain.Configuration) domain.BackendHttpGetHandler {
+func NewKernelHttpHandler(opts *domain.Configuration, grpcClient *ClusterDashboardHandler) domain.BackendHttpGetHandler {
+	if grpcClient == nil {
+		panic("gRPC Client cannot be nil.")
+	}
+
 	handler := &KernelHttpHandler{
+		BaseHandler:  newBaseHandler(opts),
 		spoofKernels: opts.SpoofKernels,
-		GrpcClient:   NewGrpcClient(opts, !opts.SpoofKernels),
+		grpcClient:   grpcClient,
 	}
 	handler.BackendHttpGetHandler = handler
 
@@ -41,15 +47,22 @@ func NewKernelHttpHandler(opts *domain.Configuration) domain.BackendHttpGetHandl
 }
 
 func (h *KernelHttpHandler) HandleRequest(c *gin.Context) {
-	var kernels []*gateway.DistributedJupyterKernel
+	var (
+		kernels []*gateway.DistributedJupyterKernel
+		err     error
+	)
 
 	// If we're spoofing the cluster, then just return some made up kernels for testing/debugging purposes.
 	if h.spoofKernels {
 		h.logger.Info("Spoofing Jupyter kernels now.")
 		kernels = h.doSpoofKernels()
 	} else {
-		h.logger.Info("Retrieving Jupyter kernels from the Jupyter Server now.", zap.String("jupyter-server-ip", h.gatewayAddress))
-		kernels = h.getKernelsFromClusterGateway()
+		h.logger.Info("Retrieving Jupyter kernels from the Jupyter Server now.", zap.String("jupyter-server-ip", h.grpcClient.gatewayAddress))
+		kernels, err = h.getKernelsFromClusterGateway()
+
+		if err != nil {
+			c.AbortWithError(500, err)
+		}
 
 		for _, kernel := range kernels {
 			sort.SliceStable(kernel.Replicas, func(i, j int) bool {
@@ -177,41 +190,20 @@ func (h *KernelHttpHandler) spoofedKernelsToSlice() []*gateway.DistributedJupyte
 	return spoofedKernelsSlice
 }
 
-func (h *KernelHttpHandler) getKernelsFromClusterGateway() []*gateway.DistributedJupyterKernel {
-	h.logger.Debug("Kernel Querier is refreshing kernels now.")
+func (h *KernelHttpHandler) getKernelsFromClusterGateway() ([]*gateway.DistributedJupyterKernel, error) {
+	h.logger.Debug("Kernel Querier (%p) is refreshing kernels now.")
+	h.logger.Debug("", zap.Any("client", h.grpcClient))
 
-	attempts := 1
-	maxAttempts := 2
-
-	for attempts <= maxAttempts {
-		resp, err := h.rpcClient.ListKernels(context.TODO(), &gateway.Void{})
-		if err != nil {
-			h.logger.Error("Failed to fetch list of active kernels from the Cluster Gateway.", zap.Error(err))
-
-			// Try to reconnect.
-			h.logger.Debug("Trying to reconnect to Cluster Gateway now...")
-			err := h.DialGatewayGRPC(h.gatewayAddress)
-			if err != nil {
-				// If we failed to reconnect, just return.
-				h.logger.Error("Failed to reconnect to Cluster Gateway.", zap.Error(err))
-				return make([]*gateway.DistributedJupyterKernel, 0)
-			} else {
-				h.logger.Debug("Successfully reconnected to Cluster Gateway. Will try again to fetch list of kernels.")
-			}
-
-			// If we did reconnect, then we'll try one more time.
-			attempts += 1
-			continue
-		} else if resp.Kernels == nil {
-			// We successfully retrieved the kernels, so return them.
-			// The response can be nil if there are no kernels on the Gateway.
-			return make([]*gateway.DistributedJupyterKernel, 0)
-		} else {
-			// We successfully retrieved the kernels, so return them.
-			return resp.Kernels
-		}
+	resp, err := h.grpcClient.ListKernels(context.TODO(), &gateway.Void{})
+	if err != nil {
+		h.logger.Error("Failed to fetch list of active kernels from the Cluster Gateway.", zap.Error(err))
+		return nil, err
+	} else if resp.Kernels == nil {
+		// We successfully retrieved the kernels, so return them.
+		// The response can be nil if there are no kernels on the Gateway.
+		return make([]*gateway.DistributedJupyterKernel, 0), nil
+	} else {
+		// We successfully retrieved the kernels, so return them.
+		return resp.Kernels, nil
 	}
-
-	h.logger.Error("Failed to fetch list of active kernels from the Cluster Gateway.")
-	return make([]*gateway.DistributedJupyterKernel, 0)
 }

@@ -14,7 +14,6 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/generator"
-	"github.com/scusemua/workload-driver-react/m/v2/internal/server/handlers"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/server/jupyter"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -44,7 +43,6 @@ var (
 type WorkloadDriver struct {
 	id string // Unique ID (relative to other drivers). The workload registered with this driver will be assigned this ID.
 
-	rpc           *handlers.GrpcClient
 	kernelManager *jupyter.KernelManager
 
 	workloadGenerator domain.WorkloadGenerator
@@ -102,7 +100,6 @@ func NewWorkloadDriver(opts *domain.Configuration) *WorkloadDriver {
 		stopChan:      make(chan struct{}, 1),
 		errorChan:     make(chan error, 2),
 		atom:          &atom,
-		rpc:           handlers.NewGrpcClient(opts, !opts.SpoofKernels),
 		kernelManager: jupyter.NewKernelManager(opts, &atom),
 		kernels:       make(map[string]struct{}),
 		sessionsMap:   make(map[string]*jupyter.SessionConnection),
@@ -130,13 +127,6 @@ func NewWorkloadDriver(opts *domain.Configuration) *WorkloadDriver {
 		driver.workloadPresets[preset.Key] = preset
 
 		driver.logger.Debug("Discovered preset.", zap.Any(fmt.Sprintf("preset-%s", preset.Key), preset.String()))
-	}
-
-	if !opts.SpoofKernels {
-		err := driver.rpc.DialGatewayGRPC(opts.GatewayAddress)
-		if err != nil {
-			panic(fmt.Sprintf("WorkloadDriver %s failed to dial Cluster Gateway at addr='%s'", driver.id, opts.GatewayAddress))
-		}
 	}
 
 	return driver

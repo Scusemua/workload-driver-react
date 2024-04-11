@@ -12,12 +12,18 @@ import (
 )
 
 type MigrationHttpHandler struct {
-	*GrpcClient
+	*BaseHandler
+	grpcClient *ClusterDashboardHandler
 }
 
-func NewMigrationHttpHandler(opts *domain.Configuration) domain.BackendHttpGetHandler {
+func NewMigrationHttpHandler(opts *domain.Configuration, grpcClient *ClusterDashboardHandler) domain.BackendHttpGetHandler {
+	if grpcClient == nil {
+		panic("gRPC Client cannot be nil.")
+	}
+
 	handler := &MigrationHttpHandler{
-		GrpcClient: NewGrpcClient(opts, !opts.SpoofKernels),
+		BaseHandler: newBaseHandler(opts),
+		grpcClient:  grpcClient,
 	}
 	handler.BackendHttpGetHandler = handler
 
@@ -42,7 +48,7 @@ func (h *MigrationHttpHandler) HandleRequest(c *gin.Context) {
 
 	h.logger.Info("Received migration request.", zap.Int32("replica-smr-id", migrationRequest.TargetReplica.ReplicaId), zap.String("kernel-id", migrationRequest.TargetReplica.KernelId), zap.String("target-k8s-node-id", migrationRequest.GetTargetNodeId()))
 
-	resp, err := h.rpcClient.MigrateKernelReplica(context.TODO(), migrationRequest)
+	resp, err := h.grpcClient.MigrateKernelReplica(context.TODO(), migrationRequest)
 	if err != nil {
 		h.logger.Error("An error occurred while triggering or performing the kernel replica migration.", zap.String("kernelID", migrationRequest.TargetReplica.KernelId), zap.Int32("replicaID", migrationRequest.TargetReplica.ReplicaId), zap.String("target-node", migrationRequest.GetTargetNodeId()), zap.Error(err))
 

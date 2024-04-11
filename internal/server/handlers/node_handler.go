@@ -22,16 +22,22 @@ import (
 )
 
 type KubeNodeHttpHandler struct {
-	*GrpcClient
+	*BaseHandler
+	grpcClient *ClusterDashboardHandler
 
 	clientset *kubernetes.Clientset
 	spoof     bool
 }
 
-func NewKubeNodeHttpHandler(opts *domain.Configuration) domain.BackendHttpGetPatchHandler {
+func NewKubeNodeHttpHandler(opts *domain.Configuration, grpcClient *ClusterDashboardHandler) domain.BackendHttpGetPatchHandler {
+	if grpcClient == nil {
+		panic("gRPC Client cannot be nil.")
+	}
+
 	handler := &KubeNodeHttpHandler{
-		GrpcClient: NewGrpcClient(opts, !opts.SpoofKernels),
-		spoof:      opts.SpoofKubeNodes,
+		BaseHandler: newBaseHandler(opts),
+		grpcClient:  grpcClient,
+		spoof:       opts.SpoofKubeNodes,
 	}
 	handler.BackendHttpGetHandler = handler
 
@@ -224,7 +230,7 @@ func (h *KubeNodeHttpHandler) HandleRequest(c *gin.Context) {
 	h.sugaredLogger.Debugf("Listed Kubernetes nodes via Kubernetes API in %v.", time.Since(st))
 
 	st2 := time.Now()
-	actualGpuInformation, err := h.rpcClient.GetClusterActualGpuInfo(context.TODO(), &gateway.Void{})
+	actualGpuInformation, err := h.grpcClient.GetClusterActualGpuInfo(context.TODO(), &gateway.Void{})
 	if err != nil {
 		h.logger.Error("Failed to retrieve 'actual' GPU usage from Cluster Gateway.", zap.Error(err))
 		c.Error(fmt.Errorf("failed to retrieve 'actual' GPU usage from Cluster Gateway: %v", err.Error()))

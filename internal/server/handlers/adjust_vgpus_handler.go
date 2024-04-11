@@ -11,12 +11,19 @@ import (
 )
 
 type AdjustVirtualGpusHandler struct {
-	*GrpcClient
+	*BaseHandler
+
+	grpcClient *ClusterDashboardHandler
 }
 
-func NewAdjustVirtualGpusHandler(opts *domain.Configuration) domain.BackendHttpGetPatchHandler {
+func NewAdjustVirtualGpusHandler(opts *domain.Configuration, grpcClient *ClusterDashboardHandler) domain.BackendHttpGetPatchHandler {
+	if grpcClient == nil {
+		panic("gRPC Client cannot be nil.")
+	}
+
 	handler := &AdjustVirtualGpusHandler{
-		GrpcClient: NewGrpcClient(opts, !opts.SpoofKernels),
+		BaseHandler: newBaseHandler(opts),
+		grpcClient:  grpcClient,
 	}
 	handler.BackendHttpGetHandler = handler
 
@@ -48,7 +55,7 @@ func (h *AdjustVirtualGpusHandler) HandlePatchRequest(c *gin.Context) {
 
 	h.logger.Info("Received SetVirtualGPUsRequest request.", zap.String("target-node", setVirtualGPUsRequest.KubernetesNodeName), zap.Int32("vGPUs", setVirtualGPUsRequest.Value))
 
-	resp, err := h.rpcClient.SetTotalVirtualGPUs(context.TODO(), setVirtualGPUsRequest)
+	resp, err := h.grpcClient.SetTotalVirtualGPUs(context.TODO(), setVirtualGPUsRequest)
 	if err != nil {
 		h.logger.Error("An error occurred while changing virtual GPUs on node.", zap.String("target-node", setVirtualGPUsRequest.KubernetesNodeName), zap.Int32("vGPUs", setVirtualGPUsRequest.Value), zap.Error(err))
 

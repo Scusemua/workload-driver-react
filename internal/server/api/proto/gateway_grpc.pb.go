@@ -19,16 +19,12 @@ import (
 const _ = grpc.SupportPackageIsVersion7
 
 const (
-	ClusterGateway_ID_FullMethodName                       = "/gateway.ClusterGateway/ID"
-	ClusterGateway_RemoveHost_FullMethodName               = "/gateway.ClusterGateway/RemoveHost"
-	ClusterGateway_MigrateKernelReplica_FullMethodName     = "/gateway.ClusterGateway/MigrateKernelReplica"
-	ClusterGateway_NotifyKernelRegistered_FullMethodName   = "/gateway.ClusterGateway/NotifyKernelRegistered"
-	ClusterGateway_SmrReady_FullMethodName                 = "/gateway.ClusterGateway/SmrReady"
-	ClusterGateway_SmrNodeAdded_FullMethodName             = "/gateway.ClusterGateway/SmrNodeAdded"
-	ClusterGateway_ListKernels_FullMethodName              = "/gateway.ClusterGateway/ListKernels"
-	ClusterGateway_SetTotalVirtualGPUs_FullMethodName      = "/gateway.ClusterGateway/SetTotalVirtualGPUs"
-	ClusterGateway_GetClusterActualGpuInfo_FullMethodName  = "/gateway.ClusterGateway/GetClusterActualGpuInfo"
-	ClusterGateway_GetClusterVirtualGpuInfo_FullMethodName = "/gateway.ClusterGateway/GetClusterVirtualGpuInfo"
+	ClusterGateway_ID_FullMethodName                     = "/gateway.ClusterGateway/ID"
+	ClusterGateway_RemoveHost_FullMethodName             = "/gateway.ClusterGateway/RemoveHost"
+	ClusterGateway_MigrateKernelReplica_FullMethodName   = "/gateway.ClusterGateway/MigrateKernelReplica"
+	ClusterGateway_NotifyKernelRegistered_FullMethodName = "/gateway.ClusterGateway/NotifyKernelRegistered"
+	ClusterGateway_SmrReady_FullMethodName               = "/gateway.ClusterGateway/SmrReady"
+	ClusterGateway_SmrNodeAdded_FullMethodName           = "/gateway.ClusterGateway/SmrNodeAdded"
 )
 
 // ClusterGatewayClient is the client API for ClusterGateway service.
@@ -50,14 +46,6 @@ type ClusterGatewayClient interface {
 	NotifyKernelRegistered(ctx context.Context, in *KernelRegistrationNotification, opts ...grpc.CallOption) (*KernelRegistrationNotificationResponse, error)
 	SmrReady(ctx context.Context, in *SmrReadyNotification, opts ...grpc.CallOption) (*Void, error)
 	SmrNodeAdded(ctx context.Context, in *ReplicaInfo, opts ...grpc.CallOption) (*Void, error)
-	// Return a list of all of the current kernel IDs.
-	ListKernels(ctx context.Context, in *Void, opts ...grpc.CallOption) (*ListKernelsResponse, error)
-	// Set the maximum number of vGPU resources availabe on a particular node (identified by the local daemon).
-	SetTotalVirtualGPUs(ctx context.Context, in *SetVirtualGPUsRequest, opts ...grpc.CallOption) (*VirtualGpuInfo, error)
-	// Return the current GPU resource metrics on the node.
-	GetClusterActualGpuInfo(ctx context.Context, in *Void, opts ...grpc.CallOption) (*ClusterActualGpuInfo, error)
-	// Return the current vGPU (or "deflated GPU") resource metrics on the node.
-	GetClusterVirtualGpuInfo(ctx context.Context, in *Void, opts ...grpc.CallOption) (*ClusterVirtualGpuInfo, error)
 }
 
 type clusterGatewayClient struct {
@@ -122,42 +110,6 @@ func (c *clusterGatewayClient) SmrNodeAdded(ctx context.Context, in *ReplicaInfo
 	return out, nil
 }
 
-func (c *clusterGatewayClient) ListKernels(ctx context.Context, in *Void, opts ...grpc.CallOption) (*ListKernelsResponse, error) {
-	out := new(ListKernelsResponse)
-	err := c.cc.Invoke(ctx, ClusterGateway_ListKernels_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *clusterGatewayClient) SetTotalVirtualGPUs(ctx context.Context, in *SetVirtualGPUsRequest, opts ...grpc.CallOption) (*VirtualGpuInfo, error) {
-	out := new(VirtualGpuInfo)
-	err := c.cc.Invoke(ctx, ClusterGateway_SetTotalVirtualGPUs_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *clusterGatewayClient) GetClusterActualGpuInfo(ctx context.Context, in *Void, opts ...grpc.CallOption) (*ClusterActualGpuInfo, error) {
-	out := new(ClusterActualGpuInfo)
-	err := c.cc.Invoke(ctx, ClusterGateway_GetClusterActualGpuInfo_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
-func (c *clusterGatewayClient) GetClusterVirtualGpuInfo(ctx context.Context, in *Void, opts ...grpc.CallOption) (*ClusterVirtualGpuInfo, error) {
-	out := new(ClusterVirtualGpuInfo)
-	err := c.cc.Invoke(ctx, ClusterGateway_GetClusterVirtualGpuInfo_FullMethodName, in, out, opts...)
-	if err != nil {
-		return nil, err
-	}
-	return out, nil
-}
-
 // ClusterGatewayServer is the server API for ClusterGateway service.
 // All implementations must embed UnimplementedClusterGatewayServer
 // for forward compatibility
@@ -177,14 +129,6 @@ type ClusterGatewayServer interface {
 	NotifyKernelRegistered(context.Context, *KernelRegistrationNotification) (*KernelRegistrationNotificationResponse, error)
 	SmrReady(context.Context, *SmrReadyNotification) (*Void, error)
 	SmrNodeAdded(context.Context, *ReplicaInfo) (*Void, error)
-	// Return a list of all of the current kernel IDs.
-	ListKernels(context.Context, *Void) (*ListKernelsResponse, error)
-	// Set the maximum number of vGPU resources availabe on a particular node (identified by the local daemon).
-	SetTotalVirtualGPUs(context.Context, *SetVirtualGPUsRequest) (*VirtualGpuInfo, error)
-	// Return the current GPU resource metrics on the node.
-	GetClusterActualGpuInfo(context.Context, *Void) (*ClusterActualGpuInfo, error)
-	// Return the current vGPU (or "deflated GPU") resource metrics on the node.
-	GetClusterVirtualGpuInfo(context.Context, *Void) (*ClusterVirtualGpuInfo, error)
 	mustEmbedUnimplementedClusterGatewayServer()
 }
 
@@ -209,18 +153,6 @@ func (UnimplementedClusterGatewayServer) SmrReady(context.Context, *SmrReadyNoti
 }
 func (UnimplementedClusterGatewayServer) SmrNodeAdded(context.Context, *ReplicaInfo) (*Void, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method SmrNodeAdded not implemented")
-}
-func (UnimplementedClusterGatewayServer) ListKernels(context.Context, *Void) (*ListKernelsResponse, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ListKernels not implemented")
-}
-func (UnimplementedClusterGatewayServer) SetTotalVirtualGPUs(context.Context, *SetVirtualGPUsRequest) (*VirtualGpuInfo, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method SetTotalVirtualGPUs not implemented")
-}
-func (UnimplementedClusterGatewayServer) GetClusterActualGpuInfo(context.Context, *Void) (*ClusterActualGpuInfo, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetClusterActualGpuInfo not implemented")
-}
-func (UnimplementedClusterGatewayServer) GetClusterVirtualGpuInfo(context.Context, *Void) (*ClusterVirtualGpuInfo, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method GetClusterVirtualGpuInfo not implemented")
 }
 func (UnimplementedClusterGatewayServer) mustEmbedUnimplementedClusterGatewayServer() {}
 
@@ -343,78 +275,6 @@ func _ClusterGateway_SmrNodeAdded_Handler(srv interface{}, ctx context.Context, 
 	return interceptor(ctx, in, info, handler)
 }
 
-func _ClusterGateway_ListKernels_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Void)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ClusterGatewayServer).ListKernels(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: ClusterGateway_ListKernels_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ClusterGatewayServer).ListKernels(ctx, req.(*Void))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _ClusterGateway_SetTotalVirtualGPUs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(SetVirtualGPUsRequest)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ClusterGatewayServer).SetTotalVirtualGPUs(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: ClusterGateway_SetTotalVirtualGPUs_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ClusterGatewayServer).SetTotalVirtualGPUs(ctx, req.(*SetVirtualGPUsRequest))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _ClusterGateway_GetClusterActualGpuInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Void)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ClusterGatewayServer).GetClusterActualGpuInfo(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: ClusterGateway_GetClusterActualGpuInfo_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ClusterGatewayServer).GetClusterActualGpuInfo(ctx, req.(*Void))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
-func _ClusterGateway_GetClusterVirtualGpuInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(Void)
-	if err := dec(in); err != nil {
-		return nil, err
-	}
-	if interceptor == nil {
-		return srv.(ClusterGatewayServer).GetClusterVirtualGpuInfo(ctx, in)
-	}
-	info := &grpc.UnaryServerInfo{
-		Server:     srv,
-		FullMethod: ClusterGateway_GetClusterVirtualGpuInfo_FullMethodName,
-	}
-	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ClusterGatewayServer).GetClusterVirtualGpuInfo(ctx, req.(*Void))
-	}
-	return interceptor(ctx, in, info, handler)
-}
-
 // ClusterGateway_ServiceDesc is the grpc.ServiceDesc for ClusterGateway service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -446,21 +306,390 @@ var ClusterGateway_ServiceDesc = grpc.ServiceDesc{
 			MethodName: "SmrNodeAdded",
 			Handler:    _ClusterGateway_SmrNodeAdded_Handler,
 		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "internal/server/api/proto/gateway.proto",
+}
+
+const (
+	DistributedCluster_Ping_FullMethodName                     = "/gateway.DistributedCluster/Ping"
+	DistributedCluster_ListKernels_FullMethodName              = "/gateway.DistributedCluster/ListKernels"
+	DistributedCluster_SetTotalVirtualGPUs_FullMethodName      = "/gateway.DistributedCluster/SetTotalVirtualGPUs"
+	DistributedCluster_GetClusterActualGpuInfo_FullMethodName  = "/gateway.DistributedCluster/GetClusterActualGpuInfo"
+	DistributedCluster_GetClusterVirtualGpuInfo_FullMethodName = "/gateway.DistributedCluster/GetClusterVirtualGpuInfo"
+	DistributedCluster_MigrateKernelReplica_FullMethodName     = "/gateway.DistributedCluster/MigrateKernelReplica"
+)
+
+// DistributedClusterClient is the client API for DistributedCluster service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type DistributedClusterClient interface {
+	Ping(ctx context.Context, in *Void, opts ...grpc.CallOption) (*Pong, error)
+	// Return a list of all of the current kernel IDs.
+	ListKernels(ctx context.Context, in *Void, opts ...grpc.CallOption) (*ListKernelsResponse, error)
+	// Set the maximum number of vGPU resources availabe on a particular node (identified by the local daemon).
+	SetTotalVirtualGPUs(ctx context.Context, in *SetVirtualGPUsRequest, opts ...grpc.CallOption) (*VirtualGpuInfo, error)
+	// Return the current GPU resource metrics on the node.
+	GetClusterActualGpuInfo(ctx context.Context, in *Void, opts ...grpc.CallOption) (*ClusterActualGpuInfo, error)
+	// Return the current vGPU (or "deflated GPU") resource metrics on the node.
+	GetClusterVirtualGpuInfo(ctx context.Context, in *Void, opts ...grpc.CallOption) (*ClusterVirtualGpuInfo, error)
+	// MigrateKernelReplica selects a qualified host and adds a kernel replica to the replica set.
+	// Unlike StartKernelReplica, a new replica is added to the replica set and a training task may
+	// need to start immediately after replica started, e.g., preempting a training task.
+	//
+	// The function will simply remove the replica from the kernel without stopping it.
+	// The caller should stop the replica after confirmed that the new replica is ready.
+	MigrateKernelReplica(ctx context.Context, in *MigrationRequest, opts ...grpc.CallOption) (*MigrateKernelResponse, error)
+}
+
+type distributedClusterClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewDistributedClusterClient(cc grpc.ClientConnInterface) DistributedClusterClient {
+	return &distributedClusterClient{cc}
+}
+
+func (c *distributedClusterClient) Ping(ctx context.Context, in *Void, opts ...grpc.CallOption) (*Pong, error) {
+	out := new(Pong)
+	err := c.cc.Invoke(ctx, DistributedCluster_Ping_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *distributedClusterClient) ListKernels(ctx context.Context, in *Void, opts ...grpc.CallOption) (*ListKernelsResponse, error) {
+	out := new(ListKernelsResponse)
+	err := c.cc.Invoke(ctx, DistributedCluster_ListKernels_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *distributedClusterClient) SetTotalVirtualGPUs(ctx context.Context, in *SetVirtualGPUsRequest, opts ...grpc.CallOption) (*VirtualGpuInfo, error) {
+	out := new(VirtualGpuInfo)
+	err := c.cc.Invoke(ctx, DistributedCluster_SetTotalVirtualGPUs_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *distributedClusterClient) GetClusterActualGpuInfo(ctx context.Context, in *Void, opts ...grpc.CallOption) (*ClusterActualGpuInfo, error) {
+	out := new(ClusterActualGpuInfo)
+	err := c.cc.Invoke(ctx, DistributedCluster_GetClusterActualGpuInfo_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *distributedClusterClient) GetClusterVirtualGpuInfo(ctx context.Context, in *Void, opts ...grpc.CallOption) (*ClusterVirtualGpuInfo, error) {
+	out := new(ClusterVirtualGpuInfo)
+	err := c.cc.Invoke(ctx, DistributedCluster_GetClusterVirtualGpuInfo_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *distributedClusterClient) MigrateKernelReplica(ctx context.Context, in *MigrationRequest, opts ...grpc.CallOption) (*MigrateKernelResponse, error) {
+	out := new(MigrateKernelResponse)
+	err := c.cc.Invoke(ctx, DistributedCluster_MigrateKernelReplica_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// DistributedClusterServer is the server API for DistributedCluster service.
+// All implementations must embed UnimplementedDistributedClusterServer
+// for forward compatibility
+type DistributedClusterServer interface {
+	Ping(context.Context, *Void) (*Pong, error)
+	// Return a list of all of the current kernel IDs.
+	ListKernels(context.Context, *Void) (*ListKernelsResponse, error)
+	// Set the maximum number of vGPU resources availabe on a particular node (identified by the local daemon).
+	SetTotalVirtualGPUs(context.Context, *SetVirtualGPUsRequest) (*VirtualGpuInfo, error)
+	// Return the current GPU resource metrics on the node.
+	GetClusterActualGpuInfo(context.Context, *Void) (*ClusterActualGpuInfo, error)
+	// Return the current vGPU (or "deflated GPU") resource metrics on the node.
+	GetClusterVirtualGpuInfo(context.Context, *Void) (*ClusterVirtualGpuInfo, error)
+	// MigrateKernelReplica selects a qualified host and adds a kernel replica to the replica set.
+	// Unlike StartKernelReplica, a new replica is added to the replica set and a training task may
+	// need to start immediately after replica started, e.g., preempting a training task.
+	//
+	// The function will simply remove the replica from the kernel without stopping it.
+	// The caller should stop the replica after confirmed that the new replica is ready.
+	MigrateKernelReplica(context.Context, *MigrationRequest) (*MigrateKernelResponse, error)
+	mustEmbedUnimplementedDistributedClusterServer()
+}
+
+// UnimplementedDistributedClusterServer must be embedded to have forward compatible implementations.
+type UnimplementedDistributedClusterServer struct {
+}
+
+func (UnimplementedDistributedClusterServer) Ping(context.Context, *Void) (*Pong, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Ping not implemented")
+}
+func (UnimplementedDistributedClusterServer) ListKernels(context.Context, *Void) (*ListKernelsResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ListKernels not implemented")
+}
+func (UnimplementedDistributedClusterServer) SetTotalVirtualGPUs(context.Context, *SetVirtualGPUsRequest) (*VirtualGpuInfo, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SetTotalVirtualGPUs not implemented")
+}
+func (UnimplementedDistributedClusterServer) GetClusterActualGpuInfo(context.Context, *Void) (*ClusterActualGpuInfo, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetClusterActualGpuInfo not implemented")
+}
+func (UnimplementedDistributedClusterServer) GetClusterVirtualGpuInfo(context.Context, *Void) (*ClusterVirtualGpuInfo, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method GetClusterVirtualGpuInfo not implemented")
+}
+func (UnimplementedDistributedClusterServer) MigrateKernelReplica(context.Context, *MigrationRequest) (*MigrateKernelResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method MigrateKernelReplica not implemented")
+}
+func (UnimplementedDistributedClusterServer) mustEmbedUnimplementedDistributedClusterServer() {}
+
+// UnsafeDistributedClusterServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to DistributedClusterServer will
+// result in compilation errors.
+type UnsafeDistributedClusterServer interface {
+	mustEmbedUnimplementedDistributedClusterServer()
+}
+
+func RegisterDistributedClusterServer(s grpc.ServiceRegistrar, srv DistributedClusterServer) {
+	s.RegisterService(&DistributedCluster_ServiceDesc, srv)
+}
+
+func _DistributedCluster_Ping_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Void)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DistributedClusterServer).Ping(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DistributedCluster_Ping_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DistributedClusterServer).Ping(ctx, req.(*Void))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DistributedCluster_ListKernels_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Void)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DistributedClusterServer).ListKernels(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DistributedCluster_ListKernels_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DistributedClusterServer).ListKernels(ctx, req.(*Void))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DistributedCluster_SetTotalVirtualGPUs_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(SetVirtualGPUsRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DistributedClusterServer).SetTotalVirtualGPUs(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DistributedCluster_SetTotalVirtualGPUs_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DistributedClusterServer).SetTotalVirtualGPUs(ctx, req.(*SetVirtualGPUsRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DistributedCluster_GetClusterActualGpuInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Void)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DistributedClusterServer).GetClusterActualGpuInfo(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DistributedCluster_GetClusterActualGpuInfo_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DistributedClusterServer).GetClusterActualGpuInfo(ctx, req.(*Void))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DistributedCluster_GetClusterVirtualGpuInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Void)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DistributedClusterServer).GetClusterVirtualGpuInfo(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DistributedCluster_GetClusterVirtualGpuInfo_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DistributedClusterServer).GetClusterVirtualGpuInfo(ctx, req.(*Void))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DistributedCluster_MigrateKernelReplica_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(MigrationRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DistributedClusterServer).MigrateKernelReplica(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DistributedCluster_MigrateKernelReplica_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DistributedClusterServer).MigrateKernelReplica(ctx, req.(*MigrationRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// DistributedCluster_ServiceDesc is the grpc.ServiceDesc for DistributedCluster service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var DistributedCluster_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "gateway.DistributedCluster",
+	HandlerType: (*DistributedClusterServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Ping",
+			Handler:    _DistributedCluster_Ping_Handler,
+		},
 		{
 			MethodName: "ListKernels",
-			Handler:    _ClusterGateway_ListKernels_Handler,
+			Handler:    _DistributedCluster_ListKernels_Handler,
 		},
 		{
 			MethodName: "SetTotalVirtualGPUs",
-			Handler:    _ClusterGateway_SetTotalVirtualGPUs_Handler,
+			Handler:    _DistributedCluster_SetTotalVirtualGPUs_Handler,
 		},
 		{
 			MethodName: "GetClusterActualGpuInfo",
-			Handler:    _ClusterGateway_GetClusterActualGpuInfo_Handler,
+			Handler:    _DistributedCluster_GetClusterActualGpuInfo_Handler,
 		},
 		{
 			MethodName: "GetClusterVirtualGpuInfo",
-			Handler:    _ClusterGateway_GetClusterVirtualGpuInfo_Handler,
+			Handler:    _DistributedCluster_GetClusterVirtualGpuInfo_Handler,
+		},
+		{
+			MethodName: "MigrateKernelReplica",
+			Handler:    _DistributedCluster_MigrateKernelReplica_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "internal/server/api/proto/gateway.proto",
+}
+
+const (
+	ClusterDashboard_ErrorOccurred_FullMethodName = "/gateway.ClusterDashboard/ErrorOccurred"
+)
+
+// ClusterDashboardClient is the client API for ClusterDashboard service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type ClusterDashboardClient interface {
+	ErrorOccurred(ctx context.Context, in *ErrorMessage, opts ...grpc.CallOption) (*Void, error)
+}
+
+type clusterDashboardClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewClusterDashboardClient(cc grpc.ClientConnInterface) ClusterDashboardClient {
+	return &clusterDashboardClient{cc}
+}
+
+func (c *clusterDashboardClient) ErrorOccurred(ctx context.Context, in *ErrorMessage, opts ...grpc.CallOption) (*Void, error) {
+	out := new(Void)
+	err := c.cc.Invoke(ctx, ClusterDashboard_ErrorOccurred_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// ClusterDashboardServer is the server API for ClusterDashboard service.
+// All implementations must embed UnimplementedClusterDashboardServer
+// for forward compatibility
+type ClusterDashboardServer interface {
+	ErrorOccurred(context.Context, *ErrorMessage) (*Void, error)
+	mustEmbedUnimplementedClusterDashboardServer()
+}
+
+// UnimplementedClusterDashboardServer must be embedded to have forward compatible implementations.
+type UnimplementedClusterDashboardServer struct {
+}
+
+func (UnimplementedClusterDashboardServer) ErrorOccurred(context.Context, *ErrorMessage) (*Void, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ErrorOccurred not implemented")
+}
+func (UnimplementedClusterDashboardServer) mustEmbedUnimplementedClusterDashboardServer() {}
+
+// UnsafeClusterDashboardServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to ClusterDashboardServer will
+// result in compilation errors.
+type UnsafeClusterDashboardServer interface {
+	mustEmbedUnimplementedClusterDashboardServer()
+}
+
+func RegisterClusterDashboardServer(s grpc.ServiceRegistrar, srv ClusterDashboardServer) {
+	s.RegisterService(&ClusterDashboard_ServiceDesc, srv)
+}
+
+func _ClusterDashboard_ErrorOccurred_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(ErrorMessage)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(ClusterDashboardServer).ErrorOccurred(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: ClusterDashboard_ErrorOccurred_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(ClusterDashboardServer).ErrorOccurred(ctx, req.(*ErrorMessage))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// ClusterDashboard_ServiceDesc is the grpc.ServiceDesc for ClusterDashboard service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var ClusterDashboard_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "gateway.ClusterDashboard",
+	HandlerType: (*ClusterDashboardServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "ErrorOccurred",
+			Handler:    _ClusterDashboard_ErrorOccurred_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

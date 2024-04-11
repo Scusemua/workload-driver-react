@@ -66,6 +66,8 @@ type Configuration struct {
 	EvictHostOnLastContainerStop int    `name:"evict-host-on-last-container-stop" description:"Override the default settings for whatever Scheduler you're using and force a value for this parameter. -1 to force false, 0 to leave as default for the particular scheduler, and 1 to force true."`
 	WorkloadPresetsFilepath      string `name:"workload-presets-file" description:"Path to a .YAML file containing the definitions of one or more Workload Presets."`
 
+	ClusterDashboardHandlerPort int `name:"cluster-dashboard-handler-port" description:"Port for the Cluster Dashboard handler gRPC server to listen on."`
+
 	///////////////////////
 	// General execution //
 	///////////////////////
@@ -191,17 +193,15 @@ func GetDefaultConfig() *Configuration {
 		KernelQueryInterval:          "60s",
 		NodeQueryInterval:            "120s",
 		KubeConfig:                   kubeconfigDefaultValue,
-		GatewayAddress:               "localhost:9990",
+		GatewayAddress:               "localhost:8079",
 		KernelSpecQueryInterval:      "600s",
 		JupyterServerAddress:         "localhost:8888",
 		ServerPort:                   8000,
 		WorkloadDriverKernelSpec:     "distributed",
 		PushUpdateInterval:           1,
 		ConnectToKernelTimeoutMillis: 60000,
-		// SpoofKubeNodes:          true,
-		// SpoofKernels:            true,
-		// SpoofKernelSpecs:        true,
-		WebsocketProxyPort: 8001,
+		WebsocketProxyPort:           8001,
+		ClusterDashboardHandlerPort:  8079,
 	}
 }
 

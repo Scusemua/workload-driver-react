@@ -12,20 +12,15 @@ import (
 )
 
 const (
-	// Jupyter Server HTTP API endpoint for retrieving the Jupyter Server version.
-	versionSpecJupyterServerEndpoint = "/api"
-
 	// Jupyter Server HTTP API endpoint for retrieving the list of kernel specs.
 	kernelSpecJupyterServerEndpoint = "/api/kernelspecs"
 )
 
 type JupyterAPIHandler struct {
 	jupyterServerAddress string // IP of the Jupyter Server.
-	jupyterServerVersion string // We just obtain this when testing connectivity. It's not presently used for anything.
 	spoofKernelSpecs     bool   // Determines whether we return real or fake data.
 
 	logger *zap.Logger
-	opts   *domain.Configuration
 }
 
 func NewJupyterAPIHandler(opts *domain.Configuration) domain.JupyterApiHttpHandler {
@@ -41,12 +36,6 @@ func NewJupyterAPIHandler(opts *domain.Configuration) domain.JupyterApiHttpHandl
 	}
 
 	handler.logger.Info("Creating server-side JupyterAPIHandler.")
-
-	// connectivity := handler.testJupyterServerConnectivity()
-	// if !connectivity && !opts.SpoofKernelSpecs {
-	// 	handler.logger.Error("Cannot connect to the Jupyter server.", zap.String("jupyter-server-ip", handler.jupyterServerAddress))
-	// 	panic("Could not connect to Jupyter server.")
-	// }
 
 	return handler
 }
@@ -75,26 +64,6 @@ func (h *JupyterAPIHandler) issueHttpRequest(target string) ([]byte, error) {
 	}
 
 	return body, nil
-}
-
-func (h *JupyterAPIHandler) testJupyterServerConnectivity() bool {
-	target := h.jupyterServerAddress + versionSpecJupyterServerEndpoint
-	body, err := h.issueHttpRequest(target)
-	if err != nil {
-		return false
-	}
-
-	var version map[string]interface{}
-	json.Unmarshal(body, &version)
-
-	if versionString, ok := version["version"]; ok {
-		h.jupyterServerVersion = versionString.(string)
-		h.logger.Debug("Successfully read Jupyter Server version. Connectivity established.", zap.String("version", h.jupyterServerVersion))
-		return true
-	} else {
-		h.logger.Error("Unexpected response from HTTP GET request to Jupyter Server /api/ endpoint.", zap.Any("response", version), zap.String("URL", target))
-		return false
-	}
 }
 
 func (h *JupyterAPIHandler) doSpoofKernelSpecs() []*domain.KernelSpec {
