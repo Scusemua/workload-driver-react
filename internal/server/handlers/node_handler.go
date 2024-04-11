@@ -84,7 +84,7 @@ func (h *KubeNodeHttpHandler) createKubernetesClient(opts *domain.Configuration)
 	}
 }
 
-func (h *KubeNodeHttpHandler) parseKubernetesNode(node *corev1.Node, actualGpuInformation *gateway.ClusterActualGpuInfo) *domain.KubernetesNode {
+func (h *KubeNodeHttpHandler) parseKubernetesNode(node *corev1.Node, actualGpuInformation *gateway.ClusterActualGpuInfo) (*domain.KubernetesNode, error) {
 	capacityCpuAsQuantity := node.Status.Allocatable[corev1.ResourceCPU]
 	capacityMemoryAsQuantity := node.Status.Allocatable[corev1.ResourceMemory]
 
@@ -156,7 +156,7 @@ func (h *KubeNodeHttpHandler) parseKubernetesNode(node *corev1.Node, actualGpuIn
 	})
 	if err != nil {
 		h.logger.Error("Failed to retrieve list of Pods running on node.", zap.String("node", node.Name), zap.Error(err))
-		return nil
+		return nil, err
 	}
 
 	allocatedCPUs := 0.0
@@ -210,7 +210,7 @@ func (h *KubeNodeHttpHandler) parseKubernetesNode(node *corev1.Node, actualGpuIn
 		CapacityResources:  capacityResources,
 	}
 
-	return parsedNode
+	return parsedNode, nil
 }
 
 func (h *KubeNodeHttpHandler) HandleRequest(c *gin.Context) {
@@ -224,8 +224,7 @@ func (h *KubeNodeHttpHandler) HandleRequest(c *gin.Context) {
 	nodes, err := h.clientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		h.logger.Error("Failed to retrieve nodes from Kubernetes.", zap.Error(err))
-		h.WriteError(c, "Failed to retrieve nodes from Kubernetes.")
-		return
+		c.AbortWithError(502, err)
 	}
 	h.sugaredLogger.Debugf("Listed Kubernetes nodes via Kubernetes API in %v.", time.Since(st))
 
@@ -256,8 +255,14 @@ func (h *KubeNodeHttpHandler) HandleRequest(c *gin.Context) {
 			continue
 		}
 		go func(resultChannel chan *domain.KubernetesNode, node corev1.Node, wg *sync.WaitGroup) {
-			parsedNode := h.parseKubernetesNode(&node, actualGpuInformation)
-			nodesChannel <- parsedNode
+			parsedNode, err := h.parseKubernetesNode(&node, actualGpuInformation)
+
+			if err != nil {
+				c.Error(err)
+			} else {
+				nodesChannel <- parsedNode
+			}
+
 			wg.Done()
 		}(nodesChannel, n, &waitGroup)
 	}
@@ -336,9 +341,14 @@ func (h *KubeNodeHttpHandler) HandlePatchRequest(c *gin.Context) {
 			h.logger.Debug("Successfully added 'NoExecute' and 'NoSchedule' taints to the Kubernetes node.", zap.String("node-name", nodeName))
 		}
 
-		updatedNode := h.parseKubernetesNode(resp, nil)
-		h.logger.Debug("Sending updated Kubernetes node back to frontend.", zap.String("node-name", nodeName), zap.String("updated-node", updatedNode.String()))
-		c.JSON(http.StatusOK, updatedNode)
+		updatedNode, err := h.parseKubernetesNode(resp, nil)
+
+		if err != nil {
+			c.AbortWithError(502, err)
+		} else {
+			h.logger.Debug("Sending updated Kubernetes node back to frontend.", zap.String("node-name", nodeName), zap.String("updated-node", updatedNode.String()))
+			c.JSON(http.StatusOK, updatedNode)
+		}
 	}
 }
 

@@ -1,6 +1,9 @@
 import * as React from 'react';
 import {
     Brand,
+    Button,
+    Flex,
+    FlexItem,
     Masthead,
     MastheadBrand,
     MastheadContent,
@@ -9,10 +12,11 @@ import {
     SkipToContent,
     ToggleGroup,
     ToggleGroupItem,
+    Tooltip,
 } from '@patternfly/react-core';
 import logo from '@app/bgimages/WorkloadDriver-Logo.svg';
 import { DarkModeContext } from '@app/Providers/DarkModeProvider';
-import { MoonIcon, SunIcon } from '@patternfly/react-icons';
+import { MoonIcon, SkullCrossbonesIcon, SunIcon } from '@patternfly/react-icons';
 
 interface IAppLayout {
     children: React.ReactNode;
@@ -42,26 +46,49 @@ const AppLayout: React.FunctionComponent<IAppLayout> = ({ children }) => {
                     <Brand src={logo} alt="Workload Driver Logo" heights={{ default: '36px' }} />
                 </MastheadBrand>
                 <MastheadContent>
-                    <div className="pf-v5-theme-dark">
-                        <ToggleGroup>
-                            <ToggleGroupItem
-                                aria-label={lightModeId}
-                                id={lightModeId}
-                                buttonId={lightModeButtonId}
-                                icon={<SunIcon />}
-                                onChange={handleThemeToggleClick}
-                                isSelected={isSelected === lightModeButtonId}
-                            />
-                            <ToggleGroupItem
-                                aria-label={darkModeId}
-                                id={darkModeId}
-                                buttonId={darkModeButtonId}
-                                icon={<MoonIcon />}
-                                onChange={handleThemeToggleClick}
-                                isSelected={isSelected === darkModeButtonId}
-                            />
-                        </ToggleGroup>
-                    </div>
+                    <Flex direction={{ default: 'row' }}>
+                        <FlexItem>
+                            <div className="pf-v5-theme-dark">
+                                <ToggleGroup>
+                                    <ToggleGroupItem
+                                        aria-label={lightModeId}
+                                        id={lightModeId}
+                                        buttonId={lightModeButtonId}
+                                        icon={<SunIcon />}
+                                        onChange={handleThemeToggleClick}
+                                        isSelected={isSelected === lightModeButtonId}
+                                    />
+                                    <ToggleGroupItem
+                                        aria-label={darkModeId}
+                                        id={darkModeId}
+                                        buttonId={darkModeButtonId}
+                                        icon={<MoonIcon />}
+                                        onChange={handleThemeToggleClick}
+                                        isSelected={isSelected === darkModeButtonId}
+                                    />
+                                </ToggleGroup>
+                            </div>
+                        </FlexItem>
+
+                        <FlexItem>
+                            <Tooltip content="Cause the Cluster Gateway to panic.">
+                                <Button
+                                    isDanger
+                                    variant="secondary"
+                                    icon={<SkullCrossbonesIcon />}
+                                    onClick={() => {
+                                        const requestOptions = {
+                                            method: 'POST',
+                                        };
+
+                                        fetch('api/panic', requestOptions);
+                                    }}
+                                >
+                                    Induce a Panic
+                                </Button>
+                            </Tooltip>
+                        </FlexItem>
+                    </Flex>
                 </MastheadContent>
             </MastheadMain>
         </Masthead>

@@ -312,6 +312,7 @@ var ClusterGateway_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
+	DistributedCluster_InducePanic_FullMethodName              = "/gateway.DistributedCluster/InducePanic"
 	DistributedCluster_Ping_FullMethodName                     = "/gateway.DistributedCluster/Ping"
 	DistributedCluster_ListKernels_FullMethodName              = "/gateway.DistributedCluster/ListKernels"
 	DistributedCluster_SetTotalVirtualGPUs_FullMethodName      = "/gateway.DistributedCluster/SetTotalVirtualGPUs"
@@ -324,6 +325,9 @@ const (
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type DistributedClusterClient interface {
+	// Used for debugging/testing. Causes a Panic.
+	InducePanic(ctx context.Context, in *Void, opts ...grpc.CallOption) (*Void, error)
+	// Used to test connectivity.
 	Ping(ctx context.Context, in *Void, opts ...grpc.CallOption) (*Pong, error)
 	// Return a list of all of the current kernel IDs.
 	ListKernels(ctx context.Context, in *Void, opts ...grpc.CallOption) (*ListKernelsResponse, error)
@@ -348,6 +352,15 @@ type distributedClusterClient struct {
 
 func NewDistributedClusterClient(cc grpc.ClientConnInterface) DistributedClusterClient {
 	return &distributedClusterClient{cc}
+}
+
+func (c *distributedClusterClient) InducePanic(ctx context.Context, in *Void, opts ...grpc.CallOption) (*Void, error) {
+	out := new(Void)
+	err := c.cc.Invoke(ctx, DistributedCluster_InducePanic_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
 }
 
 func (c *distributedClusterClient) Ping(ctx context.Context, in *Void, opts ...grpc.CallOption) (*Pong, error) {
@@ -408,6 +421,9 @@ func (c *distributedClusterClient) MigrateKernelReplica(ctx context.Context, in 
 // All implementations must embed UnimplementedDistributedClusterServer
 // for forward compatibility
 type DistributedClusterServer interface {
+	// Used for debugging/testing. Causes a Panic.
+	InducePanic(context.Context, *Void) (*Void, error)
+	// Used to test connectivity.
 	Ping(context.Context, *Void) (*Pong, error)
 	// Return a list of all of the current kernel IDs.
 	ListKernels(context.Context, *Void) (*ListKernelsResponse, error)
@@ -431,6 +447,9 @@ type DistributedClusterServer interface {
 type UnimplementedDistributedClusterServer struct {
 }
 
+func (UnimplementedDistributedClusterServer) InducePanic(context.Context, *Void) (*Void, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method InducePanic not implemented")
+}
 func (UnimplementedDistributedClusterServer) Ping(context.Context, *Void) (*Pong, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Ping not implemented")
 }
@@ -460,6 +479,24 @@ type UnsafeDistributedClusterServer interface {
 
 func RegisterDistributedClusterServer(s grpc.ServiceRegistrar, srv DistributedClusterServer) {
 	s.RegisterService(&DistributedCluster_ServiceDesc, srv)
+}
+
+func _DistributedCluster_InducePanic_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Void)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DistributedClusterServer).InducePanic(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DistributedCluster_InducePanic_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DistributedClusterServer).InducePanic(ctx, req.(*Void))
+	}
+	return interceptor(ctx, in, info, handler)
 }
 
 func _DistributedCluster_Ping_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
@@ -577,6 +614,10 @@ var DistributedCluster_ServiceDesc = grpc.ServiceDesc{
 	ServiceName: "gateway.DistributedCluster",
 	HandlerType: (*DistributedClusterServer)(nil),
 	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "InducePanic",
+			Handler:    _DistributedCluster_InducePanic_Handler,
+		},
 		{
 			MethodName: "Ping",
 			Handler:    _DistributedCluster_Ping_Handler,

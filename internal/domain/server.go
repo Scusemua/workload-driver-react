@@ -37,6 +37,9 @@ const (
 	// Used internally (by the frontend) to get the list of available workload presets from the backend.
 	WORKLOAD_PRESET_ENDPOINT = "/workload-presets"
 
+	// Used to cause the Cluster Gateway to panic. Used for debugging/testing.
+	PANIC_ENDPOINT = "/panic"
+
 	JUPYTER_GROUP_ENDPOINT        = "/jupyter"
 	JUPYTER_START_KERNEL_ENDPOINT = "/start"
 	JUPYTER_STOP_KERNEL_ENDPOINT  = "/stop"

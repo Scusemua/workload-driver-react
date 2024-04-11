@@ -157,6 +157,8 @@ func (h *ClusterDashboardHandler) dialGatewayGRPC(gatewayAddress string) error {
 }
 
 func (h *ClusterDashboardHandler) ErrorOccurred(ctx context.Context, errorMessage *gateway.ErrorMessage) (*gateway.Void, error) {
+	h.logger.Error("A fatal error has occurred within the Cluster Gateway!", zap.Any("error", errorMessage))
+
 	return &gateway.Void{}, nil
 }
 

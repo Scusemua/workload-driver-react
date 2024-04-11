@@ -138,6 +138,8 @@ func (s *serverImpl) setupRoutes() error {
 
 		// Used to stream logs from Kubernetes.
 		apiGroup.GET(fmt.Sprintf("%s/pods/:pod", domain.LOGS_ENDPOINT), handlers.NewLogHttpHandler(s.opts).HandleRequest)
+
+		apiGroup.POST(domain.PANIC_ENDPOINT, handlers.NewPanicHttpHandler(s.opts, gatewayRpcClient).HandleRequest)
 	}
 
 	if s.opts.SpoofKernelSpecs {
