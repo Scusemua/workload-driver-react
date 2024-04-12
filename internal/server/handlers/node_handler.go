@@ -225,6 +225,7 @@ func (h *KubeNodeHttpHandler) HandleRequest(c *gin.Context) {
 	if err != nil {
 		h.logger.Error("Failed to retrieve nodes from Kubernetes.", zap.Error(err))
 		c.AbortWithError(502, err)
+		return
 	}
 	h.sugaredLogger.Debugf("Listed Kubernetes nodes via Kubernetes API in %v.", time.Since(st))
 
@@ -233,6 +234,7 @@ func (h *KubeNodeHttpHandler) HandleRequest(c *gin.Context) {
 	if err != nil {
 		h.logger.Error("Failed to retrieve 'actual' GPU usage from Cluster Gateway.", zap.Error(err))
 		c.Error(fmt.Errorf("failed to retrieve 'actual' GPU usage from Cluster Gateway: %v", err.Error()))
+		h.grpcClient.HandleConnectionError()
 	}
 	h.sugaredLogger.Debugf("Retrieved 'actual' GPU info from Cluster Gateway in %v. Total time elapsed: %v.", time.Since(st2), time.Since(st))
 	st3 := time.Now()
@@ -345,6 +347,7 @@ func (h *KubeNodeHttpHandler) HandlePatchRequest(c *gin.Context) {
 
 		if err != nil {
 			c.AbortWithError(502, err)
+			return
 		} else {
 			h.logger.Debug("Sending updated Kubernetes node back to frontend.", zap.String("node-name", nodeName), zap.String("updated-node", updatedNode.String()))
 			c.JSON(http.StatusOK, updatedNode)

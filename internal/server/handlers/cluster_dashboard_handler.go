@@ -8,6 +8,7 @@ import (
 	"net"
 	"net/http"
 	"os"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -24,12 +25,17 @@ import (
 var (
 	ErrFailedToConnect           = errors.New("a connection to the Gateway could not be established within the configured timeout")
 	ErrProvisionerNotInitialized = errors.New("provisioner is not initialized")
+	ErrConcurrentSetupOperations = errors.New("there is already 'setup RPC resources' operation taking place")
 
 	sig = make(chan os.Signal, 1)
 )
 
 // This type of handler issues HTTP requests to the backend.
 type ClusterDashboardHandler struct {
+	// If this is equal to 1, then the gRPC resources are in the process of being setup.
+	// In this case, additional attempts to reconnect should not be performed.
+	setupInProgress int32
+
 	gateway.DistributedClusterClient // gRPC client to the Cluster Gateway.
 	gateway.UnimplementedClusterDashboardServer
 
@@ -38,12 +44,16 @@ type ClusterDashboardHandler struct {
 
 	clusterDashboardHandlerPort int
 
+	srv *grpc.Server
+
 	gatewayAddress string // Address that the Cluster Gateway's gRPC server is listening on.
 }
 
 func NewClusterDashboardHandler(opts *domain.Configuration, shouldConnect bool) *ClusterDashboardHandler {
 	handler := &ClusterDashboardHandler{
 		clusterDashboardHandlerPort: opts.ClusterDashboardHandlerPort,
+		gatewayAddress:              opts.GatewayAddress,
+		setupInProgress:             0,
 	}
 
 	var err error
@@ -55,7 +65,7 @@ func NewClusterDashboardHandler(opts *domain.Configuration, shouldConnect bool) 
 	handler.sugaredLogger = handler.logger.Sugar()
 
 	if shouldConnect {
-		err := handler.dialGatewayGRPC(opts.GatewayAddress)
+		err := handler.setupRpcResources(opts.GatewayAddress)
 		if err != nil {
 			handler.logger.Error("Failed to dial gRPC Cluster Gateway.", zap.Error(err))
 			panic(err)
@@ -65,7 +75,36 @@ func NewClusterDashboardHandler(opts *domain.Configuration, shouldConnect bool) 
 	return handler
 }
 
-func (h *ClusterDashboardHandler) dialGatewayGRPC(gatewayAddress string) error {
+// This function should be called by another handler if a gRPC error is encountered.
+// This will attempt to restart/recreate the gRPC server + client encapsulated by ClusterDashboardHandler.
+//
+// This does not need to be called in its own goroutine; this function spawns a goroutine itself.
+func (h *ClusterDashboardHandler) HandleConnectionError() {
+	if h.gatewayAddress == "" {
+		// The gatewayAddress field is set after the initial connection attempt succeeds.
+		h.logger.Error("Cannot attempt to recreate gRPC resources as the gateway address was not specified when the Cluster Dashboard Handler was created.")
+		return
+	}
+
+	go h.setupRpcResources(h.gatewayAddress)
+}
+
+func (h *ClusterDashboardHandler) ErrorOccurred(ctx context.Context, errorMessage *gateway.ErrorMessage) (*gateway.Void, error) {
+	h.logger.Error("A fatal error has occurred within the Cluster Gateway!", zap.Any("error", errorMessage))
+
+	return &gateway.Void{}, nil
+}
+
+// Setup the gRPC resources (client and server).
+func (h *ClusterDashboardHandler) setupRpcResources(gatewayAddress string) error {
+	swapped := atomic.CompareAndSwapInt32(&h.setupInProgress, 0, 1)
+	if !swapped {
+		h.logger.Debug("There is already 'setup RPC resources' operation taking place.")
+		return ErrConcurrentSetupOperations
+	}
+
+	h.logger.Debug("Dialing Cluster Gateway now.", zap.String("gateway-address", gatewayAddress))
+
 	gOpts := []grpc.ServerOption{
 		grpc.KeepaliveParams(keepalive.ServerParameters{
 			Timeout: 120 * time.Second,
@@ -75,13 +114,46 @@ func (h *ClusterDashboardHandler) dialGatewayGRPC(gatewayAddress string) error {
 		}),
 	}
 
-	srv := grpc.NewServer(gOpts...)
-	gateway.RegisterClusterDashboardServer(srv, h)
+	if h.srv != nil {
+		h.logger.Warn("Cluster Dashboard Handler already has an existing server. Attempting to stop that server first.")
+
+		ctx, cancel := context.WithTimeout(context.TODO(), time.Second*30)
+		defer cancel()
+		doneChan := make(chan interface{})
+
+		go func(doneChan chan interface{}) {
+			h.logger.Debug("Attempting to stop existing gRPC server gracefully.")
+			h.srv.GracefulStop()
+			select {
+			case doneChan <- struct{}{}:
+				return
+			default:
+				return
+			}
+		}(doneChan)
+
+		select {
+		case <-doneChan:
+			{
+				h.logger.Debug("Successfully stopped existing gRPC server gracefully.")
+			}
+		case <-ctx.Done():
+			{
+				h.logger.Warn("Failed to stop existing gRPC server gracefully. Forcefully stopping server now.")
+				h.srv.Stop()
+				h.logger.Debug("Successfully stopped existing gRPC server forcefully.")
+			}
+		}
+	}
+
+	h.srv = grpc.NewServer(gOpts...)
+	gateway.RegisterClusterDashboardServer(h.srv, h)
 
 	// Initialize gRPC listener
 	lis, err := net.Listen("tcp", fmt.Sprintf(":%d", h.clusterDashboardHandlerPort))
 	if err != nil {
 		h.logger.Error("Failed to listen.", zap.Error(err))
+		h.exitSetup()
 		return err
 	}
 	// defer lis.Close()
@@ -109,6 +181,7 @@ func (h *ClusterDashboardHandler) dialGatewayGRPC(gatewayAddress string) error {
 
 	if !connectedToGateway {
 		h.sugaredLogger.Errorf("Failed to connect to Gateway after %d attempts.", numAttempts)
+		h.exitSetup()
 		return ErrFailedToConnect
 	}
 	// defer gatewayConn.Close()
@@ -117,6 +190,7 @@ func (h *ClusterDashboardHandler) dialGatewayGRPC(gatewayAddress string) error {
 	provisioner, err := newConnectionProvisioner(gatewayConn)
 	if err != nil {
 		h.logger.Error("Failed to initialize the provisioner.", zap.Error(err))
+		h.exitSetup()
 		return err
 	}
 
@@ -125,20 +199,39 @@ func (h *ClusterDashboardHandler) dialGatewayGRPC(gatewayAddress string) error {
 		defer h.finalize(true)
 		num_tries := 0
 		for num_tries < 3 {
-			provisioner.logger.Debug("Trying to connect.")
-			if err := srv.Serve(provisioner); err != nil {
-				provisioner.logger.Error("Failed to serve reverse connection.", zap.Error(err))
+			provisioner.logger.Debug("Trying to connect.", zap.Int("attempt-number", num_tries+1))
+			if err := h.srv.Serve(provisioner); err != nil {
+				provisioner.logger.Error("Failed to serve reverse connection.", zap.Int("attempt-number", num_tries+1), zap.Error(err))
 				num_tries += 1
-				time.Sleep(time.Millisecond * 500)
-				continue
+
+				if num_tries < 3 {
+					time.Sleep(time.Millisecond * 500)
+					continue
+				} else {
+					provisioner.logger.Error("Failed to serve reverse connection after 3 attempts. Aborting.")
+					provisioner.failedToConnect <- err
+					return
+				}
 			}
 		}
 	}()
 
-	<-provisioner.Ready()
-	h.logger.Info("I've been informed that the provisioner is ready.")
+	select {
+	case <-provisioner.Ready():
+		{
+			h.logger.Debug("Provisioner connected successfully and is now ready.")
+		}
+	case err = <-provisioner.FailedToConnect():
+		{
+			h.sugaredLogger.Errorf("Provisioner failed to connect successfully. Aborting. Last error: %v.", err)
+			h.exitSetup()
+			return err
+		}
+	}
+
 	if err := provisioner.Validate(); err != nil {
 		log.Fatalf("Failed to validate reverse provisioner connection: %v", zap.Error(err))
+		h.exitSetup()
 		return err
 	}
 
@@ -148,18 +241,22 @@ func (h *ClusterDashboardHandler) dialGatewayGRPC(gatewayAddress string) error {
 	// Start gRPC server
 	go func() {
 		defer h.finalize(true)
-		if err := srv.Serve(lis); err != nil {
+		if err := h.srv.Serve(lis); err != nil {
 			log.Fatalf("Failed to serve regular connection: %v", err)
 		}
 	}()
 
+	h.exitSetup()
+
 	return nil
 }
 
-func (h *ClusterDashboardHandler) ErrorOccurred(ctx context.Context, errorMessage *gateway.ErrorMessage) (*gateway.Void, error) {
-	h.logger.Error("A fatal error has occurred within the Cluster Gateway!", zap.Any("error", errorMessage))
-
-	return &gateway.Void{}, nil
+// Swap the flag back to 0. Panic if it is already 0.
+func (h *ClusterDashboardHandler) exitSetup() {
+	swapped := atomic.CompareAndSwapInt32(&h.setupInProgress, 1, 0)
+	if !swapped {
+		panic("'setupInProgress' flag was not set to 1")
+	}
 }
 
 // Write an error back to the client.
@@ -184,9 +281,10 @@ type connectionProvisioner struct {
 	net.Listener
 	gateway.DistributedClusterClient
 
-	ready         chan struct{}
-	logger        *zap.Logger
-	sugaredLogger *zap.SugaredLogger
+	ready           chan struct{}
+	failedToConnect chan error
+	logger          *zap.Logger
+	sugaredLogger   *zap.SugaredLogger
 }
 
 func newConnectionProvisioner(conn net.Conn) (*connectionProvisioner, error) {
@@ -198,8 +296,9 @@ func newConnectionProvisioner(conn net.Conn) (*connectionProvisioner, error) {
 	}
 
 	provisioner := &connectionProvisioner{
-		Listener: srvSession,
-		ready:    make(chan struct{}),
+		Listener:        srvSession,
+		ready:           make(chan struct{}),
+		failedToConnect: make(chan error),
 	}
 
 	provisioner.logger, err = zap.NewDevelopment()
@@ -220,6 +319,11 @@ func newConnectionProvisioner(conn net.Conn) (*connectionProvisioner, error) {
 // Ready returns a channel that is closed when the gRPC client is initialized
 func (p *connectionProvisioner) Ready() <-chan struct{} {
 	return p.ready
+}
+
+// Ready returns a channel that is used to communicate that the Provisioner could not connect successfully.
+func (p *connectionProvisioner) FailedToConnect() <-chan error {
+	return p.failedToConnect
 }
 
 // Accept overrides the default Accept method and initializes the gRPC client
@@ -292,7 +396,7 @@ func (p *connectionProvisioner) Validate() error {
 }
 
 // Attempt to connect to the Cluster Gateway's gRPC server using the provided address. Returns an error if connection failed, or nil on success. This should NOT be called from the UI goroutine.
-// func (h *ClusterDashboardHandler) dialGatewayGRPC(gatewayAddress string) error {
+// func (h *ClusterDashboardHandler) setupRpcResources(gatewayAddress string) error {
 // 	if gatewayAddress == "" {
 // 		return domain.ErrEmptyGatewayAddr
 // 	}

@@ -59,15 +59,10 @@ func (h *KernelHttpHandler) HandleRequest(c *gin.Context) {
 	} else {
 		h.logger.Info("Retrieving Jupyter kernels from the Jupyter Server now.", zap.String("jupyter-server-ip", h.grpcClient.gatewayAddress))
 		kernels, err = h.getKernelsFromClusterGateway()
-
 		if err != nil {
+			// We already attempt to reconnect gRPC in the `getKernelsFromClusterGateway` method. So, just abort the request here.
 			c.AbortWithError(500, err)
-		}
-
-		for _, kernel := range kernels {
-			sort.SliceStable(kernel.Replicas, func(i, j int) bool {
-				return kernel.Replicas[i].ReplicaId < kernel.Replicas[j].ReplicaId
-			})
+			return
 		}
 
 		if kernels == nil {
@@ -75,6 +70,12 @@ func (h *KernelHttpHandler) HandleRequest(c *gin.Context) {
 			h.logger.Error("Failed to retrieve list of kernels from Jupyter Server.")
 			h.WriteError(c, "Failed to retrieve list of kernels from Jupyter Server.")
 			return
+		}
+
+		for _, kernel := range kernels {
+			sort.SliceStable(kernel.Replicas, func(i, j int) bool {
+				return kernel.Replicas[i].ReplicaId < kernel.Replicas[j].ReplicaId
+			})
 		}
 	}
 
@@ -196,6 +197,7 @@ func (h *KernelHttpHandler) getKernelsFromClusterGateway() ([]*gateway.Distribut
 	resp, err := h.grpcClient.ListKernels(context.TODO(), &gateway.Void{})
 	if err != nil {
 		h.logger.Error("Failed to fetch list of active kernels from the Cluster Gateway.", zap.Error(err))
+		h.grpcClient.HandleConnectionError()
 		return nil, err
 	} else if resp.Kernels == nil {
 		// We successfully retrieved the kernels, so return them.
