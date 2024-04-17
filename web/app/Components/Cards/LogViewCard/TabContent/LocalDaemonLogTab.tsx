@@ -6,6 +6,7 @@ import { Tab, TabTitleIcon, TabTitleText, Tabs } from '@patternfly/react-core';
 import { ServerIcon } from '@patternfly/react-icons';
 import { KubernetesPodLogView } from '@cards/LogViewCard/Views/';
 import { LogHeightContext } from '../LogViewCard';
+import { useNodes } from '@app/Providers';
 
 export interface LocalDaemonLogTabContentProps {
     children?: React.ReactNode;
@@ -15,6 +16,9 @@ export interface LocalDaemonLogTabContentProps {
 export const LocalDaemonLogTabContent: React.FunctionComponent<LocalDaemonLogTabContentProps> = (
     props: LocalDaemonLogTabContentProps,
 ) => {
+    const { nodes } = useNodes();
+    const [numNodes, setNumNodes] = React.useState(0);
+
     const logHeight = React.useContext(LogHeightContext);
     const [activeLocalDaemonTabKey, setActiveLocalDaemonTabKey] = React.useState(0);
 
@@ -23,7 +27,11 @@ export const LocalDaemonLogTabContent: React.FunctionComponent<LocalDaemonLogTab
         setActiveLocalDaemonTabKey(Number(tab));
     };
 
-    const localDaemonIDs: number[] = [0, 1, 2, 3];
+    React.useEffect(() => {
+        if (nodes.length != numNodes) {
+            setNumNodes(nodes.length);
+        }
+    }, [nodes]);
 
     return (
         <Tabs
@@ -33,7 +41,7 @@ export const LocalDaemonLogTabContent: React.FunctionComponent<LocalDaemonLogTab
             activeKey={activeLocalDaemonTabKey}
             onSelect={handleLocalDaemonTabClick}
         >
-            {localDaemonIDs.map((id: number) => {
+            {Array.from(Array(numNodes).keys()).map((_val: number, id: number) => {
                 return (
                     <Tab
                         id={`local-daemon-${id}-tab`}
