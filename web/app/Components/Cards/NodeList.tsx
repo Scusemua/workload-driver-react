@@ -608,16 +608,24 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
             variant={PaginationVariant.bottom}
             perPageOptions={[
                 {
-                    title: '1',
+                    title: '1 nodes',
                     value: 1,
                 },
                 {
-                    title: '2',
+                    title: '2 nodes',
                     value: 2,
                 },
                 {
-                    title: '3',
+                    title: '3 nodes',
                     value: 3,
+                },
+                {
+                    title: '4 nodes',
+                    value: 4,
+                },
+                {
+                    title: '5 nodes',
+                    value: 5,
                 },
             ]}
             onSetPage={onSetPage}

@@ -1435,15 +1435,15 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                     variant={PaginationVariant.bottom}
                     perPageOptions={[
                         {
-                            title: '1',
+                            title: '1 kernels',
                             value: 1,
                         },
                         {
-                            title: '2',
+                            title: '2 kernels',
                             value: 2,
                         },
                         {
-                            title: '3',
+                            title: '3 kernels',
                             value: 3,
                         },
                         // {

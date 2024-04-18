@@ -611,15 +611,15 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                     variant={PaginationVariant.bottom}
                     perPageOptions={[
                         {
-                            title: '1',
+                            title: '1 workloads',
                             value: 1,
                         },
                         {
-                            title: '2',
+                            title: '2 workloads',
                             value: 2,
                         },
                         {
-                            title: '3',
+                            title: '3 workloads',
                             value: 3,
                         },
                         // {
