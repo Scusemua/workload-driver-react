@@ -108,16 +108,6 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
         setSearchValue(value);
     };
 
-    // Set up name search input
-    const searchInput = (
-        <SearchInput
-            placeholder="Filter by node ID"
-            value={searchValue}
-            onChange={(_event, value) => onSearchChange(value)}
-            onClear={() => onSearchChange('')}
-        />
-    );
-
     const onAdjustVirtualGPUsClicked = (nodes: KubernetesNode[]) => {
         setAdjustVirtualGPUsNodes(nodes);
         setIsAdjustVirtualGPUsModalOpen(true);
@@ -249,7 +239,14 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                     <FlexItem hidden={nodes.length == 0}>
                         <ToolbarItem>
                             <InputGroup>
-                                <InputGroupItem isFill>{searchInput}</InputGroupItem>
+                                <InputGroupItem isFill>
+                                    <SearchInput
+                                        placeholder="Filter by node ID"
+                                        value={searchValue}
+                                        onChange={(_event, value) => onSearchChange(value)}
+                                        onClear={() => onSearchChange('')}
+                                    />
+                                </InputGroupItem>
                             </InputGroup>
                         </ToolbarItem>
                     </FlexItem>

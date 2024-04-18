@@ -775,42 +775,62 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         </div>
     );
 
-    const ToolbarItems = (
-        <ToolbarToggleGroup toggleIcon={<FilterIcon />} breakpoint="md">
-            <Flex
-                alignSelf={{ default: 'alignSelfFlexEnd' }}
-                alignItems={{ default: 'alignItemsFlexEnd' }}
-                spaceItems={{ default: 'spaceItemsSm' }}
-            >
-                <ToolbarItem>
-                    <InputGroup>
-                        <InputGroupItem isFill>
-                            <SearchInput
-                                placeholder="Filter by kernel name"
-                                value={searchValue}
-                                onChange={(_event, value) => onSearchChange(value)}
-                                onClear={() => onSearchChange('')}
-                            />
-                        </InputGroupItem>
-                    </InputGroup>
-                </ToolbarItem>
-                <ToolbarGroup variant="filter-group">
-                    <ToolbarFilter
-                        chips={statusSelections}
-                        deleteChip={() => setStatusSelections([])}
-                        deleteChipGroup={() => setStatusSelections([])}
-                        categoryName="Status"
-                    >
-                        {statusSelect}
-                    </ToolbarFilter>
-                </ToolbarGroup>
-            </Flex>
-        </ToolbarToggleGroup>
-    );
+    // const ToolbarItems = (
+    //     <ToolbarToggleGroup toggleIcon={<FilterIcon />} breakpoint="md">
+    //         <Flex
+    //             alignSelf={{ default: 'alignSelfFlexEnd' }}
+    //             alignItems={{ default: 'alignItemsFlexEnd' }}
+    //             spaceItems={{ default: 'spaceItemsSm' }}
+    //         >
+    //             <ToolbarItem>
+    //                 <InputGroup>
+    //                     <InputGroupItem isFill>
+    //                         <SearchInput
+    //                             placeholder="Filter by kernel name"
+    //                             value={searchValue}
+    //                             onChange={(_event, value) => onSearchChange(value)}
+    //                             onClear={() => onSearchChange('')}
+    //                         />
+    //                     </InputGroupItem>
+    //                 </InputGroup>
+    //             </ToolbarItem>
+    //             <ToolbarGroup variant="filter-group">
+    //                 <ToolbarFilter
+    //                     chips={statusSelections}
+    //                     deleteChip={() => setStatusSelections([])}
+    //                     deleteChipGroup={() => setStatusSelections([])}
+    //                     categoryName="Status"
+    //                 >
+    //                     {statusSelect}
+    //                 </ToolbarFilter>
+    //             </ToolbarGroup>
+    //         </Flex>
+    //     </ToolbarToggleGroup>
+    // );
 
     const cardHeaderActions = (
         <React.Fragment>
-            <ToolbarGroup className="kernel-list-card-actions" variant="icon-button-group">
+            <ToolbarToggleGroup className="kernel-list-card-actions" toggleIcon={<FilterIcon />} breakpoint="md">
+                <Flex
+                    alignSelf={{ default: 'alignSelfFlexEnd' }}
+                    alignItems={{ default: 'alignItemsFlexEnd' }}
+                    spaceItems={{ default: 'spaceItemsSm' }}
+                >
+                    <ToolbarItem>
+                        <InputGroup>
+                            <InputGroupItem isFill>
+                                <SearchInput
+                                    placeholder="Filter by kernel name"
+                                    value={searchValue}
+                                    onChange={(_event, value) => onSearchChange(value)}
+                                    onClear={() => onSearchChange('')}
+                                />
+                            </InputGroupItem>
+                        </InputGroup>
+                    </ToolbarItem>
+                </Flex>
+            </ToolbarToggleGroup>
+            <ToolbarGroup variant="icon-button-group">
                 <ToolbarItem>
                     <Tooltip exitDelay={75} content={<div>Create a new kernel.</div>}>
                         <Button
@@ -1360,7 +1380,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                         Active Kernels
                     </Title>
                 </CardTitle>
-                <Toolbar
+                {/* <Toolbar
                     hidden={kernels.length == 0}
                     id="content-padding-data-toolbar"
                     usePageInsets
@@ -1369,7 +1389,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                     }}
                 >
                     <ToolbarContent>{ToolbarItems}</ToolbarContent>
-                </Toolbar>
+                </Toolbar> */}
             </CardHeader>
             <CardBody>
                 {(kernels.length > 0 || pendingKernelArr.length > 0) && (
