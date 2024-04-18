@@ -71,7 +71,7 @@ type Synthesizer struct {
 	consumer              domain.EventConsumer
 	bufferedEvents        chan domain.Event
 	eventsChannel         chan domain.Event
-	eventsHeap            SimpleEventHeap
+	eventsHeap            domain.SimpleEventHeap
 	numActiveSources      uint64
 	maxUtilizationWrapper *MaxUtilizationWrapper
 
@@ -100,7 +100,7 @@ func NewSynthesizer(opts *domain.Configuration, maxUtilizationWrapper *MaxUtiliz
 	synthesizer := &Synthesizer{
 		// Sources:          make([]Driver, 0, 2),
 		bufferedEvents:        make(chan domain.Event),
-		eventsHeap:            make(SimpleEventHeap, 0, 1),
+		eventsHeap:            make(domain.SimpleEventHeap, 0, 1),
 		eventsChannel:         make(chan domain.Event),
 		numActiveSources:      0,
 		maxUtilizationWrapper: maxUtilizationWrapper,
@@ -281,7 +281,7 @@ func (s *Synthesizer) transitionAndSubmitEvent(evt domain.Event) {
 					eventData.CurrentTrainingMaxGPUs = s.GpuTrainingTaskMap()[sess.Pod][trainingIdx]
 				}
 
-				if evtName == EventSessionTrainingStarted {
+				if evtName == domain.EventSessionTrainingStarted {
 					if len(s.CpuTrainingTaskMap()[sess.Pod]) <= (trainingIdx + 1) {
 						s.sugarLog.Warnf("Cannot incr training idx for Session %s. len(CpuTrainingTaskMap): %d. Training index: %d", sess.Pod, len(s.CpuTrainingTaskMap()[sess.Pod]), trainingIdx)
 					} else if len(s.MemTrainingTaskMap()[sess.Pod]) <= (trainingIdx + 1) {
@@ -298,11 +298,11 @@ func (s *Synthesizer) transitionAndSubmitEvent(evt domain.Event) {
 				s.consumer.SubmitEvent(sessEvt)
 			} else {
 				switch evtName {
-				case EventSessionTrainingStarted:
+				case domain.EventSessionTrainingStarted:
 					for _, evtSrc := range s.Sources {
 						evtSrc.TrainingStarted(sess.Pod)
 					}
-				case EventSessionTrainingEnded:
+				case domain.EventSessionTrainingEnded:
 					for _, evtSrc := range s.Sources {
 						evtSrc.TrainingEnded(sess.Pod)
 					}
@@ -324,7 +324,7 @@ func (s *Synthesizer) Synthesize(ctx context.Context, opts *domain.Configuration
 
 	s.Tick = opts.TraceStep
 
-	s.eventsHeap = make(SimpleEventHeap, 0, len(s.Sources))
+	s.eventsHeap = make(domain.SimpleEventHeap, 0, len(s.Sources))
 	if s.drivingCPU && s.drivingGPU {
 		s.sessions = make(map[string]*Session, 1000)
 	}
@@ -404,38 +404,4 @@ func (s *Synthesizer) Synthesize(ctx context.Context, opts *domain.Configuration
 		workloadSimulatorDoneChan <- struct{}{}
 		s.log.Info("Informed the Simulation Driver that the simulation has ended.")
 	}
-}
-
-type SimpleEventHeap []domain.Event
-
-func (h SimpleEventHeap) Len() int {
-	return len(h)
-}
-
-func (h SimpleEventHeap) Less(i, j int) bool {
-	return h[i].Timestamp().Before(h[j].Timestamp())
-}
-
-func (h SimpleEventHeap) Swap(i, j int) {
-	h[i], h[j] = h[j], h[i]
-}
-
-func (h *SimpleEventHeap) Push(x interface{}) {
-	*h = append(*h, x.(domain.Event))
-}
-
-func (h *SimpleEventHeap) Pop() interface{} {
-	old := *h
-	n := len(old)
-	ret := old[n-1]
-	old[n-1] = nil // avoid memory leak
-	*h = old[0 : n-1]
-	return ret
-}
-
-func (h SimpleEventHeap) Peek() domain.Event {
-	if len(h) == 0 {
-		return nil
-	}
-	return h[0]
 }

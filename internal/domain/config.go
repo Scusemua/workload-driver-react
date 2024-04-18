@@ -68,6 +68,8 @@ type Configuration struct {
 
 	ClusterDashboardHandlerPort int `name:"cluster-dashboard-handler-port" description:"Port for the Cluster Dashboard handler gRPC server to listen on."`
 
+	DriverTimescale float64 `name:"driver-timescale" description:"Multiplier that impacts the timescale at the Driver will operate on with respect to the trace data. For example, if each tick is 60 seconds, then a DriverTimescale value of 0.5 will mean that each tick will take 30 seconds."`
+
 	///////////////////////
 	// General execution //
 	///////////////////////

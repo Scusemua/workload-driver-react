@@ -156,7 +156,6 @@ func (g *workloadGeneratorImpl) GenerateWorkload(workloadDriver domain.EventCons
 	// Drive memory trace
 	if workloadPreset.MemTraceFile != "" {
 		g.logger.Debug("Adding memory driver as event source for Synthesizer.")
-		SessionReadyExpects |= SessionMemReady
 		memDriver := g.synthesizer.AddDriverEventSource(NewMemoryDriver, func(d Driver) {
 			drv := d.(*MemoryDriver)
 			drv.MapperPath = workloadPreset.MemMappingFile

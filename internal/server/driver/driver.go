@@ -7,11 +7,13 @@ import (
 	"net/http"
 	"os"
 	"sync"
+	"sync/atomic"
 	"time"
 	"unsafe"
 
 	"github.com/gin-gonic/gin"
 	"github.com/gorilla/websocket"
+	"github.com/mgutz/ansi"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/generator"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/server/jupyter"
@@ -55,15 +57,24 @@ type WorkloadDriver struct {
 
 	kernels map[string]struct{}
 
-	eventChan chan domain.Event // Receives events from the Synthesizer.
-	doneChan  chan struct{}     // Used to signal that the workload has successfully processed all events.
-	stopChan  chan struct{}     // Used to stop the workload early/prematurely (i.e., before all events have been processed).
-	errorChan chan error        // Used to stop the workload due to a critical error.
+	eventQueue *eventQueue
+	eventChan  chan domain.Event // Receives events from the Synthesizer.
+	doneChan   chan struct{}     // Used to signal that the workload has successfully processed all events.
+	stopChan   chan struct{}     // Used to stop the workload early/prematurely (i.e., before all events have been processed).
+	errorChan  chan error        // Used to stop the workload due to a critical error.
+
+	tick         time.Duration // The tick interval/step rate of the simulation.
+	ticker       *Ticker       // Receive Tick events this way.
+	ticksHandled atomic.Int64  // Incremented/accessed atomically.
+	servingTicks atomic.Bool   // The WorkloadDriver::ServeTicks() method will continue looping as long as this flag is set to true.
 
 	workloadPresets             map[string]*domain.WorkloadPreset
 	workloadPreset              *domain.WorkloadPreset
 	workloadRegistrationRequest *domain.WorkloadRegistrationRequest
 	workload                    *domain.Workload
+
+	// Multiplier that impacts the timescale at the Driver will operate on with respect to the trace data. For example, if each tick is 60 seconds, then a DriverTimescale value of 0.5 will mean that each tick will take 30 seconds.
+	driverTimescale float64
 
 	workloadEndTime time.Time // The time at which the workload completed.
 
@@ -93,16 +104,19 @@ func GenerateWorkloadID(n int) string {
 func NewWorkloadDriver(opts *domain.Configuration) *WorkloadDriver {
 	atom := zap.NewAtomicLevelAt(zapcore.DebugLevel)
 	driver := &WorkloadDriver{
-		id:            GenerateWorkloadID(8),
-		opts:          opts,
-		doneChan:      make(chan struct{}, 1),
-		eventChan:     make(chan domain.Event, 1),
-		stopChan:      make(chan struct{}, 1),
-		errorChan:     make(chan error, 2),
-		atom:          &atom,
-		kernelManager: jupyter.NewKernelManager(opts, &atom),
-		kernels:       make(map[string]struct{}),
-		sessionsMap:   make(map[string]*jupyter.SessionConnection),
+		id:              GenerateWorkloadID(8),
+		opts:            opts,
+		doneChan:        make(chan struct{}, 1),
+		eventChan:       make(chan domain.Event, 1),
+		stopChan:        make(chan struct{}, 1),
+		errorChan:       make(chan error, 2),
+		atom:            &atom,
+		ticker:          NewSyncTicker(time.Second*time.Duration(opts.TraceStep), "Cluster"),
+		driverTimescale: opts.DriverTimescale,
+		kernelManager:   jupyter.NewKernelManager(opts, &atom),
+		kernels:         make(map[string]struct{}),
+		sessionsMap:     make(map[string]*jupyter.SessionConnection),
+		eventQueue:      newEventQueue(&atom),
 	}
 
 	core := zapcore.NewCore(zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()), os.Stdout, driver.atom)
@@ -308,6 +322,13 @@ func (d *WorkloadDriver) abortWorkload() error {
 	return nil
 }
 
+// Set the ClockTime clock to the given timestamp, verifying that the new timestamp is either equal to or occurs after the old one.
+// Return a tuple where the first element is the new time, and the second element is the difference between the new time and the old time.
+func (d *WorkloadDriver) incrementClockTime(time time.Time) (time.Time, time.Duration) {
+	newTime, timeDifference := ClockTime.IncreaseClockTimeTo(time)
+	return newTime, timeDifference
+}
+
 // This should be called from its own goroutine.
 // Accepts a waitgroup that is used to notify the caller when the workload has entered the 'WorkloadRunning' state.
 func (d *WorkloadDriver) DriveWorkload(wg *sync.WaitGroup) {
@@ -325,8 +346,25 @@ func (d *WorkloadDriver) DriveWorkload(wg *sync.WaitGroup) {
 
 	d.logger.Info("The Workload Driver has started running.")
 
+	d.servingTicks.Store(true)
 	for d.workload.IsRunning() {
 		select {
+		case tick := <-d.ticker.TickDelivery:
+			{
+				CurrentTick.IncreaseClockTimeTo(tick)
+				coloredOutput := ansi.Color(fmt.Sprintf("Serving tick: %v (processing everything up to %v)", tick, tick), "blue")
+				d.logger.Debug(coloredOutput)
+				d.ticksHandled.Add(1)
+
+				// If there are no events processed this tick, then we still need to increment the clocktime so we're in-line with the simulation.
+				prevTickStart := tick.Add(-d.tick)
+				if ClockTime.GetClockTime().Before(prevTickStart) {
+					d.sugaredLogger.Debugf("Incrementing simulation clock from %v to %v (to match \"beginning\" of tick).", ClockTime.GetClockTime(), prevTickStart)
+					d.incrementClockTime(prevTickStart)
+				}
+
+				d.processEvents(tick)
+			}
 		case err := <-d.errorChan:
 			{
 				d.handleCriticalError(err)
@@ -337,19 +375,6 @@ func (d *WorkloadDriver) DriveWorkload(wg *sync.WaitGroup) {
 				d.logger.Info("Workload has been instructed to terminate early.")
 				d.abortWorkload()
 				return // We're done, so we can return.
-			}
-		case evt := <-d.eventChan:
-			{
-				err := d.handleEvent(evt)
-				if err != nil {
-					d.logger.Error("Failed to handle event.", zap.Any("event-name", evt.Name()), zap.Any("event-id", evt.Id()), zap.String("error-message", err.Error()))
-					d.errorChan <- err
-					time.Sleep(time.Millisecond * time.Duration(100))
-				}
-				d.mu.Lock()
-				d.workload.NumEventsProcessed += 1
-				d.workload.TimeElasped = time.Since(d.workload.StartTime).String()
-				d.mu.Unlock() // We have to explicitly unlock here, since we aren't returning immediately in this case.
 			}
 		case <-d.doneChan: // This is placed after eventChan so that all events are processed first.
 			{
@@ -368,13 +393,40 @@ func (d *WorkloadDriver) DriveWorkload(wg *sync.WaitGroup) {
 	}
 }
 
+// Process events in chronological/simulation order.
+// This accepts the "current tick" as an argument. The current tick is basically an upper-bound on the times for
+// which we'll process an event. For example, if `tick` is 19:05:00, then we will process all cluster and session
+// events with timestamps that are (a) equal to 19:05:00 or (b) come before 19:05:00. Any events with timestamps
+// that come after 19:05:00 will not be processed until the next tick.
+func (d *WorkloadDriver) processEvents(tick time.Time) {
+	d.logger.Debug("Processing cluster/session events.", zap.Time("tick", tick))
+
+	for {
+		select {
+		case evt := <-d.eventChan:
+			{
+				err := d.handleEvent(evt)
+				if err != nil {
+					d.logger.Error("Failed to handle event.", zap.Any("event-name", evt.Name()), zap.Any("event-id", evt.Id()), zap.String("error-message", err.Error()))
+					d.errorChan <- err
+					time.Sleep(time.Millisecond * time.Duration(100))
+				}
+				d.mu.Lock()
+				d.workload.NumEventsProcessed += 1
+				d.workload.TimeElasped = time.Since(d.workload.StartTime).String()
+				d.mu.Unlock() // We have to explicitly unlock here, since we aren't returning immediately in this case.
+			}
+		}
+	}
+}
+
 func (d *WorkloadDriver) handleEvent(evt domain.Event) error {
 	traceSessionId := evt.Data().(*generator.Session).Pod
 	// Append the workload ID to the session ID so sessions are unique across workloads.
 	sessionId := fmt.Sprintf("%s-%s", traceSessionId, d.id)
 
 	switch evt.Name() {
-	case generator.EventSessionStarted:
+	case domain.EventSessionStarted:
 		d.logger.Debug("Received SessionStarted event.", zap.String("session-id", sessionId))
 
 		// TODO: Start session.
@@ -390,7 +442,7 @@ func (d *WorkloadDriver) handleEvent(evt domain.Event) error {
 		d.workload.NumSessionsCreated += 1
 		d.mu.Unlock()
 		d.logger.Debug("Handled SessionStarted event.", zap.String("session-id", sessionId))
-	case generator.EventSessionTrainingStarted:
+	case domain.EventSessionTrainingStarted:
 		d.logger.Debug("Received TrainingStarted event.", zap.String("session", sessionId))
 
 		// TODO: Initiate training.
@@ -403,11 +455,11 @@ func (d *WorkloadDriver) handleEvent(evt domain.Event) error {
 		d.workload.NumActiveTrainings += 1
 		d.mu.Unlock()
 		d.logger.Debug("Handled TrainingStarted event.", zap.String("session", sessionId))
-	case generator.EventSessionUpdateGpuUtil:
+	case domain.EventSessionUpdateGpuUtil:
 		d.logger.Debug("Received UpdateGpuUtil event.", zap.String("session", sessionId))
 		// TODO: Update GPU utilization.
 		d.logger.Debug("Handled UpdateGpuUtil event.", zap.String("session", sessionId))
-	case generator.EventSessionTrainingEnded:
+	case domain.EventSessionTrainingEnded:
 		d.logger.Debug("Received TrainingEnded event.", zap.String("session", sessionId))
 
 		// TODO: Stop training.
@@ -421,7 +473,7 @@ func (d *WorkloadDriver) handleEvent(evt domain.Event) error {
 		d.workload.NumActiveTrainings -= 1
 		d.mu.Unlock()
 		d.logger.Debug("Handled TrainingEnded event.", zap.String("session", sessionId))
-	case generator.EventSessionStopped:
+	case domain.EventSessionStopped:
 		d.logger.Debug("Received SessionStopped event.", zap.String("session", sessionId))
 
 		// TODO: Stop session.
