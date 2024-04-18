@@ -46,7 +46,7 @@ export const MigrationModal: React.FunctionComponent<MigrationModalProps> = (pro
                 isDashboardList={false}
                 hideAdjustVirtualGPUsButton={true}
                 displayNodeToggleSwitch={false}
-                nodesPerPage={5}
+                nodesPerPage={4}
                 selectableViaCheckboxes={true}
                 hideControlPlaneNode={true}
                 disableRadiosWithKernel={(props.targetReplica != null && props.targetReplica.kernelId) || undefined}
