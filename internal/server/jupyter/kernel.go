@@ -12,6 +12,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -45,7 +46,7 @@ type KernelConnection struct {
 	atom          *zap.AtomicLevel
 
 	// Register callbacks for responses to particular messages.
-	responseChannels map[string]chan *KernelMessage
+	responseChannels map[string]chan KernelMessage
 
 	// How many messages we've sent. Used when creating message IDs.
 	messageCount int
@@ -61,7 +62,7 @@ type KernelConnection struct {
 	model                         *jupyterKernel
 }
 
-func NewKernelConnection(kernelId string, jupyterSessionId string, atom *zap.AtomicLevel, jupyterServerAddress string, timeout time.Duration) (*KernelConnection, error) {
+func NewKernelConnection(kernelId string, jupyterSessionId string, atom *zap.AtomicLevel, jupyterServerAddress string) (*KernelConnection, error) {
 	conn := &KernelConnection{
 		clientId:             jupyterSessionId,
 		jupyterSessionId:     jupyterSessionId,
@@ -70,7 +71,7 @@ func NewKernelConnection(kernelId string, jupyterSessionId string, atom *zap.Ato
 		jupyterServerAddress: jupyterServerAddress,
 		messageCount:         0,
 		connectionStatus:     KernelConnectionInit,
-		responseChannels:     make(map[string]chan *KernelMessage),
+		responseChannels:     make(map[string]chan KernelMessage),
 	}
 
 	core := zapcore.NewCore(zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()), os.Stdout, atom)
@@ -78,7 +79,7 @@ func NewKernelConnection(kernelId string, jupyterSessionId string, atom *zap.Ato
 
 	conn.sugaredLogger = conn.logger.Sugar()
 
-	err := conn.setupWebsocket(conn.jupyterServerAddress, timeout)
+	err := conn.setupWebsocket(conn.jupyterServerAddress)
 	if err != nil {
 		conn.logger.Error("Failed to setup websocket for new kernel.", zap.Error(err))
 		return nil, err
@@ -87,14 +88,59 @@ func NewKernelConnection(kernelId string, jupyterSessionId string, atom *zap.Ato
 	return conn, nil
 }
 
+// Send an `execute_request` message.
+//
+// #### Notes
+// See [Messaging in Jupyter](https://jupyter-client.readthedocs.io/en/latest/messaging.html#execute).
+//
+// Future `onReply` is called with the `execute_reply` content when the
+// shell reply is received and validated. The future will resolve when
+// this message is received and the `idle` iopub status is received.
+func (conn *KernelConnection) RequestExecute(code string, silent bool, storeHistory bool, userExpressions map[string]interface{}, allowStdin bool, stopOnError bool) error {
+	content := &executeRequestKernelMessageContent{
+		Code:            code,
+		Silent:          silent,
+		StoreHistory:    storeHistory,
+		UserExpressions: userExpressions,
+		AllowStdin:      allowStdin,
+		StopOnError:     stopOnError,
+	}
+
+	header := &KernelMessageHeader{
+		Date:        time.Now().Format(time.RFC3339),
+		MessageId:   uuid.NewString(),
+		MessageType: "execute_request",
+		Session:     conn.kernelId,
+		Username:    conn.clientId,
+		Version:     VERSION,
+	}
+
+	message := &executeRequestKernelMessage{
+		Header:       header,
+		Channel:      "shell",
+		Content:      content,
+		Buffers:      make([]byte, 0),
+		Metadata:     make(map[string]interface{}),
+		ParentHeader: nil,
+	}
+
+	err := conn.sendMessage(message)
+	if err != nil {
+		conn.logger.Error("Error while writing 'execute_request' message.", zap.String("kernel-id", conn.kernelId), zap.Error(err))
+		return err
+	}
+
+	return nil
+}
+
 func (conn *KernelConnection) ConnectionStatus() KernelConnectionStatus {
 	return conn.connectionStatus
 }
 
-func (conn *KernelConnection) RequestKernelInfo() (*KernelMessage, error) {
-	var message *KernelMessage = conn.createKernelMessage("kernel_info_request", conn.jupyterSessionId, "", ShellChannel)
-	var messageId string = message.Header.MessageId
-	responseChan := make(chan *KernelMessage)
+func (conn *KernelConnection) RequestKernelInfo() (KernelMessage, error) {
+	var message KernelMessage = conn.createKernelMessage("kernel_info_request", conn.jupyterSessionId, "", ShellChannel)
+	var messageId string = message.GetHeader().MessageId
+	responseChan := make(chan KernelMessage)
 	conn.responseChannels[messageId] = responseChan
 
 	conn.logger.Debug("Sending 'request-info' message now.", zap.String("message", message.String()))
@@ -183,7 +229,7 @@ func (conn *KernelConnection) InterruptKernel() error {
 // Listen for messages from the kernel.
 func (conn *KernelConnection) serveMessages() {
 	for {
-		var kernelMessage *KernelMessage
+		var kernelMessage KernelMessage
 		err := conn.webSocket.ReadJSON(&kernelMessage)
 
 		if err != nil {
@@ -198,26 +244,26 @@ func (conn *KernelConnection) serveMessages() {
 
 		conn.logger.Debug("Received message from kernel.", zap.Any("message", kernelMessage.String()))
 
-		if responseChannel, ok := conn.responseChannels[kernelMessage.ParentHeader.MessageId]; ok {
-			conn.logger.Debug("Found response channel for message.", zap.String("message-id", kernelMessage.ParentHeader.MessageId))
+		if responseChannel, ok := conn.responseChannels[kernelMessage.GetParentHeader().MessageId]; ok {
+			conn.logger.Debug("Found response channel for message.", zap.String("message-id", kernelMessage.GetParentHeader().MessageId))
 			responseChannel <- kernelMessage
 		} else {
-			conn.logger.Debug("Could not find response channel for message.", zap.String("message-id", kernelMessage.ParentHeader.MessageId))
+			conn.logger.Debug("Could not find response channel for message.", zap.String("message-id", kernelMessage.GetParentHeader().MessageId))
 		}
 	}
 }
 
-func (conn *KernelConnection) createKernelMessage(messageType string, sessionId string, username string, channel KernelSocketChannel) *KernelMessage {
+func (conn *KernelConnection) createKernelMessage(messageType string, sessionId string, username string, channel KernelSocketChannel) KernelMessage {
 	header := &KernelMessageHeader{
 		Date:        time.Now().UTC().Format(JavascriptISOString),
 		MessageId:   conn.getNextMessageId(),
 		MessageType: messageType,
 		Session:     sessionId,
 		Username:    username,
-		Version:     "5.2",
+		Version:     VERSION,
 	}
 
-	message := &KernelMessage{
+	message := &baseKernelMessage{
 		Channel:      channel,
 		Header:       header,
 		Content:      make(map[string]interface{}),
@@ -253,7 +299,7 @@ func (conn *KernelConnection) updateConnectionStatus(status KernelConnectionStat
 		num_tries := 0
 		max_num_tries := 3
 
-		var statusMessage *KernelMessage
+		var statusMessage KernelMessage
 		var err error
 
 		for num_tries <= max_num_tries {
@@ -276,7 +322,7 @@ func (conn *KernelConnection) updateConnectionStatus(status KernelConnectionStat
 }
 
 // Side-effect: updates the KernelConnection's `webSocket` field.
-func (conn *KernelConnection) setupWebsocket(jupyterServerAddress string, timeout time.Duration) error {
+func (conn *KernelConnection) setupWebsocket(jupyterServerAddress string) error {
 	if conn.webSocket != nil {
 		return ErrWebsocketAlreadySetup
 	}
@@ -376,7 +422,7 @@ func (conn *KernelConnection) reconnect() bool {
 	max_num_tries := 5
 
 	for num_tries < max_num_tries {
-		err := conn.setupWebsocket(conn.jupyterServerAddress, time.Duration(30)*time.Second)
+		err := conn.setupWebsocket(conn.jupyterServerAddress)
 		if err != nil {
 			if errors.Is(err, ErrNetworkIssue) && (num_tries+1) <= max_num_tries {
 				num_tries += 1
@@ -441,8 +487,8 @@ func (conn *KernelConnection) getKernelModel() (*jupyterKernel, error) {
 	return model, nil
 }
 
-func (conn *KernelConnection) sendMessage(message *KernelMessage) error {
-	conn.logger.Debug("Writing message of type `kernel_info_request` now.", zap.String("message-id", message.Header.MessageId))
+func (conn *KernelConnection) sendMessage(message KernelMessage) error {
+	conn.logger.Debug("Writing message of type `kernel_info_request` now.", zap.String("message-id", message.GetHeader().MessageId))
 	err := conn.webSocket.WriteJSON(message)
 	if err != nil {
 		conn.logger.Error("Error while writing 'request-info' message.", zap.Error(err))

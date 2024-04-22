@@ -11,7 +11,18 @@ const (
 	StdinChannel   KernelSocketChannel = "stdin"
 )
 
-type KernelMessage struct {
+type KernelMessage interface {
+	GetHeader() *KernelMessageHeader
+	GetChannel() KernelSocketChannel
+	GetContent() interface{}
+	GetBuffers() []byte
+	GetMetadata() map[string]interface{}
+	GetParentHeader() *KernelMessageHeader
+
+	String() string
+}
+
+type baseKernelMessage struct {
 	Header       *KernelMessageHeader   `json:"header"`
 	Channel      KernelSocketChannel    `json:"channel"`
 	Content      map[string]interface{} `json:"content"`
@@ -20,9 +31,33 @@ type KernelMessage struct {
 	ParentHeader *KernelMessageHeader   `json:"parent_header"`
 }
 
+func (m *baseKernelMessage) GetHeader() *KernelMessageHeader {
+	return m.Header
+}
+
+func (m *baseKernelMessage) GetChannel() KernelSocketChannel {
+	return m.Channel
+}
+
+func (m *baseKernelMessage) GetContent() interface{} {
+	return m.Content
+}
+
+func (m *baseKernelMessage) GetBuffers() []byte {
+	return m.Buffers
+}
+
+func (m *baseKernelMessage) GetMetadata() map[string]interface{} {
+	return m.Metadata
+}
+
+func (m *baseKernelMessage) GetParentHeader() *KernelMessageHeader {
+	return m.Header
+}
+
 type KernelSocketChannel string
 
-func (m *KernelMessage) String() string {
+func (m *baseKernelMessage) String() string {
 	out, err := json.Marshal(m)
 	if err != nil {
 		panic(err)
@@ -42,6 +77,66 @@ type KernelMessageHeader struct {
 
 func (h *KernelMessageHeader) String() string {
 	out, err := json.Marshal(h)
+	if err != nil {
+		panic(err)
+	}
+
+	return string(out)
+}
+
+type executeRequestKernelMessage struct {
+	Header       *KernelMessageHeader                `json:"header"`
+	Channel      KernelSocketChannel                 `json:"channel"`
+	Content      *executeRequestKernelMessageContent `json:"content"`
+	Buffers      []byte                              `json:"buffers"`
+	Metadata     map[string]interface{}              `json:"metadata"`
+	ParentHeader *KernelMessageHeader                `json:"parent_header"`
+}
+
+func (m *executeRequestKernelMessage) GetHeader() *KernelMessageHeader {
+	return m.Header
+}
+
+func (m *executeRequestKernelMessage) GetChannel() KernelSocketChannel {
+	return m.Channel
+}
+
+func (m *executeRequestKernelMessage) GetContent() interface{} {
+	return m.Content
+}
+
+func (m *executeRequestKernelMessage) GetBuffers() []byte {
+	return m.Buffers
+}
+
+func (m *executeRequestKernelMessage) GetMetadata() map[string]interface{} {
+	return m.Metadata
+}
+
+func (m *executeRequestKernelMessage) GetParentHeader() *KernelMessageHeader {
+	return m.Header
+}
+
+func (m *executeRequestKernelMessage) String() string {
+	out, err := json.Marshal(m)
+	if err != nil {
+		panic(err)
+	}
+
+	return string(out)
+}
+
+type executeRequestKernelMessageContent struct {
+	Code            string                 `json:"code"`             // The code to execute.
+	Silent          bool                   `json:"silent"`           // Whether to execute the code as quietly as possible. The default is `false`.
+	StoreHistory    bool                   `json:"store_history"`    // Whether to store history of the execution. The default `true` if silent is False. It is forced to  `false ` if silent is `true`.
+	UserExpressions map[string]interface{} `json:"user_expressions"` // A mapping of names to expressions to be evaluated in the kernel's interactive namespace.
+	AllowStdin      bool                   `json:"allow_stdin"`      // Whether to allow stdin requests. The default is `true`.
+	StopOnError     bool                   `json:"stop_on_error"`    // Whether to the abort execution queue on an error. The default is `false`.
+}
+
+func (m *executeRequestKernelMessageContent) String() string {
+	out, err := json.Marshal(m)
 	if err != nil {
 		panic(err)
 	}

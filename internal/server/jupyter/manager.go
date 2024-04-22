@@ -65,9 +65,6 @@ type KernelSessionManager struct {
 	// Maintains some metrics.
 	metrics *KernelManagerMetrics
 
-	// The amount of time, in milliseconds, to wait while establishing a connection to a new kernel (from the workload driver) before returning with an error. Defaults to 60,000 milliseconds (i.e., 60 seconds, or 1 minute).
-	connectToKernelTimeout time.Duration
-
 	localSessionIdToKernelId map[string]string // Map from "local" (provided by us) Session IDs to Kernel IDs. We provide the Session IDs, while Jupyter provides the Kernel IDs.
 	kernelIdToLocalSessionId map[string]string // Map from Kernel IDs to Jupyter Session IDs. We provide the Session IDs, while Jupyter provides the Kernel IDs.
 
@@ -84,7 +81,6 @@ func NewKernelManager(opts *domain.Configuration, atom *zap.AtomicLevel) *Kernel
 	manager := &KernelSessionManager{
 		jupyterServerAddress:             opts.JupyterServerAddress,
 		metrics:                          &KernelManagerMetrics{},
-		connectToKernelTimeout:           time.Duration(time.Millisecond * time.Duration(opts.ConnectToKernelTimeoutMillis)),
 		localSessionIdToKernelId:         make(map[string]string),
 		localSessionIdToJupyterSessionId: make(map[string]string),
 		jupyterSessionIdLocalSessionIdTo: make(map[string]string),
@@ -158,7 +154,7 @@ func (m *KernelSessionManager) CreateSession(localSessionId string, sessionName 
 
 			st := time.Now()
 			// Connect to the Session and to the associated kernel.
-			sessionConnection = NewSessionConnection(jupyterSession, m.jupyterServerAddress, m.atom, m.connectToKernelTimeout)
+			sessionConnection = NewSessionConnection(jupyterSession, m.jupyterServerAddress, m.atom)
 			creationTime := time.Since(st)
 
 			m.sessionMap[localSessionId] = sessionConnection

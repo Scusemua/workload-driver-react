@@ -4,7 +4,6 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
-	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -130,7 +129,7 @@ type SessionConnection struct {
 // Create a new SessionConnection.
 //
 // We do not return until we've successfully connected to the kernel.
-func NewSessionConnection(model *jupyterSession, jupyterServerAddress string, atom *zap.AtomicLevel, timeout time.Duration) *SessionConnection {
+func NewSessionConnection(model *jupyterSession, jupyterServerAddress string, atom *zap.AtomicLevel) *SessionConnection {
 	conn := &SessionConnection{
 		model:                model,
 		jupyterServerAddress: jupyterServerAddress,
@@ -142,7 +141,7 @@ func NewSessionConnection(model *jupyterSession, jupyterServerAddress string, at
 
 	conn.sugaredLogger = conn.logger.Sugar()
 
-	err := conn.connectToKernel(timeout)
+	err := conn.connectToKernel()
 	if err != nil {
 		panic(err)
 	}
@@ -153,13 +152,13 @@ func NewSessionConnection(model *jupyterSession, jupyterServerAddress string, at
 }
 
 // Side-effect: set the `kernel` field of the SessionConnection.
-func (conn *SessionConnection) connectToKernel(timeout time.Duration) error {
+func (conn *SessionConnection) connectToKernel() error {
 	if conn.kernel != nil {
 		return ErrAlreadyConnectedToKernel
 	}
 
 	var err error
-	conn.kernel, err = NewKernelConnection(conn.model.JupyterKernel.Id, conn.model.JupyterSessionId, conn.atom, conn.jupyterServerAddress, timeout)
+	conn.kernel, err = NewKernelConnection(conn.model.JupyterKernel.Id, conn.model.JupyterSessionId, conn.atom, conn.jupyterServerAddress)
 	return err // Will be nil if everything went OK.
 }
 
