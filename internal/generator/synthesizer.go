@@ -319,7 +319,7 @@ func (s *Synthesizer) transitionAndSubmitEvent(evt domain.Event) {
 	}
 }
 
-func (s *Synthesizer) Synthesize(ctx context.Context, opts *domain.Configuration, workloadSimulatorDoneChan chan struct{}) { // , clusterDoneChan chan struct{}
+func (s *Synthesizer) Synthesize(ctx context.Context, opts *domain.Configuration, workloadSimulatorDoneChan chan interface{}) { // , clusterDoneChan chan struct{}
 	simulation_start := time.Now()
 
 	s.Tick = opts.TraceStep

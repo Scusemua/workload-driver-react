@@ -49,19 +49,20 @@ type WorkloadDriver struct {
 
 	workloadGenerator domain.WorkloadGenerator
 
-	sessionsMap map[string]*jupyter.SessionConnection
+	sessionConnections map[string]*jupyter.SessionConnection
 
 	logger        *zap.Logger
 	sugaredLogger *zap.SugaredLogger
 	atom          *zap.AtomicLevel
 
+	// sessions map[string]*generator.Session // Responsible for creating sessions and maintaining a collection of all of the sessions active within the simulation.
+
 	kernels map[string]struct{}
 
-	eventQueue *eventQueue
-	eventChan  chan domain.Event // Receives events from the Synthesizer.
-	doneChan   chan struct{}     // Used to signal that the workload has successfully processed all events.
-	stopChan   chan struct{}     // Used to stop the workload early/prematurely (i.e., before all events have been processed).
-	errorChan  chan error        // Used to stop the workload due to a critical error.
+	eventQueue domain.EventQueueService
+	doneChan   chan struct{} // Used to signal that the workload has successfully processed all events.
+	stopChan   chan struct{} // Used to stop the workload early/prematurely (i.e., before all events have been processed).
+	errorChan  chan error    // Used to stop the workload due to a critical error.
 
 	tick         time.Duration // The tick interval/step rate of the simulation.
 	ticker       *Ticker       // Receive Tick events this way.
@@ -104,19 +105,18 @@ func GenerateWorkloadID(n int) string {
 func NewWorkloadDriver(opts *domain.Configuration) *WorkloadDriver {
 	atom := zap.NewAtomicLevelAt(zapcore.DebugLevel)
 	driver := &WorkloadDriver{
-		id:              GenerateWorkloadID(8),
-		opts:            opts,
-		doneChan:        make(chan struct{}, 1),
-		eventChan:       make(chan domain.Event, 1),
-		stopChan:        make(chan struct{}, 1),
-		errorChan:       make(chan error, 2),
-		atom:            &atom,
-		ticker:          NewSyncTicker(time.Second*time.Duration(opts.TraceStep), "Cluster"),
-		driverTimescale: opts.DriverTimescale,
-		kernelManager:   jupyter.NewKernelManager(opts, &atom),
-		kernels:         make(map[string]struct{}),
-		sessionsMap:     make(map[string]*jupyter.SessionConnection),
-		eventQueue:      newEventQueue(&atom),
+		id:                 GenerateWorkloadID(8),
+		opts:               opts,
+		doneChan:           make(chan struct{}, 1),
+		stopChan:           make(chan struct{}, 1),
+		errorChan:          make(chan error, 2),
+		atom:               &atom,
+		ticker:             NewSyncTicker(time.Second*time.Duration(opts.TraceStep), "Cluster"),
+		driverTimescale:    opts.DriverTimescale,
+		kernelManager:      jupyter.NewKernelManager(opts, &atom),
+		kernels:            make(map[string]struct{}),
+		sessionConnections: make(map[string]*jupyter.SessionConnection),
+		eventQueue:         newEventQueue(&atom),
 	}
 
 	core := zapcore.NewCore(zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()), os.Stdout, driver.atom)
@@ -335,7 +335,7 @@ func (d *WorkloadDriver) DriveWorkload(wg *sync.WaitGroup) {
 	d.logger.Info("Starting workload.", zap.Any("workload-preset", d.workloadPreset), zap.Any("workload-request", d.workloadRegistrationRequest))
 
 	d.workloadGenerator = generator.NewWorkloadGenerator(d.opts)
-	go d.workloadGenerator.GenerateWorkload(d, d.workload, d.workloadPreset, d.workloadRegistrationRequest)
+	go d.workloadGenerator.GenerateWorkload(d.eventQueue, d.workload, d.workloadPreset, d.workloadRegistrationRequest)
 
 	d.mu.Lock()
 	d.workload.StartTime = time.Now()
@@ -393,6 +393,10 @@ func (d *WorkloadDriver) DriveWorkload(wg *sync.WaitGroup) {
 	}
 }
 
+func (d *WorkloadDriver) EventQueue() domain.EventQueueService {
+	return d.eventQueue
+}
+
 // Process events in chronological/simulation order.
 // This accepts the "current tick" as an argument. The current tick is basically an upper-bound on the times for
 // which we'll process an event. For example, if `tick` is 19:05:00, then we will process all cluster and session
@@ -401,23 +405,62 @@ func (d *WorkloadDriver) DriveWorkload(wg *sync.WaitGroup) {
 func (d *WorkloadDriver) processEvents(tick time.Time) {
 	d.logger.Debug("Processing cluster/session events.", zap.Time("tick", tick))
 
-	for {
-		select {
-		case evt := <-d.eventChan:
-			{
-				err := d.handleEvent(evt)
+	var (
+		waitGroup     sync.WaitGroup
+		eventsForTick = make(map[string][]domain.Event)
+	)
+
+	for d.eventQueue.HasEventsForTick(tick) {
+		evt, ok := d.eventQueue.GetNextEvent(tick)
+
+		if !ok {
+			d.logger.Error("Expected to find valid event.", zap.Time("tick", tick))
+			break
+		}
+
+		sessionId := evt.Data().(domain.PodData).GetPod()
+		sessionEvents, ok := eventsForTick[sessionId]
+		if !ok {
+			sessionEvents = make([]domain.Event, 0, 1)
+		}
+
+		sessionEvents = append(sessionEvents, evt.GetEvent())
+		eventsForTick[sessionId] = sessionEvents
+	}
+
+	if len(eventsForTick) == 0 {
+		d.logger.Warn("No events generated. Skipping tick.", zap.Time("tick", tick))
+		return
+	}
+
+	waitGroup.Add(len(eventsForTick))
+	d.sugaredLogger.Debugf("Processing %d event(s) for tick %v.", len(eventsForTick), tick)
+
+	for sessId, evts := range eventsForTick {
+		d.sugaredLogger.Debug("Number of events for Session %s: %d", sessId, len(evts))
+
+		// Create a go routine to process all of the events for the particular session serially.
+		// This enables us to process events targeting multiple sessiosn in-parallel.
+		go func(sessionId string, events []domain.Event) {
+			for idx, event := range events {
+				d.sugaredLogger.Debugf("Handling event %d/%d: \"%s\"", idx+1, len(eventsForTick), event.Name())
+				err := d.handleEvent(event)
 				if err != nil {
-					d.logger.Error("Failed to handle event.", zap.Any("event-name", evt.Name()), zap.Any("event-id", evt.Id()), zap.String("error-message", err.Error()))
+					d.logger.Error("Failed to handle event.", zap.Any("event-name", event.Name()), zap.Any("event-id", event.Id()), zap.String("error-message", err.Error()), zap.Int("event-index", idx))
 					d.errorChan <- err
 					time.Sleep(time.Millisecond * time.Duration(100))
 				}
-				d.mu.Lock()
-				d.workload.NumEventsProcessed += 1
-				d.workload.TimeElasped = time.Since(d.workload.StartTime).String()
-				d.mu.Unlock() // We have to explicitly unlock here, since we aren't returning immediately in this case.
+				waitGroup.Done()
 			}
-		}
+		}(sessId, evts)
 	}
+
+	waitGroup.Wait()
+
+	d.mu.Lock()
+	d.workload.NumEventsProcessed += 1
+	d.workload.TimeElasped = time.Since(d.workload.StartTime).String()
+	d.mu.Unlock() // We have to explicitly unlock here, since we aren't returning immediately in this case.
 }
 
 func (d *WorkloadDriver) handleEvent(evt domain.Event) error {
@@ -495,13 +538,16 @@ func (d *WorkloadDriver) handleEvent(evt domain.Event) error {
 
 func (d *WorkloadDriver) createSession(sessionId string) (*jupyter.SessionConnection, error) {
 	d.logger.Debug("Creating new kernel.", zap.String("kernel-id", sessionId))
+	st := time.Now()
 	sessionConnection, err := d.kernelManager.CreateSession(sessionId, sessionId, fmt.Sprintf("%s.ipynb", sessionId), "notebook", "distributed")
 	if err != nil {
 		d.logger.Error("Failed to create session.", zap.String("session-id", sessionId))
 		return nil, err
 	}
 
-	d.sessionsMap[sessionId] = sessionConnection
+	timeElapsed := time.Since(st)
+	d.logger.Debug("Successfully created new kernel.", zap.String("kernel-id", sessionId), zap.Duration("time-elapsed", timeElapsed))
+	d.sessionConnections[sessionId] = sessionConnection
 
 	return sessionConnection, nil
 }
@@ -509,14 +555,4 @@ func (d *WorkloadDriver) createSession(sessionId string) (*jupyter.SessionConnec
 func (d *WorkloadDriver) stopSession(sessionId string) error {
 	d.logger.Debug("Stopping session.", zap.String("kernel-id", sessionId))
 	return d.kernelManager.StopKernel(sessionId)
-}
-
-// Return the Workload Driver's "done" channel, which is used to signal that the simulation is complete.
-func (d *WorkloadDriver) DoneChan() chan struct{} {
-	return d.doneChan
-}
-
-// Submit an event to the Workload Driver for processing.
-func (d *WorkloadDriver) SubmitEvent(evt domain.Event) {
-	d.eventChan <- evt
 }

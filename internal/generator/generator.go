@@ -47,7 +47,7 @@ func (g *workloadGeneratorImpl) StopGeneratingWorkload() {
 	g.cancelFunction()
 }
 
-func (g *workloadGeneratorImpl) GenerateWorkload(workloadDriver domain.EventConsumer, workload *domain.Workload, workloadPreset *domain.WorkloadPreset, workloadRegistrationRequest *domain.WorkloadRegistrationRequest) error {
+func (g *workloadGeneratorImpl) GenerateWorkload(consumer domain.EventConsumer, workload *domain.Workload, workloadPreset *domain.WorkloadPreset, workloadRegistrationRequest *domain.WorkloadRegistrationRequest) error {
 	var cpuSessionMap, memSessionMap map[string]float64 = nil, nil
 	var gpuSessionMap map[string]int = nil
 	var cpuTaskMap, memTaskMap map[string][]float64 = nil, nil
@@ -93,7 +93,7 @@ func (g *workloadGeneratorImpl) GenerateWorkload(workloadDriver domain.EventCons
 	maxUtilizationWrapper := NewMaxUtilizationWrapper(cpuSessionMap, memSessionMap, gpuSessionMap, cpuTaskMap, memTaskMap, gpuTaskMap)
 	g.synthesizer = NewSynthesizer(g.opts, maxUtilizationWrapper)
 	// Set the cluster as the EventHandler for the Synthesizer.
-	g.synthesizer.SetEventConsumer(workloadDriver)
+	g.synthesizer.SetEventConsumer(consumer)
 
 	g.logger.Debug("Driving GPU now.")
 
@@ -185,7 +185,7 @@ func (g *workloadGeneratorImpl) GenerateWorkload(workloadDriver domain.EventCons
 
 	g.logger.Debug("Beginning to generate workload now.")
 
-	g.synthesizer.Synthesize(g.ctx, g.opts, workloadDriver.DoneChan())
+	g.synthesizer.Synthesize(g.ctx, g.opts, consumer.DoneChan())
 
 	return nil
 }

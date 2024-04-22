@@ -64,16 +64,12 @@ func (ticker *Ticker) onTrigger(t time.Time) {
 	ticker.lastTick = t
 
 	// Add to channel
-	select {
-	case ticker.tickChannel <- t:
-		// sync ticker will wait for the handler to call Done()
-		if ticker.done != nil {
-			<-ticker.done
-		}
-		ticker.ticksHandled.Add(1)
-		// default:
-		// 	ticker.numDefault.Add(1)
+	ticker.tickChannel <- t
+	// sync ticker will wait for the handler to call Done()
+	if ticker.done != nil {
+		<-ticker.done
 	}
+	ticker.ticksHandled.Add(1)
 }
 
 func (ticker *Ticker) String() string {

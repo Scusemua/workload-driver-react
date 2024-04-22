@@ -68,7 +68,7 @@ type EventSource interface {
 
 type EventConsumer interface {
 	SubmitEvent(Event) // Give an event to the EventConsumer so that it may be processed.
-	DoneChan() chan struct{}
+	DoneChan() chan interface{}
 }
 
 type Event interface {

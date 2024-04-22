@@ -25,8 +25,8 @@ type eventQueue struct {
 	eventHeapMutex     sync.Mutex             // Controls access to the underlying eventHeap.
 	eventHeap          domain.EventHeap       // The heap of events, sorted by timestamp in ascending order (so future events are further in the list). Does not contain "Session Ready" events. Those are stored in a separate heap.
 	eventsPerSession   *hashmap.HashMap       // Mapping from session ID to another hashmap. The second/inner hashmap is a map from event ID to the event.
-	delayedEventsMutex sync.Mutex             // Controls access to the slices contained in the delayedEvents HashMap. (HashMap itself is thread-safe.)
 	delayedEvents      *hashmap.HashMap       // Mapping from SessionID to a slice of *generator.Event that have been returned to the Cluster for processing but could not be processed at the time because the associated Session was descheduled. Once the Session is rescheduled, it will re-enqueue all of the events in its `delayedEvents` slice.
+	doneChan           chan interface{}
 }
 
 func newEventQueue(atom *zap.AtomicLevel) *eventQueue {
@@ -37,6 +37,7 @@ func newEventQueue(atom *zap.AtomicLevel) *eventQueue {
 		delayedEvents:      hashmap.New(100),
 		sessionReadyEvents: make(domain.SimpleEventHeap, 0, 100),
 		eventHeap:          domain.EventHeap(make([]domain.EventHeapElement, 0, 100)),
+		doneChan:           make(chan interface{}),
 	}
 
 	core := zapcore.NewCore(zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()), os.Stdout, queue.atom)
@@ -51,9 +52,28 @@ func newEventQueue(atom *zap.AtomicLevel) *eventQueue {
 	return queue
 }
 
+func (q *eventQueue) DoneChan() chan interface{} {
+	return q.doneChan
+}
+
+// Return true if there are events available for the specified tick; otherwise return false.
+func (q *eventQueue) HasEventsForTick(tick time.Time) bool {
+	if q.Len() == 0 {
+		return false
+	}
+
+	nextEvent := q.eventHeap.Peek()
+	nextEventTimestamp := nextEvent.AdjustedTimestamp()
+	if tick == nextEventTimestamp || nextEventTimestamp.Before(tick) {
+		return true
+	}
+
+	return false
+}
+
 // Return true if there is at least 1 event in the event queue for the specified pod/Session.
 // Otherwise, return false. Returns an error (and false) if no queue exists for the specified pod/Session.
-func (q *eventQueue) HasEvents(podId string) (bool, error) {
+func (q *eventQueue) HasEventsForSession(podId string) (bool, error) {
 	q.eventHeapMutex.Lock()
 	defer q.eventHeapMutex.Unlock()
 
@@ -70,7 +90,7 @@ func (q *eventQueue) HasEvents(podId string) (bool, error) {
 
 // Enqueue the given event in the event heap associated with the event's target pod/container/session.
 // If no such event heap exists already, then first create the event heap.
-func (q *eventQueue) EnqueueEvent(evt domain.Event) {
+func (q *eventQueue) SubmitEvent(evt domain.Event) {
 	q.eventHeapMutex.Lock()
 	defer q.eventHeapMutex.Unlock()
 
@@ -195,16 +215,11 @@ func (q *eventQueue) GetNextEvent(threshold time.Time) (domain.EventHeapElement,
 }
 
 // Create and return a new *eventHeapElementImpl.
+// TODO(Ben): Move this to WorkloadDriver.
 func (q *eventQueue) NewEventHeapElement(evt domain.Event, enqueued bool) domain.EventHeapElement {
 	adjustedTimestamp := evt.Timestamp()
-	podId := evt.Data().(*generator.Session).Pod
 
 	var totalDelay time.Duration = time.Duration(0)
-	session := q.cluster.GetSession(podId)
-
-	if session != nil {
-		totalDelay = session.GetTotalDelay()
-	}
 
 	eventHeapElement := &eventHeapElementImpl{
 		Event:             evt,
