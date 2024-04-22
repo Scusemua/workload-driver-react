@@ -1,5 +1,4 @@
 import { JupyterKernelSpecWrapper } from '@app/Data';
-import { string } from 'prop-types';
 import useSWR from 'swr';
 import useSWRMutation from 'swr/mutation';
 
