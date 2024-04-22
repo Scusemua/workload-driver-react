@@ -335,6 +335,7 @@ export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalPr
                             {workloadPresets.length > 0 && (
                                 <Dropdown
                                     aria-label="workload-presetset-dropdown-menu"
+                                    isScrollable
                                     isOpen={isWorkloadDataDropdownOpen}
                                     onSelect={onWorkloadDataDropdownSelect}
                                     onOpenChange={(isOpen: boolean) => setIsWorkloadDataDropdownOpen(isOpen)}

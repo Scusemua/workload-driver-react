@@ -300,7 +300,7 @@ func (p *WorkloadPreset) UnmarshalYAML(unmarshal func(interface{}) error) error 
 		var xmlPreset XmlWorkloadPreset
 		err := unmarshal(&xmlPreset)
 		if err != nil {
-			log.Fatal("Failed to unmarshal XML preset: %v\n", err)
+			log.Fatalf("Failed to unmarshal XML preset: %v\n", err)
 		}
 
 		xmlPreset.BaseWorkloadPreset = basePreset
