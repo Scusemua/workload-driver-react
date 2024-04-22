@@ -312,7 +312,7 @@ func (p *WorkloadPreset) UnmarshalYAML(unmarshal func(interface{}) error) error 
 		}
 		log.Printf("Unmarshaled XML workload preset \"%s\"\n", p.XmlWorkloadPreset.Name)
 	} else {
-		log.Fatalf("Unsupported workload preset type: %v", tmp.PresetType)
+		log.Fatalf("Unsupported workload preset type: %v", basePreset.PresetType)
 	}
 
 	return nil
