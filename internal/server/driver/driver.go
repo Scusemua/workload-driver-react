@@ -69,8 +69,8 @@ type WorkloadDriver struct {
 	ticksHandled atomic.Int64  // Incremented/accessed atomically.
 	servingTicks atomic.Bool   // The WorkloadDriver::ServeTicks() method will continue looping as long as this flag is set to true.
 
-	workloadPresets             map[string]*domain.WorkloadPreset
-	workloadPreset              *domain.WorkloadPreset
+	workloadPresets             map[string]domain.WorkloadPreset
+	workloadPreset              domain.WorkloadPreset
 	workloadRegistrationRequest *domain.WorkloadRegistrationRequest
 	workload                    *domain.Workload
 
@@ -136,11 +136,11 @@ func NewWorkloadDriver(opts *domain.Configuration) *WorkloadDriver {
 		panic(err)
 	}
 
-	driver.workloadPresets = make(map[string]*domain.WorkloadPreset, len(presets))
+	driver.workloadPresets = make(map[string]domain.WorkloadPreset, len(presets))
 	for _, preset := range presets {
-		driver.workloadPresets[preset.Key] = preset
+		driver.workloadPresets[preset.Key()] = preset
 
-		driver.logger.Debug("Discovered preset.", zap.Any(fmt.Sprintf("preset-%s", preset.Key), preset.String()))
+		driver.logger.Debug("Discovered preset.", zap.Any(fmt.Sprintf("preset-%s", preset.Key()), preset.String()))
 	}
 
 	return driver
@@ -185,7 +185,7 @@ func (d *WorkloadDriver) GetWorkload() *domain.Workload {
 	return d.workload
 }
 
-func (d *WorkloadDriver) GetWorkloadPreset() *domain.WorkloadPreset {
+func (d *WorkloadDriver) GetWorkloadPreset() domain.WorkloadPreset {
 	return d.workloadPreset
 }
 
@@ -231,8 +231,8 @@ func (d *WorkloadDriver) RegisterWorkload(workloadRegistrationRequest *domain.Wo
 		Name:                workloadRegistrationRequest.WorkloadName,
 		WorkloadState:       domain.WorkloadReady,
 		WorkloadPreset:      d.workloadPreset,
-		WorkloadPresetName:  d.workloadPreset.Name,
-		WorkloadPresetKey:   d.workloadPreset.Key,
+		WorkloadPresetName:  d.workloadPreset.Name(),
+		WorkloadPresetKey:   d.workloadPreset.Key(),
 		TimeElasped:         time.Duration(0).String(),
 		Seed:                d.workloadRegistrationRequest.Seed,
 		RegisteredTime:      time.Now(),

@@ -3,12 +3,13 @@ package domain
 import (
 	"encoding/json"
 	"fmt"
+	"log"
 	"os"
 	"strconv"
 	"strings"
 	"time"
 
-	"gopkg.in/yaml.v2"
+	yaml "gopkg.in/yaml.v2"
 )
 
 const (
@@ -17,11 +18,14 @@ const (
 	WorkloadFinished   WorkloadState = 2    // Workload stopped naturally/successfully after processing all events.
 	WorkloadErred      WorkloadState = 3    // Workload stopped due to an error.
 	WorkloadTerminated WorkloadState = 4    // Workload stopped because it was explicitly terminated early/premature.
+
+	CsvWorkloadPresetType WorkloadPresetType = "CSV"
+	XmlWorkloadPresetType WorkloadPresetType = "XML"
 )
 
 type WorkloadGenerator interface {
-	GenerateWorkload(EventConsumer, *Workload, *WorkloadPreset, *WorkloadRegistrationRequest) error // Start generating the workload.
-	StopGeneratingWorkload()                                                                        // Stop generating the workload prematurely.
+	GenerateWorkload(EventConsumer, *Workload, WorkloadPreset, *WorkloadRegistrationRequest) error // Start generating the workload.
+	StopGeneratingWorkload()                                                                       // Stop generating the workload prematurely.
 }
 
 type SubscriptionRequest struct {
@@ -143,12 +147,12 @@ type Workload struct {
 	ID   string `json:"id"`
 	Name string `json:"name"`
 
-	WorkloadState       WorkloadState   `json:"workload_state"`
-	WorkloadPreset      *WorkloadPreset `json:"workload_preset"`
-	WorkloadPresetName  string          `json:"workload_preset_name"`
-	WorkloadPresetKey   string          `json:"workload_preset_key"`
-	DebugLoggingEnabled bool            `json:"debug_logging_enabled"`
-	ErrorMessage        string          `json:"error_message"`
+	WorkloadState       WorkloadState  `json:"workload_state"`
+	WorkloadPreset      WorkloadPreset `json:"workload_preset"`
+	WorkloadPresetName  string         `json:"workload_preset_name"`
+	WorkloadPresetKey   string         `json:"workload_preset_key"`
+	DebugLoggingEnabled bool           `json:"debug_logging_enabled"`
+	ErrorMessage        string         `json:"error_message"`
 
 	Seed int64 `json:"seed"`
 
@@ -196,11 +200,172 @@ func (w *Workload) String() string {
 	return string(out)
 }
 
+type WorkloadPresetType string
+
+type BaseWorkloadPreset struct {
+	Name        string             `name:"name" yaml:"name" json:"name" description:"Human-readable name for this particular workload preset."`                                   // Human-readable name for this particular workload preset.
+	Description string             `name:"description" yaml:"description" json:"description" description:"Human-readable description of the workload."`                           // Human-readable description of the workload.
+	Key         string             `name:"key"  yaml:"key" json:"key" description:"Key for code-use only (i.e., we don't intend to display this to the user for the most part)."` // Key for code-use only (i.e., we don't intend to display this to the user for the most part).
+	PresetType  WorkloadPresetType `name:"preset_type" yaml:"preset_type" json:"preset_type" description:"The type of workload preset. Could be CSV or XML."`
+}
+
 type WorkloadPreset struct {
-	Name              string   `name:"name" yaml:"name" json:"name" description:"Human-readable name for this particular workload preset."`                                   // Human-readable name for this particular workload preset.
-	Description       string   `name:"description" yaml:"description" json:"description" description:"Human-readable description of the workload."`                           // Human-readable description of the workload.
-	Key               string   `name:"key"  yaml:"key" json:"key" description:"Key for code-use only (i.e., we don't intend to display this to the user for the most part)."` // Key for code-use only (i.e., we don't intend to display this to the user for the most part).
-	Months            []string `name:"months" yaml:"months" json:"months" description:"The months of data used by the workload."`                                             // The months of data used by the workload.
+	PresetType WorkloadPresetType `name:"preset_type" yaml:"preset_type" json:"preset_type" description:"The type of workload preset. Could be CSV or XML."`
+	CsvWorkloadPreset
+	XmlWorkloadPreset
+}
+
+func (p *WorkloadPreset) MarshalJSON() ([]byte, error) {
+	if p.IsCsv() {
+		return json.Marshal(p.CsvWorkloadPreset)
+	} else if p.IsXml() {
+		return json.Marshal(p.XmlWorkloadPreset)
+	} else {
+		panic(fmt.Sprintf("WorkloadPreset is of invalid type: %v", p.PresetType))
+	}
+}
+
+func (p *WorkloadPreset) Key() string {
+	if p.IsCsv() {
+		return p.CsvWorkloadPreset.Key
+	} else if p.IsXml() {
+		return p.XmlWorkloadPreset.Key
+	} else {
+		panic(fmt.Sprintf("WorkloadPreset is of invalid type: %v", p.PresetType))
+	}
+}
+
+func (p *WorkloadPreset) Name() string {
+	if p.IsCsv() {
+		return p.CsvWorkloadPreset.Name
+	} else if p.IsXml() {
+		return p.XmlWorkloadPreset.Name
+	} else {
+		panic(fmt.Sprintf("WorkloadPreset is of invalid type: %v", p.PresetType))
+	}
+}
+
+func (p *WorkloadPreset) Description() string {
+	if p.IsCsv() {
+		return p.CsvWorkloadPreset.Description
+	} else if p.IsXml() {
+		return p.XmlWorkloadPreset.Description
+	} else {
+		panic(fmt.Sprintf("WorkloadPreset is of invalid type: %v", p.PresetType))
+	}
+}
+
+func (p *WorkloadPreset) String() string {
+	if p.IsCsv() {
+		return p.CsvWorkloadPreset.String()
+	} else if p.IsXml() {
+		return p.XmlWorkloadPreset.String()
+	} else {
+		panic(fmt.Sprintf("WorkloadPreset is of invalid type: %v", p.PresetType))
+	}
+}
+
+func (p *WorkloadPreset) IsCsv() bool {
+	return p.PresetType == CsvWorkloadPresetType
+}
+
+func (p *WorkloadPreset) IsXml() bool {
+	return p.PresetType == XmlWorkloadPresetType
+}
+
+func (p *WorkloadPreset) UnmarshalYAML(unmarshal func(interface{}) error) error {
+	var basePreset BaseWorkloadPreset
+	err := unmarshal(&basePreset)
+	if err != nil {
+		log.Fatalf("Failed to unmarshal workload preset: %v", err)
+	}
+
+	if basePreset.PresetType == CsvWorkloadPresetType {
+		var csvPreset CsvWorkloadPreset
+		err := unmarshal(&csvPreset)
+		if err != nil {
+			log.Fatal("Failed to unmarshal XML preset: %v\n", err)
+		}
+
+		csvPreset.BaseWorkloadPreset = basePreset
+		p.PresetType = CsvWorkloadPresetType
+		p.CsvWorkloadPreset = csvPreset
+		if err != nil {
+			log.Fatalf("Failed to unmarshal CSV workload preset: %v\n", err)
+		}
+		log.Printf("Unmarshaled CSV workload preset (1): \"%v\"\n", csvPreset)
+		log.Printf("Unmarshaled CSV workload preset (2): \"%v\"\n", p.CsvWorkloadPreset)
+		log.Printf("Unmarshaled CSV workload preset (3): \"%s\"\n", p.CsvWorkloadPreset.Name)
+	} else if basePreset.PresetType == XmlWorkloadPresetType {
+		var xmlPreset XmlWorkloadPreset
+		err := unmarshal(&xmlPreset)
+		if err != nil {
+			log.Fatal("Failed to unmarshal XML preset: %v\n", err)
+		}
+
+		xmlPreset.BaseWorkloadPreset = basePreset
+		p.PresetType = XmlWorkloadPresetType
+		p.XmlWorkloadPreset = xmlPreset
+
+		if err != nil {
+			log.Fatalf("Failed to unmarshal CSV workload preset: %v\n", err)
+		}
+		log.Printf("Unmarshaled XML workload preset \"%s\"\n", p.XmlWorkloadPreset.Name)
+	} else {
+		log.Fatalf("Unsupported workload preset type: %v", tmp.PresetType)
+	}
+
+	return nil
+}
+
+func (p *BaseWorkloadPreset) GetName() string {
+	return p.Name
+}
+
+func (p *BaseWorkloadPreset) GetDescription() string {
+	return p.Description
+}
+
+func (p *BaseWorkloadPreset) GetKey() string {
+	return p.Key
+}
+
+func (p *BaseWorkloadPreset) GetPresetType() WorkloadPresetType {
+	return p.PresetType
+}
+
+func (p *BaseWorkloadPreset) String() string {
+	return fmt.Sprintf("BaseWorkloadPreset[Name=%s,Key=%s,PresetType=%s]", p.Name, p.Key, p.PresetType)
+}
+
+type XmlWorkloadPreset struct {
+	BaseWorkloadPreset
+	XmlFilePath string `name:"xml_file" json:"xml_file" yaml:"xml_file" description:"File path to the XML file definining the workload's tasks."` // File path to the XML file definining the workload's tasks.
+}
+
+func (p *XmlWorkloadPreset) GetName() string {
+	return p.Name
+}
+
+func (p *XmlWorkloadPreset) GetDescription() string {
+	return p.Description
+}
+
+func (p *XmlWorkloadPreset) GetKey() string {
+	return p.Key
+}
+
+func (p *XmlWorkloadPreset) GetXmlFilePath() string {
+	return p.XmlFilePath
+}
+
+func (p *XmlWorkloadPreset) String() string {
+	return fmt.Sprintf("CsvWorkloadPreset[Name=%s,Key=%s,XmlFile=%s]", p.Name, p.Key, p.XmlFilePath)
+}
+
+type CsvWorkloadPreset struct {
+	BaseWorkloadPreset
+	Months            []string `name:"months" yaml:"months" json:"months" description:"The months of data used by the workload."` // The months of data used by the workload.
 	MonthsDescription string   `name:"months_description" yaml:"months_description" json:"months_description" description:"Formatted, human-readable text of the form (StartMonth) - (EndMonth) or (Month) if there is only one month included in the trace."`
 
 	/* The following fields are not sent to the client. They're just used by the server. */
@@ -225,11 +390,23 @@ type WorkloadPreset struct {
 	ToMonth           string `yaml:"to-month" json:"-" name:"to-month" description:"Month the trace ends if the path of trace file contains placeholder."`
 }
 
-func (p *WorkloadPreset) String() string {
-	return fmt.Sprintf("WorkloadPreset[Name=%s,Key=%s,Months=%s]", p.Name, p.Key, p.Months)
+func (p *CsvWorkloadPreset) GetName() string {
+	return p.Name
 }
 
-func (p *WorkloadPreset) NormalizeTracePaths(path string) []string {
+func (p *CsvWorkloadPreset) GetDescription() string {
+	return p.Description
+}
+
+func (p *CsvWorkloadPreset) GetKey() string {
+	return p.Key
+}
+
+func (p *CsvWorkloadPreset) String() string {
+	return fmt.Sprintf("CsvWorkloadPreset[Name=%s,Key=%s,Months=%s]", p.Name, p.Key, p.Months)
+}
+
+func (p *CsvWorkloadPreset) NormalizeTracePaths(path string) []string {
 	if p.FromMonth == "" {
 		return []string{path}
 	}
@@ -255,7 +432,7 @@ func (p *WorkloadPreset) NormalizeTracePaths(path string) []string {
 	return paths
 }
 
-func (p *WorkloadPreset) NormalizeDowntime(downtime string) []int64 {
+func (p *CsvWorkloadPreset) NormalizeDowntime(downtime string) []int64 {
 	if downtime == "" {
 		return nil
 	}
@@ -268,19 +445,19 @@ func (p *WorkloadPreset) NormalizeDowntime(downtime string) []int64 {
 	return downtimes
 }
 
-// Read a yaml file containing one or more WorkloadPreset definitions.
-// Return a list of *WorkloadPreset containing the definitions from the file.
+// Read a yaml file containing one or more CsvWorkloadPreset definitions.
+// Return a list of *CsvWorkloadPreset containing the definitions from the file.
 //
 // Returns an error if an error occurred. In this case, the returned slice will be nil.
 // If no error occurred and the slice was read/created successfully, then the returned error will be nil.
-func LoadWorkloadPresetsFromFile(filepath string) ([]*WorkloadPreset, error) {
+func LoadWorkloadPresetsFromFile(filepath string) ([]WorkloadPreset, error) {
 	file, err := os.ReadFile(filepath)
 	if err != nil {
 		fmt.Printf("[ERROR] Failed to open or read workload presets file: %v\n", err)
 		return nil, err
 	}
 
-	workloadPresets := make([]*WorkloadPreset, 0)
+	workloadPresets := make([]WorkloadPreset, 0)
 	err = yaml.Unmarshal(file, &workloadPresets)
 
 	if err != nil {

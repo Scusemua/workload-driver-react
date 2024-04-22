@@ -24,8 +24,8 @@ var (
 	ErrUnexpectedSessionState   = errors.New("unexpected session state")
 	ErrUnexpectedSessionStTrans = errors.New("unexpected session state transition")
 
-	ErrNoEventQueue = errors.New("No corresponding event queue for given Session.")
-	ErrNoMoreEvents = errors.New("There are no more events for the specified Session.")
+	ErrNoEventQueue = errors.New("no corresponding event queue for given Session")
+	ErrNoMoreEvents = errors.New("there are no more events for the specified Session")
 
 	NoSessionEvent      []SessionEvent = nil
 	SessionReadyExpects                = SessionCPUReady | SessionGPUReady

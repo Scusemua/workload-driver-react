@@ -10,24 +10,30 @@ import (
 )
 
 var (
-	DefaultWorkloads = []*domain.WorkloadPreset{
+	DefaultWorkloads = []*domain.CsvWorkloadPreset{
 		{
-			Name:        "June - August",
-			Description: "Workload based on trace data from June, July, and August.",
-			Key:         "jun-aug",
-			Months:      []string{"jun", "jul", "aug"},
+			BaseWorkloadPreset: domain.BaseWorkloadPreset{
+				Name:        "June - August",
+				Description: "Workload based on trace data from June, July, and August.",
+				Key:         "jun-aug",
+			},
+			Months: []string{"jun", "jul", "aug"},
 		},
 		{
-			Name:        "July",
-			Description: "Workload based on trace data from July.",
-			Key:         "jul",
-			Months:      []string{"jul"},
+			BaseWorkloadPreset: domain.BaseWorkloadPreset{
+				Name:        "July",
+				Description: "Workload based on trace data from July.",
+				Key:         "jul",
+			},
+			Months: []string{"jul"},
 		},
 		{
-			Name:        "August",
-			Description: "Workload based on trace data from August.",
-			Key:         "aug",
-			Months:      []string{"aug"},
+			BaseWorkloadPreset: domain.BaseWorkloadPreset{
+				Name:        "August",
+				Description: "Workload based on trace data from August.",
+				Key:         "aug",
+			},
+			Months: []string{"aug"},
 		},
 	}
 )
@@ -35,8 +41,8 @@ var (
 type WorkloadPresetHttpHandler struct {
 	*BaseHandler
 
-	workloadPresetsMap map[string]*domain.WorkloadPreset
-	workloadPresets    []*domain.WorkloadPreset
+	workloadPresetsMap map[string]domain.WorkloadPreset
+	workloadPresets    []domain.WorkloadPreset
 }
 
 func NewWorkloadPresetHttpHandler(opts *domain.Configuration) domain.BackendHttpGetHandler {
@@ -56,11 +62,11 @@ func NewWorkloadPresetHttpHandler(opts *domain.Configuration) domain.BackendHttp
 	}
 
 	handler.workloadPresets = presets
-	handler.workloadPresetsMap = make(map[string]*domain.WorkloadPreset, len(presets))
+	handler.workloadPresetsMap = make(map[string]domain.WorkloadPreset, len(presets))
 	for _, preset := range presets {
-		handler.workloadPresetsMap[preset.Key] = preset
+		handler.workloadPresetsMap[preset.Key()] = preset
 
-		handler.logger.Debug("Discovered workload preset.", zap.Any(fmt.Sprintf("preset-%s", preset.Key), preset.String()))
+		handler.logger.Debug("Discovered workload preset.", zap.Any(fmt.Sprintf("preset-%s", preset.Key()), preset.String()))
 	}
 
 	return handler
