@@ -96,6 +96,14 @@ func NewKernelConnection(kernelId string, jupyterSessionId string, atom *zap.Ato
 // Future `onReply` is called with the `execute_reply` content when the
 // shell reply is received and validated. The future will resolve when
 // this message is received and the `idle` iopub status is received.
+//
+// Arguments:
+// - code (string): The code to execute.
+// - silent (bool): Whether to execute the code as quietly as possible. The default is `false`.
+// - storeHistory (bool): Whether to store history of the execution. The default `true` if silent is False. It is forced to  `false ` if silent is `true`.
+// - userExpressions (map[string]interface{}): A mapping of names to expressions to be evaluated in the kernel's interactive namespace.
+// - allowStdin (bool): Whether to allow stdin requests. The default is `true`.
+// - stopOnError (bool): Whether to the abort execution queue on an error. The default is `false`.
 func (conn *KernelConnection) RequestExecute(code string, silent bool, storeHistory bool, userExpressions map[string]interface{}, allowStdin bool, stopOnError bool) error {
 	content := &executeRequestKernelMessageContent{
 		Code:            code,
