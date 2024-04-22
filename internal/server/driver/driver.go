@@ -505,10 +505,14 @@ func (d *WorkloadDriver) handleEvent(evt domain.Event) error {
 	case domain.EventSessionTrainingEnded:
 		d.logger.Debug("Received TrainingEnded event.", zap.String("session", sessionId))
 
-		// TODO: Stop training.
 		if _, ok := d.kernels[sessionId]; !ok {
 			d.logger.Error("Received 'training-stopped' event for unknown session.", zap.String("session-id", sessionId))
 			return ErrTrainingStoppedUnknownSession
+		}
+
+		err := d.kernelManager.InterruptKernel(sessionId)
+		if err != nil {
+			d.logger.Error("Error while interrupting kernel.", zap.String("kernel-id", sessionId), zap.Error(err))
 		}
 
 		d.mu.Lock()
