@@ -1,6 +1,7 @@
 package jupyter
 
 import (
+	"bytes"
 	"context"
 	"encoding/json"
 	"errors"
@@ -33,6 +34,7 @@ var (
 	ErrKernelNotFound          = errors.New("received HTTP 404 status when requesting info for kernel")
 	ErrNetworkIssue            = errors.New("received HTTP 503 or HTTP 424 in response to request")
 	ErrUnexpectedFailure       = errors.New("the request could not be completed for some unexpected reason")
+	ErrKernelIsDead            = errors.New("kernel is dead")
 )
 
 type KernelConnectionStatus string
@@ -125,6 +127,57 @@ func (conn *KernelConnection) RequestKernelInfo() (*KernelMessage, error) {
 			}
 		}
 	}
+}
+
+// Interrupt a kernel.
+//
+// #### Notes
+// Uses the [Jupyter Server API](https://petstore.swagger.io/?url=https://raw.githubusercontent.com/jupyter-server/jupyter_server/main/jupyter_server/services/api/api.yaml#!/kernels).
+//
+// The promise is fulfilled on a valid response and rejected otherwise.
+//
+// It is assumed that the API call does not mutate the kernel id or name.
+//
+// The promise will be rejected if the kernel status is `Dead` or if the
+// request fails or the response is invalid.
+func (conn *KernelConnection) InterruptKernel() error {
+	if conn.connectionStatus == KernelDead {
+		// Cannot interrupt a dead kernel.
+		return ErrKernelIsDead
+	}
+
+	var requestBody map[string]interface{} = make(map[string]interface{})
+	requestBody["kernel_id"] = conn.kernelId
+
+	requestBodyEncoded, err := json.Marshal(requestBody)
+	if err != nil {
+		conn.logger.Error("Failed to marshal request body for kernel interruption request", zap.Error(err))
+		return err
+	}
+
+	url := fmt.Sprintf("%s/api/kernels/%s/interrupt", conn.jupyterServerAddress, conn.kernelId)
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(requestBodyEncoded))
+
+	if err != nil {
+		conn.logger.Error("Failed to create HTTP request for kernel interruption.", zap.String("url", url), zap.Error(err))
+		return err
+	}
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		conn.logger.Error("Error while issuing HTTP request to interrupt kernel.", zap.String("url", url), zap.Error(err))
+		return err
+	}
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		conn.logger.Error("Failed to read response to interrupting kernel.", zap.Error(err))
+		return err
+	}
+
+	conn.logger.Debug("Received response to interruption request.", zap.Int("status-code", resp.StatusCode), zap.String("status", resp.Status), zap.Any("response", data))
+	return nil
 }
 
 // Listen for messages from the kernel.
