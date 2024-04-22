@@ -30,6 +30,7 @@ import { JupyterKernelSpecWrapper } from '@app/Data';
 
 export const KernelSpecList: React.FunctionComponent = () => {
     const [activeTabKey, setActiveTabKey] = React.useState(0);
+
     const { kernelSpecs, kernelSpecsAreLoading, refreshKernelSpecs } = useKernelSpecs();
 
     const handleTabClick = (_e: React.MouseEvent<HTMLElement, MouseEvent>, idx: string | number) => {

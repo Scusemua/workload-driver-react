@@ -1,4 +1,5 @@
 import { JupyterKernelSpecWrapper } from '@app/Data';
+import { string } from 'prop-types';
 import useSWR from 'swr';
 import useSWRMutation from 'swr/mutation';
 
@@ -15,6 +16,11 @@ const fetcher = async (input: RequestInfo | URL) => {
         const response: Response = await fetch(input, {
             signal: signal,
         });
+
+        if (response.status !== 200) {
+            throw new Error(`HTTP ${response.status} ${response.statusText}`);
+        }
+
         return await response.json();
     } catch (e) {
         if (signal.aborted) {
@@ -32,19 +38,25 @@ export function useKernelSpecs() {
     const { trigger, isMutating } = useSWRMutation('jupyter/api/kernelspecs', fetcher);
 
     const kernelSpecs: JupyterKernelSpecWrapper[] = [];
+    let jsonParseError: boolean = false;
     if (data) {
-        const kernelSpecsParsed: { [key: string]: JupyterKernelSpecWrapper } = JSON.parse(
-            JSON.stringify(data['kernelspecs']),
-        );
-        Object.keys(kernelSpecsParsed).map((key: string) => {
-            kernelSpecs.push(kernelSpecsParsed[key]);
-        });
+        try {
+            const kernelSpecsParsed: { [key: string]: JupyterKernelSpecWrapper } = JSON.parse(
+                JSON.stringify(data['kernelspecs']),
+            );
+            Object.keys(kernelSpecsParsed).map((key: string) => {
+                kernelSpecs.push(kernelSpecsParsed[key]);
+            });
+        } catch (ex) {
+            console.error('Failed to parse kernelspecs: %s', ex);
+            jsonParseError = true;
+        }
     }
 
     return {
         kernelSpecs: kernelSpecs,
         kernelSpecsAreLoading: isMutating || isLoading, // We'll use both here since this has weird connection problems and it'd be easier to notice those if we used both.
         refreshKernelSpecs: trigger,
-        isError: error,
+        isError: error || jsonParseError,
     };
 }
