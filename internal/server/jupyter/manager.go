@@ -22,6 +22,8 @@ var (
 
 	ErrCreateFileUnknownFailure    = errors.New("the 'create file' operation failed for an unknown or unexpected reason")
 	ErrCreateSessionUnknownFailure = errors.New("the 'create session' operation failed for an unknown or unexpected reason")
+
+	ErrNoActiveConnection = errors.New("no active connection to target kernel exists")
 )
 
 type KernelManagerMetrics struct {
@@ -52,7 +54,7 @@ func (m *KernelManagerMetrics) SessionTerminated() {
 	m.NumSessionsTerminated += 1
 }
 
-type KernelManager struct {
+type KernelSessionManager struct {
 	logger        *zap.Logger
 	sugaredLogger *zap.SugaredLogger
 	atom          *zap.AtomicLevel
@@ -78,8 +80,8 @@ type KernelManager struct {
 	sessionMap map[string]*SessionConnection // Map from Session ID to Session. The keys are the Session IDs supplied by us/the trace data.
 }
 
-func NewKernelManager(opts *domain.Configuration, atom *zap.AtomicLevel) *KernelManager {
-	manager := &KernelManager{
+func NewKernelManager(opts *domain.Configuration, atom *zap.AtomicLevel) *KernelSessionManager {
+	manager := &KernelSessionManager{
 		jupyterServerAddress:             opts.JupyterServerAddress,
 		metrics:                          &KernelManagerMetrics{},
 		connectToKernelTimeout:           time.Duration(time.Millisecond * time.Duration(opts.ConnectToKernelTimeoutMillis)),
@@ -102,12 +104,12 @@ func NewKernelManager(opts *domain.Configuration, atom *zap.AtomicLevel) *Kernel
 }
 
 // Start a new kernel.
-func (m *KernelManager) StartNew(kernelSpec string) error {
+func (m *KernelSessionManager) StartNew(kernelSpec string) error {
 	return nil
 }
 
 // Create a new session.
-func (m *KernelManager) CreateSession(localSessionId string, sessionName string, path string, sessionType string, kernelSpecName string) (*SessionConnection, error) {
+func (m *KernelSessionManager) CreateSession(localSessionId string, sessionName string, path string, sessionType string, kernelSpecName string) (*SessionConnection, error) {
 	requestBody := newJupyterSessionForRequest(sessionName, path, sessionType, kernelSpecName)
 
 	requestBodyJson, err := json.Marshal(&requestBody)
@@ -183,7 +185,70 @@ func (m *KernelManager) CreateSession(localSessionId string, sessionName string,
 	return sessionConnection, nil
 }
 
-func (m *KernelManager) CreateFile(path string) error {
+// Interrupt a kernel.
+//
+// #### Notes
+// Uses the [Jupyter Server API](https://petstore.swagger.io/?url=https://raw.githubusercontent.com/jupyter-server/jupyter_server/main/jupyter_server/services/api/api.yaml#!/kernels).
+//
+// The promise is fulfilled on a valid response and rejected otherwise.
+//
+// It is assumed that the API call does not mutate the kernel id or name.
+//
+// The promise will be rejected if the kernel status is `Dead` or if the
+// request fails or the response is invalid.
+func (m *KernelSessionManager) InterruptKernel(id string) error {
+	sess, ok := m.sessionMap[id]
+	if !ok {
+		m.logger.Error("Cannot interrupt kernel. Associated kernel/session not found.", zap.String("id", id))
+		return ErrKernelNotFound
+	}
+
+	if sess.kernel == nil {
+		m.logger.Error("Cannot interrupt kernel. No active connection to kernel.", zap.String("id", id))
+		return ErrNoActiveConnection
+	}
+
+	conn := sess.kernel
+	if conn.connectionStatus == KernelDead {
+		// Cannot interrupt a dead kernel.
+		return ErrKernelIsDead
+	}
+
+	var requestBody map[string]interface{} = make(map[string]interface{})
+	requestBody["kernel_id"] = conn.kernelId
+
+	requestBodyEncoded, err := json.Marshal(requestBody)
+	if err != nil {
+		conn.logger.Error("Failed to marshal request body for kernel interruption request", zap.Error(err))
+		return err
+	}
+
+	url := fmt.Sprintf("%s/api/kernels/%s/interrupt", conn.jupyterServerAddress, conn.kernelId)
+	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(requestBodyEncoded))
+
+	if err != nil {
+		conn.logger.Error("Failed to create HTTP request for kernel interruption.", zap.String("url", url), zap.Error(err))
+		return err
+	}
+
+	client := &http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		conn.logger.Error("Error while issuing HTTP request to interrupt kernel.", zap.String("url", url), zap.Error(err))
+		return err
+	}
+
+	data, err := io.ReadAll(resp.Body)
+	if err != nil {
+		conn.logger.Error("Failed to read response to interrupting kernel.", zap.Error(err))
+		return err
+	}
+
+	conn.logger.Debug("Received response to interruption request.", zap.Int("status-code", resp.StatusCode), zap.String("status", resp.Status), zap.Any("response", data))
+	return nil
+}
+
+func (m *KernelSessionManager) CreateFile(path string) error {
 	url := fmt.Sprintf("http://%s/api/contents/%s", m.jupyterServerAddress, path)
 
 	createFileRequest := newCreateFileRequest(path)
@@ -236,7 +301,7 @@ func (m *KernelManager) CreateFile(path string) error {
 	return nil
 }
 
-func (m *KernelManager) StopKernel(id string) error {
+func (m *KernelSessionManager) StopKernel(id string) error {
 	url := fmt.Sprintf("http://%s/api/sessions/%s", m.jupyterServerAddress, id)
 	req, err := http.NewRequest(http.MethodDelete, url, nil)
 	if err != nil {
@@ -273,6 +338,6 @@ func (m *KernelManager) StopKernel(id string) error {
 	return nil
 }
 
-func (m *KernelManager) GetMetrics() *KernelManagerMetrics {
+func (m *KernelSessionManager) GetMetrics() *KernelManagerMetrics {
 	return m.metrics
 }

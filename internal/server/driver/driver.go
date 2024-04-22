@@ -45,7 +45,7 @@ var (
 type WorkloadDriver struct {
 	id string // Unique ID (relative to other drivers). The workload registered with this driver will be assigned this ID.
 
-	kernelManager *jupyter.KernelManager
+	kernelManager *jupyter.KernelSessionManager
 
 	workloadGenerator domain.WorkloadGenerator
 
