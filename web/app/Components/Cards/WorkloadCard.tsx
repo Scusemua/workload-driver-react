@@ -462,7 +462,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                                                                                                 event.stopPropagation();
                                                                                             }}
                                                                                         >
-                                                                                            Stop
+                                                                                            Pause
                                                                                         </Button>
                                                                                     </Tooltip>
                                                                                 </FlexItem>
