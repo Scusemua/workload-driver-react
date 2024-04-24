@@ -12,6 +12,16 @@ interface WorkloadPreset {
     months_description: string; // Formatted, human-readable text of the form (StartMonth) - (EndMonth) or (Month) if there is only one month included in the trace.
 }
 
+interface WorkloadPreset {
+    name: string; // Human-readable name for this particular workload preset.
+    description: string; // Human-readable description of the workload.
+    key: string; // Key for code-use only (i.e., we don't intend to display this to the user for the most part).
+    preset_type: string; // The type of preset ("XML" or "CSV").
+    months: string[]; // The months of data used by the workload.
+    months_description: string; // Formatted, human-readable text of the form (StartMonth) - (EndMonth) or (Month) if there is only one month included in the trace.
+    svg_content: string[]; // For XML presets, their events can be rendered/displayed as an SVG.
+}
+
 interface Workload {
     id: string;
     name: string;
@@ -49,4 +59,6 @@ export { WORKLOAD_STATE_TERMINATED as WORKLOAD_STATE_TERMINATED };
 
 export type { Workload as Workload };
 export type { WorkloadPreset as WorkloadPreset };
+export type { XmlWorkloadPreset as XmlWorkloadPreset };
+export type { CsvWorkloadPreset as CsvWorkloadPreset };
 export type { WorkloadResponse as WorkloadResponse };

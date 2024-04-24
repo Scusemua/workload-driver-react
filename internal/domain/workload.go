@@ -284,7 +284,7 @@ func (p *WorkloadPreset) UnmarshalYAML(unmarshal func(interface{}) error) error 
 		var csvPreset CsvWorkloadPreset
 		err := unmarshal(&csvPreset)
 		if err != nil {
-			log.Fatal("Failed to unmarshal XML preset: %v\n", err)
+			log.Fatalf("Failed to unmarshal XML preset: %v\n", err)
 		}
 
 		csvPreset.BaseWorkloadPreset = basePreset
@@ -304,6 +304,17 @@ func (p *WorkloadPreset) UnmarshalYAML(unmarshal func(interface{}) error) error 
 		}
 
 		xmlPreset.BaseWorkloadPreset = basePreset
+
+		// Some presets may not have an associated SVG file.
+		if xmlPreset.SvgFilePath != "" {
+			err = xmlPreset.LoadSvgContent()
+			if err != nil {
+				log.Printf("[ERROR] Could not load SVG content for XML preset %s from file \"%s\": %v\n", xmlPreset.GetName(), xmlPreset.SvgFilePath, err)
+			} else {
+				log.Printf("Successfully loaded SVG content for for XML preset %s from file \"%s\"\n", xmlPreset.GetName(), xmlPreset.SvgFilePath)
+			}
+		}
+
 		p.PresetType = XmlWorkloadPresetType
 		p.XmlWorkloadPreset = xmlPreset
 
@@ -340,7 +351,19 @@ func (p *BaseWorkloadPreset) String() string {
 
 type XmlWorkloadPreset struct {
 	BaseWorkloadPreset
-	XmlFilePath string `name:"xml_file" json:"xml_file" yaml:"xml_file" description:"File path to the XML file definining the workload's tasks."` // File path to the XML file definining the workload's tasks.
+	XmlFilePath string `json:"-" yaml:"xml_file" description:"File path to the XML file definining the workload's tasks."` // File path to the XML file definining the workload's tasks.
+	SvgFilePath string `json:"-" yaml:"svg_file" description:"File path to SVG file for rendering the events."`
+	SvgContent  string `json:"svg_content" description:"The contents of the SVG file."`
+}
+
+func (p *XmlWorkloadPreset) LoadSvgContent() error {
+	fileContents, err := os.ReadFile(p.SvgFilePath)
+	if err != nil {
+		return err
+	}
+
+	p.SvgContent = string(fileContents)
+	return nil
 }
 
 func (p *XmlWorkloadPreset) GetName() string {
