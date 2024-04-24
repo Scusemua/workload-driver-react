@@ -12,11 +12,22 @@ The backend is contained within the `internal/` directory. The frontend is conta
 
 ## Quick-start
 
+First, clone the repository:
 ```bash
 git clone https://github.com/Scusemua/workload-driver-react
 cd workload-driver-react
+```
+
+To run the `frontend`, execute the following:
+```bash
 npm install && npm run start:dev
 ```
+
+Next, to run the `backend`, execute the following in a separate terminal:
+```bash
+make run-server
+```
+
 ## Development scripts
 ```sh
 # Install development/build dependencies
@@ -66,6 +77,7 @@ npm run build:storybook
 * To keep the code logic and test coverage in check, we use [jest](https://github.com/facebook/jest)
 * To ensure code styles remain consistent, we use [eslint](https://eslint.org/)
 * To provide a place to showcase custom components, we integrate with [storybook](https://storybook.js.org/)
+* To provide visually-appealing and functional components, we utilize [patternfly](https://www.patternfly.org/)
 
 ## Multi environment configuration
 This project uses [dotenv-webpack](https://www.npmjs.com/package/dotenv-webpack) for exposing environment variables to your code. Either export them at the system level like `export MY_ENV_VAR=http://dev.myendpoint.com && npm run start:dev` or simply drop a `.env` file in the root that contains your key-value pairs like below:
