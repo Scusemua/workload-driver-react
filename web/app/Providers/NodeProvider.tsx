@@ -1,5 +1,6 @@
 import useSWR from 'swr';
 import { KubernetesNode } from '@app/Data';
+import useSWRMutation from 'swr/mutation';
 
 const api_endpoint: string = 'api/nodes';
 
@@ -33,24 +34,26 @@ const fetcher = async (input: RequestInfo | URL) => {
     if (response.status != 200) {
         const responseBody: string = await response.text();
         console.error(`Refresh Nodes Failed (${response.status} ${response.statusText}): ${responseBody}`);
-        throw {
-            name: `${response.status} ${response.statusText}`,
-            message: `${response.status} ${response.statusText}: ${responseBody}`,
-        };
+        throw new Error(`${response.status} ${response.statusText}`);
+        // throw {
+        //     name: `${response.status} ${response.statusText}`,
+        //     message: `${response.status} ${response.statusText}: ${responseBody}`,
+        // };
     }
 
     return await response.json();
 };
 
 export function useNodes() {
-    const { data, mutate, error, isLoading, isValidating } = useSWR(api_endpoint, fetcher, { refreshInterval: 600000 });
+    const { data, error, isLoading, isValidating } = useSWR(api_endpoint, fetcher, { refreshInterval: 600000 });
+    const { trigger, isMutating } = useSWRMutation(api_endpoint, fetcher);
 
     const nodes: KubernetesNode[] = data || [];
 
     return {
         nodes: nodes,
-        nodesAreLoading: isLoading || isValidating,
-        refreshNodes: mutate,
+        nodesAreLoading: isLoading || isValidating || isMutating,
+        refreshNodes: trigger,
         isError: error,
     };
 }

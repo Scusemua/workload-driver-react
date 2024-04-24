@@ -39,11 +39,12 @@ const baseFetcher = async (input: RequestInfo | URL) => {
 
     if (response.status != 200) {
         const responseBody: string = await response.text();
-        console.error(`Refresh Nodes Failed (${response.status} ${response.statusText}): ${responseBody}`);
-        throw {
-            name: `${response.status} ${response.statusText}`,
-            message: `${response.status} ${response.statusText}: ${responseBody}`,
-        };
+        console.error(`Refresh Kernels Failed (${response.status} ${response.statusText}): ${responseBody}`);
+        throw new Error(`${response.status} ${response.statusText}`);
+        // throw {
+        //     name: `${response.status} ${response.statusText}`,
+        //     message: `${response.status} ${response.statusText}: ${responseBody}`,
+        // };
     }
 
     return response;
@@ -72,27 +73,6 @@ export function useKernels(forLogging: boolean) {
         onError: (error: Error) => {
             console.error(`Automatic refresh of kernels failed because: ${error.message}`);
         },
-        // onSuccess: (data, key) => {
-        //     console.log(`Refreshed kernels. Key: "${key}".`);
-        // },
-        // onDiscarded: () => {
-        //     console.log('Refreshed kernels.');
-        // },
-        // compare: (a: any, b: any) => {
-        //     console.log('');
-        //     console.log('');
-        //     console.log('');
-
-        //     if (hash(a) !== hash(b)) {
-        //         console.warn('Data IS new!');
-        //         console.log(`Old data: ${JSON.stringify(a)}`);
-        //         console.log(`New data: ${JSON.stringify(b)}`);
-        //         return false;
-        //     } else {
-        //         console.log('Data is not new.');
-        //         return true;
-        //     }
-        // },
     });
     const { trigger, isMutating } = useSWRMutation([api_endpoint, forLogging], ([url, forLogging]) =>
         fetcher(url, forLogging),
