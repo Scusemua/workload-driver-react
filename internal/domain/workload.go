@@ -28,9 +28,13 @@ type WorkloadGenerator interface {
 	StopGeneratingWorkload()                                                                       // Stop generating the workload prematurely.
 }
 
-type SubscriptionRequest struct {
-	Op        string `json:"op"`
+type BaseMessage struct {
+	Operation string `json:"op"`
 	MessageId string `json:"msg_id"`
+}
+
+type SubscriptionRequest struct {
+	*BaseMessage
 }
 
 func (r *SubscriptionRequest) String() string {
@@ -43,8 +47,7 @@ func (r *SubscriptionRequest) String() string {
 }
 
 type ToggleDebugLogsRequest struct {
-	Op         string `json:"op"`
-	MessageId  string `json:"msg_id"`
+	*BaseMessage
 	WorkloadId string `json:"workload_id"`
 	Enabled    bool   `json:"enabled"`
 }
@@ -76,8 +79,7 @@ func (r *WorkloadResponse) String() string {
 
 // Wrapper around a WorkloadRegistrationRequest; contains the message ID and operation field.
 type WorkloadRegistrationRequestWrapper struct {
-	Operation                   string                       `json:"op"`
-	MessageId                   string                       `json:"msg_id"`
+	*BaseMessage
 	WorkloadRegistrationRequest *WorkloadRegistrationRequest `json:"workloadRegistrationRequest"`
 }
 
@@ -90,10 +92,15 @@ func (r *WorkloadRegistrationRequestWrapper) String() string {
 	return string(out)
 }
 
+// Whether this pauses or unpauses a workload depends on the value of the Operation field.
+type PauseUnpauseWorkloadRequest struct {
+	*BaseMessage
+	WorkloadId string `json:"workload_id"` // ID of the workload to (un)pause.
+}
+
 // Request for starting/stopping a workload. Whether this starts or stops a workload depends on the value of the Operation field.
 type StartStopWorkloadRequest struct {
-	MessageId  string `json:"msg_id"`
-	Operation  string `json:"op"`
+	*BaseMessage
 	WorkloadId string `json:"workload_id"`
 }
 
@@ -108,8 +115,7 @@ func (r *StartStopWorkloadRequest) String() string {
 
 // Request for starting/stopping a workload. Whether this starts or stops a workload depends on the value of the Operation field.
 type StartStopWorkloadsRequest struct {
-	MessageId   string   `json:"msg_id"`
-	Operation   string   `json:"op"`
+	*BaseMessage
 	WorkloadIDs []string `json:"workload_ids"`
 }
 

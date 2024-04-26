@@ -59,6 +59,4 @@ export { WORKLOAD_STATE_TERMINATED as WORKLOAD_STATE_TERMINATED };
 
 export type { Workload as Workload };
 export type { WorkloadPreset as WorkloadPreset };
-export type { XmlWorkloadPreset as XmlWorkloadPreset };
-export type { CsvWorkloadPreset as CsvWorkloadPreset };
 export type { WorkloadResponse as WorkloadResponse };

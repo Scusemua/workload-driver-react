@@ -12,7 +12,6 @@ import (
 	"unsafe"
 
 	"github.com/gin-gonic/gin"
-	"github.com/gorilla/websocket"
 	"github.com/mgutz/ansi"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/generator"
@@ -194,7 +193,7 @@ func (d *WorkloadDriver) GetWorkloadRegistrationRequest() *domain.WorkloadRegist
 }
 
 // Returns nil if the workload could not be registered.
-func (d *WorkloadDriver) RegisterWorkload(workloadRegistrationRequest *domain.WorkloadRegistrationRequest, conn *websocket.Conn) (*domain.Workload, error) {
+func (d *WorkloadDriver) RegisterWorkload(workloadRegistrationRequest *domain.WorkloadRegistrationRequest) (*domain.Workload, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -210,11 +209,6 @@ func (d *WorkloadDriver) RegisterWorkload(workloadRegistrationRequest *domain.Wo
 	if d.workloadPreset, ok = d.workloadPresets[workloadRegistrationRequest.Key]; !ok {
 		d.logger.Error("Could not find workload preset with specified key.", zap.String("key", workloadRegistrationRequest.Key))
 
-		conn.WriteJSON(&domain.ErrorMessage{
-			Description:  "Could not find workload preset with specified key.",
-			ErrorMessage: "Could not find workload preset with specified key.",
-			Valid:        true,
-		})
 		return nil, ErrWorkloadPresetNotFound
 	}
 

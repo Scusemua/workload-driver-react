@@ -157,7 +157,7 @@ func (s *serverImpl) setupRoutes() error {
 }
 
 // Used to push updates about active workloads to the frontend.
-func (s *serverImpl) serverPushRoutine(conn *websocket.Conn, workloadStartedChan chan string, doneChan chan struct{}) {
+func (s *serverImpl) serverPushRoutine(workloadStartedChan chan string, doneChan chan struct{}) {
 	// Keep track of the active workloads.
 	activeWorkloads := make(map[string]*domain.Workload)
 
@@ -440,7 +440,7 @@ func (s *serverImpl) serveWorkloadWebsocket(c *gin.Context) {
 	// Used to notify the server-push goroutine that a new workload has been registered.
 	workloadStartedChan := make(chan string)
 	doneChan := make(chan struct{})
-	go s.serverPushRoutine(conn, workloadStartedChan, doneChan)
+	go s.serverPushRoutine(workloadStartedChan, doneChan)
 
 	for {
 		_, message, err := conn.ReadMessage()
@@ -486,23 +486,31 @@ func (s *serverImpl) serveWorkloadWebsocket(c *gin.Context) {
 		} else if op == "register_workload" {
 			var wrapper *domain.WorkloadRegistrationRequestWrapper
 			json.Unmarshal(message, &wrapper)
-			s.handleRegisterWorkload(wrapper.WorkloadRegistrationRequest, nil, msgId)
+			s.handleRegisterWorkload(wrapper.WorkloadRegistrationRequest, msgId)
 		} else if op == "start_workload" {
 			var req *domain.StartStopWorkloadRequest
 			json.Unmarshal(message, &req)
-			s.handleStartWorkload(req, nil, workloadStartedChan)
+			s.handleStartWorkload(req, workloadStartedChan)
 		} else if op == "stop_workload" {
 			var req *domain.StartStopWorkloadRequest
 			json.Unmarshal(message, &req)
-			s.handleStopWorkload(req, nil)
+			s.handleStopWorkload(req)
 		} else if op == "stop_workloads" {
 			var req *domain.StartStopWorkloadsRequest
 			json.Unmarshal(message, &req)
-			s.handleStopWorkloads(req, nil)
+			s.handleStopWorkloads(req)
+		} else if op == "pause_workload" {
+			var req *domain.PauseUnpauseWorkloadRequest
+			json.Unmarshal(message, &req)
+			s.handlePauseWorkload(req)
+		} else if op == "unpause_workload" {
+			var req *domain.PauseUnpauseWorkloadRequest
+			json.Unmarshal(message, &req)
+			s.handleUnpauseWorkload(req)
 		} else if op == "toggle_debug_logs" {
 			var req *domain.ToggleDebugLogsRequest
 			json.Unmarshal(message, &req)
-			s.handleToggleDebugLogs(req, nil)
+			s.handleToggleDebugLogs(req)
 		} else if op == "subscribe" {
 			var req *domain.SubscriptionRequest
 			json.Unmarshal(message, &req)
@@ -524,7 +532,7 @@ func (s *serverImpl) broadcast(payload []byte) {
 	}
 }
 
-func (s *serverImpl) handleToggleDebugLogs(req *domain.ToggleDebugLogsRequest, conn *websocket.Conn) {
+func (s *serverImpl) handleToggleDebugLogs(req *domain.ToggleDebugLogsRequest) {
 	s.driversMutex.RLock()
 	driver, _ := s.workloadDrivers.Get(req.WorkloadId)
 	s.driversMutex.RUnlock()
@@ -552,7 +560,7 @@ func (s *serverImpl) handleToggleDebugLogs(req *domain.ToggleDebugLogsRequest, c
 	}
 }
 
-func (s *serverImpl) handleStartWorkload(req *domain.StartStopWorkloadRequest, conn *websocket.Conn, workloadStartedChan chan string) {
+func (s *serverImpl) handleStartWorkload(req *domain.StartStopWorkloadRequest, workloadStartedChan chan string) {
 	if req.Operation != "start_workload" {
 		panic(fmt.Sprintf("Unexpected operation field in StartStopWorkloadRequest: \"%s\"", req.Operation))
 	}
@@ -600,7 +608,15 @@ func (s *serverImpl) handleStartWorkload(req *domain.StartStopWorkloadRequest, c
 	}
 }
 
-func (s *serverImpl) handleStopWorkloads(req *domain.StartStopWorkloadsRequest, conn *websocket.Conn) {
+func (s *serverImpl) handlePauseWorkload(req *domain.PauseUnpauseWorkloadRequest) {
+	panic("Not implemented yet.")
+}
+
+func (s *serverImpl) handleUnpauseWorkload(req *domain.PauseUnpauseWorkloadRequest) {
+	panic("Not implemented yet.")
+}
+
+func (s *serverImpl) handleStopWorkloads(req *domain.StartStopWorkloadsRequest) {
 	if req.Operation != "stop_workloads" {
 		panic(fmt.Sprintf("Unexpected operation field in StartStopWorkloadRequest: \"%s\"", req.Operation))
 	}
@@ -654,7 +670,7 @@ func (s *serverImpl) handleStopWorkloads(req *domain.StartStopWorkloadsRequest, 
 	s.logger.Debug("Wrote response for STOP_WORKLOADS to frontend.", zap.String("message-id", req.MessageId), zap.Int("requested-num-workloads-stopped", len(req.WorkloadIDs)), zap.Int("actual-num-workloads-stopped", len(updatedWorkloads)))
 }
 
-func (s *serverImpl) handleStopWorkload(req *domain.StartStopWorkloadRequest, conn *websocket.Conn) {
+func (s *serverImpl) handleStopWorkload(req *domain.StartStopWorkloadRequest) {
 	if req.Operation != "stop_workload" {
 		panic(fmt.Sprintf("Unexpected operation field in StartStopWorkloadRequest: \"%s\"", req.Operation))
 	}
@@ -697,10 +713,10 @@ func (s *serverImpl) handleStopWorkload(req *domain.StartStopWorkloadRequest, co
 	}
 }
 
-func (s *serverImpl) handleRegisterWorkload(request *domain.WorkloadRegistrationRequest, conn *websocket.Conn, msgId string) {
+func (s *serverImpl) handleRegisterWorkload(request *domain.WorkloadRegistrationRequest, msgId string) {
 	workloadDriver := driver.NewWorkloadDriver(s.opts)
 
-	workload, _ := workloadDriver.RegisterWorkload(request, conn)
+	workload, _ := workloadDriver.RegisterWorkload(request)
 
 	if workload != nil {
 		s.workloadsMutex.Lock()

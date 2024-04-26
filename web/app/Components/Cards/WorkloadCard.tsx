@@ -54,8 +54,6 @@ import {
     WORKLOAD_STATE_TERMINATED,
     Workload,
     WorkloadPreset,
-    XmlWorkloadPreset,
-    CsvWorkloadPreset,
 } from '@app/Data/Workload';
 import { useWorkloads } from '@providers/WorkloadProvider';
 import { HeightFactorContext, WorkloadsHeightFactorContext } from '@app/Dashboard/Dashboard';

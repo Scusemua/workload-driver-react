@@ -26,7 +26,7 @@ export const AdjustVirtualGPUsModal: React.FunctionComponent<AdjustVirtualGPUsMo
                 setMinVirtualGPUs(node.CapacityResources['vGPU']);
             }
         });
-    }, [props.nodes]);
+    }, [props.nodes, minVirtualGPUs]);
 
     const handleAdjustedGPUsChanged = (_event, vgpus: string) => {
         const validValue: boolean = /[0-9]/.test(vgpus) || vgpus == '';
