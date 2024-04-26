@@ -36,8 +36,8 @@ type serverImpl struct {
 	opts               *domain.Configuration
 	app                *proxy.JupyterProxyRouter
 	engine             *gin.Engine
-	workloadDrivers    *orderedmap.OrderedMap[string, *driver.WorkloadDriver] // Map from workload ID to the associated driver.
-	workloadsMap       *orderedmap.OrderedMap[string, *domain.Workload]       // Map from workload ID to workload
+	workloadDrivers    *orderedmap.OrderedMap[string, domain.WorkloadDriver] // Map from workload ID to the associated driver.
+	workloadsMap       *orderedmap.OrderedMap[string, *domain.Workload]      // Map from workload ID to workload
 	workloads          []*domain.Workload
 	pushUpdateInterval time.Duration
 
@@ -57,7 +57,7 @@ func NewServer(opts *domain.Configuration) domain.Server {
 		opts:                  opts,
 		pushUpdateInterval:    time.Second * time.Duration(opts.PushUpdateInterval),
 		engine:                gin.New(),
-		workloadDrivers:       orderedmap.NewOrderedMap[string, *driver.WorkloadDriver](),
+		workloadDrivers:       orderedmap.NewOrderedMap[string, domain.WorkloadDriver](),
 		workloadsMap:          orderedmap.NewOrderedMap[string, *domain.Workload](),
 		workloads:             make([]*domain.Workload, 0),
 		subscribers:           make(map[string]*websocket.Conn),

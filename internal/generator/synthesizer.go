@@ -58,7 +58,7 @@ func NewMaxUtilizationWrapper(cpuSessionMap map[string]float64, memSessionMap ma
 
 type Synthesizer struct {
 	Sources        []domain.EventSource
-	GenericSources []domain.EventSource // Non-driver EventSources. Added to `Sources` after first Driver-generated event is processed.
+	GenericSources []domain.EventSource // Non-driver EventSources. Added to `Sources` after first TraceDriver-generated event is processed.
 	Tick           int64
 
 	log      *zap.Logger
@@ -98,7 +98,7 @@ func NewSynthesizer(opts *domain.Configuration, maxUtilizationWrapper *MaxUtiliz
 	// }
 
 	synthesizer := &Synthesizer{
-		// Sources:          make([]Driver, 0, 2),
+		// Sources:          make([]TraceDriver, 0, 2),
 		bufferedEvents:        make(chan domain.Event),
 		eventsHeap:            make(domain.SimpleEventHeap, 0, 1),
 		eventsChannel:         make(chan domain.Event),
@@ -118,7 +118,7 @@ func NewSynthesizer(opts *domain.Configuration, maxUtilizationWrapper *MaxUtiliz
 	return synthesizer
 }
 
-// Add a generic EventSource (i.e., not necessarily a Driver).
+// Add a generic EventSource (i.e., not necessarily a TraceDriver).
 func (s *Synthesizer) AddEventSource(evtSource domain.EventSource) domain.EventSource {
 	if s.GenericSources == nil {
 		s.GenericSources = make([]domain.EventSource, 0, 2)
@@ -129,8 +129,8 @@ func (s *Synthesizer) AddEventSource(evtSource domain.EventSource) domain.EventS
 	return evtSource
 }
 
-// Add a Driver as an domain.EventSource to the Synthesizer.
-func (s *Synthesizer) AddDriverEventSource(create NewDriver, configs ...func(Driver)) Driver {
+// Add a TraceDriver as an domain.EventSource to the Synthesizer.
+func (s *Synthesizer) AddDriverEventSource(create NewDriver, configs ...func(TraceDriver)) TraceDriver {
 	if s.Sources == nil {
 		s.Sources = make([]domain.EventSource, 0, 2)
 	}
@@ -156,7 +156,7 @@ func (s *Synthesizer) AddDriverEventSource(create NewDriver, configs ...func(Dri
 		panic(fmt.Sprintf("Unexpected/unsupported type of event source added to Synthesizer. Type: \"%s\"", reflect.TypeOf(s.Sources[id]).Elem().String()))
 	}
 
-	return s.Sources[id].(Driver)
+	return s.Sources[id].(TraceDriver)
 }
 
 func (s *Synthesizer) SetEventConsumer(c domain.EventConsumer) {
@@ -372,7 +372,7 @@ func (s *Synthesizer) Synthesize(ctx context.Context, opts *domain.Configuration
 			}
 
 			switch evt.EventSource().(type) {
-			case Driver:
+			case TraceDriver:
 				numDriversFinished += 1
 			}
 			continue
@@ -402,6 +402,6 @@ func (s *Synthesizer) Synthesize(ctx context.Context, opts *domain.Configuration
 
 	if s.executionMode == 1 {
 		workloadSimulatorDoneChan <- struct{}{}
-		s.log.Info("Informed the Simulation Driver that the simulation has ended.")
+		s.log.Info("Informed the Simulation TraceDriver that the simulation has ended.")
 	}
 }

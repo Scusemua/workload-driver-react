@@ -12,11 +12,16 @@ import (
 	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
 	"github.com/zhangjyr/gocsv"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 type workloadGeneratorImpl struct {
 	ctx            context.Context
 	cancelFunction context.CancelFunc
+
+	driver domain.WorkloadDriver
+
+	atom *zap.AtomicLevel
 
 	synthesizer *Synthesizer
 
@@ -26,20 +31,60 @@ type workloadGeneratorImpl struct {
 	opts *domain.Configuration
 }
 
-func NewWorkloadGenerator(opts *domain.Configuration) domain.WorkloadGenerator {
+func NewWorkloadGenerator(opts *domain.Configuration, atom *zap.AtomicLevel, driver domain.WorkloadDriver) domain.WorkloadGenerator {
 	generator := &workloadGeneratorImpl{
-		opts: opts,
+		opts:   opts,
+		atom:   atom,
+		driver: driver,
 	}
 
-	logger, err := zap.NewDevelopment()
-	if err != nil {
-		panic(err)
-	}
+	core := zapcore.NewCore(zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()), os.Stdout, atom)
+	logger := zap.New(core, zap.Development())
+	sugaredLogger := logger.Sugar()
 
 	generator.logger = logger
-	generator.sugaredLogger = logger.Sugar()
+	generator.sugaredLogger = sugaredLogger
 
 	return generator
+}
+
+func (g *workloadGeneratorImpl) startCpuDriver(ctx context.Context, synth *Synthesizer, records []Record, doneChan chan struct{}) TraceDriver {
+	cpuDriver := synth.AddDriverEventSource(NewCPUDriver, func(d TraceDriver) {
+		drv := d.(*CPUDriver)
+		drv.ReadingInterval = time.Second * time.Duration(60)
+		drv.ExecutionMode = 1
+		drv.Rand = rand.New(rand.NewSource(g.opts.Seed))
+	})
+	// TODO(Ben): Do not hardcode the Pod map.
+	cpuDriver.(*CPUDriver).SetPodMap([]string{"TestSession1", "TestSession2", "TestSession3"})
+	go cpuDriver.DriveWithSlice(ctx, records, doneChan)
+	return cpuDriver
+}
+
+func (g *workloadGeneratorImpl) startGpuDriver(ctx context.Context, synth *Synthesizer, records []Record, doneChan chan struct{}) TraceDriver {
+	gpuDriver := synth.AddDriverEventSource(NewGPUDriver, func(d TraceDriver) {
+		drv := d.(*GPUDriver)
+		drv.ReadingInterval = time.Second * time.Duration(60)
+		drv.ExecutionMode = 1
+		drv.Rand = rand.New(rand.NewSource(g.opts.Seed))
+	})
+	// TODO(Ben): Do not hardcode the Pod map.
+	gpuDriver.(*GPUDriver).SetPodMap([]string{"TestSession1", "TestSession2", "TestSession3"})
+	go gpuDriver.DriveWithSlice(ctx, records, doneChan)
+	return gpuDriver
+}
+
+func (g *workloadGeneratorImpl) startMemoryDriver(ctx context.Context, synth *Synthesizer, records []Record, doneChan chan struct{}) TraceDriver {
+	memDriver := synth.AddDriverEventSource(NewMemoryDriver, func(d TraceDriver) {
+		drv := d.(*MemoryDriver)
+		drv.ReadingInterval = time.Second * time.Duration(60)
+		drv.ExecutionMode = 1
+		drv.Rand = rand.New(rand.NewSource(g.opts.Seed))
+	})
+	// TODO(Ben): Do not hardcode the Pod map.
+	memDriver.(*MemoryDriver).SetPodMap([]string{"TestSession1"})
+	go memDriver.DriveWithSlice(ctx, records, doneChan)
+	return memDriver
 }
 
 func (g *workloadGeneratorImpl) StopGeneratingWorkload() {
@@ -100,7 +145,7 @@ func (g *workloadGeneratorImpl) generateWorkloadWithCsvPreset(consumer domain.Ev
 	// Drive GPU trace
 	if workloadPreset.GPUTraceFile != "" {
 		g.logger.Debug("Adding GPU driver as event source for Synthesizer.")
-		gpuDriver := g.synthesizer.AddDriverEventSource(NewGPUDriver, func(d Driver) {
+		gpuDriver := g.synthesizer.AddDriverEventSource(NewGPUDriver, func(d TraceDriver) {
 			drv := d.(*GPUDriver)
 			drv.MapperPath = workloadPreset.GPUMappingFile
 			drv.ReadingInterval = time.Duration(workloadPreset.GPUTraceStep) * time.Second
@@ -111,7 +156,7 @@ func (g *workloadGeneratorImpl) generateWorkloadWithCsvPreset(consumer domain.Ev
 			} else {
 				drv.LastTimestamp = time.Time{}
 			}
-			drv.ExecutionMode = 1 // g.opts.ExecutionMode
+			drv.ExecutionMode = 1
 			drv.DriverType = "GPU"
 			drv.Rand = rand.New(rand.NewSource(workloadRegistrationRequest.Seed))
 
@@ -125,7 +170,7 @@ func (g *workloadGeneratorImpl) generateWorkloadWithCsvPreset(consumer domain.Ev
 	// Drive CPU trace
 	if workloadPreset.CPUTraceFile != "" {
 		g.logger.Debug("Adding CPU driver as event source for Synthesizer.")
-		cpuDriver := g.synthesizer.AddDriverEventSource(NewCPUDriver, func(d Driver) {
+		cpuDriver := g.synthesizer.AddDriverEventSource(NewCPUDriver, func(d TraceDriver) {
 			drv := d.(*CPUDriver)
 			drv.MapperPath = workloadPreset.CPUMappingFile
 			drv.Downtimes = workloadPreset.NormalizeDowntime(workloadPreset.CPUDowntime)
@@ -138,11 +183,7 @@ func (g *workloadGeneratorImpl) generateWorkloadWithCsvPreset(consumer domain.Ev
 				drv.LastTimestamp = time.Time{}
 			}
 
-			// drv.MaxSessionOutputPath = filepath.Join(outputSubdirectoryPath, g.opts.FromMonth+"-"+g.opts.ToMonth+"-session_cpu_maxes.csv")
-			// g.sugaredLogger.Info("Set 'MaxSessionOutputPath' for CPU driver to \"%s\"", drv.MaxSessionOutputPath)
-			// drv.MaxTrainingOutputPath = filepath.Join(outputSubdirectoryPath, g.opts.FromMonth+"-"+g.opts.ToMonth+"-training_cpu_maxes.csv")
-			// g.sugaredLogger.Info("Set 'MaxTrainingOutputPath' for memory driver to \"%s\"", drv.MaxTrainingOutputPath)
-			drv.ExecutionMode = 1 // g.opts.ExecutionMode
+			drv.ExecutionMode = 1
 			drv.DriverType = "CPU"
 			drv.Rand = rand.New(rand.NewSource(workloadRegistrationRequest.Seed))
 
@@ -156,11 +197,9 @@ func (g *workloadGeneratorImpl) generateWorkloadWithCsvPreset(consumer domain.Ev
 	// Drive memory trace
 	if workloadPreset.MemTraceFile != "" {
 		g.logger.Debug("Adding memory driver as event source for Synthesizer.")
-		memDriver := g.synthesizer.AddDriverEventSource(NewMemoryDriver, func(d Driver) {
+		memDriver := g.synthesizer.AddDriverEventSource(NewMemoryDriver, func(d TraceDriver) {
 			drv := d.(*MemoryDriver)
 			drv.MapperPath = workloadPreset.MemMappingFile
-			// No downtime(s) for memory trace?
-			// drv.Downtimes = g.opts.NormalizeDowntime(workload.MemDowntime)
 			drv.ReadingInterval = time.Duration(workloadPreset.MemTraceStep) * time.Second
 			drv.SessionMaxes = make(map[string]float64)
 
@@ -170,11 +209,7 @@ func (g *workloadGeneratorImpl) generateWorkloadWithCsvPreset(consumer domain.Ev
 				drv.LastTimestamp = time.Time{}
 			}
 
-			// drv.MaxSessionOutputPath = filepath.Join(outputSubdirectoryPath, g.opts.FromMonth+"-"+g.opts.ToMonth+"-session_mem_maxes.csv")
-			// g.sugaredLogger.Info("Set 'MaxSessionOutputPath' for memory driver to \"%s\"", drv.MaxSessionOutputPath)
-			// drv.MaxTrainingOutputPath = filepath.Join(outputSubdirectoryPath, g.opts.FromMonth+"-"+g.opts.ToMonth+"-training_mem_maxes.csv")
-			// g.sugaredLogger.Info("Set 'MaxTrainingOutputPath' for memory driver to \"%s\"", drv.MaxTrainingOutputPath)
-			drv.ExecutionMode = 1 // g.opts.ExecutionMode
+			drv.ExecutionMode = 1
 			drv.DriverType = "Memory"
 			drv.Rand = rand.New(rand.NewSource(workloadRegistrationRequest.Seed))
 
@@ -190,11 +225,44 @@ func (g *workloadGeneratorImpl) generateWorkloadWithCsvPreset(consumer domain.Ev
 	return nil
 }
 
+func (g *workloadGeneratorImpl) generateWorkloadWithXmlPreset(consumer domain.EventConsumer, workload *domain.Workload, workloadPreset *domain.XmlWorkloadPreset, workloadRegistrationRequest *domain.WorkloadRegistrationRequest) error {
+	xmlEventParser := NewXMLEventParser(int64(time.Second*time.Duration(g.opts.TraceStep)), 0, workloadPreset.XmlFilePath, g.atom)
+	gpuRecords, cpuRecords, _ := xmlEventParser.Parse()
+
+	gpuDoneChan := make(chan struct{})
+	cpuDoneChan := make(chan struct{})
+	g.startCpuDriver(g.ctx, g.synthesizer, cpuRecords, cpuDoneChan)
+	g.startGpuDriver(g.ctx, g.synthesizer, gpuRecords, gpuDoneChan)
+
+	go g.synthesizer.Synthesize(g.ctx, g.opts, g.driver.DoneChan())
+
+	waitForCpuGpuDriversToFinish(gpuDoneChan, cpuDoneChan)
+
+	return nil
+}
+
+// Wait for just the CPU and GPU drivers to finish generating events.
+func waitForCpuGpuDriversToFinish(gpuDoneChan chan struct{}, cpuDoneChan chan struct{}) {
+	gpuDone := false
+	cpuDone := false
+
+	for !gpuDone || !cpuDone {
+		select {
+		case <-gpuDoneChan:
+			fmt.Printf("[Ginkgo Test] GPU TraceDriver finished.\n")
+			gpuDone = true
+		case <-cpuDoneChan:
+			fmt.Printf("[Ginkgo Test] CPU TraceDriver finished.\n")
+			cpuDone = true
+		}
+	}
+}
+
 func (g *workloadGeneratorImpl) GenerateWorkload(consumer domain.EventConsumer, workload *domain.Workload, workloadPreset domain.WorkloadPreset, workloadRegistrationRequest *domain.WorkloadRegistrationRequest) error {
 	if workloadPreset.IsCsv() {
 		return g.generateWorkloadWithCsvPreset(consumer, workload, &workloadPreset.CsvWorkloadPreset, workloadRegistrationRequest)
 	} else {
-		panic("Not supported.")
+		return g.generateWorkloadWithXmlPreset(consumer, workload, &workloadPreset.XmlWorkloadPreset, workloadRegistrationRequest)
 	}
 }
 
@@ -203,11 +271,11 @@ func (g *workloadGeneratorImpl) getSessionGpuMap(filePath string, adjustGpuReser
 
 	fmt.Printf("Parsing `MaxSessionGpuFile` \"%v\"\n.", filePath)
 	gpuSessionFile, err := os.Open(filePath)
-	defer gpuSessionFile.Close()
 	if err != nil {
 		g.sugaredLogger.Errorf(fmt.Sprintf("Failed to open `MaxSessionGpuFile` \"%v\": %v\n.", filePath, err))
 		return nil, err
 	}
+	defer gpuSessionFile.Close()
 
 	sessions := []*SessionMaxGpu{}
 	if err := gocsv.UnmarshalFile(gpuSessionFile, &sessions); err != nil { // Load session data from file
@@ -253,10 +321,10 @@ func (g *workloadGeneratorImpl) getSessionMemMap(filePath string) map[string]flo
 	memorySessionMap := make(map[string]float64)
 	fmt.Printf("Parsing `MaxSessionMemFile` \"%v\"\n.", filePath)
 	memSessionFile, err := os.Open(filePath)
-	defer memSessionFile.Close()
 	if err != nil {
 		g.sugaredLogger.Errorf(fmt.Sprintf("Failed to open `MaxSessionMemFile` \"%v\": %v\n.", filePath, err))
 	}
+	defer memSessionFile.Close()
 
 	sessions := []*SessionMaxMemory{}
 	if err := gocsv.UnmarshalFile(memSessionFile, &sessions); err != nil { // Load session data from file
@@ -280,10 +348,10 @@ func (g *workloadGeneratorImpl) getSessionCpuMap(filePath string) map[string]flo
 	cpuSessionMap := make(map[string]float64)
 	fmt.Printf("Parsing `MaxSessionCpuFile` \"%v\"\n.", filePath)
 	MaxSessionCpuFile, err := os.Open(filePath)
-	defer MaxSessionCpuFile.Close()
 	if err != nil {
 		panic(fmt.Sprintf("Failed to open `MaxSessionCpuFile` \"%v\": %v\n.", filePath, err))
 	}
+	defer MaxSessionCpuFile.Close()
 
 	sessions := []*SessionMaxCpu{}
 	if err := gocsv.UnmarshalFile(MaxSessionCpuFile, &sessions); err != nil { // Load session data from file
@@ -313,10 +381,10 @@ func (g *workloadGeneratorImpl) getTrainingTaskCpuMap(filePath string) map[strin
 	cpuTrainingTaskMap := make(map[string][]float64)
 	fmt.Printf("Parsing `MaxTrainingTaskCpuFile` \"%v\"\n.", filePath)
 	MaxTrainingTaskCpuFile, err := os.Open(filePath)
-	defer MaxTrainingTaskCpuFile.Close()
 	if err != nil {
 		panic(fmt.Sprintf("Failed to open `MaxTrainingTaskCpuFile` \"%v\": %v\n.", filePath, err))
 	}
+	defer MaxTrainingTaskCpuFile.Close()
 
 	trainingMaxes := []*TrainingTaskMaxCpu{}
 	if err := gocsv.UnmarshalFile(MaxTrainingTaskCpuFile, &trainingMaxes); err != nil { // Load session data from file
@@ -354,10 +422,10 @@ func (g *workloadGeneratorImpl) getTrainingTaskGpuMap(filePath string, adjustGpu
 
 	fmt.Printf("Parsing `MaxTrainingTaskGpuFile` \"%v\"\n.", filePath)
 	gpuTrainingTaskFile, err := os.Open(filePath)
-	defer gpuTrainingTaskFile.Close()
 	if err != nil {
 		g.sugaredLogger.Errorf(fmt.Sprintf("Failed to open `MaxTrainingTaskGpuFile` \"%v\": %v\n.", filePath, err))
 	}
+	defer gpuTrainingTaskFile.Close()
 
 	trainingTasks := []*TrainingTaskMaxGpu{}
 	if err := gocsv.UnmarshalFile(gpuTrainingTaskFile, &trainingTasks); err != nil { // Load session data from file
@@ -410,10 +478,10 @@ func (g *workloadGeneratorImpl) getTrainingTaskMemMap(filePath string) map[strin
 	memTrainingTaskMap := make(map[string][]float64)
 	fmt.Printf("Parsing `MaxTrainingTaskMemFile` \"%v\"\n.", filePath)
 	MaxTrainingTaskMemFile, err := os.Open(filePath)
-	defer MaxTrainingTaskMemFile.Close()
 	if err != nil {
 		panic(fmt.Sprintf("Failed to open `MaxTrainingTaskMemFile` \"%v\": %v\n.", filePath, err))
 	}
+	defer MaxTrainingTaskMemFile.Close()
 
 	trainingMaxes := []*TrainingTaskMemory{}
 	if err := gocsv.UnmarshalFile(MaxTrainingTaskMemFile, &trainingMaxes); err != nil { // Load session data from file

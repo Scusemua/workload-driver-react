@@ -271,10 +271,10 @@ type CPUDriver struct {
 	down      int           // Indicate trace server was down and no reading during downtime. Odds indicates down.
 }
 
-func NewCPUDriver(id int, configs ...func(Driver)) Driver {
+func NewCPUDriver(id int, configs ...func(TraceDriver)) TraceDriver {
 	log.Debug("Creating CPUDriver now.\n")
 	drv := &CPUDriver{BaseDriver: NewBaseDriver(id)}
-	drv.Driver = drv
+	drv.TraceDriver = drv
 	for _, config := range configs {
 		config(drv)
 	}

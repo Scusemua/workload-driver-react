@@ -41,7 +41,7 @@ var (
 )
 
 // The Workload Driver consumes events from the Workload Generator and takes action accordingly.
-type WorkloadDriver struct {
+type workloadDriverImpl struct {
 	id string // Unique ID (relative to other drivers). The workload registered with this driver will be assigned this ID.
 
 	kernelManager *jupyter.KernelSessionManager
@@ -59,9 +59,9 @@ type WorkloadDriver struct {
 	kernels map[string]struct{}
 
 	eventQueue domain.EventQueueService
-	doneChan   chan struct{} // Used to signal that the workload has successfully processed all events.
-	stopChan   chan struct{} // Used to stop the workload early/prematurely (i.e., before all events have been processed).
-	errorChan  chan error    // Used to stop the workload due to a critical error.
+	doneChan   chan interface{} // Used to signal that the workload has successfully processed all events.
+	stopChan   chan interface{} // Used to stop the workload early/prematurely (i.e., before all events have been processed).
+	errorChan  chan error       // Used to stop the workload due to a critical error.
 
 	tick         time.Duration // The tick interval/step rate of the simulation.
 	ticker       *Ticker       // Receive Tick events this way.
@@ -101,13 +101,13 @@ func GenerateWorkloadID(n int) string {
 	return *(*string)(unsafe.Pointer(&b))
 }
 
-func NewWorkloadDriver(opts *domain.Configuration) *WorkloadDriver {
+func NewWorkloadDriver(opts *domain.Configuration) domain.WorkloadDriver {
 	atom := zap.NewAtomicLevelAt(zapcore.DebugLevel)
-	driver := &WorkloadDriver{
+	driver := &workloadDriverImpl{
 		id:                 GenerateWorkloadID(8),
 		opts:               opts,
-		doneChan:           make(chan struct{}, 1),
-		stopChan:           make(chan struct{}, 1),
+		doneChan:           make(chan interface{}, 1),
+		stopChan:           make(chan interface{}, 1),
 		errorChan:          make(chan error, 2),
 		atom:               &atom,
 		ticker:             NewSyncTicker(time.Second*time.Duration(opts.TraceStep), "Cluster"),
@@ -148,7 +148,7 @@ func NewWorkloadDriver(opts *domain.Configuration) *WorkloadDriver {
 // Acquire the Driver's mutex externally.
 //
 // IMPORTANT: This will prevent the Driver's workload from progressing until the lock is released!
-func (d *WorkloadDriver) LockDriver() {
+func (d *workloadDriverImpl) LockDriver() {
 	d.mu.Lock()
 }
 
@@ -156,16 +156,16 @@ func (d *WorkloadDriver) LockDriver() {
 // Returns true on successful acquiring of the lock. If lock was not acquired, return false.
 //
 // IMPORTANT: This will prevent the Driver's workload from progressing until the lock is released!
-func (d *WorkloadDriver) TryLockDriver() bool {
+func (d *workloadDriverImpl) TryLockDriver() bool {
 	return d.mu.TryLock()
 }
 
 // Release the Driver's mutex externally.
-func (d *WorkloadDriver) UnlockDriver() {
+func (d *workloadDriverImpl) UnlockDriver() {
 	d.mu.Unlock()
 }
 
-func (d *WorkloadDriver) ToggleDebugLogging(enabled bool) *domain.Workload {
+func (d *workloadDriverImpl) ToggleDebugLogging(enabled bool) *domain.Workload {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -180,20 +180,20 @@ func (d *WorkloadDriver) ToggleDebugLogging(enabled bool) *domain.Workload {
 	return d.workload
 }
 
-func (d *WorkloadDriver) GetWorkload() *domain.Workload {
+func (d *workloadDriverImpl) GetWorkload() *domain.Workload {
 	return d.workload
 }
 
-func (d *WorkloadDriver) GetWorkloadPreset() domain.WorkloadPreset {
+func (d *workloadDriverImpl) GetWorkloadPreset() domain.WorkloadPreset {
 	return d.workloadPreset
 }
 
-func (d *WorkloadDriver) GetWorkloadRegistrationRequest() *domain.WorkloadRegistrationRequest {
+func (d *workloadDriverImpl) GetWorkloadRegistrationRequest() *domain.WorkloadRegistrationRequest {
 	return d.workloadRegistrationRequest
 }
 
 // Returns nil if the workload could not be registered.
-func (d *WorkloadDriver) RegisterWorkload(workloadRegistrationRequest *domain.WorkloadRegistrationRequest) (*domain.Workload, error) {
+func (d *workloadDriverImpl) RegisterWorkload(workloadRegistrationRequest *domain.WorkloadRegistrationRequest) (*domain.Workload, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -250,7 +250,7 @@ func (d *WorkloadDriver) RegisterWorkload(workloadRegistrationRequest *domain.Wo
 }
 
 // Write an error back to the client.
-func (d *WorkloadDriver) WriteError(c *gin.Context, errorMessage string) {
+func (d *workloadDriverImpl) WriteError(c *gin.Context, errorMessage string) {
 	// Write error back to front-end.
 	msg := &domain.ErrorMessage{
 		ErrorMessage: errorMessage,
@@ -260,20 +260,20 @@ func (d *WorkloadDriver) WriteError(c *gin.Context, errorMessage string) {
 }
 
 // Return true if the workload has completed; otherwise, return false.
-func (d *WorkloadDriver) IsWorkloadComplete() bool {
+func (d *workloadDriverImpl) IsWorkloadComplete() bool {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
 	return d.workload.WorkloadState == domain.WorkloadFinished
 }
 
-func (d *WorkloadDriver) ID() string {
+func (d *workloadDriverImpl) ID() string {
 	return d.id
 }
 
 // Stop a workload that's already running/in-progress.
 // Returns nil on success, or an error if one occurred.
-func (d *WorkloadDriver) StopWorkload() error {
+func (d *workloadDriverImpl) StopWorkload() error {
 	if !d.workload.IsRunning() {
 		return ErrWorkloadNotRunning
 	}
@@ -289,11 +289,11 @@ func (d *WorkloadDriver) StopWorkload() error {
 	return nil
 }
 
-func (d *WorkloadDriver) StopChan() chan struct{} {
+func (d *workloadDriverImpl) StopChan() chan interface{} {
 	return d.stopChan
 }
 
-func (d *WorkloadDriver) handleCriticalError(err error) {
+func (d *workloadDriverImpl) handleCriticalError(err error) {
 	d.logger.Error("Workload encountered a critical error and must abort.", zap.String("workload-id", d.id), zap.Error(err))
 	d.abortWorkload()
 
@@ -307,7 +307,7 @@ func (d *WorkloadDriver) handleCriticalError(err error) {
 
 // Manually abort the workload.
 // Clean up any sessions/kernels that were created.
-func (d *WorkloadDriver) abortWorkload() error {
+func (d *workloadDriverImpl) abortWorkload() error {
 	d.logger.Warn("Stopping workload.", zap.String("workload-id", d.id))
 	d.workloadGenerator.StopGeneratingWorkload()
 
@@ -318,17 +318,17 @@ func (d *WorkloadDriver) abortWorkload() error {
 
 // Set the ClockTime clock to the given timestamp, verifying that the new timestamp is either equal to or occurs after the old one.
 // Return a tuple where the first element is the new time, and the second element is the difference between the new time and the old time.
-func (d *WorkloadDriver) incrementClockTime(time time.Time) (time.Time, time.Duration) {
+func (d *workloadDriverImpl) incrementClockTime(time time.Time) (time.Time, time.Duration) {
 	newTime, timeDifference := ClockTime.IncreaseClockTimeTo(time)
 	return newTime, timeDifference
 }
 
 // This should be called from its own goroutine.
 // Accepts a waitgroup that is used to notify the caller when the workload has entered the 'WorkloadRunning' state.
-func (d *WorkloadDriver) DriveWorkload(wg *sync.WaitGroup) {
+func (d *workloadDriverImpl) DriveWorkload(wg *sync.WaitGroup) {
 	d.logger.Info("Starting workload.", zap.Any("workload-preset", d.workloadPreset), zap.Any("workload-request", d.workloadRegistrationRequest))
 
-	d.workloadGenerator = generator.NewWorkloadGenerator(d.opts)
+	d.workloadGenerator = generator.NewWorkloadGenerator(d.opts, d.atom, d)
 	go d.workloadGenerator.GenerateWorkload(d.eventQueue, d.workload, d.workloadPreset, d.workloadRegistrationRequest)
 
 	d.mu.Lock()
@@ -387,7 +387,12 @@ func (d *WorkloadDriver) DriveWorkload(wg *sync.WaitGroup) {
 	}
 }
 
-func (d *WorkloadDriver) EventQueue() domain.EventQueueService {
+// Signal that the workload is done (being parsed) by the generator/synthesizer.
+func (d *workloadDriverImpl) DoneChan() chan interface{} {
+	return d.doneChan
+}
+
+func (d *workloadDriverImpl) EventQueue() domain.EventQueueService {
 	return d.eventQueue
 }
 
@@ -396,7 +401,7 @@ func (d *WorkloadDriver) EventQueue() domain.EventQueueService {
 // which we'll process an event. For example, if `tick` is 19:05:00, then we will process all cluster and session
 // events with timestamps that are (a) equal to 19:05:00 or (b) come before 19:05:00. Any events with timestamps
 // that come after 19:05:00 will not be processed until the next tick.
-func (d *WorkloadDriver) processEvents(tick time.Time) {
+func (d *workloadDriverImpl) processEvents(tick time.Time) {
 	d.logger.Debug("Processing cluster/session events.", zap.Time("tick", tick))
 
 	var (
@@ -457,7 +462,7 @@ func (d *WorkloadDriver) processEvents(tick time.Time) {
 	d.mu.Unlock() // We have to explicitly unlock here, since we aren't returning immediately in this case.
 }
 
-func (d *WorkloadDriver) handleEvent(evt domain.Event) error {
+func (d *workloadDriverImpl) handleEvent(evt domain.Event) error {
 	traceSessionId := evt.Data().(*generator.Session).Pod
 	// Append the workload ID to the session ID so sessions are unique across workloads.
 	sessionId := fmt.Sprintf("%s-%s", traceSessionId, d.id)
@@ -534,7 +539,7 @@ func (d *WorkloadDriver) handleEvent(evt domain.Event) error {
 	return nil
 }
 
-func (d *WorkloadDriver) createSession(sessionId string) (*jupyter.SessionConnection, error) {
+func (d *workloadDriverImpl) createSession(sessionId string) (*jupyter.SessionConnection, error) {
 	d.logger.Debug("Creating new kernel.", zap.String("kernel-id", sessionId))
 	st := time.Now()
 	sessionConnection, err := d.kernelManager.CreateSession(sessionId, sessionId, fmt.Sprintf("%s.ipynb", sessionId), "notebook", "distributed")
@@ -550,7 +555,7 @@ func (d *WorkloadDriver) createSession(sessionId string) (*jupyter.SessionConnec
 	return sessionConnection, nil
 }
 
-func (d *WorkloadDriver) stopSession(sessionId string) error {
+func (d *workloadDriverImpl) stopSession(sessionId string) error {
 	d.logger.Debug("Stopping session.", zap.String("kernel-id", sessionId))
 	return d.kernelManager.StopKernel(sessionId)
 }

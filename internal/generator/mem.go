@@ -326,10 +326,10 @@ type MemoryDriver struct {
 	down      int                 // Indicate trace server was down and no reading during downtime. Odds indicates down.
 }
 
-func NewMemoryDriver(id int, configs ...func(Driver)) Driver {
+func NewMemoryDriver(id int, configs ...func(TraceDriver)) TraceDriver {
 	log.Debug("Creating MemoryDriver now.\n")
 	drv := &MemoryDriver{BaseDriver: NewBaseDriver(id)}
-	drv.Driver = drv
+	drv.TraceDriver = drv
 	for _, config := range configs {
 		config(drv)
 	}

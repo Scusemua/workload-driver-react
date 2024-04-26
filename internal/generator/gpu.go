@@ -310,7 +310,7 @@ type GPUDriver struct {
 	gcBuff    []*GPUUtil
 }
 
-func NewGPUDriver(id int, configs ...func(Driver)) Driver {
+func NewGPUDriver(id int, configs ...func(TraceDriver)) TraceDriver {
 	log.Debug("Creating GPUDriver now.\n")
 	drv := &GPUDriver{
 		BaseDriver:          NewBaseDriver(id),
@@ -318,7 +318,7 @@ func NewGPUDriver(id int, configs ...func(Driver)) Driver {
 		PerGpuSessionMaxes:  make(map[string][]float64),
 		PerGpuTrainingMaxes: make(map[string][][]float64),
 	}
-	drv.Driver = drv
+	drv.TraceDriver = drv
 	for _, config := range configs {
 		config(drv)
 	}
@@ -518,8 +518,8 @@ func (d *GPUDriver) updateMaxUtilization(committed *GPUUtil) {
 
 	n := n1
 
-	// It's set (in the base Driver) to -1 when training ends so that we stop recording.
-	// It's set (in the base Driver) to 0 when training begins so that we start recording.
+	// It's set (in the base TraceDriver) to -1 when training ends so that we stop recording.
+	// It's set (in the base TraceDriver) to 0 when training begins so that we start recording.
 	if d.SessionIsCurrentlyTraining[committed.Pod] && committed.Value > current_training_maxes[n-1] {
 		current_training_maxes[n-1] = committed.Value
 		current_training_gpus[n-1] = committed.GPUs

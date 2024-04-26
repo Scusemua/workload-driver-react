@@ -37,20 +37,20 @@ const (
 	EventNoMore     DriverEvent = "nomore"
 )
 
-type NewDriver func(int, ...func(Driver)) Driver
+type NewDriver func(int, ...func(TraceDriver)) TraceDriver
 
-// Driver is the interface that wraps the basic methods of a workload_generator.
-type Driver interface {
+// TraceDriver is the interface that wraps the basic methods of a workload_generator.
+type TraceDriver interface {
 	domain.EventSource
 	Id() int
 	Drive(context.Context, ...string)
 	// Similar to BaseDriver::DriveSync, except Record structs are consumed from the given channel.
 	// This is primarily used for testing. We can feed specific records to the `recordChannel` argument,
-	// prompting the Driver to generate particular events, which we can then use for testing.
+	// prompting the TraceDriver to generate particular events, which we can then use for testing.
 	//
 	// The `stopChan` is used to tell the goroutine executing this function to return/exit.
 	// DriveWithChannel(context.Context, chan Record, chan struct{}) error
-	// Given a pre-populated slice of records, process them one after another. The chan is used to indicate that the Driver is done processing the slice.
+	// Given a pre-populated slice of records, process them one after another. The chan is used to indicate that the TraceDriver is done processing the slice.
 	DriveWithSlice(context.Context, []Record, chan struct{}) error
 	// OnEvent() <-chan *Event
 	// EventSource() chan<- *Event
@@ -65,7 +65,7 @@ type Driver interface {
 
 // QuerableDriver is a driver that optimized for metric query.
 // type QuerableDriver interface {
-// 	Driver
+// 	TraceDriver
 
 // Sync notifies the driver that all data queried later should be synced to the time
 // specified by the event. Sync returns the event if triggered, call repeatedly until
@@ -74,9 +74,9 @@ type Driver interface {
 // }
 
 type BaseDriver struct {
-	// Driver specifies the implementation struct.
-	// Call Driver.Func() if the BaseDriver provides a default implementation.
-	Driver
+	// TraceDriver specifies the implementation struct.
+	// Call TraceDriver.Func() if the BaseDriver provides a default implementation.
+	TraceDriver
 
 	id              int
 	ReadingInterval time.Duration
@@ -144,7 +144,7 @@ func (d *BaseDriver) TrainingStarted(podId string) {
 	d.SessionIsCurrentlyTraining[podId] = true
 
 	if d.DriverType == "GPU" {
-		gpuDriver := d.Driver.(*GPUDriver)
+		gpuDriver := d.TraceDriver.(*GPUDriver)
 
 		maxes := gpuDriver.PerGpuTrainingMaxes[podId]
 		maxes = append(maxes, []float64{0, 0, 0, 0, 0, 0, 0, 0})
@@ -212,9 +212,9 @@ func (d *BaseDriver) TrainingEnded(podId string) {
 
 		// Commented-out: we do this in BaseDriver::TrainingStarted() now.
 		// // Now update the per-GPU-device field.
-		// maxes := d.Driver.(*GPUDriver).PerGpuTrainingMaxes[podId]
+		// maxes := d.TraceDriver.(*GPUDriver).PerGpuTrainingMaxes[podId]
 		// maxes = append(maxes, []float64{0, 0, 0, 0, 0, 0, 0, 0})
-		// d.Driver.(*GPUDriver).PerGpuTrainingMaxes[podId] = maxes
+		// d.TraceDriver.(*GPUDriver).PerGpuTrainingMaxes[podId] = maxes
 	}
 }
 
@@ -306,7 +306,7 @@ func (d *BaseDriver) DriveSync(ctx context.Context, mfPaths ...string) error {
 
 			if d.LastTimestamp != defaultTime && record.GetTS().After(d.LastTimestamp) {
 				sugarLog.Warnf("Encountered record with timestamp %v: %v", record.GetTS(), record)
-				sugarLog.Warnf("Driver's `LastTimestamp` is %v. Finished parsing file \"%s\".", d.LastTimestamp, mfPaths[i])
+				sugarLog.Warnf("TraceDriver's `LastTimestamp` is %v. Finished parsing file \"%s\".", d.LastTimestamp, mfPaths[i])
 				break
 			}
 		}
@@ -325,7 +325,7 @@ func (d *BaseDriver) DriveSync(ctx context.Context, mfPaths ...string) error {
 	}
 
 	// if d.ExecutionMode == 0 {
-	// 	sugarLog.Infof("Driver %v is writing its max data to file. Number of records to write: %d.", d.String(), len(d.SessionMaxes))
+	// 	sugarLog.Infof("TraceDriver %v is writing its max data to file. Number of records to write: %d.", d.String(), len(d.SessionMaxes))
 	// 	file, err := os.Create(d.MaxSessionOutputPath)
 
 	// 	if err != nil {
@@ -416,7 +416,7 @@ func (d *BaseDriver) DriveSync(ctx context.Context, mfPaths ...string) error {
 
 	// 		max_gpu_sess_file.WriteString("session_id,sum_gpus,gpu0,gpu1,gpu2,gpu3,gpu4,gpu5,gpu6,gpu7\n")
 
-	// 		gpuDriver := d.Driver.(*GPUDriver)
+	// 		gpuDriver := d.TraceDriver.(*GPUDriver)
 
 	// 		for pod, vals := range gpuDriver.PerGpuSessionMaxes {
 	// 			max_gpu_sess_file.WriteString(fmt.Sprintf("%s,%f,%f,%f,%f,%f,%f,%f,%f,%f\n", pod, sum(vals), vals[0], vals[1], vals[2], vals[3], vals[4], vals[5], vals[6], vals[7]))
@@ -456,14 +456,6 @@ func (d *BaseDriver) DriveSync(ctx context.Context, mfPaths ...string) error {
 	return nil
 }
 
-func sum(vals []float64) (sum float64) {
-	for _, val := range vals {
-		sum += val
-	}
-
-	return sum
-}
-
 func (d *BaseDriver) Drive(ctx context.Context, mfPaths ...string) {
 	// Drain events
 	for len(d.events) > 0 {
@@ -489,8 +481,8 @@ func (d *BaseDriver) Drive(ctx context.Context, mfPaths ...string) {
 
 func (d *BaseDriver) Trigger(ctx context.Context, name domain.EventName, rec Record) error {
 	return d.TriggerEvent(ctx, &eventImpl{
-		eventSource:         d.Driver,
-		originalEventSource: d.Driver,
+		eventSource:         d.TraceDriver,
+		originalEventSource: d.TraceDriver,
 		name:                name,
 		data:                rec,
 		timestamp:           rec.GetTS(),
@@ -500,8 +492,8 @@ func (d *BaseDriver) Trigger(ctx context.Context, name domain.EventName, rec Rec
 
 func (d *BaseDriver) TriggerError(ctx context.Context, e error) error {
 	err := d.TriggerEvent(ctx, &eventImpl{
-		eventSource:         d.Driver,
-		originalEventSource: d.Driver,
+		eventSource:         d.TraceDriver,
+		originalEventSource: d.TraceDriver,
 		name:                EventError,
 		data:                e,
 		id:                  uuid.New().String(),
@@ -549,8 +541,8 @@ func (d *BaseDriver) SetId(id int) {
 func (d *BaseDriver) FlushEvents(ctx context.Context, timestamp time.Time) error {
 	if len(d.eventBuff) == 0 && (d.lastEvent == nil || timestamp != d.lastEvent.Timestamp()) {
 		d.TriggerEvent(ctx, &eventImpl{
-			eventSource:         d.Driver,
-			originalEventSource: d.Driver,
+			eventSource:         d.TraceDriver,
+			originalEventSource: d.TraceDriver,
 			name:                EventTickHolder,
 			timestamp:           timestamp,
 			id:                  uuid.New().String(),
