@@ -537,7 +537,7 @@ func (p *XMLEventParser) MergeArrays(arrays map[string][]Record) []Record {
 
 	for len(result) < finalResultSize {
 		nextRecordWrapper := recHeap.Peek()
-		record := nextRecordWrapper.rec.(Record)
+		record := nextRecordWrapper.rec
 		result = append(result, record)
 		// p.sugaredLogger.Trace("Merged record %d/%d into master list: %v", len(result), finalResultSize, record)
 		sessionId := nextRecordWrapper.sessId

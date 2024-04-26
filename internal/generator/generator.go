@@ -48,7 +48,7 @@ func NewWorkloadGenerator(opts *domain.Configuration, atom *zap.AtomicLevel, dri
 	return generator
 }
 
-func (g *workloadGeneratorImpl) startCpuDriver(ctx context.Context, synth *Synthesizer, records []Record, doneChan chan struct{}) TraceDriver {
+func (g *workloadGeneratorImpl) startCpuDriverForXml(ctx context.Context, synth *Synthesizer, records []Record, doneChan chan struct{}) TraceDriver {
 	cpuDriver := synth.AddDriverEventSource(NewCPUDriver, func(d TraceDriver) {
 		drv := d.(*CPUDriver)
 		drv.ReadingInterval = time.Second * time.Duration(60)
@@ -61,7 +61,7 @@ func (g *workloadGeneratorImpl) startCpuDriver(ctx context.Context, synth *Synth
 	return cpuDriver
 }
 
-func (g *workloadGeneratorImpl) startGpuDriver(ctx context.Context, synth *Synthesizer, records []Record, doneChan chan struct{}) TraceDriver {
+func (g *workloadGeneratorImpl) startGpuDriverForXml(ctx context.Context, synth *Synthesizer, records []Record, doneChan chan struct{}) TraceDriver {
 	gpuDriver := synth.AddDriverEventSource(NewGPUDriver, func(d TraceDriver) {
 		drv := d.(*GPUDriver)
 		drv.ReadingInterval = time.Second * time.Duration(60)
@@ -231,8 +231,8 @@ func (g *workloadGeneratorImpl) generateWorkloadWithXmlPreset(consumer domain.Ev
 
 	gpuDoneChan := make(chan struct{})
 	cpuDoneChan := make(chan struct{})
-	g.startCpuDriver(g.ctx, g.synthesizer, cpuRecords, cpuDoneChan)
-	g.startGpuDriver(g.ctx, g.synthesizer, gpuRecords, gpuDoneChan)
+	g.startCpuDriverForXml(g.ctx, g.synthesizer, cpuRecords, cpuDoneChan)
+	g.startGpuDriverForXml(g.ctx, g.synthesizer, gpuRecords, gpuDoneChan)
 
 	go g.synthesizer.Synthesize(g.ctx, g.opts, g.driver.DoneChan())
 
