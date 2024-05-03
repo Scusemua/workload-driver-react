@@ -4,7 +4,7 @@ import (
 	"container/heap"
 	"encoding/xml"
 	"fmt"
-	"io/ioutil"
+	"io"
 	"os"
 	"sort"
 	"time"
@@ -271,7 +271,7 @@ func (p *XMLEventParser) readXMLFile() MXFile {
 		panic(err)
 	}
 
-	byteValue, _ := ioutil.ReadAll(xmlFile)
+	byteValue, _ := io.ReadAll(xmlFile)
 
 	var mxFile MXFile
 	err = xml.Unmarshal(byteValue, &mxFile)

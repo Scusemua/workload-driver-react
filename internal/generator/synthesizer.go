@@ -25,37 +25,6 @@ const (
 	EventSynthesizerTick SynthesizerEvent = "tick"
 )
 
-type MaxUtilizationWrapper struct {
-	CpuSessionMap map[string]float64 // Maximum CPU utilization achieved during each Session's lifetime.
-	MemSessionMap map[string]float64 // Maximum memory used (in gigabytes) during each Session's lifetime.
-	GpuSessionMap map[string]int     // Maximum number of GPUs used during each Session's lifetime.
-
-	CurrentTrainingNumberMap map[string]int // Map from SessionID to the current training task number we're on (beginning with 0, then 1, then 2, ..., etc.)
-
-	CpuTaskMap map[string][]float64 // Maximum CPU utilization achieved during each training event for each Session, arranged in chronological order of training events.
-	MemTaskMap map[string][]float64 // Maximum memory used (in GB) during each training event for each Session, arranged in chronological order of training events.
-	GpuTaskMap map[string][]int     // Maximum number of GPUs used during each training event for each Session, arranged in chronological order of training events.
-}
-
-func NewMaxUtilizationWrapper(cpuSessionMap map[string]float64, memSessionMap map[string]float64, gpuSessionMap map[string]int, cpuTaskMap map[string][]float64, memTaskMap map[string][]float64, gpuTaskMap map[string][]int) *MaxUtilizationWrapper {
-	maxUtilizationWrapper := &MaxUtilizationWrapper{
-		MemSessionMap:            memSessionMap,
-		CpuSessionMap:            cpuSessionMap,
-		GpuSessionMap:            gpuSessionMap,
-		CpuTaskMap:               cpuTaskMap,
-		MemTaskMap:               memTaskMap,
-		GpuTaskMap:               gpuTaskMap,
-		CurrentTrainingNumberMap: make(map[string]int),
-	}
-
-	// Initialize the entries for all the tasks in the CurrentTrainingNumberMap.
-	for key := range maxUtilizationWrapper.CpuTaskMap {
-		maxUtilizationWrapper.CurrentTrainingNumberMap[key] = 0
-	}
-
-	return maxUtilizationWrapper
-}
-
 type Synthesizer struct {
 	Sources        []domain.EventSource
 	GenericSources []domain.EventSource // Non-driver EventSources. Added to `Sources` after first TraceDriver-generated event is processed.
@@ -73,7 +42,7 @@ type Synthesizer struct {
 	eventsChannel         chan domain.Event
 	eventsHeap            domain.SimpleEventHeap
 	numActiveSources      uint64
-	maxUtilizationWrapper *MaxUtilizationWrapper
+	maxUtilizationWrapper *domain.MaxUtilizationWrapper
 
 	executionMode int
 	// Per synthsizing fields
@@ -82,7 +51,7 @@ type Synthesizer struct {
 	// firstEventTs int64
 }
 
-func NewSynthesizer(opts *domain.Configuration, maxUtilizationWrapper *MaxUtilizationWrapper) *Synthesizer {
+func NewSynthesizer(opts *domain.Configuration, maxUtilizationWrapper *domain.MaxUtilizationWrapper) *Synthesizer {
 	// if opts.ExecutionMode == 1 {
 	if maxUtilizationWrapper.MemSessionMap == nil {
 		panic("The Synthesizer's per-session max-memory map should not be nil during a standard (i.e., non-pre-run) simulation.")
@@ -294,7 +263,7 @@ func (s *Synthesizer) transitionAndSubmitEvent(evt domain.Event) {
 				}
 
 				sessEvt := &eventImpl{name: evtName, eventSource: evt.EventSource(), originalEventSource: evt.OriginalEventSource(), data: eventData, timestamp: sess.Timestamp, id: uuid.New().String()}
-				// s.sugarLog.Debugf("Enqueuing Session-level event targeting pod %s: %s [ts=%v]", sessEvt.Data().(*Session).Pod, evtName, sess.Timestamp)
+				s.sugarLog.Debugf("Enqueuing Session-level event targeting pod %s: %s [ts=%v]", sessEvt.Data().(*Session).Pod, evtName, sess.Timestamp)
 				s.consumer.SubmitEvent(sessEvt)
 			} else {
 				switch evtName {

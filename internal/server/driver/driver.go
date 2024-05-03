@@ -58,6 +58,9 @@ type workloadDriverImpl struct {
 
 	kernels map[string]struct{}
 
+	tickDuration        time.Duration
+	tickDurationSeconds int64 // Cached total number of seconds of tickDuration
+
 	eventQueue domain.EventQueueService
 	doneChan   chan interface{} // Used to signal that the workload has successfully processed all events.
 	stopChan   chan interface{} // Used to stop the workload early/prematurely (i.e., before all events have been processed).
@@ -73,8 +76,14 @@ type workloadDriverImpl struct {
 	workloadRegistrationRequest *domain.WorkloadRegistrationRequest
 	workload                    *domain.Workload
 
+	// Receives events from the Synthesizer.
+	eventChan chan domain.Event
+
 	// Multiplier that impacts the timescale at the Driver will operate on with respect to the trace data. For example, if each tick is 60 seconds, then a DriverTimescale value of 0.5 will mean that each tick will take 30 seconds.
 	driverTimescale float64
+
+	// If true, then we'll issue clock ticks. Otherwise, don't issue them. Mostly used for testing/debugging.
+	performClockTicks bool
 
 	workloadEndTime time.Time // The time at which the workload completed.
 
@@ -101,21 +110,25 @@ func GenerateWorkloadID(n int) string {
 	return *(*string)(unsafe.Pointer(&b))
 }
 
-func NewWorkloadDriver(opts *domain.Configuration) domain.WorkloadDriver {
+func NewWorkloadDriver(opts *domain.Configuration, performClockTicks bool) domain.WorkloadDriver {
 	atom := zap.NewAtomicLevelAt(zapcore.DebugLevel)
 	driver := &workloadDriverImpl{
-		id:                 GenerateWorkloadID(8),
-		opts:               opts,
-		doneChan:           make(chan interface{}, 1),
-		stopChan:           make(chan interface{}, 1),
-		errorChan:          make(chan error, 2),
-		atom:               &atom,
-		ticker:             NewSyncTicker(time.Second*time.Duration(opts.TraceStep), "Cluster"),
-		driverTimescale:    opts.DriverTimescale,
-		kernelManager:      jupyter.NewKernelManager(opts, &atom),
-		kernels:            make(map[string]struct{}),
-		sessionConnections: make(map[string]*jupyter.SessionConnection),
-		eventQueue:         newEventQueue(&atom),
+		id:                  GenerateWorkloadID(8),
+		eventChan:           make(chan domain.Event),
+		opts:                opts,
+		doneChan:            make(chan interface{}, 1),
+		stopChan:            make(chan interface{}, 1),
+		errorChan:           make(chan error, 2),
+		atom:                &atom,
+		tickDuration:        time.Second * time.Duration(opts.TraceStep),
+		tickDurationSeconds: opts.TraceStep,
+		ticker:              NewSyncTicker(time.Second*time.Duration(opts.TraceStep), "Cluster"),
+		driverTimescale:     opts.DriverTimescale,
+		kernelManager:       jupyter.NewKernelManager(opts, &atom),
+		kernels:             make(map[string]struct{}),
+		sessionConnections:  make(map[string]*jupyter.SessionConnection),
+		performClockTicks:   performClockTicks,
+		eventQueue:          newEventQueue(&atom),
 	}
 
 	core := zapcore.NewCore(zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()), os.Stdout, driver.atom)
@@ -143,6 +156,10 @@ func NewWorkloadDriver(opts *domain.Configuration) domain.WorkloadDriver {
 	}
 
 	return driver
+}
+
+func (d *workloadDriverImpl) SubmitEvent(evt domain.Event) {
+	d.eventChan <- evt
 }
 
 // Acquire the Driver's mutex externally.
@@ -309,6 +326,12 @@ func (d *workloadDriverImpl) handleCriticalError(err error) {
 // Clean up any sessions/kernels that were created.
 func (d *workloadDriverImpl) abortWorkload() error {
 	d.logger.Warn("Stopping workload.", zap.String("workload-id", d.id))
+
+	if d.workloadGenerator == nil {
+		d.logger.Error("Cannot stop workload. Workload Generator is nil.", zap.String("workload-id", d.id))
+		panic("Cannot stop workload. Workload Generator is nil.")
+	}
+
 	d.workloadGenerator.StopGeneratingWorkload()
 
 	// TODO(Ben): Clean-up any sessions/kernels.
@@ -323,13 +346,101 @@ func (d *workloadDriverImpl) incrementClockTime(time time.Time) (time.Time, time
 	return newTime, timeDifference
 }
 
+// Start the simulation.
+func (d *workloadDriverImpl) bootstrapSimulation() {
+	// Get the first event.
+	firstEvent := <-d.eventChan
+
+	d.sugaredLogger.Info("Received first event for workload %s: %v", d.workload.ID, firstEvent)
+
+	// Save the timestamp information.
+	if d.performClockTicks {
+		// Set the CurrentTick to the timestamp of the event.
+		CurrentTick.IncreaseClockTimeTo(firstEvent.Timestamp())
+		ClockTime.IncreaseClockTimeTo(firstEvent.Timestamp())
+		d.sugaredLogger.Debugf("CurrentTick has been initialized to %v.", firstEvent.Timestamp)
+	}
+
+	// Handle the event. Basically, just enqueue it in the EventQueueService.
+	d.eventQueue.EnqueueEvent(firstEvent)
+}
+
+func (d *workloadDriverImpl) DriveWorkload(wg *sync.WaitGroup) {
+	d.logger.Info("Workload Simulator has started running. Bootstrapping simulation now.")
+	d.bootstrapSimulation()
+	d.logger.Info("The simulation has started.")
+
+	nextTick := CurrentTick.GetClockTime().Add(d.tickDuration)
+
+	d.sugaredLogger.Infof("Next tick: %v", nextTick)
+
+	for {
+		// Constantly poll for events from the Workload Generator.
+		// These events are then enqueued in the EventQueueService.
+		select {
+		case evt := <-d.eventChan:
+			// If the event occurs during this tick, then call SimulationDriver::HandleDriverEvent to enqueue the event in the EventQueueService.
+			if evt.Timestamp().Before(nextTick) {
+				// d.HandleDriverEvent(opts, evt)
+				d.eventQueue.EnqueueEvent(evt)
+			} else {
+				// The event occurs in the next tick. Update the current tick clock, issue/perform a tick-trigger, and then process the event.
+				d.IssueClockTicks(evt.Timestamp())
+				nextTick = CurrentTick.GetClockTime().Add(d.tickDuration)
+				d.eventQueue.EnqueueEvent(evt)
+				// d.HandleDriverEvent(opts, evt)
+
+				d.sugaredLogger.Debugf("Next tick: %v", nextTick)
+			}
+		case _ = <-d.doneChan:
+			d.logger.Info("Drivers are done generating events.")
+
+			// Continue issuing ticks until the cluster is finished.
+			for d.eventQueue.Len() > 0 {
+				d.IssueClockTicks(nextTick)
+				nextTick = CurrentTick.GetClockTime().Add(d.tickDuration)
+			}
+		}
+	}
+}
+
+// Issue clock ticks until the CurrentTick clock has caught up to the given timestamp.
+// The given timestamp should correspond to the timestamp of the next event generated by the Workload Generator.
+// The Workload Simulation will simulate everything up until this next event is ready to process.
+// Then we will continue consuming all events for the current tick in the SimulationDriver::DriveSimulation function.
+func (d *workloadDriverImpl) IssueClockTicks(timestamp time.Time) {
+	if !d.performClockTicks {
+		return
+	}
+
+	currentTick := CurrentTick.GetClockTime()
+
+	diff := timestamp.Sub(currentTick)
+	numTicksRequired := int64(diff / d.tickDuration)
+	d.sugaredLogger.Debugf("Next event occurs at %v, which is in %v and will require %v ticks.", timestamp, diff, numTicksRequired)
+
+	var numTicksIssued int64 = 0
+	for timestamp.After(currentTick) {
+		tick := CurrentTick.IncrementClockBy(d.tickDuration)
+		tickNumber := tick.Unix() / d.tickDurationSeconds
+		d.sugaredLogger.Debugf("Issuing tick #%d: %v.", tickNumber, tick)
+		ClockTrigger.Trigger(tick)
+		numTicksIssued += 1
+		currentTick = CurrentTick.GetClockTime()
+	}
+
+	if numTicksIssued != numTicksRequired {
+		panic(fmt.Sprintf("Expected to issue %d tick(s); instead, issued %d.", numTicksRequired, numTicksIssued))
+	}
+}
+
 // This should be called from its own goroutine.
 // Accepts a waitgroup that is used to notify the caller when the workload has entered the 'WorkloadRunning' state.
-func (d *workloadDriverImpl) DriveWorkload(wg *sync.WaitGroup) {
-	d.logger.Info("Starting workload.", zap.Any("workload-preset", d.workloadPreset), zap.Any("workload-request", d.workloadRegistrationRequest))
+func (d *workloadDriverImpl) ProcessWorkload(wg *sync.WaitGroup) {
+	d.logger.Info("Starting workload.", zap.String("workload-preset-name", d.workloadPreset.Name()), zap.String("workload-preset-key", d.workloadPreset.Key()))
 
 	d.workloadGenerator = generator.NewWorkloadGenerator(d.opts, d.atom, d)
-	go d.workloadGenerator.GenerateWorkload(d.eventQueue, d.workload, d.workloadPreset, d.workloadRegistrationRequest)
+	go d.workloadGenerator.GenerateWorkload(d, d.workload, d.workloadPreset, d.workloadRegistrationRequest)
 
 	d.mu.Lock()
 	d.workload.StartTime = time.Now()
@@ -345,6 +456,7 @@ func (d *workloadDriverImpl) DriveWorkload(wg *sync.WaitGroup) {
 		select {
 		case tick := <-d.ticker.TickDelivery:
 			{
+				d.logger.Debug("Recevied tick.", zap.String("workload-id", d.workload.ID), zap.Time("tick", tick))
 				CurrentTick.IncreaseClockTimeTo(tick)
 				coloredOutput := ansi.Color(fmt.Sprintf("Serving tick: %v (processing everything up to %v)", tick, tick), "blue")
 				d.logger.Debug(coloredOutput)
@@ -361,25 +473,25 @@ func (d *workloadDriverImpl) DriveWorkload(wg *sync.WaitGroup) {
 			}
 		case err := <-d.errorChan:
 			{
+				d.logger.Error("Recevied error.", zap.String("workload-id", d.workload.ID), zap.Error(err))
 				d.handleCriticalError(err)
 				return // We're done, so we can return.
 			}
 		case <-d.stopChan:
 			{
-				d.logger.Info("Workload has been instructed to terminate early.")
+				d.logger.Info("Workload has been instructed to terminate early.", zap.String("workload-id", d.workload.ID))
 				d.abortWorkload()
 				return // We're done, so we can return.
 			}
 		case <-d.doneChan: // This is placed after eventChan so that all events are processed first.
 			{
+				d.workloadEndTime = time.Now()
+				d.logger.Info("The Workload Generator has finished generating events.", zap.String("workload-id", d.workload.ID))
+				d.logger.Info("The Workload has ended.", zap.Any("workload-duration", time.Since(d.workload.StartTime)), zap.Any("workload-start-time", d.workload.StartTime), zap.Any("workload-end-time", d.workloadEndTime))
+
 				d.mu.Lock()
 				defer d.mu.Unlock()
-
-				d.workloadEndTime = time.Now()
 				d.workload.WorkloadState = domain.WorkloadFinished
-
-				d.logger.Info("The Workload Generator has finished generating events.")
-				d.logger.Info("The Workload has ended.", zap.Any("workload-duration", time.Since(d.workload.StartTime)), zap.Any("workload-start-time", d.workload.StartTime), zap.Any("workload-end-time", d.workloadEndTime))
 
 				return // We're done, so we can return.
 			}
@@ -542,7 +654,7 @@ func (d *workloadDriverImpl) handleEvent(evt domain.Event) error {
 func (d *workloadDriverImpl) createSession(sessionId string) (*jupyter.SessionConnection, error) {
 	d.logger.Debug("Creating new kernel.", zap.String("kernel-id", sessionId))
 	st := time.Now()
-	sessionConnection, err := d.kernelManager.CreateSession(sessionId, sessionId, fmt.Sprintf("%s.ipynb", sessionId), "notebook", "distributed")
+	sessionConnection, err := d.kernelManager.CreateSession(sessionId, sessionId, fmt.Sprintf("%d.ipynb", sessionId), "notebook", "distributed")
 	if err != nil {
 		d.logger.Error("Failed to create session.", zap.String("session-id", sessionId))
 		return nil, err

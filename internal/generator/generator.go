@@ -89,7 +89,10 @@ func (g *workloadGeneratorImpl) startMemoryDriver(ctx context.Context, synth *Sy
 
 func (g *workloadGeneratorImpl) StopGeneratingWorkload() {
 	g.logger.Debug("Stopping workload generation now.")
-	g.cancelFunction()
+
+	if g.cancelFunction != nil {
+		g.cancelFunction()
+	}
 }
 
 func (g *workloadGeneratorImpl) generateWorkloadWithCsvPreset(consumer domain.EventConsumer, workload *domain.Workload, workloadPreset *domain.CsvWorkloadPreset, workloadRegistrationRequest *domain.WorkloadRegistrationRequest) error {
@@ -135,7 +138,7 @@ func (g *workloadGeneratorImpl) generateWorkloadWithCsvPreset(consumer domain.Ev
 		gpuTaskMap = g.getTrainingTaskGpuMap(workloadPreset.MaxTaskGpuFile, workloadRegistrationRequest.AdjustGpuReservations)
 	}
 
-	maxUtilizationWrapper := NewMaxUtilizationWrapper(cpuSessionMap, memSessionMap, gpuSessionMap, cpuTaskMap, memTaskMap, gpuTaskMap)
+	maxUtilizationWrapper := domain.NewMaxUtilizationWrapper(cpuSessionMap, memSessionMap, gpuSessionMap, cpuTaskMap, memTaskMap, gpuTaskMap)
 	g.synthesizer = NewSynthesizer(g.opts, maxUtilizationWrapper)
 	// Set the cluster as the EventHandler for the Synthesizer.
 	g.synthesizer.SetEventConsumer(consumer)
@@ -222,10 +225,14 @@ func (g *workloadGeneratorImpl) generateWorkloadWithCsvPreset(consumer domain.Ev
 
 	g.synthesizer.Synthesize(g.ctx, g.opts, consumer.DoneChan())
 
+	g.logger.Debug("Finished generating CSV workload.", zap.String("workload-id", workload.ID))
+
 	return nil
 }
 
 func (g *workloadGeneratorImpl) generateWorkloadWithXmlPreset(consumer domain.EventConsumer, workload *domain.Workload, workloadPreset *domain.XmlWorkloadPreset, workloadRegistrationRequest *domain.WorkloadRegistrationRequest) error {
+	g.logger.Debug("Generating workload from XML preset.", zap.String("workload-preset-name", workloadPreset.Name), zap.String("workload-preset-key", workloadPreset.Key))
+	g.synthesizer = NewSynthesizer(g.opts, workloadPreset.MaxUtilization)
 	xmlEventParser := NewXMLEventParser(int64(time.Second*time.Duration(g.opts.TraceStep)), 0, workloadPreset.XmlFilePath, g.atom)
 	gpuRecords, cpuRecords, _ := xmlEventParser.Parse()
 
@@ -236,23 +243,25 @@ func (g *workloadGeneratorImpl) generateWorkloadWithXmlPreset(consumer domain.Ev
 
 	go g.synthesizer.Synthesize(g.ctx, g.opts, g.driver.DoneChan())
 
-	waitForCpuGpuDriversToFinish(gpuDoneChan, cpuDoneChan)
+	g.waitForCpuGpuDriversToFinish(gpuDoneChan, cpuDoneChan)
+
+	g.logger.Debug("Finished generating XML workload.", zap.String("workload-id", workload.ID))
 
 	return nil
 }
 
 // Wait for just the CPU and GPU drivers to finish generating events.
-func waitForCpuGpuDriversToFinish(gpuDoneChan chan struct{}, cpuDoneChan chan struct{}) {
+func (g *workloadGeneratorImpl) waitForCpuGpuDriversToFinish(gpuDoneChan chan struct{}, cpuDoneChan chan struct{}) {
 	gpuDone := false
 	cpuDone := false
 
 	for !gpuDone || !cpuDone {
 		select {
 		case <-gpuDoneChan:
-			fmt.Printf("[Ginkgo Test] GPU TraceDriver finished.\n")
+			g.logger.Debug("GPU TraceDriver finished.\n")
 			gpuDone = true
 		case <-cpuDoneChan:
-			fmt.Printf("[Ginkgo Test] CPU TraceDriver finished.\n")
+			g.logger.Debug("CPU TraceDriver finished.\n")
 			cpuDone = true
 		}
 	}
@@ -269,7 +278,7 @@ func (g *workloadGeneratorImpl) GenerateWorkload(consumer domain.EventConsumer, 
 func (g *workloadGeneratorImpl) getSessionGpuMap(filePath string, adjustGpuReservations bool) (map[string]int, error) {
 	gpuSessionMap := make(map[string]int)
 
-	fmt.Printf("Parsing `MaxSessionGpuFile` \"%v\"\n.", filePath)
+	g.sugaredLogger.Debugf("Parsing `MaxSessionGpuFile` \"%v\"\n.", filePath)
 	gpuSessionFile, err := os.Open(filePath)
 	if err != nil {
 		g.sugaredLogger.Errorf(fmt.Sprintf("Failed to open `MaxSessionGpuFile` \"%v\": %v\n.", filePath, err))
@@ -279,13 +288,13 @@ func (g *workloadGeneratorImpl) getSessionGpuMap(filePath string, adjustGpuReser
 
 	sessions := []*SessionMaxGpu{}
 	if err := gocsv.UnmarshalFile(gpuSessionFile, &sessions); err != nil { // Load session data from file
-		fmt.Printf("Failed to parse `MaxSessionGpuFile` \"%v\": %v\n.", filePath, err)
+		g.sugaredLogger.Debugf("Failed to parse `MaxSessionGpuFile` \"%v\": %v\n.", filePath, err)
 		panic(fmt.Sprintf("Failed to parse `MaxSessionGpuFile` \"%v\": %v\n.", filePath, err))
 	}
 	for _, session := range sessions {
 		numGPUsFloat, err := strconv.ParseFloat(session.NumGPUs, 64)
 		if err != nil {
-			fmt.Printf("Failed to parse SessionNumGPUs value \"%v\" for Pod %v. Error: %v\n", session.NumGPUs, session.SessionID, err)
+			g.sugaredLogger.Debugf("Failed to parse SessionNumGPUs value \"%v\" for Pod %v. Error: %v\n", session.NumGPUs, session.SessionID, err)
 			panic(err)
 		}
 
@@ -294,7 +303,7 @@ func (g *workloadGeneratorImpl) getSessionGpuMap(filePath string, adjustGpuReser
 		if adjustGpuReservations {
 			maxGpuUtilization, err := strconv.ParseFloat(session.MaxUtilization, 64)
 			if err != nil {
-				fmt.Printf("Failed to parse maxGpuUtilization value \"%v\" for Pod %v. Error: %v\n", session.MaxUtilization, session.SessionID, err)
+				g.sugaredLogger.Debugf("Failed to parse maxGpuUtilization value \"%v\" for Pod %v. Error: %v\n", session.MaxUtilization, session.SessionID, err)
 				panic(err)
 			}
 
@@ -319,7 +328,7 @@ func (g *workloadGeneratorImpl) getSessionGpuMap(filePath string, adjustGpuReser
 
 func (g *workloadGeneratorImpl) getSessionMemMap(filePath string) map[string]float64 {
 	memorySessionMap := make(map[string]float64)
-	fmt.Printf("Parsing `MaxSessionMemFile` \"%v\"\n.", filePath)
+	g.sugaredLogger.Debugf("Parsing `MaxSessionMemFile` \"%v\"\n.", filePath)
 	memSessionFile, err := os.Open(filePath)
 	if err != nil {
 		g.sugaredLogger.Errorf(fmt.Sprintf("Failed to open `MaxSessionMemFile` \"%v\": %v\n.", filePath, err))
@@ -328,13 +337,13 @@ func (g *workloadGeneratorImpl) getSessionMemMap(filePath string) map[string]flo
 
 	sessions := []*SessionMaxMemory{}
 	if err := gocsv.UnmarshalFile(memSessionFile, &sessions); err != nil { // Load session data from file
-		fmt.Printf("Failed to parse `MaxSessionMemFile` \"%v\": %v\n.", filePath, err)
+		g.sugaredLogger.Debugf("Failed to parse `MaxSessionMemFile` \"%v\": %v\n.", filePath, err)
 		panic(fmt.Sprintf("Failed to parse `MaxSessionMemFile` \"%v\": %v\n.", filePath, err))
 	}
 	for _, session := range sessions {
 		maxMemory, err := strconv.ParseFloat(session.MaxMemoryBytes, 64)
 		if err != nil {
-			fmt.Printf("Failed to parse MaxSessionMem value \"%v\" for Pod %v. Error: %v\n", session.MaxMemoryBytes, session.SessionID, err)
+			g.sugaredLogger.Debugf("Failed to parse MaxSessionMem value \"%v\" for Pod %v. Error: %v\n", session.MaxMemoryBytes, session.SessionID, err)
 			panic(err)
 		}
 		maxMem := math.Max(math.Ceil(maxMemory/1.0e9), 1)
@@ -346,7 +355,7 @@ func (g *workloadGeneratorImpl) getSessionMemMap(filePath string) map[string]flo
 
 func (g *workloadGeneratorImpl) getSessionCpuMap(filePath string) map[string]float64 {
 	cpuSessionMap := make(map[string]float64)
-	fmt.Printf("Parsing `MaxSessionCpuFile` \"%v\"\n.", filePath)
+	g.sugaredLogger.Debugf("Parsing `MaxSessionCpuFile` \"%v\"\n.", filePath)
 	MaxSessionCpuFile, err := os.Open(filePath)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to open `MaxSessionCpuFile` \"%v\": %v\n.", filePath, err))
@@ -355,14 +364,14 @@ func (g *workloadGeneratorImpl) getSessionCpuMap(filePath string) map[string]flo
 
 	sessions := []*SessionMaxCpu{}
 	if err := gocsv.UnmarshalFile(MaxSessionCpuFile, &sessions); err != nil { // Load session data from file
-		fmt.Printf("Failed to parse `MaxSessionCpuFile` \"%v\": %v\n.", filePath, err)
+		g.sugaredLogger.Debugf("Failed to parse `MaxSessionCpuFile` \"%v\": %v\n.", filePath, err)
 		panic(fmt.Sprintf("Failed to parse `MaxSessionCpuFile` \"%v\": %v\n.", filePath, err))
 	}
 	for _, session := range sessions {
-		// fmt.Printf("Session[Pod=%v, GPUs=%v, GPUUtilMax=%v, MaxSessionCPU=%v]\n", session.Pod, session.GPUs, session.GPUUtilMax, session.MaxSessionCPU)
+		// g.sugaredLogger.Debugf("Session[Pod=%v, GPUs=%v, GPUUtilMax=%v, MaxSessionCPU=%v]\n", session.Pod, session.GPUs, session.GPUUtilMax, session.MaxSessionCPU)
 		maxCpuUtilPercentage, err := strconv.ParseFloat(session.MaxUtilization, 64) // The values are 0 - 100+, where 1 vCPU is 100% util, 2 vCPU is 200% util, etc.
 		if err != nil {
-			fmt.Printf("Failed to parse MaxSessionCPU value \"%v\" for Pod %v. Error: %v\n", session.MaxUtilization, session.SessionID, err)
+			g.sugaredLogger.Debugf("Failed to parse MaxSessionCPU value \"%v\" for Pod %v. Error: %v\n", session.MaxUtilization, session.SessionID, err)
 			panic(err)
 		}
 
@@ -379,7 +388,7 @@ func (g *workloadGeneratorImpl) getSessionCpuMap(filePath string) map[string]flo
 
 func (g *workloadGeneratorImpl) getTrainingTaskCpuMap(filePath string) map[string][]float64 {
 	cpuTrainingTaskMap := make(map[string][]float64)
-	fmt.Printf("Parsing `MaxTrainingTaskCpuFile` \"%v\"\n.", filePath)
+	g.sugaredLogger.Debugf("Parsing `MaxTrainingTaskCpuFile` \"%v\"\n.", filePath)
 	MaxTrainingTaskCpuFile, err := os.Open(filePath)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to open `MaxTrainingTaskCpuFile` \"%v\": %v\n.", filePath, err))
@@ -388,13 +397,13 @@ func (g *workloadGeneratorImpl) getTrainingTaskCpuMap(filePath string) map[strin
 
 	trainingMaxes := []*TrainingTaskMaxCpu{}
 	if err := gocsv.UnmarshalFile(MaxTrainingTaskCpuFile, &trainingMaxes); err != nil { // Load session data from file
-		fmt.Printf("Failed to parse `MaxTrainingTaskCpuFile` \"%v\": %v\n.", filePath, err)
+		g.sugaredLogger.Debugf("Failed to parse `MaxTrainingTaskCpuFile` \"%v\": %v\n.", filePath, err)
 		panic(fmt.Sprintf("Failed to parse `MaxTrainingTaskCpuFile` \"%v\": %v\n.", filePath, err))
 	}
 	for _, trainingMax := range trainingMaxes {
 		maxCpuUtilPercentage, err := strconv.ParseFloat(trainingMax.MaxUtilization, 64) // The values are 0 - 100+, where 1 vCPU is 100% util, 2 vCPU is 200% util, etc.
 		if err != nil {
-			fmt.Printf("Failed to parse MaxTaskCPU value \"%v\" for Pod %s, Seq#: %s. Error: %v\n", trainingMax.MaxUtilization, trainingMax.SessionID, trainingMax.TrainingTaskNum, err)
+			g.sugaredLogger.Debugf("Failed to parse MaxTaskCPU value \"%v\" for Pod %s, Seq#: %s. Error: %v\n", trainingMax.MaxUtilization, trainingMax.SessionID, trainingMax.TrainingTaskNum, err)
 			panic(err)
 		}
 
@@ -420,7 +429,7 @@ func (g *workloadGeneratorImpl) getTrainingTaskCpuMap(filePath string) map[strin
 func (g *workloadGeneratorImpl) getTrainingTaskGpuMap(filePath string, adjustGpuReservations bool) map[string][]int {
 	gpuTrainingTaskMap := make(map[string][]int)
 
-	fmt.Printf("Parsing `MaxTrainingTaskGpuFile` \"%v\"\n.", filePath)
+	g.sugaredLogger.Debugf("Parsing `MaxTrainingTaskGpuFile` \"%v\"\n.", filePath)
 	gpuTrainingTaskFile, err := os.Open(filePath)
 	if err != nil {
 		g.sugaredLogger.Errorf(fmt.Sprintf("Failed to open `MaxTrainingTaskGpuFile` \"%v\": %v\n.", filePath, err))
@@ -429,13 +438,13 @@ func (g *workloadGeneratorImpl) getTrainingTaskGpuMap(filePath string, adjustGpu
 
 	trainingTasks := []*TrainingTaskMaxGpu{}
 	if err := gocsv.UnmarshalFile(gpuTrainingTaskFile, &trainingTasks); err != nil { // Load session data from file
-		fmt.Printf("Failed to parse `MaxTrainingTaskGpuFile` \"%v\": %v\n.", filePath, err)
+		g.sugaredLogger.Debugf("Failed to parse `MaxTrainingTaskGpuFile` \"%v\": %v\n.", filePath, err)
 		panic(fmt.Sprintf("Failed to parse `MaxTrainingTaskGpuFile` \"%v\": %v\n.", filePath, err))
 	}
 	for _, trainingTask := range trainingTasks {
 		numGPUsFloat, err := strconv.ParseFloat(trainingTask.NumGPUs, 64)
 		if err != nil {
-			fmt.Printf("Failed to parse TrainingNumGPUs value \"%v\" for Pod %v. Error: %v\n", trainingTask.NumGPUs, trainingTask.SessionID, err)
+			g.sugaredLogger.Debugf("Failed to parse TrainingNumGPUs value \"%v\" for Pod %v. Error: %v\n", trainingTask.NumGPUs, trainingTask.SessionID, err)
 			panic(err)
 		}
 
@@ -444,7 +453,7 @@ func (g *workloadGeneratorImpl) getTrainingTaskGpuMap(filePath string, adjustGpu
 		if adjustGpuReservations {
 			maxGpuUtilization, err := strconv.ParseFloat(trainingTask.MaxUtilization, 64)
 			if err != nil {
-				fmt.Printf("Failed to parse maxGpuUtilization value \"%v\" for Pod %v. Error: %v\n", trainingTask.MaxUtilization, trainingTask.SessionID, err)
+				g.sugaredLogger.Debugf("Failed to parse maxGpuUtilization value \"%v\" for Pod %v. Error: %v\n", trainingTask.MaxUtilization, trainingTask.SessionID, err)
 				panic(err)
 			}
 
@@ -476,7 +485,7 @@ func (g *workloadGeneratorImpl) getTrainingTaskGpuMap(filePath string, adjustGpu
 
 func (g *workloadGeneratorImpl) getTrainingTaskMemMap(filePath string) map[string][]float64 {
 	memTrainingTaskMap := make(map[string][]float64)
-	fmt.Printf("Parsing `MaxTrainingTaskMemFile` \"%v\"\n.", filePath)
+	g.sugaredLogger.Debugf("Parsing `MaxTrainingTaskMemFile` \"%v\"\n.", filePath)
 	MaxTrainingTaskMemFile, err := os.Open(filePath)
 	if err != nil {
 		panic(fmt.Sprintf("Failed to open `MaxTrainingTaskMemFile` \"%v\": %v\n.", filePath, err))
@@ -485,13 +494,13 @@ func (g *workloadGeneratorImpl) getTrainingTaskMemMap(filePath string) map[strin
 
 	trainingMaxes := []*TrainingTaskMemory{}
 	if err := gocsv.UnmarshalFile(MaxTrainingTaskMemFile, &trainingMaxes); err != nil { // Load session data from file
-		fmt.Printf("Failed to parse `MaxTrainingTaskMemFile` \"%v\": %v\n.", filePath, err)
+		g.sugaredLogger.Debugf("Failed to parse `MaxTrainingTaskMemFile` \"%v\": %v\n.", filePath, err)
 		panic(fmt.Sprintf("Failed to parse `MaxTrainingTaskMemFile` \"%v\": %v\n.", filePath, err))
 	}
 	for _, trainingMax := range trainingMaxes {
 		maxMemory, err := strconv.ParseFloat(trainingMax.MaxMemoryBytes, 64) // The values are 0 - 100+, where 1 vCPU is 100% util, 2 vCPU is 200% util, etc.
 		if err != nil {
-			fmt.Printf("Failed to parse MaxTaskMemory value \"%v\" for Pod %v, Seq#: %s. Error: %v\n", trainingMax.MaxMemoryBytes, trainingMax.SessionID, trainingMax.TrainingTaskNum, err)
+			g.sugaredLogger.Debugf("Failed to parse MaxTaskMemory value \"%v\" for Pod %v, Seq#: %s. Error: %v\n", trainingMax.MaxMemoryBytes, trainingMax.SessionID, trainingMax.TrainingTaskNum, err)
 			panic(err)
 		}
 

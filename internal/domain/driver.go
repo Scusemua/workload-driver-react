@@ -7,6 +7,8 @@ import (
 )
 
 type WorkloadDriver interface {
+	EventConsumer
+
 	// Acquire the Driver's mutex externally.
 	//
 	// IMPORTANT: This will prevent the Driver's workload from progressing until the lock is released!
@@ -52,6 +54,8 @@ type WorkloadDriver interface {
 	// This should be called from its own goroutine.
 	// Accepts a waitgroup that is used to notify the caller when the workload has entered the 'WorkloadRunning' state.
 	DriveWorkload(wg *sync.WaitGroup)
+
+	ProcessWorkload(wg *sync.WaitGroup)
 
 	EventQueue() EventQueueService
 }

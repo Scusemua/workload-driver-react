@@ -90,7 +90,7 @@ func (q *eventQueue) HasEventsForSession(podId string) (bool, error) {
 
 // Enqueue the given event in the event heap associated with the event's target pod/container/session.
 // If no such event heap exists already, then first create the event heap.
-func (q *eventQueue) SubmitEvent(evt domain.Event) {
+func (q *eventQueue) EnqueueEvent(evt domain.Event) {
 	q.eventHeapMutex.Lock()
 	defer q.eventHeapMutex.Unlock()
 

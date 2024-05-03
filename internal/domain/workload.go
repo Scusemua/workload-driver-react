@@ -321,6 +321,27 @@ func (p *WorkloadPreset) UnmarshalYAML(unmarshal func(interface{}) error) error 
 			}
 		}
 
+		cpuSessionMap := make(map[string]float64)
+		cpuSessionMap["TestSession1"] = 2
+		cpuSessionMap["TestSession2"] = 2
+		memSessionMap := make(map[string]float64)
+		memSessionMap["TestSession1"] = 4
+		memSessionMap["TestSession2"] = 4
+		gpuSessionMap := make(map[string]int)
+		gpuSessionMap["TestSession1"] = 1
+		gpuSessionMap["TestSession2"] = 1
+
+		cpuTaskMap := make(map[string][]float64)
+		cpuTaskMap["TestSession1"] = []float64{2, 2, 2, 2, 2, 2, 2, 2}
+		cpuTaskMap["TestSession2"] = []float64{2, 2, 2, 2, 2, 2, 2, 2}
+		memTaskMap := make(map[string][]float64)
+		memTaskMap["TestSession1"] = []float64{4, 4, 4, 4, 4, 4, 4, 4}
+		memTaskMap["TestSession2"] = []float64{4, 4, 4, 4, 4, 4, 4, 4}
+		gpuTaskMap := make(map[string][]int)
+		gpuTaskMap["TestSession1"] = []int{1, 1, 1, 1, 1, 1, 1, 1}
+		gpuTaskMap["TestSession2"] = []int{1, 1, 1, 1, 1, 1, 1, 1}
+		xmlPreset.MaxUtilization = NewMaxUtilizationWrapper(cpuSessionMap, memSessionMap, gpuSessionMap, cpuTaskMap, memTaskMap, gpuTaskMap)
+
 		p.PresetType = XmlWorkloadPresetType
 		p.XmlWorkloadPreset = xmlPreset
 
@@ -357,9 +378,29 @@ func (p *BaseWorkloadPreset) String() string {
 
 type XmlWorkloadPreset struct {
 	BaseWorkloadPreset
-	XmlFilePath string `json:"-" yaml:"xml_file" description:"File path to the XML file definining the workload's tasks."` // File path to the XML file definining the workload's tasks.
-	SvgFilePath string `json:"-" yaml:"svg_file" description:"File path to SVG file for rendering the events."`
-	SvgContent  string `json:"svg_content" description:"The contents of the SVG file."`
+	XmlFilePath    string                 `json:"-" yaml:"xml_file" description:"File path to the XML file definining the workload's tasks."` // File path to the XML file definining the workload's tasks.
+	SvgFilePath    string                 `json:"-" yaml:"svg_file" description:"File path to SVG file for rendering the events."`
+	SvgContent     string                 `json:"svg_content" description:"The contents of the SVG file."`
+	MaxUtilization *MaxUtilizationWrapper `json:"max_utilization" yaml:"max_utilization" description:"Max utilizations of the events contained within the preset."`
+}
+
+func NewMaxUtilizationWrapper(cpuSessionMap map[string]float64, memSessionMap map[string]float64, gpuSessionMap map[string]int, cpuTaskMap map[string][]float64, memTaskMap map[string][]float64, gpuTaskMap map[string][]int) *MaxUtilizationWrapper {
+	maxUtilizationWrapper := &MaxUtilizationWrapper{
+		MemSessionMap:            memSessionMap,
+		CpuSessionMap:            cpuSessionMap,
+		GpuSessionMap:            gpuSessionMap,
+		CpuTaskMap:               cpuTaskMap,
+		MemTaskMap:               memTaskMap,
+		GpuTaskMap:               gpuTaskMap,
+		CurrentTrainingNumberMap: make(map[string]int),
+	}
+
+	// Initialize the entries for all the tasks in the CurrentTrainingNumberMap.
+	for key := range maxUtilizationWrapper.CpuTaskMap {
+		maxUtilizationWrapper.CurrentTrainingNumberMap[key] = 0
+	}
+
+	return maxUtilizationWrapper
 }
 
 func (p *XmlWorkloadPreset) LoadSvgContent() error {
@@ -495,4 +536,16 @@ func LoadWorkloadPresetsFromFile(filepath string) ([]WorkloadPreset, error) {
 	}
 
 	return workloadPresets, nil
+}
+
+type MaxUtilizationWrapper struct {
+	CpuSessionMap map[string]float64 `json:"cpu-session-map" yaml:"cpu-session-map"` // Maximum CPU utilization achieved during each Session's lifetime.
+	MemSessionMap map[string]float64 `json:"mem-session-map" yaml:"mem-session-map"` // Maximum memory used (in gigabytes) during each Session's lifetime.
+	GpuSessionMap map[string]int     `json:"gpu-session-map" yaml:"hpu-session-map"` // Maximum number of GPUs used during each Session's lifetime.
+
+	CurrentTrainingNumberMap map[string]int // Map from SessionID to the current training task number we're on (beginning with 0, then 1, then 2, ..., etc.)
+
+	CpuTaskMap map[string][]float64 `json:"cpu-task-map" yaml:"cpu-task-map"` // Maximum CPU utilization achieved during each training event for each Session, arranged in chronological order of training events.
+	MemTaskMap map[string][]float64 `json:"mem-task-map" yaml:"mem-task-map"` // Maximum memory used (in GB) during each training event for each Session, arranged in chronological order of training events.
+	GpuTaskMap map[string][]int     `json:"gpu-task-map" yaml:"gpu-task-map"` // Maximum number of GPUs used during each training event for each Session, arranged in chronological order of training events.
 }

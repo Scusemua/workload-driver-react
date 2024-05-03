@@ -4,7 +4,7 @@ import "time"
 
 // EventQueueService ...
 type EventQueueService interface {
-	EventConsumer
+	EnqueueEvent(Event)
 
 	// Return true if there is at least 1 event in the event queue for the specified pod/Session.
 	// Otherwise, return false. Returns an error (and false) if no queue exists for the specified pod/Session.

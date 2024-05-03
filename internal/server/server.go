@@ -574,6 +574,7 @@ func (s *serverImpl) handleStartWorkload(req *domain.StartStopWorkloadRequest, w
 	if ok {
 		var wg sync.WaitGroup
 		wg.Add(1)
+		go workloadDriver.ProcessWorkload(&wg)
 		go workloadDriver.DriveWorkload(&wg)
 		wg.Wait()
 
@@ -582,7 +583,7 @@ func (s *serverImpl) handleStartWorkload(req *domain.StartStopWorkloadRequest, w
 		workload.TimeElasped = time.Since(workload.StartTime).String()
 		s.workloadsMutex.RUnlock()
 
-		s.logger.Debug("Started workload.", zap.String("workload-id", req.WorkloadId), zap.Any("workload", workload.String()))
+		s.logger.Debug("Started workload.", zap.String("workload-id", req.WorkloadId), zap.Any("workload-preset-name", workload.WorkloadPresetName))
 
 		// Lock the workload's driver while we marshal the workload to JSON.
 		workloadDriver.LockDriver()
@@ -638,7 +639,7 @@ func (s *serverImpl) handleStopWorkloads(req *domain.StartStopWorkloadsRequest) 
 				workload := workloadDriver.GetWorkload()
 				workload.TimeElasped = time.Since(workload.StartTime).String()
 
-				s.logger.Debug("Stopped workload.", zap.String("workload-id", workloadID), zap.Any("workload", workload.String()))
+				s.logger.Debug("Stopped workload.", zap.String("workload-id", workloadID), zap.Any("workload-preset-name", workload.WorkloadPresetName))
 				updatedWorkloads = append(updatedWorkloads, workload)
 			}
 		} else {
@@ -689,7 +690,7 @@ func (s *serverImpl) handleStopWorkload(req *domain.StartStopWorkloadRequest) {
 			workload := workloadDriver.GetWorkload()
 			workload.TimeElasped = time.Since(workload.StartTime).String()
 
-			s.logger.Debug("Stopped workload.", zap.String("workload-id", req.WorkloadId), zap.Any("workload", workload.String()))
+			s.logger.Debug("Stopped workload.", zap.String("workload-id", req.WorkloadId), zap.Any("workload-preset-name", workload.WorkloadPresetName))
 		}
 
 		// Lock the workload's driver while we marshal the workload to JSON.
@@ -714,7 +715,7 @@ func (s *serverImpl) handleStopWorkload(req *domain.StartStopWorkloadRequest) {
 }
 
 func (s *serverImpl) handleRegisterWorkload(request *domain.WorkloadRegistrationRequest, msgId string) {
-	workloadDriver := driver.NewWorkloadDriver(s.opts)
+	workloadDriver := driver.NewWorkloadDriver(s.opts, true)
 
 	workload, _ := workloadDriver.RegisterWorkload(request)
 
@@ -743,7 +744,7 @@ func (s *serverImpl) handleRegisterWorkload(request *domain.WorkloadRegistration
 
 		s.broadcast(payload)
 
-		s.logger.Debug("Wrote response for REGISTER_WORKLOAD to frontend.", zap.String("message-id", msgId), zap.Any("workload", workload))
+		s.logger.Debug("Wrote response for REGISTER_WORKLOAD to frontend.", zap.String("message-id", msgId), zap.Any("workload-preset-name", workload.WorkloadPresetName), zap.Any("workload-id", workload.ID))
 	} else {
 		s.logger.Error("Workload registration did not return a Workload object...")
 	}
