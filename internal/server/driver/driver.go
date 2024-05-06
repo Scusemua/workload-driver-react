@@ -639,11 +639,9 @@ func (d *workloadDriverImpl) GetSession(id string) *Session {
 
 // Schedule new Sessions onto Hosts.
 func (d *workloadDriverImpl) handleSessionReadyEvents(latestTick time.Time) {
-	// Slice containing "session ready" events that we have to requeue because there were no feasible/viable hosts onto which we could've scheduled the ready session.
-	var sessionReadyEventsToRequeue []domain.Event
 	sessionReadyEvent := d.eventQueue.GetNextSessionStartEvent(latestTick)
 	if d.sugaredLogger.Level() == zapcore.DebugLevel {
-		d.sugaredLogger.Debug(">> [%v] Handling EventSessionReady events now.", ClockTime.GetClockTime())
+		d.sugaredLogger.Debugf(">> [%v] Handling EventSessionReady events now.", ClockTime.GetClockTime())
 	}
 	for sessionReadyEvent != nil {
 		driverSession := sessionReadyEvent.Data().(*generator.Session)
@@ -653,7 +651,7 @@ func (d *workloadDriverImpl) handleSessionReadyEvents(latestTick time.Time) {
 
 		sessionId := driverSession.Pod
 		if d.sugaredLogger.Level() == zapcore.DebugLevel {
-			d.sugaredLogger.Debug("Handling EventSessionReady for Session %s [ts: %v].", sessionId, sessionReadyEvent.Timestamp)
+			d.sugaredLogger.Debugf("Handling EventSessionReady for Session %s [ts: %v].", sessionId, sessionReadyEvent.Timestamp)
 		}
 
 		_, err := d.provisionSession(sessionId, driverSession, sessionReadyEvent.Timestamp())
@@ -666,17 +664,6 @@ func (d *workloadDriverImpl) handleSessionReadyEvents(latestTick time.Time) {
 
 		// Get the next ready-to-process `EventSessionReady` event if there is one. If not, then this will return nil, and we'll exit the for-loop.
 		sessionReadyEvent = d.eventQueue.GetNextSessionStartEvent(latestTick)
-	}
-
-	// Requeue any "session ready" events for which there were no viable hosts onto which the associated session could be scheduled.
-	for _, evt := range sessionReadyEventsToRequeue {
-		d.eventQueue.EnqueueEvent(evt)
-	}
-
-	if len(sessionReadyEventsToRequeue) > 0 {
-		if d.sugaredLogger.Level() == zapcore.DebugLevel {
-			d.sugaredLogger.Debug("Failed to schedule %d session(s) due to a lack of available resources within the Cluster.", len(sessionReadyEventsToRequeue))
-		}
 	}
 }
 

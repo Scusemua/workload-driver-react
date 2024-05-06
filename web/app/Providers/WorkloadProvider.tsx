@@ -8,7 +8,18 @@ export const useWorkloads = () => {
     const subscriberSocket = useRef<WebSocket | null>(null);
 
     const sendJsonMessage = (msg: string) => {
-        subscriberSocket.current?.send(msg);
+        if (subscriberSocket.current?.readyState !== WebSocket.OPEN) {
+            console.error(
+                `Cannot send workload-related message via websocket. Websocket is in state ${subscriberSocket.current?.readyState}`,
+            );
+            return;
+        }
+
+        try {
+            subscriberSocket.current?.send(msg);
+        } catch (err) {
+            console.error(`Failed to send workload-related message via websocket. Error: ${err}`);
+        }
     };
 
     function refreshWorkloads() {
@@ -25,7 +36,7 @@ export const useWorkloads = () => {
         if (subscriberSocket.current == null) {
             subscriberSocket.current = new WebSocket(key);
             subscriberSocket.current.addEventListener('open', () => {
-                console.log('Connected to websocket. Sending message now.');
+                console.log("Connected to workload websocket. Sending 'subscribe' message now.");
                 subscriberSocket.current?.send(
                     JSON.stringify({
                         op: 'subscribe',
