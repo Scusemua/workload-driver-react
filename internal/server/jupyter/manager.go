@@ -145,7 +145,7 @@ func (m *KernelSessionManager) CreateSession(sessionId string, path string, sess
 		{
 			var jupyterSession *jupyterSession
 			json.Unmarshal(body, &jupyterSession)
-			m.logger.Debug("Received 'Created' when creating session", zap.String("status", resp.Status), zap.Any("headers", resp.Header), zap.Any("body", jupyterSession.String()))
+			m.logger.Debug("Received 'Created' when creating session", zap.Int("status-code", resp.StatusCode), zap.String("status", resp.Status), zap.String("session-id", sessionId))
 
 			var kernelId string = jupyterSession.JupyterKernel.Id
 			var jupyterSessionId string = jupyterSession.JupyterSessionId

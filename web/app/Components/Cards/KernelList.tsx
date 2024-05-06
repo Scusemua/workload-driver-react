@@ -372,7 +372,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                 id: sessionId,
                 kernel: {
                     name: 'distributed',
-                    kernel_id: kernelId,
+                    id: kernelId,
                 },
                 name: sessionId,
                 path: sessionId,

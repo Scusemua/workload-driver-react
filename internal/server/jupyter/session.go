@@ -72,7 +72,7 @@ func (s *jupyterSession) String() string {
 }
 
 type jupyterKernel struct {
-	Id             string `json:"kernel_id"`
+	Id             string `json:"id"`
 	Name           string `json:"name"`
 	LastActivity   string `json:"last_activity"`
 	ExecutionState string `json:"execution_state"`

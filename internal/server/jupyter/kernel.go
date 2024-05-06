@@ -351,13 +351,10 @@ func (conn *KernelConnection) setupWebsocket(jupyterServerAddress string) error 
 
 	conn.sugaredLogger.Debugf("Created full kernel websocket URL: '%s'", url)
 
-	// ctx, cancel := context.WithTimeout(context.Background(), timeout)
-	// defer cancel()
 	st := time.Now()
-	// ws, _, err := websocket.DefaultDialer.DialContext(ctx, url, nil)
 	ws, _, err := websocket.DefaultDialer.Dial(url, nil)
 	if err != nil {
-		conn.logger.Error("Failed to dial kernel websocket.", zap.String("url", url), zap.Error(err))
+		conn.logger.Error("Failed to dial kernel websocket.", zap.String("url", url), zap.String("kernel-id", conn.kernelId), zap.Error(err))
 		return fmt.Errorf("ErrWebsocketCreationFailed %w : %s", ErrWebsocketCreationFailed, err.Error())
 	}
 

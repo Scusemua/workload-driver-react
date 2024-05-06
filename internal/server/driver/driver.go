@@ -1,6 +1,7 @@
 package driver
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
 	"math/rand"
@@ -14,6 +15,7 @@ import (
 	"unsafe"
 
 	"github.com/gin-gonic/gin"
+	"github.com/gorilla/websocket"
 	"github.com/mgutz/ansi"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/generator"
@@ -665,15 +667,15 @@ func (d *workloadDriverImpl) handleSessionReadyEvents(latestTick time.Time) {
 		_, err := d.provisionSession(sessionId, driverSession, sessionReadyEvent.Timestamp())
 		if err != nil {
 			d.logger.Error("Failed to provision new Jupyter session.", zap.String("session-id", sessionId), zap.Error(err))
-			d.websocket.WriteJSON(domain.ErrorMessage{
+			payload, _ := json.Marshal(domain.ErrorMessage{
 				Description:  reflect.TypeOf(err).Name(),
 				ErrorMessage: err.Error(),
 				Valid:        true,
 			})
-			continue
+			d.websocket.WriteMessage(websocket.BinaryMessage, payload)
+		} else {
+			d.logger.Debug("Successfully handled SessionStarted event.", zap.String("session-id", sessionId))
 		}
-
-		d.logger.Debug("Handled SessionStarted event.", zap.String("session-id", sessionId))
 
 		// Get the next ready-to-process `EventSessionReady` event if there is one. If not, then this will return nil, and we'll exit the for-loop.
 		sessionReadyEvent = d.eventQueue.GetNextSessionStartEvent(latestTick)
@@ -683,7 +685,7 @@ func (d *workloadDriverImpl) handleSessionReadyEvents(latestTick time.Time) {
 func (d *workloadDriverImpl) handleEvent(evt domain.Event) error {
 	traceSessionId := evt.Data().(*generator.Session).Pod
 	// Append the workload ID to the session ID so sessions are unique across workloads.
-	sessionId := fmt.Sprintf("%s-%s", traceSessionId, d.id)
+	sessionId := strings.ToLower(fmt.Sprintf("%s-%s", traceSessionId, d.id))
 
 	switch evt.Name() {
 	case domain.EventSessionStarted:

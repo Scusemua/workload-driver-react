@@ -30,34 +30,43 @@ export const useWorkloads = () => {
             });
 
             subscriberSocket.current.addEventListener('message', (event) => {
-                event.data
-                    .text()
-                    .then((respText) => {
-                        const respJson: WorkloadResponse = JSON.parse(respText);
-                        return respJson;
-                    })
-                    .then((workloadResponse: WorkloadResponse) =>
-                        next(null, (prev: Map<string, Workload> | undefined) => {
-                            const newWorkloads: Workload[] | null | undefined = workloadResponse.new_workloads;
-                            const modifiedWorkloads: Workload[] | null | undefined =
-                                workloadResponse.modified_workloads;
-                            const deletedWorkloads: Workload[] | null | undefined = workloadResponse.deleted_workloads;
+                try {
+                    event.data
+                        .text()
+                        .then((respText) => {
+                            const respJson: WorkloadResponse = JSON.parse(respText);
+                            console.log('Received JSON message from workload websocket:');
+                            console.log(respJson);
+                            return respJson;
+                        })
+                        .then((workloadResponse: WorkloadResponse) =>
+                            next(null, (prev: Map<string, Workload> | undefined) => {
+                                const newWorkloads: Workload[] | null | undefined = workloadResponse.new_workloads;
+                                const modifiedWorkloads: Workload[] | null | undefined =
+                                    workloadResponse.modified_workloads;
+                                const deletedWorkloads: Workload[] | null | undefined =
+                                    workloadResponse.deleted_workloads;
 
-                            const nextData: Map<string, Workload> = new Map(prev);
+                                const nextData: Map<string, Workload> = new Map(prev);
 
-                            newWorkloads?.forEach((workload: Workload) => {
-                                nextData.set(workload.id, workload);
-                            });
-                            modifiedWorkloads?.forEach((workload: Workload) => {
-                                nextData.set(workload.id, workload);
-                            });
-                            deletedWorkloads?.forEach((workload: Workload) => {
-                                nextData.delete(workload.id);
-                            });
+                                newWorkloads?.forEach((workload: Workload) => {
+                                    nextData.set(workload.id, workload);
+                                });
+                                modifiedWorkloads?.forEach((workload: Workload) => {
+                                    nextData.set(workload.id, workload);
+                                });
+                                deletedWorkloads?.forEach((workload: Workload) => {
+                                    nextData.delete(workload.id);
+                                });
 
-                            return nextData;
-                        }),
-                    );
+                                return nextData;
+                            }),
+                        );
+                } catch (err) {
+                    const messageData = JSON.parse(event.data);
+                    console.log('Received workload-related WebSocket message:');
+                    console.log(messageData);
+                }
             });
 
             subscriberSocket.current.addEventListener('close', (event: CloseEvent) => {
