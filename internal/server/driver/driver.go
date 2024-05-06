@@ -16,6 +16,7 @@ import (
 	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/generator"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/server/jupyter"
+	"github.com/zhangjyr/hashmap"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -26,6 +27,9 @@ const (
 	letterIdxBits = 6                    // 6 bits to represent a letter index
 	letterIdxMask = 1<<letterIdxBits - 1 // All 1-bits, as many as letterIdxBits
 	letterIdxMax  = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
+
+	// Used by ResourceRequest structs when they do not require/request a specific GPU.
+	AnyGPU = "ANY_GPU"
 )
 
 var (
@@ -50,42 +54,35 @@ type workloadDriverImpl struct {
 
 	sessionConnections map[string]*jupyter.SessionConnection
 
+	stats *WorkloadStats
+
 	logger        *zap.Logger
 	sugaredLogger *zap.SugaredLogger
 	atom          *zap.AtomicLevel
 
-	// sessions map[string]*generator.Session // Responsible for creating sessions and maintaining a collection of all of the sessions active within the simulation.
-
 	kernels map[string]struct{}
 
+	eventQueue          domain.EventQueueService
 	tickDuration        time.Duration
-	tickDurationSeconds int64 // Cached total number of seconds of tickDuration
-
-	eventQueue domain.EventQueueService
-	doneChan   chan interface{} // Used to signal that the workload has successfully processed all events.
-	stopChan   chan interface{} // Used to stop the workload early/prematurely (i.e., before all events have been processed).
-	errorChan  chan error       // Used to stop the workload due to a critical error.
-
-	tick         time.Duration // The tick interval/step rate of the simulation.
-	ticker       *Ticker       // Receive Tick events this way.
-	ticksHandled atomic.Int64  // Incremented/accessed atomically.
-	servingTicks atomic.Bool   // The WorkloadDriver::ServeTicks() method will continue looping as long as this flag is set to true.
+	tickDurationSeconds int64               // Cached total number of seconds of tickDuration
+	doneChan            chan interface{}    // Used to signal that the workload has successfully processed all events.
+	stopChan            chan interface{}    // Used to stop the workload early/prematurely (i.e., before all events have been processed).
+	errorChan           chan error          // Used to stop the workload due to a critical error.
+	tick                time.Duration       // The tick interval/step rate of the simulation.
+	ticker              *Ticker             // Receive Tick events this way.
+	ticksHandled        atomic.Int64        // Incremented/accessed atomically.
+	servingTicks        atomic.Bool         // The WorkloadDriver::ServeTicks() method will continue looping as long as this flag is set to true.
+	eventChan           chan domain.Event   // Receives events from the Synthesizer.
+	driverTimescale     float64             // Multiplier that impacts the timescale at the Driver will operate on with respect to the trace data. For example, if each tick is 60 seconds, then a DriverTimescale value of 0.5 will mean that each tick will take 30 seconds.
+	performClockTicks   bool                // If true, then we'll issue clock ticks. Otherwise, don't issue them. Mostly used for testing/debugging.
+	sessions            *hashmap.HashMap    // Responsible for creating sessions and maintaining a collection of all of the sessions active within the simulation.
+	seenSessions        map[string]struct{} // All sessions that we've ever seen before.
+	workloadEndTime     time.Time           // The time at which the workload completed.
 
 	workloadPresets             map[string]domain.WorkloadPreset
 	workloadPreset              domain.WorkloadPreset
 	workloadRegistrationRequest *domain.WorkloadRegistrationRequest
 	workload                    *domain.Workload
-
-	// Receives events from the Synthesizer.
-	eventChan chan domain.Event
-
-	// Multiplier that impacts the timescale at the Driver will operate on with respect to the trace data. For example, if each tick is 60 seconds, then a DriverTimescale value of 0.5 will mean that each tick will take 30 seconds.
-	driverTimescale float64
-
-	// If true, then we'll issue clock ticks. Otherwise, don't issue them. Mostly used for testing/debugging.
-	performClockTicks bool
-
-	workloadEndTime time.Time // The time at which the workload completed.
 
 	mu sync.Mutex
 
@@ -129,6 +126,9 @@ func NewWorkloadDriver(opts *domain.Configuration, performClockTicks bool) domai
 		sessionConnections:  make(map[string]*jupyter.SessionConnection),
 		performClockTicks:   performClockTicks,
 		eventQueue:          newEventQueue(&atom),
+		stats:               NewWorkloadStats(),
+		sessions:            hashmap.New(100),
+		seenSessions:        make(map[string]struct{}),
 	}
 
 	core := zapcore.NewCore(zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()), os.Stdout, driver.atom)
@@ -156,6 +156,10 @@ func NewWorkloadDriver(opts *domain.Configuration, performClockTicks bool) domai
 	}
 
 	return driver
+}
+
+func (d *workloadDriverImpl) Stats() *WorkloadStats {
+	return d.stats
 }
 
 func (d *workloadDriverImpl) SubmitEvent(evt domain.Event) {
@@ -268,13 +272,13 @@ func (d *workloadDriverImpl) RegisterWorkload(workloadRegistrationRequest *domai
 }
 
 // Write an error back to the client.
-func (d *workloadDriverImpl) WriteError(c *gin.Context, errorMessage string) {
+func (d *workloadDriverImpl) WriteError(ctx *gin.Context, errorMessage string) {
 	// Write error back to front-end.
 	msg := &domain.ErrorMessage{
 		ErrorMessage: errorMessage,
 		Valid:        true,
 	}
-	c.JSON(http.StatusInternalServerError, msg)
+	ctx.JSON(http.StatusInternalServerError, msg)
 }
 
 // Return true if the workload has completed; otherwise, return false.
@@ -462,7 +466,7 @@ func (d *workloadDriverImpl) ProcessWorkload(wg *sync.WaitGroup) {
 		select {
 		case tick := <-d.ticker.TickDelivery:
 			{
-				d.logger.Debug("Recevied tick.", zap.String("workload-id", d.workload.ID), zap.Time("tick", tick))
+				// d.logger.Debug("Recevied tick.", zap.String("workload-id", d.workload.ID), zap.Time("tick", tick))
 				CurrentTick.IncreaseClockTimeTo(tick)
 				coloredOutput := ansi.Color(fmt.Sprintf("Serving tick: %v (processing everything up to %v)", tick, tick), "blue")
 				d.logger.Debug(coloredOutput)
@@ -471,10 +475,14 @@ func (d *workloadDriverImpl) ProcessWorkload(wg *sync.WaitGroup) {
 				// If there are no events processed this tick, then we still need to increment the clocktime so we're in-line with the simulation.
 				prevTickStart := tick.Add(-d.tick)
 				if ClockTime.GetClockTime().Before(prevTickStart) {
-					d.sugaredLogger.Debugf("Incrementing simulation clock from %v to %v (to match \"beginning\" of tick).", ClockTime.GetClockTime(), prevTickStart)
+					// d.sugaredLogger.Debugf("Incrementing simulation clock from %v to %v (to match \"beginning\" of tick).", ClockTime.GetClockTime(), prevTickStart)
 					d.incrementClockTime(prevTickStart)
 				}
 
+				// Process "session ready" events.
+				d.handleSessionReadyEvents(tick)
+
+				// Process "start/stop training" events.
 				d.processEvents(tick)
 
 				d.doneServingTick()
@@ -537,7 +545,7 @@ func (d *workloadDriverImpl) EventQueue() domain.EventQueueService {
 // events with timestamps that are (a) equal to 19:05:00 or (b) come before 19:05:00. Any events with timestamps
 // that come after 19:05:00 will not be processed until the next tick.
 func (d *workloadDriverImpl) processEvents(tick time.Time) {
-	d.logger.Debug("Processing cluster/session events.", zap.Time("tick", tick))
+	// d.logger.Debug("Processing cluster/session events.", zap.Time("tick", tick))
 
 	var (
 		waitGroup     sync.WaitGroup
@@ -563,7 +571,7 @@ func (d *workloadDriverImpl) processEvents(tick time.Time) {
 	}
 
 	if len(eventsForTick) == 0 {
-		d.logger.Warn("No events generated. Skipping tick.", zap.Time("tick", tick))
+		// d.logger.Warn("No events generated. Skipping tick.", zap.Time("tick", tick))
 		return
 	}
 
@@ -597,6 +605,81 @@ func (d *workloadDriverImpl) processEvents(tick time.Time) {
 	d.mu.Unlock() // We have to explicitly unlock here, since we aren't returning immediately in this case.
 }
 
+// Create and return a new Session with the given ID.
+func (d *workloadDriverImpl) NewSession(id string, meta *generator.Session, createdAtTime time.Time) *Session {
+	d.sugaredLogger.Debugf("Creating new Session %v. MaxSessionCPUs: %.2f; MaxSessionMemory: %.2f. MaxSessionGPUs: %d. TotalNumSessions: %d", id, meta.MaxSessionCPUs, meta.MaxSessionMemory, meta.MaxSessionGPUs, d.sessions.Len())
+
+	var session *Session = d.GetSession(id)
+	if session != nil {
+		panic(fmt.Sprintf("Attempted to create existing Session %s.", id))
+	}
+
+	// The Session only exposes the CPUs, Memory, and
+	resourceRequest := NewResourceRequest(meta.MaxSessionCPUs, meta.MaxSessionMemory, float64(meta.MaxSessionGPUs), AnyGPU)
+	session = NewSession(id, meta, resourceRequest, createdAtTime)
+
+	d.Stats().TotalNumSessions += 1
+	d.seenSessions[session.Id()] = struct{}{}
+	d.sessions.Set(session.Id(), session)
+
+	return session
+}
+
+// Get and return the Session identified by the given ID, if one exists. Otherwise, return nil.
+// If the caller is attempting to retrieve a Session that once existed but has since been terminated, then this will return nil.
+func (d *workloadDriverImpl) GetSession(id string) *Session {
+	session, ok := d.sessions.Get(id)
+
+	if ok {
+		return session.(*Session)
+	}
+
+	return nil
+}
+
+// Schedule new Sessions onto Hosts.
+func (d *workloadDriverImpl) handleSessionReadyEvents(latestTick time.Time) {
+	// Slice containing "session ready" events that we have to requeue because there were no feasible/viable hosts onto which we could've scheduled the ready session.
+	var sessionReadyEventsToRequeue []domain.Event
+	sessionReadyEvent := d.eventQueue.GetNextSessionStartEvent(latestTick)
+	if d.sugaredLogger.Level() == zapcore.DebugLevel {
+		d.sugaredLogger.Debug(">> [%v] Handling EventSessionReady events now.", ClockTime.GetClockTime())
+	}
+	for sessionReadyEvent != nil {
+		driverSession := sessionReadyEvent.Data().(*generator.Session)
+		// updatedTs := RoundUpTime(sessionReadyEvent.Timestamp, d.tick)
+		// driverSession.Timestamp = updatedTs
+		// sessionReadyEvent.Timestamp = updatedTs
+
+		sessionId := driverSession.Pod
+		if d.sugaredLogger.Level() == zapcore.DebugLevel {
+			d.sugaredLogger.Debug("Handling EventSessionReady for Session %s [ts: %v].", sessionId, sessionReadyEvent.Timestamp)
+		}
+
+		_, err := d.provisionSession(sessionId, driverSession, sessionReadyEvent.Timestamp())
+		if err != nil {
+			d.logger.Error("Failed to provision new Jupyter session.", zap.String("session-id", sessionId), zap.Error(err))
+			continue
+		}
+
+		d.logger.Debug("Handled SessionStarted event.", zap.String("session-id", sessionId))
+
+		// Get the next ready-to-process `EventSessionReady` event if there is one. If not, then this will return nil, and we'll exit the for-loop.
+		sessionReadyEvent = d.eventQueue.GetNextSessionStartEvent(latestTick)
+	}
+
+	// Requeue any "session ready" events for which there were no viable hosts onto which the associated session could be scheduled.
+	for _, evt := range sessionReadyEventsToRequeue {
+		d.eventQueue.EnqueueEvent(evt)
+	}
+
+	if len(sessionReadyEventsToRequeue) > 0 {
+		if d.sugaredLogger.Level() == zapcore.DebugLevel {
+			d.sugaredLogger.Debug("Failed to schedule %d session(s) due to a lack of available resources within the Cluster.", len(sessionReadyEventsToRequeue))
+		}
+	}
+}
+
 func (d *workloadDriverImpl) handleEvent(evt domain.Event) error {
 	traceSessionId := evt.Data().(*generator.Session).Pod
 	// Append the workload ID to the session ID so sessions are unique across workloads.
@@ -604,21 +687,8 @@ func (d *workloadDriverImpl) handleEvent(evt domain.Event) error {
 
 	switch evt.Name() {
 	case domain.EventSessionStarted:
-		d.logger.Debug("Received SessionStarted event.", zap.String("session-id", sessionId))
-
-		// TODO: Start session.
-		_, err := d.createSession(sessionId)
-		if err != nil {
-			return err
-		}
-
-		d.kernels[sessionId] = struct{}{}
-
-		d.mu.Lock()
-		d.workload.NumActiveSessions += 1
-		d.workload.NumSessionsCreated += 1
-		d.mu.Unlock()
-		d.logger.Debug("Handled SessionStarted event.", zap.String("session-id", sessionId))
+		// d.logger.Debug("Received SessionStarted event.", zap.String("session-id", sessionId))
+		panic("Received SessionStarted event.")
 	case domain.EventSessionTrainingStarted:
 		d.logger.Debug("Received TrainingStarted event.", zap.String("session", sessionId))
 
@@ -674,7 +744,7 @@ func (d *workloadDriverImpl) handleEvent(evt domain.Event) error {
 	return nil
 }
 
-func (d *workloadDriverImpl) createSession(sessionId string) (*jupyter.SessionConnection, error) {
+func (d *workloadDriverImpl) provisionSession(sessionId string, meta *generator.Session, createdAtTime time.Time) (*jupyter.SessionConnection, error) {
 	d.logger.Debug("Creating new kernel.", zap.String("kernel-id", sessionId))
 	st := time.Now()
 	sessionConnection, err := d.kernelManager.CreateSession(sessionId, sessionId, fmt.Sprintf("%s.ipynb", sessionId), "notebook", "distributed")
@@ -686,6 +756,15 @@ func (d *workloadDriverImpl) createSession(sessionId string) (*jupyter.SessionCo
 	timeElapsed := time.Since(st)
 	d.logger.Debug("Successfully created new kernel.", zap.String("kernel-id", sessionId), zap.Duration("time-elapsed", timeElapsed))
 	d.sessionConnections[sessionId] = sessionConnection
+
+	d.NewSession(sessionId, meta, createdAtTime)
+
+	d.kernels[sessionId] = struct{}{}
+
+	d.mu.Lock()
+	d.workload.NumActiveSessions += 1
+	d.workload.NumSessionsCreated += 1
+	d.mu.Unlock()
 
 	return sessionConnection, nil
 }

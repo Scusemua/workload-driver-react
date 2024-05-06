@@ -71,6 +71,37 @@ func (q *eventQueue) HasEventsForTick(tick time.Time) bool {
 	return false
 }
 
+// Return the next, ready-to-be-processed `EventSessionReady` from the queue.
+func (q *eventQueue) GetNextSessionStartEvent(currentTime time.Time) domain.Event {
+	q.eventHeapMutex.Lock()
+	defer q.eventHeapMutex.Unlock()
+
+	// Check if there is at least one event in the heap. If not, then return nil.
+	if q.sessionReadyEvents.Len() == 0 {
+		return nil
+	}
+
+	// Check if the next event is ready. If not, return nil.
+	if q.sessionReadyEvents.Peek().Timestamp().After(currentTime) {
+		return nil
+	}
+
+	evt := heap.Pop(&q.sessionReadyEvents).(domain.Event)
+
+	q.sugaredLogger.Debugf("SessionReadyEvent for Session %s with timestamp %v occurs during or before current tick %v.", evt.Data().(*generator.Session).Pod, evt.Timestamp(), currentTime)
+
+	return evt
+}
+
+// Return true if there is at least one sessionReadyEvent in the `EventQueueService_Old::sessionReadyEvents` queue.
+func (q *eventQueue) HasSessionReadyEvents() bool {
+	q.eventHeapMutex.Lock()
+	defer q.eventHeapMutex.Unlock()
+
+	hasEvents := q.sessionReadyEvents.Len() > 0
+	return hasEvents
+}
+
 // Return true if there is at least 1 event in the event queue for the specified pod/Session.
 // Otherwise, return false. Returns an error (and false) if no queue exists for the specified pod/Session.
 func (q *eventQueue) HasEventsForSession(podId string) (bool, error) {

@@ -13,6 +13,12 @@ type EventQueueService interface {
 	// Return true if there are events available for the specified tick; otherwise return false.
 	HasEventsForTick(time.Time) bool
 
+	// Return the next, ready-to-be-processed `EventSessionReady` from the queue.
+	GetNextSessionStartEvent(currentTime time.Time) Event
+
+	// Return true if there is at least one sessionReadyEvent in the `EventQueueService_Old::sessionReadyEvents` queue.
+	HasSessionReadyEvents() bool
+
 	// Return the timestamp of the next session event to be processed. The error will be nil if there is at least one session event enqueued.
 	// If there are no session events enqueued, then this will return time.Time{} and an ErrNoMoreEvents error.
 	GetTimestampOfNextReadyEvent() (time.Time, error)
