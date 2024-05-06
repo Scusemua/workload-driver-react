@@ -124,7 +124,7 @@ func (q *eventQueue) EnqueueEvent(evt domain.Event) {
 		}
 
 		eventsForSession := val.(*hashmap.HashMap)
-		eventsForSession.Set(evt.Id, eventHeapElement)
+		eventsForSession.Set(evt.Id(), eventHeapElement)
 
 		q.sugaredLogger.Debugf("Enqueued \"%v\" (id=%v, ts=%v) for session %s (src=%v). Heap length: %d", evt.Name(), podId, evt.Id(), evt.Timestamp(), evt.EventSource(), q.eventHeap.Len())
 	} else {
@@ -207,7 +207,7 @@ func (q *eventQueue) GetNextEvent(threshold time.Time) (domain.EventHeapElement,
 		nextEvent.SetIndex(q.Len())
 		nextEvent.SetEnqueued(false)
 
-		q.sugaredLogger.Debugf("Returning ready event \"%s\" [id=%s] targeting session %s. Heap size: %d.", nextEvent.Name(), nextEvent.Id(), nextEvent.Data().(*generator.Session).Pod, q.Len())
+		q.sugaredLogger.Debugf("Returning ready event \"%s\" [id=%s] targeting session %s. Heap size: %d.", nextEvent.Name(), nextEvent.Id(), nextEvent.SessionID(), q.Len())
 		return nextEvent, true
 	}
 

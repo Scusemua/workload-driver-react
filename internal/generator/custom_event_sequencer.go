@@ -382,13 +382,16 @@ func (p *XMLEventParser) Parse() ([]Record, []Record, []Record) {
 				// p.sugaredLogger.Debugf("Session %s is supposed to have %d GPUs.", sessionId, numGPUs)
 
 				for j := 0; j < numGPUs; j++ {
+					ts := UnixTime(time.Unix(p.startingSeconds+(int64(i)*p.tick), 0))
 					gpuRecord := &GPURecord{
-						Timestamp: UnixTime(time.Unix(p.startingSeconds+(int64(i)*p.tick), 0)),
+						Timestamp: ts,
 						Value:     gpu,
 						Pod:       sessionId,
 						PodIdx:    podIdx,
 						GPUIdx:    fmt.Sprintf("%d", gpuIndex+j),
 					}
+
+					p.sugaredLogger.Debugf("Creating GPURecord with TS=%v, StartingSeconds=%d, p.Tick=%d, i=%d", ts, p.startingSeconds, p.tick, i)
 
 					gpuRecords = append(gpuRecords, gpuRecord)
 				}

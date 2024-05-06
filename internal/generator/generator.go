@@ -237,7 +237,7 @@ func (g *workloadGeneratorImpl) generateWorkloadWithXmlPreset(consumer domain.Ev
 	g.logger.Debug("Generating workload from XML preset.", zap.String("workload-preset-name", workloadPreset.Name), zap.String("workload-preset-key", workloadPreset.Key))
 	g.synthesizer = NewSynthesizer(g.opts, workloadPreset.MaxUtilization)
 	g.synthesizer.SetEventConsumer(consumer)
-	xmlEventParser := NewXMLEventParser(int64(time.Second*time.Duration(g.opts.TraceStep)), 0, workloadPreset.XmlFilePath, g.atom)
+	xmlEventParser := NewXMLEventParser(g.opts.TraceStep, 0, workloadPreset.XmlFilePath, g.atom)
 	gpuRecords, cpuRecords, _ := xmlEventParser.Parse()
 
 	gpuDoneChan := make(chan struct{})

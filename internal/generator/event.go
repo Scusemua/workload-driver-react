@@ -33,6 +33,15 @@ func (e *eventImpl) Name() domain.EventName { return e.name }
 
 func (e *eventImpl) Data() interface{} { return e.data }
 
+func (e *eventImpl) SessionID() string {
+	data, ok := e.data.(*Session)
+	if !ok {
+		return "N/A"
+	}
+
+	return data.Pod
+}
+
 func (e *eventImpl) Timestamp() time.Time { return e.timestamp }
 
 func (e *eventImpl) Id() string { return e.id }

@@ -98,6 +98,10 @@ func (s *Session) setReadyFlag(expects int, utils int) int {
 	return s.StatusReadyFlags
 }
 
+func (s *Session) GetPod() string {
+	return s.Pod
+}
+
 func (s *Session) Transit(evt domain.Event, inspect bool) ([]domain.SessionEvent, error) {
 	if s.pending == nil {
 		s.pending = make([]domain.Event, 0, 3)

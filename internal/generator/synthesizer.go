@@ -305,16 +305,11 @@ func (s *Synthesizer) Synthesize(ctx context.Context, opts *domain.Configuration
 	numDriversFinished := 0
 
 	s.sugarLog.Debugf("There are %d event sources.", len(s.Sources))
-	s.log.Debug("Pushing evnet sources onto heap.")
 
 	// Establish the heap
 	for i := 0; i < len(s.Sources); i++ {
-		s.sugarLog.Debugf("Pushing event source %d '%v' onto events heap.", (i + 1), s.Sources[i])
 		heap.Push(&s.eventsHeap, <-s.Sources[i].OnEvent())
-		s.sugarLog.Debugf("Pushed event source %d '%v' onto events heap.", (i + 1), s.Sources[i])
 	}
-
-	s.log.Debug("Checking for empty event sources now...")
 
 	// Exclude empty sources
 	startEvt := s.eventsHeap.Peek()

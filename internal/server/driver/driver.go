@@ -359,7 +359,7 @@ func (d *workloadDriverImpl) bootstrapSimulation() {
 		// Set the CurrentTick to the timestamp of the event.
 		CurrentTick.IncreaseClockTimeTo(firstEvent.Timestamp())
 		ClockTime.IncreaseClockTimeTo(firstEvent.Timestamp())
-		d.sugaredLogger.Debugf("CurrentTick has been initialized to %v.", firstEvent.Timestamp)
+		d.sugaredLogger.Debugf("CurrentTick has been initialized to %v.", firstEvent.Timestamp())
 	}
 
 	// Handle the event. Basically, just enqueue it in the EventQueueService.
@@ -383,7 +383,7 @@ func (d *workloadDriverImpl) DriveWorkload(wg *sync.WaitGroup) {
 		// These events are then enqueued in the EventQueueService.
 		select {
 		case evt := <-d.eventChan:
-			d.logger.Debug("Extracted event from event channel.", zap.String("event-name", evt.Name().String()), zap.String("event-id", evt.Id()))
+			// d.logger.Debug("Extracted event from event channel.", zap.String("event-name", evt.Name().String()), zap.String("event-id", evt.Id()))
 
 			// If the event occurs during this tick, then call SimulationDriver::HandleDriverEvent to enqueue the event in the EventQueueService.
 			if evt.Timestamp().Before(nextTick) {

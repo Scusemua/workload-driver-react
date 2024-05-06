@@ -71,7 +71,7 @@ func (e *eventHeapElementImpl) String() string {
 }
 
 func (e *eventHeapElementImpl) Data() interface{} {
-	return e.Event.Data
+	return e.Event.Data()
 }
 
 func (e *eventHeapElementImpl) Enqueued() bool {

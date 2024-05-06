@@ -76,6 +76,7 @@ type Event interface {
 	OriginalEventSource() EventSource
 	Name() EventName
 	Data() interface{}
+	SessionID() string
 	Timestamp() time.Time
 	Id() string
 	OrderSeq() int64 // OrderSeq is essentially timestamp of event, but randomized to make behavior stochastic.
