@@ -304,20 +304,28 @@ func (s *Synthesizer) Synthesize(ctx context.Context, opts *domain.Configuration
 
 	numDriversFinished := 0
 
+	s.sugarLog.Debugf("There are %d event sources.", len(s.Sources))
+	s.log.Debug("Pushing evnet sources onto heap.")
+
 	// Establish the heap
 	for i := 0; i < len(s.Sources); i++ {
 		s.sugarLog.Debugf("Pushing event source %d '%v' onto events heap.", (i + 1), s.Sources[i])
 		heap.Push(&s.eventsHeap, <-s.Sources[i].OnEvent())
+		s.sugarLog.Debugf("Pushed event source %d '%v' onto events heap.", (i + 1), s.Sources[i])
 	}
+
+	s.log.Debug("Checking for empty event sources now...")
 
 	// Exclude empty sources
 	startEvt := s.eventsHeap.Peek()
 	for startEvt != nil && startEvt.Name() == EventNoMore {
-		s.log.Warn(startEvt.String())
 		// The source is empty
-		heap.Pop(&s.eventsHeap)
+		src := heap.Pop(&s.eventsHeap)
+		s.sugarLog.Warnf("Removed empty event source %s.", src)
 		startEvt = s.eventsHeap.Peek()
 	}
+
+	s.log.Debug("Processing events now.")
 
 	// Looking for recent eventsHeap
 	start := time.Now()
@@ -325,6 +333,7 @@ func (s *Synthesizer) Synthesize(ctx context.Context, opts *domain.Configuration
 	// firstEventProcessed := false
 	for s.eventsHeap.Len() > 0 {
 		evt := s.eventsHeap.Peek()
+		// s.log.Debug("Found event on event heap.", zap.Any("event", evt))
 		switch evt.Name() {
 		case EventError:
 			if evt.Data() != context.Canceled {

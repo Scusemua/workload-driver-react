@@ -411,17 +411,17 @@ func (d *GPUDriver) HandleRecord(ctx context.Context, r Record) {
 
 	d.lastRead = rec.Timestamp.Time().Unix()
 
-	// log.Trace("GPUDriver is processing record: %v.", rec)
+	// d.sugarLog.Debugf("GPUDriver is processing record: %v.", rec)
 
 	if d.ExecutionMode == 0 {
 		d.updateMaxUtilizationPerGpuDevice(rec)
 	}
 
 	gpu, created := d.ensurePod(rec)
-	// log.Trace("Got %v from ensuring pod.", gpu)
+	// d.sugarLog.Debugf("Got %v from ensuring pod.", gpu)
 	if created {
 		gpu.init(rec)
-		// log.Trace("Initializing GPUUtil: %v", gpu)
+		// d.sugarLog.Debugf("Initializing GPUUtil: %v", gpu)
 
 		if d.ExecutionMode == 0 {
 			d.MaxesMutex.RLock()
@@ -446,11 +446,11 @@ func (d *GPUDriver) HandleRecord(ctx context.Context, r Record) {
 		return
 	} else if gpu.Timestamp == rec.Timestamp.Time() {
 		gpu.update(rec)
-		// log.Trace("Updating GPUUtil: %v", gpu)
+		// d.sugarLog.Debugf("Updating GPUUtil: %v", gpu)
 		return
 	}
 
-	// log.Trace("Concluding GPUUtil %v", gpu)
+	// d.sugarLog.Debugf("Concluding GPUUtil %v", gpu)
 	events := make([]GPUEvent, 0, 2) // events buffer
 	committed := gpu.commitAndInit(rec)
 
@@ -458,7 +458,7 @@ func (d *GPUDriver) HandleRecord(ctx context.Context, r Record) {
 		d.updateMaxUtilization(committed)
 	}
 
-	// log.Trace("Concluded GPUUtil %v", committed)
+	// d.sugarLog.Debugf("Concluded GPUUtil %v", committed)
 	events, err := committed.transit(events, false)
 	if err != nil {
 		sugarLog.Warnf("Error on handling records: %v", err)
@@ -468,7 +468,7 @@ func (d *GPUDriver) HandleRecord(ctx context.Context, r Record) {
 	// 	events = append(events, EventGpuUpdateUtil)
 	// }
 
-	// log.Trace("GPUDriver. Processed record: %v. Committed Status: %v. Triggering %d event(s).", rec, committed.Status, len(events))
+	// d.sugarLog.Debugf("GPUDriver. Processed record: %v. Committed Status: %v. Triggering %d event(s).", rec, committed.Status, len(events))
 	d.triggerMulti(ctx, events, committed)
 }
 

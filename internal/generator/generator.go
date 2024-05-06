@@ -231,8 +231,12 @@ func (g *workloadGeneratorImpl) generateWorkloadWithCsvPreset(consumer domain.Ev
 }
 
 func (g *workloadGeneratorImpl) generateWorkloadWithXmlPreset(consumer domain.EventConsumer, workload *domain.Workload, workloadPreset *domain.XmlWorkloadPreset, workloadRegistrationRequest *domain.WorkloadRegistrationRequest) error {
+	g.ctx, g.cancelFunction = context.WithCancel(context.Background())
+	defer g.cancelFunction()
+
 	g.logger.Debug("Generating workload from XML preset.", zap.String("workload-preset-name", workloadPreset.Name), zap.String("workload-preset-key", workloadPreset.Key))
 	g.synthesizer = NewSynthesizer(g.opts, workloadPreset.MaxUtilization)
+	g.synthesizer.SetEventConsumer(consumer)
 	xmlEventParser := NewXMLEventParser(int64(time.Second*time.Duration(g.opts.TraceStep)), 0, workloadPreset.XmlFilePath, g.atom)
 	gpuRecords, cpuRecords, _ := xmlEventParser.Parse()
 

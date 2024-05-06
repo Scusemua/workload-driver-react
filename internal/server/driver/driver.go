@@ -159,6 +159,7 @@ func NewWorkloadDriver(opts *domain.Configuration, performClockTicks bool) domai
 }
 
 func (d *workloadDriverImpl) SubmitEvent(evt domain.Event) {
+	// d.logger.Debug("Adding event to event channel.", zap.String("event-name", evt.Name().String()), zap.String("event-id", evt.Id()))
 	d.eventChan <- evt
 }
 
@@ -351,7 +352,7 @@ func (d *workloadDriverImpl) bootstrapSimulation() {
 	// Get the first event.
 	firstEvent := <-d.eventChan
 
-	d.sugaredLogger.Info("Received first event for workload %s: %v", d.workload.ID, firstEvent)
+	d.sugaredLogger.Infof("Received first event for workload %s: %v", d.workload.ID, firstEvent)
 
 	// Save the timestamp information.
 	if d.performClockTicks {
@@ -365,6 +366,9 @@ func (d *workloadDriverImpl) bootstrapSimulation() {
 	d.eventQueue.EnqueueEvent(firstEvent)
 }
 
+// This should be called from its own goroutine.
+// Accepts a waitgroup that is used to notify the caller when the workload has entered the 'WorkloadRunning' state.
+// This issues clock ticks as events are submitted.
 func (d *workloadDriverImpl) DriveWorkload(wg *sync.WaitGroup) {
 	d.logger.Info("Workload Simulator has started running. Bootstrapping simulation now.")
 	d.bootstrapSimulation()
@@ -379,20 +383,20 @@ func (d *workloadDriverImpl) DriveWorkload(wg *sync.WaitGroup) {
 		// These events are then enqueued in the EventQueueService.
 		select {
 		case evt := <-d.eventChan:
+			d.logger.Debug("Extracted event from event channel.", zap.String("event-name", evt.Name().String()), zap.String("event-id", evt.Id()))
+
 			// If the event occurs during this tick, then call SimulationDriver::HandleDriverEvent to enqueue the event in the EventQueueService.
 			if evt.Timestamp().Before(nextTick) {
-				// d.HandleDriverEvent(opts, evt)
 				d.eventQueue.EnqueueEvent(evt)
 			} else {
 				// The event occurs in the next tick. Update the current tick clock, issue/perform a tick-trigger, and then process the event.
 				d.IssueClockTicks(evt.Timestamp())
 				nextTick = CurrentTick.GetClockTime().Add(d.tickDuration)
 				d.eventQueue.EnqueueEvent(evt)
-				// d.HandleDriverEvent(opts, evt)
 
 				d.sugaredLogger.Debugf("Next tick: %v", nextTick)
 			}
-		case _ = <-d.doneChan:
+		case <-d.doneChan:
 			d.logger.Info("Drivers are done generating events.")
 
 			// Continue issuing ticks until the cluster is finished.
@@ -436,6 +440,7 @@ func (d *workloadDriverImpl) IssueClockTicks(timestamp time.Time) {
 
 // This should be called from its own goroutine.
 // Accepts a waitgroup that is used to notify the caller when the workload has entered the 'WorkloadRunning' state.
+// This processes events in response to clock ticks.
 func (d *workloadDriverImpl) ProcessWorkload(wg *sync.WaitGroup) {
 	d.logger.Info("Starting workload.", zap.String("workload-preset-name", d.workloadPreset.Name()), zap.String("workload-preset-key", d.workloadPreset.Key()))
 
@@ -451,6 +456,7 @@ func (d *workloadDriverImpl) ProcessWorkload(wg *sync.WaitGroup) {
 
 	d.logger.Info("The Workload Driver has started running.")
 
+	numTicksServed := 0
 	d.servingTicks.Store(true)
 	for d.workload.IsRunning() {
 		select {
@@ -470,6 +476,13 @@ func (d *workloadDriverImpl) ProcessWorkload(wg *sync.WaitGroup) {
 				}
 
 				d.processEvents(tick)
+
+				d.doneServingTick()
+				numTicksServed += 1
+
+				if numTicksServed > 64 {
+					panic("Something is wrong. We've served 64 ticks.")
+				}
 			}
 		case err := <-d.errorChan:
 			{
@@ -497,6 +510,16 @@ func (d *workloadDriverImpl) ProcessWorkload(wg *sync.WaitGroup) {
 			}
 		}
 	}
+}
+
+// Called from Cluster::ServeTicks at the end of serving a tick to signal to the Ticker/Trigger interface that the listener (i.e., the Cluster) is done.
+func (d *workloadDriverImpl) doneServingTick() {
+	numEventsEnqueued := d.eventQueue.Len()
+	if d.sugaredLogger.Level() == zapcore.DebugLevel {
+		d.sugaredLogger.Debugf(">> [%v] Done serving tick. There is/are %d more session event(s) enqueued right now.", ClockTime.GetClockTime(), numEventsEnqueued)
+	}
+
+	d.ticker.Done()
 }
 
 // Signal that the workload is done (being parsed) by the generator/synthesizer.
@@ -548,7 +571,7 @@ func (d *workloadDriverImpl) processEvents(tick time.Time) {
 	d.sugaredLogger.Debugf("Processing %d event(s) for tick %v.", len(eventsForTick), tick)
 
 	for sessId, evts := range eventsForTick {
-		d.sugaredLogger.Debug("Number of events for Session %s: %d", sessId, len(evts))
+		d.sugaredLogger.Debugf("Number of events for Session %s: %d", sessId, len(evts))
 
 		// Create a go routine to process all of the events for the particular session serially.
 		// This enables us to process events targeting multiple sessiosn in-parallel.
@@ -654,7 +677,7 @@ func (d *workloadDriverImpl) handleEvent(evt domain.Event) error {
 func (d *workloadDriverImpl) createSession(sessionId string) (*jupyter.SessionConnection, error) {
 	d.logger.Debug("Creating new kernel.", zap.String("kernel-id", sessionId))
 	st := time.Now()
-	sessionConnection, err := d.kernelManager.CreateSession(sessionId, sessionId, fmt.Sprintf("%d.ipynb", sessionId), "notebook", "distributed")
+	sessionConnection, err := d.kernelManager.CreateSession(sessionId, sessionId, fmt.Sprintf("%s.ipynb", sessionId), "notebook", "distributed")
 	if err != nil {
 		d.logger.Error("Failed to create session.", zap.String("session-id", sessionId))
 		return nil, err

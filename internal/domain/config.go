@@ -204,6 +204,7 @@ func GetDefaultConfig() *Configuration {
 		ConnectToKernelTimeoutMillis: 60000,
 		WebsocketProxyPort:           8001,
 		ClusterDashboardHandlerPort:  8079,
+		TraceStep:                    60,
 	}
 }
 

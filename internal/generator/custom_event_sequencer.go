@@ -364,7 +364,7 @@ func (p *XMLEventParser) Parse() ([]Record, []Record, []Record) {
 			// Always make the last three records deactivated (i.e., utilization of 0.)
 			// If the event is already idle, then that doesn't change anything.
 			// If the event is a training event, then it will end at the proper time, as it
-			// takes three consecutive idle readings to deactivate/stop training.
+			// Takes three consecutive idle readings to deactivate/stop training.
 
 			// Active records, which may also be idle depending on what kind of event this is.
 			trainingStopsAt := startTime + duration

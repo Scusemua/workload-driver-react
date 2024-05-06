@@ -800,7 +800,7 @@ func (s *serverImpl) serveHttp(wg *sync.WaitGroup) {
 	go func() {
 		addr := fmt.Sprintf(":%d", s.opts.ServerPort)
 		if err := http.ListenAndServe(addr, s.app); err != nil {
-			s.sugaredLogger.Error("HTTP Server failed to listen on '%s'. Error: %v", addr, err)
+			s.sugaredLogger.Errorf("HTTP Server failed to listen on '%s'. Error: %v", addr, err)
 			panic(err)
 		}
 
@@ -821,7 +821,7 @@ func (s *serverImpl) serveJupyterWebsocketProxy(wg *sync.WaitGroup) {
 	addr := fmt.Sprintf("127.0.0.1:%d", s.opts.WebsocketProxyPort)
 	go func() {
 		if err := http.ListenAndServe(addr, websocketproxy.NewProxy(wsUrl)); err != nil {
-			s.sugaredLogger.Error("Websocket Proxy failed to listen on '%s'. Error: %v", addr, err)
+			s.sugaredLogger.Errorf("Websocket Proxy failed to listen on '%s'. Error: %v", addr, err)
 			panic(err)
 		}
 
