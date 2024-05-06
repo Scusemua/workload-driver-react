@@ -10,6 +10,7 @@ import (
 	"os"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -105,8 +106,13 @@ func (m *KernelSessionManager) StartNew(kernelSpec string) error {
 }
 
 // Create a new session.
-func (m *KernelSessionManager) CreateSession(localSessionId string, sessionName string, path string, sessionType string, kernelSpecName string) (*SessionConnection, error) {
-	requestBody := newJupyterSessionForRequest(sessionName, path, sessionType, kernelSpecName)
+func (m *KernelSessionManager) CreateSession(sessionId string, path string, sessionType string, kernelSpecName string) (*SessionConnection, error) {
+	if len(sessionId) < 36 {
+		generated_uuid := uuid.NewString()
+		sessionId = sessionId + "-" + generated_uuid[0:36-(len(sessionId)+1)]
+	}
+
+	requestBody := newJupyterSessionForRequest(sessionId, path, sessionType, kernelSpecName)
 
 	requestBodyJson, err := json.Marshal(&requestBody)
 	if err != nil {
@@ -126,7 +132,7 @@ func (m *KernelSessionManager) CreateSession(localSessionId string, sessionName 
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		m.logger.Error("Received error when creating new session.", zap.String("request-args", requestBody.String()), zap.String("local-session-id", localSessionId), zap.String("url", url), zap.Error(err))
+		m.logger.Error("Received error when creating new session.", zap.String("request-args", requestBody.String()), zap.String("local-session-id", sessionId), zap.String("url", url), zap.Error(err))
 		return nil, err
 	}
 
@@ -145,21 +151,25 @@ func (m *KernelSessionManager) CreateSession(localSessionId string, sessionName 
 			var jupyterSessionId string = jupyterSession.JupyterSessionId
 
 			// Update all of our many mappings...
-			m.localSessionIdToKernelId[localSessionId] = kernelId
-			m.localSessionIdToJupyterSessionId[localSessionId] = jupyterSessionId
-			m.jupyterSessionIdLocalSessionIdTo[jupyterSessionId] = localSessionId
+			m.localSessionIdToKernelId[sessionId] = kernelId
+			m.localSessionIdToJupyterSessionId[sessionId] = jupyterSessionId
+			m.jupyterSessionIdLocalSessionIdTo[jupyterSessionId] = sessionId
 			m.kernelIdToJupyterSessionId[kernelId] = jupyterSessionId
-			m.kernelIdToLocalSessionId[kernelId] = localSessionId
+			m.kernelIdToLocalSessionId[kernelId] = sessionId
 			m.jupyterSessionIdToKernelId[jupyterSessionId] = kernelId
 
 			st := time.Now()
 			// Connect to the Session and to the associated kernel.
-			sessionConnection = NewSessionConnection(jupyterSession, m.jupyterServerAddress, m.atom)
+			sessionConnection, err = NewSessionConnection(jupyterSession, m.jupyterServerAddress, m.atom)
+			if err != nil {
+				m.logger.Error("Could not establish connection to Session.", zap.String("session-id", sessionId), zap.String("kernel-id", kernelId), zap.Error(err))
+				return nil, err
+			}
 			creationTime := time.Since(st)
 
-			m.sessionMap[localSessionId] = sessionConnection
+			m.sessionMap[sessionId] = sessionConnection
 
-			m.logger.Debug("Successfully created and setup session.", zap.Duration("time-to-create", creationTime), zap.String("local-session-id", localSessionId), zap.String("jupyter-session-id", jupyterSessionId), zap.String("kernel-id", kernelId))
+			m.logger.Debug("Successfully created and setup session.", zap.Duration("time-to-create", creationTime), zap.String("local-session-id", sessionId), zap.String("jupyter-session-id", jupyterSessionId), zap.String("kernel-id", kernelId))
 		}
 	case http.StatusBadRequest:
 		{

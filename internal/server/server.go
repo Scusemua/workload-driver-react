@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"log"
+	"net"
 	"net/http"
 	"net/url"
 	"sync"
@@ -41,7 +42,7 @@ type serverImpl struct {
 	workloads          []*domain.Workload
 	pushUpdateInterval time.Duration
 
-	subscribers map[string]*websocket.Conn
+	subscribers map[string]domain.ConcurrentWebSocket
 
 	// Used to tell a goroutine to break out of the for-loop in which it is reading logs from Kubernetes.
 	// This is used if the websocket connection is terminated. Otherwise, the loop will continue forever.
@@ -60,7 +61,7 @@ func NewServer(opts *domain.Configuration) domain.Server {
 		workloadDrivers:       orderedmap.NewOrderedMap[string, domain.WorkloadDriver](),
 		workloadsMap:          orderedmap.NewOrderedMap[string, *domain.Workload](),
 		workloads:             make([]*domain.Workload, 0),
-		subscribers:           make(map[string]*websocket.Conn),
+		subscribers:           make(map[string]domain.ConcurrentWebSocket),
 		getLogsResponseBodies: make(map[string]io.ReadCloser),
 		// workloadDriver: driver.NewWorkloadDriver(opts),
 	}
@@ -437,13 +438,15 @@ func (s *serverImpl) serveWorkloadWebsocket(c *gin.Context) {
 	}
 	defer conn.Close()
 
+	var concurrentConn domain.ConcurrentWebSocket = newConcurrentWebSocket(conn)
+
 	// Used to notify the server-push goroutine that a new workload has been registered.
 	workloadStartedChan := make(chan string)
 	doneChan := make(chan struct{})
 	go s.serverPushRoutine(workloadStartedChan, doneChan)
 
 	for {
-		_, message, err := conn.ReadMessage()
+		_, message, err := concurrentConn.ReadMessage()
 		if err != nil {
 			s.logger.Error("Error while reading message from websocket.", zap.Error(err))
 			doneChan <- struct{}{}
@@ -486,7 +489,7 @@ func (s *serverImpl) serveWorkloadWebsocket(c *gin.Context) {
 		} else if op == "register_workload" {
 			var wrapper *domain.WorkloadRegistrationRequestWrapper
 			json.Unmarshal(message, &wrapper)
-			s.handleRegisterWorkload(wrapper.WorkloadRegistrationRequest, msgId)
+			s.handleRegisterWorkload(wrapper.WorkloadRegistrationRequest, msgId, concurrentConn)
 		} else if op == "start_workload" {
 			var req *domain.StartStopWorkloadRequest
 			json.Unmarshal(message, &req)
@@ -514,14 +517,14 @@ func (s *serverImpl) serveWorkloadWebsocket(c *gin.Context) {
 		} else if op == "subscribe" {
 			var req *domain.SubscriptionRequest
 			json.Unmarshal(message, &req)
-			s.handleSubscriptionRequest(req, conn)
+			s.handleSubscriptionRequest(req, concurrentConn)
 		} else {
 			s.logger.Error("Unexpected or unsupported operation specified.", zap.String("op", op))
 		}
 	}
 }
 
-func (s *serverImpl) handleSubscriptionRequest(req *domain.SubscriptionRequest, conn *websocket.Conn) {
+func (s *serverImpl) handleSubscriptionRequest(req *domain.SubscriptionRequest, conn domain.ConcurrentWebSocket) {
 	s.subscribers[conn.RemoteAddr().String()] = conn
 	s.handleGetWorkloads(req.MessageId, conn, false)
 }
@@ -714,8 +717,8 @@ func (s *serverImpl) handleStopWorkload(req *domain.StartStopWorkloadRequest) {
 	}
 }
 
-func (s *serverImpl) handleRegisterWorkload(request *domain.WorkloadRegistrationRequest, msgId string) {
-	workloadDriver := driver.NewWorkloadDriver(s.opts, true)
+func (s *serverImpl) handleRegisterWorkload(request *domain.WorkloadRegistrationRequest, msgId string, websocket domain.ConcurrentWebSocket) {
+	workloadDriver := driver.NewWorkloadDriver(s.opts, true, websocket)
 
 	workload, _ := workloadDriver.RegisterWorkload(request)
 
@@ -750,7 +753,7 @@ func (s *serverImpl) handleRegisterWorkload(request *domain.WorkloadRegistration
 	}
 }
 
-func (s *serverImpl) handleGetWorkloads(msgId string, conn *websocket.Conn, broadcast bool) {
+func (s *serverImpl) handleGetWorkloads(msgId string, conn domain.ConcurrentWebSocket, broadcast bool) {
 	s.driversMutex.RLock()
 	for el := s.workloadDrivers.Front(); el != nil; el = el.Next() {
 		el.Value.LockDriver()
@@ -827,4 +830,55 @@ func (s *serverImpl) serveJupyterWebsocketProxy(wg *sync.WaitGroup) {
 
 		wg.Done()
 	}()
+}
+
+type concurrentWebSocketImpl struct {
+	sync.Mutex
+	conn *websocket.Conn
+}
+
+func newConcurrentWebSocket(conn *websocket.Conn) domain.ConcurrentWebSocket {
+	return &concurrentWebSocketImpl{
+		conn: conn,
+	}
+}
+
+// WriteJSON writes the JSON encoding of v as a message.
+func (w *concurrentWebSocketImpl) WriteJSON(v interface{}) error {
+	w.Lock()
+	defer w.Unlock()
+
+	return w.conn.WriteJSON(v)
+}
+
+// WriteMessage is a helper method for getting a writer using NextWriter, writing the message and closing the writer.
+func (w *concurrentWebSocketImpl) WriteMessage(messageType int, data []byte) error {
+	w.Lock()
+	defer w.Unlock()
+
+	return w.conn.WriteMessage(messageType, data)
+}
+
+// ReadJSON reads the next JSON-encoded message from the connection and stores it in the value pointed to by v.
+func (w *concurrentWebSocketImpl) ReadJSON(v interface{}) error {
+	w.Lock()
+	defer w.Unlock()
+
+	return w.conn.ReadJSON(v)
+}
+
+// ReadMessage is a helper method for getting a reader using NextReader and reading from that reader to a buffer.
+func (w *concurrentWebSocketImpl) ReadMessage() (messageType int, p []byte, err error) {
+	w.Lock()
+	defer w.Unlock()
+
+	return w.conn.ReadMessage()
+}
+
+// RemoteAddr returns the remote network address.
+func (w *concurrentWebSocketImpl) RemoteAddr() net.Addr {
+	w.Lock()
+	defer w.Unlock()
+
+	return w.conn.RemoteAddr()
 }

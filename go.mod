@@ -27,12 +27,12 @@ require (
 	k8s.io/client-go v0.29.2
 )
 
-require github.com/hashicorp/yamux v0.1.1
-
 require (
-	github.com/dchest/siphash v1.1.0 // indirect
-	github.com/shopspring/decimal v1.4.0 // indirect
+	github.com/hashicorp/yamux v0.1.1
+	github.com/shopspring/decimal v1.4.0
 )
+
+require github.com/dchest/siphash v1.1.0 // indirect
 
 require (
 	dario.cat/mergo v1.0.0 // indirect

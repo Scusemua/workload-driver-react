@@ -248,9 +248,11 @@ export const CreateKernelsModal: React.FunctionComponent<CreateKernelsModalProps
                                         placeholder={defaultKernelId.current.get(currentKernelIndex)}
                                         type="text"
                                         maxLength={36}
-                                        value={kernelIds.get(currentKernelIndex) || ''}
+                                        value={kernelIds.get(currentKernelIndex)?.toLowerCase() || ''}
                                         onChange={(_event: React.FormEvent<HTMLInputElement>, value: string) => {
-                                            setKernelIds(new Map(kernelIds).set(currentKernelIndex, value));
+                                            setKernelIds(
+                                                new Map(kernelIds).set(currentKernelIndex, value.toLowerCase()),
+                                            );
                                         }}
                                     />
                                 </TextInputGroup>
@@ -264,9 +266,11 @@ export const CreateKernelsModal: React.FunctionComponent<CreateKernelsModalProps
                                         arial-label="session-id-text-input"
                                         placeholder={defaultSessionId.current.get(currentKernelIndex)}
                                         type="text"
-                                        value={sessionIds.get(currentKernelIndex) || ''}
+                                        value={sessionIds.get(currentKernelIndex)?.toLowerCase() || ''}
                                         onChange={(_event: React.FormEvent<HTMLInputElement>, value: string) => {
-                                            setSessionIds(new Map(sessionIds).set(currentKernelIndex, value));
+                                            setSessionIds(
+                                                new Map(sessionIds).set(currentKernelIndex, value.toLowerCase()),
+                                            );
                                         }}
                                         maxLength={36}
                                     />

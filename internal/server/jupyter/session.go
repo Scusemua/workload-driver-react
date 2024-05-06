@@ -28,10 +28,11 @@ type jupyterSessionReq struct {
 }
 
 func newJupyterSessionForRequest(sessionName string, path string, sessionType string, kernelSpecName string) *jupyterSessionReq {
-	jupyterKernel := newJupyterKernel("", kernelSpecName)
+	jupyterKernel := newJupyterKernel(sessionName, kernelSpecName)
 
 	return &jupyterSessionReq{
-		JupyterSessionId: "",
+		JupyterSessionId: sessionName,
+		LocalSessionId:   sessionName,
 		Path:             path,
 		Name:             sessionName,
 		SessionType:      sessionType,
@@ -71,7 +72,7 @@ func (s *jupyterSession) String() string {
 }
 
 type jupyterKernel struct {
-	Id             string `json:"id"`
+	Id             string `json:"kernel_id"`
 	Name           string `json:"name"`
 	LastActivity   string `json:"last_activity"`
 	ExecutionState string `json:"execution_state"`
@@ -129,7 +130,7 @@ type SessionConnection struct {
 // Create a new SessionConnection.
 //
 // We do not return until we've successfully connected to the kernel.
-func NewSessionConnection(model *jupyterSession, jupyterServerAddress string, atom *zap.AtomicLevel) *SessionConnection {
+func NewSessionConnection(model *jupyterSession, jupyterServerAddress string, atom *zap.AtomicLevel) (*SessionConnection, error) {
 	conn := &SessionConnection{
 		model:                model,
 		jupyterServerAddress: jupyterServerAddress,
@@ -142,13 +143,13 @@ func NewSessionConnection(model *jupyterSession, jupyterServerAddress string, at
 	conn.sugaredLogger = conn.logger.Sugar()
 
 	err := conn.connectToKernel()
-	if err != nil {
-		panic(err)
+	if err != nil && err != ErrAlreadyConnectedToKernel {
+		return nil, err
 	}
 
 	conn.logger.Debug("Successfully connected to kernel.", zap.String("kernel-id", model.JupyterKernel.Id))
 
-	return conn
+	return conn, err
 }
 
 // Side-effect: set the `kernel` field of the SessionConnection.

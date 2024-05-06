@@ -6,6 +6,8 @@ import (
 	"math/rand"
 	"net/http"
 	"os"
+	"reflect"
+	"strings"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -84,6 +86,8 @@ type workloadDriverImpl struct {
 	workloadRegistrationRequest *domain.WorkloadRegistrationRequest
 	workload                    *domain.Workload
 
+	websocket domain.ConcurrentWebSocket
+
 	mu sync.Mutex
 
 	opts *domain.Configuration
@@ -107,7 +111,7 @@ func GenerateWorkloadID(n int) string {
 	return *(*string)(unsafe.Pointer(&b))
 }
 
-func NewWorkloadDriver(opts *domain.Configuration, performClockTicks bool) domain.WorkloadDriver {
+func NewWorkloadDriver(opts *domain.Configuration, performClockTicks bool, websocket domain.ConcurrentWebSocket) domain.WorkloadDriver {
 	atom := zap.NewAtomicLevelAt(zapcore.DebugLevel)
 	driver := &workloadDriverImpl{
 		id:                  GenerateWorkloadID(8),
@@ -129,6 +133,7 @@ func NewWorkloadDriver(opts *domain.Configuration, performClockTicks bool) domai
 		stats:               NewWorkloadStats(),
 		sessions:            hashmap.New(100),
 		seenSessions:        make(map[string]struct{}),
+		websocket:           websocket,
 	}
 
 	core := zapcore.NewCore(zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()), os.Stdout, driver.atom)
@@ -158,12 +163,15 @@ func NewWorkloadDriver(opts *domain.Configuration, performClockTicks bool) domai
 	return driver
 }
 
+func (d *workloadDriverImpl) WebSocket() domain.ConcurrentWebSocket {
+	return d.websocket
+}
+
 func (d *workloadDriverImpl) Stats() *WorkloadStats {
 	return d.stats
 }
 
 func (d *workloadDriverImpl) SubmitEvent(evt domain.Event) {
-	// d.logger.Debug("Adding event to event channel.", zap.String("event-name", evt.Name().String()), zap.String("event-id", evt.Id()))
 	d.eventChan <- evt
 }
 
@@ -657,6 +665,11 @@ func (d *workloadDriverImpl) handleSessionReadyEvents(latestTick time.Time) {
 		_, err := d.provisionSession(sessionId, driverSession, sessionReadyEvent.Timestamp())
 		if err != nil {
 			d.logger.Error("Failed to provision new Jupyter session.", zap.String("session-id", sessionId), zap.Error(err))
+			d.websocket.WriteJSON(domain.ErrorMessage{
+				Description:  reflect.TypeOf(err).Name(),
+				ErrorMessage: err.Error(),
+				Valid:        true,
+			})
 			continue
 		}
 
@@ -734,7 +747,7 @@ func (d *workloadDriverImpl) handleEvent(evt domain.Event) error {
 func (d *workloadDriverImpl) provisionSession(sessionId string, meta *generator.Session, createdAtTime time.Time) (*jupyter.SessionConnection, error) {
 	d.logger.Debug("Creating new kernel.", zap.String("kernel-id", sessionId))
 	st := time.Now()
-	sessionConnection, err := d.kernelManager.CreateSession(sessionId, sessionId, fmt.Sprintf("%s.ipynb", sessionId), "notebook", "distributed")
+	sessionConnection, err := d.kernelManager.CreateSession(strings.ToLower(sessionId), fmt.Sprintf("%s.ipynb", sessionId), "notebook", "distributed")
 	if err != nil {
 		d.logger.Error("Failed to create session.", zap.String("session-id", sessionId))
 		return nil, err

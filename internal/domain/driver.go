@@ -62,4 +62,6 @@ type WorkloadDriver interface {
 	ProcessWorkload(wg *sync.WaitGroup)
 
 	EventQueue() EventQueueService
+
+	WebSocket() ConcurrentWebSocket
 }
