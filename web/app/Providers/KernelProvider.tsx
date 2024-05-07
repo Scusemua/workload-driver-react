@@ -40,7 +40,7 @@ const baseFetcher = async (input: RequestInfo | URL) => {
     if (response.status != 200) {
         const responseBody: string = await response.text();
         console.error(`Refresh Kernels Failed (${response.status} ${response.statusText}): ${responseBody}`);
-        throw new Error(`${response.status} ${response.statusText}`);
+        throw new Error(`Refresh Kernels Failed: ${response.status} ${response.statusText}`);
         // throw {
         //     name: `${response.status} ${response.statusText}`,
         //     message: `${response.status} ${response.statusText}: ${responseBody}`,
@@ -52,6 +52,12 @@ const baseFetcher = async (input: RequestInfo | URL) => {
 
 const fetcher = async (input: RequestInfo | URL, forLogging: boolean) => {
     const response: Response = await baseFetcher(input);
+
+    if (response.status != 200) {
+        console.error(`Received HTTP ${response.status} ${response.statusText} when retrieving kernels.`);
+        throw new Error(`Received HTTP ${response.status} ${response.statusText} when retrieving kernels.`);
+    }
+
     let kernels: DistributedJupyterKernel[] = await response.json();
 
     if (forLogging) {

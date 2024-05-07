@@ -21,7 +21,6 @@ import { CpuIcon, MemoryIcon, SyncIcon } from '@patternfly/react-icons';
 import { UtilizationDonutChart } from './UtilizationDonutChart';
 import { useNodes } from '@app/Providers';
 import { toast } from 'react-hot-toast';
-import { ChartDonutThreshold, ChartDonutUtilization } from '@patternfly/react-charts';
 import { GpuIcon } from '@app/Icons';
 
 export interface UtilizationCardProps {

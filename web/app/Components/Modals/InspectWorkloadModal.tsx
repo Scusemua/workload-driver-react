@@ -1,15 +1,8 @@
 import React from 'react';
-import { Button, Modal, ModalVariant, Text, TextContent, TextVariants } from '@patternfly/react-core';
+import { Button, Modal, ModalVariant } from '@patternfly/react-core';
 
 import { ReactSvgPanZoomLoader } from 'react-svg-pan-zoom-loader';
-import {
-    INITIAL_VALUE,
-    ReactSVGPanZoom,
-    TOOL_NONE,
-    fitSelection,
-    zoomOnViewerCenter,
-    fitToViewer,
-} from 'react-svg-pan-zoom';
+import { INITIAL_VALUE, ReactSVGPanZoom, TOOL_NONE } from 'react-svg-pan-zoom';
 import { Workload } from '@app/Data/Workload';
 
 export interface InspectWorkloadModalProps {
@@ -48,8 +41,8 @@ export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalP
                         onChangeTool={setTool}
                         value={value}
                         onChangeValue={setValue}
-                        onZoom={(e) => console.log('zoom')}
-                        onPan={(e) => console.log('pan')}
+                        onZoom={() => console.log('zoom')}
+                        onPan={() => console.log('pan')}
                     >
                         <svg width={500} height={500}>
                             {content}

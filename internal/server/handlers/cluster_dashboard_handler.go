@@ -198,14 +198,14 @@ func (h *ClusterDashboardHandler) setupRpcResources(gatewayAddress string) error
 	go func() {
 		defer h.finalize(true)
 		num_tries := 0
-		for num_tries < 3 {
+		for num_tries < 5 {
 			provisioner.logger.Debug("Trying to connect.", zap.Int("attempt-number", num_tries+1))
 			if err := h.srv.Serve(provisioner); err != nil {
 				provisioner.logger.Error("Failed to serve reverse connection.", zap.Int("attempt-number", num_tries+1), zap.Error(err))
 				num_tries += 1
 
 				if num_tries < 3 {
-					time.Sleep(time.Millisecond * 500)
+					time.Sleep((time.Millisecond * 1000) * time.Duration(num_tries))
 					continue
 				} else {
 					provisioner.logger.Error("Failed to serve reverse connection after 3 attempts. Aborting.")

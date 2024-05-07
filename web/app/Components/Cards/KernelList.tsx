@@ -1,6 +1,5 @@
 import React, { useEffect, useReducer, useRef } from 'react';
 import {
-    Badge,
     Button,
     Card,
     CardBody,
@@ -21,10 +20,6 @@ import {
     FlexItem,
     InputGroup,
     InputGroupItem,
-    Menu,
-    MenuContent,
-    MenuItem,
-    MenuList,
     MenuToggle,
     OverflowMenu,
     OverflowMenuContent,
@@ -33,15 +28,11 @@ import {
     OverflowMenuItem,
     Pagination,
     PaginationVariant,
-    Popper,
     SearchInput,
     Skeleton,
     Text,
     TextVariants,
     Title,
-    Toolbar,
-    ToolbarContent,
-    ToolbarFilter,
     ToolbarGroup,
     ToolbarItem,
     ToolbarToggleGroup,
@@ -630,7 +621,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
     const [isStatusMenuOpen, setIsStatusMenuOpen] = React.useState<boolean>(false);
     const statusToggleRef = React.useRef<HTMLButtonElement>(null);
     const statusMenuRef = React.useRef<HTMLDivElement>(null);
-    const statusContainerRef = React.useRef<HTMLDivElement>(null);
+    // const statusContainerRef = React.useRef<HTMLDivElement>(null);
 
     useEffect(() => {
         const handleStatusClickOutside = (event: MouseEvent) => {
@@ -656,19 +647,19 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         };
     }, [isStatusMenuOpen, statusMenuRef]);
 
-    function onStatusMenuSelect(_event: React.MouseEvent | undefined, itemId: string | number | undefined) {
-        if (typeof itemId === 'undefined') {
-            return;
-        }
+    // function onStatusMenuSelect(_event: React.MouseEvent | undefined, itemId: string | number | undefined) {
+    //     if (typeof itemId === 'undefined') {
+    //         return;
+    //     }
 
-        const itemStr = itemId.toString();
+    //     const itemStr = itemId.toString();
 
-        setStatusSelections(
-            statusSelections.includes(itemStr)
-                ? statusSelections.filter((selection) => selection !== itemStr)
-                : [itemStr, ...statusSelections],
-        );
-    }
+    //     setStatusSelections(
+    //         statusSelections.includes(itemStr)
+    //             ? statusSelections.filter((selection) => selection !== itemStr)
+    //             : [itemStr, ...statusSelections],
+    //     );
+    // }
 
     const onFilter = (repo: DistributedJupyterKernel) => {
         // Search name with search value
@@ -692,88 +683,88 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
 
     const filteredKernels = kernels.filter(onFilter).slice(perPage * (page - 1), perPage * (page - 1) + perPage);
 
-    const statusMenu = (
-        <Menu
-            ref={statusMenuRef}
-            id="mixed-group-status-menu"
-            onSelect={onStatusMenuSelect}
-            selected={statusSelections}
-        >
-            <MenuContent>
-                <MenuList>
-                    <MenuItem hasCheckbox isSelected={statusSelections.includes('unknown')} itemId="unknown">
-                        Unknown
-                    </MenuItem>
-                    <MenuItem hasCheckbox isSelected={statusSelections.includes('starting')} itemId="starting">
-                        Starting
-                    </MenuItem>
-                    <MenuItem hasCheckbox isSelected={statusSelections.includes('idle')} itemId="idle">
-                        Idle
-                    </MenuItem>
-                    <MenuItem hasCheckbox isSelected={statusSelections.includes('busy')} itemId="busy">
-                        Busy
-                    </MenuItem>
-                    <MenuItem hasCheckbox isSelected={statusSelections.includes('terminating')} itemId="terminating">
-                        Terminating
-                    </MenuItem>
-                    <MenuItem hasCheckbox isSelected={statusSelections.includes('restarting')} itemId="restarting">
-                        Restarting
-                    </MenuItem>
-                    <MenuItem
-                        hasCheckbox
-                        isSelected={statusSelections.includes('autorestarting')}
-                        itemId="autorestarting"
-                    >
-                        Autorestarting
-                    </MenuItem>
-                    <MenuItem hasCheckbox isSelected={statusSelections.includes('dead')} itemId="dead">
-                        Dead
-                    </MenuItem>
-                </MenuList>
-            </MenuContent>
-        </Menu>
-    );
+    // const statusMenu = (
+    //     <Menu
+    //         ref={statusMenuRef}
+    //         id="mixed-group-status-menu"
+    //         onSelect={onStatusMenuSelect}
+    //         selected={statusSelections}
+    //     >
+    //         <MenuContent>
+    //             <MenuList>
+    //                 <MenuItem hasCheckbox isSelected={statusSelections.includes('unknown')} itemId="unknown">
+    //                     Unknown
+    //                 </MenuItem>
+    //                 <MenuItem hasCheckbox isSelected={statusSelections.includes('starting')} itemId="starting">
+    //                     Starting
+    //                 </MenuItem>
+    //                 <MenuItem hasCheckbox isSelected={statusSelections.includes('idle')} itemId="idle">
+    //                     Idle
+    //                 </MenuItem>
+    //                 <MenuItem hasCheckbox isSelected={statusSelections.includes('busy')} itemId="busy">
+    //                     Busy
+    //                 </MenuItem>
+    //                 <MenuItem hasCheckbox isSelected={statusSelections.includes('terminating')} itemId="terminating">
+    //                     Terminating
+    //                 </MenuItem>
+    //                 <MenuItem hasCheckbox isSelected={statusSelections.includes('restarting')} itemId="restarting">
+    //                     Restarting
+    //                 </MenuItem>
+    //                 <MenuItem
+    //                     hasCheckbox
+    //                     isSelected={statusSelections.includes('autorestarting')}
+    //                     itemId="autorestarting"
+    //                 >
+    //                     Autorestarting
+    //                 </MenuItem>
+    //                 <MenuItem hasCheckbox isSelected={statusSelections.includes('dead')} itemId="dead">
+    //                     Dead
+    //                 </MenuItem>
+    //             </MenuList>
+    //         </MenuContent>
+    //     </Menu>
+    // );
 
-    const onStatusToggleClick = (ev: React.MouseEvent) => {
-        ev.stopPropagation(); // Stop handleClickOutside from handling
-        setTimeout(() => {
-            if (statusMenuRef.current) {
-                const firstElement = statusMenuRef.current.querySelector('li > button:not(:disabled)');
-                firstElement && (firstElement as HTMLElement).focus();
-            }
-        }, 0);
-        setIsStatusMenuOpen(!isStatusMenuOpen);
-    };
+    // const onStatusToggleClick = (ev: React.MouseEvent) => {
+    //     ev.stopPropagation(); // Stop handleClickOutside from handling
+    //     setTimeout(() => {
+    //         if (statusMenuRef.current) {
+    //             const firstElement = statusMenuRef.current.querySelector('li > button:not(:disabled)');
+    //             firstElement && (firstElement as HTMLElement).focus();
+    //         }
+    //     }, 0);
+    //     setIsStatusMenuOpen(!isStatusMenuOpen);
+    // };
 
-    const statusToggle = (
-        <MenuToggle
-            ref={statusToggleRef}
-            onClick={onStatusToggleClick}
-            isExpanded={isStatusMenuOpen}
-            {...(statusSelections.length > 0 && { badge: <Badge isRead>{statusSelections.length}</Badge> })}
-            icon={<FilterIcon />}
-            style={
-                {
-                    width: '200px',
-                } as React.CSSProperties
-            }
-        >
-            Kernel Status
-        </MenuToggle>
-    );
+    // const statusToggle = (
+    //     <MenuToggle
+    //         ref={statusToggleRef}
+    //         onClick={onStatusToggleClick}
+    //         isExpanded={isStatusMenuOpen}
+    //         {...(statusSelections.length > 0 && { badge: <Badge isRead>{statusSelections.length}</Badge> })}
+    //         icon={<FilterIcon />}
+    //         style={
+    //             {
+    //                 width: '200px',
+    //             } as React.CSSProperties
+    //         }
+    //     >
+    //         Kernel Status
+    //     </MenuToggle>
+    // );
 
-    const statusSelect = (
-        <div ref={statusContainerRef}>
-            <Popper
-                trigger={statusToggle}
-                triggerRef={statusToggleRef}
-                popper={statusMenu}
-                popperRef={statusMenuRef}
-                appendTo={statusContainerRef.current || undefined}
-                isVisible={isStatusMenuOpen}
-            />
-        </div>
-    );
+    // const statusSelect = (
+    //     <div ref={statusContainerRef}>
+    //         <Popper
+    //             trigger={statusToggle}
+    //             triggerRef={statusToggleRef}
+    //             popper={statusMenu}
+    //             popperRef={statusMenuRef}
+    //             appendTo={statusContainerRef.current || undefined}
+    //             isVisible={isStatusMenuOpen}
+    //         />
+    //     </div>
+    // );
 
     // const ToolbarItems = (
     //     <ToolbarToggleGroup toggleIcon={<FilterIcon />} breakpoint="md">

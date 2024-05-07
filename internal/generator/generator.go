@@ -230,7 +230,7 @@ func (g *workloadGeneratorImpl) generateWorkloadWithCsvPreset(consumer domain.Ev
 	return nil
 }
 
-func (g *workloadGeneratorImpl) generateWorkloadWithXmlPreset(consumer domain.EventConsumer, workload *domain.Workload, workloadPreset *domain.XmlWorkloadPreset, workloadRegistrationRequest *domain.WorkloadRegistrationRequest) error {
+func (g *workloadGeneratorImpl) generateWorkloadWithXmlPreset(consumer domain.EventConsumer, workload *domain.Workload, workloadPreset *domain.XmlWorkloadPreset) error {
 	g.ctx, g.cancelFunction = context.WithCancel(context.Background())
 	defer g.cancelFunction()
 
@@ -275,7 +275,7 @@ func (g *workloadGeneratorImpl) GenerateWorkload(consumer domain.EventConsumer, 
 	if workloadPreset.IsCsv() {
 		return g.generateWorkloadWithCsvPreset(consumer, workload, &workloadPreset.CsvWorkloadPreset, workloadRegistrationRequest)
 	} else {
-		return g.generateWorkloadWithXmlPreset(consumer, workload, &workloadPreset.XmlWorkloadPreset, workloadRegistrationRequest)
+		return g.generateWorkloadWithXmlPreset(consumer, workload, &workloadPreset.XmlWorkloadPreset)
 	}
 }
 

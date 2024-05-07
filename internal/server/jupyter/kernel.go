@@ -237,7 +237,7 @@ func (conn *KernelConnection) InterruptKernel() error {
 // Listen for messages from the kernel.
 func (conn *KernelConnection) serveMessages() {
 	for {
-		var kernelMessage KernelMessage
+		var kernelMessage *baseKernelMessage
 		err := conn.webSocket.ReadJSON(&kernelMessage)
 
 		if err != nil {
@@ -245,6 +245,17 @@ func (conn *KernelConnection) serveMessages() {
 
 			if errors.Is(err, &websocket.CloseError{}) {
 				return
+			}
+
+			var rawJsonMap map[string]interface{}
+			err = conn.webSocket.ReadJSON(&rawJsonMap)
+			if err != nil {
+				conn.logger.Error("Websocket::Read error. Failed to unmarshal JSON message into raw key-value map.", zap.Error(err))
+			} else {
+				conn.logger.Error("Unmarshalled JSON message into raw key-value map.")
+				for k, v := range rawJsonMap {
+					conn.sugaredLogger.Errorf("%s: %v", k, v)
+				}
 			}
 
 			continue
@@ -256,7 +267,7 @@ func (conn *KernelConnection) serveMessages() {
 			conn.logger.Debug("Found response channel for message.", zap.String("message-id", kernelMessage.GetParentHeader().MessageId))
 			responseChannel <- kernelMessage
 		} else {
-			conn.logger.Debug("Could not find response channel for message.", zap.String("message-id", kernelMessage.GetParentHeader().MessageId))
+			// conn.logger.Warn("Could not find response channel for message.", zap.String("message-id", kernelMessage.GetParentHeader().MessageId))
 		}
 	}
 }
@@ -301,11 +312,12 @@ func (conn *KernelConnection) updateConnectionStatus(status KernelConnectionStat
 	// first, to get kernel status back and ensure iopub is fully
 	// established. If we are restarting, this message will skip the queue
 	// and be sent immediately.
+	success := false
+	max_num_tries := 5
 	if conn.connectionStatus == KernelConnected {
 		st := time.Now()
 
 		num_tries := 0
-		max_num_tries := 3
 
 		var statusMessage KernelMessage
 		var err error
@@ -317,6 +329,7 @@ func (conn *KernelConnection) updateConnectionStatus(status KernelConnectionStat
 				num_tries += 1
 				continue
 			} else {
+				success = true
 				break
 			}
 		}
@@ -326,6 +339,11 @@ func (conn *KernelConnection) updateConnectionStatus(status KernelConnectionStat
 		} else {
 			conn.logger.Debug("Successfully retrieved kernel info on connected-status-changed.", zap.String("kernel-info", statusMessage.String()), zap.Duration("time-elapsed", time.Since(st)))
 		}
+	}
+
+	if !success {
+		conn.sugaredLogger.Errorf("Failed to successfully 'request-info' from kernel %s after %d attempts.", conn.kernelId, max_num_tries)
+		conn.connectionStatus = KernelDisconnected
 	}
 }
 
@@ -352,6 +370,7 @@ func (conn *KernelConnection) setupWebsocket(jupyterServerAddress string) error 
 	conn.sugaredLogger.Debugf("Created full kernel websocket URL: '%s'", url)
 
 	st := time.Now()
+
 	ws, _, err := websocket.DefaultDialer.Dial(url, nil)
 	if err != nil {
 		conn.logger.Error("Failed to dial kernel websocket.", zap.String("url", url), zap.String("kernel-id", conn.kernelId), zap.Error(err))

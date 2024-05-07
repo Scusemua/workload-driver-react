@@ -36,7 +36,7 @@ import {
     Tooltip,
 } from '@patternfly/react-core';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
-import { KubernetesNode, KubernetesPod, VirtualGpuInfo } from '@data/Kubernetes';
+import { KubernetesNode, KubernetesPod } from '@data/Kubernetes';
 import {
     CpuIcon,
     CubeIcon,
@@ -212,6 +212,43 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
     const filteredNodes =
         nodes.length > 0 ? nodes.filter(onFilter).slice(perPage * (page - 1), perPage * (page - 1) + perPage) : [];
 
+    // The message displayed in a Toast when a node refresh completes successfully.
+    const successfulRefreshMessage = (st: number) => {
+        const et: number = performance.now();
+        console.log(`Successful refresh. Start time: ${st}. End time: ${et}. Time elapsed: ${et - st}.`);
+        return (
+            <div>
+                <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
+                    <FlexItem>
+                        <b>Refreshed Kubernetes nodes.</b>
+                    </FlexItem>
+                    <FlexItem>
+                        <Text component={TextVariants.small}>Time elapsed: {et - st} seconds.</Text>
+                    </FlexItem>
+                </Flex>
+            </div>
+        );
+    };
+
+    // The message displayed in a Toast when a node refresh fails to complete.
+    const failedRefreshMessage = (reason: Error) => {
+        let explanation: string = reason.message;
+        if (reason.name === 'SyntaxError') {
+            explanation = 'HTTP 504 Gateway Timeout';
+        }
+
+        return (
+            <div>
+                <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
+                    <FlexItem>
+                        <b>Could not refresh Kubernetes nodes.</b>
+                    </FlexItem>
+                    <FlexItem>{explanation}</FlexItem>
+                </Flex>
+            </div>
+        );
+    };
+
     const toolbar = (
         <React.Fragment>
             <ToolbarToggleGroup toggleIcon={<FilterIcon />} breakpoint="xl">
@@ -280,43 +317,8 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                                     refreshNodes(),
                                     {
                                         loading: <b>Refreshing Kubernetes nodes...</b>,
-                                        success: (
-                                            <div>
-                                                <Flex
-                                                    direction={{ default: 'column' }}
-                                                    spaceItems={{ default: 'spaceItemsNone' }}
-                                                >
-                                                    <FlexItem>
-                                                        <b>Refreshed Kubernetes nodes.</b>
-                                                    </FlexItem>
-                                                    <FlexItem>
-                                                        <Text component={TextVariants.small}>
-                                                            Time elapsed: {performance.now() - st} seconds.
-                                                        </Text>
-                                                    </FlexItem>
-                                                </Flex>
-                                            </div>
-                                        ),
-                                        error: (reason: Error) => {
-                                            let explanation: string = reason.message;
-                                            if (reason.name === 'SyntaxError') {
-                                                explanation = 'HTTP 504 Gateway Timeout';
-                                            }
-
-                                            return (
-                                                <div>
-                                                    <Flex
-                                                        direction={{ default: 'column' }}
-                                                        spaceItems={{ default: 'spaceItemsNone' }}
-                                                    >
-                                                        <FlexItem>
-                                                            <b>Could not refresh Kubernetes nodes.</b>
-                                                        </FlexItem>
-                                                        <FlexItem>{explanation}</FlexItem>
-                                                    </Flex>
-                                                </div>
-                                            );
-                                        },
+                                        success: successfulRefreshMessage(st),
+                                        error: (reason: Error) => failedRefreshMessage(reason),
                                     },
                                     {
                                         style: { maxWidth: 450 },

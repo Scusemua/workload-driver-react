@@ -28,9 +28,7 @@ export const LocalDaemonLogTabContent: React.FunctionComponent<LocalDaemonLogTab
     };
 
     React.useEffect(() => {
-        if (nodes.length != numNodes) {
-            setNumNodes(nodes.length);
-        }
+        setNumNodes(nodes.length);
     }, [nodes]);
 
     return (

@@ -50,9 +50,13 @@ export function useNodes() {
 
     const nodes: KubernetesNode[] = data || [];
 
+    // console.log(
+    //     `Returning ${nodes.length} Kubernetes node(s). isLoading: ${isLoading}, isValidating: ${isValidating}, isMutating: ${isMutating}.`,
+    // );
+
     return {
         nodes: nodes,
-        nodesAreLoading: isLoading || isValidating || isMutating,
+        nodesAreLoading: isMutating || isLoading || isValidating,
         refreshNodes: trigger,
         isError: error,
     };

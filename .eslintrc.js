@@ -39,6 +39,8 @@ module.exports = {
             rules: {
                 'react/prop-types': 'off',
                 '@typescript-eslint/no-unused-vars': 'error',
+                'rulesdir/forbid-pf-relative-imports': 'off',
+                'forbid-pf-relative-imports': 'off',
             },
         },
     ],

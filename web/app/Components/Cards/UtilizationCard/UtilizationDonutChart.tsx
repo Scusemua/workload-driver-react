@@ -78,7 +78,7 @@ export const UtilizationDonutChart: React.FunctionComponent<UtilizationDonutChar
             Allocated: sumAllocated,
             PercentUtilization: percentUtilization,
         });
-    }, [nodes, props.randomizeUtilizations]);
+    }, [nodes, props]);
 
     // TODO: Convert this to a HoC where we pass the name of the target resource as a string in the props.
     // TODO: Update the KubernetesNode interface to contain a map of resource name to amount for both capacity and allocated.
@@ -156,12 +156,12 @@ export const UtilizationDonutChart: React.FunctionComponent<UtilizationDonutChar
         }
     };
 
-    const possiblyConvertToExponent = (val: number) => {
-        if (val.toString().length > 6) {
-            return val.toExponential(2);
-        }
-        return val;
-    };
+    // const possiblyConvertToExponent = (val: number) => {
+    //     if (val.toString().length > 6) {
+    //         return val.toExponential(2);
+    //     }
+    //     return val;
+    // };
 
     return (
         <ChartDonutThreshold

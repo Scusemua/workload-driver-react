@@ -11,8 +11,6 @@ import {
     DataListItemRow,
     Flex,
     FlexItem,
-    Modal,
-    ModalVariant,
     Pagination,
     PaginationVariant,
     Switch,
@@ -228,7 +226,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
         );
     };
 
-    const onPauseWorkloadClicked = (workload: Workload) => {
+    const onPauseWorkloadClicked = (_workload: Workload) => {
         toast('Pausing workload...');
     };
 

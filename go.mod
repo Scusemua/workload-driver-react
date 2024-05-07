@@ -18,6 +18,7 @@ require (
 	github.com/orcaman/concurrent-map/v2 v2.0.1
 	github.com/zhangjyr/gocsv v1.0.1
 	go.uber.org/zap v1.27.0
+	github.com/mattn/go-colorable v0.1.13
 	golang.org/x/sys v0.16.0
 	google.golang.org/grpc v1.62.0
 	google.golang.org/protobuf v1.32.0
@@ -66,7 +67,6 @@ require (
 	github.com/klauspost/cpuid/v2 v2.2.4 // indirect
 	github.com/leodido/go-urn v1.2.4 // indirect
 	github.com/mailru/easyjson v0.7.7 // indirect
-	github.com/mattn/go-colorable v0.1.13 // indirect
 	github.com/mattn/go-isatty v0.0.20 // indirect
 	github.com/mgutz/ansi v0.0.0-20200706080929-d51e80ef957d
 	github.com/modern-go/concurrent v0.0.0-20180306012644-bacd9c7ef1dd // indirect
