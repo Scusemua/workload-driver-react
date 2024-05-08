@@ -88,6 +88,25 @@ const AppLayout: React.FunctionComponent<IAppLayout> = ({ children }) => {
                                 </Button>
                             </Tooltip>
                         </FlexItem>
+
+                        <FlexItem>
+                            <Tooltip content="Prompt the server to broadcast a fake error for testing/debugging purposes.">
+                                <Button
+                                    isDanger
+                                    variant="secondary"
+                                    icon={<SkullCrossbonesIcon />}
+                                    onClick={() => {
+                                        const requestOptions = {
+                                            method: 'POST',
+                                        };
+
+                                        fetch('api/spoof-error', requestOptions);
+                                    }}
+                                >
+                                    Generate Fake Error Message
+                                </Button>
+                            </Tooltip>
+                        </FlexItem>
                     </Flex>
                 </MastheadContent>
             </MastheadMain>

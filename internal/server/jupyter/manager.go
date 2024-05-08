@@ -16,6 +16,10 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+const (
+	ZapSessionIDKey = "session-id"
+)
+
 var (
 	ErrCreateFileBadRequest    = errors.New("bad request when trying to create a file")
 	ErrCreateSessionBadRequest = errors.New("bad request when trying to create a new session")
@@ -145,7 +149,7 @@ func (m *KernelSessionManager) CreateSession(sessionId string, path string, sess
 		{
 			var jupyterSession *jupyterSession
 			json.Unmarshal(body, &jupyterSession)
-			m.logger.Debug("Received 'Created' when creating session", zap.Int("status-code", resp.StatusCode), zap.String("status", resp.Status), zap.String("session-id", sessionId))
+			m.logger.Debug("Received 'Created' when creating session", zap.Int("status-code", resp.StatusCode), zap.String("status", resp.Status), zap.String(ZapSessionIDKey, sessionId))
 
 			var kernelId string = jupyterSession.JupyterKernel.Id
 			var jupyterSessionId string = jupyterSession.JupyterSessionId
@@ -162,7 +166,7 @@ func (m *KernelSessionManager) CreateSession(sessionId string, path string, sess
 			// Connect to the Session and to the associated kernel.
 			sessionConnection, err = NewSessionConnection(jupyterSession, m.jupyterServerAddress, m.atom)
 			if err != nil {
-				m.logger.Error("Could not establish connection to Session.", zap.String("session-id", sessionId), zap.String("kernel-id", kernelId), zap.Error(err))
+				m.logger.Error("Could not establish connection to Session.", zap.String(ZapSessionIDKey, sessionId), zap.String("kernel-id", kernelId), zap.Error(err))
 				return nil, err
 			}
 			creationTime := time.Since(st)
@@ -311,14 +315,14 @@ func (m *KernelSessionManager) StopKernel(id string) error {
 	url := fmt.Sprintf("http://%s/api/sessions/%s", m.jupyterServerAddress, id)
 	req, err := http.NewRequest(http.MethodDelete, url, nil)
 	if err != nil {
-		m.logger.Error("Failed to create DeleteSession request while stopping kernel.", zap.String("session-id", id), zap.Error(err))
+		m.logger.Error("Failed to create DeleteSession request while stopping kernel.", zap.String(ZapSessionIDKey, id), zap.Error(err))
 		return err
 	}
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		m.logger.Error("Received error when stopping session.", zap.String("session-id", id), zap.String("url", url), zap.Error(err))
+		m.logger.Error("Received error when stopping session.", zap.String(ZapSessionIDKey, id), zap.String("url", url), zap.Error(err))
 		return err
 	}
 

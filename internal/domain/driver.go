@@ -61,7 +61,12 @@ type WorkloadDriver interface {
 	// This processes events in response to clock ticks.
 	ProcessWorkload(wg *sync.WaitGroup)
 
+	// The event queue for this workload.
 	EventQueue() EventQueueService
 
+	// Returns the websocket used to communicated with the frontend. This is a shared websocket used by all workloads.
 	WebSocket() ConcurrentWebSocket
+
+	CurrentTick() SimulationClock // Contains the current tick of the workload.
+	ClockTime() SimulationClock   // Contains the current clock time of the workload, which will be sometime between currentTick and currentTick + tick_duration.
 }

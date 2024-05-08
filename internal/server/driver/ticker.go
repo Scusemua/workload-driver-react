@@ -4,6 +4,8 @@ import (
 	"fmt"
 	"sync/atomic"
 	"time"
+
+	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
 )
 
 // A Ticker holds a channel that delivers “ticks” of a clock
@@ -13,6 +15,8 @@ type Ticker struct {
 	TickDelivery <-chan time.Time
 
 	baseTriggerHandler
+
+	clock             domain.SimulationClock
 	lastTick          time.Time
 	step              time.Duration
 	tickChannel       chan time.Time
@@ -51,6 +55,6 @@ func (ticker *Ticker) Done() {
 // Reset stops a ticker and resets its period to the specified duration.
 // The next tick will arrive after the new period elapses.
 func (ticker *Ticker) Reset(d time.Duration) {
-	ticker.lastTick = CurrentTick.GetClockTime()
+	ticker.lastTick = ticker.clock.GetClockTime()
 	ticker.step = d
 }

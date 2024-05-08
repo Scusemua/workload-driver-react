@@ -128,6 +128,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
     const numKernelsCreating = useRef(0); // Used to display "pending" entries in the kernel list.
     const kernelManager = useRef<KernelManager | null>(null);
     const sessionManager = useRef<SessionManager | null>(null);
+    const kernelConnections = useRef<Map<String, IKernelConnection>>(new Map());
 
     const onToggleOrSelectReplicaDropdown = (replica: JupyterKernelReplica) => {
         const entryId: string = `${replica.kernelId}-${replica.replicaId}`;
@@ -314,13 +315,33 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             return;
         }
 
-        const kernelConnection: IKernelConnection = kernelManager.current.connectTo({
-            model: { id: kernelId, name: kernelId },
-        });
+        let kernelConnection: IKernelConnection | undefined = undefined;
+        if (kernelConnections.current.has(kernelId)) {
+            kernelConnection = kernelConnections.current.get(kernelId);
+        } else {
+            kernelConnection = kernelManager.current.connectTo({
+                model: { id: kernelId, name: kernelId },
+            });
 
-        if (kernelConnection.connectionStatus == 'connected') {
-            kernelConnection.interrupt().then(() => {
-                console.log('Successfully interrupted kernel ' + kernelId);
+            kernelConnections.current = new Map(kernelConnections.current).set(kernelId, kernelConnection);
+        }
+
+        if (kernelConnection !== undefined) {
+            toast.promise(kernelConnection.interrupt(), {
+                loading: <b>Interrupting kernel {kernelId} now...</b>,
+                success: <b>Successfully interrupted kernel {kernelId}.</b>,
+                error: (reason: Error) => {
+                    return (
+                        <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
+                            <FlexItem>
+                                <b>Failed to interrupt kernel {kernelId}.</b>
+                            </FlexItem>
+                            <FlexItem>
+                                <b>Reason:</b> {reason.message}
+                            </FlexItem>
+                        </Flex>
+                    );
+                },
             });
         }
     };
@@ -486,6 +507,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         const kernelConnection: IKernelConnection = kernelManager.current.connectTo({
             model: { id: kernelId, name: kernelId },
         });
+        kernelConnections.current = new Map(kernelConnections.current).set(kernelId, kernelConnection);
 
         console.log(`Sending 'execute-request' to kernel ${kernelId} for code: '${code}'`);
 
@@ -1213,9 +1235,9 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                                             variant={'link'}
                                                             isDanger
                                                             icon={<PauseIcon />}
-                                                            isDisabled={
-                                                                kernel == null || kernel?.aggregateBusyStatus === 'idle'
-                                                            }
+                                                            // isDisabled={
+                                                            //     kernel == null || kernel?.aggregateBusyStatus === 'idle'
+                                                            // }
                                                             onClick={() => onInterruptKernelClicked(idx)}
                                                         >
                                                             Interrupt
@@ -1328,7 +1350,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                                     itemId={1}
                                                     key="interrupt-kernel-dropdown"
                                                     isDanger
-                                                    isDisabled={kernel?.aggregateBusyStatus === 'idle'}
+                                                    // isDisabled={kernel?.aggregateBusyStatus === 'idle'}
                                                     icon={<PauseIcon />}
                                                     onClick={() => {
                                                         onInterruptKernelClicked(idx);

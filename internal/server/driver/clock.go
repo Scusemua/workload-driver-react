@@ -8,29 +8,27 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
 	"github.com/zhangjyr/hashmap"
 )
 
 var (
 	ErrInvalidClockOperation = errors.New("illegal clock operation attempted")
-
-	CurrentTick = NewSimulationClock()
-	ClockTime   = NewSimulationClock()
 )
 
-type SimulationClock struct {
+type simulationClockImpl struct {
 	clockTime  time.Time
 	clockMutex sync.RWMutex
 }
 
-func NewSimulationClock() *SimulationClock {
-	return &SimulationClock{
+func NewSimulationClock() *simulationClockImpl {
+	return &simulationClockImpl{
 		clockTime: time.Unix(0, 0),
 	}
 }
 
 // Return the current clock time.
-func (sc *SimulationClock) GetClockTime() time.Time {
+func (sc *simulationClockImpl) GetClockTime() time.Time {
 	sc.clockMutex.RLock()
 	defer sc.clockMutex.RUnlock()
 
@@ -38,7 +36,7 @@ func (sc *SimulationClock) GetClockTime() time.Time {
 }
 
 // Set the clock to the given timestamp. Return the updated value.
-func (sc *SimulationClock) SetClockTime(t time.Time) time.Time {
+func (sc *simulationClockImpl) SetClockTime(t time.Time) time.Time {
 	sc.clockMutex.Lock()
 	defer sc.clockMutex.Unlock()
 
@@ -48,7 +46,7 @@ func (sc *SimulationClock) SetClockTime(t time.Time) time.Time {
 
 // Set the clock to the given timestamp, verifying that the new timestamp is either equal to or occurs after the old one.
 // Return a tuple where the first element is the new time, and the second element is the difference between the new time and the old time.
-func (sc *SimulationClock) IncreaseClockTimeTo(t time.Time) (time.Time, time.Duration, error) {
+func (sc *simulationClockImpl) IncreaseClockTimeTo(t time.Time) (time.Time, time.Duration, error) {
 	sc.clockMutex.Lock()
 	defer sc.clockMutex.Unlock()
 
@@ -64,7 +62,7 @@ func (sc *SimulationClock) IncreaseClockTimeTo(t time.Time) (time.Time, time.Dur
 }
 
 // Increment the clock by the given amount. Return the updated value.
-func (sc *SimulationClock) IncrementClockBy(amount time.Duration) (time.Time, error) {
+func (sc *simulationClockImpl) IncrementClockBy(amount time.Duration) (time.Time, error) {
 	sc.clockMutex.Lock()
 	defer sc.clockMutex.Unlock()
 
@@ -127,15 +125,16 @@ func (t *Trigger) Stop(ticker *Ticker) {
 
 // NewSyncTicker returns a synchronous Ticker.
 // On each tick, the handler that listens on C must call Ticker.Done() after processed the tick.
-func (t *Trigger) NewSyncTicker(d time.Duration, id string) *Ticker {
-	return t.createAndAddTicker(d, true, id)
+func (t *Trigger) NewSyncTicker(d time.Duration, id string, clock domain.SimulationClock) *Ticker {
+	return t.createAndAddTicker(d, true, id, clock)
 }
 
-func (t *Trigger) createAndAddTicker(d time.Duration, wait bool, id string) *Ticker {
+func (t *Trigger) createAndAddTicker(d time.Duration, wait bool, id string, clock domain.SimulationClock) *Ticker {
 	ticker := &Ticker{
-		lastTick:    CurrentTick.GetClockTime(),
+		lastTick:    clock.GetClockTime(),
 		step:        d,
 		tickChannel: make(chan time.Time),
+		clock:       clock,
 	}
 	ticker.ticksHandled.Store(0)
 	ticker.numOnTriggerCalls.Store(0)

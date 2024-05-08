@@ -28,6 +28,9 @@ const (
 	// Used internally (by the frontend) to trigger the start of a new workload or retrieve the list of workloads.
 	WORKLOAD_ENDPOINT = "/workload"
 
+	// Used for WebSocket-based communication between the frontend and backend that is unrelated to workloads or logs.
+	GENERAL_WEBSOCKET_ENDPOINT = "/ws"
+
 	// Used internally (by the frontend) to get the current set of Jupyter kernel specs from the backend.
 	KERNEL_SPEC_ENDPOINT = "/kernelspecs"
 
@@ -43,6 +46,9 @@ const (
 	JUPYTER_GROUP_ENDPOINT        = "/jupyter"
 	JUPYTER_START_KERNEL_ENDPOINT = "/start"
 	JUPYTER_STOP_KERNEL_ENDPOINT  = "/stop"
+
+	// Causes the server to broadcast a fake error via websockets for debugging/testing purposes.
+	SPOOF_ERROR = "/spoof-error"
 )
 
 var (

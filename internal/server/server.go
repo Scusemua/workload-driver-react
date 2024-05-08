@@ -20,6 +20,7 @@ import (
 	"github.com/gorilla/websocket"
 	"github.com/koding/websocketproxy"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
+	gateway "github.com/scusemua/workload-driver-react/m/v2/internal/server/api/proto"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/server/driver"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/server/handlers"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/server/proxy"
@@ -42,7 +43,11 @@ type serverImpl struct {
 	workloads          []*domain.Workload
 	pushUpdateInterval time.Duration
 
+	// Websockets that have submitted a workload and thus will want updates for that workload.
 	subscribers map[string]domain.ConcurrentWebSocket
+
+	// These are websockets from frontends that are not tied to a particular workload, nor are they used for logs.
+	generalWebsockets map[string]domain.ConcurrentWebSocket
 
 	// Used to tell a goroutine to break out of the for-loop in which it is reading logs from Kubernetes.
 	// This is used if the websocket connection is terminated. Otherwise, the loop will continue forever.
@@ -62,6 +67,7 @@ func NewServer(opts *domain.Configuration) domain.Server {
 		workloadsMap:          orderedmap.NewOrderedMap[string, *domain.Workload](),
 		workloads:             make([]*domain.Workload, 0),
 		subscribers:           make(map[string]domain.ConcurrentWebSocket),
+		generalWebsockets:     make(map[string]domain.ConcurrentWebSocket),
 		getLogsResponseBodies: make(map[string]io.ReadCloser),
 		// workloadDriver: driver.NewWorkloadDriver(opts),
 	}
@@ -90,6 +96,18 @@ func (s *serverImpl) ErrorHandlerMiddleware(c *gin.Context) {
 	c.JSON(-1, errors)
 }
 
+func (s *serverImpl) errorOccurred(errorMessage *gateway.ErrorMessage) {
+	s.logger.Debug("Notified of error that occurred within Cluster.", zap.String("error-name", errorMessage.ErrorName), zap.String("error-message", errorMessage.ErrorMessage))
+
+	payload, err := json.Marshal(errorMessage)
+	if err != nil {
+		s.logger.Error("Failed to marshal error message to JSON.", zap.Error(err))
+		return
+	}
+
+	s.broadcastToWorkloadWebsockets(payload)
+}
+
 func (s *serverImpl) setupRoutes() error {
 	s.app = &proxy.JupyterProxyRouter{
 		ContextPath:  domain.JUPYTER_GROUP_ENDPOINT,
@@ -109,8 +127,9 @@ func (s *serverImpl) setupRoutes() error {
 
 	s.app.GET(domain.WORKLOAD_ENDPOINT, s.serveWorkloadWebsocket)
 	s.app.GET(domain.LOGS_ENDPOINT, s.serveLogWebsocket)
+	s.app.GET(domain.GENERAL_WEBSOCKET_ENDPOINT, s.serveGeneralWebsocket)
 
-	gatewayRpcClient := handlers.NewClusterDashboardHandler(s.opts, true)
+	gatewayRpcClient := handlers.NewClusterDashboardHandler(s.opts, true, s.errorOccurred)
 
 	s.sugaredLogger.Debugf("Creating route groups now. (gatewayRpcClient == nil: %v)", gatewayRpcClient == nil)
 
@@ -141,6 +160,29 @@ func (s *serverImpl) setupRoutes() error {
 		apiGroup.GET(fmt.Sprintf("%s/pods/:pod", domain.LOGS_ENDPOINT), handlers.NewLogHttpHandler(s.opts).HandleRequest)
 
 		apiGroup.POST(domain.PANIC_ENDPOINT, handlers.NewPanicHttpHandler(s.opts, gatewayRpcClient).HandleRequest)
+
+		apiGroup.POST(domain.SPOOF_ERROR, func(ctx *gin.Context) {
+			errorMessage := &gateway.ErrorMessage{
+				ErrorName:    "SpoofedError",
+				ErrorMessage: fmt.Sprintf("This is a spoofed/fake error message with UUID=%s.", uuid.NewString()),
+			}
+
+			payload, err := json.Marshal(errorMessage)
+			if err != nil {
+				s.logger.Error("Failed to marshal spoofed error message to JSON.", zap.Error(err))
+				ctx.Error(err)
+				ctx.Status(http.StatusInternalServerError)
+				return
+			}
+
+			s.logger.Debug("Broadcasting spoofed error message.", zap.Int("num-recipients", len(s.generalWebsockets)))
+			for _, conn := range s.generalWebsockets {
+				err := conn.WriteMessage(websocket.BinaryMessage, payload)
+				if err != nil {
+					s.logger.Debug("Failed to write spoofed error to WebSocket.", zap.Any("remote-addr", conn.RemoteAddr()), zap.Error(err))
+				}
+			}
+		})
 	}
 
 	if s.opts.SpoofKernelSpecs {
@@ -212,7 +254,7 @@ func (s *serverImpl) serverPushRoutine(workloadStartedChan chan string, doneChan
 			s.driversMutex.RUnlock()
 
 			// Send an update to the frontend.
-			s.broadcast(payload)
+			s.broadcastToWorkloadWebsockets(payload)
 
 			s.logger.Debug("Pushed 'Active Workloads' update to frontend.", zap.String("message-id", msgId))
 
@@ -244,6 +286,61 @@ func (s *serverImpl) serverPushRoutine(workloadStartedChan chan string, doneChan
 				done = true // No more notifications right now. We'll process what we have.
 			}
 		}
+	}
+}
+
+func (s *serverImpl) serveGeneralWebsocket(c *gin.Context) {
+	s.logger.Debug("Handling websocket connection")
+
+	upgrader.CheckOrigin = func(r *http.Request) bool {
+		if r.Header.Get("Origin") == "http://127.0.0.1:9001" || r.Header.Get("Origin") == "http://localhost:9001" {
+			return true
+		}
+
+		s.sugaredLogger.Errorf("Unexpected origin: %v", r.Header.Get("Origin"))
+		return false
+	}
+
+	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
+	if err != nil {
+		log.Print("upgrade:", err)
+		return
+	}
+	defer conn.Close()
+
+	var concurrentConn domain.ConcurrentWebSocket = newConcurrentWebSocket(conn)
+	s.generalWebsockets[concurrentConn.RemoteAddr().String()] = concurrentConn
+
+	for {
+		_, message, err := concurrentConn.ReadMessage()
+		if err != nil {
+			s.logger.Error("Error while reading message from websocket.", zap.Error(err))
+			continue
+		}
+
+		var request map[string]interface{}
+		err = json.Unmarshal(message, &request)
+		if err != nil {
+			s.logger.Error("Error while unmarshalling data message from websocket.", zap.Error(err), zap.ByteString("message-bytes", message), zap.String("message-string", string(message)))
+			continue
+		}
+
+		s.sugaredLogger.Debugf("Received WebSocket message: %v", request)
+
+		var op_val interface{}
+		var msgIdVal interface{}
+		var ok bool
+		if op_val, ok = request["op"]; !ok {
+			s.logger.Error("Received unexpected message on websocket. It did not contain an 'op' field.", zap.Binary("message", message))
+			continue
+		}
+
+		if msgIdVal, ok = request["msg_id"]; !ok {
+			s.logger.Error("Received unexpected message on websocket. It did not contain a 'msg_id' field.", zap.Binary("message", message))
+			continue
+		}
+
+		s.logger.Debug("Received general WebSocket message.", zap.Any("op", op_val), zap.Any("message-id", msgIdVal))
 	}
 }
 
@@ -449,18 +546,18 @@ func (s *serverImpl) serveWorkloadWebsocket(c *gin.Context) {
 		_, message, err := concurrentConn.ReadMessage()
 		if err != nil {
 			s.logger.Error("Error while reading message from websocket.", zap.Error(err))
-			doneChan <- struct{}{}
-			s.logger.Error("Sent 'close' instruction to server-push goroutine.")
-			break
+			// doneChan <- struct{}{}
+			// s.logger.Error("Sent 'close' instruction to server-push goroutine.")
+			continue
 		}
 
 		var request map[string]interface{}
 		err = json.Unmarshal(message, &request)
 		if err != nil {
 			s.logger.Error("Error while unmarshalling data message from websocket.", zap.Error(err), zap.ByteString("message-bytes", message), zap.String("message-string", string(message)))
-			doneChan <- struct{}{}
-			s.logger.Error("Sent 'close' instruction to server-push goroutine.")
-			break
+			// doneChan <- struct{}{}
+			// s.logger.Error("Sent 'close' instruction to server-push goroutine.")
+			continue
 		}
 
 		s.sugaredLogger.Debugf("Received WebSocket message: %v", request)
@@ -470,16 +567,16 @@ func (s *serverImpl) serveWorkloadWebsocket(c *gin.Context) {
 		var ok bool
 		if op_val, ok = request["op"]; !ok {
 			s.logger.Error("Received unexpected message on websocket. It did not contain an 'op' field.", zap.Binary("message", message))
-			doneChan <- struct{}{}
-			s.logger.Error("Sent 'close' instruction to server-push goroutine.")
-			break
+			// doneChan <- struct{}{}
+			// s.logger.Error("Sent 'close' instruction to server-push goroutine.")
+			continue
 		}
 
 		if msgIdVal, ok = request["msg_id"]; !ok {
 			s.logger.Error("Received unexpected message on websocket. It did not contain a 'msg_id' field.", zap.Binary("message", message))
-			doneChan <- struct{}{}
-			s.logger.Error("Sent 'close' instruction to server-push goroutine.")
-			break
+			// doneChan <- struct{}{}
+			// s.logger.Error("Sent 'close' instruction to server-push goroutine.")
+			continue
 		}
 
 		op := op_val.(string)
@@ -524,15 +621,43 @@ func (s *serverImpl) serveWorkloadWebsocket(c *gin.Context) {
 	}
 }
 
+// Add a websocket to the subscribers field. This is used for workload-related communication.
 func (s *serverImpl) handleSubscriptionRequest(req *domain.SubscriptionRequest, conn domain.ConcurrentWebSocket) {
 	s.subscribers[conn.RemoteAddr().String()] = conn
 	s.handleGetWorkloads(req.MessageId, conn, false)
 }
 
-func (s *serverImpl) broadcast(payload []byte) {
-	for _, conn := range s.subscribers {
-		conn.WriteMessage(websocket.BinaryMessage, payload)
+// Remove a websocket from the subscribers field.
+func (s *serverImpl) removeSubscription(conn domain.ConcurrentWebSocket) {
+	if conn.RemoteAddr() != nil {
+		s.logger.Debug("Removing subscription for WebSocket.", zap.String("remote-address", conn.RemoteAddr().String()))
+		delete(s.subscribers, conn.RemoteAddr().String())
 	}
+}
+
+// Send a binary websocket message to all workload websockets (contained in the 'subscribers' field of the serverImpl struct).
+func (s *serverImpl) broadcastToWorkloadWebsockets(payload []byte) []error {
+	errors := make([]error, 0)
+
+	toRemove := make([]domain.ConcurrentWebSocket, 0)
+
+	for _, conn := range s.subscribers {
+		err := conn.WriteMessage(websocket.BinaryMessage, payload)
+		if err != nil {
+			s.logger.Error("Error while broadcasting websocket message.", zap.Error(err))
+			errors = append(errors, err)
+
+			if _, ok := err.(*websocket.CloseError); ok {
+				toRemove = append(toRemove, conn)
+			}
+		}
+	}
+
+	for _, conn := range toRemove {
+		s.removeSubscription(conn)
+	}
+
+	return errors
 }
 
 func (s *serverImpl) handleToggleDebugLogs(req *domain.ToggleDebugLogsRequest) {
@@ -555,7 +680,7 @@ func (s *serverImpl) handleToggleDebugLogs(req *domain.ToggleDebugLogsRequest) {
 			panic(err)
 		}
 
-		s.broadcast(payload)
+		s.broadcastToWorkloadWebsockets(payload)
 
 		s.logger.Debug("Wrote response for TOGGLE_DEBUG_LOGS to frontend.", zap.String("message-id", req.MessageId))
 	} else {
@@ -601,7 +726,7 @@ func (s *serverImpl) handleStartWorkload(req *domain.StartStopWorkloadRequest, w
 			panic(err)
 		}
 
-		s.broadcast(payload)
+		s.broadcastToWorkloadWebsockets(payload)
 
 		s.logger.Debug("Wrote response for START_WORKLOAD to frontend.", zap.String("message-id", req.MessageId), zap.String("workload-id", workloadDriver.ID()))
 
@@ -669,7 +794,7 @@ func (s *serverImpl) handleStopWorkloads(req *domain.StartStopWorkloadsRequest) 
 	}
 	s.driversMutex.RUnlock()
 
-	s.broadcast(payload)
+	s.broadcastToWorkloadWebsockets(payload)
 
 	s.logger.Debug("Wrote response for STOP_WORKLOADS to frontend.", zap.String("message-id", req.MessageId), zap.Int("requested-num-workloads-stopped", len(req.WorkloadIDs)), zap.Int("actual-num-workloads-stopped", len(updatedWorkloads)))
 }
@@ -709,7 +834,7 @@ func (s *serverImpl) handleStopWorkload(req *domain.StartStopWorkloadRequest) {
 			panic(err)
 		}
 
-		s.broadcast(payload)
+		s.broadcastToWorkloadWebsockets(payload)
 
 		s.logger.Debug("Wrote response for STOP_WORKLOAD to frontend.", zap.String("message-id", req.MessageId), zap.String("workload-id", req.WorkloadId))
 	} else {
@@ -745,7 +870,7 @@ func (s *serverImpl) handleRegisterWorkload(request *domain.WorkloadRegistration
 			panic(err)
 		}
 
-		s.broadcast(payload)
+		s.broadcastToWorkloadWebsockets(payload)
 
 		s.logger.Debug("Wrote response for REGISTER_WORKLOAD to frontend.", zap.String("message-id", msgId), zap.Any("workload-preset-name", workload.WorkloadPresetName), zap.Any("workload-id", workload.ID))
 	} else {
@@ -753,7 +878,7 @@ func (s *serverImpl) handleRegisterWorkload(request *domain.WorkloadRegistration
 	}
 }
 
-func (s *serverImpl) handleGetWorkloads(msgId string, conn domain.ConcurrentWebSocket, broadcast bool) {
+func (s *serverImpl) handleGetWorkloads(msgId string, conn domain.ConcurrentWebSocket, broadcastToWorkloadWebsockets bool) {
 	s.driversMutex.RLock()
 	for el := s.workloadDrivers.Front(); el != nil; el = el.Next() {
 		el.Value.LockDriver()
@@ -776,8 +901,8 @@ func (s *serverImpl) handleGetWorkloads(msgId string, conn domain.ConcurrentWebS
 
 	s.sugaredLogger.Debugf("Returning %d workloads to user.", len(s.workloads))
 
-	if broadcast {
-		s.broadcast(payload)
+	if broadcastToWorkloadWebsockets {
+		s.broadcastToWorkloadWebsockets(payload)
 	}
 	if conn != nil {
 		conn.WriteMessage(websocket.BinaryMessage, payload)

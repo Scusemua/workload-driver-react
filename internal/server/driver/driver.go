@@ -25,15 +25,31 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-// Used in generating random IDs for workloads.
-const letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 const (
+	// Used in generating random IDs for workloads.
+	letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
+
+	ZapSessionIDKey = "session-id"
+	
 	letterIdxBits = 6                    // 6 bits to represent a letter index
 	letterIdxMask = 1<<letterIdxBits - 1 // All 1-bits, as many as letterIdxBits
 	letterIdxMax  = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
 
 	// Used by ResourceRequest structs when they do not require/request a specific GPU.
 	AnyGPU = "ANY_GPU"
+
+	// TODO: Figure out a good way to do this, such as via a library like:
+	// https://github.com/GaetanoCarlucci/CPULoadGenerator/tree/Python3
+	// which could enable us to simulate an actual CPU load based on trace data.
+	TrainingCode = 
+`
+print("Beginning training.")
+while True:
+	val = 213123
+	_ = val * val
+	val = val + 1
+	time.sleep(0.001)
+`
 )
 
 var (
@@ -43,6 +59,8 @@ var (
 	ErrWorkloadNotRunning = errors.New("the workload is currently not running")
 
 	ErrTrainingStartedUnknownSession = errors.New("received 'training-started' event for unknown session")
+	ErrTrainingStartedNoSessionConnection = errors.New("received 'training-started' event for session for which no session connection exists")
+	ErrTrainingStartedNoKernelConnection = errors.New("received 'training-started' event for session for which no kernel connection exists")
 	ErrTrainingStoppedUnknownSession = errors.New("received 'training-ended' event for unknown session")
 
 	src = rand.NewSource(time.Now().UnixNano())
@@ -56,6 +74,7 @@ type workloadDriverImpl struct {
 
 	workloadGenerator domain.WorkloadGenerator
 
+	// Map from internal session ID to session connection.
 	sessionConnections map[string]*jupyter.SessionConnection
 
 	clockTrigger *Trigger
@@ -66,29 +85,29 @@ type workloadDriverImpl struct {
 	sugaredLogger *zap.SugaredLogger
 	atom          *zap.AtomicLevel
 
-	eventQueue          domain.EventQueueService
-	tickDuration        time.Duration
-	tickDurationSeconds int64               // Cached total number of seconds of tickDuration
-	doneChan            chan interface{}    // Used to signal that the workload has successfully processed all events.
-	stopChan            chan interface{}    // Used to stop the workload early/prematurely (i.e., before all events have been processed).
-	errorChan           chan error          // Used to stop the workload due to a critical error.
-	tick                time.Duration       // The tick interval/step rate of the simulation.
-	ticker              *Ticker             // Receive Tick events this way.
-	ticksHandled        atomic.Int64        // Incremented/accessed atomically.
-	servingTicks        atomic.Bool         // The WorkloadDriver::ServeTicks() method will continue looping as long as this flag is set to true.
-	eventChan           chan domain.Event   // Receives events from the Synthesizer.
-	driverTimescale     float64             // Multiplier that impacts the timescale at the Driver will operate on with respect to the trace data. For example, if each tick is 60 seconds, then a DriverTimescale value of 0.5 will mean that each tick will take 30 seconds.
-	performClockTicks   bool                // If true, then we'll issue clock ticks. Otherwise, don't issue them. Mostly used for testing/debugging.
-	sessions            *hashmap.HashMap    // Responsible for creating sessions and maintaining a collection of all of the sessions active within the simulation.
-	seenSessions        map[string]struct{} // All sessions that we've ever seen before.
-	workloadEndTime     time.Time           // The time at which the workload completed.
-
-	workloadPresets             map[string]domain.WorkloadPreset
-	workloadPreset              domain.WorkloadPreset
-	workloadRegistrationRequest *domain.WorkloadRegistrationRequest
-	workload                    *domain.Workload
-
-	websocket domain.ConcurrentWebSocket
+	eventQueue                  domain.EventQueueService
+	tickDuration                time.Duration
+	tickDurationSeconds         int64                               // Cached total number of seconds of tickDuration
+	doneChan                    chan interface{}                    // Used to signal that the workload has successfully processed all events.
+	stopChan                    chan interface{}                    // Used to stop the workload early/prematurely (i.e., before all events have been processed).
+	errorChan                   chan error                          // Used to stop the workload due to a critical error.
+	tick                        time.Duration                       // The tick interval/step rate of the simulation.
+	ticker                      *Ticker                             // Receive Tick events this way.
+	ticksHandled                atomic.Int64                        // Incremented/accessed atomically.
+	servingTicks                atomic.Bool                         // The WorkloadDriver::ServeTicks() method will continue looping as long as this flag is set to true.
+	eventChan                   chan domain.Event                   // Receives events from the Synthesizer.
+	driverTimescale             float64                             // Multiplier that impacts the timescale at the Driver will operate on with respect to the trace data. For example, if each tick is 60 seconds, then a DriverTimescale value of 0.5 will mean that each tick will take 30 seconds.
+	performClockTicks           bool                                // If true, then we'll issue clock ticks. Otherwise, don't issue them. Mostly used for testing/debugging.
+	sessions                    *hashmap.HashMap                    // Responsible for creating sessions and maintaining a collection of all of the sessions active within the simulation.
+	seenSessions                map[string]struct{}                 // All sessions that we've ever seen before.
+	workloadEndTime             time.Time                           // The time at which the workload completed.
+	currentTick                 domain.SimulationClock              // Contains the current tick of the workload.
+	clockTime                   domain.SimulationClock              // Contains the current clock time of the workload, which will be sometime between currentTick and currentTick + tick_duration.
+	workloadPresets             map[string]domain.WorkloadPreset    // All of the available workload presets.
+	workloadPreset              domain.WorkloadPreset               // The preset used by the associated workload.
+	workloadRegistrationRequest *domain.WorkloadRegistrationRequest // The request that registered the workload that is being driven by this driver.
+	workload                    *domain.Workload                    // The workload being driven by this driver.
+	websocket                   domain.ConcurrentWebSocket          // Shared Websocket used to communicate with frontend.
 
 	mu sync.Mutex
 
@@ -135,10 +154,12 @@ func NewWorkloadDriver(opts *domain.Configuration, performClockTicks bool, webso
 		sessions:            hashmap.New(100),
 		seenSessions:        make(map[string]struct{}),
 		websocket:           websocket,
+		currentTick:         NewSimulationClock(),
+		clockTime:           NewSimulationClock(),
 	}
 
 	// Create the ticker for the workload.
-	driver.ticker = driver.clockTrigger.NewSyncTicker(time.Second*time.Duration(opts.TraceStep), fmt.Sprintf("Workload-%s", driver.id))
+	driver.ticker = driver.clockTrigger.NewSyncTicker(time.Second*time.Duration(opts.TraceStep), fmt.Sprintf("Workload-%s", driver.id), driver.clockTime)
 
 	zapConfig := zap.NewDevelopmentEncoderConfig()
 	zapConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
@@ -167,6 +188,16 @@ func NewWorkloadDriver(opts *domain.Configuration, performClockTicks bool, webso
 	}
 
 	return driver
+}
+
+// Contains the current tick of the workload.
+func (d *workloadDriverImpl) CurrentTick() domain.SimulationClock {
+	return d.currentTick
+}
+
+// Contains the current clock time of the workload, which will be sometime between currentTick and currentTick + tick_duration.
+func (d *workloadDriverImpl) ClockTime() domain.SimulationClock {
+	return d.clockTime
 }
 
 func (d *workloadDriverImpl) WebSocket() domain.ConcurrentWebSocket {
@@ -358,10 +389,10 @@ func (d *workloadDriverImpl) abortWorkload() error {
 	return nil
 }
 
-// Set the ClockTime clock to the given timestamp, verifying that the new timestamp is either equal to or occurs after the old one.
+// Set the d.clockTime clock to the given timestamp, verifying that the new timestamp is either equal to or occurs after the old one.
 // Return a tuple where the first element is the new time, and the second element is the difference between the new time and the old time.
 func (d *workloadDriverImpl) incrementClockTime(time time.Time) (time.Time, time.Duration, error) {
-	newTime, timeDifference, err := ClockTime.IncreaseClockTimeTo(time)
+	newTime, timeDifference, err := d.clockTime.IncreaseClockTimeTo(time)
 
 	if err != nil {
 		d.logger.Error("Critical error occurred when attempting to increase clock time.", zap.Error(err))
@@ -379,20 +410,20 @@ func (d *workloadDriverImpl) bootstrapSimulation() error {
 
 	// Save the timestamp information.
 	if d.performClockTicks {
-		// Set the CurrentTick to the timestamp of the event.
-		_, _, err := CurrentTick.IncreaseClockTimeTo(firstEvent.Timestamp())
+		// Set the d.currentTick to the timestamp of the event.
+		_, _, err := d.currentTick.IncreaseClockTimeTo(firstEvent.Timestamp())
 		if err != nil {
 			d.logger.Error("Critical error occurred when attempting to increase clock time.", zap.Error(err))
 			return err
 		}
 
-		_, _, err = ClockTime.IncreaseClockTimeTo(firstEvent.Timestamp())
+		_, _, err = d.clockTime.IncreaseClockTimeTo(firstEvent.Timestamp())
 		if err != nil {
 			d.logger.Error("Critical error occurred when attempting to increase clock time.", zap.Error(err))
 			return err
 		}
 
-		d.sugaredLogger.Debugf("CurrentTick has been initialized to %v.", firstEvent.Timestamp())
+		d.sugaredLogger.Debugf("d.currentTick has been initialized to %v.", firstEvent.Timestamp())
 	}
 
 	// Handle the event. Basically, just enqueue it in the EventQueueService.
@@ -416,7 +447,7 @@ func (d *workloadDriverImpl) DriveWorkload(wg *sync.WaitGroup) {
 
 	d.logger.Info("The simulation has started.")
 
-	nextTick := CurrentTick.GetClockTime().Add(d.tickDuration)
+	nextTick := d.currentTick.GetClockTime().Add(d.tickDuration)
 
 	d.sugaredLogger.Infof("Next tick: %v", nextTick)
 
@@ -439,7 +470,7 @@ OUTER:
 					d.handleCriticalError(err)
 					break OUTER
 				}
-				nextTick = CurrentTick.GetClockTime().Add(d.tickDuration)
+				nextTick = d.currentTick.GetClockTime().Add(d.tickDuration)
 				d.eventQueue.EnqueueEvent(evt)
 
 				d.sugaredLogger.Debugf("Next tick: %v", nextTick)
@@ -456,7 +487,7 @@ OUTER:
 					break OUTER
 				}
 
-				nextTick = CurrentTick.GetClockTime().Add(d.tickDuration)
+				nextTick = d.currentTick.GetClockTime().Add(d.tickDuration)
 			}
 
 			break OUTER
@@ -466,7 +497,7 @@ OUTER:
 	wg.Done()
 }
 
-// Issue clock ticks until the CurrentTick clock has caught up to the given timestamp.
+// Issue clock ticks until the d.currentTick clock has caught up to the given timestamp.
 // The given timestamp should correspond to the timestamp of the next event generated by the Workload Generator.
 // The Workload Simulation will simulate everything up until this next event is ready to process.
 // Then we will continue consuming all events for the current tick in the SimulationDriver::DriveSimulation function.
@@ -475,7 +506,7 @@ func (d *workloadDriverImpl) IssueClockTicks(timestamp time.Time) error {
 		return nil
 	}
 
-	currentTick := CurrentTick.GetClockTime()
+	currentTick := d.currentTick.GetClockTime()
 
 	diff := timestamp.Sub(currentTick)
 	numTicksRequired := int64(diff / d.tickDuration)
@@ -483,7 +514,7 @@ func (d *workloadDriverImpl) IssueClockTicks(timestamp time.Time) error {
 
 	var numTicksIssued int64 = 0
 	for timestamp.After(currentTick) {
-		tick, err := CurrentTick.IncrementClockBy(d.tickDuration)
+		tick, err := d.currentTick.IncrementClockBy(d.tickDuration)
 		if err != nil {
 			return err
 		}
@@ -492,7 +523,7 @@ func (d *workloadDriverImpl) IssueClockTicks(timestamp time.Time) error {
 		d.sugaredLogger.Debugf("Issuing tick #%d: %v.", tickNumber, tick)
 		d.clockTrigger.Trigger(tick)
 		numTicksIssued += 1
-		currentTick = CurrentTick.GetClockTime()
+		currentTick = d.currentTick.GetClockTime()
 	}
 
 	if numTicksIssued != numTicksRequired {
@@ -525,7 +556,7 @@ func (d *workloadDriverImpl) ProcessWorkload(wg *sync.WaitGroup) {
 		case tick := <-d.ticker.TickDelivery:
 			{
 				// d.logger.Debug("Recevied tick.", zap.String("workload-id", d.workload.ID), zap.Time("tick", tick))
-				_, _, err := CurrentTick.IncreaseClockTimeTo(tick)
+				_, _, err := d.currentTick.IncreaseClockTimeTo(tick)
 				if err != nil {
 					d.logger.Error("Critical error occurred when attempting to increase clock time.", zap.Error(err))
 					d.handleCriticalError(err)
@@ -539,8 +570,8 @@ func (d *workloadDriverImpl) ProcessWorkload(wg *sync.WaitGroup) {
 
 				// If there are no events processed this tick, then we still need to increment the clocktime so we're in-line with the simulation.
 				prevTickStart := tick.Add(-d.tick)
-				if ClockTime.GetClockTime().Before(prevTickStart) {
-					// d.sugaredLogger.Debugf("Incrementing simulation clock from %v to %v (to match \"beginning\" of tick).", ClockTime.GetClockTime(), prevTickStart)
+				if d.clockTime.GetClockTime().Before(prevTickStart) {
+					// d.sugaredLogger.Debugf("Incrementing simulation clock from %v to %v (to match \"beginning\" of tick).", d.clockTime.GetClockTime(), prevTickStart)
 					d.incrementClockTime(prevTickStart)
 				}
 
@@ -593,7 +624,7 @@ func (d *workloadDriverImpl) ProcessWorkload(wg *sync.WaitGroup) {
 func (d *workloadDriverImpl) doneServingTick() {
 	numEventsEnqueued := d.eventQueue.Len()
 	if d.sugaredLogger.Level() == zapcore.DebugLevel {
-		d.sugaredLogger.Debugf(">> [%v] Done serving tick. There is/are %d more session event(s) enqueued right now.", ClockTime.GetClockTime(), numEventsEnqueued)
+		d.sugaredLogger.Debugf(">> [%v] Done serving tick. There is/are %d more session event(s) enqueued right now.", d.clockTime.GetClockTime(), numEventsEnqueued)
 	}
 
 	d.ticker.Done()
@@ -731,8 +762,11 @@ func (d *workloadDriverImpl) GetSession(id string) *Session {
 func (d *workloadDriverImpl) handleSessionReadyEvents(latestTick time.Time) {
 	sessionReadyEvent := d.eventQueue.GetNextSessionStartEvent(latestTick)
 	if d.sugaredLogger.Level() == zapcore.DebugLevel {
-		d.sugaredLogger.Debugf(">> [%v] Handling EventSessionReady events now.", ClockTime.GetClockTime())
+		d.sugaredLogger.Debugf("[%v] Handling EventSessionReady events now.", d.clockTime.GetClockTime())
 	}
+
+	numProcessed := 0
+	st := time.Now()
 	for sessionReadyEvent != nil {
 		driverSession := sessionReadyEvent.Data().(*generator.Session)
 		// updatedTs := RoundUpTime(sessionReadyEvent.Timestamp, d.tick)
@@ -741,12 +775,13 @@ func (d *workloadDriverImpl) handleSessionReadyEvents(latestTick time.Time) {
 
 		sessionId := driverSession.Pod
 		if d.sugaredLogger.Level() == zapcore.DebugLevel {
-			d.sugaredLogger.Debugf("Handling EventSessionReady for Session %s [ts: %v].", sessionId, sessionReadyEvent.Timestamp)
+			d.sugaredLogger.Debugf("Handling EventSessionReady %d targeting Session %s [ts: %v].", numProcessed+1, sessionId, sessionReadyEvent.Timestamp)
 		}
 
+		provision_start := time.Now() 
 		_, err := d.provisionSession(sessionId, driverSession, sessionReadyEvent.Timestamp())
 		if err != nil {
-			d.logger.Error("Failed to provision new Jupyter session.", zap.String("session-id", sessionId), zap.Error(err))
+			d.logger.Error("Failed to provision new Jupyter session.", zap.String(ZapSessionIDKey, sessionId), zap.Duration("real-time-elapsed", time.Since(provision_start)), zap.Error(err))
 			payload, _ := json.Marshal(domain.ErrorMessage{
 				Description:  reflect.TypeOf(err).Name(),
 				ErrorMessage: err.Error(),
@@ -754,12 +789,15 @@ func (d *workloadDriverImpl) handleSessionReadyEvents(latestTick time.Time) {
 			})
 			d.websocket.WriteMessage(websocket.BinaryMessage, payload)
 		} else {
-			d.logger.Debug("Successfully handled SessionStarted event.", zap.String("session-id", sessionId))
+			d.logger.Debug("Successfully handled SessionStarted event.", zap.String(ZapSessionIDKey, sessionId), zap.Duration("real-time-elapsed", time.Since(provision_start)))
 		}
 
+		numProcessed += 1
 		// Get the next ready-to-process `EventSessionReady` event if there is one. If not, then this will return nil, and we'll exit the for-loop.
 		sessionReadyEvent = d.eventQueue.GetNextSessionStartEvent(latestTick)
 	}
+
+	d.logger.Debug("Finished processing X events.", zap.Int("num-events-processed", numProcessed), zap.Duration("real-time-elapsed", time.Since(st)))
 }
 
 func (d *workloadDriverImpl) handleEvent(evt domain.Event) error {
@@ -768,15 +806,32 @@ func (d *workloadDriverImpl) handleEvent(evt domain.Event) error {
 
 	switch evt.Name() {
 	case domain.EventSessionStarted:
-		// d.logger.Debug("Received SessionStarted event.", zap.String("session-id", sessionId))
+		// d.logger.Debug("Received SessionStarted event.", zap.String(ZapSessionIDKey, sessionId))
 		panic("Received SessionStarted event.")
 	case domain.EventSessionTrainingStarted:
 		d.logger.Debug("Received TrainingStarted event.", zap.String("session", internalSessionId))
 
 		// TODO: Initiate training.
 		if _, ok := d.seenSessions[internalSessionId]; !ok {
-			d.logger.Error("Received 'training-started' event for unknown session.", zap.String("session-id", internalSessionId))
+			d.logger.Error("Received 'training-started' event for unknown session.", zap.String(ZapSessionIDKey, internalSessionId))
 			return ErrTrainingStartedUnknownSession
+		}
+
+		sessionConnection, ok := d.sessionConnections[internalSessionId]
+		if !ok {
+			d.logger.Error("No session connection found for session upon receiving 'training-started' event.", zap.String(ZapSessionIDKey, internalSessionId))
+			return ErrTrainingStartedNoSessionConnection
+		}
+
+		kernelConnection := sessionConnection.Kernel()
+		if kernelConnection == nil {
+			d.logger.Error("No kernel connection found for session connection.", zap.String(ZapSessionIDKey, internalSessionId))
+			return ErrTrainingStartedNoKernelConnection
+		}
+
+		err := kernelConnection.RequestExecute(TrainingCode, false, true, make(map[string]interface{}), true, false, false)
+		if err != nil {
+			d.logger.Error("Error while attempting to execute training code.", zap.String(ZapSessionIDKey, internalSessionId), zap.Error(err))
 		}
 
 		d.mu.Lock()
@@ -791,7 +846,7 @@ func (d *workloadDriverImpl) handleEvent(evt domain.Event) error {
 		d.logger.Debug("Received TrainingEnded event.", zap.String("session", internalSessionId))
 
 		if _, ok := d.seenSessions[internalSessionId]; !ok {
-			d.logger.Error("Received 'training-stopped' event for unknown session.", zap.String("session-id", internalSessionId))
+			d.logger.Error("Received 'training-stopped' event for unknown session.", zap.String(ZapSessionIDKey, internalSessionId))
 			return ErrTrainingStoppedUnknownSession
 		}
 
@@ -808,10 +863,12 @@ func (d *workloadDriverImpl) handleEvent(evt domain.Event) error {
 	case domain.EventSessionStopped:
 		d.logger.Debug("Received SessionStopped event.", zap.String("session", internalSessionId))
 
-		// TODO: Stop session.
+		// TODO: Test that this actually works. 
 		err := d.stopSession(d.getOriginalSessionIdFromInternalSessionId(internalSessionId))
 		if err != nil {
 			return err
+		} else {
+			d.logger.Debug("Successfully stopped session.", zap.String(ZapSessionIDKey, internalSessionId))
 		}
 
 		delete(d.seenSessions, internalSessionId)
@@ -830,7 +887,7 @@ func (d *workloadDriverImpl) provisionSession(sessionId string, meta *generator.
 	st := time.Now()
 	sessionConnection, err := d.kernelManager.CreateSession(strings.ToLower(sessionId), fmt.Sprintf("%s.ipynb", sessionId), "notebook", "distributed")
 	if err != nil {
-		d.logger.Error("Failed to create session.", zap.String("session-id", sessionId))
+		d.logger.Error("Failed to create session.", zap.String(ZapSessionIDKey, sessionId))
 		return nil, err
 	}
 

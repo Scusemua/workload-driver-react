@@ -30,6 +30,8 @@ var (
 	sig = make(chan os.Signal, 1)
 )
 
+type errorCallback func(errorMessage *gateway.ErrorMessage)
+
 // This type of handler issues HTTP requests to the backend.
 type ClusterDashboardHandler struct {
 	// If this is equal to 1, then the gRPC resources are in the process of being setup.
@@ -44,16 +46,20 @@ type ClusterDashboardHandler struct {
 
 	clusterDashboardHandlerPort int
 
+	// Called in its own Goroutine when the ErrorOccurred RPC is called by the ClusterGateway to us.
+	errorCallback errorCallback
+
 	srv *grpc.Server
 
 	gatewayAddress string // Address that the Cluster Gateway's gRPC server is listening on.
 }
 
-func NewClusterDashboardHandler(opts *domain.Configuration, shouldConnect bool) *ClusterDashboardHandler {
+func NewClusterDashboardHandler(opts *domain.Configuration, shouldConnect bool, errorCallback errorCallback) *ClusterDashboardHandler {
 	handler := &ClusterDashboardHandler{
 		clusterDashboardHandlerPort: opts.ClusterDashboardHandlerPort,
 		gatewayAddress:              opts.GatewayAddress,
 		setupInProgress:             0,
+		errorCallback: 				 errorCallback,
 	}
 
 	var err error
@@ -91,6 +97,8 @@ func (h *ClusterDashboardHandler) HandleConnectionError() {
 
 func (h *ClusterDashboardHandler) ErrorOccurred(ctx context.Context, errorMessage *gateway.ErrorMessage) (*gateway.Void, error) {
 	h.logger.Error("A fatal error has occurred within the Cluster Gateway!", zap.Any("error", errorMessage))
+
+	go h.errorCallback(errorMessage)
 
 	return &gateway.Void{}, nil
 }

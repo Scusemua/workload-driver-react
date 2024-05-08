@@ -104,7 +104,8 @@ func NewKernelConnection(kernelId string, jupyterSessionId string, atom *zap.Ato
 // - userExpressions (map[string]interface{}): A mapping of names to expressions to be evaluated in the kernel's interactive namespace.
 // - allowStdin (bool): Whether to allow stdin requests. The default is `true`.
 // - stopOnError (bool): Whether to the abort execution queue on an error. The default is `false`.
-func (conn *KernelConnection) RequestExecute(code string, silent bool, storeHistory bool, userExpressions map[string]interface{}, allowStdin bool, stopOnError bool) error {
+// - waitForResponse (bool): Whether to wait for a response from the kernel, or just return immediately.
+func (conn *KernelConnection) RequestExecute(code string, silent bool, storeHistory bool, userExpressions map[string]interface{}, allowStdin bool, stopOnError bool, waitForResponse bool) error {
 	content := &executeRequestKernelMessageContent{
 		Code:            code,
 		Silent:          silent,
@@ -136,6 +137,10 @@ func (conn *KernelConnection) RequestExecute(code string, silent bool, storeHist
 	if err != nil {
 		conn.logger.Error("Error while writing 'execute_request' message.", zap.String("kernel-id", conn.kernelId), zap.Error(err))
 		return err
+	}
+
+	if waitForResponse {
+		panic("Not implemented.")
 	}
 
 	return nil
