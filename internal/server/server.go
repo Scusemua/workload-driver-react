@@ -167,17 +167,14 @@ func (s *serverImpl) setupRoutes() error {
 				ErrorMessage: fmt.Sprintf("This is a spoofed/fake error message with UUID=%s.", uuid.NewString()),
 			}
 
-			payload, err := json.Marshal(errorMessage)
-			if err != nil {
-				s.logger.Error("Failed to marshal spoofed error message to JSON.", zap.Error(err))
-				ctx.Error(err)
-				ctx.Status(http.StatusInternalServerError)
-				return
+			message := &domain.GeneralWebSocketResponse{
+				Op:      "error",
+				Payload: errorMessage,
 			}
 
 			s.logger.Debug("Broadcasting spoofed error message.", zap.Int("num-recipients", len(s.generalWebsockets)))
 			for _, conn := range s.generalWebsockets {
-				err := conn.WriteMessage(websocket.BinaryMessage, payload)
+				err := conn.WriteJSON(message)
 				if err != nil {
 					s.logger.Debug("Failed to write spoofed error to WebSocket.", zap.Any("remote-addr", conn.RemoteAddr()), zap.Error(err))
 				}
@@ -290,7 +287,7 @@ func (s *serverImpl) serverPushRoutine(workloadStartedChan chan string, doneChan
 }
 
 func (s *serverImpl) serveGeneralWebsocket(c *gin.Context) {
-	s.logger.Debug("Handling websocket connection")
+	s.logger.Debug("Handling general websocket connection")
 
 	upgrader.CheckOrigin = func(r *http.Request) bool {
 		if r.Header.Get("Origin") == "http://127.0.0.1:9001" || r.Header.Get("Origin") == "http://localhost:9001" {
@@ -315,28 +312,37 @@ func (s *serverImpl) serveGeneralWebsocket(c *gin.Context) {
 		_, message, err := concurrentConn.ReadMessage()
 		if err != nil {
 			s.logger.Error("Error while reading message from websocket.", zap.Error(err))
-			continue
+			// if _, ok := err.(*websocket.CloseError); ok {
+			// 	break
+			// } else {
+			// 	time.Sleep(time.Millisecond * 100)
+			// 	continue
+			// }
+			break
 		}
 
 		var request map[string]interface{}
 		err = json.Unmarshal(message, &request)
 		if err != nil {
-			s.logger.Error("Error while unmarshalling data message from websocket.", zap.Error(err), zap.ByteString("message-bytes", message), zap.String("message-string", string(message)))
+			s.logger.Error("Error while unmarshalling data message from general websocket.", zap.Error(err), zap.ByteString("message-bytes", message), zap.String("message-string", string(message)))
+			time.Sleep(time.Millisecond * 100)
 			continue
 		}
 
-		s.sugaredLogger.Debugf("Received WebSocket message: %v", request)
+		s.sugaredLogger.Debugf("Received general WebSocket message: %v", request)
 
 		var op_val interface{}
 		var msgIdVal interface{}
 		var ok bool
 		if op_val, ok = request["op"]; !ok {
 			s.logger.Error("Received unexpected message on websocket. It did not contain an 'op' field.", zap.Binary("message", message))
+			time.Sleep(time.Millisecond * 100)
 			continue
 		}
 
 		if msgIdVal, ok = request["msg_id"]; !ok {
 			s.logger.Error("Received unexpected message on websocket. It did not contain a 'msg_id' field.", zap.Binary("message", message))
+			time.Sleep(time.Millisecond * 100)
 			continue
 		}
 
@@ -345,7 +351,7 @@ func (s *serverImpl) serveGeneralWebsocket(c *gin.Context) {
 }
 
 func (s *serverImpl) serveLogWebsocket(c *gin.Context) {
-	s.logger.Debug("Handling websocket connection")
+	s.logger.Debug("Handling log-related websocket connection")
 
 	upgrader.CheckOrigin = func(r *http.Request) bool {
 		if r.Header.Get("Origin") == "http://127.0.0.1:9001" || r.Header.Get("Origin") == "http://localhost:9001" {
@@ -375,14 +381,20 @@ func (s *serverImpl) serveLogWebsocket(c *gin.Context) {
 				responseBody.Close()
 			}
 			s.logResponseBodyMutex.RUnlock()
-
 			break
+
+			// if _, ok := err.(*websocket.CloseError); ok {
+			// 	break
+			// } else {
+			// 	time.Sleep(time.Millisecond * 100)
+			// 	continue
+			// }
 		}
 
 		var request map[string]interface{}
 		err = json.Unmarshal(message, &request)
 		if err != nil {
-			s.logger.Error("Error while unmarshalling data message from websocket.", zap.Error(err), zap.String("connection-id", connectionId))
+			s.logger.Error("Error while unmarshalling data message from log-related websocket.", zap.Error(err), zap.String("connection-id", connectionId))
 
 			s.logResponseBodyMutex.RLock()
 			// If we're already processing a get_logs request for this websocket, then terminate that request.
@@ -391,10 +403,11 @@ func (s *serverImpl) serveLogWebsocket(c *gin.Context) {
 			}
 			s.logResponseBodyMutex.RUnlock()
 
-			break
+			time.Sleep(time.Millisecond * 100)
+			continue
 		}
 
-		s.sugaredLogger.Debugf("Received WebSocket message: %v", request)
+		s.sugaredLogger.Debugf("Received log-related WebSocket message: %v", request)
 
 		var op_val interface{}
 		var ok bool
@@ -408,7 +421,8 @@ func (s *serverImpl) serveLogWebsocket(c *gin.Context) {
 			}
 			s.logResponseBodyMutex.RUnlock()
 
-			break
+			time.Sleep(time.Millisecond * 100)
+			continue
 		}
 
 		if _, ok := request["msg_id"]; !ok {
@@ -421,7 +435,8 @@ func (s *serverImpl) serveLogWebsocket(c *gin.Context) {
 			}
 			s.logResponseBodyMutex.RUnlock()
 
-			break
+			time.Sleep(time.Millisecond * 100)
+			continue
 		}
 
 		if op_val == "get_logs" {
@@ -517,7 +532,7 @@ func (s *serverImpl) getLogsWebsocket(req *domain.GetLogsRequest, conn *websocke
 }
 
 func (s *serverImpl) serveWorkloadWebsocket(c *gin.Context) {
-	s.logger.Debug("Handling websocket connection")
+	s.logger.Debug("Handling workload-related websocket connection")
 
 	upgrader.CheckOrigin = func(r *http.Request) bool {
 		if r.Header.Get("Origin") == "http://127.0.0.1:9001" || r.Header.Get("Origin") == "http://localhost:9001" {
@@ -546,21 +561,27 @@ func (s *serverImpl) serveWorkloadWebsocket(c *gin.Context) {
 		_, message, err := concurrentConn.ReadMessage()
 		if err != nil {
 			s.logger.Error("Error while reading message from websocket.", zap.Error(err))
-			// doneChan <- struct{}{}
-			// s.logger.Error("Sent 'close' instruction to server-push goroutine.")
-			continue
+			break
+			// if _, ok := err.(*websocket.CloseError); ok {
+			// 	break
+			// } else {
+			// 	time.Sleep(time.Millisecond * 100)
+			// 	continue
+			// }
 		}
 
 		var request map[string]interface{}
 		err = json.Unmarshal(message, &request)
 		if err != nil {
-			s.logger.Error("Error while unmarshalling data message from websocket.", zap.Error(err), zap.ByteString("message-bytes", message), zap.String("message-string", string(message)))
+			s.logger.Error("Error while unmarshalling data message from workload-related websocket.", zap.Error(err), zap.ByteString("message-bytes", message), zap.String("message-string", string(message)))
 			// doneChan <- struct{}{}
 			// s.logger.Error("Sent 'close' instruction to server-push goroutine.")
+
+			time.Sleep(time.Millisecond * 100)
 			continue
 		}
 
-		s.sugaredLogger.Debugf("Received WebSocket message: %v", request)
+		s.sugaredLogger.Debugf("Received workload-related WebSocket message: %v", request)
 
 		var op_val interface{}
 		var msgIdVal interface{}
@@ -569,6 +590,8 @@ func (s *serverImpl) serveWorkloadWebsocket(c *gin.Context) {
 			s.logger.Error("Received unexpected message on websocket. It did not contain an 'op' field.", zap.Binary("message", message))
 			// doneChan <- struct{}{}
 			// s.logger.Error("Sent 'close' instruction to server-push goroutine.")
+
+			time.Sleep(time.Millisecond * 100)
 			continue
 		}
 
@@ -576,6 +599,8 @@ func (s *serverImpl) serveWorkloadWebsocket(c *gin.Context) {
 			s.logger.Error("Received unexpected message on websocket. It did not contain a 'msg_id' field.", zap.Binary("message", message))
 			// doneChan <- struct{}{}
 			// s.logger.Error("Sent 'close' instruction to server-push goroutine.")
+
+			time.Sleep(time.Millisecond * 100)
 			continue
 		}
 

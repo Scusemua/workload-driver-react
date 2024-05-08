@@ -10,3 +10,8 @@ type ConcurrentWebSocket interface {
 	ReadMessage() (messageType int, p []byte, err error) // ReadMessage is a helper method for getting a reader using NextReader and reading from that reader to a buffer.
 	RemoteAddr() net.Addr                                // RemoteAddr returns the remote network address.
 }
+
+type GeneralWebSocketResponse struct {
+	Op      string      `json:"op"`
+	Payload interface{} `json:"payload"`
+}

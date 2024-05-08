@@ -195,6 +195,11 @@ func (m *KernelSessionManager) CreateSession(sessionId string, path string, sess
 	return sessionConnection, nil
 }
 
+// Flip the 'run_training_code' flag within the kernel so that it stops executing training code.
+func (m *KernelSessionManager) StopRunningTrainingCode(sessionId string) error {
+	return nil
+}
+
 // Interrupt a kernel.
 //
 // #### Notes
@@ -206,15 +211,15 @@ func (m *KernelSessionManager) CreateSession(sessionId string, path string, sess
 //
 // The promise will be rejected if the kernel status is `Dead` or if the
 // request fails or the response is invalid.
-func (m *KernelSessionManager) InterruptKernel(id string) error {
-	sess, ok := m.sessionMap[id]
+func (m *KernelSessionManager) InterruptKernel(sessionId string) error {
+	sess, ok := m.sessionMap[sessionId]
 	if !ok {
-		m.logger.Error("Cannot interrupt kernel. Associated kernel/session not found.", zap.String("id", id))
+		m.logger.Error("Cannot interrupt kernel. Associated kernel/session not found.", zap.String("session_id", sessionId))
 		return ErrKernelNotFound
 	}
 
 	if sess.kernel == nil {
-		m.logger.Error("Cannot interrupt kernel. No active connection to kernel.", zap.String("id", id))
+		m.logger.Error("Cannot interrupt kernel. No active connection to kernel.", zap.String("session_id", sessionId))
 		return ErrNoActiveConnection
 	}
 

@@ -1,5 +1,6 @@
 import * as React from 'react';
 import {
+    Alert,
     Brand,
     Button,
     Flex,
@@ -17,6 +18,10 @@ import {
 import logo from '@app/bgimages/WorkloadDriver-Logo.svg';
 import { DarkModeContext } from '@app/Providers/DarkModeProvider';
 import { MoonIcon, SkullCrossbonesIcon, SunIcon } from '@patternfly/react-icons';
+import { useWebSocket } from 'react-use-websocket/dist/lib/use-websocket';
+
+import { ErrorMessage, WebSocketMessage } from '@app/Data/WebSocket';
+import toast from 'react-hot-toast';
 
 interface IAppLayout {
     children: React.ReactNode;
@@ -27,8 +32,34 @@ const AppLayout: React.FunctionComponent<IAppLayout> = ({ children }) => {
     const darkModeId: string = 'theme-toggle-darkmode';
     const lightModeButtonId: string = lightModeId + '-button';
     const darkModeButtonId: string = darkModeId + '-button';
+
     const { darkMode, toggleDarkMode } = React.useContext(DarkModeContext);
+
     const [isSelected, setIsSelected] = React.useState(darkMode ? darkModeButtonId : lightModeButtonId);
+
+    const { sendJsonMessage, lastJsonMessage } = useWebSocket('ws://localhost:8000/ws');
+
+    React.useEffect(() => {
+        sendJsonMessage({
+            op: 'register',
+        });
+    }, []);
+
+    React.useEffect(() => {
+        if (lastJsonMessage !== null) {
+            console.log(`Received general WebSocket message: ${lastJsonMessage}`);
+            const message: WebSocketMessage = lastJsonMessage as WebSocketMessage;
+
+            if (message.op === 'error') {
+                const errorMessage: ErrorMessage = message.payload as ErrorMessage;
+                toast((t) => (
+                    <Alert variant="danger" title={errorMessage.errorName} ouiaId="DangerAlert">
+                        {errorMessage.errorMessage}
+                    </Alert>
+                ));
+            }
+        }
+    }, [lastJsonMessage]);
 
     const handleThemeToggleClick = (event) => {
         const id = event.currentTarget.id;

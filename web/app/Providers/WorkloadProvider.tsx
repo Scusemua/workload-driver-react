@@ -31,7 +31,6 @@ export const useWorkloads = () => {
 
             subscriberSocket.current.addEventListener('message', (event) => {
                 try {
-                    console.log(`Received websocket message: ${event.data}`);
                     event.data
                         .text()
                         .then((respText) => {

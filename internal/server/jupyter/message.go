@@ -25,7 +25,7 @@ type KernelMessage interface {
 type baseKernelMessage struct {
 	Header       *KernelMessageHeader   `json:"header"`
 	Channel      KernelSocketChannel    `json:"channel"`
-	Content      map[string]interface{} `json:"content"`
+	Content      interface{}            `json:"content"`
 	Buffers      []byte                 `json:"buffers"`
 	Metadata     map[string]interface{} `json:"metadata"`
 	ParentHeader *KernelMessageHeader   `json:"parent_header"`
@@ -77,48 +77,6 @@ type KernelMessageHeader struct {
 
 func (h *KernelMessageHeader) String() string {
 	out, err := json.Marshal(h)
-	if err != nil {
-		panic(err)
-	}
-
-	return string(out)
-}
-
-type executeRequestKernelMessage struct {
-	Header       *KernelMessageHeader                `json:"header"`
-	Channel      KernelSocketChannel                 `json:"channel"`
-	Content      *executeRequestKernelMessageContent `json:"content"`
-	Buffers      []byte                              `json:"buffers"`
-	Metadata     map[string]interface{}              `json:"metadata"`
-	ParentHeader *KernelMessageHeader                `json:"parent_header"`
-}
-
-func (m *executeRequestKernelMessage) GetHeader() *KernelMessageHeader {
-	return m.Header
-}
-
-func (m *executeRequestKernelMessage) GetChannel() KernelSocketChannel {
-	return m.Channel
-}
-
-func (m *executeRequestKernelMessage) GetContent() interface{} {
-	return m.Content
-}
-
-func (m *executeRequestKernelMessage) GetBuffers() []byte {
-	return m.Buffers
-}
-
-func (m *executeRequestKernelMessage) GetMetadata() map[string]interface{} {
-	return m.Metadata
-}
-
-func (m *executeRequestKernelMessage) GetParentHeader() *KernelMessageHeader {
-	return m.Header
-}
-
-func (m *executeRequestKernelMessage) String() string {
-	out, err := json.Marshal(m)
 	if err != nil {
 		panic(err)
 	}
