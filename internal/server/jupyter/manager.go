@@ -31,7 +31,7 @@ var (
 	ErrNoActiveConnection = errors.New("no active connection to target kernel exists")
 )
 
-type KernelManagerMetrics struct {
+type kernelManagerMetricsImpl struct {
 	NumFilesCreated       int `json:"num-files-created"`
 	NumKernelsCreated     int `json:"num-kernels-created"`
 	NumSessionsCreated    int `json:"num-sessions-created"`
@@ -39,27 +39,27 @@ type KernelManagerMetrics struct {
 	NumSessionsTerminated int `json:"num-sessions-terminated"`
 }
 
-func (m *KernelManagerMetrics) FileCreated() {
+func (m *kernelManagerMetricsImpl) FileCreated() {
 	m.NumFilesCreated += 1
 }
 
-func (m *KernelManagerMetrics) KernelCreated() {
+func (m *kernelManagerMetricsImpl) KernelCreated() {
 	m.NumKernelsCreated += 1
 }
 
-func (m *KernelManagerMetrics) SessionCreated() {
+func (m *kernelManagerMetricsImpl) SessionCreated() {
 	m.NumSessionsCreated += 1
 }
 
-func (m *KernelManagerMetrics) KernelTerminated() {
+func (m *kernelManagerMetricsImpl) KernelTerminated() {
 	m.NumKernelsTerminated += 1
 }
 
-func (m *KernelManagerMetrics) SessionTerminated() {
+func (m *kernelManagerMetricsImpl) SessionTerminated() {
 	m.NumSessionsTerminated += 1
 }
 
-type KernelSessionManager struct {
+type kernelSessionManagerImpl struct {
 	logger        *zap.Logger
 	sugaredLogger *zap.SugaredLogger
 	atom          *zap.AtomicLevel
@@ -68,7 +68,7 @@ type KernelSessionManager struct {
 	jupyterServerAddress string
 
 	// Maintains some metrics.
-	metrics *KernelManagerMetrics
+	metrics *kernelManagerMetricsImpl
 
 	localSessionIdToKernelId map[string]string // Map from "local" (provided by us) Session IDs to Kernel IDs. We provide the Session IDs, while Jupyter provides the Kernel IDs.
 	kernelIdToLocalSessionId map[string]string // Map from Kernel IDs to Jupyter Session IDs. We provide the Session IDs, while Jupyter provides the Kernel IDs.
@@ -82,10 +82,10 @@ type KernelSessionManager struct {
 	sessionMap map[string]*SessionConnection // Map from Session ID to Session. The keys are the Session IDs supplied by us/the trace data.
 }
 
-func NewKernelManager(opts *domain.Configuration, atom *zap.AtomicLevel) *KernelSessionManager {
-	manager := &KernelSessionManager{
+func NewKernelSessionManager(opts *domain.Configuration, atom *zap.AtomicLevel) *kernelSessionManagerImpl {
+	manager := &kernelSessionManagerImpl{
 		jupyterServerAddress:             opts.JupyterServerAddress,
-		metrics:                          &KernelManagerMetrics{},
+		metrics:                          &kernelManagerMetricsImpl{},
 		localSessionIdToKernelId:         make(map[string]string),
 		localSessionIdToJupyterSessionId: make(map[string]string),
 		jupyterSessionIdLocalSessionIdTo: make(map[string]string),
@@ -105,12 +105,12 @@ func NewKernelManager(opts *domain.Configuration, atom *zap.AtomicLevel) *Kernel
 }
 
 // Start a new kernel.
-func (m *KernelSessionManager) StartNew(kernelSpec string) error {
+func (m *kernelSessionManagerImpl) StartNewKernel(kernelSpec string) error {
 	return nil
 }
 
 // Create a new session.
-func (m *KernelSessionManager) CreateSession(sessionId string, path string, sessionType string, kernelSpecName string) (*SessionConnection, error) {
+func (m *kernelSessionManagerImpl) CreateSession(sessionId string, path string, sessionType string, kernelSpecName string) (*SessionConnection, error) {
 	if len(sessionId) < 36 {
 		generated_uuid := uuid.NewString()
 		sessionId = sessionId + "-" + generated_uuid[0:36-(len(sessionId)+1)]
@@ -195,11 +195,6 @@ func (m *KernelSessionManager) CreateSession(sessionId string, path string, sess
 	return sessionConnection, nil
 }
 
-// Flip the 'run_training_code' flag within the kernel so that it stops executing training code.
-func (m *KernelSessionManager) StopRunningTrainingCode(sessionId string) error {
-	return nil
-}
-
 // Interrupt a kernel.
 //
 // #### Notes
@@ -211,7 +206,7 @@ func (m *KernelSessionManager) StopRunningTrainingCode(sessionId string) error {
 //
 // The promise will be rejected if the kernel status is `Dead` or if the
 // request fails or the response is invalid.
-func (m *KernelSessionManager) InterruptKernel(sessionId string) error {
+func (m *kernelSessionManagerImpl) InterruptKernel(sessionId string) error {
 	sess, ok := m.sessionMap[sessionId]
 	if !ok {
 		m.logger.Error("Cannot interrupt kernel. Associated kernel/session not found.", zap.String("session_id", sessionId))
@@ -224,46 +219,46 @@ func (m *KernelSessionManager) InterruptKernel(sessionId string) error {
 	}
 
 	conn := sess.kernel
-	if conn.connectionStatus == KernelDead {
+	if conn.ConnectionStatus() == KernelDead {
 		// Cannot interrupt a dead kernel.
 		return ErrKernelIsDead
 	}
 
 	var requestBody map[string]interface{} = make(map[string]interface{})
-	requestBody["kernel_id"] = conn.kernelId
+	requestBody["kernel_id"] = conn.KernelId()
 
 	requestBodyEncoded, err := json.Marshal(requestBody)
 	if err != nil {
-		conn.logger.Error("Failed to marshal request body for kernel interruption request", zap.Error(err))
+		m.logger.Error("Failed to marshal request body for kernel interruption request", zap.Error(err))
 		return err
 	}
 
-	url := fmt.Sprintf("%s/api/kernels/%s/interrupt", conn.jupyterServerAddress, conn.kernelId)
+	url := fmt.Sprintf("%s/api/kernels/%s/interrupt", conn.JupyterServerAddress(), conn.KernelId())
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(requestBodyEncoded))
 
 	if err != nil {
-		conn.logger.Error("Failed to create HTTP request for kernel interruption.", zap.String("url", url), zap.Error(err))
+		m.logger.Error("Failed to create HTTP request for kernel interruption.", zap.String("url", url), zap.Error(err))
 		return err
 	}
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		conn.logger.Error("Error while issuing HTTP request to interrupt kernel.", zap.String("url", url), zap.Error(err))
+		m.logger.Error("Error while issuing HTTP request to interrupt kernel.", zap.String("url", url), zap.Error(err))
 		return err
 	}
 
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
-		conn.logger.Error("Failed to read response to interrupting kernel.", zap.Error(err))
+		m.logger.Error("Failed to read response to interrupting kernel.", zap.Error(err))
 		return err
 	}
 
-	conn.logger.Debug("Received response to interruption request.", zap.Int("status-code", resp.StatusCode), zap.String("status", resp.Status), zap.Any("response", data))
+	m.logger.Debug("Received response to interruption request.", zap.Int("status-code", resp.StatusCode), zap.String("status", resp.Status), zap.Any("response", data))
 	return nil
 }
 
-func (m *KernelSessionManager) CreateFile(path string) error {
+func (m *kernelSessionManagerImpl) CreateFile(path string) error {
 	url := fmt.Sprintf("http://%s/api/contents/%s", m.jupyterServerAddress, path)
 
 	createFileRequest := newCreateFileRequest(path)
@@ -316,7 +311,7 @@ func (m *KernelSessionManager) CreateFile(path string) error {
 	return nil
 }
 
-func (m *KernelSessionManager) StopKernel(id string) error {
+func (m *kernelSessionManagerImpl) StopKernel(id string) error {
 	url := fmt.Sprintf("http://%s/api/sessions/%s", m.jupyterServerAddress, id)
 	req, err := http.NewRequest(http.MethodDelete, url, nil)
 	if err != nil {
@@ -353,6 +348,25 @@ func (m *KernelSessionManager) StopKernel(id string) error {
 	return nil
 }
 
-func (m *KernelSessionManager) GetMetrics() *KernelManagerMetrics {
+func (m *kernelSessionManagerImpl) GetMetrics() KernelManagerMetrics {
 	return m.metrics
+}
+
+/**
+ * Connect to an existing kernel.
+ *
+ * @param kernelId - The ID of the target kernel.
+ * @param sessionId - The ID of the session associated with the target kernel.
+ *
+ * @returns A promise that resolves with the new kernel instance.
+ */
+func (m *kernelSessionManagerImpl) ConnectTo(kernelId string, sessionId string) (KernelConnection, error) {
+	conn, err := NewKernelConnection(kernelId, sessionId, m.atom, m.jupyterServerAddress)
+	if err != nil {
+		m.logger.Error("Failed to connect to kernel.", zap.String("kernel_id", kernelId), zap.String("session_id", sessionId))
+	}
+
+	// On success, conn will be non-nil and err will be nil.
+	// If there is an error, then err will be non-nil and connection will be nil.
+	return conn, err
 }

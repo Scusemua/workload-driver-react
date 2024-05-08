@@ -43,6 +43,9 @@ const (
 	// Used to cause the Cluster Gateway to panic. Used for debugging/testing.
 	PANIC_ENDPOINT = "/panic"
 
+	// Used to tell a kernel to stop training.
+	STOP_TRAINING_ENDPOINT = "/stop-training"
+
 	JUPYTER_GROUP_ENDPOINT        = "/jupyter"
 	JUPYTER_START_KERNEL_ENDPOINT = "/start"
 	JUPYTER_STOP_KERNEL_ENDPOINT  = "/stop"

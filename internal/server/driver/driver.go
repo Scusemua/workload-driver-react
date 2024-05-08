@@ -76,7 +76,7 @@ var (
 type workloadDriverImpl struct {
 	id string // Unique ID (relative to other drivers). The workload registered with this driver will be assigned this ID.
 
-	kernelManager *jupyter.KernelSessionManager
+	kernelManager jupyter.KernelSessionManager
 
 	workloadGenerator domain.WorkloadGenerator
 
@@ -152,7 +152,7 @@ func NewWorkloadDriver(opts *domain.Configuration, performClockTicks bool, webso
 		tickDuration:        time.Second * time.Duration(opts.TraceStep),
 		tickDurationSeconds: opts.TraceStep,
 		driverTimescale:     opts.DriverTimescale,
-		kernelManager:       jupyter.NewKernelManager(opts, &atom),
+		kernelManager:       jupyter.NewKernelSessionManager(opts, &atom),
 		sessionConnections:  make(map[string]*jupyter.SessionConnection),
 		performClockTicks:   performClockTicks,
 		eventQueue:          newEventQueue(&atom),

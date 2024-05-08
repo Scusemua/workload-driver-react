@@ -118,7 +118,7 @@ func NewSession(id string, jupyterId string, kernelId string) *Session {
 
 type SessionConnection struct {
 	model  *jupyterSession
-	kernel *KernelConnection
+	kernel KernelConnection
 
 	jupyterServerAddress string
 
@@ -163,6 +163,6 @@ func (conn *SessionConnection) connectToKernel() error {
 	return err // Will be nil if everything went OK.
 }
 
-func (conn *SessionConnection) Kernel() *KernelConnection {
+func (conn *SessionConnection) Kernel() KernelConnection {
 	return conn.kernel
 }
