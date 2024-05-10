@@ -164,7 +164,7 @@ func (m *kernelSessionManagerImpl) CreateSession(sessionId string, path string, 
 
 			st := time.Now()
 			// Connect to the Session and to the associated kernel.
-			sessionConnection, err = NewSessionConnection(jupyterSession, m.jupyterServerAddress, m.atom)
+			sessionConnection, err = NewSessionConnection(jupyterSession, "", m.jupyterServerAddress, m.atom)
 			if err != nil {
 				m.logger.Error("Could not establish connection to Session.", zap.String(ZapSessionIDKey, sessionId), zap.String("kernel-id", kernelId), zap.Error(err))
 				return nil, err
@@ -360,10 +360,13 @@ func (m *kernelSessionManagerImpl) GetMetrics() KernelManagerMetrics {
  *
  * @returns A promise that resolves with the new kernel instance.
  */
-func (m *kernelSessionManagerImpl) ConnectTo(kernelId string, sessionId string) (KernelConnection, error) {
-	conn, err := NewKernelConnection(kernelId, sessionId, m.atom, m.jupyterServerAddress)
+func (m *kernelSessionManagerImpl) ConnectTo(kernelId string, sessionId string, username string) (KernelConnection, error) {
+	m.logger.Debug("Connecting to kernel now.", zap.String("kernel_id", kernelId), zap.String("session_id", sessionId))
+	conn, err := NewKernelConnection(kernelId, sessionId, username, m.jupyterServerAddress, m.atom)
 	if err != nil {
 		m.logger.Error("Failed to connect to kernel.", zap.String("kernel_id", kernelId), zap.String("session_id", sessionId))
+	} else {
+		m.logger.Debug("Successfully connected to kernel.", zap.String("kernel_id", kernelId), zap.String("session_id", sessionId))
 	}
 
 	// On success, conn will be non-nil and err will be nil.

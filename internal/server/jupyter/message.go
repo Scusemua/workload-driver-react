@@ -52,7 +52,7 @@ func (m *baseKernelMessage) GetMetadata() map[string]interface{} {
 }
 
 func (m *baseKernelMessage) GetParentHeader() *KernelMessageHeader {
-	return m.Header
+	return m.ParentHeader
 }
 
 type KernelSocketChannel string

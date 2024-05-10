@@ -9,6 +9,7 @@ type ConcurrentWebSocket interface {
 	ReadJSON(v interface{}) error                        // ReadJSON reads the next JSON-encoded message from the connection and stores it in the value pointed to by v.
 	ReadMessage() (messageType int, p []byte, err error) // ReadMessage is a helper method for getting a reader using NextReader and reading from that reader to a buffer.
 	RemoteAddr() net.Addr                                // RemoteAddr returns the remote network address.
+	Close() error                                        // Close the websocket.
 }
 
 type GeneralWebSocketResponse struct {

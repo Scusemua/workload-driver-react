@@ -4,11 +4,15 @@ type KernelConnection interface {
 	// Get the connection status of the kernel.
 	ConnectionStatus() KernelConnectionStatus
 
+	// Return true if the connection is currently active.
+	Connected() bool
+
 	// Return the ID of the kernel itself.
 	KernelId() string
 
-	// Return the ID of the Session associated with the kernel.
-	SessionId() string
+	ClientId() string
+
+	Username() string
 
 	// Return the address of the Jupyter Server associated with this kernel.
 	JupyterServerAddress() string
@@ -45,7 +49,7 @@ type KernelConnection interface {
 	InterruptKernel() error
 
 	// Send a `stop_running_training_code` message.
-	StopRunningTrainingCode() error
+	StopRunningTrainingCode(waitForResponse bool) error
 }
 
 type KernelSessionManager interface {
@@ -79,10 +83,11 @@ type KernelSessionManager interface {
 	 *
 	 * @param kernelId - The ID of the target kernel.
 	 * @param sessionId - The ID of the session associated with the target kernel.
+	 * @param username - The username to use when connecting to the kernel.
 	 *
 	 * @returns A promise that resolves with the new kernel instance.
 	 */
-	ConnectTo(kernelId string, sessionId string) (KernelConnection, error)
+	ConnectTo(kernelId string, sessionId string, username string) (KernelConnection, error)
 }
 
 type KernelManagerMetrics interface {

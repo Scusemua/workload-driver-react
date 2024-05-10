@@ -1,149 +1,13 @@
 import * as React from 'react';
-import {
-    Alert,
-    Brand,
-    Button,
-    Flex,
-    FlexItem,
-    Masthead,
-    MastheadBrand,
-    MastheadContent,
-    MastheadMain,
-    Page,
-    SkipToContent,
-    ToggleGroup,
-    ToggleGroupItem,
-    Tooltip,
-} from '@patternfly/react-core';
-import logo from '@app/bgimages/WorkloadDriver-Logo.svg';
-import { DarkModeContext } from '@app/Providers/DarkModeProvider';
-import { MoonIcon, SkullCrossbonesIcon, SunIcon } from '@patternfly/react-icons';
-import { useWebSocket } from 'react-use-websocket/dist/lib/use-websocket';
+import { Page, SkipToContent } from '@patternfly/react-core';
 
-import { ErrorMessage, WebSocketMessage } from '@app/Data/WebSocket';
-import toast from 'react-hot-toast';
+import { AppHeader } from './AppHeader';
 
 interface IAppLayout {
     children: React.ReactNode;
 }
 
 const AppLayout: React.FunctionComponent<IAppLayout> = ({ children }) => {
-    const lightModeId: string = 'theme-toggle-lightmode';
-    const darkModeId: string = 'theme-toggle-darkmode';
-    const lightModeButtonId: string = lightModeId + '-button';
-    const darkModeButtonId: string = darkModeId + '-button';
-
-    const { darkMode, toggleDarkMode } = React.useContext(DarkModeContext);
-
-    const [isSelected, setIsSelected] = React.useState(darkMode ? darkModeButtonId : lightModeButtonId);
-
-    const { sendJsonMessage, lastJsonMessage } = useWebSocket('ws://localhost:8000/ws');
-
-    React.useEffect(() => {
-        sendJsonMessage({
-            op: 'register',
-        });
-    }, []);
-
-    React.useEffect(() => {
-        if (lastJsonMessage !== null) {
-            console.log(`Received general WebSocket message: ${lastJsonMessage}`);
-            const message: WebSocketMessage = lastJsonMessage as WebSocketMessage;
-
-            if (message.op === 'error') {
-                const errorMessage: ErrorMessage = message.payload as ErrorMessage;
-                toast((t) => (
-                    <Alert variant="danger" title={errorMessage.errorName} ouiaId="DangerAlert">
-                        {errorMessage.errorMessage}
-                    </Alert>
-                ));
-            }
-        }
-    }, [lastJsonMessage]);
-
-    const handleThemeToggleClick = (event) => {
-        const id = event.currentTarget.id;
-        setIsSelected(id);
-
-        if ((id === lightModeButtonId && darkMode) || (id == darkModeButtonId && !darkMode)) {
-            toggleDarkMode();
-        }
-    };
-
-    const Header = (
-        <Masthead>
-            <MastheadMain>
-                <MastheadBrand>
-                    <Brand src={logo} alt="Workload Driver Logo" heights={{ default: '36px' }} />
-                </MastheadBrand>
-                <MastheadContent>
-                    <Flex direction={{ default: 'row' }}>
-                        <FlexItem>
-                            <div className="pf-v5-theme-dark">
-                                <ToggleGroup>
-                                    <ToggleGroupItem
-                                        aria-label={lightModeId}
-                                        id={lightModeId}
-                                        buttonId={lightModeButtonId}
-                                        icon={<SunIcon />}
-                                        onChange={handleThemeToggleClick}
-                                        isSelected={isSelected === lightModeButtonId}
-                                    />
-                                    <ToggleGroupItem
-                                        aria-label={darkModeId}
-                                        id={darkModeId}
-                                        buttonId={darkModeButtonId}
-                                        icon={<MoonIcon />}
-                                        onChange={handleThemeToggleClick}
-                                        isSelected={isSelected === darkModeButtonId}
-                                    />
-                                </ToggleGroup>
-                            </div>
-                        </FlexItem>
-
-                        <FlexItem>
-                            <Tooltip content="Cause the Cluster Gateway to panic.">
-                                <Button
-                                    isDanger
-                                    variant="secondary"
-                                    icon={<SkullCrossbonesIcon />}
-                                    onClick={() => {
-                                        const requestOptions = {
-                                            method: 'POST',
-                                        };
-
-                                        fetch('api/panic', requestOptions);
-                                    }}
-                                >
-                                    Induce a Panic
-                                </Button>
-                            </Tooltip>
-                        </FlexItem>
-
-                        <FlexItem>
-                            <Tooltip content="Prompt the server to broadcast a fake error for testing/debugging purposes.">
-                                <Button
-                                    isDanger
-                                    variant="secondary"
-                                    icon={<SkullCrossbonesIcon />}
-                                    onClick={() => {
-                                        const requestOptions = {
-                                            method: 'POST',
-                                        };
-
-                                        fetch('api/spoof-error', requestOptions);
-                                    }}
-                                >
-                                    Generate Fake Error Message
-                                </Button>
-                            </Tooltip>
-                        </FlexItem>
-                    </Flex>
-                </MastheadContent>
-            </MastheadMain>
-        </Masthead>
-    );
-
     const pageId = 'primary-app-container';
 
     const PageSkipToContent = (
@@ -159,7 +23,7 @@ const AppLayout: React.FunctionComponent<IAppLayout> = ({ children }) => {
         </SkipToContent>
     );
     return (
-        <Page mainContainerId={pageId} header={Header} skipToContent={PageSkipToContent}>
+        <Page mainContainerId={pageId} header={<AppHeader />} skipToContent={PageSkipToContent}>
             {children}
         </Page>
     );

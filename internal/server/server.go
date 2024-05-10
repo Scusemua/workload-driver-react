@@ -176,12 +176,39 @@ func (s *serverImpl) setupRoutes() error {
 			}
 
 			s.logger.Debug("Broadcasting spoofed error message.", zap.Int("num-recipients", len(s.generalWebsockets)))
-			for _, conn := range s.generalWebsockets {
+
+			toRemove := make([]string, 0)
+
+			for remote_ip, conn := range s.generalWebsockets {
+				s.logger.Debug("Writing message to general WebSocket.", zap.String("remote-addr", remote_ip))
 				err := conn.WriteJSON(message)
 				if err != nil {
-					s.logger.Debug("Failed to write spoofed error to WebSocket.", zap.Any("remote-addr", conn.RemoteAddr()), zap.Error(err))
+					s.logger.Debug("Failed to write spoofed error to WebSocket.", zap.String("remote-addr", remote_ip), zap.Error(err))
+
+					if _, ok := err.(*websocket.CloseError); ok || err == websocket.ErrCloseSent {
+						s.logger.Debug("Will remove general WebSocket.", zap.String("remote-addr", remote_ip))
+						toRemove = append(toRemove, remote_ip)
+					} else {
+						s.logger.Debug("Cannot remove general WebSocket. Error is not a CloseError...", zap.String("remote-addr", remote_ip))
+					}
+				} else {
+					s.logger.Debug("Successfully wrote message to general WebSocket.", zap.String("remote-addr", remote_ip))
 				}
 			}
+
+			for _, remote_ip := range toRemove {
+				s.logger.Warn("Removing general WebSocket connection.", zap.String("remote_ip", remote_ip))
+
+				ws := s.generalWebsockets[remote_ip]
+				err := ws.Close()
+				if err != nil {
+					s.logger.Error("Error closing websocket.", zap.String("remote_ip", remote_ip), zap.Error(err))
+				}
+
+				delete(s.generalWebsockets, remote_ip)
+			}
+
+			ctx.Status(http.StatusOK)
 		})
 	}
 
@@ -309,18 +336,14 @@ func (s *serverImpl) serveGeneralWebsocket(c *gin.Context) {
 	defer conn.Close()
 
 	var concurrentConn domain.ConcurrentWebSocket = newConcurrentWebSocket(conn)
-	s.generalWebsockets[concurrentConn.RemoteAddr().String()] = concurrentConn
+	remote_ip := concurrentConn.RemoteAddr().String()
+	s.generalWebsockets[remote_ip] = concurrentConn
 
 	for {
 		_, message, err := concurrentConn.ReadMessage()
 		if err != nil {
-			s.logger.Error("Error while reading message from websocket.", zap.Error(err))
-			// if _, ok := err.(*websocket.CloseError); ok {
-			// 	break
-			// } else {
-			// 	time.Sleep(time.Millisecond * 100)
-			// 	continue
-			// }
+			s.logger.Error("Error while reading message from general websocket.", zap.Error(err))
+			delete(s.generalWebsockets, remote_ip)
 			break
 		}
 
@@ -350,6 +373,10 @@ func (s *serverImpl) serveGeneralWebsocket(c *gin.Context) {
 		}
 
 		s.logger.Debug("Received general WebSocket message.", zap.Any("op", op_val), zap.Any("message-id", msgIdVal))
+
+		var resp map[string]string = make(map[string]string)
+		resp["message"] = fmt.Sprintf("Hello there, WebSocket %s.", remote_ip)
+		conn.WriteJSON(resp)
 	}
 }
 
@@ -379,19 +406,13 @@ func (s *serverImpl) serveLogWebsocket(c *gin.Context) {
 			s.logger.Error("Error while reading message from websocket.", zap.Error(err), zap.String("connection-id", connectionId))
 
 			s.logResponseBodyMutex.RLock()
+			responseBody, ok := s.getLogsResponseBodies[connectionId]
+			s.logResponseBodyMutex.RUnlock()
 			// If we're already processing a get_logs request for this websocket, then terminate that request.
-			if responseBody, ok := s.getLogsResponseBodies[connectionId]; ok {
+			if ok {
 				responseBody.Close()
 			}
-			s.logResponseBodyMutex.RUnlock()
 			break
-
-			// if _, ok := err.(*websocket.CloseError); ok {
-			// 	break
-			// } else {
-			// 	time.Sleep(time.Millisecond * 100)
-			// 	continue
-			// }
 		}
 
 		var request map[string]interface{}
@@ -675,7 +696,7 @@ func (s *serverImpl) broadcastToWorkloadWebsockets(payload []byte) []error {
 			s.logger.Error("Error while broadcasting websocket message.", zap.Error(err))
 			errors = append(errors, err)
 
-			if _, ok := err.(*websocket.CloseError); ok {
+			if _, ok := err.(*websocket.CloseError); ok || err == websocket.ErrCloseSent {
 				toRemove = append(toRemove, conn)
 			}
 		}
@@ -986,8 +1007,9 @@ func (s *serverImpl) serveJupyterWebsocketProxy(wg *sync.WaitGroup) {
 }
 
 type concurrentWebSocketImpl struct {
-	sync.Mutex
-	conn *websocket.Conn
+	rlock sync.Mutex
+	wlock sync.Mutex
+	conn  *websocket.Conn
 }
 
 func newConcurrentWebSocket(conn *websocket.Conn) domain.ConcurrentWebSocket {
@@ -998,40 +1020,49 @@ func newConcurrentWebSocket(conn *websocket.Conn) domain.ConcurrentWebSocket {
 
 // WriteJSON writes the JSON encoding of v as a message.
 func (w *concurrentWebSocketImpl) WriteJSON(v interface{}) error {
-	w.Lock()
-	defer w.Unlock()
+	log.Printf("Preparing to write JSON message. Acquiring lock...\n")
+	w.wlock.Lock()
+	defer w.wlock.Unlock()
 
+	log.Printf("Preparing to write JSON message. Successfully acquired lock...\n")
 	return w.conn.WriteJSON(v)
+}
+
+// Close the websocket.
+func (w *concurrentWebSocketImpl) Close() error {
+	log.Printf("Preparing to close websocket. Acquiring lock...\n")
+
+	log.Printf("Preparing to close websocket. Successfully acquired lock...\n")
+	return w.conn.Close()
 }
 
 // WriteMessage is a helper method for getting a writer using NextWriter, writing the message and closing the writer.
 func (w *concurrentWebSocketImpl) WriteMessage(messageType int, data []byte) error {
-	w.Lock()
-	defer w.Unlock()
+	log.Printf("Preparing to write %v message. Acquiring lock...\n", messageType)
+	w.wlock.Lock()
+	defer w.wlock.Unlock()
 
+	log.Printf("Preparing to write %v message. Successfully acquired lock...\n", messageType)
 	return w.conn.WriteMessage(messageType, data)
 }
 
 // ReadJSON reads the next JSON-encoded message from the connection and stores it in the value pointed to by v.
 func (w *concurrentWebSocketImpl) ReadJSON(v interface{}) error {
-	w.Lock()
-	defer w.Unlock()
+	w.rlock.Lock()
+	defer w.rlock.Unlock()
 
 	return w.conn.ReadJSON(v)
 }
 
 // ReadMessage is a helper method for getting a reader using NextReader and reading from that reader to a buffer.
 func (w *concurrentWebSocketImpl) ReadMessage() (messageType int, p []byte, err error) {
-	w.Lock()
-	defer w.Unlock()
+	w.rlock.Lock()
+	defer w.rlock.Unlock()
 
 	return w.conn.ReadMessage()
 }
 
 // RemoteAddr returns the remote network address.
 func (w *concurrentWebSocketImpl) RemoteAddr() net.Addr {
-	w.Lock()
-	defer w.Unlock()
-
 	return w.conn.RemoteAddr()
 }

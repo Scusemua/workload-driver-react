@@ -872,7 +872,7 @@ func (d *workloadDriverImpl) handleEvent(evt domain.Event) error {
 			return ErrNoKernelConnection
 		}
 
-		err := kernelConnection.StopRunningTrainingCode()
+		err := kernelConnection.StopRunningTrainingCode(true)
 		if err != nil {
 			d.logger.Error("Error while attempting to stop training.", zap.String(ZapSessionIDKey, internalSessionId), zap.Error(err))
 		} else {

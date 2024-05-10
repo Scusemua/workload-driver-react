@@ -92,6 +92,11 @@ func (r *WorkloadRegistrationRequestWrapper) String() string {
 	return string(out)
 }
 
+type StopTrainingRequest struct {
+	KernelId  string `json:"kernel_id"`  // The ID of the kernel to target (i.e., to stop training).
+	SessionId string `json:"session_id"` // The associated session.
+}
+
 // Whether this pauses or unpauses a workload depends on the value of the Operation field.
 type PauseUnpauseWorkloadRequest struct {
 	*BaseMessage

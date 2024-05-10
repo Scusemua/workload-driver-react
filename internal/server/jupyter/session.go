@@ -130,7 +130,7 @@ type SessionConnection struct {
 // Create a new SessionConnection.
 //
 // We do not return until we've successfully connected to the kernel.
-func NewSessionConnection(model *jupyterSession, jupyterServerAddress string, atom *zap.AtomicLevel) (*SessionConnection, error) {
+func NewSessionConnection(model *jupyterSession, username string, jupyterServerAddress string, atom *zap.AtomicLevel) (*SessionConnection, error) {
 	conn := &SessionConnection{
 		model:                model,
 		jupyterServerAddress: jupyterServerAddress,
@@ -142,24 +142,24 @@ func NewSessionConnection(model *jupyterSession, jupyterServerAddress string, at
 
 	conn.sugaredLogger = conn.logger.Sugar()
 
-	err := conn.connectToKernel()
+	err := conn.connectToKernel(username)
 	if err != nil && err != ErrAlreadyConnectedToKernel {
 		return nil, err
 	}
 
-	conn.logger.Debug("Successfully connected to kernel.", zap.String("kernel-id", model.JupyterKernel.Id))
+	conn.logger.Debug("Successfully connected to kernel (as part of a SessionConnection).", zap.String("kernel-id", model.JupyterKernel.Id), zap.String("session-id", model.JupyterSessionId))
 
 	return conn, err
 }
 
 // Side-effect: set the `kernel` field of the SessionConnection.
-func (conn *SessionConnection) connectToKernel() error {
+func (conn *SessionConnection) connectToKernel(username string) error {
 	if conn.kernel != nil {
 		return ErrAlreadyConnectedToKernel
 	}
 
 	var err error
-	conn.kernel, err = NewKernelConnection(conn.model.JupyterKernel.Id, conn.model.JupyterSessionId, conn.atom, conn.jupyterServerAddress)
+	conn.kernel, err = NewKernelConnection(conn.model.JupyterKernel.Id, conn.model.JupyterSessionId, username, conn.jupyterServerAddress, conn.atom)
 	return err // Will be nil if everything went OK.
 }
 
