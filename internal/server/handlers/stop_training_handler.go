@@ -75,12 +75,12 @@ func (h *StopTrainingHandler) HandleRequest(c *gin.Context) {
 	}
 
 	h.sugaredLogger.Debugf("Issuing 'stop-training' message to kernel %s now.", req.KernelId)
-	err = kernelConnection.StopRunningTrainingCode(true)
-	if err != nil {
-		h.logger.Error("Failed to stop training.", zap.String("kernel_id", req.KernelId), zap.String("session_id", req.SessionId), zap.Error(err))
-		c.AbortWithError(http.StatusInternalServerError, err)
-		return
-	}
+	// err = kernelConnection.StopRunningTrainingCode(true)
+	// if err != nil {
+	// 	h.logger.Error("Failed to stop training.", zap.String("kernel_id", req.KernelId), zap.String("session_id", req.SessionId), zap.Error(err))
+	// 	c.AbortWithError(http.StatusInternalServerError, err)
+	// 	return
+	// }
 
 	h.logger.Debug("Successfully stopped training.", zap.String("kernel_id", req.KernelId), zap.String("session_id", req.SessionId))
 }

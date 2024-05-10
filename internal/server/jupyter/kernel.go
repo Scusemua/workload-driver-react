@@ -232,6 +232,8 @@ func (conn *kernelConnectionImpl) InterruptKernel() error {
 		return ErrKernelIsDead
 	}
 
+	conn.logger.Debug("Attempting to Interrupt kernel.", zap.String("kernel_id", conn.kernelId))
+
 	var requestBody map[string]interface{} = make(map[string]interface{})
 	requestBody["kernel_id"] = conn.kernelId
 
@@ -365,6 +367,7 @@ func (conn *kernelConnectionImpl) updateConnectionStatus(status KernelConnection
 	success := false
 	max_num_tries := 5
 	if conn.connectionStatus == KernelConnected {
+		conn.logger.Debug("Connection status is being updated to 'connected'. Attempting to retrieve kernel info.", zap.String("kernel_id", conn.kernelId))
 		st := time.Now()
 
 		num_tries := 0
@@ -373,28 +376,26 @@ func (conn *kernelConnectionImpl) updateConnectionStatus(status KernelConnection
 		var err error
 
 		for num_tries <= max_num_tries {
-			time.Sleep(time.Duration(1.5*float64(num_tries)) * time.Second) // Will be 0 initially.
 			statusMessage, err = conn.RequestKernelInfo()
 			if err != nil {
 				num_tries += 1
+				conn.sugaredLogger.Errorf("Attempt %d/%d to request-info from kernel %s FAILED. Error: %s", num_tries, max_num_tries, conn.kernelId, err)
+				time.Sleep(time.Duration(1.5*float64(num_tries)) * time.Second)
 				continue
 			} else {
 				success = true
+				conn.logger.Debug("Successfully retrieved kernel info on connected-status-changed.", zap.String("kernel-info", statusMessage.String()), zap.Duration("time-elapsed", time.Since(st)))
 				break
 			}
 		}
 
-		if err != nil {
-			conn.logger.Error("We've supposedly connected, but the 'request-info' request FAILED.", zap.Error(err), zap.Duration("time-elapsed", time.Since(st)))
-		} else {
-			conn.logger.Debug("Successfully retrieved kernel info on connected-status-changed.", zap.String("kernel-info", statusMessage.String()), zap.Duration("time-elapsed", time.Since(st)))
+		if !success {
+			conn.sugaredLogger.Errorf("Failed to successfully 'request-info' from kernel %s after %d attempts.", conn.kernelId, max_num_tries)
+			conn.connectionStatus = KernelDisconnected
 		}
 	}
 
-	if !success {
-		conn.sugaredLogger.Errorf("Failed to successfully 'request-info' from kernel %s after %d attempts.", conn.kernelId, max_num_tries)
-		conn.connectionStatus = KernelDisconnected
-	}
+	conn.sugaredLogger.Debugf("Kernel %s connection status set to '%s'", conn.kernelId, conn.connectionStatus)
 }
 
 // Side-effect: updates the kernelConnectionImpl's `webSocket` field.
@@ -439,17 +440,6 @@ func (conn *kernelConnectionImpl) setupWebsocket(jupyterServerAddress string) er
 	}
 	conn.webSocket.SetCloseHandler(conn.websocketClosed)
 
-	// conn.model, err = conn.getKernelModel()
-	// if err != nil {
-	// 	if errors.Is(err, ErrNetworkIssue) {
-	// 		conn.updateConnectionStatus(KernelDisconnected)
-	// 		return fmt.Errorf("ErrWebsocketCreationFailed %w : %s", ErrWebsocketCreationFailed, err.Error())
-	// 	} else {
-	// 		conn.updateConnectionStatus(KernelDead)
-	// 		return fmt.Errorf("ErrWebsocketCreationFailed %w : %s", ErrWebsocketCreationFailed, err.Error())
-	// 	}
-	// }
-
 	conn.updateConnectionStatus(KernelConnected)
 	return nil
 }
@@ -458,6 +448,8 @@ func (conn *kernelConnectionImpl) websocketClosed(code int, text string) error {
 	if conn.originalWebsocketCloseHandler == nil {
 		panic("Original websocket close-handler is not set.")
 	}
+
+	conn.sugaredLogger.Warn("WebSocket::Closed handler called for kernel %s.", conn.kernelId)
 
 	// Try to get the model.
 	model, err := conn.getKernelModel()
@@ -519,6 +511,8 @@ func (conn *kernelConnectionImpl) reconnect() bool {
 }
 
 func (conn *kernelConnectionImpl) getKernelModel() (*jupyterKernel, error) {
+	conn.logger.Debug("Retrieving kernel model via HTTP Rest API.", zap.String("kernelId", conn.kernelId))
+
 	url := fmt.Sprintf("http://%s/api/kernels/%s", conn.jupyterServerAddress, conn.kernelId)
 	req, err := http.NewRequest(http.MethodGet, url, nil)
 	if err != nil {
