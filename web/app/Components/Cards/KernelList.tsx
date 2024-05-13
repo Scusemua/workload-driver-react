@@ -102,7 +102,7 @@ export interface KernelListProps {
 
 export const KernelList: React.FunctionComponent<KernelListProps> = (props: KernelListProps) => {
     const [searchValue, setSearchValue] = React.useState('');
-    const [statusSelections, setStatusSelections] = React.useState<string[]>([]);
+    const [statusSelections] = React.useState<string[]>([]); // setStatusSelections
     const [expandedKernels, setExpandedKernels] = React.useState<string[]>([]);
     const [isConfirmCreateModalOpen, setIsConfirmCreateModalOpen] = React.useState(false);
     const [isConfirmDeleteKernelsModalOpen, setIsConfirmDeleteKernelsModalOpen] = React.useState(false);

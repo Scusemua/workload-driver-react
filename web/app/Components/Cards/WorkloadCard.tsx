@@ -226,8 +226,8 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
         );
     };
 
-    const onPauseWorkloadClicked = (_workload: Workload) => {
-        toast('Pausing workload...');
+    const onPauseWorkloadClicked = (workload: Workload) => {
+        toast(`Pausing workload ${workload.name} (ID=${workload.id}) now...`);
     };
 
     const onStopWorkloadClicked = (workload: Workload) => {

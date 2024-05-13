@@ -26,7 +26,7 @@ import {
 import { BugIcon, LaptopCodeIcon, ServerAltIcon, ServerGroupIcon, SyncIcon } from '@patternfly/react-icons';
 import { toast } from 'react-hot-toast';
 import { BrowserDebugConsoleLogView, KubernetesPodLogView } from '@cards/LogViewCard/Views/';
-import { KernelLogTabContent, LocalDaemonLogTabContent } from '@cards/LogViewCard/TabContent';
+import { GatewayLogTabContent, KernelLogTabContent, LocalDaemonLogTabContent } from '@cards/LogViewCard/TabContent';
 import { usePodNames } from '@app/Providers';
 import { CloudServerIcon } from '@app/Icons';
 
@@ -257,7 +257,7 @@ export const LogViewCard: React.FunctionComponent = () => {
                             }
                             tabContentId={`cluster-gateway-logs-tab-content`}
                         >
-                            {gatewayPod !== '' && (
+                            {/* {gatewayPod !== '' && (
                                 <KubernetesPodLogView
                                     podName={gatewayPod}
                                     containerName={'gateway'}
@@ -265,6 +265,12 @@ export const LogViewCard: React.FunctionComponent = () => {
                                     convertToHtml={false}
                                     signal={abortController.current?.signal}
                                     height={logHeight}
+                                />
+                            )} */}
+                            {gatewayPod !== '' && (
+                                <GatewayLogTabContent
+                                    abortController={abortController.current}
+                                    gatewayPodName={gatewayPod}
                                 />
                             )}
                         </Tab>

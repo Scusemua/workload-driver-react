@@ -88,7 +88,7 @@ export const AppHeader: React.FunctionComponent = () => {
             op: 'register',
             msg_id: uuidv4(),
         });
-    }, []);
+    }, [sendJsonMessage]);
 
     React.useEffect(() => {
         if (lastMessage !== null) {
