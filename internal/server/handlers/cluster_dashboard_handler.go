@@ -59,7 +59,7 @@ func NewClusterDashboardHandler(opts *domain.Configuration, shouldConnect bool, 
 		clusterDashboardHandlerPort: opts.ClusterDashboardHandlerPort,
 		gatewayAddress:              opts.GatewayAddress,
 		setupInProgress:             0,
-		errorCallback: 				 errorCallback,
+		errorCallback:               errorCallback,
 	}
 
 	var err error
@@ -169,30 +169,30 @@ func (h *ClusterDashboardHandler) setupRpcResources(gatewayAddress string) error
 	h.logger.Info("ClusterDashboardHandler listening for gRPC.", zap.Any("address", lis.Addr()))
 
 	start := time.Now()
-	connectionTimeout := time.Second * 5
+	connectionTimeout := time.Second * 30 // How long each individual connection attempt should last before timing-out.
+	totalTimeout := time.Minute * 5       // How long to keep trying to connect over-and-over before completely giving up and panicking.
 	var connectedToGateway bool = false
 	var numAttempts int = 1
 	var gatewayConn net.Conn
-	for !connectedToGateway && time.Since(start) < (time.Minute*1) {
-		h.sugaredLogger.Debugf("Attempt #%d to connect to Gateway at %s. Connection timeout: %v.", numAttempts, gatewayAddress, connectionTimeout)
+	for !connectedToGateway && time.Since(start) < (totalTimeout) {
+		h.sugaredLogger.Debugf("Attempt #%d to connect to Gateway at %s. Connection timeout: %v. Time elapsed: %v.", numAttempts, gatewayAddress, connectionTimeout, time.Since(start))
 		gatewayConn, err = net.DialTimeout("tcp", gatewayAddress, connectionTimeout)
 
 		if err != nil {
-			h.sugaredLogger.Warnf("Failed to connect to provisioner at %s on attempt #%d: %v", gatewayAddress, numAttempts, err)
+			h.sugaredLogger.Warnf("Failed to connect to provisioner at %s on attempt #%d: %v. Time elapsed: %v.", gatewayAddress, numAttempts, err, time.Since(start))
 			numAttempts += 1
 			time.Sleep(time.Second * 3)
 		} else {
 			connectedToGateway = true
-			h.logger.Debug("Successfully connected to Gateway.", zap.String("gateway-address", gatewayAddress))
+			h.logger.Debug("Successfully connected to Gateway.", zap.String("gateway-address", gatewayAddress), zap.Duration("time-elapsed", time.Since(start)))
 		}
 	}
 
 	if !connectedToGateway {
-		h.sugaredLogger.Errorf("Failed to connect to Gateway after %d attempts.", numAttempts)
+		h.sugaredLogger.Errorf("Failed to connect to Gateway after %d attempts. Time elapsed: %v.", numAttempts, time.Since(start))
 		h.exitSetup()
 		return ErrFailedToConnect
 	}
-	// defer gatewayConn.Close()
 
 	// Initialize provisioner and wait for ready
 	provisioner, err := newConnectionProvisioner(gatewayConn)
@@ -206,7 +206,8 @@ func (h *ClusterDashboardHandler) setupRpcResources(gatewayAddress string) error
 	go func() {
 		defer h.finalize(true)
 		num_tries := 0
-		for num_tries < 5 {
+		max_num_attempts := 5
+		for num_tries < max_num_attempts {
 			provisioner.logger.Debug("Trying to connect.", zap.Int("attempt-number", num_tries+1))
 			if err := h.srv.Serve(provisioner); err != nil {
 				provisioner.logger.Error("Failed to serve reverse connection.", zap.Int("attempt-number", num_tries+1), zap.Error(err))
@@ -216,7 +217,7 @@ func (h *ClusterDashboardHandler) setupRpcResources(gatewayAddress string) error
 					time.Sleep((time.Millisecond * 1000) * time.Duration(num_tries))
 					continue
 				} else {
-					provisioner.logger.Error("Failed to serve reverse connection after 3 attempts. Aborting.")
+					provisioner.sugaredLogger.Errorf("Failed to serve reverse connection after %d attempts. Aborting.", max_num_attempts)
 					provisioner.failedToConnect <- err
 					return
 				}
