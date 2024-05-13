@@ -11,7 +11,6 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -82,9 +81,9 @@ type kernelSessionManagerImpl struct {
 	sessionMap map[string]*SessionConnection // Map from Session ID to Session. The keys are the Session IDs supplied by us/the trace data.
 }
 
-func NewKernelSessionManager(opts *domain.Configuration, atom *zap.AtomicLevel) *kernelSessionManagerImpl {
+func NewKernelSessionManager(jupyterServerAddress string, atom *zap.AtomicLevel) *kernelSessionManagerImpl {
 	manager := &kernelSessionManagerImpl{
-		jupyterServerAddress:             opts.JupyterServerAddress,
+		jupyterServerAddress:             jupyterServerAddress,
 		metrics:                          &kernelManagerMetricsImpl{},
 		localSessionIdToKernelId:         make(map[string]string),
 		localSessionIdToJupyterSessionId: make(map[string]string),

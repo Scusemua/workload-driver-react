@@ -403,7 +403,7 @@ func (s *serverImpl) serveLogWebsocket(c *gin.Context) {
 	for {
 		_, message, err := conn.ReadMessage()
 		if err != nil {
-			s.logger.Error("Error while reading message from websocket.", zap.Error(err), zap.String("connection-id", connectionId))
+			s.logger.Error("Error while reading message from websocket.", zap.String("connection-id", connectionId), zap.String("error-message", err.Error()))
 
 			s.logResponseBodyMutex.RLock()
 			responseBody, ok := s.getLogsResponseBodies[connectionId]
@@ -545,7 +545,7 @@ func (s *serverImpl) getLogsWebsocket(req *domain.GetLogsRequest, conn *websocke
 
 		err = conn.WriteMessage(websocket.BinaryMessage, buf)
 		if err != nil {
-			s.logger.Error("Error while writing stream response for logs.", zap.String("pod", pod), zap.String("container", container), zap.Error(err), zap.String("connection-id", connectionId))
+			s.logger.Error("Error while writing stream response for logs.", zap.String("pod", pod), zap.String("container", container), zap.String("connection-id", connectionId), zap.String("error_message", err.Error()))
 			return
 		}
 

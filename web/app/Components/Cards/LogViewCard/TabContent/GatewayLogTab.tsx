@@ -6,6 +6,7 @@ import { Tab, TabTitleIcon, TabTitleText, Tabs } from '@patternfly/react-core';
 import { ServerIcon } from '@patternfly/react-icons';
 import { KubernetesPodLogView } from '@cards/LogViewCard/Views/';
 import { LogHeightContext } from '../LogViewCard';
+import { SchedulerIcon } from '@app/Icons';
 
 export interface GatewayLogTabContentProps {
     children?: React.ReactNode;
@@ -61,7 +62,7 @@ export const GatewayLogTabContent: React.FunctionComponent<GatewayLogTabContentP
                 title={
                     <>
                         <TabTitleIcon>
-                            <ServerIcon />
+                            <SchedulerIcon scale={2} />
                         </TabTitleIcon>
                         <TabTitleText>{`2nd Kube Scheduler`}</TabTitleText>
                     </>

@@ -42,20 +42,16 @@ const (
 	// https://github.com/GaetanoCarlucci/CPULoadGenerator/tree/Python3
 	// which could enable us to simulate an actual CPU load based on trace data.
 	TrainingCode = `
-print("Beginning training.")
-run_training_code_mutex.acquire()
-run_training_code = True # Already defined.
-run_training_code_mutex.release()
+import socket, os
+sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+sock.connect(("127.0.0.1", 5555))
+print(f"Connected to local TCP server. Local addr: {sock.getsockname()})
 
-while True:
-	with run_training_code_mutex:
-		if not run_training_code:
-			break 
-	
-	val = 213123
-	_ = val * val
-	val = val + 1
-	time.sleep(0.001)
+sock.recv(1024)
+
+print("Received 'stop' notification. Done training.")
+
+del sock	
 `
 )
 
@@ -152,7 +148,7 @@ func NewWorkloadDriver(opts *domain.Configuration, performClockTicks bool, webso
 		tickDuration:        time.Second * time.Duration(opts.TraceStep),
 		tickDurationSeconds: opts.TraceStep,
 		driverTimescale:     opts.DriverTimescale,
-		kernelManager:       jupyter.NewKernelSessionManager(opts, &atom),
+		kernelManager:       jupyter.NewKernelSessionManager(opts.JupyterServerAddress, &atom),
 		sessionConnections:  make(map[string]*jupyter.SessionConnection),
 		performClockTicks:   performClockTicks,
 		eventQueue:          newEventQueue(&atom),

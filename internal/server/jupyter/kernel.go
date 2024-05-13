@@ -31,6 +31,7 @@ const (
 
 	ExecuteRequest          string = "execute_request"
 	KernelInfoRequest       string = "kernel_info_request"
+	CommCloseMessage        string = "comm_close"
 	StopRunningTrainingCode string = "stop_running_training_code"
 )
 
@@ -112,6 +113,7 @@ func (conn *kernelConnectionImpl) StopRunningTrainingCode(waitForResponse bool) 
 	}
 
 	if waitForResponse {
+		conn.logger.Debug("Waiting for response from `stop_running_training_code` message.", zap.String("kernel-id", conn.kernelId))
 		<-responseChan
 	}
 
@@ -268,6 +270,33 @@ func (conn *kernelConnectionImpl) InterruptKernel() error {
 	return nil
 }
 
+// Close the connection to the kernel.
+func (conn *kernelConnectionImpl) Close() error {
+	message, _ := conn.createKernelMessage(CommCloseMessage, ShellChannel, nil)
+	err := conn.sendMessage(message)
+
+	if err != nil {
+		conn.logger.Error("Failed to send 'comm_closed' message to kernel.", zap.String("kernel_id", conn.kernelId), zap.String("error-message", err.Error()))
+	}
+
+	conn.logger.Warn("Closing WebSocket connection to kernel now.", zap.String("kernel_id", conn.kernelId))
+	err = conn.webSocket.Close()
+
+	if err != nil {
+		conn.logger.Error("Error while closing WebSocket connection to kernel.", zap.String("kernel_id", conn.kernelId), zap.Error(err))
+	}
+
+	return err // Will be nil on success.
+}
+
+func (conn *kernelConnectionImpl) ClientId() string {
+	return conn.clientId
+}
+
+func (conn *kernelConnectionImpl) Username() string {
+	return conn.username
+}
+
 // Listen for messages from the kernel.
 func (conn *kernelConnectionImpl) serveMessages() {
 	for {
@@ -306,14 +335,6 @@ func (conn *kernelConnectionImpl) serveMessages() {
 			responseChannel <- kernelMessage
 		}
 	}
-}
-
-func (conn *kernelConnectionImpl) ClientId() string {
-	return conn.clientId
-}
-
-func (conn *kernelConnectionImpl) Username() string {
-	return conn.username
 }
 
 func (conn *kernelConnectionImpl) createKernelMessage(messageType string, channel KernelSocketChannel, content interface{}) (KernelMessage, chan KernelMessage) {
@@ -449,7 +470,7 @@ func (conn *kernelConnectionImpl) websocketClosed(code int, text string) error {
 		panic("Original websocket close-handler is not set.")
 	}
 
-	conn.sugaredLogger.Warn("WebSocket::Closed handler called for kernel %s.", conn.kernelId)
+	conn.sugaredLogger.Warnf("WebSocket::Closed handler called for kernel %s.", conn.kernelId)
 
 	// Try to get the model.
 	model, err := conn.getKernelModel()

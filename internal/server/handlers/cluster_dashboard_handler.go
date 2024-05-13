@@ -366,7 +366,7 @@ func (p *connectionProvisioner) InitClient(session *yamux.Session) error {
 		grpc.WithContextDialer(func(ctx context.Context, addr string) (net.Conn, error) {
 			conn, err := session.Open()
 			if err != nil {
-				p.sugaredLogger.Errorf("Failed to open CLI session during dial: %v", err)
+				p.sugaredLogger.Errorf("Failed to open CLI session during dial: %s", err.Error())
 			} else {
 				p.sugaredLogger.Debugf("Opened cliSession. conn.LocalAddr(): %v, conn.RemoteAddr(): %v", conn.LocalAddr(), conn.RemoteAddr())
 			}

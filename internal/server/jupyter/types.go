@@ -50,6 +50,9 @@ type KernelConnection interface {
 
 	// Send a `stop_running_training_code` message.
 	StopRunningTrainingCode(waitForResponse bool) error
+
+	// Close the connection to the kernel.
+	Close() error
 }
 
 type KernelSessionManager interface {
