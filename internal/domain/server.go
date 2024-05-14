@@ -46,6 +46,9 @@ const (
 	// Used to tell a kernel to stop training.
 	STOP_TRAINING_ENDPOINT = "/stop-training"
 
+	// Used to specify that the next execution request served by a particular kernel should be yielded.
+	YIELD_NEXT_REQUEST = "/yield-next-request"
+
 	JUPYTER_GROUP_ENDPOINT        = "/jupyter"
 	JUPYTER_START_KERNEL_ENDPOINT = "/start"
 	JUPYTER_STOP_KERNEL_ENDPOINT  = "/stop"

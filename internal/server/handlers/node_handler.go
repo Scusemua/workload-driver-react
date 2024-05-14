@@ -50,7 +50,7 @@ func NewKubeNodeHttpHandler(opts *domain.Configuration, grpcClient *ClusterDashb
 		handler.clientset = handler.createKubernetesClient(opts)
 	}
 
-	handler.logger.Info("Successfully created server-side HTTP handler.")
+	handler.logger.Info("Successfully created server-side KubeNodeHttpHandler handler.")
 
 	return handler
 }

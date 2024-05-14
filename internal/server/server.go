@@ -164,6 +164,8 @@ func (s *serverImpl) setupRoutes() error {
 		// Used to tell a kernel to stop training.
 		apiGroup.POST(domain.STOP_TRAINING_ENDPOINT, handlers.NewStopTrainingHandler(s.opts).HandleRequest)
 
+		apiGroup.POST(domain.YIELD_NEXT_REQUEST, handlers.NewYieldNextExecuteHandler(s.opts, gatewayRpcClient).HandleRequest)
+
 		apiGroup.POST(domain.SPOOF_ERROR, func(ctx *gin.Context) {
 			errorMessage := &gateway.ErrorMessage{
 				ErrorName:    "SpoofedError",

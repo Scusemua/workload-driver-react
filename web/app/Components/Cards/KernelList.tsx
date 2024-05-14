@@ -510,17 +510,6 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         forceFailure: boolean,
         logConsumer: (logMessage: string) => void,
     ) {
-        if (forceFailure) {
-            console.log(
-                `Executing code on kernel ${executeCodeKernel?.kernelId}, but we're forcing a failure:\n${code}`,
-            );
-            targetReplicaId = 0; // -1 is used for "auto", while 0 is never used as an actual ID. So, if we specify 0, then the execution will necessarily fail.
-        } else {
-            console.log(
-                `Executing code on kernel ${executeCodeKernel?.kernelId}, replica ${targetReplicaId}:\n${code}`,
-            );
-        }
-
         const kernelId: string | undefined = executeCodeKernel?.kernelId;
 
         if (kernelId == undefined) {
@@ -532,6 +521,32 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             console.error('Kernel Manager is not available. Will try to connect...');
             initializeKernelManagers();
             return;
+        }
+
+        if (forceFailure) {
+            console.log(
+                `Executing code on kernel ${executeCodeKernel?.kernelId}, but we're forcing a failure:\n${code}`,
+            );
+            // NOTE: We previously just set the target replica ID to 0, but this doesn't enable us to test a subsequent execution, such as when we're testing migrations in static scheduling.
+            // So, we now use a new API that just YIELDs the next request, so that this triggers a migration, and the resubmitted request (after the migration) completes can finish successfully.
+            // targetReplicaId = 0; // -1 is used for "auto", while 0 is never used as an actual ID. So, if we specify 0, then the execution will necessarily fail.
+
+            const req: RequestInit = {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                    // 'Cache-Control': 'no-cache, no-transform, no-store',
+                },
+                body: JSON.stringify({
+                    kernel_id: kernelId,
+                }),
+            };
+
+            fetch('api/yield-next-request', req);
+        } else {
+            console.log(
+                `Executing code on kernel ${executeCodeKernel?.kernelId}, replica ${targetReplicaId}:\n${code}`,
+            );
         }
 
         const kernelConnection: IKernelConnection = kernelManager.current.connectTo({

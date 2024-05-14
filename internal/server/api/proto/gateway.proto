@@ -57,6 +57,10 @@ service DistributedCluster {
   // The function will simply remove the replica from the kernel without stopping it.
   // The caller should stop the replica after confirmed that the new replica is ready.
   rpc MigrateKernelReplica(MigrationRequest) returns (MigrateKernelResponse) {}
+
+  // Ensure that the next 'execute_request' for the specified kernel fails.
+  // This is to be used exclusively for testing/debugging purposes.
+  rpc FailNextExecution(KernelId) returns (Void) {} 
 }
 
 service ClusterDashboard {
@@ -174,6 +178,10 @@ service LocalGateway {
 
   // Return the current vGPU allocations on this node. 
   rpc GetVirtualGpuAllocations(Void) returns (VirtualGpuAllocations) {}
+
+  // Ensure that the next 'execute_request' for the specified kernel fails.
+  // This is to be used exclusively for testing/debugging purposes.
+  rpc YieldNextExecution(KernelId) returns (Void) {} 
 }
 
 // message GetKubernetesNodesResponse {
