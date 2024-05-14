@@ -9,6 +9,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/enriquebris/goconcurrentqueue"
 	"github.com/gin-gonic/gin"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
 	gateway "github.com/scusemua/workload-driver-react/m/v2/internal/server/api/proto"
@@ -25,8 +26,9 @@ type KubeNodeHttpHandler struct {
 	*BaseHandler
 	grpcClient *ClusterDashboardHandler
 
-	clientset *kubernetes.Clientset
-	spoof     bool
+	clientsets goconcurrentqueue.Queue
+	clientset  *kubernetes.Clientset
+	spoof      bool
 }
 
 func NewKubeNodeHttpHandler(opts *domain.Configuration, grpcClient *ClusterDashboardHandler) domain.BackendHttpGetPatchHandler {
@@ -38,13 +40,14 @@ func NewKubeNodeHttpHandler(opts *domain.Configuration, grpcClient *ClusterDashb
 		BaseHandler: newBaseHandler(opts),
 		grpcClient:  grpcClient,
 		spoof:       opts.SpoofKubeNodes,
+		clientsets:  goconcurrentqueue.NewFixedFIFO(128),
 	}
 	handler.BackendHttpGetHandler = handler
 
 	handler.logger.Info("Creating server-side KubeNodeHttpHandler.")
 
 	if !opts.SpoofKubeNodes {
-		handler.createKubernetesClient(opts)
+		handler.clientset = handler.createKubernetesClient(opts)
 	}
 
 	handler.logger.Info("Successfully created server-side HTTP handler.")
@@ -52,7 +55,7 @@ func NewKubeNodeHttpHandler(opts *domain.Configuration, grpcClient *ClusterDashb
 	return handler
 }
 
-func (h *KubeNodeHttpHandler) createKubernetesClient(opts *domain.Configuration) {
+func (h *KubeNodeHttpHandler) createKubernetesClient(opts *domain.Configuration) *kubernetes.Clientset {
 	if opts.InCluster {
 		// creates the in-cluster config
 		config, err := rest.InClusterConfig()
@@ -66,7 +69,7 @@ func (h *KubeNodeHttpHandler) createKubernetesClient(opts *domain.Configuration)
 			panic(err.Error())
 		}
 
-		h.clientset = clientset
+		return clientset
 	} else {
 		// use the current context in kubeconfig
 		config, err := clientcmd.BuildConfigFromFlags("", opts.KubeConfig)
@@ -80,8 +83,24 @@ func (h *KubeNodeHttpHandler) createKubernetesClient(opts *domain.Configuration)
 			panic(err.Error())
 		}
 
-		h.clientset = clientset
+		return clientset
 	}
+}
+
+func (h *KubeNodeHttpHandler) getOrCreateClientset() *kubernetes.Clientset {
+	// Use a cached clientset if one is available.
+	var clientset *kubernetes.Clientset
+	val, err := h.clientsets.Dequeue()
+	if err != nil {
+		// We create a new clientset here, rather than reuse the clientset of the handler, as this method
+		// is called in an individual goroutine for each node. We want to be able to issue the requests
+		// in parallel, so we want each thread to have its own clientset.
+		clientset = h.createKubernetesClient(h.opts)
+	} else {
+		clientset = val.(*kubernetes.Clientset)
+	}
+
+	return clientset
 }
 
 func (h *KubeNodeHttpHandler) parseKubernetesNode(node *corev1.Node, actualGpuInformation *gateway.ClusterActualGpuInfo) (*domain.KubernetesNode, error) {
@@ -104,8 +123,10 @@ func (h *KubeNodeHttpHandler) parseKubernetesNode(node *corev1.Node, actualGpuIn
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*15)
 	defer cancel()
 
+	clientset := h.getOrCreateClientset()
+
 	st := time.Now()
-	pods, err := h.clientset.CoreV1().Pods("default").List(ctx, metav1.ListOptions{
+	pods, err := clientset.CoreV1().Pods("default").List(ctx, metav1.ListOptions{
 		FieldSelector: "spec.nodeName=" + node.Name,
 	})
 	if err != nil {
@@ -151,7 +172,7 @@ func (h *KubeNodeHttpHandler) parseKubernetesNode(node *corev1.Node, actualGpuIn
 		return kubePods[i].PodName < kubePods[j].PodName
 	})
 
-	podsOnNode, err := h.clientset.CoreV1().Pods("default").List(context.TODO(), metav1.ListOptions{
+	podsOnNode, err := clientset.CoreV1().Pods("default").List(context.TODO(), metav1.ListOptions{
 		FieldSelector: fmt.Sprintf("spec.nodeName=%s", node.Name),
 	})
 	if err != nil {
@@ -208,6 +229,11 @@ func (h *KubeNodeHttpHandler) parseKubernetesNode(node *corev1.Node, actualGpuIn
 		Enabled:            !schedulingDisabled && !executionDisabled,
 		AllocatedResources: allocatedResources,
 		CapacityResources:  capacityResources,
+	}
+
+	err = h.clientsets.Enqueue(clientset)
+	if err != nil {
+		h.logger.Error("Failed to cache clientset.", zap.Error(err))
 	}
 
 	return parsedNode, nil

@@ -42,16 +42,22 @@ const (
 	// https://github.com/GaetanoCarlucci/CPULoadGenerator/tree/Python3
 	// which could enable us to simulate an actual CPU load based on trace data.
 	TrainingCode = `
+# This is the code we run in a notebook cell to simulate training.
 import socket, os
 sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
+
+# Connect to the kernel's TCP socket.
 sock.connect(("127.0.0.1", 5555))
 print(f"Connected to local TCP server. Local addr: {sock.getsockname()})
 
+# Blocking call.
+# When training ends, the kernel will be sent a notification. 
+# It will then send us a message, unblocking us here and allowing to finish the cell execution.
 sock.recv(1024)
 
 print("Received 'stop' notification. Done training.")
 
-del sock	
+del sock
 `
 )
 

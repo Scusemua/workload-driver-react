@@ -28,6 +28,10 @@ export interface UtilizationCardProps {
     chartHeight?: number;
 }
 
+function roundToTwo(num: number) {
+    return +(Math.round(num + 'e+2') + 'e-2');
+}
+
 export const UtilizationCard: React.FunctionComponent<UtilizationCardProps> = (props: UtilizationCardProps) => {
     const { refreshNodes, nodesAreLoading } = useNodes();
     const [randomizeUtilizations, setRandomizeUtilizations] = React.useState(false);
@@ -57,7 +61,7 @@ export const UtilizationCard: React.FunctionComponent<UtilizationCardProps> = (p
                                     refreshNodes(),
                                     {
                                         loading: <b>Refreshing cluster resource utilization data...</b>,
-                                        success: (
+                                        success: () => (
                                             <div>
                                                 <Flex
                                                     direction={{ default: 'column' }}
@@ -68,7 +72,7 @@ export const UtilizationCard: React.FunctionComponent<UtilizationCardProps> = (p
                                                     </FlexItem>
                                                     <FlexItem>
                                                         <Text component={TextVariants.small}>
-                                                            Time elapsed: {performance.now() - st} seconds.
+                                                            Time elapsed: {roundToTwo(performance.now() - st)} ms.
                                                         </Text>
                                                     </FlexItem>
                                                 </Flex>

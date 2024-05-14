@@ -12,13 +12,13 @@ require (
 	github.com/imdario/mergo v0.3.6
 	github.com/joho/godotenv v1.5.1
 	github.com/koding/websocketproxy v0.0.0-20181220232114-7ed82d81a28c
+	github.com/mattn/go-colorable v0.1.13
 	github.com/mitchellh/mapstructure v1.5.0
 	github.com/onsi/ginkgo/v2 v2.13.0
 	github.com/onsi/gomega v1.29.0
 	github.com/orcaman/concurrent-map/v2 v2.0.1
 	github.com/zhangjyr/gocsv v1.0.1
 	go.uber.org/zap v1.27.0
-	github.com/mattn/go-colorable v0.1.13
 	golang.org/x/sys v0.16.0
 	google.golang.org/grpc v1.62.0
 	google.golang.org/protobuf v1.32.0
@@ -33,7 +33,10 @@ require (
 	github.com/shopspring/decimal v1.4.0
 )
 
-require github.com/dchest/siphash v1.1.0 // indirect
+require (
+	github.com/dchest/siphash v1.1.0 // indirect
+	github.com/enriquebris/goconcurrentqueue v0.7.0 // indirect
+)
 
 require (
 	dario.cat/mergo v1.0.0 // indirect

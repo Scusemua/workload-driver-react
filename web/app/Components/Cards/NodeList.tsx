@@ -64,6 +64,10 @@ export interface NodeListProps {
     displayNodeToggleSwitch: boolean; // If true, show the Switch that is used to enable/disable the node.
 }
 
+function roundToTwo(num: number) {
+    return +(Math.round(num + 'e+2') + 'e-2');
+}
+
 export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props: NodeListProps) => {
     const [searchValue, setSearchValue] = React.useState('');
     const [expandedNodes, setExpandedNodes] = React.useState<string[]>([]);
@@ -215,7 +219,7 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
     // The message displayed in a Toast when a node refresh completes successfully.
     const successfulRefreshMessage = (st: number) => {
         const et: number = performance.now();
-        console.log(`Successful refresh. Start time: ${st}. End time: ${et}. Time elapsed: ${et - st}.`);
+        console.log(`Successful refresh. Start time: ${st}. End time: ${et}. Time elapsed: ${et - st} ms.`);
         return (
             <div>
                 <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
@@ -223,7 +227,7 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                         <b>Refreshed Kubernetes nodes.</b>
                     </FlexItem>
                     <FlexItem>
-                        <Text component={TextVariants.small}>Time elapsed: {et - st} seconds.</Text>
+                        <Text component={TextVariants.small}>Time elapsed: {roundToTwo(et - st)} ms.</Text>
                     </FlexItem>
                 </Flex>
             </div>
@@ -317,7 +321,7 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                                     refreshNodes(),
                                     {
                                         loading: <b>Refreshing Kubernetes nodes...</b>,
-                                        success: successfulRefreshMessage(st),
+                                        success: () => successfulRefreshMessage(st),
                                         error: (reason: Error) => failedRefreshMessage(reason),
                                     },
                                     {

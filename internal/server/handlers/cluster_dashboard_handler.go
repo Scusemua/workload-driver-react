@@ -92,6 +92,7 @@ func (h *ClusterDashboardHandler) HandleConnectionError() {
 		return
 	}
 
+	h.logger.Debug("Handling connection error: attempting to reconnect to Cluster Gateway.")
 	go h.setupRpcResources(h.gatewayAddress)
 }
 

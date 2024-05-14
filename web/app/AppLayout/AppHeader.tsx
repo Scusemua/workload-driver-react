@@ -37,7 +37,11 @@ export const AppHeader: React.FunctionComponent = () => {
 
     const [isSelected, setIsSelected] = React.useState(darkMode ? darkModeButtonId : lightModeButtonId);
 
-    const { sendJsonMessage, lastJsonMessage, lastMessage, readyState } = useWebSocket('ws://localhost:8000/ws');
+    const { sendJsonMessage, lastJsonMessage, lastMessage, readyState } = useWebSocket('ws://localhost:8000/ws', {
+        onOpen: () => console.log('Connected to backend'),
+        onClose: () => console.error('Lost connection to backend'),
+        shouldReconnect: () => true,
+    });
 
     const connectionStatus = {
         [ReadyState.CONNECTING]: 'Connecting to Backend ...',
