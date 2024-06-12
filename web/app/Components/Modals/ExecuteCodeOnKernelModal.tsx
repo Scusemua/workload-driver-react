@@ -346,7 +346,9 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                                 'Please wait until the current execution completes before submitting additional code for execution.',
                             );
                         } else {
-                            onClose();
+                            console.log('Closing execute code modal.');
+                            setExecutionState('idle');
+                            setOutput([]);
                         }
                     }}
                     isDisabled={code.trim().length == 0}
