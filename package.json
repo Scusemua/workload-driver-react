@@ -99,6 +99,7 @@
     "react": "^18",
     "react-dom": "^18",
     "react-hot-toast": "^2.4.1",
+    "react-lazylog": "^4.5.3",
     "react-svg-pan-zoom": "^3.12.1",
     "react-svg-pan-zoom-loader": "^1.6.1",
     "react-use-websocket": "^4.8.1",
