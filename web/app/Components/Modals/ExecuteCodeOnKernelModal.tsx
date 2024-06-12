@@ -23,6 +23,8 @@ import {
 import { CodeEditorComponent } from '@app/Components/CodeEditor';
 import { CheckCircleIcon } from '@patternfly/react-icons';
 import { DistributedJupyterKernel, JupyterKernelReplica } from '@app/Data';
+import { KernelManager, ServerConnection } from '@jupyterlab/services';
+import { IKernelConnection } from '@jupyterlab/services/lib/kernel/kernel';
 
 export interface ExecuteCodeOnKernelProps {
     children?: React.ReactNode;
@@ -52,7 +54,8 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
     const [copied, setCopied] = React.useState(false);
     const [targetReplicaId, setTargetReplicaId] = React.useState(-1);
     const [forceFailure, setForceFailure] = React.useState(false);
-    const output = React.useRef<string[]>([]);
+
+    const [output, setOutput] = React.useState<string[]>([]);
 
     React.useEffect(() => {
         setTargetReplicaId(props.replicaId || -1);
@@ -68,12 +71,114 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
     };
 
     const logConsumer = (msg: string) => {
-        output.current = [...output.current, msg];
+        console.log(`Appending message to output log for kerenl execution: ${msg}`);
+        const messages: string[] = msg.trim().split(/\n/);
+        console.log(`Appending ${messages.length} message(s) to output log for kerenl execution: ${messages}`);
+        setOutput((output) => [...output, ...messages]);
     };
+
+    React.useEffect(() => {
+        console.log(`There are now ${output.length} entries in the output log.`);
+    }, [output]);
 
     const onSubmit = () => {
         async function runUserCode() {
-            await props.onSubmit(code, targetReplicaId, forceFailure, logConsumer);
+            const kernelId: string | undefined = props.kernel?.kernelId;
+
+            if (kernelId == undefined) {
+                console.error("Couldn't determiner kernel ID of target kernel for code execution...");
+                return;
+            }
+
+            const kernelSpecManagerOptions: KernelManager.IOptions = {
+                serverSettings: ServerConnection.makeSettings({
+                    token: '',
+                    appendToken: false,
+                    baseUrl: '/jupyter',
+                    wsUrl: 'ws://localhost:8888/',
+                    fetch: fetch,
+                }),
+            };
+            let kernelManager = new KernelManager(kernelSpecManagerOptions);
+
+            console.log('Waiting for Kernel Manager to be ready.');
+
+            kernelManager.connectionFailure.connect((_sender: KernelManager, err: Error) => {
+                console.error(
+                    'An error has occurred while preparing the Kernel Manager. ' + err.name + ': ' + err.message,
+                );
+            });
+
+            await kernelManager.ready.then(() => {
+                console.log('Kernel Manager is ready!');
+            });
+
+            if (forceFailure) {
+                console.log(
+                    `Executing code on kernel ${props.kernel?.kernelId}, but we're forcing a failure:\n${code}`,
+                );
+                // NOTE: We previously just set the target replica ID to 0, but this doesn't enable us to test a subsequent execution, such as when we're testing migrations in static scheduling.
+                // So, we now use a new API that just YIELDs the next request, so that this triggers a migration, and the resubmitted request (after the migration) completes can finish successfully.
+                // targetReplicaId = 0; // -1 is used for "auto", while 0 is never used as an actual ID. So, if we specify 0, then the execution will necessarily fail.
+
+                const req: RequestInit = {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        // 'Cache-Control': 'no-cache, no-transform, no-store',
+                    },
+                    body: JSON.stringify({
+                        kernel_id: kernelId,
+                    }),
+                };
+
+                fetch('api/yield-next-request', req);
+            } else {
+                console.log(`Executing code on kernel ${props.kernel?.kernelId}, replica ${targetReplicaId}:\n${code}`);
+            }
+
+            const kernelConnection: IKernelConnection = kernelManager.connectTo({
+                model: { id: kernelId, name: kernelId },
+            });
+
+            console.log(`Sending 'execute-request' to kernel ${kernelId} for code: '${code}'`);
+
+            const future = kernelConnection.requestExecute({ code: code }, undefined, {
+                target_replica: targetReplicaId,
+            });
+
+            // Handle iopub messages
+            future.onIOPub = (msg) => {
+                console.log('Received IOPub message:\n%s\n', JSON.stringify(msg));
+                const messageType: string = msg.header.msg_type;
+                if (messageType == 'execute_input') {
+                    // Do nothing.
+                } else if (messageType == 'status') {
+                    logConsumer(
+                        msg['header']['date'] +
+                            ': Execution state changed to ' +
+                            JSON.stringify(msg.content['execution_state']) +
+                            '\n',
+                    );
+                } else if (messageType == 'stream') {
+                    if (msg['content']['name'] == 'stderr') {
+                        logConsumer(msg['header']['date'] + ' <ERROR>: ' + msg.content['text'] + '\n');
+                    } else if (msg['content']['name'] == 'stdout') {
+                        logConsumer(msg['header']['date'] + ': ' + msg.content['text'] + '\n');
+                    } else {
+                        logConsumer(msg['header']['date'] + ': ' + msg.content['text'] + '\n');
+                    }
+                } else {
+                    logConsumer(msg['header']['date'] + ': ' + JSON.stringify(msg.content) + '\n');
+                }
+            };
+
+            future.onReply = (msg) => {
+                console.log(`Received reply for execution request: ${JSON.stringify(msg)}`);
+            };
+
+            await future.done;
+            console.log('Execution on Kernel ' + kernelId + ' is done.');
             setExecutionState('done');
         }
 
@@ -84,7 +189,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
     const onClose = () => {
         console.log('Closing execute code modal.');
         setExecutionState('idle');
-        output.current = [];
+        setOutput([]);
         props.onClose();
     };
 
@@ -124,7 +229,8 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
 
     return (
         <Modal
-            variant={ModalVariant.large}
+            // variant={ModalVariant.large}
+            width="75%"
             title={getModalTitle()}
             isOpen={props.isOpen}
             onClose={props.onClose}
@@ -211,8 +317,17 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                     <Title headingLevel="h2">Output</Title>
                 </FlexItem>
                 <FlexItem>
+                    <Button
+                        onClick={() => {
+                            setOutput([...output, 'testing, 123']);
+                        }}
+                    >
+                        Add Log Message
+                    </Button>
+                </FlexItem>
+                <FlexItem>
                     <CodeBlock actions={outputLogActions}>
-                        {output.current.map((val, idx) => (
+                        {output.map((val, idx) => (
                             <CodeBlockCode key={'log-message-' + idx} id={'log-message-' + idx}>
                                 {val}
                             </CodeBlockCode>

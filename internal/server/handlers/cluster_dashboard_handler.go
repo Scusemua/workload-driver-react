@@ -97,7 +97,7 @@ func (h *ClusterDashboardHandler) HandleConnectionError() {
 }
 
 func (h *ClusterDashboardHandler) ErrorOccurred(ctx context.Context, errorMessage *gateway.ErrorMessage) (*gateway.Void, error) {
-	h.logger.Error("A fatal error has occurred within the Cluster Gateway!", zap.Any("error", errorMessage))
+	h.logger.Error("An error has occurred within the Cluster Gateway!", zap.Any("error", errorMessage))
 
 	go h.errorCallback(errorMessage)
 
@@ -375,7 +375,7 @@ func (p *connectionProvisioner) InitClient(session *yamux.Session) error {
 			return conn, err
 		}))
 	if err != nil {
-		p.logger.Error("Failed to create a gRPC connection using dummy dialer.", zap.Error(err))
+		p.sugaredLogger.Errorf("Failed to create a gRPC connection using dummy dialer because: %s", err.Error())
 		return err
 	}
 

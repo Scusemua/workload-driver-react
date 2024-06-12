@@ -1,4 +1,5 @@
 import React, { useEffect, useReducer, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import {
     Button,
     Card,
@@ -585,6 +586,11 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                 logConsumer(msg['header']['date'] + ': ' + JSON.stringify(msg.content) + '\n');
             }
         };
+
+        future.onReply = (msg) => {
+            console.log(`Received reply for execution request: ${JSON.stringify(msg)}`);
+        };
+
         await future.done;
         console.log('Execution on Kernel ' + kernelId + ' is done.');
     }
@@ -1465,44 +1471,59 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                 {kernels.length == 0 && pendingKernelArr.length == 0 && (
                     <Text component={TextVariants.h2}>There are no active kernels.</Text>
                 )}
-                <CreateKernelsModal
-                    isOpen={isConfirmCreateModalOpen}
-                    onConfirm={onConfirmCreateKernelClicked}
-                    onClose={onCancelCreateKernelClicked}
-                />
-                <ConfirmationModal
-                    isOpen={isConfirmDeleteKernelsModalOpen}
-                    onConfirm={() => onConfirmDeleteKernelsClicked(selectedKernels)}
-                    onClose={onCancelDeleteKernelsClicked}
-                    title={'Terminate Selected Kernels'}
-                    message={"Are you sure you'd like to delete the specified kernel(s)?"}
-                />
-                <ConfirmationModal
-                    isOpen={isConfirmDeleteKernelModalOpen}
-                    onConfirm={() => onConfirmDeleteKernelsClicked([kernelToDelete])}
-                    onClose={onCancelDeleteKernelClicked}
-                    title={'Terminate Kernel'}
-                    message={"Are you sure you'd like to delete the specified kernel?"}
-                />
-                <ExecuteCodeOnKernelModal
-                    kernel={executeCodeKernel}
-                    replicaId={executeCodeKernelReplica?.replicaId}
-                    isOpen={isExecuteCodeModalOpen}
-                    onClose={onCancelExecuteCodeClicked}
-                    onSubmit={onConfirmExecuteCodeClicked}
-                />
-                <InformationModal
-                    isOpen={isErrorModalOpen}
-                    onClose={() => {
-                        setIsErrorModalOpen(false);
-                        setErrorMessage('');
-                        setErrorMessagePreamble('');
-                    }}
-                    title="An Error has Occurred"
-                    titleIconVariant="danger"
-                    message1={errorMessagePreamble}
-                    message2={errorMessage}
-                />
+                {createPortal(
+                    <CreateKernelsModal
+                        isOpen={isConfirmCreateModalOpen}
+                        onConfirm={onConfirmCreateKernelClicked}
+                        onClose={onCancelCreateKernelClicked}
+                    />,
+                    document.body,
+                )}
+                {createPortal(
+                    <ConfirmationModal
+                        isOpen={isConfirmDeleteKernelsModalOpen}
+                        onConfirm={() => onConfirmDeleteKernelsClicked(selectedKernels)}
+                        onClose={onCancelDeleteKernelsClicked}
+                        title={'Terminate Selected Kernels'}
+                        message={"Are you sure you'd like to delete the specified kernel(s)?"}
+                    />,
+                    document.body,
+                )}
+                {createPortal(
+                    <ConfirmationModal
+                        isOpen={isConfirmDeleteKernelModalOpen}
+                        onConfirm={() => onConfirmDeleteKernelsClicked([kernelToDelete])}
+                        onClose={onCancelDeleteKernelClicked}
+                        title={'Terminate Kernel'}
+                        message={"Are you sure you'd like to delete the specified kernel?"}
+                    />,
+                    document.body,
+                )}
+                {createPortal(
+                    <ExecuteCodeOnKernelModal
+                        kernel={executeCodeKernel}
+                        replicaId={executeCodeKernelReplica?.replicaId}
+                        isOpen={isExecuteCodeModalOpen}
+                        onClose={onCancelExecuteCodeClicked}
+                        onSubmit={onConfirmExecuteCodeClicked}
+                    />,
+                    document.body,
+                )}
+                {createPortal(
+                    <InformationModal
+                        isOpen={isErrorModalOpen}
+                        onClose={() => {
+                            setIsErrorModalOpen(false);
+                            setErrorMessage('');
+                            setErrorMessagePreamble('');
+                        }}
+                        title="An Error has Occurred"
+                        titleIconVariant="danger"
+                        message1={errorMessagePreamble}
+                        message2={errorMessage}
+                    />,
+                    document.body,
+                )}
                 <Pagination
                     hidden={kernels.length == 0}
                     isDisabled={kernels.length == 0}

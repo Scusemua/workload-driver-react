@@ -46,7 +46,7 @@ func (h *YieldNextExecuteHandler) HandleRequest(c *gin.Context) {
 		return
 	}
 
-	val, ok := req["kernelId"]
+	val, ok := req["kernel_id"]
 	if !ok {
 		h.logger.Error("Request did not contain 'kernelId' entry.")
 		c.AbortWithError(http.StatusBadRequest, err)
