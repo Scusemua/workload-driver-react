@@ -17,14 +17,21 @@ import {
     Text,
     TextVariants,
     Title,
+    Toolbar,
+    ToolbarContent,
+    ToolbarGroup,
+    ToolbarItem,
+    ToolbarToggleGroup,
     Tooltip,
 } from '@patternfly/react-core';
 
 import { CodeEditorComponent } from '@app/Components/CodeEditor';
-import { CheckCircleIcon } from '@patternfly/react-icons';
+import { CheckCircleIcon, DownloadIcon, EllipsisVIcon, ExpandIcon } from '@patternfly/react-icons';
 import { DistributedJupyterKernel, JupyterKernelReplica } from '@app/Data';
 import { KernelManager, ServerConnection } from '@jupyterlab/services';
 import { IKernelConnection } from '@jupyterlab/services/lib/kernel/kernel';
+import { DarkModeContext } from '@app/Providers/DarkModeProvider';
+import { LogViewer, LogViewerSearch } from '@patternfly/react-log-viewer';
 
 export interface ExecuteCodeOnKernelProps {
     children?: React.ReactNode;
@@ -54,6 +61,11 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
     const [copied, setCopied] = React.useState(false);
     const [targetReplicaId, setTargetReplicaId] = React.useState(-1);
     const [forceFailure, setForceFailure] = React.useState(false);
+    const [isOutputTextWrapped, setIsOutputTextWrapped] = React.useState(false);
+    const [isOutputFullScreen, setIsOutputFullScreen] = React.useState(false);
+    const logViewerRef = React.useRef();
+
+    const { darkMode, toggleDarkMode } = React.useContext(DarkModeContext);
 
     const [output, setOutput] = React.useState<string[]>([]);
 
@@ -227,6 +239,93 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
         console.log(`Targeting replica ${replicaId}`);
     };
 
+    const FooterButton = () => {
+        const handleClick = () => {
+            logViewerRef.current?.scrollToBottom();
+        };
+        return <Button onClick={handleClick}>Jump to the bottom</Button>;
+    };
+
+    // Buggy.
+    // const onExpandLogsClick = (_event) => {
+    //     const element = document.querySelector('#kernel-execution-output');
+
+    //     if (!isOutputFullScreen) {
+    //         if (element?.requestFullscreen) {
+    //             element.requestFullscreen();
+    //         } else if (element?.mozRequestFullScreen) {
+    //             element?.mozRequestFullScreen();
+    //         } else if (element?.webkitRequestFullScreen) {
+    //             element?.webkitRequestFullScreen(Element.ALLOW_KEYBOARD_INPUT);
+    //         }
+    //         setIsOutputFullScreen(true);
+    //     } else {
+    //         if (document.exitFullscreen) {
+    //             document.exitFullscreen();
+    //         } else if (document?.webkitExitFullscreen) {
+    //             /* Safari */
+    //             document.webkitExitFullscreen();
+    //         } else if (document?.msExitFullscreen) {
+    //             /* IE11 */
+    //             document?.msExitFullscreen();
+    //         }
+    //         setIsOutputFullScreen(false);
+    //     }
+    // };
+
+    const onDownloadLogsClick = () => {
+        const element = document.createElement('a');
+        const dataToDownload: string[] = [output.join('\r\n')];
+        const file = new Blob(dataToDownload, { type: 'text/plain' });
+        element.href = URL.createObjectURL(file);
+        element.download = `kernel-${props.kernel?.kernelId}-${props.replicaId}-execution-output.txt`;
+        document.body.appendChild(element);
+        element.click();
+        document.body.removeChild(element);
+    };
+
+    const leftAlignedOutputToolbarGroup = (
+        <React.Fragment>
+            <ToolbarToggleGroup toggleIcon={<EllipsisVIcon />} breakpoint="md">
+                <ToolbarGroup>
+                    <ToolbarItem>
+                        <LogViewerSearch placeholder="Search" minSearchChars={0} />
+                    </ToolbarItem>
+                    <ToolbarItem alignSelf="center">
+                        <Checkbox
+                            label="Wrap text"
+                            aria-label="wrap text checkbox"
+                            isChecked={isOutputTextWrapped}
+                            id="wrap-text-checkbox"
+                            onChange={(_event, value) => setIsOutputTextWrapped(value)}
+                        />
+                    </ToolbarItem>
+                </ToolbarGroup>
+            </ToolbarToggleGroup>
+        </React.Fragment>
+    );
+
+    const rightAlignedOutputToolbarGroup = (
+        <React.Fragment>
+            <ToolbarGroup variant="icon-button-group">
+                <ToolbarItem>
+                    <Tooltip position="top" content={<div>Download</div>}>
+                        <Button onClick={onDownloadLogsClick} variant="plain" aria-label="Download current logs">
+                            <DownloadIcon />
+                        </Button>
+                    </Tooltip>
+                </ToolbarItem>
+                {/* <ToolbarItem>
+                    <Tooltip position="top" content={<div>Expand</div>}>
+                        <Button onClick={onExpandLogsClick} variant="plain" aria-label="View log viewer in full screen">
+                            <ExpandIcon />
+                        </Button>
+                    </Tooltip>
+                </ToolbarItem> */}
+            </ToolbarGroup>
+        </React.Fragment>
+    );
+
     return (
         <Modal
             // variant={ModalVariant.large}
@@ -317,22 +416,35 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                     <Title headingLevel="h2">Output</Title>
                 </FlexItem>
                 <FlexItem>
-                    <Button
-                        onClick={() => {
-                            setOutput([...output, 'testing, 123']);
-                        }}
-                    >
-                        Add Log Message
-                    </Button>
-                </FlexItem>
-                <FlexItem>
-                    <CodeBlock actions={outputLogActions}>
+                    <LogViewer
+                        id={'kernel-execution-output'}
+                        ref={logViewerRef}
+                        hasLineNumbers={true}
+                        data={output}
+                        theme={darkMode ? 'dark' : 'light'}
+                        height={isOutputFullScreen ? '100%' : 300}
+                        footer={<FooterButton />}
+                        isTextWrapped={isOutputTextWrapped}
+                        toolbar={
+                            <Toolbar>
+                                <ToolbarContent>
+                                    <ToolbarGroup align={{ default: 'alignLeft' }}>
+                                        {leftAlignedOutputToolbarGroup}
+                                    </ToolbarGroup>
+                                    <ToolbarGroup align={{ default: 'alignRight' }}>
+                                        {rightAlignedOutputToolbarGroup}
+                                    </ToolbarGroup>
+                                </ToolbarContent>
+                            </Toolbar>
+                        }
+                    />
+                    {/* <CodeBlock actions={outputLogActions}>
                         {output.map((val, idx) => (
                             <CodeBlockCode key={'log-message-' + idx} id={'log-message-' + idx}>
                                 {val}
                             </CodeBlockCode>
                         ))}
-                    </CodeBlock>
+                    </CodeBlock> */}
                 </FlexItem>
             </Flex>
         </Modal>
