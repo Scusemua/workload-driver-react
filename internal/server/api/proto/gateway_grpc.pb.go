@@ -313,6 +313,7 @@ var ClusterGateway_ServiceDesc = grpc.ServiceDesc{
 
 const (
 	DistributedCluster_InducePanic_FullMethodName              = "/gateway.DistributedCluster/InducePanic"
+	DistributedCluster_SpoofNotifications_FullMethodName       = "/gateway.DistributedCluster/SpoofNotifications"
 	DistributedCluster_Ping_FullMethodName                     = "/gateway.DistributedCluster/Ping"
 	DistributedCluster_ListKernels_FullMethodName              = "/gateway.DistributedCluster/ListKernels"
 	DistributedCluster_SetTotalVirtualGPUs_FullMethodName      = "/gateway.DistributedCluster/SetTotalVirtualGPUs"
@@ -328,6 +329,8 @@ const (
 type DistributedClusterClient interface {
 	// Used for debugging/testing. Causes a Panic.
 	InducePanic(ctx context.Context, in *Void, opts ...grpc.CallOption) (*Void, error)
+	// Used to test notifications.
+	SpoofNotifications(ctx context.Context, in *Void, opts ...grpc.CallOption) (*Void, error)
 	// Used to test connectivity.
 	Ping(ctx context.Context, in *Void, opts ...grpc.CallOption) (*Pong, error)
 	// Return a list of all of the current kernel IDs.
@@ -361,6 +364,15 @@ func NewDistributedClusterClient(cc grpc.ClientConnInterface) DistributedCluster
 func (c *distributedClusterClient) InducePanic(ctx context.Context, in *Void, opts ...grpc.CallOption) (*Void, error) {
 	out := new(Void)
 	err := c.cc.Invoke(ctx, DistributedCluster_InducePanic_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *distributedClusterClient) SpoofNotifications(ctx context.Context, in *Void, opts ...grpc.CallOption) (*Void, error) {
+	out := new(Void)
+	err := c.cc.Invoke(ctx, DistributedCluster_SpoofNotifications_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -436,6 +448,8 @@ func (c *distributedClusterClient) FailNextExecution(ctx context.Context, in *Ke
 type DistributedClusterServer interface {
 	// Used for debugging/testing. Causes a Panic.
 	InducePanic(context.Context, *Void) (*Void, error)
+	// Used to test notifications.
+	SpoofNotifications(context.Context, *Void) (*Void, error)
 	// Used to test connectivity.
 	Ping(context.Context, *Void) (*Pong, error)
 	// Return a list of all of the current kernel IDs.
@@ -465,6 +479,9 @@ type UnimplementedDistributedClusterServer struct {
 
 func (UnimplementedDistributedClusterServer) InducePanic(context.Context, *Void) (*Void, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method InducePanic not implemented")
+}
+func (UnimplementedDistributedClusterServer) SpoofNotifications(context.Context, *Void) (*Void, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SpoofNotifications not implemented")
 }
 func (UnimplementedDistributedClusterServer) Ping(context.Context, *Void) (*Pong, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Ping not implemented")
@@ -514,6 +531,24 @@ func _DistributedCluster_InducePanic_Handler(srv interface{}, ctx context.Contex
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(DistributedClusterServer).InducePanic(ctx, req.(*Void))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DistributedCluster_SpoofNotifications_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Void)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DistributedClusterServer).SpoofNotifications(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DistributedCluster_SpoofNotifications_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DistributedClusterServer).SpoofNotifications(ctx, req.(*Void))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -656,6 +691,10 @@ var DistributedCluster_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _DistributedCluster_InducePanic_Handler,
 		},
 		{
+			MethodName: "SpoofNotifications",
+			Handler:    _DistributedCluster_SpoofNotifications_Handler,
+		},
+		{
 			MethodName: "Ping",
 			Handler:    _DistributedCluster_Ping_Handler,
 		},
@@ -689,14 +728,14 @@ var DistributedCluster_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
-	ClusterDashboard_ErrorOccurred_FullMethodName = "/gateway.ClusterDashboard/ErrorOccurred"
+	ClusterDashboard_SendNotification_FullMethodName = "/gateway.ClusterDashboard/SendNotification"
 )
 
 // ClusterDashboardClient is the client API for ClusterDashboard service.
 //
 // For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
 type ClusterDashboardClient interface {
-	ErrorOccurred(ctx context.Context, in *ErrorMessage, opts ...grpc.CallOption) (*Void, error)
+	SendNotification(ctx context.Context, in *Notification, opts ...grpc.CallOption) (*Void, error)
 }
 
 type clusterDashboardClient struct {
@@ -707,9 +746,9 @@ func NewClusterDashboardClient(cc grpc.ClientConnInterface) ClusterDashboardClie
 	return &clusterDashboardClient{cc}
 }
 
-func (c *clusterDashboardClient) ErrorOccurred(ctx context.Context, in *ErrorMessage, opts ...grpc.CallOption) (*Void, error) {
+func (c *clusterDashboardClient) SendNotification(ctx context.Context, in *Notification, opts ...grpc.CallOption) (*Void, error) {
 	out := new(Void)
-	err := c.cc.Invoke(ctx, ClusterDashboard_ErrorOccurred_FullMethodName, in, out, opts...)
+	err := c.cc.Invoke(ctx, ClusterDashboard_SendNotification_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -720,7 +759,7 @@ func (c *clusterDashboardClient) ErrorOccurred(ctx context.Context, in *ErrorMes
 // All implementations must embed UnimplementedClusterDashboardServer
 // for forward compatibility
 type ClusterDashboardServer interface {
-	ErrorOccurred(context.Context, *ErrorMessage) (*Void, error)
+	SendNotification(context.Context, *Notification) (*Void, error)
 	mustEmbedUnimplementedClusterDashboardServer()
 }
 
@@ -728,8 +767,8 @@ type ClusterDashboardServer interface {
 type UnimplementedClusterDashboardServer struct {
 }
 
-func (UnimplementedClusterDashboardServer) ErrorOccurred(context.Context, *ErrorMessage) (*Void, error) {
-	return nil, status.Errorf(codes.Unimplemented, "method ErrorOccurred not implemented")
+func (UnimplementedClusterDashboardServer) SendNotification(context.Context, *Notification) (*Void, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method SendNotification not implemented")
 }
 func (UnimplementedClusterDashboardServer) mustEmbedUnimplementedClusterDashboardServer() {}
 
@@ -744,20 +783,20 @@ func RegisterClusterDashboardServer(s grpc.ServiceRegistrar, srv ClusterDashboar
 	s.RegisterService(&ClusterDashboard_ServiceDesc, srv)
 }
 
-func _ClusterDashboard_ErrorOccurred_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
-	in := new(ErrorMessage)
+func _ClusterDashboard_SendNotification_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Notification)
 	if err := dec(in); err != nil {
 		return nil, err
 	}
 	if interceptor == nil {
-		return srv.(ClusterDashboardServer).ErrorOccurred(ctx, in)
+		return srv.(ClusterDashboardServer).SendNotification(ctx, in)
 	}
 	info := &grpc.UnaryServerInfo{
 		Server:     srv,
-		FullMethod: ClusterDashboard_ErrorOccurred_FullMethodName,
+		FullMethod: ClusterDashboard_SendNotification_FullMethodName,
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
-		return srv.(ClusterDashboardServer).ErrorOccurred(ctx, req.(*ErrorMessage))
+		return srv.(ClusterDashboardServer).SendNotification(ctx, req.(*Notification))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -770,8 +809,8 @@ var ClusterDashboard_ServiceDesc = grpc.ServiceDesc{
 	HandlerType: (*ClusterDashboardServer)(nil),
 	Methods: []grpc.MethodDesc{
 		{
-			MethodName: "ErrorOccurred",
-			Handler:    _ClusterDashboard_ErrorOccurred_Handler,
+			MethodName: "SendNotification",
+			Handler:    _ClusterDashboard_SendNotification_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},

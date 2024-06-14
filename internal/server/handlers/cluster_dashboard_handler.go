@@ -30,7 +30,7 @@ var (
 	sig = make(chan os.Signal, 1)
 )
 
-type errorCallback func(errorMessage *gateway.ErrorMessage)
+type notificationCallback func(notification *gateway.Notification)
 
 // This type of handler issues HTTP requests to the backend.
 type ClusterDashboardHandler struct {
@@ -47,19 +47,19 @@ type ClusterDashboardHandler struct {
 	clusterDashboardHandlerPort int
 
 	// Called in its own Goroutine when the ErrorOccurred RPC is called by the ClusterGateway to us.
-	errorCallback errorCallback
+	notificationCallback notificationCallback
 
 	srv *grpc.Server
 
 	gatewayAddress string // Address that the Cluster Gateway's gRPC server is listening on.
 }
 
-func NewClusterDashboardHandler(opts *domain.Configuration, shouldConnect bool, errorCallback errorCallback) *ClusterDashboardHandler {
+func NewClusterDashboardHandler(opts *domain.Configuration, shouldConnect bool, notificationCallback notificationCallback) *ClusterDashboardHandler {
 	handler := &ClusterDashboardHandler{
 		clusterDashboardHandlerPort: opts.ClusterDashboardHandlerPort,
 		gatewayAddress:              opts.GatewayAddress,
 		setupInProgress:             0,
-		errorCallback:               errorCallback,
+		notificationCallback:        notificationCallback,
 	}
 
 	var err error
@@ -96,10 +96,14 @@ func (h *ClusterDashboardHandler) HandleConnectionError() {
 	go h.setupRpcResources(h.gatewayAddress)
 }
 
-func (h *ClusterDashboardHandler) ErrorOccurred(ctx context.Context, errorMessage *gateway.ErrorMessage) (*gateway.Void, error) {
-	h.logger.Error("An error has occurred within the Cluster Gateway!", zap.Any("error", errorMessage))
+func (h *ClusterDashboardHandler) SendNotification(ctx context.Context, notification *gateway.Notification) (*gateway.Void, error) {
+	if notification.NotificationType == int32(domain.ErrorNotification) {
+		h.logger.Warn("Notified of error that occurred within Cluster.", zap.String("error-name", notification.Title), zap.String("error-message", notification.Message))
+	} else {
+		h.logger.Debug("Received notification from Cluster.", zap.String("notification-name", notification.Title), zap.String("notification-message", notification.Message))
+	}
 
-	go h.errorCallback(errorMessage)
+	go h.notificationCallback(notification)
 
 	return &gateway.Void{}, nil
 }

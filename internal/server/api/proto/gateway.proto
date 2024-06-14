@@ -7,6 +7,8 @@ option java_outer_classname = "GatewayProto";
 
 package gateway;
 
+// gRPC service provided by the ClusterGateway and "used" by the Local Daemons
+// (i.e., the Cluster Gateway is the server while the Local Daemons are the clients).
 service ClusterGateway {
   // ID returns the cluster gateway id and can be used to test connectivity.
   rpc ID(Void) returns (ProvisionerId) {}
@@ -30,10 +32,14 @@ service ClusterGateway {
   rpc SmrNodeAdded(ReplicaInfo) returns (Void) {}
 }
 
-// gRPC Service used by the Dashboard. 
+// gRPC service provided by the Cluster Gateway and "used" by the Dashboard
+// (i.e., the Cluster Gateway is the server while the Dashboard is the client).
 service DistributedCluster {
   // Used for debugging/testing. Causes a Panic.
   rpc InducePanic(Void) returns (Void) {}
+
+  // Used to test notifications.
+  rpc SpoofNotifications(Void) returns (Void) {}
 
   // Used to test connectivity.
   rpc Ping(Void) returns (Pong) {} 
@@ -63,18 +69,21 @@ service DistributedCluster {
   rpc FailNextExecution(KernelId) returns (Void) {} 
 }
 
+// gRPC service provided by the Dashboard and "used" by the Cluster Gateway
+// (i.e., the Dashboard is the server while the Cluster Gateway is the client).
 service ClusterDashboard {
-  rpc ErrorOccurred(ErrorMessage) returns (Void) {} // Report to the Dashboard that an error occurred.
+  rpc SendNotification(Notification) returns (Void) {} // Report to the Dashboard that an error occurred.
 }
 
 message Pong {
   string id = 1;
 }
 
-message ErrorMessage {
-  string errorName = 1;
-  string errorMessage = 2;
-  bool panicked = 3;
+message Notification {
+  string title = 1;
+  string message = 2;
+  int32 notificationType = 3;
+  bool panicked = 4;
 }
 
 // Used to register the ResourceSpec to be used by a particular kernel.
@@ -328,7 +337,7 @@ message KernelRegistrationNotification {
   KernelConnectionInfo connectionInfo = 1; // Connection information of the kernel.
   string kernelId = 2; // ID of the Kernel.
   string sessionId = 3; // ID of the associated Session.
-  string hostId = 4; // The ID of the HostScheduler associated with this Host. It's basically the ID of the LocalDaemon.
+  string hostId = 4; // The ID of the LocalDaemonClient associated with this Host. It's basically the ID of the LocalDaemon.
   int32 replicaId = 5; // The SMR replica ID.
   string kernelIp = 6; // The hostname of the kernel itself (not its LocalDaemon).
   string podName = 7; // The name of the Pod hosting the kernel container.

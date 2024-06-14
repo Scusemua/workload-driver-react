@@ -10,6 +10,9 @@ const (
 	// Base of the API endpoint.
 	BASE_API_GROUP_ENDPOINT = "/api"
 
+	// Used for testing/debugging.
+	TEST_API_GROUP_ENDPOINT = "/testing"
+
 	// Used internally (by the frontend) to get the current kubernetes nodes from the backend.
 	KUBERNETES_NODES_ENDPOINT = "/nodes"
 
@@ -55,6 +58,9 @@ const (
 
 	// Causes the server to broadcast a fake error via websockets for debugging/testing purposes.
 	SPOOF_ERROR = "/spoof-error"
+
+	// Used for testing notifications sent from the Cluster to the Dashboard
+	SPOOF_NOTIFICATIONS = "/spoof-notifications"
 )
 
 var (

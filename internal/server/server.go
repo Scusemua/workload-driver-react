@@ -2,6 +2,7 @@ package server
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -42,6 +43,7 @@ type serverImpl struct {
 	workloadsMap       *orderedmap.OrderedMap[string, *domain.Workload]      // Map from workload ID to workload
 	workloads          []*domain.Workload
 	pushUpdateInterval time.Duration
+	gatewayRpcClient   *handlers.ClusterDashboardHandler
 
 	// Websockets that have submitted a workload and thus will want updates for that workload.
 	subscribers map[string]domain.ConcurrentWebSocket
@@ -96,18 +98,6 @@ func (s *serverImpl) ErrorHandlerMiddleware(c *gin.Context) {
 	c.JSON(-1, errors)
 }
 
-func (s *serverImpl) errorOccurred(errorMessage *gateway.ErrorMessage) {
-	s.logger.Debug("Notified of error that occurred within Cluster.", zap.String("error-name", errorMessage.ErrorName), zap.String("error-message", errorMessage.ErrorMessage))
-
-	payload, err := json.Marshal(errorMessage)
-	if err != nil {
-		s.logger.Error("Failed to marshal error message to JSON.", zap.Error(err))
-		return
-	}
-
-	s.broadcastToWorkloadWebsockets(payload)
-}
-
 func (s *serverImpl) setupRoutes() error {
 	s.app = &proxy.JupyterProxyRouter{
 		ContextPath:  domain.JUPYTER_GROUP_ENDPOINT,
@@ -125,95 +115,67 @@ func (s *serverImpl) setupRoutes() error {
 	s.app.Use(gin.Logger())
 	s.app.Use(cors.Default())
 
+	////////////////////////
+	// Websocket Handlers //
+	////////////////////////
 	s.app.GET(domain.WORKLOAD_ENDPOINT, s.serveWorkloadWebsocket)
 	s.app.GET(domain.LOGS_ENDPOINT, s.serveLogWebsocket)
 	s.app.GET(domain.GENERAL_WEBSOCKET_ENDPOINT, s.serveGeneralWebsocket)
 
-	gatewayRpcClient := handlers.NewClusterDashboardHandler(s.opts, true, s.errorOccurred)
+	s.gatewayRpcClient = handlers.NewClusterDashboardHandler(s.opts, true, s.notifyFrontend)
 
-	s.sugaredLogger.Debugf("Creating route groups now. (gatewayRpcClient == nil: %v)", gatewayRpcClient == nil)
+	s.sugaredLogger.Debugf("Creating route groups now. (gatewayRpcClient == nil: %v)", s.gatewayRpcClient == nil)
 
+	///////////////////////////////
+	// Standard/Primary Handlers //
+	///////////////////////////////
 	apiGroup := s.app.Group(domain.BASE_API_GROUP_ENDPOINT)
 	{
-		nodeHandler := handlers.NewKubeNodeHttpHandler(s.opts, gatewayRpcClient)
+		nodeHandler := handlers.NewKubeNodeHttpHandler(s.opts, s.gatewayRpcClient)
 		// Used internally (by the frontend) to get the current kubernetes nodes from the backend  (i.e., the backend).
 		apiGroup.GET(domain.KUBERNETES_NODES_ENDPOINT, nodeHandler.HandleRequest)
+
 		// Enable/disable Kubernetes nodes.
 		apiGroup.PATCH(domain.KUBERNETES_NODES_ENDPOINT, nodeHandler.HandlePatchRequest)
 
 		// Adjust vGPUs availabe on a particular Kubernetes node.
-		apiGroup.PATCH(domain.ADJUST_VGPUS_ENDPOINT, handlers.NewAdjustVirtualGpusHandler(s.opts, gatewayRpcClient).HandlePatchRequest)
+		apiGroup.PATCH(domain.ADJUST_VGPUS_ENDPOINT, handlers.NewAdjustVirtualGpusHandler(s.opts, s.gatewayRpcClient).HandlePatchRequest)
 
 		// Used internally (by the frontend) to get the system config from the backend  (i.e., the backend).
 		apiGroup.GET(domain.SYSTEM_CONFIG_ENDPOINT, handlers.NewConfigHttpHandler(s.opts).HandleRequest)
 
 		// Used internally (by the frontend) to get the current set of Jupyter kernels from us (i.e., the backend).
-		apiGroup.GET(domain.GET_KERNELS_ENDPOINT, handlers.NewKernelHttpHandler(s.opts, gatewayRpcClient).HandleRequest)
+		apiGroup.GET(domain.GET_KERNELS_ENDPOINT, handlers.NewKernelHttpHandler(s.opts, s.gatewayRpcClient).HandleRequest)
 
 		// Used internally (by the frontend) to get the list of available workload presets from the backend.
 		apiGroup.GET(domain.WORKLOAD_PRESET_ENDPOINT, handlers.NewWorkloadPresetHttpHandler(s.opts).HandleRequest)
 
 		// Used internally (by the frontend) to trigger kernel replica migrations.
-		apiGroup.POST(domain.MIGRATION_ENDPOINT, handlers.NewMigrationHttpHandler(s.opts, gatewayRpcClient).HandleRequest)
+		apiGroup.POST(domain.MIGRATION_ENDPOINT, handlers.NewMigrationHttpHandler(s.opts, s.gatewayRpcClient).HandleRequest)
 
 		// Used to stream logs from Kubernetes.
 		apiGroup.GET(fmt.Sprintf("%s/pods/:pod", domain.LOGS_ENDPOINT), handlers.NewLogHttpHandler(s.opts).HandleRequest)
 
-		apiGroup.POST(domain.PANIC_ENDPOINT, handlers.NewPanicHttpHandler(s.opts, gatewayRpcClient).HandleRequest)
-
 		// Used to tell a kernel to stop training.
 		apiGroup.POST(domain.STOP_TRAINING_ENDPOINT, handlers.NewStopTrainingHandler(s.opts).HandleRequest)
-
-		apiGroup.POST(domain.YIELD_NEXT_REQUEST, handlers.NewYieldNextExecuteHandler(s.opts, gatewayRpcClient).HandleRequest)
-
-		apiGroup.POST(domain.SPOOF_ERROR, func(ctx *gin.Context) {
-			errorMessage := &gateway.ErrorMessage{
-				ErrorName:    "SpoofedError",
-				ErrorMessage: fmt.Sprintf("This is a spoofed/fake error message with UUID=%s.", uuid.NewString()),
-			}
-
-			message := &domain.GeneralWebSocketResponse{
-				Op:      "error",
-				Payload: errorMessage,
-			}
-
-			s.logger.Debug("Broadcasting spoofed error message.", zap.Int("num-recipients", len(s.generalWebsockets)))
-
-			toRemove := make([]string, 0)
-
-			for remote_ip, conn := range s.generalWebsockets {
-				s.logger.Debug("Writing message to general WebSocket.", zap.String("remote-addr", remote_ip))
-				err := conn.WriteJSON(message)
-				if err != nil {
-					s.logger.Debug("Failed to write spoofed error to WebSocket.", zap.String("remote-addr", remote_ip), zap.Error(err))
-
-					if _, ok := err.(*websocket.CloseError); ok || err == websocket.ErrCloseSent {
-						s.logger.Debug("Will remove general WebSocket.", zap.String("remote-addr", remote_ip))
-						toRemove = append(toRemove, remote_ip)
-					} else {
-						s.logger.Debug("Cannot remove general WebSocket. Error is not a CloseError...", zap.String("remote-addr", remote_ip))
-					}
-				} else {
-					s.logger.Debug("Successfully wrote message to general WebSocket.", zap.String("remote-addr", remote_ip))
-				}
-			}
-
-			for _, remote_ip := range toRemove {
-				s.logger.Warn("Removing general WebSocket connection.", zap.String("remote_ip", remote_ip))
-
-				ws := s.generalWebsockets[remote_ip]
-				err := ws.Close()
-				if err != nil {
-					s.logger.Error("Error closing websocket.", zap.String("remote_ip", remote_ip), zap.Error(err))
-				}
-
-				delete(s.generalWebsockets, remote_ip)
-			}
-
-			ctx.Status(http.StatusOK)
-		})
 	}
 
+	///////////////////////////
+	// Debugging and Testing //
+	///////////////////////////
+	{
+		apiGroup.POST(domain.YIELD_NEXT_REQUEST, handlers.NewYieldNextExecuteHandler(s.opts, s.gatewayRpcClient).HandleRequest)
+
+		apiGroup.POST(domain.PANIC_ENDPOINT, handlers.NewPanicHttpHandler(s.opts, s.gatewayRpcClient).HandleRequest)
+
+		apiGroup.POST(domain.SPOOF_NOTIFICATIONS, s.handleSpoofedNotifications)
+
+		apiGroup.POST(domain.SPOOF_ERROR, s.handleSpoofedError)
+	}
+
+	/////////////////////
+	// Jupyter Handler // This isn't really used anymore...
+	/////////////////////
 	if s.opts.SpoofKernelSpecs {
 		jupyterGroup := s.app.Group(domain.JUPYTER_GROUP_ENDPOINT)
 		{
@@ -226,6 +188,78 @@ func (s *serverImpl) setupRoutes() error {
 	s.app.Use(s.ErrorHandlerMiddleware)
 
 	return nil
+}
+
+func (s *serverImpl) notifyFrontend(notification *gateway.Notification) {
+	message := &domain.GeneralWebSocketResponse{
+		Op:      "notification",
+		Payload: notification,
+	}
+
+	toRemove := make([]string, 0)
+
+	for remote_ip, conn := range s.generalWebsockets {
+		s.logger.Debug("Writing message to general WebSocket.", zap.String("remote-addr", remote_ip))
+		err := conn.WriteJSON(message)
+		if err != nil {
+			s.logger.Debug("Failed to write spoofed error to WebSocket.", zap.String("remote-addr", remote_ip), zap.Error(err))
+
+			if _, ok := err.(*websocket.CloseError); ok || err == websocket.ErrCloseSent {
+				s.logger.Debug("Will remove general WebSocket.", zap.String("remote-addr", remote_ip))
+				toRemove = append(toRemove, remote_ip)
+			} else {
+				s.logger.Debug("Cannot remove general WebSocket. Error is not a CloseError...", zap.String("remote-addr", remote_ip))
+			}
+		} else {
+			s.logger.Debug("Successfully wrote message to general WebSocket.", zap.String("remote-addr", remote_ip))
+		}
+	}
+
+	for _, remote_ip := range toRemove {
+		s.logger.Warn("Removing general WebSocket connection.", zap.String("remote_ip", remote_ip))
+
+		ws := s.generalWebsockets[remote_ip]
+		err := ws.Close()
+		if err != nil {
+			s.logger.Error("Error closing websocket.", zap.String("remote_ip", remote_ip), zap.Error(err))
+		}
+
+		delete(s.generalWebsockets, remote_ip)
+	}
+}
+
+func (s *serverImpl) handleSpoofedNotifications(ctx *gin.Context) {
+	_, err := s.gatewayRpcClient.SpoofNotifications(context.Background(), &gateway.Void{})
+
+	if err != nil {
+		s.logger.Error("Failed to issue `SpoofNotifications` RPC to Cluster Gateway.", zap.Error(err))
+
+		notification := &gateway.Notification{
+			Title:            "SpoofedError",
+			Message:          fmt.Sprintf("This is a spoofed/fake error message with UUID=%s.", uuid.NewString()),
+			NotificationType: int32(domain.ErrorNotification),
+			Panicked:         false,
+		}
+
+		s.notifyFrontend(notification) // Might be redundant given we're responding with an erroneous status code.
+		ctx.AbortWithError(http.StatusInternalServerError, err)
+	}
+
+	ctx.Status(http.StatusOK)
+}
+
+func (s *serverImpl) handleSpoofedError(ctx *gin.Context) {
+	errorMessage := &gateway.Notification{
+		Title:            "SpoofedError",
+		Message:          fmt.Sprintf("This is a spoofed/fake error message with UUID=%s.", uuid.NewString()),
+		NotificationType: int32(domain.ErrorNotification),
+		Panicked:         false,
+	}
+
+	s.logger.Debug("Broadcasting spoofed error message.", zap.Int("num-recipients", len(s.generalWebsockets)))
+	s.notifyFrontend(errorMessage)
+
+	ctx.Status(http.StatusOK)
 }
 
 // Used to push updates about active workloads to the frontend.
