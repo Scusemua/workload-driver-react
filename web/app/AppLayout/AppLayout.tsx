@@ -11,6 +11,8 @@ import { Notification, WebSocketMessage } from '@app/Data/';
 import useWebSocket from 'react-use-websocket';
 import { v4 as uuidv4 } from 'uuid';
 
+import { Toaster } from 'react-hot-toast';
+
 const AppLayout: React.FunctionComponent = () => {
     const pageId = 'primary-app-container';
 

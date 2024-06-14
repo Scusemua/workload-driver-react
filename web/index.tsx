@@ -3,6 +3,7 @@ import ReactDOM from 'react-dom/client';
 import App from '@app/index';
 import { DarkModeProvider } from '@app/Providers/DarkModeProvider';
 import { NotificationProvider } from '@app/Providers';
+import { Toaster } from 'react-hot-toast';
 
 if (process.env.NODE_ENV !== 'production') {
     const config = {
@@ -24,6 +25,18 @@ root.render(
     <React.StrictMode>
         <NotificationProvider>
             <DarkModeProvider>
+                <Toaster
+                    position="bottom-right"
+                    containerStyle={{
+                        zIndex: 9999,
+                    }}
+                    toastOptions={{
+                        className: 'react-hot-toast',
+                        style: {
+                            zIndex: 9999,
+                        },
+                    }}
+                />
                 <App />
             </DarkModeProvider>
         </NotificationProvider>
