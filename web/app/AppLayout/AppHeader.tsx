@@ -12,8 +12,11 @@ import {
     MastheadBrand,
     MastheadContent,
     MastheadMain,
+    NotificationBadge,
+    NotificationBadgeVariant,
     ToggleGroup,
     ToggleGroupItem,
+    ToolbarItem,
     Tooltip,
 } from '@patternfly/react-core';
 import logo from '@app/bgimages/WorkloadDriver-Logo.svg';
@@ -79,7 +82,8 @@ export const AppHeader: React.FunctionComponent = () => {
 
     const { darkMode, toggleDarkMode } = React.useContext(DarkModeContext);
 
-    const { addNewNotification } = React.useContext(NotificationContext);
+    const { setAlerts, expanded, notifications, toggleExpansion, addNewNotification } =
+        React.useContext(NotificationContext);
 
     const [isSelected, setIsSelected] = React.useState(darkMode ? darkModeButtonId : lightModeButtonId);
 
@@ -98,11 +102,6 @@ export const AppHeader: React.FunctionComponent = () => {
                     notificationType: 1,
                     panicked: false,
                 });
-            // toast.custom(
-            //     <Alert variant="warning" title="Connection Lost to Backend">
-            //         The persistent connection with the backend server has been lost.
-            //     </Alert>,
-            // );
             case ReadyState.OPEN:
                 addNewNotification({
                     title: 'Connection Established',
@@ -110,11 +109,6 @@ export const AppHeader: React.FunctionComponent = () => {
                     notificationType: 3,
                     panicked: false,
                 });
-            // toast.custom(
-            //     <Alert variant="success" title="Connection Established">
-            //         The persistent connection with the backend server has been established.
-            //     </Alert>,
-            // );
         }
     }, [readyState]);
 
@@ -130,6 +124,39 @@ export const AppHeader: React.FunctionComponent = () => {
             toggleDarkMode();
         }
     };
+
+    const onNotificationBadgeClick = () => {
+        setAlerts([]);
+        toggleExpansion(!expanded);
+    };
+
+    const getUnreadNotificationsNumber = () =>
+        notifications.filter((notification) => notification.isNotificationRead === false).length;
+
+    const containsUnreadAlertNotification = () =>
+        notifications.filter(
+            (notification) => notification.isNotificationRead === false && notification.variant === 'danger',
+        ).length > 0;
+
+    const getNotificationBadgeVariant = () => {
+        if (getUnreadNotificationsNumber() === 0) {
+            return NotificationBadgeVariant.read;
+        }
+        if (containsUnreadAlertNotification()) {
+            return NotificationBadgeVariant.attention;
+        }
+        return NotificationBadgeVariant.unread;
+    };
+
+    const notificationBadge = (
+        <ToolbarItem>
+            <NotificationBadge
+                variant={getNotificationBadgeVariant()}
+                onClick={onNotificationBadgeClick}
+                aria-label="Notifications"
+            ></NotificationBadge>
+        </ToolbarItem>
+    );
 
     return (
         <Masthead>
@@ -160,6 +187,12 @@ export const AppHeader: React.FunctionComponent = () => {
                                     />
                                 </ToggleGroup>
                             </div>
+                        </FlexItem>
+
+                        <FlexItem>
+                            <Tooltip content="Open the notification drawer." position="bottom">
+                                {notificationBadge}
+                            </Tooltip>
                         </FlexItem>
 
                         <FlexItem>
