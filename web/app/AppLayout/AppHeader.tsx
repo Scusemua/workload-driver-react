@@ -135,7 +135,9 @@ export const AppHeader: React.FunctionComponent = () => {
 
     const containsUnreadAlertNotification = () =>
         notifications.filter(
-            (notification) => notification.isNotificationRead === false && notification.variant === 'danger',
+            (notification) =>
+                notification.isNotificationRead === false &&
+                (notification.variant === 'danger' || notification.variant === 'warning'),
         ).length > 0;
 
     const getNotificationBadgeVariant = () => {
