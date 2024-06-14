@@ -3,7 +3,9 @@ export interface WebSocketMessage {
     payload: any;
 }
 
-export interface ErrorMessage {
-    errorName: string;
-    errorMessage: string;
+export interface Notification {
+    title: string;
+    message: string;
+    notificationType: number;
+    panicked: boolean;
 }
