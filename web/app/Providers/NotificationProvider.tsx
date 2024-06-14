@@ -62,16 +62,24 @@ const NotificationProvider = (props) => {
     };
 
     const addNewNotification = (notification: Notification) => {
-        const title = notification.title;
-        const description = notification.message;
-        const key = uuidv4();
-        const timestamp = getTimeCreated();
-        const variant = notificationVariants[notification.notificationType];
+        const title: string = notification.title;
+        const description: string = notification.message;
+        const key: string = uuidv4();
+        const timestamp: string = getTimeCreated();
+        let variant: 'danger' | 'warning' | 'info' | 'success' = notificationVariants[notification.notificationType];
+
+        if (variant === undefined) {
+            variant = 'danger';
+        }
 
         setNotifications((prevNotifications) => [
             { title, variant, key, timestamp, description, isNotificationRead: false },
             ...prevNotifications,
         ]);
+
+        console.log(
+            `Adding new notification: ${title}: ${description} (key=${key}, timestamp=${timestamp}, variant=${variant})`,
+        );
 
         if (!expanded) {
             setAlerts((prevAlerts) => [

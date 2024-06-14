@@ -1,6 +1,6 @@
 export interface Notification {
     title: string;
     message: string;
-    notificationType: number;
+    notificationType: string;
     panicked: boolean;
 }

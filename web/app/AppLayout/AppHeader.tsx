@@ -163,7 +163,7 @@ export const AppHeader: React.FunctionComponent = () => {
                         </FlexItem>
 
                         <FlexItem>
-                            <Tooltip content="Cause the Cluster Gateway to panic.">
+                            <Tooltip content="Cause the Cluster Gateway to panic." position="bottom">
                                 <Button
                                     isDanger
                                     variant="secondary"
@@ -182,7 +182,10 @@ export const AppHeader: React.FunctionComponent = () => {
                         </FlexItem>
 
                         <FlexItem>
-                            <Tooltip content="Prompt the server to broadcast a fake error for testing/debugging purposes.">
+                            <Tooltip
+                                content="Prompt the server to broadcast a fake error for testing/debugging purposes."
+                                position="bottom"
+                            >
                                 <Button
                                     isDanger
                                     variant="secondary"
@@ -203,7 +206,10 @@ export const AppHeader: React.FunctionComponent = () => {
                         </FlexItem>
 
                         <FlexItem>
-                            <Tooltip content="Prompt the server to broadcast a bunch of fake notifications for testing/debugging purposes.">
+                            <Tooltip
+                                content="Prompt the server to broadcast a bunch of fake notifications for testing/debugging purposes."
+                                position="bottom"
+                            >
                                 <Button
                                     variant="secondary"
                                     icon={<InfoAltIcon />}
@@ -223,7 +229,10 @@ export const AppHeader: React.FunctionComponent = () => {
                         </FlexItem>
 
                         <FlexItem>
-                            <Tooltip content="Indicates the current connection status with the backend of the Cluster Dashboard.">
+                            <Tooltip
+                                content="Indicates the current connection status with the backend of the Cluster Dashboard."
+                                position="bottom"
+                            >
                                 <Label color={connectionStatusColor} icon={connectionStatusIcon}>
                                     {connectionStatus}
                                 </Label>
