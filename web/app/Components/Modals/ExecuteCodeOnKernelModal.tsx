@@ -63,7 +63,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
     const [forceFailure, setForceFailure] = React.useState(false);
     const [isOutputTextWrapped, setIsOutputTextWrapped] = React.useState(false);
     const [isOutputFullScreen, setIsOutputFullScreen] = React.useState(false);
-    const logViewerRef = React.useRef();
+    const logViewerRef = React.useRef<any>();
 
     const { darkMode, toggleDarkMode } = React.useContext(DarkModeContext);
 
@@ -144,7 +144,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                     }),
                 };
 
-                fetch('api/yield-next-request', req);
+                await fetch('api/yield-next-execute-request', req);
             } else {
                 console.log(`Executing code on kernel ${props.kernel?.kernelId}, replica ${targetReplicaId}:\n${code}`);
             }
@@ -419,7 +419,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                 </FlexItem>
                 <FlexItem>
                     <LogViewer
-                        id={'kernel-execution-output'}
+                        // id={'kernel-execution-output'}
                         ref={logViewerRef}
                         hasLineNumbers={true}
                         data={output}

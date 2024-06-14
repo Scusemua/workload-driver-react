@@ -543,7 +543,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                 }),
             };
 
-            fetch('api/yield-next-request', req);
+            await fetch('api/yield-next-execute-request', req);
         } else {
             console.log(
                 `Executing code on kernel ${executeCodeKernel?.kernelId}, replica ${targetReplicaId}:\n${code}`,
