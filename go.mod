@@ -29,14 +29,12 @@ require (
 )
 
 require (
+	github.com/enriquebris/goconcurrentqueue v0.7.0
 	github.com/hashicorp/yamux v0.1.1
 	github.com/shopspring/decimal v1.4.0
 )
 
-require (
-	github.com/dchest/siphash v1.1.0 // indirect
-	github.com/enriquebris/goconcurrentqueue v0.7.0 // indirect
-)
+require github.com/dchest/siphash v1.1.0 // indirect
 
 require (
 	dario.cat/mergo v1.0.0 // indirect
