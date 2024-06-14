@@ -180,7 +180,6 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
                 targetReplica={migrateReplica}
             />
             <Toaster position="bottom-right" />
-            <DashboardNotificationDrawer />
         </PageSection>
     );
 };
