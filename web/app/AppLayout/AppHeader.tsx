@@ -156,6 +156,7 @@ export const AppHeader: React.FunctionComponent = () => {
                 variant={getNotificationBadgeVariant()}
                 onClick={onNotificationBadgeClick}
                 aria-label="Notifications"
+                count={getUnreadNotificationsNumber()}
             ></NotificationBadge>
         </ToolbarItem>
     );
