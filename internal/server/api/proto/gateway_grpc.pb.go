@@ -315,6 +315,7 @@ const (
 	DistributedCluster_InducePanic_FullMethodName              = "/gateway.DistributedCluster/InducePanic"
 	DistributedCluster_SpoofNotifications_FullMethodName       = "/gateway.DistributedCluster/SpoofNotifications"
 	DistributedCluster_Ping_FullMethodName                     = "/gateway.DistributedCluster/Ping"
+	DistributedCluster_PingKernel_FullMethodName               = "/gateway.DistributedCluster/PingKernel"
 	DistributedCluster_ListKernels_FullMethodName              = "/gateway.DistributedCluster/ListKernels"
 	DistributedCluster_SetTotalVirtualGPUs_FullMethodName      = "/gateway.DistributedCluster/SetTotalVirtualGPUs"
 	DistributedCluster_GetClusterActualGpuInfo_FullMethodName  = "/gateway.DistributedCluster/GetClusterActualGpuInfo"
@@ -333,6 +334,8 @@ type DistributedClusterClient interface {
 	SpoofNotifications(ctx context.Context, in *Void, opts ...grpc.CallOption) (*Void, error)
 	// Used to test connectivity.
 	Ping(ctx context.Context, in *Void, opts ...grpc.CallOption) (*Pong, error)
+	// Used to test connectivity with kernels.
+	PingKernel(ctx context.Context, in *PingInstruction, opts ...grpc.CallOption) (*Pong, error)
 	// Return a list of all of the current kernel IDs.
 	ListKernels(ctx context.Context, in *Void, opts ...grpc.CallOption) (*ListKernelsResponse, error)
 	// Set the maximum number of vGPU resources availabe on a particular node (identified by the local daemon).
@@ -382,6 +385,15 @@ func (c *distributedClusterClient) SpoofNotifications(ctx context.Context, in *V
 func (c *distributedClusterClient) Ping(ctx context.Context, in *Void, opts ...grpc.CallOption) (*Pong, error) {
 	out := new(Pong)
 	err := c.cc.Invoke(ctx, DistributedCluster_Ping_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *distributedClusterClient) PingKernel(ctx context.Context, in *PingInstruction, opts ...grpc.CallOption) (*Pong, error) {
+	out := new(Pong)
+	err := c.cc.Invoke(ctx, DistributedCluster_PingKernel_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -452,6 +464,8 @@ type DistributedClusterServer interface {
 	SpoofNotifications(context.Context, *Void) (*Void, error)
 	// Used to test connectivity.
 	Ping(context.Context, *Void) (*Pong, error)
+	// Used to test connectivity with kernels.
+	PingKernel(context.Context, *PingInstruction) (*Pong, error)
 	// Return a list of all of the current kernel IDs.
 	ListKernels(context.Context, *Void) (*ListKernelsResponse, error)
 	// Set the maximum number of vGPU resources availabe on a particular node (identified by the local daemon).
@@ -485,6 +499,9 @@ func (UnimplementedDistributedClusterServer) SpoofNotifications(context.Context,
 }
 func (UnimplementedDistributedClusterServer) Ping(context.Context, *Void) (*Pong, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method Ping not implemented")
+}
+func (UnimplementedDistributedClusterServer) PingKernel(context.Context, *PingInstruction) (*Pong, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PingKernel not implemented")
 }
 func (UnimplementedDistributedClusterServer) ListKernels(context.Context, *Void) (*ListKernelsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ListKernels not implemented")
@@ -567,6 +584,24 @@ func _DistributedCluster_Ping_Handler(srv interface{}, ctx context.Context, dec 
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(DistributedClusterServer).Ping(ctx, req.(*Void))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _DistributedCluster_PingKernel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PingInstruction)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DistributedClusterServer).PingKernel(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DistributedCluster_PingKernel_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DistributedClusterServer).PingKernel(ctx, req.(*PingInstruction))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -699,6 +734,10 @@ var DistributedCluster_ServiceDesc = grpc.ServiceDesc{
 			Handler:    _DistributedCluster_Ping_Handler,
 		},
 		{
+			MethodName: "PingKernel",
+			Handler:    _DistributedCluster_PingKernel_Handler,
+		},
+		{
 			MethodName: "ListKernels",
 			Handler:    _DistributedCluster_ListKernels_Handler,
 		},
@@ -824,6 +863,7 @@ const (
 	LocalGateway_GetKernelStatus_FullMethodName          = "/gateway.LocalGateway/GetKernelStatus"
 	LocalGateway_KillKernel_FullMethodName               = "/gateway.LocalGateway/KillKernel"
 	LocalGateway_StopKernel_FullMethodName               = "/gateway.LocalGateway/StopKernel"
+	LocalGateway_PingKernel_FullMethodName               = "/gateway.LocalGateway/PingKernel"
 	LocalGateway_WaitKernel_FullMethodName               = "/gateway.LocalGateway/WaitKernel"
 	LocalGateway_SetClose_FullMethodName                 = "/gateway.LocalGateway/SetClose"
 	LocalGateway_AddReplica_FullMethodName               = "/gateway.LocalGateway/AddReplica"
@@ -852,6 +892,8 @@ type LocalGatewayClient interface {
 	KillKernel(ctx context.Context, in *KernelId, opts ...grpc.CallOption) (*Void, error)
 	// StopKernel stops a kernel gracefully and return immediately.
 	StopKernel(ctx context.Context, in *KernelId, opts ...grpc.CallOption) (*Void, error)
+	// Used to test connectivity with kernels.
+	PingKernel(ctx context.Context, in *PingInstruction, opts ...grpc.CallOption) (*Pong, error)
 	// WaitKernel waits for a kernel to stop and return status.
 	WaitKernel(ctx context.Context, in *KernelId, opts ...grpc.CallOption) (*KernelStatus, error)
 	// SetClose request the gateway to close all kernels and stop.
@@ -934,6 +976,15 @@ func (c *localGatewayClient) KillKernel(ctx context.Context, in *KernelId, opts 
 func (c *localGatewayClient) StopKernel(ctx context.Context, in *KernelId, opts ...grpc.CallOption) (*Void, error) {
 	out := new(Void)
 	err := c.cc.Invoke(ctx, LocalGateway_StopKernel_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+func (c *localGatewayClient) PingKernel(ctx context.Context, in *PingInstruction, opts ...grpc.CallOption) (*Pong, error) {
+	out := new(Pong)
+	err := c.cc.Invoke(ctx, LocalGateway_PingKernel_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
 	}
@@ -1046,6 +1097,8 @@ type LocalGatewayServer interface {
 	KillKernel(context.Context, *KernelId) (*Void, error)
 	// StopKernel stops a kernel gracefully and return immediately.
 	StopKernel(context.Context, *KernelId) (*Void, error)
+	// Used to test connectivity with kernels.
+	PingKernel(context.Context, *PingInstruction) (*Pong, error)
 	// WaitKernel waits for a kernel to stop and return status.
 	WaitKernel(context.Context, *KernelId) (*KernelStatus, error)
 	// SetClose request the gateway to close all kernels and stop.
@@ -1094,6 +1147,9 @@ func (UnimplementedLocalGatewayServer) KillKernel(context.Context, *KernelId) (*
 }
 func (UnimplementedLocalGatewayServer) StopKernel(context.Context, *KernelId) (*Void, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method StopKernel not implemented")
+}
+func (UnimplementedLocalGatewayServer) PingKernel(context.Context, *PingInstruction) (*Pong, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method PingKernel not implemented")
 }
 func (UnimplementedLocalGatewayServer) WaitKernel(context.Context, *KernelId) (*KernelStatus, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method WaitKernel not implemented")
@@ -1242,6 +1298,24 @@ func _LocalGateway_StopKernel_Handler(srv interface{}, ctx context.Context, dec 
 	}
 	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
 		return srv.(LocalGatewayServer).StopKernel(ctx, req.(*KernelId))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+func _LocalGateway_PingKernel_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(PingInstruction)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LocalGatewayServer).PingKernel(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LocalGateway_PingKernel_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LocalGatewayServer).PingKernel(ctx, req.(*PingInstruction))
 	}
 	return interceptor(ctx, in, info, handler)
 }
@@ -1456,6 +1530,10 @@ var LocalGateway_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "StopKernel",
 			Handler:    _LocalGateway_StopKernel_Handler,
+		},
+		{
+			MethodName: "PingKernel",
+			Handler:    _LocalGateway_PingKernel_Handler,
 		},
 		{
 			MethodName: "WaitKernel",

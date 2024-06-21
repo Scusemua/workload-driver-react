@@ -164,13 +164,15 @@ func (s *serverImpl) setupRoutes() error {
 	// Debugging and Testing //
 	///////////////////////////
 	{
-		apiGroup.POST(domain.YIELD_NEXT_REQUEST, handlers.NewYieldNextExecuteHandler(s.opts, s.gatewayRpcClient).HandleRequest)
+		apiGroup.POST(domain.YIELD_NEXT_REQUEST_ENDPOINT, handlers.NewYieldNextExecuteHandler(s.opts, s.gatewayRpcClient).HandleRequest)
 
 		apiGroup.POST(domain.PANIC_ENDPOINT, handlers.NewPanicHttpHandler(s.opts, s.gatewayRpcClient).HandleRequest)
 
-		apiGroup.POST(domain.SPOOF_NOTIFICATIONS, s.handleSpoofedNotifications)
+		apiGroup.POST(domain.SPOOF_NOTIFICATIONS_ENDPOINT, s.handleSpoofedNotifications)
 
-		apiGroup.POST(domain.SPOOF_ERROR, s.handleSpoofedError)
+		apiGroup.POST(domain.SPOOF_ERROR_ENDPOINT, s.handleSpoofedError)
+
+		apiGroup.POST(domain.PING_KERNEL_ENDPOINT, handlers.NewPingKernelHttpHandler(s.opts, s.gatewayRpcClient).HandleRequest)
 	}
 
 	/////////////////////

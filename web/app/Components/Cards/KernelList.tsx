@@ -297,7 +297,45 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
 
     async function onInspectKernelClicked(kernel: DistributedJupyterKernel) {
         const kernelId: string = kernel.kernelId;
-        console.log('User is inspecting kernel ' + kernelId);
+        console.log('User is pinging kernel ' + kernelId);
+
+        const req: RequestInit = {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+            },
+            body: JSON.stringify({
+                socketType: 'control',
+                kernelId: kernelId,
+            }),
+        };
+
+        toast.promise(fetch('api/ping-kernel', req), {
+            loading: <b>Pinging kernel {kernelId} now...</b>,
+            success: (resp: Response) => {
+                if (!resp.ok || resp.status != 200) {
+                    console.error(`Failed to ping 1 or more replicas of kernel ${kernelId}.`);
+                    throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
+                }
+                return (
+                    <b>
+                        Successfully pinged kernel {kernelId}. {resp.status}
+                    </b>
+                );
+            },
+            error: (reason: Error) => {
+                return (
+                    <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
+                        <FlexItem>
+                            <b>Failed to ping one or more replicas of kernel {kernelId}.</b>
+                        </FlexItem>
+                        <FlexItem>
+                            <b>Reason:</b> {reason.message}
+                        </FlexItem>
+                    </Flex>
+                );
+            },
+        });
     }
 
     const onInterruptKernelClicked = (index: number) => {
@@ -325,7 +363,18 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
 
         toast.promise(fetch('api/stop-training', req), {
             loading: <b>Interrupting kernel {kernelId} now...</b>,
-            success: <b>Successfully interrupted kernel {kernelId}.</b>,
+            success: (resp: Response) => {
+                if (!resp.ok || resp.status != 200) {
+                    console.error(`Failed to interrupt kernel ${kernelId}.`);
+                    throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
+                }
+                console.log(`Successfully interrupted kernel ${kernelId}.`);
+                return (
+                    <b>
+                        Successfully interrupted kernel {kernelId} (HTTP {resp.status}: {resp.statusText}).
+                    </b>
+                );
+            },
             error: (reason: Error) => {
                 return (
                     <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
@@ -1315,7 +1364,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                                             isDisabled={kernel == null}
                                                             onClick={() => onInspectKernelClicked(filteredKernels[idx])}
                                                         >
-                                                            Inspect
+                                                            Ping
                                                         </Button>
                                                     </Tooltip>
                                                 </FlexItem>
@@ -1384,7 +1433,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                                         onInspectKernelClicked(kernel!);
                                                     }}
                                                 >
-                                                    Inspect
+                                                    Ping
                                                 </OverflowMenuDropdownItem>
                                                 ,
                                                 <OverflowMenuDropdownItem

@@ -14,7 +14,7 @@ import {
 import { DistributedJupyterKernel, JupyterKernelReplica } from '@app/Data';
 import { MigrationModal } from '@app/Components/Modals';
 
-import toast, { Toaster } from 'react-hot-toast';
+import toast from 'react-hot-toast';
 import { DashboardNotificationDrawer } from '@app/Components';
 
 export interface DashboardProps {}
@@ -179,7 +179,6 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
                 targetKernel={migrateKernel}
                 targetReplica={migrateReplica}
             />
-            <Toaster position="bottom-right" />
         </PageSection>
     );
 };

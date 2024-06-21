@@ -50,17 +50,19 @@ const (
 	STOP_TRAINING_ENDPOINT = "/stop-training"
 
 	// Used to specify that the next execution request served by a particular kernel should be yielded.
-	YIELD_NEXT_REQUEST = "/yield-next-execute-request"
+	YIELD_NEXT_REQUEST_ENDPOINT = "/yield-next-execute-request"
 
 	JUPYTER_GROUP_ENDPOINT        = "/jupyter"
 	JUPYTER_START_KERNEL_ENDPOINT = "/start"
 	JUPYTER_STOP_KERNEL_ENDPOINT  = "/stop"
 
 	// Causes the server to broadcast a fake error via websockets for debugging/testing purposes.
-	SPOOF_ERROR = "/spoof-error"
+	SPOOF_ERROR_ENDPOINT = "/spoof-error"
 
 	// Used for testing notifications sent from the Cluster to the Dashboard
-	SPOOF_NOTIFICATIONS = "/spoof-notifications"
+	SPOOF_NOTIFICATIONS_ENDPOINT = "/spoof-notifications"
+
+	PING_KERNEL_ENDPOINT = "/ping-kernel"
 )
 
 var (
