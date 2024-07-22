@@ -106,6 +106,7 @@
     "react-xml-viewer": "^2.0.1",
     "sirv-cli": "^2.0.2",
     "stable-hash": "^0.0.4",
+    "string-width": "^6.1.0",
     "swr": "^2.2.5",
     "uuid": "^10.0.0"
   },

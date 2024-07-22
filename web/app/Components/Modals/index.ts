@@ -6,3 +6,4 @@ export * from './RegisterWorkloadModal';
 export * from './AdjustVirtualGPUsModal';
 export * from './CreateKernelsModal';
 export * from './InspectWorkloadModal';
+export * from './PingKernelModal';

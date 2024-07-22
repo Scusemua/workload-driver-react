@@ -83,6 +83,7 @@ import { IKernelConnection } from '@jupyterlab/services/lib/kernel/kernel';
 import { ISessionConnection } from '@jupyterlab/services/lib/session/session';
 import { IModel as ISessionModel } from '@jupyterlab/services/lib/session/session';
 import { numberArrayFromRange } from '@app/utils/utils';
+import { PingKernelModal } from '../Modals/PingKernelModal';
 
 // Map from kernel status to the associated icon.
 const kernelStatusIcons = {
@@ -109,6 +110,8 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
     const [isConfirmDeleteKernelsModalOpen, setIsConfirmDeleteKernelsModalOpen] = React.useState(false);
     const [isConfirmDeleteKernelModalOpen, setIsConfirmDeleteKernelModalOpen] = React.useState(false);
     const [isErrorModalOpen, setIsErrorModalOpen] = React.useState(false);
+    const [isPingKernelModalOpen, setIsPingKernelModalOpen] = React.useState(false);
+    const [targetIdPingKernel, setTargetIdPingKernel] = React.useState<string>('');
     const [errorMessage, setErrorMessage] = React.useState('');
     const [errorMessagePreamble, setErrorMessagePreamble] = React.useState('');
     const [isExecuteCodeModalOpen, setIsExecuteCodeModalOpen] = React.useState(false);
@@ -273,30 +276,14 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         setExecuteCodeKernelReplica(null);
     };
 
-    const onExecuteCodeClicked = (kernel: DistributedJupyterKernel | null, replicaIdx?: number | undefined) => {
-        if (kernel == null) {
-            return;
-        }
+    const onCancelPingKernelClicked = () => {
+        setIsPingKernelModalOpen(false);
+        setTargetIdPingKernel('');
+    }
 
-        // If we clicked the 'Execute' button associated with a specific replica, then set the state for that replica.
-        if (replicaIdx !== undefined) {
-            // Need to use "!== undefined" because a `replicaIdx` of 0 will be coerced to false if by itself.
-            console.log(
-                'Will be executing code on replica %d of kernel %s.',
-                kernel.replicas[replicaIdx].replicaId,
-                kernel.kernelId,
-            );
-            setExecuteCodeKernelReplica(kernel.replicas[replicaIdx]);
-        } else {
-            setExecuteCodeKernelReplica(null);
-        }
-
-        setExecuteCodeKernel(kernel);
-        setIsExecuteCodeModalOpen(true);
-    };
-
-    async function onInspectKernelClicked(kernel: DistributedJupyterKernel) {
-        const kernelId: string = kernel.kernelId;
+    const onConfirmPingKernelClicked = (kernelId: string, socketType: 'control' | 'shell') => {
+        setIsPingKernelModalOpen(false);
+        setTargetIdPingKernel('');
         console.log('User is pinging kernel ' + kernelId);
 
         const req: RequestInit = {
@@ -305,7 +292,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                 'Content-Type': 'application/json',
             },
             body: JSON.stringify({
-                socketType: 'control',
+                socketType: socketType,
                 kernelId: kernelId,
             }),
         };
@@ -336,6 +323,33 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                 );
             },
         });
+    }
+
+    const onExecuteCodeClicked = (kernel: DistributedJupyterKernel | null, replicaIdx?: number | undefined) => {
+        if (kernel == null) {
+            return;
+        }
+
+        // If we clicked the 'Execute' button associated with a specific replica, then set the state for that replica.
+        if (replicaIdx !== undefined) {
+            // Need to use "!== undefined" because a `replicaIdx` of 0 will be coerced to false if by itself.
+            console.log(
+                'Will be executing code on replica %d of kernel %s.',
+                kernel.replicas[replicaIdx].replicaId,
+                kernel.kernelId,
+            );
+            setExecuteCodeKernelReplica(kernel.replicas[replicaIdx]);
+        } else {
+            setExecuteCodeKernelReplica(null);
+        }
+
+        setExecuteCodeKernel(kernel);
+        setIsExecuteCodeModalOpen(true);
+    };
+
+    async function onPingKernelClicked(kernel: DistributedJupyterKernel) {
+        setIsPingKernelModalOpen(true);
+        setTargetIdPingKernel(kernel.kernelId);
     }
 
     const onInterruptKernelClicked = (index: number) => {
@@ -1362,7 +1376,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                                             variant={'link'}
                                                             icon={<InfoAltIcon />}
                                                             isDisabled={kernel == null}
-                                                            onClick={() => onInspectKernelClicked(filteredKernels[idx])}
+                                                            onClick={() => onPingKernelClicked(filteredKernels[idx])}
                                                         >
                                                             Ping
                                                         </Button>
@@ -1430,7 +1444,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                                     isShared
                                                     icon={<InfoAltIcon />}
                                                     onClick={() => {
-                                                        onInspectKernelClicked(kernel!);
+                                                        onPingKernelClicked(kernel!);
                                                     }}
                                                 >
                                                     Ping
@@ -1570,6 +1584,15 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                         titleIconVariant="danger"
                         message1={errorMessagePreamble}
                         message2={errorMessage}
+                    />,
+                    document.body,
+                )}
+                {createPortal(
+                    <PingKernelModal
+                        isOpen={isPingKernelModalOpen}
+                        onClose={onCancelPingKernelClicked}
+                        onConfirm={onConfirmPingKernelClicked}
+                        kernelId={targetIdPingKernel}
                     />,
                     document.body,
                 )}

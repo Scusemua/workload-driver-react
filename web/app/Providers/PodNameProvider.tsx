@@ -14,6 +14,13 @@ const fetcher = async (input: RequestInfo | URL) => {
         const response: Response = await fetch(input, {
             signal: signal,
         });
+
+        if (response.status != 200) {
+            const responseBody: string = await response.text();
+            console.error(`Refresh Pod Names (${response.status} ${response.statusText}): ${responseBody}`);
+            throw new Error(`${response.status} ${response.statusText}`);
+        }
+
         /* eslint-disable @typescript-eslint/no-explicit-any */
         const responseJson: Record<string, any> = await response.json();
         /* eslint-disable @typescript-eslint/no-explicit-any */
