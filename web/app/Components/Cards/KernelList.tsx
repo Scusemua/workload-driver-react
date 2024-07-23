@@ -297,32 +297,41 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             }),
         };
         
-        toast.promise(fetch('api/ping-kernel', req), {
-            loading: <b>Pinging kernel {kernelId} now...</b>,
-            success: (resp: Response) => {
-                if (!resp.ok || resp.status != 200) {
-                    console.error(`Failed to ping 1 or more replicas of kernel ${kernelId}.`);
-                    throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
+        toast.promise(
+            fetch('api/ping-kernel', req), 
+            {
+                loading: <b>Pinging kernel {kernelId} now...</b>,
+                success: (resp: Response) => {
+                    if (!resp.ok || resp.status != 200) {
+                        console.error(`Failed to ping 1 or more replicas of kernel ${kernelId}.`);
+                        throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
+                    }
+                    return (
+                        <b>
+                            Successfully pinged kernel {kernelId}. {resp.status}
+                        </b>
+                    );
+                },
+                error: (reason: Error) => {
+                    return (
+                        <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
+                            <FlexItem>
+                                <b>Failed to ping one or more replicas of kernel {kernelId}.</b>
+                            </FlexItem>
+                            <FlexItem>
+                                <b>Reason:</b> {reason.message}
+                            </FlexItem>
+                        </Flex>
+                    );
                 }
-                return (
-                    <b>
-                        Successfully pinged kernel {kernelId}. {resp.status}
-                    </b>
-                );
             },
-            error: (reason: Error) => {
-                return (
-                    <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
-                        <FlexItem>
-                            <b>Failed to ping one or more replicas of kernel {kernelId}.</b>
-                        </FlexItem>
-                        <FlexItem>
-                            <b>Reason:</b> {reason.message}
-                        </FlexItem>
-                    </Flex>
-                );
-            },
-        });
+            {
+                style: {
+                    padding: '8px',
+                    minWidth: '425px',
+                },
+            }
+        );
     }
 
     const onExecuteCodeClicked = (kernel: DistributedJupyterKernel | null, replicaIdx?: number | undefined) => {
