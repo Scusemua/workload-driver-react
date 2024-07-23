@@ -15,10 +15,10 @@ const fetcher = async (input: RequestInfo | URL) => {
             signal: signal,
         });
 
-        if (response.status != 200) {
+        if (!response.ok) {
             const responseBody: string = await response.text();
             console.error(`Refresh Pod Names (${response.status} ${response.statusText}): ${responseBody}`);
-            throw new Error(`${response.status} ${response.statusText}`);
+            throw new Error(`Failed to refresh Pod Names: ${response.status} ${response.statusText}`);
         }
 
         /* eslint-disable @typescript-eslint/no-explicit-any */

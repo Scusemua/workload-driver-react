@@ -37,7 +37,7 @@ const baseFetcher = async (input: RequestInfo | URL) => {
         }
     }
 
-    if (response.status != 200) {
+    if (!response.ok) {
         const responseBody: string = await response.text();
         console.error(`Refresh Kernels Failed (${response.status} ${response.statusText}): ${responseBody}`);
         throw new Error(`Refresh Kernels Failed: ${response.status} ${response.statusText}`);
@@ -53,7 +53,7 @@ const baseFetcher = async (input: RequestInfo | URL) => {
 const fetcher = async (input: RequestInfo | URL, forLogging: boolean) => {
     const response: Response = await baseFetcher(input);
 
-    if (response.status != 200) {
+    if (!response.ok) {
         console.error(`Received HTTP ${response.status} ${response.statusText} when retrieving kernels.`);
         throw new Error(`Received HTTP ${response.status} ${response.statusText} when retrieving kernels.`);
     }

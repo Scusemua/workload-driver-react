@@ -120,7 +120,7 @@ export const LogViewCard: React.FunctionComponent = () => {
                                     }
                                     onClick={() => {
                                         setPodsAreRefreshing(true);
-                                        toast
+                                        const promise = toast
                                             .promise(
                                                 refreshPodNames(),
                                                 {
@@ -149,12 +149,44 @@ export const LogViewCard: React.FunctionComponent = () => {
                                                 {
                                                     style: {
                                                         padding: '8px',
+                                                        minWidth: '425px',
                                                     },
+                                                    id: "manuallyRefreshPodNames",
                                                 },
-                                            )
-                                            .then(() => {
-                                                setPodsAreRefreshing(false);
-                                            });
+                                            );
+                                        // Need to do this whole rigmarole so that, if the above fails for whatever reason, there's not an "unhandled error" exception.
+                                        // If the above fails due to the fetcher in the PodNameProvider failing and throwing an error, we need to catch the error explicitly here.
+                                        promise.then(() => {
+                                            setPodsAreRefreshing(false);
+                                        }).catch((reason: Error) => { // Explicitly catch the potential error.
+                                        toast.error((t) => {
+                                            setPodsAreRefreshing(false);
+                                            
+                                            let reasonUI = <FlexItem>{reason.message}</FlexItem>;
+
+                                            if (reason.message.includes("Unexpected token 'E'")) {
+                                                reasonUI = <FlexItem>HTTP 504: Gateway Timeout</FlexItem>;
+                                            }
+
+                                            return (
+                                                <Flex
+                                                    direction={{ default: 'column' }}
+                                                    spaceItems={{ default: 'spaceItemsNone' }}
+                                                >
+                                                    <FlexItem>
+                                                        <b>Could not refresh Kuberentes pod names.</b>
+                                                    </FlexItem>
+                                                    {reasonUI}
+                                                </Flex>
+                                            );
+                                        }, {
+                                            style: {
+                                                padding: '8px',
+                                                minWidth: '425px',
+                                            },
+                                            id: "manuallyRefreshPodNames"
+                                        })       
+                                    })
                                     }}
                                     icon={<SyncIcon />}
                                 />

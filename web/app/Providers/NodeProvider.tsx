@@ -31,7 +31,7 @@ const fetcher = async (input: RequestInfo | URL) => {
         }
     }
 
-    if (response.status != 200) {
+    if (!response.ok) {
         const responseBody: string = await response.text();
         console.error(`Refresh Nodes Failed (${response.status} ${response.statusText}): ${responseBody}`);
         throw new Error(`${response.status} ${response.statusText}`);

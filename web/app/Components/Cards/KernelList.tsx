@@ -296,7 +296,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                 kernelId: kernelId,
             }),
         };
-
+        
         toast.promise(fetch('api/ping-kernel', req), {
             loading: <b>Pinging kernel {kernelId} now...</b>,
             success: (resp: Response) => {
