@@ -42,7 +42,7 @@ export const MigrationModal: React.FunctionComponent<MigrationModalProps> = (pro
                 </Text>
             </TextContent>
             <br />
-            <KubernetesNodeList
+            {/* <KubernetesNodeList
                 isDashboardList={false}
                 hideAdjustVirtualGPUsButton={true}
                 displayNodeToggleSwitch={false}
@@ -53,7 +53,7 @@ export const MigrationModal: React.FunctionComponent<MigrationModalProps> = (pro
                 onSelectNode={(nodeId: string) => {
                     setTargetNodeID(nodeId);
                 }}
-            />
+            /> */}
             <br />
             <TextContent>
                 <Text component={TextVariants.p} hidden={targetNodeID == ''}>

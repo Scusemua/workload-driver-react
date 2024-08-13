@@ -238,7 +238,7 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
     const failedRefreshMessage = (reason: Error) => {
         let explanation: string = reason.message;
         if (reason.name === 'SyntaxError') {
-            explanation = 'HTTP 504 Gateway Timeout';
+            explanation = 'HTTP 504 Gateway Timeout. (Is your kubeconfig correct?)';
         }
 
         return (

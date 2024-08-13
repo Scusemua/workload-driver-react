@@ -7,7 +7,7 @@ const { stylePaths } = require('./stylePaths');
 const { debug } = require('console');
 
 const HOST = process.env.host || '127.0.0.1';
-const PORT = process.env.port || '9001';
+const PORT = process.env.port || '8001';
 
 console.log('HOST: %s. PORT: %s.', HOST, PORT);
 

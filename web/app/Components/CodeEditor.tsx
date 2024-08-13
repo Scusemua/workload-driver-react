@@ -90,6 +90,20 @@ export const CodeEditorComponent: React.FunctionComponent = () => {
         </div>
     );
 
+    const defaultCodeTemplate0 = (
+        <CodeEditorControl
+            icon={<CodeIcon />}
+            aria-label="Execute code"
+            tooltipProps={{ content: 'Sample Code #1' }}
+            onClick={() => {
+                setCode(
+                    `a = 1
+print("a = %d" % a)`,
+                );
+            }}
+        />
+    );
+
     const defaultCodeTemplate1 = (
         <CodeEditorControl
             icon={<CodeIcon />}
@@ -97,7 +111,7 @@ export const CodeEditorComponent: React.FunctionComponent = () => {
             tooltipProps={{ content: 'Sample Code #1' }}
             onClick={() => {
                 setCode(
-                    `a = 15
+                    `a = a + 1
 print("a = %d" % a)`,
                 );
             }}
@@ -136,7 +150,7 @@ print("a = %d, b = %d, c = %d" % (a, b, c))`);
             aria-label="Execute code"
             tooltipProps={{ content: 'Sample Code #4' }}
             onClick={() => {
-                setCode(`a = 15
+                setCode(`a = 1
 b = a + 2
 c = (b * 3) - a
 d = (2 * a) - (4 * b) + (3 + c)
@@ -156,7 +170,7 @@ print(f"i = {i}")
         <CodeEditor
             isDarkTheme={isEditorDarkMode}
             shortcutsPopoverProps={shortcutsPopoverProps}
-            customControls={[defaultCodeTemplate1, defaultCodeTemplate2, defaultCodeTemplate3, defaultCodeTemplate4, darkLightThemeSwitch]}
+            customControls={[defaultCodeTemplate0, defaultCodeTemplate1, defaultCodeTemplate2, defaultCodeTemplate3, defaultCodeTemplate4, darkLightThemeSwitch]}
             isLanguageLabelVisible
             isUploadEnabled
             isDownloadEnabled

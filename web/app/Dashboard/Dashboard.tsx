@@ -125,9 +125,9 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
     return (
         <PageSection>
             <Grid hasGutter>
-                <GridItem span={12} rowSpan={8}>
+                {/* <GridItem span={12} rowSpan={8}>
                     <LogViewCard />
-                </GridItem>
+                </GridItem> */}
                 <GridItem span={6} rowSpan={getKernelCardRowspan()}>
                     <KernelHeightFactorContext.Provider
                         value={{
@@ -151,7 +151,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
                 <GridItem span={6} rowSpan={1}>
                     <KernelSpecList />
                 </GridItem>
-                <GridItem span={6} rowSpan={getKubeNodeCardRowspan()}>
+                {/* <GridItem span={6} rowSpan={getKubeNodeCardRowspan()}>
                     <KubernetesNodeHeightFactorContext.Provider
                         value={{
                             heightFactor: kubeNodeHeightFactor,
@@ -167,10 +167,10 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
                             displayNodeToggleSwitch={true}
                         />
                     </KubernetesNodeHeightFactorContext.Provider>
-                </GridItem>
-                <GridItem span={6} rowSpan={1}>
+                </GridItem> */}
+                {/* <GridItem span={6} rowSpan={1}>
                     <UtilizationCard chartHeight={320} chartWidth={400} />
-                </GridItem>
+                </GridItem> */}
             </Grid>
             <MigrationModal
                 isOpen={isMigrateModalOpen}
