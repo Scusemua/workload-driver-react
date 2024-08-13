@@ -65,6 +65,7 @@ type Configuration struct {
 	LastTimestamp                int64  `name:"last-timestamp" description:"Epoch Unix Timestamp denotating the last timestamp for which events will be generated. Any events beyond that point will be discarded."`
 	EvictHostOnLastContainerStop int    `name:"evict-host-on-last-container-stop" description:"Override the default settings for whatever Scheduler you're using and force a value for this parameter. -1 to force false, 0 to leave as default for the particular scheduler, and 1 to force true."`
 	WorkloadPresetsFilepath      string `name:"workload-presets-file" description:"Path to a .YAML file containing the definitions of one or more Workload Presets."`
+	ExpectedOriginPort           int    `name:"expected-origin-port" description:"Port of the expected origin for messages from the frontend."`
 
 	ClusterDashboardHandlerPort int `name:"cluster-dashboard-handler-port" description:"Port for the Cluster Dashboard handler gRPC server to listen on."`
 
@@ -203,7 +204,8 @@ func GetDefaultConfig() *Configuration {
 		PushUpdateInterval:           1,
 		ConnectToKernelTimeoutMillis: 60000,
 		WebsocketProxyPort:           8001,
-		ClusterDashboardHandlerPort:  8079,
+		ClusterDashboardHandlerPort:  8078,
+		ExpectedOriginPort:           9001,
 		TraceStep:                    60,
 	}
 }

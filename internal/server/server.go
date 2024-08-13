@@ -55,6 +55,8 @@ type serverImpl struct {
 	// This is used if the websocket connection is terminated. Otherwise, the loop will continue forever.
 	getLogsResponseBodies map[string]io.ReadCloser
 
+	expectedOriginPort int
+
 	logResponseBodyMutex sync.RWMutex
 	driversMutex         sync.RWMutex
 	workloadsMutex       sync.RWMutex
@@ -65,6 +67,7 @@ func NewServer(opts *domain.Configuration) domain.Server {
 		opts:                  opts,
 		pushUpdateInterval:    time.Second * time.Duration(opts.PushUpdateInterval),
 		engine:                gin.New(),
+		expectedOriginPort:    opts.ExpectedOriginPort,
 		workloadDrivers:       orderedmap.NewOrderedMap[string, domain.WorkloadDriver](),
 		workloadsMap:          orderedmap.NewOrderedMap[string, *domain.Workload](),
 		workloads:             make([]*domain.Workload, 0),
@@ -355,14 +358,16 @@ func (s *serverImpl) serverPushRoutine(workloadStartedChan chan string, doneChan
 }
 
 func (s *serverImpl) serveGeneralWebsocket(c *gin.Context) {
-	s.logger.Debug("Handling general websocket connection")
+	expectedOriginV1 := fmt.Sprintf("http://127.0.0.1:%d", s.expectedOriginPort)
+	expectedOriginV2 := fmt.Sprintf("http://localhost:%d", s.expectedOriginPort)
+	s.logger.Debug("Handling websocket origin.", zap.String("request-origin", c.Request.Header.Get("Origin")), zap.String("request-host", c.Request.Host), zap.String("request-uri", c.Request.RequestURI), zap.String("expected-origin-v1", expectedOriginV1), zap.String("expected-origin-v2", expectedOriginV2))
 
 	upgrader.CheckOrigin = func(r *http.Request) bool {
-		if r.Header.Get("Origin") == "http://127.0.0.1:9001" || r.Header.Get("Origin") == "http://localhost:9001" {
+		if r.Header.Get("Origin") == expectedOriginV1 || r.Header.Get("Origin") == expectedOriginV2 {
 			return true
 		}
 
-		s.sugaredLogger.Errorf("Unexpected origin: %v", r.Header.Get("Origin"))
+		s.sugaredLogger.Errorf("Unexpected origin: %v.", r.Header.Get("Origin"))
 		return false
 	}
 
@@ -420,9 +425,12 @@ func (s *serverImpl) serveGeneralWebsocket(c *gin.Context) {
 
 func (s *serverImpl) serveLogWebsocket(c *gin.Context) {
 	s.logger.Debug("Handling log-related websocket connection")
+	expectedOriginV1 := fmt.Sprintf("http://127.0.0.1:%d", s.expectedOriginPort)
+	expectedOriginV2 := fmt.Sprintf("http://localhost:%d", s.expectedOriginPort)
+	s.logger.Debug("Handling websocket origin.", zap.String("request-origin", c.Request.Header.Get("Origin")), zap.String("request-host", c.Request.Host), zap.String("request-uri", c.Request.RequestURI), zap.String("expected-origin-v1", expectedOriginV1), zap.String("expected-origin-v2", expectedOriginV2))
 
 	upgrader.CheckOrigin = func(r *http.Request) bool {
-		if r.Header.Get("Origin") == "http://127.0.0.1:9001" || r.Header.Get("Origin") == "http://localhost:9001" {
+		if r.Header.Get("Origin") == expectedOriginV1 || r.Header.Get("Origin") == expectedOriginV2 {
 			return true
 		}
 
@@ -595,9 +603,12 @@ func (s *serverImpl) getLogsWebsocket(req *domain.GetLogsRequest, conn *websocke
 
 func (s *serverImpl) serveWorkloadWebsocket(c *gin.Context) {
 	s.logger.Debug("Handling workload-related websocket connection")
+	expectedOriginV1 := fmt.Sprintf("http://127.0.0.1:%d", s.expectedOriginPort)
+	expectedOriginV2 := fmt.Sprintf("http://localhost:%d", s.expectedOriginPort)
+	s.logger.Debug("Handling websocket origin.", zap.String("request-origin", c.Request.Header.Get("Origin")), zap.String("request-host", c.Request.Host), zap.String("request-uri", c.Request.RequestURI), zap.String("expected-origin-v1", expectedOriginV1), zap.String("expected-origin-v2", expectedOriginV2))
 
 	upgrader.CheckOrigin = func(r *http.Request) bool {
-		if r.Header.Get("Origin") == "http://127.0.0.1:9001" || r.Header.Get("Origin") == "http://localhost:9001" {
+		if r.Header.Get("Origin") == expectedOriginV1 || r.Header.Get("Origin") == expectedOriginV2 {
 			return true
 		}
 
