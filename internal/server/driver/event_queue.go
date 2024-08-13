@@ -157,7 +157,7 @@ func (q *eventQueue) EnqueueEvent(evt domain.Event) {
 		eventsForSession := val.(*hashmap.HashMap)
 		eventsForSession.Set(evt.Id(), eventHeapElement)
 
-		q.sugaredLogger.Debugf("Enqueued \"%v\" (id=%v, ts=%v) for session %s (src=%v). Heap length: %d", evt.Name(), podId, evt.Id(), evt.Timestamp(), evt.EventSource(), q.eventHeap.Len())
+		q.sugaredLogger.Debugf("Enqueued \"%v\" (id=%v, ts=%v) for session %s (src=%v). Heap length: %d", evt.Name(), evt.Id(), evt.Timestamp(), podId, evt.EventSource(), q.eventHeap.Len())
 	} else {
 		panic(fmt.Sprintf("Event %v has no data associated with it.", evt))
 	}

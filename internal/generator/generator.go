@@ -55,8 +55,8 @@ func (g *workloadGeneratorImpl) startCpuDriverForXml(ctx context.Context, synth 
 		drv.ExecutionMode = 1
 		drv.Rand = rand.New(rand.NewSource(g.opts.Seed))
 	})
-	// TODO(Ben): Do not hardcode the Pod map.
-	cpuDriver.(*CPUDriver).SetPodMap([]string{"TestSession1", "TestSession2", "TestSession3"})
+	// TODO(Ben): Do not hardcode the Pod map. a230e335-d964-41fc-833f-ffe4ef931c7d
+	cpuDriver.(*CPUDriver).SetPodMap([]string{"test_session1-41fc-833f-ffe4ef931c7d", "test_session2-448f-b21b-3855540d96ec", "test_session3-4e9d-844e-4d7a19fd3bb7"})
 	go cpuDriver.DriveWithSlice(ctx, records, doneChan)
 	return cpuDriver
 }
@@ -69,7 +69,7 @@ func (g *workloadGeneratorImpl) startGpuDriverForXml(ctx context.Context, synth 
 		drv.Rand = rand.New(rand.NewSource(g.opts.Seed))
 	})
 	// TODO(Ben): Do not hardcode the Pod map.
-	gpuDriver.(*GPUDriver).SetPodMap([]string{"TestSession1", "TestSession2", "TestSession3"})
+	gpuDriver.(*GPUDriver).SetPodMap([]string{"test_session1-41fc-833f-ffe4ef931c7d", "test_session2-448f-b21b-3855540d96ec", "test_session3-4e9d-844e-4d7a19fd3bb7"})
 	go gpuDriver.DriveWithSlice(ctx, records, doneChan)
 	return gpuDriver
 }
@@ -82,7 +82,7 @@ func (g *workloadGeneratorImpl) startMemoryDriver(ctx context.Context, synth *Sy
 		drv.Rand = rand.New(rand.NewSource(g.opts.Seed))
 	})
 	// TODO(Ben): Do not hardcode the Pod map.
-	memDriver.(*MemoryDriver).SetPodMap([]string{"TestSession1"})
+	memDriver.(*MemoryDriver).SetPodMap([]string{"test_session1-41fc-833f-ffe4ef931c7d", "test_session2-448f-b21b-3855540d96ec", "test_session3-4e9d-844e-4d7a19fd3bb7"})
 	go memDriver.DriveWithSlice(ctx, records, doneChan)
 	return memDriver
 }

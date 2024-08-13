@@ -47,7 +47,7 @@ export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalPr
     const [workloadSeedIsValid, setWorkloadSeedIsValid] = React.useState(true);
     const [isWorkloadDataDropdownOpen, setIsWorkloadDataDropdownOpen] = React.useState(false);
     const [selectedWorkloadPreset, setSelectedWorkloadPreset] = React.useState<WorkloadPreset | null>(null);
-    const [debugLoggingEnabled, setDebugLoggingEnabled] = React.useState(false);
+    const [debugLoggingEnabled, setDebugLoggingEnabled] = React.useState(true);
 
     const defaultWorkloadTitle = React.useRef(uuidv4());
 

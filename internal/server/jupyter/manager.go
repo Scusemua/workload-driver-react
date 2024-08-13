@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -28,6 +29,8 @@ var (
 	ErrCreateSessionUnknownFailure = errors.New("the 'create session' operation failed for an unknown or unexpected reason")
 
 	ErrNoActiveConnection = errors.New("no active connection to target kernel exists")
+
+	ErrInvalidSessionName = errors.New("invalid session ID specified")
 )
 
 type kernelManagerMetricsImpl struct {
@@ -63,32 +66,22 @@ type kernelSessionManagerImpl struct {
 	sugaredLogger *zap.SugaredLogger
 	atom          *zap.AtomicLevel
 
-	// Address of the Jupyter Server.
-	jupyterServerAddress string
-
-	// Maintains some metrics.
-	metrics *kernelManagerMetricsImpl
-
-	localSessionIdToKernelId map[string]string // Map from "local" (provided by us) Session IDs to Kernel IDs. We provide the Session IDs, while Jupyter provides the Kernel IDs.
-	kernelIdToLocalSessionId map[string]string // Map from Kernel IDs to Jupyter Session IDs. We provide the Session IDs, while Jupyter provides the Kernel IDs.
-
-	localSessionIdToJupyterSessionId map[string]string // Map from "local" (provided by us) Session IDs to the Jupyter-provided Session IDs.
-	jupyterSessionIdLocalSessionIdTo map[string]string
-
-	kernelIdToJupyterSessionId map[string]string // Map from Kernel IDs to "local" Session IDs. Jupyter provides both the Session IDs and the Kernel IDs.
-	jupyterSessionIdToKernelId map[string]string
-
-	sessionMap map[string]*SessionConnection // Map from Session ID to Session. The keys are the Session IDs supplied by us/the trace data.
+	jupyterServerAddress             string                        // Address of the Jupyter Server.
+	metrics                          *kernelManagerMetricsImpl     // Maintains some metrics.
+	localSessionIdToKernelId         map[string]string             // Map from "local" (provided by us) Session IDs to Kernel IDs. We provide the Session IDs, while Jupyter provides the Kernel IDs.
+	kernelIdToLocalSessionId         map[string]string             // Map from Kernel IDs to Jupyter Session IDs. We provide the Session IDs, while Jupyter provides the Kernel IDs.
+	localSessionIdToJupyterSessionId map[string]string             // Map from "local" (provided by us) Session IDs to the Jupyter-provided Session IDs.
+	kernelIdToJupyterSessionId       map[string]string             // Map from Kernel IDs to "local" Session IDs. Jupyter provides both the Session IDs and the Kernel IDs.
+	sessionMap                       map[string]*SessionConnection // Map from Session ID to Session. The keys are the Session IDs supplied by us/the trace data.
+	adjustSessionNames               bool                          // If true, ensure all session names are 36 characters in length. For now, this should be true. Setting it to false causes problems for some reason...
 }
 
-func NewKernelSessionManager(jupyterServerAddress string, atom *zap.AtomicLevel) *kernelSessionManagerImpl {
+func NewKernelSessionManager(jupyterServerAddress string, adjustSessionNames bool, atom *zap.AtomicLevel) *kernelSessionManagerImpl {
 	manager := &kernelSessionManagerImpl{
 		jupyterServerAddress:             jupyterServerAddress,
 		metrics:                          &kernelManagerMetricsImpl{},
 		localSessionIdToKernelId:         make(map[string]string),
 		localSessionIdToJupyterSessionId: make(map[string]string),
-		jupyterSessionIdLocalSessionIdTo: make(map[string]string),
-		jupyterSessionIdToKernelId:       make(map[string]string),
 		kernelIdToJupyterSessionId:       make(map[string]string),
 		kernelIdToLocalSessionId:         make(map[string]string),
 		sessionMap:                       make(map[string]*SessionConnection),
@@ -110,9 +103,13 @@ func (m *kernelSessionManagerImpl) StartNewKernel(kernelSpec string) error {
 
 // Create a new session.
 func (m *kernelSessionManagerImpl) CreateSession(sessionId string, path string, sessionType string, kernelSpecName string) (*SessionConnection, error) {
-	if len(sessionId) < 36 {
-		generated_uuid := uuid.NewString()
-		sessionId = sessionId + "-" + generated_uuid[0:36-(len(sessionId)+1)]
+	if m.adjustSessionNames {
+		if len(sessionId) < 36 {
+			generated_uuid := uuid.NewString()
+			sessionId = strings.ToLower(sessionId) + "-" + generated_uuid[0:36-(len(sessionId)+1)]
+		} else if len(sessionId) > 36 {
+			return nil, fmt.Errorf("%w: specified session ID \"%s\" is too long (max length is 36 characters when the KernelSessionManager has been configured to adjust names)", ErrInvalidSessionName, sessionId)
+		}
 	}
 
 	requestBody := newJupyterSessionForRequest(sessionId, path, sessionType, kernelSpecName)
@@ -156,10 +153,8 @@ func (m *kernelSessionManagerImpl) CreateSession(sessionId string, path string, 
 			// Update all of our many mappings...
 			m.localSessionIdToKernelId[sessionId] = kernelId
 			m.localSessionIdToJupyterSessionId[sessionId] = jupyterSessionId
-			m.jupyterSessionIdLocalSessionIdTo[jupyterSessionId] = sessionId
 			m.kernelIdToJupyterSessionId[kernelId] = jupyterSessionId
 			m.kernelIdToLocalSessionId[kernelId] = sessionId
-			m.jupyterSessionIdToKernelId[jupyterSessionId] = kernelId
 
 			st := time.Now()
 			// Connect to the Session and to the associated kernel.

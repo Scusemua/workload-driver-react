@@ -20,7 +20,7 @@ func main() {
 	flag.Parse()
 
 	atom := zap.NewAtomicLevelAt(zapcore.DebugLevel)
-	manager := jupyter.NewKernelSessionManager(JupyterServerAddress, &atom)
+	manager := jupyter.NewKernelSessionManager(JupyterServerAddress, true, &atom)
 
 	fmt.Printf("Connecting to kernel %s, session %s.\n", *kernelIdPtr, *sessionIdPtr)
 

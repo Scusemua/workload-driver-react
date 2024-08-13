@@ -327,24 +327,24 @@ func (p *WorkloadPreset) UnmarshalYAML(unmarshal func(interface{}) error) error 
 		}
 
 		cpuSessionMap := make(map[string]float64)
-		cpuSessionMap["TestSession1"] = 2
-		cpuSessionMap["TestSession2"] = 2
+		cpuSessionMap["test_session1-41fc-833f-ffe4ef931c7d"] = 2
+		cpuSessionMap["test_session2-448f-b21b-3855540d96ec"] = 2
 		memSessionMap := make(map[string]float64)
-		memSessionMap["TestSession1"] = 4
-		memSessionMap["TestSession2"] = 4
+		memSessionMap["test_session1-41fc-833f-ffe4ef931c7d"] = 4
+		memSessionMap["test_session2-448f-b21b-3855540d96ec"] = 4
 		gpuSessionMap := make(map[string]int)
-		gpuSessionMap["TestSession1"] = 1
-		gpuSessionMap["TestSession2"] = 1
+		gpuSessionMap["test_session1-41fc-833f-ffe4ef931c7d"] = 1
+		gpuSessionMap["test_session2-448f-b21b-3855540d96ec"] = 1
 
 		cpuTaskMap := make(map[string][]float64)
-		cpuTaskMap["TestSession1"] = []float64{2, 2, 2, 2, 2, 2, 2, 2}
-		cpuTaskMap["TestSession2"] = []float64{2, 2, 2, 2, 2, 2, 2, 2}
+		cpuTaskMap["test_session1-41fc-833f-ffe4ef931c7d"] = []float64{2, 2, 2, 2, 2, 2, 2, 2}
+		cpuTaskMap["test_session2-448f-b21b-3855540d96ec"] = []float64{2, 2, 2, 2, 2, 2, 2, 2}
 		memTaskMap := make(map[string][]float64)
-		memTaskMap["TestSession1"] = []float64{4, 4, 4, 4, 4, 4, 4, 4}
-		memTaskMap["TestSession2"] = []float64{4, 4, 4, 4, 4, 4, 4, 4}
+		memTaskMap["test_session1-41fc-833f-ffe4ef931c7d"] = []float64{4, 4, 4, 4, 4, 4, 4, 4}
+		memTaskMap["test_session2-448f-b21b-3855540d96ec"] = []float64{4, 4, 4, 4, 4, 4, 4, 4}
 		gpuTaskMap := make(map[string][]int)
-		gpuTaskMap["TestSession1"] = []int{1, 1, 1, 1, 1, 1, 1, 1}
-		gpuTaskMap["TestSession2"] = []int{1, 1, 1, 1, 1, 1, 1, 1}
+		gpuTaskMap["test_session1-41fc-833f-ffe4ef931c7d"] = []int{1, 1, 1, 1, 1, 1, 1, 1}
+		gpuTaskMap["test_session2-448f-b21b-3855540d96ec"] = []int{1, 1, 1, 1, 1, 1, 1, 1}
 		xmlPreset.MaxUtilization = NewMaxUtilizationWrapper(cpuSessionMap, memSessionMap, gpuSessionMap, cpuTaskMap, memTaskMap, gpuTaskMap)
 
 		p.PresetType = XmlWorkloadPresetType

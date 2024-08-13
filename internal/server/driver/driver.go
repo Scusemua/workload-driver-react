@@ -29,7 +29,8 @@ const (
 	// Used in generating random IDs for workloads.
 	letterBytes = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ"
 
-	ZapSessionIDKey = "session-id"
+	ZapInternalSessionIDKey = "internal-session-id"
+	ZapTraceSessionIDKey    = "trace-session-id"
 
 	letterIdxBits = 6                    // 6 bits to represent a letter index
 	letterIdxMask = 1<<letterIdxBits - 1 // All 1-bits, as many as letterIdxBits
@@ -48,7 +49,7 @@ sock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)
 
 # Connect to the kernel's TCP socket.
 sock.connect(("127.0.0.1", 5555))
-print(f"Connected to local TCP server. Local addr: {sock.getsockname()})
+print(f'Connected to local TCP server. Local addr: {sock.getsockname()}')
 
 # Blocking call.
 # When training ends, the kernel will be sent a notification. 
@@ -154,7 +155,7 @@ func NewWorkloadDriver(opts *domain.Configuration, performClockTicks bool, webso
 		tickDuration:        time.Second * time.Duration(opts.TraceStep),
 		tickDurationSeconds: opts.TraceStep,
 		driverTimescale:     opts.DriverTimescale,
-		kernelManager:       jupyter.NewKernelSessionManager(opts.JupyterServerAddress, &atom),
+		kernelManager:       jupyter.NewKernelSessionManager(opts.JupyterServerAddress, true, &atom),
 		sessionConnections:  make(map[string]*jupyter.SessionConnection),
 		performClockTicks:   performClockTicks,
 		eventQueue:          newEventQueue(&atom),
@@ -777,9 +778,6 @@ func (d *workloadDriverImpl) handleSessionReadyEvents(latestTick time.Time) {
 	st := time.Now()
 	for sessionReadyEvent != nil {
 		driverSession := sessionReadyEvent.Data().(*generator.Session)
-		// updatedTs := RoundUpTime(sessionReadyEvent.Timestamp, d.tick)
-		// driverSession.Timestamp = updatedTs
-		// sessionReadyEvent.Timestamp = updatedTs
 
 		sessionId := driverSession.Pod
 		if d.sugaredLogger.Level() == zapcore.DebugLevel {
@@ -789,7 +787,7 @@ func (d *workloadDriverImpl) handleSessionReadyEvents(latestTick time.Time) {
 		provision_start := time.Now()
 		_, err := d.provisionSession(sessionId, driverSession, sessionReadyEvent.Timestamp())
 		if err != nil {
-			d.logger.Error("Failed to provision new Jupyter session.", zap.String(ZapSessionIDKey, sessionId), zap.Duration("real-time-elapsed", time.Since(provision_start)), zap.Error(err))
+			d.logger.Error("Failed to provision new Jupyter session.", zap.String(ZapInternalSessionIDKey, sessionId), zap.Duration("real-time-elapsed", time.Since(provision_start)), zap.Error(err))
 			payload, _ := json.Marshal(domain.ErrorMessage{
 				Description:  reflect.TypeOf(err).Name(),
 				ErrorMessage: err.Error(),
@@ -797,7 +795,7 @@ func (d *workloadDriverImpl) handleSessionReadyEvents(latestTick time.Time) {
 			})
 			d.websocket.WriteMessage(websocket.BinaryMessage, payload)
 		} else {
-			d.logger.Debug("Successfully handled SessionStarted event.", zap.String(ZapSessionIDKey, sessionId), zap.Duration("real-time-elapsed", time.Since(provision_start)))
+			d.logger.Debug("Successfully handled SessionStarted event.", zap.String(ZapInternalSessionIDKey, sessionId), zap.Duration("real-time-elapsed", time.Since(provision_start)))
 		}
 
 		numProcessed += 1
@@ -814,85 +812,85 @@ func (d *workloadDriverImpl) handleEvent(evt domain.Event) error {
 
 	switch evt.Name() {
 	case domain.EventSessionStarted:
-		// d.logger.Debug("Received SessionStarted event.", zap.String(ZapSessionIDKey, sessionId))
+		// d.logger.Debug("Received SessionStarted event.", zap.String(ZapInternalSessionIDKey, sessionId))
 		panic("Received SessionStarted event.")
 	case domain.EventSessionTrainingStarted:
-		d.logger.Debug("Received TrainingStarted event.", zap.String("session", internalSessionId))
+		d.logger.Debug("Received TrainingStarted event.", zap.String("internal-session-id", internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
 
 		if _, ok := d.seenSessions[internalSessionId]; !ok {
-			d.logger.Error("Received 'training-started' event for unknown session.", zap.String(ZapSessionIDKey, internalSessionId))
+			d.logger.Error("Received 'training-started' event for unknown session.", zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
 			return ErrUnknownSession
 		}
 
 		sessionConnection, ok := d.sessionConnections[internalSessionId]
 		if !ok {
-			d.logger.Error("No session connection found for session upon receiving 'training-started' event.", zap.String(ZapSessionIDKey, internalSessionId))
+			d.logger.Error("No session connection found for session upon receiving 'training-started' event.", zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
 			return ErrNoSessionConnection
 		}
 
 		kernelConnection := sessionConnection.Kernel()
 		if kernelConnection == nil {
-			d.logger.Error("No kernel connection found for session connection.", zap.String(ZapSessionIDKey, internalSessionId))
+			d.logger.Error("No kernel connection found for session connection.", zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
 			return ErrNoKernelConnection
 		}
 
 		err := kernelConnection.RequestExecute(TrainingCode, false, true, make(map[string]interface{}), true, false, false)
 		if err != nil {
-			d.logger.Error("Error while attempting to execute training code.", zap.String(ZapSessionIDKey, internalSessionId), zap.Error(err))
+			d.logger.Error("Error while attempting to execute training code.", zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId), zap.Error(err))
 		}
 
 		d.mu.Lock()
 		d.workload.NumActiveTrainings += 1
 		d.mu.Unlock()
-		d.logger.Debug("Handled TrainingStarted event.", zap.String("session", internalSessionId))
+		d.logger.Debug("Handled TrainingStarted event.", zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
 	case domain.EventSessionUpdateGpuUtil:
-		d.logger.Debug("Received UpdateGpuUtil event.", zap.String("session", internalSessionId))
+		d.logger.Debug("Received UpdateGpuUtil event.", zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
 		// TODO: Update GPU utilization.
-		d.logger.Debug("Handled UpdateGpuUtil event.", zap.String("session", internalSessionId))
+		d.logger.Debug("Handled UpdateGpuUtil event.", zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
 	case domain.EventSessionTrainingEnded:
-		d.logger.Debug("Received TrainingEnded event.", zap.String("session", internalSessionId))
+		d.logger.Debug("Received TrainingEnded event.", zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
 
 		if _, ok := d.seenSessions[internalSessionId]; !ok {
-			d.logger.Error("Received 'training-stopped' event for unknown session.", zap.String(ZapSessionIDKey, internalSessionId))
+			d.logger.Error("Received 'training-stopped' event for unknown session.", zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
 			return ErrUnknownSession
 		}
 
 		if _, ok := d.seenSessions[internalSessionId]; !ok {
-			d.logger.Error("Received 'training-stopped' event for unknown session.", zap.String(ZapSessionIDKey, internalSessionId))
+			d.logger.Error("Received 'training-stopped' event for unknown session.", zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
 			return ErrUnknownSession
 		}
 
 		sessionConnection, ok := d.sessionConnections[internalSessionId]
 		if !ok {
-			d.logger.Error("No session connection found for session upon receiving 'training-stopped' event.", zap.String(ZapSessionIDKey, internalSessionId))
+			d.logger.Error("No session connection found for session upon receiving 'training-stopped' event.", zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
 			return ErrNoSessionConnection
 		}
 
 		kernelConnection := sessionConnection.Kernel()
 		if kernelConnection == nil {
-			d.logger.Error("No kernel connection found for session connection.", zap.String(ZapSessionIDKey, internalSessionId))
+			d.logger.Error("No kernel connection found for session connection.", zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
 			return ErrNoKernelConnection
 		}
 
 		err := kernelConnection.StopRunningTrainingCode(true)
 		if err != nil {
-			d.logger.Error("Error while attempting to stop training.", zap.String(ZapSessionIDKey, internalSessionId), zap.Error(err))
+			d.logger.Error("Error while attempting to stop training.", zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId), zap.Error(err))
 		} else {
 			d.mu.Lock()
 			d.workload.NumTasksExecuted += 1
 			d.workload.NumActiveTrainings -= 1
 			d.mu.Unlock()
-			d.logger.Debug("Successfully handled TrainingEnded event.", zap.String("session", internalSessionId))
+			d.logger.Debug("Successfully handled TrainingEnded event.", zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
 		}
 	case domain.EventSessionStopped:
-		d.logger.Debug("Received SessionStopped event.", zap.String("session", internalSessionId))
+		d.logger.Debug("Received SessionStopped event.", zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
 
 		// TODO: Test that this actually works.
 		err := d.stopSession(d.getOriginalSessionIdFromInternalSessionId(internalSessionId))
 		if err != nil {
 			return err
 		} else {
-			d.logger.Debug("Successfully stopped session.", zap.String(ZapSessionIDKey, internalSessionId))
+			d.logger.Debug("Successfully stopped session.", zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
 		}
 
 		delete(d.seenSessions, internalSessionId)
@@ -900,7 +898,7 @@ func (d *workloadDriverImpl) handleEvent(evt domain.Event) error {
 		d.mu.Lock()
 		d.workload.NumActiveSessions -= 1
 		d.mu.Unlock()
-		d.logger.Debug("Handled SessionStopped event.", zap.String("session", internalSessionId))
+		d.logger.Debug("Handled SessionStopped event.", zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
 	}
 
 	return nil
@@ -909,15 +907,19 @@ func (d *workloadDriverImpl) handleEvent(evt domain.Event) error {
 func (d *workloadDriverImpl) provisionSession(sessionId string, meta *generator.Session, createdAtTime time.Time) (*jupyter.SessionConnection, error) {
 	d.logger.Debug("Creating new kernel.", zap.String("kernel-id", sessionId))
 	st := time.Now()
-	sessionConnection, err := d.kernelManager.CreateSession(strings.ToLower(sessionId), fmt.Sprintf("%s.ipynb", sessionId), "notebook", "distributed")
+	sessionConnection, err := d.kernelManager.CreateSession(sessionId /*strings.ToLower(sessionId) */, fmt.Sprintf("%s.ipynb", sessionId), "notebook", "distributed")
 	if err != nil {
-		d.logger.Error("Failed to create session.", zap.String(ZapSessionIDKey, sessionId))
+		d.logger.Error("Failed to create session.", zap.String(ZapInternalSessionIDKey, sessionId))
 		return nil, err
 	}
 
 	timeElapsed := time.Since(st)
-	d.logger.Debug("Successfully created new kernel.", zap.String("kernel-id", sessionId), zap.Duration("time-elapsed", timeElapsed))
+
+	internalSessionId := d.getInternalSessionId(sessionId)
 	d.sessionConnections[sessionId] = sessionConnection
+	d.sessionConnections[internalSessionId] = sessionConnection
+
+	d.logger.Debug("Successfully created new kernel.", zap.String("kernel-id", sessionId), zap.Duration("time-elapsed", timeElapsed), zap.String(ZapInternalSessionIDKey, internalSessionId))
 
 	d.NewSession(sessionId, meta, createdAtTime)
 

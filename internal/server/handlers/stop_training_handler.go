@@ -23,7 +23,7 @@ func NewStopTrainingHandler(opts *domain.Configuration) domain.BackendHttpGetHan
 	atom := zap.NewAtomicLevelAt(zapcore.DebugLevel)
 	handler := &StopTrainingHandler{
 		BaseHandler:       newBaseHandler(opts),
-		manager:           jupyter.NewKernelSessionManager(opts.JupyterServerAddress, &atom),
+		manager:           jupyter.NewKernelSessionManager(opts.JupyterServerAddress, true, &atom),
 		kernelConnections: hashmap.New(8),
 	}
 	handler.BackendHttpGetHandler = handler
