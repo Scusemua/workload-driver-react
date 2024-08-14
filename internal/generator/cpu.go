@@ -70,6 +70,10 @@ type CPUUtil struct {
 	LastUtil *CPUUtil
 }
 
+func (ed *CPUUtil) Debug_SetPrototypeSelf() {
+	ed.prototype = ed
+}
+
 func (ed *CPUUtil) String() string {
 	return fmt.Sprintf("Pod: %s, %.2f%%%%", ed.Pod, ed.Value)
 }
@@ -149,6 +153,10 @@ func (ed *CPUUtil) reset(time time.Time) *CPUUtil {
 		ed.Repeat = ed.LastUtil.Repeat + 1
 	}
 	return ed
+}
+
+func (ed *CPUUtil) Debug_CommitAndInit(rec *CPURecord) (committed *CPUUtil) {
+	return ed.commit(rec)
 }
 
 func (ed *CPUUtil) snapshot() *CPUUtil {

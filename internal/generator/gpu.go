@@ -85,6 +85,10 @@ func (ed *GPUUtil) Committed() *GPUUtil {
 	return ed.prototype.LastUtil
 }
 
+func (ed *GPUUtil) Debug_Initialize(rec *GPURecord) *GPUUtil {
+	return ed.init(rec)
+}
+
 // init initiate the GPU utilization with latest GPU reading.
 func (ed *GPUUtil) init(rec *GPURecord) *GPUUtil {
 	ed.prototype = ed
@@ -99,6 +103,10 @@ func (ed *GPUUtil) init(rec *GPURecord) *GPUUtil {
 	ed.Repeat = 0
 	ed.RawTimestamp = rec.Timestamp.Time()
 	return ed
+}
+
+func (ed *GPUUtil) Debug_Update(rec *GPURecord) *GPUUtil {
+	return ed.update(rec)
 }
 
 func (ed *GPUUtil) update(rec *GPURecord) *GPUUtil {
@@ -184,6 +192,10 @@ func (ed *GPUUtil) reset(time time.Time) *GPUUtil {
 func (ed *GPUUtil) snapshot() *GPUUtil {
 	ss := *ed
 	return &ss
+}
+
+func (ed *GPUUtil) Debug_CommitAndInit(rec *GPURecord) (committed *GPUUtil) {
+	return ed.commitAndInit(rec)
 }
 
 func (ed *GPUUtil) transit(evtBuff []GPUEvent, force bool) ([]GPUEvent, error) {

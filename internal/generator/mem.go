@@ -125,6 +125,10 @@ func (ed *MemoryUtilBuffer) Lookup(ts time.Time) (util *MemoryUtil) {
 	return
 }
 
+func (ed *MemoryUtilBuffer) Debug_Init(rec *Memory) *MemoryUtil {
+	return ed.init(rec)
+}
+
 // init initiate the memory utilization with latest memory reading.
 func (ed *MemoryUtilBuffer) init(rec *Memory) *MemoryUtil {
 	ed.mutex.Lock()
@@ -146,6 +150,10 @@ func (ed *MemoryUtilBuffer) init(rec *Memory) *MemoryUtil {
 		nextUtil.Status = MemoryIdle
 	}
 	return &nextUtil
+}
+
+func (ed *MemoryUtilBuffer) Debug_Commit(rec *MemoryUtil) *MemoryUtil {
+	return ed.commit(rec)
 }
 
 // commit buffered memory readin as "current"
