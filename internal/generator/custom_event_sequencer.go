@@ -142,6 +142,9 @@ func (s *CustomEventSequencer) stepCpu(sessionId string, timestamp time.Time, cp
 	wrappedSession.session.CPU = committed
 }
 
+// TODO: Fix this. We should instead accept just gpuUtil within range [0, N], where N = 100 * MAX_GPUs.
+// Then, we come up with a way to set the GPU utilizations to sum to whatever value.
+// Or maybe, we individually specify the GPU utilization for each GPU.
 func (s *CustomEventSequencer) stepGpu(sessionId string, timestamp time.Time, gpuUtil float64, numGPUs int) {
 	wrappedSession := s.getWrappedSession(sessionId)
 
