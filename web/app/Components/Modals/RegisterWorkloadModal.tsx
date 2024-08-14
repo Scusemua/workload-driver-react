@@ -18,6 +18,7 @@ import {
     Popover,
     Switch,
     TextInput,
+    Tooltip,
     ValidatedOptions,
 } from '@patternfly/react-core';
 
@@ -27,11 +28,13 @@ import styles from '@patternfly/react-styles/css/components/Form/form';
 
 import { WorkloadPreset } from '@app/Data';
 import { useWorkloadPresets } from '@providers/WorkloadPresetProvider';
+import { PlusIcon } from '@patternfly/react-icons';
 
 export interface StartWorkloadModalProps {
     children?: React.ReactNode;
     isOpen: boolean;
     onClose: () => void;
+    onRegisterWorkloadFromTemplateClicked: () => void;
     onConfirm: (
         workloadTitle: string,
         preset: WorkloadPreset,
@@ -165,6 +168,13 @@ export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalPr
             title={'Register Workload'}
             isOpen={props.isOpen}
             onClose={props.onClose}
+            help={
+                <Tooltip exitDelay={75} content={<div>Create new workload from template.</div>}>
+                    <Button variant="plain" aria-label="Create New Workload From Template" onClick={props.onRegisterWorkloadFromTemplateClicked}>
+                        <PlusIcon/>
+                    </Button>
+                </Tooltip>
+            }
             actions={[
                 <Button key="submit" variant="primary" onClick={onSubmitWorkload} isDisabled={isSubmitButtonDisabled()}>
                     Submit
@@ -288,7 +298,7 @@ export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalPr
                                         aria-label="workload-seed-text-input-helper"
                                         label="workload-seed-text-input-helper"
                                     >
-                                        Provide an optional integer seed (0 - 2,147,483,647) for the workload&apos;s
+                                        Provide an optional integer seed for the workload&apos;s
                                         random number generator.
                                     </HelperTextItem>
                                 </HelperText>

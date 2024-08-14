@@ -57,7 +57,7 @@ import { useWorkloads } from '@providers/WorkloadProvider';
 import { HeightFactorContext, WorkloadsHeightFactorContext } from '@app/Dashboard/Dashboard';
 import { toast } from 'react-hot-toast';
 import { v4 as uuidv4 } from 'uuid';
-import { InspectWorkloadModal, RegisterWorkloadModal } from '../Modals';
+import { InspectWorkloadModal, NewWorkloadFromTemplateModal, RegisterWorkloadModal } from '../Modals';
 import { CsvFileIcon, XmlFileIcon } from '@app/Icons';
 
 export interface WorkloadCardProps {
@@ -66,6 +66,7 @@ export interface WorkloadCardProps {
 
 export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: WorkloadCardProps) => {
     const [isRegisterWorkloadModalOpen, setIsRegisterWorkloadModalOpen] = React.useState(false);
+    const [isRegisterNewWorkloadFromTemplateModalOpen, setIsRegisterNewWorkloadFromTemplateModalOpen] = React.useState(false);
     const [selectedWorkloadListId, setSelectedWorkloadListId] = React.useState('');
     const [page, setPage] = React.useState(1);
     const [perPage, setPerPage] = React.useState(props.workloadsPerPage);
@@ -90,6 +91,18 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
             perPage * (newPage - 1) + perPage,
         );
     };
+
+    const onConfirmRegisterWorkloadFromTemplate = (
+        workloadName: string,
+        selectedPreset: WorkloadPreset,
+        workloadSeedString: string,
+        debugLoggingEnabled: boolean,
+    ) => {
+    }
+
+    const onRegisterWorkloadFromTemplateClicked = () => {
+        setIsRegisterNewWorkloadFromTemplateModalOpen(true)
+    }
 
     const onConfirmRegisterWorkload = (
         workloadName: string,
@@ -129,6 +142,12 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
     const onCancelStartWorkload = () => {
         console.log('New workload cancelled by user before starting.');
         setIsRegisterWorkloadModalOpen(false);
+    };
+
+    const onCancelStartWorkloadFromTemplate = () => {
+        console.log('New workload from template cancelled by user before starting.');
+        setIsRegisterNewWorkloadFromTemplateModalOpen(false);
+        setIsRegisterWorkloadModalOpen(true);
     };
 
     const onStopAllWorkloadsClicked = () => {
@@ -767,6 +786,12 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                         isOpen={isRegisterWorkloadModalOpen}
                         onClose={onCancelStartWorkload}
                         onConfirm={onConfirmRegisterWorkload}
+                        onRegisterWorkloadFromTemplateClicked={onRegisterWorkloadFromTemplateClicked}
+                    />
+                    <NewWorkloadFromTemplateModal
+                        isOpen={isRegisterNewWorkloadFromTemplateModalOpen}
+                        onClose={onCancelStartWorkloadFromTemplate}
+                        onConfirm={onConfirmRegisterWorkloadFromTemplate}
                     />
                 </CardBody>
             </Card>
