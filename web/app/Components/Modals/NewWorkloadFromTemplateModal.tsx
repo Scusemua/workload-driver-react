@@ -31,7 +31,7 @@ import HelpIcon from '@patternfly/react-icons/dist/esm/icons/help-icon';
 import styles from '@patternfly/react-styles/css/components/Form/form';
 
 import { CpuIcon, MemoryIcon, MinusCircleIcon, PlusCircleIcon, SyncIcon } from '@patternfly/react-icons';
-import { WorkloadPreset } from '@app/Data';
+import { Session, WorkloadPreset } from '@app/Data';
 import { useWorkloadPresets } from '@providers/WorkloadPresetProvider';
 import { PlusIcon } from '@patternfly/react-icons';
 import { GpuIcon } from '@app/Icons';
@@ -43,9 +43,9 @@ export interface NewWorkloadFromTemplateModalProps {
     onClose: () => void;
     onConfirm: (
         workloadTitle: string,
-        template: string,
         workloadSeed: string,
         debugLoggingEnabled: boolean,
+        sessions: Session[],
     ) => void;
 }
 
@@ -242,10 +242,10 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
             <FormSection title="Select Workload Template" titleElement='h1'>
                 <Form>
                     <FormGroup
-                        label="Workload preset:"
+                        label="Workload template:"
                         labelIcon={
                             <Popover
-                                aria-label="workload-preset-text-header"
+                                aria-label="workload-template-text-header"
                                 headerContent={<div>Workload Preset</div>}
                                 bodyContent={
                                     <div>
@@ -258,7 +258,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                                     type="button"
                                     aria-label="Select the preprocessed data to use for driving the workload. This largely determines which subset of trace data will be used to generate the workload."
                                     onClick={(e) => e.preventDefault()}
-                                    aria-describedby="simple-form-workload-preset-01"
+                                    aria-describedby="simple-form-workload-template-01"
                                     className={styles.formGroupLabelHelp}
                                 >
                                     <HelpIcon />
@@ -296,18 +296,18 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                             </DropdownList>
                         </Dropdown>
                         <FormHelperText
-                            label="workload-preset-dropdown-input-helper"
-                            aria-label="workload-preset-dropdown-input-helper"
+                            label="workload-template-dropdown-input-helper"
+                            aria-label="workload-template-dropdown-input-helper"
                         >
                             <HelperText
-                                label="workload-preset-dropdown-input-helper"
-                                aria-label="workload-preset-dropdown-input-helper"
+                                label="workload-template-dropdown-input-helper"
+                                aria-label="workload-template-dropdown-input-helper"
                             >
                                 <HelperTextItem
-                                    aria-label="workload-preset-dropdown-input-helper"
-                                    label="workload-preset-dropdown-input-helper"
+                                    aria-label="workload-template-dropdown-input-helper"
+                                    label="workload-template-dropdown-input-helper"
                                 >
-                                    Select a configuration/data preset for the workload.
+                                    Select a template for the workload.
                                 </HelperTextItem>
                             </HelperText>
                         </FormHelperText>
@@ -455,7 +455,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                                             type="button"
                                             aria-label="Select the preprocessed data to use for driving the workload. This largely determines which subset of trace data will be used to generate the workload."
                                             onClick={(e) => e.preventDefault()}
-                                            aria-describedby="simple-form-workload-preset-01"
+                                            aria-describedby="simple-form-workload-template-01"
                                             className={styles.formGroupLabelHelp}
                                         >
                                             <HelpIcon />

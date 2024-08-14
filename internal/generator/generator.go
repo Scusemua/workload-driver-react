@@ -95,7 +95,7 @@ func (g *workloadGeneratorImpl) StopGeneratingWorkload() {
 	}
 }
 
-func (g *workloadGeneratorImpl) generateWorkloadWithCsvPreset(consumer domain.EventConsumer, workload *domain.Workload, workloadPreset *domain.CsvWorkloadPreset, workloadRegistrationRequest *domain.WorkloadRegistrationRequest) error {
+func (g *workloadGeneratorImpl) generateWorkloadWithCsvPreset(consumer domain.EventConsumer, workload domain.Workload, workloadPreset *domain.CsvWorkloadPreset, workloadRegistrationRequest *domain.WorkloadRegistrationRequest) error {
 	var cpuSessionMap, memSessionMap map[string]float64 = nil, nil
 	var gpuSessionMap map[string]int = nil
 	var cpuTaskMap, memTaskMap map[string][]float64 = nil, nil
@@ -225,12 +225,12 @@ func (g *workloadGeneratorImpl) generateWorkloadWithCsvPreset(consumer domain.Ev
 
 	g.synthesizer.Synthesize(g.ctx, g.opts, consumer.DoneChan())
 
-	g.logger.Debug("Finished generating CSV workload.", zap.String("workload-id", workload.ID))
+	g.logger.Debug("Finished generating CSV workload.", zap.String("workload-id", workload.GetId()))
 
 	return nil
 }
 
-func (g *workloadGeneratorImpl) generateWorkloadWithXmlPreset(consumer domain.EventConsumer, workload *domain.Workload, workloadPreset *domain.XmlWorkloadPreset) error {
+func (g *workloadGeneratorImpl) generateWorkloadWithXmlPreset(consumer domain.EventConsumer, workload domain.Workload, workloadPreset *domain.XmlWorkloadPreset) error {
 	g.ctx, g.cancelFunction = context.WithCancel(context.Background())
 	defer g.cancelFunction()
 
@@ -249,7 +249,7 @@ func (g *workloadGeneratorImpl) generateWorkloadWithXmlPreset(consumer domain.Ev
 
 	g.waitForCpuGpuDriversToFinish(gpuDoneChan, cpuDoneChan)
 
-	g.logger.Debug("Finished generating XML workload.", zap.String("workload-id", workload.ID))
+	g.logger.Debug("Finished generating XML workload.", zap.String("workload-id", workload.GetId()))
 
 	return nil
 }
@@ -271,7 +271,7 @@ func (g *workloadGeneratorImpl) waitForCpuGpuDriversToFinish(gpuDoneChan chan st
 	}
 }
 
-func (g *workloadGeneratorImpl) GenerateWorkload(consumer domain.EventConsumer, workload *domain.Workload, workloadPreset domain.WorkloadPreset, workloadRegistrationRequest *domain.WorkloadRegistrationRequest) error {
+func (g *workloadGeneratorImpl) GenerateWorkload(consumer domain.EventConsumer, workload domain.Workload, workloadPreset domain.WorkloadPreset, workloadRegistrationRequest *domain.WorkloadRegistrationRequest) error {
 	if workloadPreset.IsCsv() {
 		return g.generateWorkloadWithCsvPreset(consumer, workload, &workloadPreset.CsvWorkloadPreset, workloadRegistrationRequest)
 	} else {

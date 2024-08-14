@@ -42,6 +42,26 @@ interface Workload {
     error_message: string;
 }
 
+interface Session {
+    id: string;
+    maxCPUs: number;
+    maxMemoryGB: number;
+    maxNumGPUs: number;
+    startTick: number;
+    stopTick: number;
+    trainings: TrainingEvent[];
+}
+
+interface TrainingEvent {
+    sessionId: string;
+    trainingId: string;
+    cpuUtil: number;
+    memUsageGb: number;
+    gpuUtil: number[];
+    startTick: number;
+    durationInTicks: number;
+}
+
 // Response for a 'get workloads' request.
 // Sent to the front-end by the back-end.
 interface WorkloadResponse {
@@ -60,3 +80,5 @@ export { WORKLOAD_STATE_TERMINATED as WORKLOAD_STATE_TERMINATED };
 export type { Workload as Workload };
 export type { WorkloadPreset as WorkloadPreset };
 export type { WorkloadResponse as WorkloadResponse };
+export type { Session as Session };
+export type { TrainingEvent as TrainingEvent };

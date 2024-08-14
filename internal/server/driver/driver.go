@@ -115,7 +115,7 @@ type workloadDriverImpl struct {
 	workloadPresets             map[string]domain.WorkloadPreset    // All of the available workload presets.
 	workloadPreset              domain.WorkloadPreset               // The preset used by the associated workload.
 	workloadRegistrationRequest *domain.WorkloadRegistrationRequest // The request that registered the workload that is being driven by this driver.
-	workload                    *domain.Workload                    // The workload being driven by this driver.
+	workload                    domain.Workload                     // The workload being driven by this driver.
 	websocket                   domain.ConcurrentWebSocket          // Shared Websocket used to communicate with frontend.
 
 	mu sync.Mutex
@@ -241,22 +241,22 @@ func (d *workloadDriverImpl) UnlockDriver() {
 	d.mu.Unlock()
 }
 
-func (d *workloadDriverImpl) ToggleDebugLogging(enabled bool) *domain.Workload {
+func (d *workloadDriverImpl) ToggleDebugLogging(enabled bool) domain.Workload {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
 	if enabled {
 		d.atom.SetLevel(zap.DebugLevel)
-		d.workload.DebugLoggingEnabled = true
+		d.workload.SetDebugLoggingEnabled(true)
 	} else {
 		d.atom.SetLevel(zap.InfoLevel)
-		d.workload.DebugLoggingEnabled = false
+		d.workload.SetDebugLoggingEnabled(false)
 	}
 
 	return d.workload
 }
 
-func (d *workloadDriverImpl) GetWorkload() *domain.Workload {
+func (d *workloadDriverImpl) GetWorkload() domain.Workload {
 	return d.workload
 }
 
@@ -269,7 +269,7 @@ func (d *workloadDriverImpl) GetWorkloadRegistrationRequest() *domain.WorkloadRe
 }
 
 // Returns nil if the workload could not be registered.
-func (d *workloadDriverImpl) RegisterWorkload(workloadRegistrationRequest *domain.WorkloadRegistrationRequest) (*domain.Workload, error) {
+func (d *workloadDriverImpl) RegisterWorkload(workloadRegistrationRequest *domain.WorkloadRegistrationRequest) (domain.Workload, error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
@@ -296,30 +296,32 @@ func (d *workloadDriverImpl) RegisterWorkload(workloadRegistrationRequest *domai
 		d.logger.Debug("Debug-level logging is ENABLED.")
 	}
 
-	d.workload = &domain.Workload{
-		ID:                  d.id, // Same ID as the driver.
-		Name:                workloadRegistrationRequest.WorkloadName,
-		WorkloadState:       domain.WorkloadReady,
-		WorkloadPreset:      d.workloadPreset,
-		WorkloadPresetName:  d.workloadPreset.Name(),
-		WorkloadPresetKey:   d.workloadPreset.Key(),
-		TimeElasped:         time.Duration(0).String(),
-		Seed:                d.workloadRegistrationRequest.Seed,
-		RegisteredTime:      time.Now(),
-		NumTasksExecuted:    0,
-		NumEventsProcessed:  0,
-		NumSessionsCreated:  0,
-		NumActiveSessions:   0,
-		NumActiveTrainings:  0,
-		DebugLoggingEnabled: workloadRegistrationRequest.DebugLogging,
+	d.workload = &domain.WorkloadFromPreset{
+		Workload: &domain.Workload{
+			ID:                  d.id, // Same ID as the driver.
+			Name:                workloadRegistrationRequest.WorkloadName,
+			WorkloadState:       domain.WorkloadReady,
+			TimeElasped:         time.Duration(0).String(),
+			Seed:                d.workloadRegistrationRequest.Seed,
+			RegisteredTime:      time.Now(),
+			NumTasksExecuted:    0,
+			NumEventsProcessed:  0,
+			NumSessionsCreated:  0,
+			NumActiveSessions:   0,
+			NumActiveTrainings:  0,
+			DebugLoggingEnabled: workloadRegistrationRequest.DebugLogging,
+		},
+		WorkloadPreset:     d.workloadPreset,
+		WorkloadPresetName: d.workloadPreset.Name(),
+		WorkloadPresetKey:  d.workloadPreset.Key(),
 	}
 
 	// If the workload seed is negative, then assign it a random value.
 	if d.workloadRegistrationRequest.Seed < 0 {
-		d.workload.Seed = rand.Int63n(2147483647) // We restrict the user to the range 0-2,147,483,647 when they specify a seed.
-		d.logger.Debug("Will use random seed for RNG.", zap.Int64("seed", d.workload.Seed))
+		d.workload.SetSeed(rand.Int63n(2147483647)) // We restrict the user to the range 0-2,147,483,647 when they specify a seed.
+		d.logger.Debug("Will use random seed for RNG.", zap.Int64("seed", d.workload.GetSeed()))
 	} else {
-		d.logger.Debug("Will use user-specified seed for RNG.", zap.Int64("seed", d.workload.Seed))
+		d.logger.Debug("Will use user-specified seed for RNG.", zap.Int64("seed", d.workload.GetSeed()))
 	}
 
 	return d.workload, nil
@@ -340,7 +342,7 @@ func (d *workloadDriverImpl) IsWorkloadComplete() bool {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	return d.workload.WorkloadState == domain.WorkloadFinished
+	return d.workload.GetWorkloadState() == domain.WorkloadFinished
 }
 
 func (d *workloadDriverImpl) ID() string {
@@ -361,7 +363,7 @@ func (d *workloadDriverImpl) StopWorkload() error {
 	defer d.mu.Unlock()
 
 	d.workloadEndTime = time.Now()
-	d.workload.WorkloadState = domain.WorkloadTerminated
+	d.workload.SetWorkloadState(domain.WorkloadTerminated)
 	return nil
 }
 
@@ -377,7 +379,7 @@ func (d *workloadDriverImpl) handleCriticalError(err error) {
 	defer d.mu.Unlock()
 
 	d.workload.TimeElasped = time.Since(d.workload.StartTime).String()
-	d.workload.WorkloadState = domain.WorkloadErred
+	d.workload.SetWorkloadState(domain.WorkloadErred)
 	d.workload.ErrorMessage = err.Error()
 }
 

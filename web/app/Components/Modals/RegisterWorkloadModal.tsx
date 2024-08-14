@@ -17,6 +17,7 @@ import {
     ModalVariant,
     Popover,
     Switch,
+    Text,
     TextInput,
     Tooltip,
     ValidatedOptions,
@@ -165,7 +166,7 @@ export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalPr
         <Modal
             variant={ModalVariant.medium}
             titleIconVariant={'info'}
-            title={'Register Workload'}
+            title={'Register Workload from Preset'}
             isOpen={props.isOpen}
             onClose={props.onClose}
             help={
@@ -184,6 +185,9 @@ export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalPr
                 </Button>,
             ]}
         >
+            <Text>
+                You can also create new workloads using templates by clicking the + button in the top-right of this modal.
+            </Text>
             <Form>
                 <Grid hasGutter md={6}>
                     <GridItem span={12}>

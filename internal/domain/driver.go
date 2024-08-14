@@ -28,7 +28,7 @@ type WorkloadDriver interface {
 
 	ToggleDebugLogging(enabled bool) *Workload
 
-	GetWorkload() *Workload
+	GetWorkload() Workload
 
 	GetWorkloadPreset() WorkloadPreset
 

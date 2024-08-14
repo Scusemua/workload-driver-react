@@ -13,19 +13,19 @@ import (
 )
 
 const (
-	WorkloadReady      WorkloadState = iota // Workload is registered and ready to be started.
-	WorkloadRunning    WorkloadState = 1    // Workload is actively running/in-progress.
-	WorkloadFinished   WorkloadState = 2    // Workload stopped naturally/successfully after processing all events.
-	WorkloadErred      WorkloadState = 3    // Workload stopped due to an error.
-	WorkloadTerminated WorkloadState = 4    // Workload stopped because it was explicitly terminated early/premature.
+	WorkloadReady      WorkloadState = iota // workloadImpl is registered and ready to be started.
+	WorkloadRunning    WorkloadState = 1    // workloadImpl is actively running/in-progress.
+	WorkloadFinished   WorkloadState = 2    // workloadImpl stopped naturally/successfully after processing all events.
+	WorkloadErred      WorkloadState = 3    // workloadImpl stopped due to an error.
+	WorkloadTerminated WorkloadState = 4    // workloadImpl stopped because it was explicitly terminated early/premature.
 
 	CsvWorkloadPresetType WorkloadPresetType = "CSV"
 	XmlWorkloadPresetType WorkloadPresetType = "XML"
 )
 
 type WorkloadGenerator interface {
-	GenerateWorkload(EventConsumer, *Workload, WorkloadPreset, *WorkloadRegistrationRequest) error // Start generating the workload.
-	StopGeneratingWorkload()                                                                       // Stop generating the workload prematurely.
+	GenerateWorkload(EventConsumer, *workloadImpl, WorkloadPreset, *WorkloadRegistrationRequest) error // Start generating the workload.
+	StopGeneratingWorkload()                                                                           // Stop generating the workload prematurely.
 }
 
 type BaseMessage struct {
@@ -62,10 +62,10 @@ func (r *ToggleDebugLogsRequest) String() string {
 }
 
 type WorkloadResponse struct {
-	MessageId         string      `json:"msg_id"`
-	NewWorkloads      []*Workload `json:"new_workloads"`
-	ModifiedWorkloads []*Workload `json:"modified_workloads"`
-	DeletedWorkloads  []*Workload `json:"deleted_workloads"`
+	MessageId         string          `json:"msg_id"`
+	NewWorkloads      []*workloadImpl `json:"new_workloads"`
+	ModifiedWorkloads []*workloadImpl `json:"modified_workloads"`
+	DeletedWorkloads  []*workloadImpl `json:"deleted_workloads"`
 }
 
 func (r *WorkloadResponse) String() string {
@@ -138,9 +138,10 @@ type WorkloadRegistrationRequest struct {
 	Seed int64  `name:"seed" yaml:"seed" json:"seed" description:"RNG seed for the workload."`
 	// By default, sessions reserve 'NUM_GPUS' GPUs when being scheduled. If this property is enabled, then sessions will instead reserve 'NUM_GPUs' * 'MAX_GPU_UTIL'.
 	// This will lead to many sessions reserving fewer GPUs than when this property is disabled (default).
-	AdjustGpuReservations bool   `name:"adjust_gpu_reservations" json:"adjust_gpu_reservations" description:"By default, sessions reserve 'NUM_GPUS' GPUs when being scheduled. If this property is enabled, then sessions will instead reserve 'NUM_GPUs' * 'MAX_GPU_UTIL'. This will lead to many sessions reserving fewer GPUs than when this property is disabled (default)."`
-	WorkloadName          string `name:"name" json:"name" yaml:"name" description:"Non-unique identifier of the workload created/specified by the user when launching the workload."`
-	DebugLogging          bool   `name:"debug_logging" json:"debug_logging" yaml:"debug_logging" description:"Flag indicating whether debug-level logging should be enabled."`
+	AdjustGpuReservations bool                  `name:"adjust_gpu_reservations" json:"adjust_gpu_reservations" description:"By default, sessions reserve 'NUM_GPUS' GPUs when being scheduled. If this property is enabled, then sessions will instead reserve 'NUM_GPUs' * 'MAX_GPU_UTIL'. This will lead to many sessions reserving fewer GPUs than when this property is disabled (default)."`
+	WorkloadName          string                `name:"name" json:"name" yaml:"name" description:"Non-unique identifier of the workload created/specified by the user when launching the workload."`
+	DebugLogging          bool                  `name:"debug_logging" json:"debug_logging" yaml:"debug_logging" description:"Flag indicating whether debug-level logging should be enabled."`
+	WorkloadFromTemplate  *WorkloadFromTemplate `name:"workload_from_template" json:"workload_from_template"`
 }
 
 func (r *WorkloadRegistrationRequest) String() string {
@@ -154,18 +155,54 @@ func (r *WorkloadRegistrationRequest) String() string {
 
 type WorkloadState int
 
-type Workload struct {
-	ID   string `json:"id"`
+type Workload interface {
+	// Return true if the workload stopped because it was explicitly terminated early/premature.
+	IsTerminated() bool
+	// Return true if the workload is registered and ready to be started.
+	IsReady() bool
+	// Return true if the workload stopped due to an error.
+	IsErred() bool
+	// Return true if the workload is actively running/in-progress.
+	IsRunning() bool
+	// Return true if the workload stopped naturally/successfully after processing all events.
+	IsFinished() bool
+	// To String.
+	String() string
+	// Return the unique ID of the workload.
+	GetId() string
+	// Return the name of the workload.
+	// The name is not necessarily unique and is meant to be descriptive, whereas the ID is unique.
+	WorkloadName() string
+	// Return the current state of the workload.
+	GetWorkloadState() WorkloadState
+	// Return the time elapsed, which is computed at the time that data is requested by the user.
+	GetTimeElasped() string
+	// Return the time that the workload was started.
+	GetStartTime() time.Time
+	// Return the time that the workload was registered.
+	GetRegisteredTime() time.Time
+	// Return the workload's seed.
+	GetSeed() int64
+	// Set the workload's seed. Can only be performed once. If attempted again, this will panic.
+	SetSeed(seed int64)
+	// Return a flag indicating whether debug logging is enabled.
+	IsDebugLoggingEnabled() bool
+	// Enable or disable debug logging for the workload.
+	SetDebugLoggingEnabled(enabled bool)
+	// Set the state of the workload.
+	SetWorkloadState(state WorkloadState)
+}
+
+type workloadImpl struct {
+	Id   string `json:"id"`
 	Name string `json:"name"`
 
-	WorkloadState       WorkloadState  `json:"workload_state"`
-	WorkloadPreset      WorkloadPreset `json:"workload_preset"`
-	WorkloadPresetName  string         `json:"workload_preset_name"`
-	WorkloadPresetKey   string         `json:"workload_preset_key"`
-	DebugLoggingEnabled bool           `json:"debug_logging_enabled"`
-	ErrorMessage        string         `json:"error_message"`
+	WorkloadState       WorkloadState `json:"workload_state"`
+	DebugLoggingEnabled bool          `json:"debug_logging_enabled"`
+	ErrorMessage        string        `json:"error_message"`
 
-	Seed int64 `json:"seed"`
+	Seed    int64 `json:"seed"`
+	seedSet bool
 
 	RegisteredTime     time.Time `json:"registered_time"`
 	StartTime          time.Time `json:"start_time"`
@@ -177,32 +214,93 @@ type Workload struct {
 	NumActiveTrainings int64     `json:"num_active_trainings"`
 }
 
+// Return a flag indicating whether debug logging is enabled.
+func (w *workloadImpl) IsDebugLoggingEnabled() bool {
+	return w.DebugLoggingEnabled
+}
+
+// Enable or disable debug logging for the workload.
+func (w *workloadImpl) SetDebugLoggingEnabled(enabled bool) {
+	w.DebugLoggingEnabled = enabled
+}
+
+// Set the workload's seed. Can only be performed once. If attempted again, this will panic.
+func (w *workloadImpl) SetSeed(seed int64) {
+	if w.seedSet {
+		panic(fmt.Sprintf("Workload seed has already been set to value %d", w.Seed))
+	}
+
+	w.Seed = seed
+	w.seedSet = true
+}
+
+// Return the workload's seed.
+func (w *workloadImpl) GetSeed() int64 {
+	return w.Seed
+}
+
+// Return the current state of the workload.
+func (w *workloadImpl) GetWorkloadState() WorkloadState {
+	return w.WorkloadState
+}
+
+// Set the state of the workload.
+func (w *workloadImpl) SetWorkloadState(state WorkloadState) {
+	w.WorkloadState = state
+}
+
+// Return the time that the workload was started.
+func (w *workloadImpl) GetStartTime() time.Time {
+	return w.StartTime
+}
+
+// Return the time that the workload was registered.
+func (w *workloadImpl) GetRegisteredTime() time.Time {
+	return w.RegisteredTime
+}
+
+// Return the time elapsed, which is computed at the time that data is requested by the user.
+func (w *workloadImpl) GetTimeElasped() string {
+	return w.TimeElasped
+}
+
+// Return the name of the workload.
+// The name is not necessarily unique and is meant to be descriptive, whereas the ID is unique.
+func (w *workloadImpl) WorkloadName() string {
+	return w.Name
+}
+
+// Return the unique ID of the workload.
+func (w *workloadImpl) GetId() string {
+	return w.Id
+}
+
 // Return true if the workload stopped because it was explicitly terminated early/premature.
-func (w *Workload) IsTerminated() bool {
+func (w *workloadImpl) IsTerminated() bool {
 	return w.WorkloadState == WorkloadTerminated
 }
 
 // Return true if the workload is registered and ready to be started.
-func (w *Workload) IsReady() bool {
+func (w *workloadImpl) IsReady() bool {
 	return w.WorkloadState == WorkloadReady
 }
 
 // Return true if the workload stopped due to an error.
-func (w *Workload) IsErred() bool {
+func (w *workloadImpl) IsErred() bool {
 	return w.WorkloadState == WorkloadErred
 }
 
 // Return true if the workload is actively running/in-progress.
-func (w *Workload) IsRunning() bool {
+func (w *workloadImpl) IsRunning() bool {
 	return w.WorkloadState == WorkloadRunning
 }
 
 // Return true if the workload stopped naturally/successfully after processing all events.
-func (w *Workload) IsFinished() bool {
+func (w *workloadImpl) IsFinished() bool {
 	return w.WorkloadState == WorkloadFinished
 }
 
-func (w *Workload) String() string {
+func (w *workloadImpl) String() string {
 	out, err := json.Marshal(w)
 	if err != nil {
 		panic(err)
@@ -224,6 +322,20 @@ type WorkloadPreset struct {
 	PresetType WorkloadPresetType `name:"preset_type" yaml:"preset_type" json:"preset_type" description:"The type of workload preset. Could be CSV or XML."`
 	CsvWorkloadPreset
 	XmlWorkloadPreset
+}
+
+type WorkloadFromTemplate struct {
+	*workloadImpl
+
+	Sessions []WorkloadSession `json:"sessions"`
+}
+
+type WorkloadFromPreset struct {
+	*workloadImpl
+
+	WorkloadPreset     WorkloadPreset `json:"workload_preset"`
+	WorkloadPresetName string         `json:"workload_preset_name"`
+	WorkloadPresetKey  string         `json:"workload_preset_key"`
 }
 
 func (p *WorkloadPreset) MarshalJSON() ([]byte, error) {
@@ -553,4 +665,28 @@ type MaxUtilizationWrapper struct {
 	CpuTaskMap map[string][]float64 `json:"cpu-task-map" yaml:"cpu-task-map"` // Maximum CPU utilization achieved during each training event for each Session, arranged in chronological order of training events.
 	MemTaskMap map[string][]float64 `json:"mem-task-map" yaml:"mem-task-map"` // Maximum memory used (in GB) during each training event for each Session, arranged in chronological order of training events.
 	GpuTaskMap map[string][]int     `json:"gpu-task-map" yaml:"gpu-task-map"` // Maximum number of GPUs used during each training event for each Session, arranged in chronological order of training events.
+}
+
+// Corresponds to the `Session` struct defined in `web/app/Data/workloadImpl.tsx`.
+// Used by the frontend when submitting workloads created from templates (as opposed to presets).
+type WorkloadSession struct {
+	Id          string          `json:"id"`
+	MaxCPUs     float64         `json:"maxCPUs"`
+	MaxMemoryGB float64         `json:"maxMemoryGB"`
+	MaxNumGPUs  int             `json:"maxNumGPUs"`
+	StartTick   int             `json:"startTick"`
+	StopTick    int             `json:"stopTick"`
+	Trainings   []TrainingEvent `json:"trainings"`
+}
+
+// Corresponds to the `TrainingEvent` struct defined in `web/app/Data/workloadImpl.tsx`.
+// Used by the frontend when submitting workloads created from templates (as opposed to presets).
+type TrainingEvent struct {
+	SessionId       string  `json:"sessionId"`
+	TrainingId      string  `json:"trainingId"`
+	CpuUtil         float64 `json:"cpuUtil"`
+	MemUsageGB      float64 `json:"memUsageGB"`
+	GpuUtil         float64 `json:"gpuUtil"`
+	StartTick       float64 `json:"startTick"`
+	DurationInTicks float64 `json:"durationInTicks"`
 }

@@ -200,7 +200,7 @@ func SingleSessionSingleTraining(sessionArgs *SessionRegistrationArguments, sess
 		sequencer.RegisterSession(sessionArgs.SessionID, sessionArgs.MaxCPUs, sessionArgs.MaxMemoryGB, sessionArgs.MaxGPUs, 0)
 
 		sequencer.AddSessionStartedEvent(sessionArgs.SessionID, sessionStartTick, 0, 0, 0, 1)
-		sequencer.AddTrainingEvent(sessionArgs.SessionID, startTrainingTick, trainingDurationInTicks, trainingArgs.CpuUtilization, trainingArgs.MemoryUsageGB, trainingArgs.GpuUtilization, 1) // TODO: Fix GPU util/num GPU specified here.
+		sequencer.AddTrainingEvent(sessionArgs.SessionID, startTrainingTick, trainingDurationInTicks, trainingArgs.CpuUtilization, trainingArgs.MemoryUsageGB, trainingArgs.GpuUtilization) // TODO: Fix GPU util/num GPU specified here.
 		sequencer.AddSessionTerminatedEvent(sessionArgs.SessionID, sessionTerminateTick)
 
 		sequencer.SubmitEvents()
