@@ -68,9 +68,10 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
     const [trainingMemUsageGb, setTrainingMemUsageGb] = React.useState('0.25');
 
     // const gpuUtilizations = React.useRef<string[]>(["0.0", "0.0", "0.0", "0.0", "0.0", "0.0", "0.0", "0.0"]);
-    const [gpuUtilizations, setGpuUtilizations] = React.useState<string[]>(["0.0", "0.0", "0.0", "0.0", "0.0", "0.0", "0.0", "0.0"]);
+    const [gpuUtilizations, setGpuUtilizations] = React.useState<string[]>(["100.0", "0.0", "0.0", "0.0", "0.0", "0.0", "0.0", "0.0"]);
 
     const [numberOfGPUs, setNumberOfGPUs] = React.useState<number>(1);
+    const [numberOfGPUsString, setNumberOfGPUsString] = React.useState<string>("1");
 
     const defaultWorkloadTitle = React.useRef(uuidv4());
     const defaultSessionId = React.useRef(uuidv4());
@@ -609,18 +610,44 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                             </FormGroup>
                         </GridItem>
                         <GridItem span={6}>
-                            <FormGroup label="Adjust the Number of GPUs">
+                            <FormGroup label={`Number of GPUs`}>
                                 <Grid hasGutter>
-                                    <GridItem span={2}>
-                                        <Button variant='plain' disabled={numberOfGPUs <= 1} onClick={() => setNumberOfGPUs(Math.max(1, numberOfGPUs - 1))}>Remove GPU <MinusCircleIcon /></Button>
+                                    <GridItem span={12}>
+                                        <TextInput
+                                            type="number"
+                                            customIcon={<GpuIcon />}
+                                            id={`number-of-gpus-text-input`}
+                                            name={`number-of-gpus-text-input`}
+                                            value={numberOfGPUsString}
+                                            onChange={(_event, val: string) => {
+                                                const parsed: number | undefined = parseFloat(val)
+                                                if (parsed !== undefined) {
+                                                    if (Number.isNaN(parsed)) { // This can happen when the user enters just "-" 
+                                                        setNumberOfGPUs(1)
+                                                    } else {
+                                                        // Restrict to [1, 8]
+                                                        setNumberOfGPUs(Math.max(Math.min(parsed, 8), 1))
+                                                    }
+                                                }
+
+                                                // The string visible in the text input box is whatever the user enters.
+                                                // Internally, we clamp the number of GPUs between 1 and 8 (inclusive).
+                                                setNumberOfGPUsString(val)
+                                            }}
+                                            validated={(parseFloat(numberOfGPUsString) !== undefined && parseFloat(numberOfGPUsString) >= 0 && parseFloat(numberOfGPUsString) <= 8 && numberOfGPUs >= 0 && numberOfGPUs <= 8) ? 'success' : 'warning'}
+                                        >
+                                        </TextInput>
                                     </GridItem>
-                                    <GridItem span={2} offset={6}>
-                                        <Button variant='plain' disabled={numberOfGPUs >= 8} onClick={() => setNumberOfGPUs(Math.min(8, numberOfGPUs + 1))}>Add GPU <PlusCircleIcon /></Button>
+                                    {/* <GridItem span={4}>
+                                        <Button variant='plain' disabled={numberOfGPUs <= 1} isDisabled={numberOfGPUs <= 1} isActive={numberOfGPUs <= 1} onClick={() => setNumberOfGPUs(Math.max(1, numberOfGPUs - 1))}><MinusCircleIcon /></Button>
                                     </GridItem>
+                                    <GridItem span={4}>
+                                        <Button variant='plain' disabled={numberOfGPUs >= 8} isDisabled={numberOfGPUs >= 8} isActive={numberOfGPUs >= 8} onClick={() => setNumberOfGPUs(Math.min(8, numberOfGPUs + 1))}><PlusCircleIcon /></Button>
+                                    </GridItem> */}
                                 </Grid>
                             </FormGroup>
                         </GridItem>
-                        {Array.from({ length: numberOfGPUs }).map((_, idx: number) => {
+                        {Array.from({ length: Math.max(Math.min(numberOfGPUs, 8), 1) }).map((_, idx: number) => {
                             return (
                                 <GridItem span={3} rowSpan={1} hidden={numberOfGPUs < idx}>
                                     <FormGroup label={`GPU #${idx} % Utilization`}>
