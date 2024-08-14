@@ -142,10 +142,7 @@ func (s *CustomEventSequencer) stepCpu(sessionId string, timestamp time.Time, cp
 	wrappedSession.session.CPU = committed
 }
 
-// TODO: Fix this. We should instead accept just gpuUtil within range [0, N], where N = 100 * MAX_GPUs.
-// Then, we come up with a way to set the GPU utilizations to sum to whatever value.
-// Or maybe, we individually specify the GPU utilization for each GPU.
-func (s *CustomEventSequencer) stepGpu(sessionId string, timestamp time.Time, gpuUtil float64, numGPUs int) {
+func (s *CustomEventSequencer) stepGpu(sessionId string, timestamp time.Time, gpuUtil []float64) {
 	wrappedSession := s.getWrappedSession(sessionId)
 
 	gpu := wrappedSession.gpu
@@ -154,24 +151,41 @@ func (s *CustomEventSequencer) stepGpu(sessionId string, timestamp time.Time, gp
 		panic(fmt.Sprintf("Cannot find PodIDX for Session \"%s\"", sessionId))
 	}
 
-	record := &GPURecord{
-		Timestamp: UnixTime(timestamp),
-		Pod:       sessionId,
-		PodIdx:    podIdx,
-		Value:     gpuUtil,
-		GPUIdx:    "0",
-	}
-	committed := gpu.Debug_CommitAndInit(record)
-	for i := 1; i < numGPUs; i++ {
+	var committed *GPUUtil
+	for gpuIdx, gpuUtil := range gpuUtil {
 		record := &GPURecord{
 			Timestamp: UnixTime(timestamp),
 			Pod:       sessionId,
 			PodIdx:    podIdx,
 			Value:     gpuUtil,
-			GPUIdx:    fmt.Sprintf("%d", i),
+			GPUIdx:    fmt.Sprintf("%d", gpuIdx),
 		}
-		gpu.Debug_Update(record)
+
+		if gpuIdx == 0 {
+			committed = gpu.Debug_CommitAndInit(record)
+		} else {
+			gpu.Debug_Update(record)
+		}
 	}
+
+	// record := &GPURecord{
+	// 	Timestamp: UnixTime(timestamp),
+	// 	Pod:       sessionId,
+	// 	PodIdx:    podIdx,
+	// 	Value:     gpuUtil,
+	// 	GPUIdx:    "0",
+	// }
+	// committed := gpu.Debug_CommitAndInit(record)
+	// for i := 1; i < numGPUs; i++ {
+	// 	record := &GPURecord{
+	// 		Timestamp: UnixTime(timestamp),
+	// 		Pod:       sessionId,
+	// 		PodIdx:    podIdx,
+	// 		Value:     gpuUtil,
+	// 		GPUIdx:    fmt.Sprintf("%d", i),
+	// 	}
+	// 	gpu.Debug_Update(record)
+	// }
 	wrappedSession.session.GPU = committed
 }
 
@@ -274,14 +288,14 @@ func (s *CustomEventSequencer) AddSessionTerminatedEvent(sessionId string, tickN
 	session := s.getSession(sessionId)
 
 	s.stepCpu(sessionId, timestamp, 0)
-	s.stepGpu(sessionId, timestamp, 0, 1)
+	s.stepGpu(sessionId, timestamp, []float64{0})
 	s.stepMemory(sessionId, timestamp, 0)
 
 	s.submitWaitingEvent(session)
 
 	// Step again just to commit the 0 util entries that were initialized above.
 	s.stepCpu(sessionId, timestamp, 0)
-	s.stepGpu(sessionId, timestamp, 0, 1)
+	s.stepGpu(sessionId, timestamp, []float64{0})
 	s.stepMemory(sessionId, timestamp, 0)
 
 	data := session.Snapshot()
@@ -312,13 +326,13 @@ func (s *CustomEventSequencer) submitWaitingEvent(session *Session) {
 // Parameters:
 // - sessionId: The target Session's ID
 // - duration: The duration that the training should last.
-func (s *CustomEventSequencer) AddTrainingEvent(sessionId string, tickNumber int, durationInTicks int, cpuUtil float64, memUtil float64, gpuUtil float64, numGPUs int) {
+func (s *CustomEventSequencer) AddTrainingEvent(sessionId string, tickNumber int, durationInTicks int, cpuUtil float64, memUtil float64, gpuUtil []float64) {
 	startSec := s.startingSeconds + (int64(tickNumber) * s.tickDurationSeconds)
 	startTime := time.Unix(startSec, 0)
 	session := s.getSession(sessionId)
 
 	s.stepCpu(sessionId, startTime, cpuUtil)
-	s.stepGpu(sessionId, startTime, gpuUtil, numGPUs)
+	s.stepGpu(sessionId, startTime, gpuUtil)
 	s.stepMemory(sessionId, startTime, memUtil)
 
 	s.submitWaitingEvent(session)
@@ -327,7 +341,7 @@ func (s *CustomEventSequencer) AddTrainingEvent(sessionId string, tickNumber int
 	endTime := time.Unix(endSec, 0)
 
 	s.stepCpu(sessionId, endTime, 0)
-	s.stepGpu(sessionId, endTime, 0, numGPUs)
+	s.stepGpu(sessionId, endTime, gpuUtil)
 	s.stepMemory(sessionId, endTime, 0)
 
 	trainingStartedEvent := &eventImpl{

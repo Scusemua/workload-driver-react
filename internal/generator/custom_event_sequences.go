@@ -38,17 +38,77 @@ func NewSessionRegistrationArguments(sessionId string, maxCPUs float64, maxMemor
 
 // Utility/helper struct to specify the resource utilization during a training event/task.
 type TrainingResourceUtilizationArgs struct {
-	CpuUtilization float64 // CPU utilization; to be in the interval [0, 100]
-	MemoryUsageGB  float64 // Memory utilization in gigabytes; must be >= 0
-	GpuUtilization float64 // Aggregate GPU utilization, such that 100 = 1 GPU, and (e.g.,) 800 = 8 GPUs. Should be within interval [0, 100]
+	CpuUtilization float64   // CPU utilization; to be in the interval [0, 100]
+	MemoryUsageGB  float64   // Memory utilization in gigabytes; must be >= 0
+	GpuUtilization []float64 // Aggregate GPU utilization, such that 100 = 1 GPU, and (e.g.,) 800 = 8 GPUs. Should be within interval [0, 100]
+
+	// The total number of GPUs to be used during this training event/task.
+	// Equal to cap(GpuUtilization).
+	totalNumGPUs int
+
+	// Used by the 'WithGpuUtilization' API to set the GPU utilization for a specific GPU.
+	// Each time the 'WithGpuUtilization' function is called, this value is incremented,
+	// so that the next call to WithGpuUtilization will update the GPU utilization for the next GPU.
+	gpuIndex int
 }
 
-func NewTrainingResourceUtilizationArgs(cpuUtil float64, memUsageGb float64, gpuUtil float64) *TrainingResourceUtilizationArgs {
+func NewTrainingResourceUtilizationArgs(cpuUtil float64, memUsageGb float64, numGPUs int) *TrainingResourceUtilizationArgs {
+	if numGPUs < 0 {
+		panic(fmt.Sprintf("Invalid specified number of GPUs: %d. Number of GPUs must be greater than or equal to 0.", numGPUs))
+	}
+
 	return &TrainingResourceUtilizationArgs{
 		CpuUtilization: cpuUtil,
 		MemoryUsageGB:  memUsageGb,
-		GpuUtilization: gpuUtil,
+		GpuUtilization: make([]float64, 0, numGPUs),
+		gpuIndex:       0,
+		totalNumGPUs:   numGPUs,
 	}
+}
+
+func (a *TrainingResourceUtilizationArgs) NumGPUs() int {
+	return a.totalNumGPUs
+}
+
+// Set the GPU utilization of the next GPU that has not already been specified via the 'WithGpuUtilization' function.
+//
+// The first call to 'WithGpuUtilization' will set the GPU utilization of GPU 0.
+// The second call to 'WithGpuUtilization' will set the GPU utilization of GPU 1.
+// This continues until all GPUs have been specified.
+//
+// If 'WithGpuUtilization' is called again after specifying the utilization of all GPUs, then the function will panic.
+//
+// This modifies the 'TrainingResourceUtilizationArgs' struct on which it was called in-place; it also returns the TrainingResourceUtilizationArgs struct.
+func (a *TrainingResourceUtilizationArgs) WithGpuUtilization(gpuUtil float64) *TrainingResourceUtilizationArgs {
+	if gpuUtil < 0 {
+		panic(fmt.Sprintf("Invalid GPU utilization specified: %f. Value must be greater than or equal to 0.", gpuUtil))
+	}
+
+	if a.gpuIndex >= a.totalNumGPUs {
+		panic(fmt.Sprintf("The GPU utilization of all GPUs (total of %d) has already been specified.", a.totalNumGPUs))
+	}
+
+	a.GpuUtilization[a.gpuIndex] = gpuUtil
+	a.gpuIndex += 1
+
+	return a
+}
+
+// Set the GPU utilization of a specific GPU (identified by its index, which should range from 0 to NUM_GPUS - 1).
+//
+// This modifies the 'TrainingResourceUtilizationArgs' struct on which it was called in-place; it also returns the TrainingResourceUtilizationArgs struct.
+func (a *TrainingResourceUtilizationArgs) WithGpuUtilizationForSpecificGpu(gpuIndex int, gpuUtil float64) *TrainingResourceUtilizationArgs {
+	if gpuIndex < 0 || gpuIndex > a.totalNumGPUs {
+		panic(fmt.Sprintf("Invalid GPU index specified: %d. Value must be greater than or equal to 0 and less than the total number of GPUs (%d).", gpuIndex, cap(a.GpuUtilization)))
+	}
+
+	if gpuUtil < 0 {
+		panic(fmt.Sprintf("Invalid GPU utilization specified: %f. Value must be greater than or equal to 0.", gpuUtil))
+	}
+
+	a.GpuUtilization[gpuIndex] = gpuUtil
+
+	return a
 }
 
 func ValidateSessionArguments(sessionArgs *SessionRegistrationArguments) error {
@@ -76,8 +136,8 @@ func ValidateSessionArgumentsAgainstTrainingArguments(sessionArgs *SessionRegist
 		return fmt.Errorf("%w: incompatible max CPUs (%f) and training CPU utilization (%f) specified. Training CPU utilization cannot exceed maximum session CPUs", ErrInvalidConfiguration, sessionArgs.MaxCPUs, trainingArgs.CpuUtilization)
 	}
 
-	if sessionArgs.MaxGPUs < int(trainingArgs.GpuUtilization) { // TODO: This is wrong based on how we're specifying max GPUs and training GPU utilization
-		return fmt.Errorf("%w: incompatible max GPUs (%d) and training GPU utilization (%f) specified. Training GPU utilization cannot exceed maximum session GPUs", ErrInvalidConfiguration, sessionArgs.MaxGPUs, trainingArgs.GpuUtilization)
+	if sessionArgs.MaxGPUs < trainingArgs.NumGPUs() {
+		return fmt.Errorf("%w: incompatible max GPUs (%d) and training GPU utilization (%f) specified. Training GPU utilization cannot exceed maximum session GPUs", ErrInvalidConfiguration, sessionArgs.MaxGPUs, trainingArgs.NumGPUs())
 	}
 
 	if sessionArgs.MaxMemoryGB < trainingArgs.MemoryUsageGB {
