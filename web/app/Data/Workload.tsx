@@ -71,6 +71,12 @@ interface WorkloadResponse {
     deleted_workloads: Workload[];
 }
 
+// Wraps a workload created using a template.
+interface WorkloadTemplate {
+    name: string;
+    sessions: Session[];
+}
+
 export { WORKLOAD_STATE_READY as WORKLOAD_STATE_READY };
 export { WORKLOAD_STATE_RUNNING as WORKLOAD_STATE_RUNNING };
 export { WORKLOAD_STATE_FINISHED as WORKLOAD_STATE_FINISHED };
@@ -82,3 +88,4 @@ export type { WorkloadPreset as WorkloadPreset };
 export type { WorkloadResponse as WorkloadResponse };
 export type { Session as Session };
 export type { TrainingEvent as TrainingEvent };
+export type { WorkloadTemplate as WorkloadTemplate };

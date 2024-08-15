@@ -180,6 +180,42 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
             return true;
         }
 
+        // The following are all the conditions from the `validated` fields of the text inputs.
+
+        if (!(parseFloat(sessionStartTick) >= 0 && parseFloat(sessionStartTick) < parseFloat(trainingStartTick) && parseFloat(sessionStartTick) < parseFloat(sessionStopTick))) {
+            return true;
+        }
+
+        if (!((parseFloat(sessionStartTick) >= 0 && parseFloat(sessionStartTick) < parseFloat(trainingStartTick) && parseFloat(sessionStartTick) < parseFloat(sessionStopTick)))) {
+            return true;
+        }
+
+        if (!((parseFloat(trainingStartTick) >= 0 && parseFloat(sessionStartTick) < parseFloat(trainingStartTick) && parseFloat(trainingStartTick) < parseFloat(sessionStopTick) && parseFloat(trainingStartTick) + parseFloat(trainingDurationInTicks) < parseFloat(sessionStopTick)))) {
+            return true;
+        }
+
+        if (!((parseFloat(trainingDurationInTicks) >= 0 && parseFloat(trainingStartTick) + parseFloat(trainingDurationInTicks) < parseFloat(sessionStopTick)))) {
+            return true;
+        }
+
+        if (!((parseFloat(sessionStopTick) >= 0 && parseFloat(trainingStartTick) < parseFloat(sessionStopTick) && parseFloat(sessionStartTick) < parseFloat(sessionStopTick) && parseFloat(trainingStartTick) + parseFloat(trainingDurationInTicks) < parseFloat(sessionStopTick)))) {
+            return true;
+        }
+
+        if (!((parseFloat(trainingCpuPercentUtil) >= 0 && parseFloat(trainingCpuPercentUtil) <= 100))) {
+            return true;
+        }
+
+        if (!((parseFloat(trainingMemUsageGb) >= 0 && parseFloat(trainingMemUsageGb) <= 128_000))) {
+            return true;
+        }
+
+        for (let i = 0; i < numberOfGPUs; i++) {
+            if (!((parseFloat(gpuUtilizations[i]) >= 0 && parseFloat(gpuUtilizations[i]) <= 100))) {
+                return true;
+            }
+        }
+
         return false;
     };
 
