@@ -181,38 +181,23 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
             return true;
         }
 
+        if (sessionStartTick === '' || trainingStartTick === '' || sessionStopTick === '' || trainingDurationInTicks === '' || trainingMemUsageGb === '' || trainingCpuPercentUtil === '') {
+            return true;
+        }
+
         // The following are all the conditions from the `validated` fields of the text inputs.
-
-        if (!(parseFloat(sessionStartTick) >= 0 && parseFloat(sessionStartTick) < parseFloat(trainingStartTick) && parseFloat(sessionStartTick) < parseFloat(sessionStopTick))) {
+        if (validateNumberOfGpusInput() !== 'success' || validateTrainingMemoryUsageInput() !== 'success' || validateTrainingCpuInput() !== 'success' || validateTrainingDurationInTicksInput() !== 'success' || validateTrainingStartTickInput() !== 'success' || validateSessionStartStopInput() !== 'success' || validateSessionStartTickInput() !== 'success') {
             return true;
         }
 
-        if (!((parseFloat(sessionStartTick) >= 0 && parseFloat(sessionStartTick) < parseFloat(trainingStartTick) && parseFloat(sessionStartTick) < parseFloat(sessionStopTick)))) {
+        // This one might be redundant. 
+        if (numberOfGPUs === '' || numberOfGPUs < 0 || numberOfGPUs > 8) {
             return true;
         }
-
-        if (!((parseFloat(trainingStartTick) >= 0 && parseFloat(sessionStartTick) < parseFloat(trainingStartTick) && parseFloat(trainingStartTick) < parseFloat(sessionStopTick) && parseFloat(trainingStartTick) + parseFloat(trainingDurationInTicks) < parseFloat(sessionStopTick)))) {
-            return true;
-        }
-
-        if (!((parseFloat(trainingDurationInTicks) >= 0 && parseFloat(trainingStartTick) + parseFloat(trainingDurationInTicks) < parseFloat(sessionStopTick)))) {
-            return true;
-        }
-
-        if (!((parseFloat(sessionStopTick) >= 0 && parseFloat(trainingStartTick) < parseFloat(sessionStopTick) && parseFloat(sessionStartTick) < parseFloat(sessionStopTick) && parseFloat(trainingStartTick) + parseFloat(trainingDurationInTicks) < parseFloat(sessionStopTick)))) {
-            return true;
-        }
-
-        if (!((parseFloat(trainingCpuPercentUtil) >= 0 && parseFloat(trainingCpuPercentUtil) <= 100))) {
-            return true;
-        }
-
-        if (!((parseFloat(trainingMemUsageGb) >= 0 && parseFloat(trainingMemUsageGb) <= 128_000))) {
-            return true;
-        }
-
-        for (let i = 0; i < numberOfGPUs; i++) {
-            if (!((parseFloat(gpuUtilizations[i]) >= 0 && parseFloat(gpuUtilizations[i]) <= 100))) {
+        
+        const numGPUs: number = (numberOfGPUs || 1);
+        for (let i = 0; i < numGPUs; i++) {
+            if (validateGpuUtilInput(i) !== 'success') {
                 return true;
             }
         }
@@ -235,8 +220,8 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
 
         const session: Session = {
             id: sessionId,
-            maxCPUs: parseFloat(trainingCpuPercentUtil),
-            maxMemoryGB: parseFloat(trainingMemUsageGb),
+            maxCPUs: trainingCpuPercentUtil,
+            maxMemoryGB: trainingMemUsageGb,
             maxNumGPUs: numberOfGPUs,
             startTick: parseInt(sessionStartTick),
             stopTick: parseInt(sessionStopTick),
@@ -251,6 +236,86 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
         // Reset all of the fields.
         resetSubmissionForm();
     };
+
+    const validateSessionStartTickInput = () => {
+        if (sessionStartTick === '') {
+            return 'error';
+        }
+
+        if (trainingStartTick === '' || sessionStopTick === '') {
+            return 'warning';
+        }
+
+        if ((sessionStartTick >= 0 && sessionStartTick < trainingStartTick && sessionStartTick < sessionStopTick)) {
+            return 'success';
+        }
+
+        return 'error';
+    }
+
+    const validateSessionStartStopInput = () => {
+        if (sessionStopTick === '') {
+            return 'error';
+        }
+
+        if (sessionStartTick === '' || trainingStartTick === '' || trainingDurationInTicks === '') {
+            return 'warning';
+        }
+        
+        return (sessionStopTick >= 0 && trainingStartTick < sessionStopTick && sessionStartTick < sessionStopTick && trainingStartTick + trainingDurationInTicks < sessionStopTick) ? 'success' : 'error'
+    }
+
+    const validateTrainingStartTickInput = () => {
+        if (trainingStartTick === '') {
+            return 'error';
+        }
+
+        if (sessionStartTick === '' || sessionStopTick === '' || trainingDurationInTicks === '') {
+            return 'warning';
+        }
+
+        return (trainingStartTick >= 0 && sessionStartTick < trainingStartTick && trainingStartTick < sessionStopTick && trainingStartTick + trainingDurationInTicks < sessionStopTick) ? 'success' : 'error';
+    }
+
+    const validateTrainingDurationInTicksInput = () => {
+        if (trainingDurationInTicks === '') {
+            return 'error';
+        }
+
+        if (sessionStartTick === '' || sessionStopTick === '' || trainingStartTick === '') {
+            return 'warning';
+        }
+
+        return (trainingDurationInTicks >= 0 && trainingStartTick + trainingDurationInTicks < sessionStopTick) ? 'success' : 'error'
+    }
+
+    const validateTrainingCpuInput = () => {
+        if (trainingCpuPercentUtil === '') {
+            return 'error';
+        }
+
+        return (trainingCpuPercentUtil >= 0 && trainingCpuPercentUtil <= 100) ? 'success' : 'error'
+    }
+
+    const validateTrainingMemoryUsageInput = () => {
+        if (trainingMemUsageGb === '') {
+            return 'error';
+        }
+
+        return (trainingMemUsageGb >= 0 && trainingMemUsageGb <= 128_000) ? 'success' : 'error';
+    }
+
+    const validateNumberOfGpusInput = () => {
+        if (numberOfGPUs === '') {
+            return 'error';
+        }
+
+        return (numberOfGPUs !== undefined && numberOfGPUs >= 0 && numberOfGPUs <= 8 && numberOfGPUs >= 0 && numberOfGPUs <= 8) ? 'success' : 'warning';
+    }
+
+    const validateGpuUtilInput = (idx: number) => {
+        return (gpuUtilizations[idx] >= 0 && gpuUtilizations[idx] <= 100) ? 'success' : 'error'
+    }
 
     const resetSubmissionForm = () => {
         setWorkloadTitle('');
@@ -605,7 +670,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                                     inputAriaLabel="session-start-tick-input"
                                     minusBtnAriaLabel="minus"
                                     plusBtnAriaLabel="plus"
-                                    validated={(parseFloat(sessionStartTick) >= 0 && parseFloat(sessionStartTick) < parseFloat(trainingStartTick) && parseFloat(sessionStartTick) < parseFloat(sessionStopTick)) ? 'success' : 'error'}
+                                    validated={validateSessionStartTickInput()}
                                     min={0}
                                 />
                             </FormGroup>
@@ -624,7 +689,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                                     inputAriaLabel="training-start-tick-input"
                                     minusBtnAriaLabel="minus"
                                     plusBtnAriaLabel="plus"
-                                    validated={(parseFloat(trainingStartTick) >= 0 && parseFloat(sessionStartTick) < parseFloat(trainingStartTick) && parseFloat(trainingStartTick) < parseFloat(sessionStopTick) && parseFloat(trainingStartTick) + parseFloat(trainingDurationInTicks) < parseFloat(sessionStopTick)) ? 'success' : 'error'}
+                                    validated={validateTrainingStartTickInput()}
                                     min={0}
                                 />
                             </FormGroup>
@@ -643,7 +708,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                                     inputAriaLabel="training-duration-ticks-input"
                                     minusBtnAriaLabel="minus"
                                     plusBtnAriaLabel="plus"
-                                    validated={(parseFloat(trainingDurationInTicks) >= 0 && parseFloat(trainingStartTick) + parseFloat(trainingDurationInTicks) < parseFloat(sessionStopTick)) ? 'success' : 'error'}
+                                    validated={validateTrainingDurationInTicksInput()}
                                     min={1}
                                 />
                             </FormGroup>
@@ -662,7 +727,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                                     inputAriaLabel="session-stop-tick-input"
                                     minusBtnAriaLabel="minus"
                                     plusBtnAriaLabel="plus"
-                                    validated={(parseFloat(sessionStopTick) >= 0 && parseFloat(trainingStartTick) < parseFloat(sessionStopTick) && parseFloat(sessionStartTick) < parseFloat(sessionStopTick) && parseFloat(trainingStartTick) + parseFloat(trainingDurationInTicks) < parseFloat(sessionStopTick)) ? 'success' : 'error'}
+                                    validated={validateSessionStartStopInput()}
                                     min={0}
                                 />
                             </FormGroup>
@@ -688,7 +753,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                                     inputAriaLabel="training-cpu-percent-util-input"
                                     minusBtnAriaLabel="minus"
                                     plusBtnAriaLabel="plus"
-                                    validated={(parseFloat(trainingCpuPercentUtil) >= 0 && parseFloat(trainingCpuPercentUtil) <= 100) ? 'success' : 'error'}
+                                    validated={validateTrainingCpuInput()}
                                     min={0}
                                     max={100}
                                 />
@@ -708,7 +773,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                                     inputAriaLabel="training-mem-usage-gb-input"
                                     minusBtnAriaLabel="minus"
                                     plusBtnAriaLabel="plus"
-                                    validated={(parseFloat(trainingMemUsageGb) >= 0 && parseFloat(trainingMemUsageGb) <= 128_000) ? 'success' : 'error'}
+                                    validated={validateTrainingMemoryUsageInput()}
                                     min={0}
                                     max={128_000}
                                 />
@@ -730,7 +795,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                                             inputAriaLabel="num-gpus-input"
                                             minusBtnAriaLabel="minus"
                                             plusBtnAriaLabel="plus"
-                                            validated={(parseFloat(numberOfGPUs) !== undefined && parseFloat(numberOfGPUs) >= 0 && parseFloat(numberOfGPUs) <= 8 && numberOfGPUs >= 0 && numberOfGPUs <= 8) ? 'success' : 'warning'}
+                                            validated={validateNumberOfGpusInput()}
                                             min={1}
                                             max={8}
                                         />
@@ -738,9 +803,9 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                                 </Grid>
                             </FormGroup>
                         </GridItem>
-                        {Array.from({ length: Math.max(Math.min(numberOfGPUs, 8), 1) }).map((_, idx: number) => {
+                        {Array.from({ length: Math.max(Math.min((numberOfGPUs || 1), 8), 1) }).map((_, idx: number) => {
                             return (
-                                <GridItem span={3} rowSpan={1} hidden={numberOfGPUs < idx}>
+                                <GridItem span={3} rowSpan={1} hidden={(numberOfGPUs || 1) < idx}>
                                     <FormGroup label={`GPU #${idx} % Utilization`}>
                                         <NumberInput
                                             value={gpuUtilizations[idx]}
@@ -754,7 +819,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                                             inputAriaLabel={`gpu${idx}-percent-util-input`}
                                             minusBtnAriaLabel="minus"
                                             plusBtnAriaLabel="plus"
-                                            validated={(parseFloat(gpuUtilizations[idx]) >= 0 && parseFloat(gpuUtilizations[idx]) <= 100) ? 'success' : 'error'}
+                                            validated={validateGpuUtilInput(idx)}
                                             min={0}
                                             max={100}
                                         />
