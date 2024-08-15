@@ -32,7 +32,7 @@ import HelpIcon from '@patternfly/react-icons/dist/esm/icons/help-icon';
 import styles from '@patternfly/react-styles/css/components/Form/form';
 
 import { CpuIcon, MemoryIcon, MinusCircleIcon, PlusCircleIcon, SyncIcon } from '@patternfly/react-icons';
-import { Session, WorkloadPreset } from '@app/Data';
+import { Session, TrainingEvent, WorkloadPreset, WorkloadTemplate } from '@app/Data';
 import { useWorkloadPresets } from '@providers/WorkloadPresetProvider';
 import { PlusIcon } from '@patternfly/react-icons';
 import { GpuIcon } from '@app/Icons';
@@ -46,8 +46,14 @@ export interface NewWorkloadFromTemplateModalProps {
         workloadTitle: string,
         workloadSeed: string,
         debugLoggingEnabled: boolean,
-        sessions: Session[],
+        workloadTemplate: WorkloadTemplate,
     ) => void;
+}
+
+function assertIsNumber(value: number | ''): asserts value is number {
+    if (value === '') {
+        throw new Error("value is not number");
+    }
 }
 
 export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFromTemplateModalProps> = (props) => {
@@ -69,7 +75,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
     const [trainingMemUsageGb, setTrainingMemUsageGb] = React.useState<number | ''>(0.25);
 
     // const gpuUtilizations = React.useRef<string[]>(["0.0", "0.0", "0.0", "0.0", "0.0", "0.0", "0.0", "0.0"]);
-    const [gpuUtilizations, setGpuUtilizations] = React.useState<number[]>([100.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
+    const [gpuUtilizations, setGpuUtilizations] = React.useState<(number | '')[]>([100.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
 
     const [numberOfGPUs, setNumberOfGPUs] = React.useState<number | ''>(1);
     // const [numberOfGPUsString, setNumberOfGPUsString] = React.useState<string>("1");
@@ -81,7 +87,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
 
     const workloadTemplates: string[] = ["1 Session with 1 Training Event"];
 
-    const setGpuUtil = (idx: number, val: number) => {
+    const setGpuUtil = (idx: number, val: number | '') => {
         const nextGpuUtilizations = gpuUtilizations.map((v, i) => {
             if (i === idx) {
                 // Update the value at the specified index.
@@ -205,6 +211,15 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
         return false;
     };
 
+    function assertGpuUtilizationsAreAllNumbers(value: (number | '')[], numGPUs: number): asserts value is number[] {
+        for (let i = 0; i < numGPUs; i++) {
+            if (validateGpuUtilInput[i] === 'error') {
+                console.error(`gpuUtilization[${i}] is not a valid value during submission.`)
+                throw new Error(`gpuUtilization[${i}] is not a valid value during submission.`)
+            }
+        }
+    }
+
     // Called when the 'submit' button is clicked.
     const onSubmitWorkload = () => {
         // If the user left the workload title blank, then use the default workload title, which is a randomly-generated UUID.
@@ -213,25 +228,49 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
             workloadTitleToSubmit = defaultWorkloadTitle.current;
         }
 
+        assertIsNumber(trainingCpuPercentUtil);
+        assertIsNumber(trainingMemUsageGb);
+        assertIsNumber(numberOfGPUs);
+        assertIsNumber(sessionStartTick);
+        assertIsNumber(sessionStopTick);
+        assertIsNumber(trainingDurationInTicks);
+        assertIsNumber(trainingStartTick);
+        assertGpuUtilizationsAreAllNumbers(gpuUtilizations, numberOfGPUs);
+
         // TOOD: 
         // When we have multiplate templates, we'll add template-specific submission logic
         // to aggregate the information from that template and convert it to a valid
         // workload registration request.
+
+        const trainingEvent: TrainingEvent = {
+            sessionId: sessionId,
+            trainingId: uuidv4(),
+            cpuUtil: trainingCpuPercentUtil,
+            memUsageGb: trainingMemUsageGb,
+            gpuUtil: gpuUtilizations,
+            startTick: trainingStartTick,
+            durationInTicks: trainingDurationInTicks,
+        }
 
         const session: Session = {
             id: sessionId,
             maxCPUs: trainingCpuPercentUtil,
             maxMemoryGB: trainingMemUsageGb,
             maxNumGPUs: numberOfGPUs,
-            startTick: parseInt(sessionStartTick),
-            stopTick: parseInt(sessionStopTick),
-            trainings: [],
+            startTick: sessionStartTick,
+            stopTick: sessionStopTick,
+            trainings: [trainingEvent],
         }
 
-        const sessions: Session[] = []
+        const sessions: Session[] = [session]
+
+        const workloadTemplate: WorkloadTemplate = {
+            name: selectedWorkloadTemplate,
+            sessions: sessions,
+        }
 
         // TODO: Create and pass sessions.
-        props.onConfirm(workloadTitleToSubmit, workloadSeed, debugLoggingEnabled, [/* TODO: Create sessions */]);
+        props.onConfirm(workloadTitleToSubmit, workloadSeed, debugLoggingEnabled, workloadTemplate);
 
         // Reset all of the fields.
         resetSubmissionForm();
@@ -314,7 +353,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
     }
 
     const validateGpuUtilInput = (idx: number) => {
-        return (gpuUtilizations[idx] >= 0 && gpuUtilizations[idx] <= 100) ? 'success' : 'error'
+        return (gpuUtilizations[idx] !== '' && gpuUtilizations[idx] >= 0 && gpuUtilizations[idx] <= 100) ? 'success' : 'error'
     }
 
     const resetSubmissionForm = () => {
@@ -812,6 +851,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                                             onMinus={() => setGpuUtil(idx, (gpuUtilizations[idx] || 0) - 1)}
                                             onChange={(event: React.FormEvent<HTMLInputElement>) => {
                                                 const value = (event.target as HTMLInputElement).value;
+                                                
                                                 setGpuUtil(idx, value === '' ? value : +value);
                                             }}
                                             onPlus={() => setGpuUtil(idx, (gpuUtilizations[idx] || 0) + 1)}

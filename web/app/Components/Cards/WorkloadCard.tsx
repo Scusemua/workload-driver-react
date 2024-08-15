@@ -53,6 +53,7 @@ import {
     WORKLOAD_STATE_TERMINATED,
     Workload,
     WorkloadPreset,
+    WorkloadTemplate,
 } from '@app/Data/Workload';
 import { useWorkloads } from '@providers/WorkloadProvider';
 import { HeightFactorContext, WorkloadsHeightFactorContext } from '@app/Dashboard/Dashboard';
@@ -97,7 +98,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
         workloadTitle: string,
         workloadSeed: string,
         debugLoggingEnabled: boolean,
-        sessions: Session[],
+        workloadTemplate: WorkloadTemplate,
     ) => {
     }
 
