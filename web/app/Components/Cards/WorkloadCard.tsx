@@ -564,7 +564,8 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                                                                                         </Button>
                                                                                     </Tooltip>
                                                                                 </FlexItem>
-                                                                                <FlexItem>
+                                                                                {/* The element below is only meant to be visile for preset-based workloads, not template-based workloads. */}
+                                                                                {workload.workload_preset && <FlexItem> 
                                                                                     <Tooltip
                                                                                         content={
                                                                                             'Inspect the events of the workload'
@@ -599,7 +600,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                                                                                             Inspect
                                                                                         </Button>
                                                                                     </Tooltip>
-                                                                                </FlexItem>
+                                                                                </FlexItem>}
                                                                             </Flex>
                                                                         </FlexItem>
                                                                     </Flex>

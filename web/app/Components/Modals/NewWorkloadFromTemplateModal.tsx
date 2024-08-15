@@ -233,27 +233,48 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
         assertIsNumber(numberOfGPUs);
         assertIsNumber(sessionStartTick);
         assertIsNumber(sessionStopTick);
-        assertIsNumber(trainingDurationInTicks);
         assertIsNumber(trainingStartTick);
+        assertIsNumber(trainingDurationInTicks);
         assertGpuUtilizationsAreAllNumbers(gpuUtilizations, numberOfGPUs);
+
+        console.debug(`Registering new workload "${workloadTitleToSubmit}" from template "${selectedWorkloadTemplate}":
+- Training CPU % Util: ${trainingCpuPercentUtil}
+- Training Memory Usage in GB: : ${trainingMemUsageGb}
+- Number of GPUs: ${numberOfGPUs}
+- Session Start Tick: ${sessionStartTick}
+- Session Stop Tick: ${sessionStopTick}
+- Training Start Tick: ${trainingStartTick}
+- Training Duration in Ticks: ${trainingDurationInTicks}
+            `);
+
+        const sessionIdentifier: string = (sessionId.length == 0) ? defaultSessionId.current : sessionId;
 
         // TOOD: 
         // When we have multiplate templates, we'll add template-specific submission logic
         // to aggregate the information from that template and convert it to a valid
         // workload registration request.
 
+        let gpuUtilizationsToSubmit: number[] = []
+        for (let i: number = 0; i < numberOfGPUs; i++) {
+            // Add only the GPU utilizations for the number of GPUs that the user has configured for the workload.
+            // If we just passed `gpuUtilizations` directly, then we'd pass all 8 GPU utilizations, which would be wrong.
+            gpuUtilizationsToSubmit.push(gpuUtilizations[i]);
+            
+            console.debug(`GPU Utilization of GPU#${i}: ${gpuUtilizations[i]}`)
+        }
+
         const trainingEvent: TrainingEvent = {
-            sessionId: sessionId,
+            sessionId: sessionIdentifier,
             trainingId: uuidv4(),
             cpuUtil: trainingCpuPercentUtil,
             memUsageGb: trainingMemUsageGb,
-            gpuUtil: gpuUtilizations,
+            gpuUtil: gpuUtilizationsToSubmit,
             startTick: trainingStartTick,
             durationInTicks: trainingDurationInTicks,
         }
 
         const session: Session = {
-            id: sessionId,
+            id: sessionIdentifier,
             maxCPUs: trainingCpuPercentUtil,
             maxMemoryGB: trainingMemUsageGb,
             maxNumGPUs: numberOfGPUs,

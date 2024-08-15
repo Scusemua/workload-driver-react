@@ -15,6 +15,10 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+const (
+	OneSessionOneTraining string = "1 Session with 1 Training Event"
+)
+
 type workloadGeneratorImpl struct {
 	ctx            context.Context
 	cancelFunction context.CancelFunc
@@ -332,9 +336,9 @@ func (g *workloadGeneratorImpl) GenerateTemplateWorkload(consumer domain.EventCo
 		}
 
 		// Iterate over each of the training events for the session to populate the per-training-event maps.
-		cpuPerTrainingTask := make([]float64, 0, len(session.Trainings))
-		memPerTrainingTask := make([]float64, 0, len(session.Trainings))
-		numGpusPerTrainingTask := make([]int, 0, len(session.Trainings))
+		cpuPerTrainingTask := make([]float64, len(session.Trainings))
+		memPerTrainingTask := make([]float64, len(session.Trainings))
+		numGpusPerTrainingTask := make([]int, len(session.Trainings))
 		for trainingIndex, trainingEvent := range session.Trainings {
 			cpuPerTrainingTask[trainingIndex] = trainingEvent.CpuUtil
 			memPerTrainingTask[trainingIndex] = trainingEvent.MemUsageGB
@@ -352,7 +356,8 @@ func (g *workloadGeneratorImpl) GenerateTemplateWorkload(consumer domain.EventCo
 		generatorFunc SequencerFunction
 		err           error
 	)
-	if workloadTemplate.Name == "" {
+
+	if workloadTemplate.Name == OneSessionOneTraining {
 		generatorFunc, err = SingleSessionSingleTraining(workloadTemplate.Sessions)
 	} else {
 		panic(fmt.Sprintf("Unsupported workload template specified: \"%s\"", workloadTemplate.Name))
@@ -360,10 +365,18 @@ func (g *workloadGeneratorImpl) GenerateTemplateWorkload(consumer domain.EventCo
 
 	if err != nil {
 		g.logger.Error("Failed to apply template.", zap.Error(err))
+		consumer.GetErrorChan() <- err
 		return err
 	}
 
-	return generatorFunc(sequencer)
+	err = generatorFunc(sequencer)
+	if err != nil {
+		g.logger.Error("Error occurred while executing generator function for template-based workload.", zap.String("workload-template-name", workloadTemplate.Name), zap.Error(err))
+		consumer.GetErrorChan() <- err
+		return err
+	}
+
+	return nil
 }
 
 func (g *workloadGeneratorImpl) getSessionGpuMap(filePath string, adjustGpuReservations bool) (map[string]int, error) {

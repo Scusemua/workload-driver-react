@@ -202,6 +202,10 @@ func NewWorkloadDriver(opts *domain.Configuration, performClockTicks bool, webso
 	return driver
 }
 
+func (d *workloadDriverImpl) GetErrorChan() chan<- error {
+	return d.errorChan
+}
+
 // Contains the current tick of the workload.
 func (d *workloadDriverImpl) CurrentTick() domain.SimulationClock {
 	return d.currentTick
