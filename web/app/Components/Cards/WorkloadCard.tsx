@@ -45,6 +45,7 @@ import {
 } from '@patternfly/react-icons';
 
 import {
+    Session,
     WORKLOAD_STATE_ERRED,
     WORKLOAD_STATE_FINISHED,
     WORKLOAD_STATE_READY,
@@ -93,10 +94,10 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
     };
 
     const onConfirmRegisterWorkloadFromTemplate = (
-        workloadName: string,
-        selectedPreset: WorkloadPreset,
-        workloadSeedString: string,
+        workloadTitle: string,
+        workloadSeed: string,
         debugLoggingEnabled: boolean,
+        sessions: Session[],
     ) => {
     }
 

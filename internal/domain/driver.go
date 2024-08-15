@@ -26,16 +26,16 @@ type WorkloadDriver interface {
 	// Signal that the workload is done (being parsed) by the generator/synthesizer.
 	DoneChan() chan interface{}
 
-	ToggleDebugLogging(enabled bool) *Workload
+	ToggleDebugLogging(enabled bool) Workload
 
 	GetWorkload() Workload
 
-	GetWorkloadPreset() WorkloadPreset
+	GetWorkloadPreset() *WorkloadPreset
 
 	GetWorkloadRegistrationRequest() *WorkloadRegistrationRequest
 
 	// Returns nil if the workload could not be registered.
-	RegisterWorkload(workloadRegistrationRequest *WorkloadRegistrationRequest) (*Workload, error)
+	RegisterWorkload(workloadRegistrationRequest *WorkloadRegistrationRequest) (Workload, error)
 
 	// Write an error back to the client.
 	WriteError(c *gin.Context, errorMessage string)

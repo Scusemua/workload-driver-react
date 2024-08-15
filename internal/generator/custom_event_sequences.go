@@ -42,10 +42,6 @@ type TrainingResourceUtilizationArgs struct {
 	MemoryUsageGB  float64   // Memory utilization in gigabytes; must be >= 0
 	GpuUtilization []float64 // Aggregate GPU utilization, such that 100 = 1 GPU, and (e.g.,) 800 = 8 GPUs. Should be within interval [0, 100]
 
-	// The total number of GPUs to be used during this training event/task.
-	// Equal to cap(GpuUtilization).
-	totalNumGPUs int
-
 	// Used by the 'WithGpuUtilization' API to set the GPU utilization for a specific GPU.
 	// Each time the 'WithGpuUtilization' function is called, this value is incremented,
 	// so that the next call to WithGpuUtilization will update the GPU utilization for the next GPU.
@@ -62,12 +58,11 @@ func NewTrainingResourceUtilizationArgs(cpuUtil float64, memUsageGb float64, num
 		MemoryUsageGB:  memUsageGb,
 		GpuUtilization: make([]float64, 0, numGPUs),
 		gpuIndex:       0,
-		totalNumGPUs:   numGPUs,
 	}
 }
 
 func (a *TrainingResourceUtilizationArgs) NumGPUs() int {
-	return a.totalNumGPUs
+	return cap(a.GpuUtilization)
 }
 
 // Set the GPU utilization of the next GPU that has not already been specified via the 'WithGpuUtilization' function.
@@ -84,8 +79,8 @@ func (a *TrainingResourceUtilizationArgs) WithGpuUtilization(gpuUtil float64) *T
 		panic(fmt.Sprintf("Invalid GPU utilization specified: %f. Value must be greater than or equal to 0.", gpuUtil))
 	}
 
-	if a.gpuIndex >= a.totalNumGPUs {
-		panic(fmt.Sprintf("The GPU utilization of all GPUs (total of %d) has already been specified.", a.totalNumGPUs))
+	if a.gpuIndex >= a.NumGPUs() {
+		panic(fmt.Sprintf("The GPU utilization of all GPUs (total of %d) has already been specified.", a.NumGPUs()))
 	}
 
 	a.GpuUtilization[a.gpuIndex] = gpuUtil
@@ -98,7 +93,7 @@ func (a *TrainingResourceUtilizationArgs) WithGpuUtilization(gpuUtil float64) *T
 //
 // This modifies the 'TrainingResourceUtilizationArgs' struct on which it was called in-place; it also returns the TrainingResourceUtilizationArgs struct.
 func (a *TrainingResourceUtilizationArgs) WithGpuUtilizationForSpecificGpu(gpuIndex int, gpuUtil float64) *TrainingResourceUtilizationArgs {
-	if gpuIndex < 0 || gpuIndex > a.totalNumGPUs {
+	if gpuIndex < 0 || gpuIndex > a.NumGPUs() {
 		panic(fmt.Sprintf("Invalid GPU index specified: %d. Value must be greater than or equal to 0 and less than the total number of GPUs (%d).", gpuIndex, cap(a.GpuUtilization)))
 	}
 
@@ -137,7 +132,7 @@ func ValidateSessionArgumentsAgainstTrainingArguments(sessionArgs *SessionRegist
 	}
 
 	if sessionArgs.MaxGPUs < trainingArgs.NumGPUs() {
-		return fmt.Errorf("%w: incompatible max GPUs (%d) and training GPU utilization (%f) specified. Training GPU utilization cannot exceed maximum session GPUs", ErrInvalidConfiguration, sessionArgs.MaxGPUs, trainingArgs.NumGPUs())
+		return fmt.Errorf("%w: incompatible max GPUs (%d) and training GPU utilization (%d) specified. Training GPU utilization cannot exceed maximum session GPUs", ErrInvalidConfiguration, sessionArgs.MaxGPUs, trainingArgs.NumGPUs())
 	}
 
 	if sessionArgs.MaxMemoryGB < trainingArgs.MemoryUsageGB {

@@ -21,11 +21,16 @@ const (
 
 	CsvWorkloadPresetType WorkloadPresetType = "CSV"
 	XmlWorkloadPresetType WorkloadPresetType = "XML"
+
+	UnspecifiedWorkload WorkloadType = "UnspecifiedWorkloadType" // Default value, before it is set.
+	PresetWorkload      WorkloadType = "WorkloadFromPreset"
+	TemplateWorkload    WorkloadType = "WorkloadFromTemplate"
+	TraceWorkload       WorkloadType = "WorkloadFromTrace"
 )
 
 type WorkloadGenerator interface {
-	GenerateWorkload(EventConsumer, *workloadImpl, WorkloadPreset, *WorkloadRegistrationRequest) error // Start generating the workload.
-	StopGeneratingWorkload()                                                                           // Stop generating the workload prematurely.
+	GeneratePresetWorkload(EventConsumer, Workload, WorkloadPreset, *WorkloadRegistrationRequest) error // Start generating the workload.
+	StopGeneratingWorkload()                                                                            // Stop generating the workload prematurely.
 }
 
 type BaseMessage struct {
@@ -62,10 +67,10 @@ func (r *ToggleDebugLogsRequest) String() string {
 }
 
 type WorkloadResponse struct {
-	MessageId         string          `json:"msg_id"`
-	NewWorkloads      []*workloadImpl `json:"new_workloads"`
-	ModifiedWorkloads []*workloadImpl `json:"modified_workloads"`
-	DeletedWorkloads  []*workloadImpl `json:"deleted_workloads"`
+	MessageId         string     `json:"msg_id"`
+	NewWorkloads      []Workload `json:"new_workloads"`
+	ModifiedWorkloads []Workload `json:"modified_workloads"`
+	DeletedWorkloads  []Workload `json:"deleted_workloads"`
 }
 
 func (r *WorkloadResponse) String() string {
@@ -155,6 +160,8 @@ func (r *WorkloadRegistrationRequest) String() string {
 
 type WorkloadState int
 
+type WorkloadType string
+
 type Workload interface {
 	// Return true if the workload stopped because it was explicitly terminated early/premature.
 	IsTerminated() bool
@@ -164,8 +171,10 @@ type Workload interface {
 	IsErred() bool
 	// Return true if the workload is actively running/in-progress.
 	IsRunning() bool
-	// Return true if the workload stopped naturally/successfully after processing all events.
+	// Return true if the workload finished in any capacity (i.e., either successfully or due to an error).
 	IsFinished() bool
+	// Return true if the workload stopped naturally/successfully after processing all events.
+	DidCompleteSuccessfully() bool
 	// To String.
 	String() string
 	// Return the unique ID of the workload.
@@ -176,42 +185,153 @@ type Workload interface {
 	// Return the current state of the workload.
 	GetWorkloadState() WorkloadState
 	// Return the time elapsed, which is computed at the time that data is requested by the user.
-	GetTimeElasped() string
+	GetTimeElasped() time.Duration
+	// Return the time elapsed as a string, which is computed at the time that data is requested by the user.
+	GetTimeElaspedAsString() string
+	// Update the time elapsed.
+	SetTimeElasped(time.Duration)
+	// Instruct the Workload to recompute its 'time elapsed' field.
+	UpdateTimeElapsed()
+	// Return the number of events processed by the workload.
+	GetNumEventsProcessed() int64
 	// Return the time that the workload was started.
 	GetStartTime() time.Time
+	// Get the time at which the workload finished.
+	// If the workload hasn't finished yet, the returned boolean will be false.
+	// If the workload has finished, then the returned boolean will be true.
+	GetEndTime() (time.Time, bool)
 	// Return the time that the workload was registered.
 	GetRegisteredTime() time.Time
 	// Return the workload's seed.
 	GetSeed() int64
 	// Set the workload's seed. Can only be performed once. If attempted again, this will panic.
 	SetSeed(seed int64)
+	// Get the error message associated with the workload.
+	// If the workload is not in an ERROR state, then this returns the empty string and false.
+	// If the workload is in an ERROR state, then the boolean returned will be true.
+	GetErrorMessage() (string, bool)
+	// Set the error message for the workload.
+	SetErrorMessage(string)
 	// Return a flag indicating whether debug logging is enabled.
 	IsDebugLoggingEnabled() bool
 	// Enable or disable debug logging for the workload.
 	SetDebugLoggingEnabled(enabled bool)
 	// Set the state of the workload.
 	SetWorkloadState(state WorkloadState)
+	// Start the Workload.
+	StartWorkload()
+	// Mark the workload as having completed successfully.
+	SetWorkloadCompleted()
+	// Called after an event is processed for the Workload.
+	// Just updates some internal metrics.
+	ProcessedEvent()
+	// Called when a Session is created for/in the Workload.
+	// Just updates some internal metrics.
+	SessionCreated()
+	// Called when a Session is stopped for/in the Workload.
+	// Just updates some internal metrics.
+	SessionStopped()
+	// Called when a training starts during/in the workload.
+	// Just updates some internal metrics.
+	TrainingStarted()
+	// Called when a training stops during/in the workload.
+	// Just updates some internal metrics.
+	TrainingStopped()
+	// Get the type of workload (TRACE, PRESET, or TEMPLATE).
+	GetWorkloadType() WorkloadType
+	// Return true if this workload was created using a preset.
+	IsPresetWorkload() bool
+	// Return true if this workload was created using a template.
+	IsTemplateWorkload() bool
+	// Return true if this workload was created using the trace data.
+	IsTraceWorkload() bool
+	// If this is a preset workload, return the name of the preset.
+	// If this is a trace workload, return the trace information.
+	// If this is a template workload, return the template information.
+	GetWorkloadSource() interface{}
 }
 
 type workloadImpl struct {
-	Id   string `json:"id"`
-	Name string `json:"name"`
-
+	Id                  string        `json:"id"`
+	Name                string        `json:"name"`
 	WorkloadState       WorkloadState `json:"workload_state"`
 	DebugLoggingEnabled bool          `json:"debug_logging_enabled"`
 	ErrorMessage        string        `json:"error_message"`
+	Seed                int64         `json:"seed"`
+	seedSet             bool
+	RegisteredTime      time.Time     `json:"registered_time"`
+	StartTime           time.Time     `json:"start_time"`
+	EndTime             time.Time     `json:"end_time"`
+	WorkloadDuration    time.Duration `json:"workload_duration"` // The total time that the workload executed for. This is only set once the workload has completed.
+	TimeElasped         time.Duration `json:"time_elapsed"`      // Computed at the time that the data is requested by the user. This is the time elapsed SO far.
+	NumTasksExecuted    int64         `json:"num_tasks_executed"`
+	NumEventsProcessed  int64         `json:"num_events_processed"`
+	NumSessionsCreated  int64         `json:"num_sessions_created"`
+	NumActiveSessions   int64         `json:"num_active_sessions"`
+	NumActiveTrainings  int64         `json:"num_active_trainings"`
+	WorkloadType        WorkloadType  `json:"workload_type"`
 
-	Seed    int64 `json:"seed"`
-	seedSet bool
+	workloadSource interface{} `json:"-"`
 
-	RegisteredTime     time.Time `json:"registered_time"`
-	StartTime          time.Time `json:"start_time"`
-	TimeElasped        string    `json:"time_elapsed"` // Computed at the time that the data is requested by the user.
-	NumTasksExecuted   int64     `json:"num_tasks_executed"`
-	NumEventsProcessed int64     `json:"num_events_processed"`
-	NumSessionsCreated int64     `json:"num_sessions_created"`
-	NumActiveSessions  int64     `json:"num_active_sessions"`
-	NumActiveTrainings int64     `json:"num_active_trainings"`
+	// This is basically the child struct.
+	// So, if this is a preset workload, then this is the WorkloadFromPreset struct.
+	// We use this so we can delegate certain method calls to the child/derived struct.
+	workload Workload
+}
+
+// Get the type of workload (TRACE, PRESET, or TEMPLATE).
+func (w *workloadImpl) GetWorkloadType() WorkloadType {
+	return w.WorkloadType
+}
+
+// Return true if this workload was created using a preset.
+func (w *workloadImpl) IsPresetWorkload() bool {
+	return w.WorkloadType == PresetWorkload
+}
+
+// Return true if this workload was created using a template.
+func (w *workloadImpl) IsTemplateWorkload() bool {
+	return w.WorkloadType == TemplateWorkload
+}
+
+// Return true if this workload was created using the trace data.
+func (w *workloadImpl) IsTraceWorkload() bool {
+	return w.WorkloadType == TraceWorkload
+}
+
+// If this is a preset workload, return the name of the preset.
+// If this is a trace workload, return the trace information.
+// If this is a template workload, return the template information.
+func (w *workloadImpl) GetWorkloadSource() interface{} {
+	return w.workload.GetWorkloadSource()
+}
+
+func (w *workloadImpl) StartWorkload() {
+	w.WorkloadState = WorkloadRunning
+	w.StartTime = time.Now()
+}
+
+// Mark the workload as having completed successfully.
+func (w *workloadImpl) SetWorkloadCompleted() {
+	w.WorkloadState = WorkloadFinished
+	w.EndTime = time.Now()
+	w.WorkloadDuration = time.Since(w.StartTime)
+}
+
+// Get the error message associated with the workload.
+// If the workload is not in an ERROR state, then this returns the empty string and false.
+// If the workload is in an ERROR state, then the boolean returned will be true.
+func (w *workloadImpl) GetErrorMessage() (string, bool) {
+	if w.WorkloadState == WorkloadErred {
+		return w.ErrorMessage, true
+	}
+
+	return "", false
+}
+
+// Set the error message for the workload.
+func (w *workloadImpl) SetErrorMessage(errorMessage string) {
+	w.ErrorMessage = errorMessage
 }
 
 // Return a flag indicating whether debug logging is enabled.
@@ -254,20 +374,83 @@ func (w *workloadImpl) GetStartTime() time.Time {
 	return w.StartTime
 }
 
+// Get the time at which the workload finished.
+// If the workload hasn't finished yet, the returned boolean will be false.
+// If the workload has finished, then the returned boolean will be true.
+func (w *workloadImpl) GetEndTime() (time.Time, bool) {
+	if w.IsFinished() {
+		return w.EndTime, true
+	}
+
+	return time.Time{}, false
+}
+
 // Return the time that the workload was registered.
 func (w *workloadImpl) GetRegisteredTime() time.Time {
 	return w.RegisteredTime
 }
 
 // Return the time elapsed, which is computed at the time that data is requested by the user.
-func (w *workloadImpl) GetTimeElasped() string {
+func (w *workloadImpl) GetTimeElasped() time.Duration {
 	return w.TimeElasped
+}
+
+// Return the time elapsed as a string, which is computed at the time that data is requested by the user.
+func (w *workloadImpl) GetTimeElaspedAsString() string {
+	return w.TimeElasped.String()
+}
+
+// Update the time elapsed.
+func (w *workloadImpl) SetTimeElasped(timeElapsed time.Duration) {
+	w.TimeElasped = timeElapsed
+}
+
+// Instruct the Workload to recompute its 'time elapsed' field.
+func (w *workloadImpl) UpdateTimeElapsed() {
+	w.TimeElasped = time.Since(w.StartTime)
+}
+
+// Return the number of events processed by the workload.
+func (w *workloadImpl) GetNumEventsProcessed() int64 {
+	return w.NumEventsProcessed
 }
 
 // Return the name of the workload.
 // The name is not necessarily unique and is meant to be descriptive, whereas the ID is unique.
 func (w *workloadImpl) WorkloadName() string {
 	return w.Name
+}
+
+// Called after an event is processed for the Workload.
+// Just updates some internal metrics.
+func (w *workloadImpl) ProcessedEvent() {
+	w.NumEventsProcessed += 1
+}
+
+// Called when a Session is created for/in the Workload.
+// Just updates some internal metrics.
+func (w *workloadImpl) SessionCreated() {
+	w.NumActiveSessions += 1
+	w.NumSessionsCreated += 1
+}
+
+// Called when a Session is stopped for/in the Workload.
+// Just updates some internal metrics.
+func (w *workloadImpl) SessionStopped() {
+	w.NumActiveSessions -= 1
+}
+
+// Called when a training starts during/in the workload.
+// Just updates some internal metrics.
+func (w *workloadImpl) TrainingStarted() {
+	w.NumActiveTrainings += 1
+}
+
+// Called when a training stops during/in the workload.
+// Just updates some internal metrics.
+func (w *workloadImpl) TrainingStopped() {
+	w.NumTasksExecuted += 1
+	w.NumActiveTrainings -= 1
 }
 
 // Return the unique ID of the workload.
@@ -297,6 +480,11 @@ func (w *workloadImpl) IsRunning() bool {
 
 // Return true if the workload stopped naturally/successfully after processing all events.
 func (w *workloadImpl) IsFinished() bool {
+	return w.IsErred() || w.DidCompleteSuccessfully()
+}
+
+// Return true if the workload stopped naturally/successfully after processing all events.
+func (w *workloadImpl) DidCompleteSuccessfully() bool {
 	return w.WorkloadState == WorkloadFinished
 }
 
@@ -324,18 +512,111 @@ type WorkloadPreset struct {
 	XmlWorkloadPreset
 }
 
-type WorkloadFromTemplate struct {
-	*workloadImpl
-
+type WorkloadTemplate struct {
+	Name     string            `json:"name"`
 	Sessions []WorkloadSession `json:"sessions"`
 }
 
-type WorkloadFromPreset struct {
-	*workloadImpl
+func (t *WorkloadTemplate) String() string {
+	return fmt.Sprintf("Template[%s]", t.Name)
+}
 
-	WorkloadPreset     WorkloadPreset `json:"workload_preset"`
-	WorkloadPresetName string         `json:"workload_preset_name"`
-	WorkloadPresetKey  string         `json:"workload_preset_key"`
+type WorkloadFromTemplate struct {
+	Workload
+
+	Template *WorkloadTemplate `json:"template"`
+}
+
+func (w *WorkloadFromTemplate) GetWorkloadSource() interface{} {
+	return w.Template
+}
+
+type WorkloadFromPreset struct {
+	Workload
+
+	WorkloadPreset     *WorkloadPreset `json:"workload_preset"`
+	WorkloadPresetName string          `json:"workload_preset_name"`
+	WorkloadPresetKey  string          `json:"workload_preset_key"`
+}
+
+func (w *WorkloadFromPreset) GetWorkloadSource() interface{} {
+	return w.WorkloadPreset
+}
+
+func NewWorkload(id string, workloadName string, seed int64, debugLoggingEnabled bool) Workload {
+	return &workloadImpl{
+		Id:                  id, // Same ID as the driver.
+		Name:                workloadName,
+		WorkloadState:       WorkloadReady,
+		TimeElasped:         time.Duration(0),
+		Seed:                seed,
+		RegisteredTime:      time.Now(),
+		NumTasksExecuted:    0,
+		NumEventsProcessed:  0,
+		NumSessionsCreated:  0,
+		NumActiveSessions:   0,
+		NumActiveTrainings:  0,
+		DebugLoggingEnabled: debugLoggingEnabled,
+		WorkloadType:        UnspecifiedWorkload,
+	}
+}
+
+func NewWorkloadFromPreset(baseWorkload Workload, workloadPreset *WorkloadPreset) *WorkloadFromPreset {
+	if workloadPreset == nil {
+		panic("Workload preset cannot be nil when creating a new workload from a preset.")
+	}
+
+	if baseWorkload == nil {
+		panic("Base workload cannot be nil when creating a new workload.")
+	}
+
+	var (
+		baseWorkloadImpl *workloadImpl
+		ok               bool
+	)
+	if baseWorkloadImpl, ok = baseWorkload.(*workloadImpl); !ok {
+		panic("The provided workload is not a base workload, or it is not a pointer type.")
+	}
+
+	workload_from_preset := &WorkloadFromPreset{
+		Workload:           baseWorkload,
+		WorkloadPreset:     workloadPreset,
+		WorkloadPresetName: workloadPreset.GetName(),
+		WorkloadPresetKey:  workloadPreset.GetKey(),
+	}
+
+	baseWorkloadImpl.WorkloadType = PresetWorkload
+	baseWorkloadImpl.workload = workload_from_preset
+
+	return workload_from_preset
+}
+
+func NewWorkloadFromTemplate(baseWorkload Workload, workloadTemplate *WorkloadTemplate) *WorkloadFromTemplate {
+	if workloadTemplate == nil {
+		panic("Workload template cannot be nil when creating a new workload from a template.")
+	}
+
+	if baseWorkload == nil {
+		panic("Base workload cannot be nil when creating a new workload.")
+	}
+
+	var (
+		baseWorkloadImpl *workloadImpl
+		ok               bool
+	)
+	if baseWorkloadImpl, ok = baseWorkload.(*workloadImpl); !ok {
+		panic("The provided workload is not a base workload, or it is not a pointer type.")
+	}
+
+	workload_from_template := &WorkloadFromTemplate{
+		Workload: baseWorkload,
+		Template: workloadTemplate,
+	}
+
+	baseWorkloadImpl.WorkloadType = TemplateWorkload
+	baseWorkloadImpl.workload = workload_from_template
+
+	return workload_from_template
 }
 
 func (p *WorkloadPreset) MarshalJSON() ([]byte, error) {
@@ -348,7 +629,7 @@ func (p *WorkloadPreset) MarshalJSON() ([]byte, error) {
 	}
 }
 
-func (p *WorkloadPreset) Key() string {
+func (p *WorkloadPreset) GetKey() string {
 	if p.IsCsv() {
 		return p.CsvWorkloadPreset.Key
 	} else if p.IsXml() {
@@ -358,7 +639,7 @@ func (p *WorkloadPreset) Key() string {
 	}
 }
 
-func (p *WorkloadPreset) Name() string {
+func (p *WorkloadPreset) GetName() string {
 	if p.IsCsv() {
 		return p.CsvWorkloadPreset.Name
 	} else if p.IsXml() {
@@ -637,14 +918,14 @@ func (p *CsvWorkloadPreset) NormalizeDowntime(downtime string) []int64 {
 //
 // Returns an error if an error occurred. In this case, the returned slice will be nil.
 // If no error occurred and the slice was read/created successfully, then the returned error will be nil.
-func LoadWorkloadPresetsFromFile(filepath string) ([]WorkloadPreset, error) {
+func LoadWorkloadPresetsFromFile(filepath string) ([]*WorkloadPreset, error) {
 	file, err := os.ReadFile(filepath)
 	if err != nil {
 		fmt.Printf("[ERROR] Failed to open or read workload presets file: %v\n", err)
 		return nil, err
 	}
 
-	workloadPresets := make([]WorkloadPreset, 0)
+	workloadPresets := make([]*WorkloadPreset, 0)
 	err = yaml.Unmarshal(file, &workloadPresets)
 
 	if err != nil {

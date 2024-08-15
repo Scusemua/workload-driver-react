@@ -271,7 +271,7 @@ func (g *workloadGeneratorImpl) waitForCpuGpuDriversToFinish(gpuDoneChan chan st
 	}
 }
 
-func (g *workloadGeneratorImpl) GenerateWorkload(consumer domain.EventConsumer, workload domain.Workload, workloadPreset domain.WorkloadPreset, workloadRegistrationRequest *domain.WorkloadRegistrationRequest) error {
+func (g *workloadGeneratorImpl) GeneratePresetWorkload(consumer domain.EventConsumer, workload domain.Workload, workloadPreset domain.WorkloadPreset, workloadRegistrationRequest *domain.WorkloadRegistrationRequest) error {
 	if workloadPreset.IsCsv() {
 		return g.generateWorkloadWithCsvPreset(consumer, workload, &workloadPreset.CsvWorkloadPreset, workloadRegistrationRequest)
 	} else {

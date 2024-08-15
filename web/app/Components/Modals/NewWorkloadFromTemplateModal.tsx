@@ -191,7 +191,8 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
             workloadTitleToSubmit = defaultWorkloadTitle.current;
         }
 
-        props.onConfirm(workloadTitleToSubmit, selectedWorkloadTemplate, workloadSeed, debugLoggingEnabled);
+        // TODO: Create and pass sessions.
+        props.onConfirm(workloadTitleToSubmit, workloadSeed, debugLoggingEnabled, [/* TODO: Create sessions */]);
 
         // Reset all of the fields.
         setSelectedWorkloadTemplate("");
