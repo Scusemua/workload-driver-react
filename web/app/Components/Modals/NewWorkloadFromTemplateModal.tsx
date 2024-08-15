@@ -17,6 +17,7 @@ import {
     MenuToggleElement,
     Modal,
     ModalVariant,
+    NumberInput,
     Popover,
     Switch,
     TextInput,
@@ -60,18 +61,18 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
     const [debugLoggingEnabled, setDebugLoggingEnabled] = React.useState(true);
 
     const [sessionId, setSessionId] = React.useState('');
-    const [sessionStartTick, setSessionStartTick] = React.useState('4');
-    const [sessionStopTick, setSessionStopTick] = React.useState('16');
-    const [trainingStartTick, setTrainingStartTick] = React.useState('8');
-    const [trainingDurationInTicks, setTrainingDurationInTicks] = React.useState('4');
-    const [trainingCpuPercentUtil, setTrainingCpuPercentUtil] = React.useState('10.0');
-    const [trainingMemUsageGb, setTrainingMemUsageGb] = React.useState('0.25');
+    const [sessionStartTick, setSessionStartTick] = React.useState<number | ''>(4);
+    const [sessionStopTick, setSessionStopTick] = React.useState<number | ''>(16);
+    const [trainingStartTick, setTrainingStartTick] = React.useState<number | ''>(8);
+    const [trainingDurationInTicks, setTrainingDurationInTicks] = React.useState<number | ''>(4);
+    const [trainingCpuPercentUtil, setTrainingCpuPercentUtil] = React.useState<number | ''>(10.0);
+    const [trainingMemUsageGb, setTrainingMemUsageGb] = React.useState<number | ''>(0.25);
 
     // const gpuUtilizations = React.useRef<string[]>(["0.0", "0.0", "0.0", "0.0", "0.0", "0.0", "0.0", "0.0"]);
-    const [gpuUtilizations, setGpuUtilizations] = React.useState<string[]>(["100.0", "0.0", "0.0", "0.0", "0.0", "0.0", "0.0", "0.0"]);
+    const [gpuUtilizations, setGpuUtilizations] = React.useState<number[]>([100.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
 
-    const [numberOfGPUs, setNumberOfGPUs] = React.useState<number>(1);
-    const [numberOfGPUsString, setNumberOfGPUsString] = React.useState<string>("1");
+    const [numberOfGPUs, setNumberOfGPUs] = React.useState<number | ''>(1);
+    // const [numberOfGPUsString, setNumberOfGPUsString] = React.useState<string>("1");
 
     const defaultWorkloadTitle = React.useRef(uuidv4());
     const defaultSessionId = React.useRef(uuidv4());
@@ -80,7 +81,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
 
     const workloadTemplates: string[] = ["1 Session with 1 Training Event"];
 
-    const setGpuUtil = (idx: number, val: string) => {
+    const setGpuUtil = (idx: number, val: number) => {
         const nextGpuUtilizations = gpuUtilizations.map((v, i) => {
             if (i === idx) {
                 // Update the value at the specified index.
@@ -227,20 +228,56 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
             workloadTitleToSubmit = defaultWorkloadTitle.current;
         }
 
+        // TOOD: 
+        // When we have multiplate templates, we'll add template-specific submission logic
+        // to aggregate the information from that template and convert it to a valid
+        // workload registration request.
+
+        const session: Session = {
+            id: sessionId,
+            maxCPUs: parseFloat(trainingCpuPercentUtil),
+            maxMemoryGB: parseFloat(trainingMemUsageGb),
+            maxNumGPUs: numberOfGPUs,
+            startTick: parseInt(sessionStartTick),
+            stopTick: parseInt(sessionStopTick),
+            trainings: [],
+        }
+
+        const sessions: Session[] = []
+
         // TODO: Create and pass sessions.
         props.onConfirm(workloadTitleToSubmit, workloadSeed, debugLoggingEnabled, [/* TODO: Create sessions */]);
 
         // Reset all of the fields.
-        setSelectedWorkloadTemplate("");
-        setWorkloadSeed('');
+        resetSubmissionForm();
+    };
+
+    const resetSubmissionForm = () => {
         setWorkloadTitle('');
-        setSessionId('');
-        setSessionIdIsValid(false);
+        setWorkloadSeed('');
         setWorkloadTitleIsValid(false);
+        setSessionIdIsValid(false);
+        setWorkloadSeedIsValid(true);
+        setIsWorkloadDataDropdownOpen(false);
+        setSelectedWorkloadTemplate("");
+        setDebugLoggingEnabled(true);
+
+        setSessionId('');
+        setSessionStartTick(4);
+        setSessionStopTick(16);
+        setTrainingStartTick(8);
+        setTrainingDurationInTicks(4);
+        setTrainingCpuPercentUtil(10.0);
+        setTrainingMemUsageGb(0.25);
+
+        setGpuUtilizations([100.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
+
+        setNumberOfGPUs(1);
+        // setNumberOfGPUsString("1");
 
         defaultWorkloadTitle.current = uuidv4();
         defaultSessionId.current = uuidv4();
-    };
+    }
 
     return (
         <Modal
@@ -556,58 +593,78 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                         </GridItem>
                         <GridItem span={3}>
                             <FormGroup label="Session Start Tick">
-                                <TextInput
-                                    isRequired
-                                    type="number"
-                                    id="session-start-tick-text-input"
-                                    name="session-start-tick-text-input"
+                                <NumberInput
                                     value={sessionStartTick}
+                                    onMinus={() => setSessionStartTick((sessionStartTick || 0) - 1)}
+                                    onChange={(event: React.FormEvent<HTMLInputElement>) => {
+                                        const value = (event.target as HTMLInputElement).value;
+                                        setSessionStartTick(value === '' ? value : +value);
+                                    }}
+                                    onPlus={() => setSessionStartTick((sessionStartTick || 0) + 1)}
+                                    inputName="session-start-tick-input"
+                                    inputAriaLabel="session-start-tick-input"
+                                    minusBtnAriaLabel="minus"
+                                    plusBtnAriaLabel="plus"
                                     validated={(parseFloat(sessionStartTick) >= 0 && parseFloat(sessionStartTick) < parseFloat(trainingStartTick) && parseFloat(sessionStartTick) < parseFloat(sessionStopTick)) ? 'success' : 'error'}
-                                    onChange={(_event, val: string) => setSessionStartTick(val)}
-                                >
-                                </TextInput>
+                                    min={0}
+                                />
                             </FormGroup>
                         </GridItem>
                         <GridItem span={3}>
                             <FormGroup label="Training Start Tick">
-                                <TextInput
-                                    isRequired
-                                    type="number"
-                                    id="training-start-tick-text-input"
-                                    name="training-start-tick-text-input"
+                                <NumberInput
                                     value={trainingStartTick}
+                                    onMinus={() => setTrainingStartTick((trainingStartTick || 0) - 1)}
+                                    onChange={(event: React.FormEvent<HTMLInputElement>) => {
+                                        const value = (event.target as HTMLInputElement).value;
+                                        setTrainingStartTick(value === '' ? value : +value);
+                                    }}
+                                    onPlus={() => setTrainingStartTick((trainingStartTick || 0) + 1)}
+                                    inputName="training-start-tick-input"
+                                    inputAriaLabel="training-start-tick-input"
+                                    minusBtnAriaLabel="minus"
+                                    plusBtnAriaLabel="plus"
                                     validated={(parseFloat(trainingStartTick) >= 0 && parseFloat(sessionStartTick) < parseFloat(trainingStartTick) && parseFloat(trainingStartTick) < parseFloat(sessionStopTick) && parseFloat(trainingStartTick) + parseFloat(trainingDurationInTicks) < parseFloat(sessionStopTick)) ? 'success' : 'error'}
-                                    onChange={(_event, val: string) => setTrainingStartTick(val)}
-                                >
-                                </TextInput>
+                                    min={0}
+                                />
                             </FormGroup>
                         </GridItem>
                         <GridItem span={3}>
                             <FormGroup label="Training Duration (Ticks)">
-                                <TextInput
-                                    isRequired
-                                    type="number"
-                                    id="training-duration-ticks-text-input"
-                                    name="training-duration-ticks-text-input"
+                                <NumberInput
                                     value={trainingDurationInTicks}
+                                    onMinus={() => setTrainingDurationInTicks((trainingDurationInTicks || 0) - 1)}
+                                    onChange={(event: React.FormEvent<HTMLInputElement>) => {
+                                        const value = (event.target as HTMLInputElement).value;
+                                        setTrainingDurationInTicks(value === '' ? value : +value);
+                                    }}
+                                    onPlus={() => setTrainingDurationInTicks((trainingDurationInTicks || 0) + 1)}
+                                    inputName="training-duration-ticks-input"
+                                    inputAriaLabel="training-duration-ticks-input"
+                                    minusBtnAriaLabel="minus"
+                                    plusBtnAriaLabel="plus"
                                     validated={(parseFloat(trainingDurationInTicks) >= 0 && parseFloat(trainingStartTick) + parseFloat(trainingDurationInTicks) < parseFloat(sessionStopTick)) ? 'success' : 'error'}
-                                    onChange={(_event, val: string) => setTrainingDurationInTicks(val)}
-                                >
-                                </TextInput>
+                                    min={1}
+                                />
                             </FormGroup>
                         </GridItem>
                         <GridItem span={3}>
                             <FormGroup label="Session Stop Tick">
-                                <TextInput
-                                    isRequired
-                                    type="number"
-                                    id="session-stop-tick-text-input"
-                                    name="session-stop-tick-text-input"
+                                <NumberInput
                                     value={sessionStopTick}
+                                    onMinus={() => setSessionStopTick((sessionStopTick || 0) - 1)}
+                                    onChange={(event: React.FormEvent<HTMLInputElement>) => {
+                                        const value = (event.target as HTMLInputElement).value;
+                                        setSessionStopTick(value === '' ? value : +value);
+                                    }}
+                                    onPlus={() => setSessionStopTick((sessionStopTick || 0) + 1)}
+                                    inputName="session-stop-tick-input"
+                                    inputAriaLabel="session-stop-tick-input"
+                                    minusBtnAriaLabel="minus"
+                                    plusBtnAriaLabel="plus"
                                     validated={(parseFloat(sessionStopTick) >= 0 && parseFloat(trainingStartTick) < parseFloat(sessionStopTick) && parseFloat(sessionStartTick) < parseFloat(sessionStopTick) && parseFloat(trainingStartTick) + parseFloat(trainingDurationInTicks) < parseFloat(sessionStopTick)) ? 'success' : 'error'}
-                                    onChange={(_event, val: string) => setSessionStopTick(val)}
-                                >
-                                </TextInput>
+                                    min={0}
+                                />
                             </FormGroup>
                         </GridItem>
                     </Grid>
@@ -619,30 +676,41 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                     <Grid hasGutter>
                         <GridItem span={3}>
                             <FormGroup label="CPU % Utilization">
-                                <TextInput
-                                    isRequired
-                                    type="number"
-                                    customIcon={<CpuIcon />}
-                                    id="training-cpu-percent-utilt-text-input"
-                                    name="training-cpu-percent-utilt-text-input"
+                                <NumberInput
                                     value={trainingCpuPercentUtil}
+                                    onMinus={() => setTrainingCpuPercentUtil((trainingCpuPercentUtil || 0) - 1)}
+                                    onChange={(event: React.FormEvent<HTMLInputElement>) => {
+                                        const value = (event.target as HTMLInputElement).value;
+                                        setTrainingCpuPercentUtil(value === '' ? value : +value);
+                                    }}
+                                    onPlus={() => setTrainingCpuPercentUtil((trainingCpuPercentUtil || 0) + 1)}
+                                    inputName="training-cpu-percent-util-input"
+                                    inputAriaLabel="training-cpu-percent-util-input"
+                                    minusBtnAriaLabel="minus"
+                                    plusBtnAriaLabel="plus"
                                     validated={(parseFloat(trainingCpuPercentUtil) >= 0 && parseFloat(trainingCpuPercentUtil) <= 100) ? 'success' : 'error'}
-                                    onChange={(_event, val: string) => setTrainingCpuPercentUtil(val)}
-                                >
-                                </TextInput>
+                                    min={0}
+                                    max={100}
+                                />
                             </FormGroup>
                         </GridItem>
                         <GridItem span={3}>
                             <FormGroup label="RAM Usage (GB)">
-                                <TextInput
-                                    isRequired
-                                    type="number"
-                                    customIcon={<MemoryIcon />}
-                                    id="training-mem-usage-gb-text-input"
-                                    name="training-mem-usage-gb-text-input"
+                                <NumberInput
                                     value={trainingMemUsageGb}
+                                    onMinus={() => setTrainingMemUsageGb((trainingMemUsageGb || 0) - 0.25)}
+                                    onChange={(event: React.FormEvent<HTMLInputElement>) => {
+                                        const value = (event.target as HTMLInputElement).value;
+                                        setTrainingMemUsageGb(value === '' ? value : +value);
+                                    }}
+                                    onPlus={() => setTrainingMemUsageGb((trainingMemUsageGb || 0) + 0.25)}
+                                    inputName="training-mem-usage-gb-input"
+                                    inputAriaLabel="training-mem-usage-gb-input"
+                                    minusBtnAriaLabel="minus"
+                                    plusBtnAriaLabel="plus"
                                     validated={(parseFloat(trainingMemUsageGb) >= 0 && parseFloat(trainingMemUsageGb) <= 128_000) ? 'success' : 'error'}
-                                    onChange={(_event, val: string) => setTrainingMemUsageGb(val)}
+                                    min={0}
+                                    max={128_000}
                                 />
                             </FormGroup>
                         </GridItem>
@@ -650,37 +718,23 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                             <FormGroup label={`Number of GPUs`}>
                                 <Grid hasGutter>
                                     <GridItem span={12}>
-                                        <TextInput
-                                            type="number"
-                                            customIcon={<GpuIcon />}
-                                            id={`number-of-gpus-text-input`}
-                                            name={`number-of-gpus-text-input`}
-                                            value={numberOfGPUsString}
-                                            onChange={(_event, val: string) => {
-                                                const parsed: number | undefined = parseFloat(val)
-                                                if (parsed !== undefined) {
-                                                    if (Number.isNaN(parsed)) { // This can happen when the user enters just "-" 
-                                                        setNumberOfGPUs(1)
-                                                    } else {
-                                                        // Restrict to [1, 8]
-                                                        setNumberOfGPUs(Math.max(Math.min(parsed, 8), 1))
-                                                    }
-                                                }
-
-                                                // The string visible in the text input box is whatever the user enters.
-                                                // Internally, we clamp the number of GPUs between 1 and 8 (inclusive).
-                                                setNumberOfGPUsString(val)
+                                        <NumberInput
+                                            value={numberOfGPUs}
+                                            onMinus={() => setNumberOfGPUs((numberOfGPUs || 0) - 1)}
+                                            onChange={(event: React.FormEvent<HTMLInputElement>) => {
+                                                const value = (event.target as HTMLInputElement).value;
+                                                setNumberOfGPUs(value === '' ? value : +value);
                                             }}
-                                            validated={(parseFloat(numberOfGPUsString) !== undefined && parseFloat(numberOfGPUsString) >= 0 && parseFloat(numberOfGPUsString) <= 8 && numberOfGPUs >= 0 && numberOfGPUs <= 8) ? 'success' : 'warning'}
-                                        >
-                                        </TextInput>
+                                            onPlus={() => setNumberOfGPUs((numberOfGPUs || 0) + 1)}
+                                            inputName="num-gpus-input"
+                                            inputAriaLabel="num-gpus-input"
+                                            minusBtnAriaLabel="minus"
+                                            plusBtnAriaLabel="plus"
+                                            validated={(parseFloat(numberOfGPUs) !== undefined && parseFloat(numberOfGPUs) >= 0 && parseFloat(numberOfGPUs) <= 8 && numberOfGPUs >= 0 && numberOfGPUs <= 8) ? 'success' : 'warning'}
+                                            min={1}
+                                            max={8}
+                                        />
                                     </GridItem>
-                                    {/* <GridItem span={4}>
-                                        <Button variant='plain' disabled={numberOfGPUs <= 1} isDisabled={numberOfGPUs <= 1} isActive={numberOfGPUs <= 1} onClick={() => setNumberOfGPUs(Math.max(1, numberOfGPUs - 1))}><MinusCircleIcon /></Button>
-                                    </GridItem>
-                                    <GridItem span={4}>
-                                        <Button variant='plain' disabled={numberOfGPUs >= 8} isDisabled={numberOfGPUs >= 8} isActive={numberOfGPUs >= 8} onClick={() => setNumberOfGPUs(Math.min(8, numberOfGPUs + 1))}><PlusCircleIcon /></Button>
-                                    </GridItem> */}
                                 </Grid>
                             </FormGroup>
                         </GridItem>
@@ -688,16 +742,22 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                             return (
                                 <GridItem span={3} rowSpan={1} hidden={numberOfGPUs < idx}>
                                     <FormGroup label={`GPU #${idx} % Utilization`}>
-                                        <TextInput
-                                            type="number"
-                                            customIcon={<GpuIcon />}
-                                            id={`gpu${idx}-percent-util-text-input`}
-                                            name={`gpu${idx}-percent-util-text-input`}
+                                        <NumberInput
                                             value={gpuUtilizations[idx]}
-                                            onChange={(_event, val: string) => setGpuUtil(idx, val)}
+                                            onMinus={() => setGpuUtil(idx, (gpuUtilizations[idx] || 0) - 1)}
+                                            onChange={(event: React.FormEvent<HTMLInputElement>) => {
+                                                const value = (event.target as HTMLInputElement).value;
+                                                setGpuUtil(idx, value === '' ? value : +value);
+                                            }}
+                                            onPlus={() => setGpuUtil(idx, (gpuUtilizations[idx] || 0) + 1)}
+                                            inputName={`gpu${idx}-percent-util-input`}
+                                            inputAriaLabel={`gpu${idx}-percent-util-input`}
+                                            minusBtnAriaLabel="minus"
+                                            plusBtnAriaLabel="plus"
                                             validated={(parseFloat(gpuUtilizations[idx]) >= 0 && parseFloat(gpuUtilizations[idx]) <= 100) ? 'success' : 'error'}
-                                        >
-                                        </TextInput>
+                                            min={0}
+                                            max={100}
+                                        />
                                     </FormGroup>
                                 </GridItem>
                             )
