@@ -144,7 +144,7 @@ type WorkloadRegistrationRequest struct {
 	AdjustGpuReservations bool              `name:"adjust_gpu_reservations" json:"adjust_gpu_reservations" description:"By default, sessions reserve 'NUM_GPUS' GPUs when being scheduled. If this property is enabled, then sessions will instead reserve 'NUM_GPUs' * 'MAX_GPU_UTIL'. This will lead to many sessions reserving fewer GPUs than when this property is disabled (default)."`
 	WorkloadName          string            `name:"name" json:"name" yaml:"name" description:"Non-unique identifier of the workload created/specified by the user when launching the workload."`
 	DebugLogging          bool              `name:"debug_logging" json:"debug_logging" yaml:"debug_logging" description:"Flag indicating whether debug-level logging should be enabled."`
-	Template              *WorkloadTemplate `json:"template"` // Will be nil if it is a preset-based workload, rather than a template-based workload.
+	Template              *WorkloadTemplate `json:"workload_template"` // Will be nil if it is a preset-based workload, rather than a template-based workload.
 	Type                  string            `name:"type" json:"type"`
 	Key                   string            `name:"key" yaml:"key" json:"key" description:"Key for code-use only (i.e., we don't intend to display this to the user for the most part)."` // Key for code-use only (i.e., we don't intend to display this to the user for the most part).
 	Seed                  int64             `name:"seed" yaml:"seed" json:"seed" description:"RNG seed for the workload."`
@@ -161,6 +161,11 @@ func (r *WorkloadRegistrationRequest) String() string {
 
 type WorkloadState int
 
+// Workloads can be of several different types, namely 'preset' and 'template' and possibly 'trace'.
+// Have not fully committed to making 'trace' a separate type from 'preset'.
+//
+// Workloads of type 'preset' are static in their definition, whereas workloads of type 'template'
+// have properties that the user can specify and change before submitting the workload for registration.
 type WorkloadType string
 
 type Workload interface {
@@ -272,12 +277,12 @@ type workloadImpl struct {
 	NumActiveTrainings  int64         `json:"num_active_trainings"`
 	WorkloadType        WorkloadType  `json:"workload_type"`
 
-	workloadSource interface{} `json:"-"`
+	// workloadSource interface{} `json:"-"`
 
 	// This is basically the child struct.
 	// So, if this is a preset workload, then this is the WorkloadFromPreset struct.
 	// We use this so we can delegate certain method calls to the child/derived struct.
-	workload Workload
+	workload Workload `json:"-"`
 }
 
 // Get the type of workload (TRACE, PRESET, or TEMPLATE).
@@ -523,9 +528,9 @@ func (t *WorkloadTemplate) String() string {
 }
 
 type WorkloadFromTemplate struct {
-	Workload
+	*workloadImpl
 
-	Template *WorkloadTemplate `json:"template"`
+	Template *WorkloadTemplate `json:"workload_template"`
 }
 
 func (w *WorkloadFromTemplate) GetWorkloadSource() interface{} {
@@ -533,7 +538,7 @@ func (w *WorkloadFromTemplate) GetWorkloadSource() interface{} {
 }
 
 type WorkloadFromPreset struct {
-	Workload
+	*workloadImpl
 
 	WorkloadPreset     *WorkloadPreset `json:"workload_preset"`
 	WorkloadPresetName string          `json:"workload_preset_name"`
@@ -580,7 +585,7 @@ func NewWorkloadFromPreset(baseWorkload Workload, workloadPreset *WorkloadPreset
 	}
 
 	workload_from_preset := &WorkloadFromPreset{
-		Workload:           baseWorkload,
+		workloadImpl:       baseWorkloadImpl,
 		WorkloadPreset:     workloadPreset,
 		WorkloadPresetName: workloadPreset.GetName(),
 		WorkloadPresetKey:  workloadPreset.GetKey(),
@@ -610,8 +615,8 @@ func NewWorkloadFromTemplate(baseWorkload Workload, workloadTemplate *WorkloadTe
 	}
 
 	workload_from_template := &WorkloadFromTemplate{
-		Workload: baseWorkload,
-		Template: workloadTemplate,
+		workloadImpl: baseWorkloadImpl,
+		Template:     workloadTemplate,
 	}
 
 	baseWorkloadImpl.WorkloadType = TemplateWorkload

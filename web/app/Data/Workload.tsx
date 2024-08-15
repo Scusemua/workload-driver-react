@@ -29,6 +29,7 @@ interface Workload {
     workload_preset: WorkloadPreset;
     workload_preset_name: string;
     workload_preset_key: string;
+    workload_template: WorkloadTemplate;
     registered_time: string; // Timestamp of when the workload was registered.
     start_time: string;
     time_elapsed: string;

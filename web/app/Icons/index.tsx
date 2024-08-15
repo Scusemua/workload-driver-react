@@ -8,3 +8,4 @@ export * from './CloudServerIcon';
 export * from './CsvFileIcon';
 export * from './XmlFileIcon';
 export * from './SchedulerIcon';
+export * from './TemplateIcon';

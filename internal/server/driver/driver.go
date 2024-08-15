@@ -271,37 +271,42 @@ func (d *workloadDriverImpl) GetWorkloadRegistrationRequest() *domain.WorkloadRe
 	return d.workloadRegistrationRequest
 }
 
-// Register a workload that was created using a preset.
-func (d *workloadDriverImpl) registerWorkloadFromPreset(workloadRegistrationRequest *domain.WorkloadRegistrationRequest) (domain.Workload, error) {
+// Create a workload that was created using a preset.
+func (d *workloadDriverImpl) createWorkloadFromPreset(workloadRegistrationRequest *domain.WorkloadRegistrationRequest) (domain.Workload, error) {
+	// The specified preset should be in our map of workload presets.
+	// If it isn't, then the registration request is invalid, and we'll return an error.
 	var ok bool
 	if d.workloadPreset, ok = d.workloadPresets[workloadRegistrationRequest.Key]; !ok {
 		d.logger.Error("Could not find workload preset with specified key.", zap.String("key", workloadRegistrationRequest.Key))
 		return nil, ErrWorkloadPresetNotFound
 	}
 
-	d.workload = domain.NewWorkloadFromPreset(
+	d.logger.Debug("Creating new workload from preset.", zap.String("workload-name", workloadRegistrationRequest.WorkloadName), zap.String("workload-preset-name", d.workloadPreset.GetName()))
+	workload := domain.NewWorkloadFromPreset(
 		domain.NewWorkload(d.id, workloadRegistrationRequest.WorkloadName,
-			d.workloadRegistrationRequest.Seed, workloadRegistrationRequest.DebugLogging),
-		d.workloadPreset)
+			d.workloadRegistrationRequest.Seed, workloadRegistrationRequest.DebugLogging), d.workloadPreset)
 
-	return d.workload, nil
+	return workload, nil
 }
 
-// Register a workload that was created using a template.
-func (d *workloadDriverImpl) registerWorkloadFromTemplate(workloadRegistrationRequest *domain.WorkloadRegistrationRequest) (domain.Workload, error) {
+// Create a workload that was created using a template.
+func (d *workloadDriverImpl) createWorkloadFromTemplate(workloadRegistrationRequest *domain.WorkloadRegistrationRequest) (domain.Workload, error) {
+	// The workload request needs to have a workload template in it.
+	// If the registration request does not contain a workload template,
+	// then the request is invalid, and we'll return an error.
 	if workloadRegistrationRequest.Template == nil {
 		d.logger.Error("Workload Registration Request for template-based workload is missing the template!")
 		return nil, ErrWorkloadRegistrationMissingTemplate
 	}
 
 	d.workloadTemplate = workloadRegistrationRequest.Template
-	d.workload = domain.NewWorkloadFromTemplate(
+	d.logger.Debug("Creating new workload from template.", zap.String("workload-name", workloadRegistrationRequest.WorkloadName), zap.String("workload-preset-name", d.workloadTemplate.Name))
+	workload := domain.NewWorkloadFromTemplate(
 		domain.NewWorkload(d.id, workloadRegistrationRequest.WorkloadName,
-			d.workloadRegistrationRequest.Seed, workloadRegistrationRequest.DebugLogging),
-		d.workloadRegistrationRequest.Template,
+			d.workloadRegistrationRequest.Seed, workloadRegistrationRequest.DebugLogging), d.workloadRegistrationRequest.Template,
 	)
 
-	return d.workload, nil
+	return workload, nil
 }
 
 // Returns nil if the workload could not be registered.
@@ -327,22 +332,24 @@ func (d *workloadDriverImpl) RegisterWorkload(workloadRegistrationRequest *domai
 
 	d.sugaredLogger.Debugf("User is requesting the execution of workload '%s'", workloadRegistrationRequest.Key)
 
-	// If the workload seed is negative, then assign it a random value.
-	if workloadRegistrationRequest.Seed < 0 {
-		d.workload.SetSeed(rand.Int63n(2147483647)) // We restrict the user to the range 0-2,147,483,647 when they specify a seed.
-		d.logger.Debug("Will use random seed for RNG.", zap.Int64("seed", d.workload.GetSeed()))
-	} else {
-		d.logger.Debug("Will use user-specified seed for RNG.", zap.Int64("seed", d.workload.GetSeed()))
-	}
-
-	switch workloadRegistrationRequest.Type {
+	// We create the workload a little differently depending on its type (either 'preset' or 'template').
+	// Workloads of type 'preset' are static in their definition, whereas workloads of type 'template'
+	// have properties that the user can specify and change before submitting the workload for registration.
+	var (
+		// If this is created successfully, then d.workload will be assigned the value of this variable.
+		workload domain.Workload
+		err      error // If the workload is not created successfully, then we'll return this error.
+	)
+	switch strings.ToLower(workloadRegistrationRequest.Type) {
 	case "preset":
 		{
-			return d.registerWorkloadFromPreset(workloadRegistrationRequest)
+			// Preset-workload-specific workload creation and initialization steps.
+			workload, err = d.createWorkloadFromPreset(workloadRegistrationRequest)
 		}
 	case "template":
 		{
-			return d.registerWorkloadFromTemplate(workloadRegistrationRequest)
+			// Template-workload-specific workload creation and initialization steps.
+			workload, err = d.createWorkloadFromTemplate(workloadRegistrationRequest)
 		}
 	default:
 		{
@@ -350,6 +357,22 @@ func (d *workloadDriverImpl) RegisterWorkload(workloadRegistrationRequest *domai
 			return nil, fmt.Errorf("%w: \"%s\"", ErrUnsupportedWorkloadType, workloadRegistrationRequest.Type)
 		}
 	}
+
+	// If the workload seed is negative, then assign it a random value.
+	if workloadRegistrationRequest.Seed < 0 {
+		workload.SetSeed(rand.Int63n(2147483647)) // We restrict the user to the range 0-2,147,483,647 when they specify a seed.
+		d.logger.Debug("Will use random seed for RNG.", zap.Int64("workload-seed", workloadRegistrationRequest.Seed))
+	} else {
+		d.logger.Debug("Will use user-specified seed for RNG.", zap.Int64("workload-seed", workloadRegistrationRequest.Seed))
+	}
+
+	if err != nil {
+		d.logger.Error("Failed to create and register workload.", zap.Error(err))
+		return nil, err
+	}
+
+	d.workload = workload
+	return d.workload, nil
 }
 
 // Write an error back to the client.

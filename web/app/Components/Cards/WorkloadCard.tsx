@@ -60,7 +60,7 @@ import { HeightFactorContext, WorkloadsHeightFactorContext } from '@app/Dashboar
 import { toast } from 'react-hot-toast';
 import { v4 as uuidv4 } from 'uuid';
 import { InspectWorkloadModal, NewWorkloadFromTemplateModal, RegisterWorkloadModal } from '../Modals';
-import { CsvFileIcon, XmlFileIcon } from '@app/Icons';
+import { CsvFileIcon, TemplateIcon, XmlFileIcon } from '@app/Icons';
 
 export interface WorkloadCardProps {
     workloadsPerPage: number;
@@ -125,7 +125,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                     name: workloadName,
                     debug_logging: debugLoggingEnabled,
                     type: "template",
-                    template: workloadTemplate,
+                    workload_template: workloadTemplate,
                 },
             }),
         );
@@ -355,6 +355,13 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
         return 'The workload is currently in an unknown/unsupported state.';
     };
 
+    console.log(`Workloads (${workloads.length}):`);
+    for (let i = 0; i < workloads.length; i++) {
+        const workload: Workload = workloads[i];
+
+        console.log(`\tWorkload #${i}: ${JSON.stringify(workload)}`);
+    }
+
     return (
         <React.Fragment>
             <Card isRounded isFullHeight id="workload-card">
@@ -408,7 +415,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                                                                                     {workload.name}
                                                                                 </Text>
                                                                             </FlexItem>
-                                                                            <FlexItem>
+                                                                            {workload.workload_preset && <FlexItem>
                                                                                 <Tooltip
                                                                                     content={`This preset is defined in a ${workload.workload_preset.preset_type} file.`}
                                                                                     position="bottom"
@@ -416,15 +423,25 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                                                                                     <React.Fragment>
                                                                                         {workload.workload_preset
                                                                                             .preset_type === 'XML' && (
-                                                                                            <XmlFileIcon scale={2.25} />
-                                                                                        )}
+                                                                                                <XmlFileIcon scale={2.25} />
+                                                                                            )}
                                                                                         {workload.workload_preset
                                                                                             .preset_type === 'CSV' && (
-                                                                                            <CsvFileIcon scale={2.25} />
-                                                                                        )}
+                                                                                                <CsvFileIcon scale={2.25} />
+                                                                                            )}
                                                                                     </React.Fragment>
                                                                                 </Tooltip>
-                                                                            </FlexItem>
+                                                                            </FlexItem>}
+                                                                            {workload.workload_template && <FlexItem>
+                                                                                <Tooltip
+                                                                                    content={`This workload was created/defined using a template.`}
+                                                                                    position="bottom"
+                                                                                >
+                                                                                    <React.Fragment>
+                                                                                        <TemplateIcon scale={3.25} />
+                                                                                    </React.Fragment>
+                                                                                </Tooltip>
+                                                                            </FlexItem>}
                                                                         </Flex>
                                                                         <FlexItem>
                                                                             <Text component={TextVariants.small}>
@@ -560,7 +577,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                                                                                                 '-button'
                                                                                             }
                                                                                             isDisabled={
-                                                                                                workload.workload_preset
+                                                                                                !workload.workload_preset || workload.workload_preset
                                                                                                     .preset_type ==
                                                                                                 'CSV'
                                                                                             }
@@ -598,64 +615,64 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                                                                             <React.Fragment>
                                                                                 {workload.workload_state ==
                                                                                     WORKLOAD_STATE_READY && (
-                                                                                    <React.Fragment>
-                                                                                        <HourglassStartIcon
-                                                                                            className={
-                                                                                                text.successColor_100
-                                                                                            }
-                                                                                        />
-                                                                                        {' Ready'}
-                                                                                    </React.Fragment>
-                                                                                )}
+                                                                                        <React.Fragment>
+                                                                                            <HourglassStartIcon
+                                                                                                className={
+                                                                                                    text.successColor_100
+                                                                                                }
+                                                                                            />
+                                                                                            {' Ready'}
+                                                                                        </React.Fragment>
+                                                                                    )}
                                                                                 {workload.workload_state ==
                                                                                     WORKLOAD_STATE_RUNNING && (
-                                                                                    <React.Fragment>
-                                                                                        <SpinnerIcon
-                                                                                            className={
-                                                                                                'loading-icon-spin ' +
-                                                                                                text.successColor_100
-                                                                                            }
-                                                                                        />
-                                                                                        {' Running'}
-                                                                                    </React.Fragment>
-                                                                                )}
+                                                                                        <React.Fragment>
+                                                                                            <SpinnerIcon
+                                                                                                className={
+                                                                                                    'loading-icon-spin ' +
+                                                                                                    text.successColor_100
+                                                                                                }
+                                                                                            />
+                                                                                            {' Running'}
+                                                                                        </React.Fragment>
+                                                                                    )}
                                                                                 {workload.workload_state ==
                                                                                     WORKLOAD_STATE_FINISHED && (
-                                                                                    <React.Fragment>
-                                                                                        <CheckCircleIcon
-                                                                                            className={
-                                                                                                text.successColor_100
-                                                                                            }
-                                                                                        />
-                                                                                        {' Complete'}
-                                                                                    </React.Fragment>
-                                                                                )}
+                                                                                        <React.Fragment>
+                                                                                            <CheckCircleIcon
+                                                                                                className={
+                                                                                                    text.successColor_100
+                                                                                                }
+                                                                                            />
+                                                                                            {' Complete'}
+                                                                                        </React.Fragment>
+                                                                                    )}
                                                                                 {workload.workload_state ==
                                                                                     WORKLOAD_STATE_ERRED && (
-                                                                                    <React.Fragment>
-                                                                                        <TimesCircleIcon
-                                                                                            className={
-                                                                                                text.dangerColor_100
-                                                                                            }
-                                                                                        />
-                                                                                        {' Erred'}
-                                                                                    </React.Fragment>
-                                                                                )}
+                                                                                        <React.Fragment>
+                                                                                            <TimesCircleIcon
+                                                                                                className={
+                                                                                                    text.dangerColor_100
+                                                                                                }
+                                                                                            />
+                                                                                            {' Erred'}
+                                                                                        </React.Fragment>
+                                                                                    )}
                                                                                 {workload.workload_state ==
                                                                                     WORKLOAD_STATE_TERMINATED && (
-                                                                                    <React.Fragment>
-                                                                                        <ExclamationTriangleIcon
-                                                                                            className={
-                                                                                                text.warningColor_100
-                                                                                            }
-                                                                                        />
-                                                                                        {' Terminated'}
-                                                                                    </React.Fragment>
-                                                                                )}
+                                                                                        <React.Fragment>
+                                                                                            <ExclamationTriangleIcon
+                                                                                                className={
+                                                                                                    text.warningColor_100
+                                                                                                }
+                                                                                            />
+                                                                                            {' Terminated'}
+                                                                                        </React.Fragment>
+                                                                                    )}
                                                                             </React.Fragment>
                                                                         </Tooltip>
                                                                     </FlexItem>
-                                                                    <FlexItem>
+                                                                    {workload.workload_preset && <FlexItem>
                                                                         <Tooltip
                                                                             content={'Workload preset.'}
                                                                             position="bottom"
@@ -665,8 +682,19 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                                                                                 {workload.workload_preset_name}&quot;
                                                                             </React.Fragment>
                                                                         </Tooltip>
-                                                                    </FlexItem>
-                                                                    <FlexItem
+                                                                    </FlexItem>}
+                                                                    {workload.workload_template && <FlexItem>
+                                                                        <Tooltip
+                                                                            content={'Workload template.'}
+                                                                            position="bottom"
+                                                                        >
+                                                                            <React.Fragment>
+                                                                                <BlueprintIcon /> &quot;
+                                                                                {workload.workload_template.name}&quot;
+                                                                            </React.Fragment>
+                                                                        </Tooltip>
+                                                                    </FlexItem>}
+                                                                    {workload.workload_preset && <FlexItem
                                                                         hidden={
                                                                             workload.workload_preset.preset_type ==
                                                                             'XML'
@@ -686,7 +714,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                                                                                 }
                                                                             </React.Fragment>
                                                                         </Tooltip>
-                                                                    </FlexItem>
+                                                                    </FlexItem>}
                                                                     <FlexItem>
                                                                         <Tooltip
                                                                             content={'Workload seed.'}

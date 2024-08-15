@@ -359,8 +359,6 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
     const resetSubmissionForm = () => {
         setWorkloadTitle('');
         setWorkloadSeed('');
-        setWorkloadTitleIsValid(false);
-        setSessionIdIsValid(false);
         setWorkloadSeedIsValid(true);
         setIsWorkloadDataDropdownOpen(false);
         setSelectedWorkloadTemplate("");
@@ -381,6 +379,8 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
 
         defaultWorkloadTitle.current = uuidv4();
         defaultSessionId.current = uuidv4();
+        setWorkloadTitleIsValid(true);
+        setSessionIdIsValid(true);
     }
 
     return (
