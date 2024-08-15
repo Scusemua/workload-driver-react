@@ -29,8 +29,9 @@ const (
 )
 
 type WorkloadGenerator interface {
-	GeneratePresetWorkload(EventConsumer, Workload, WorkloadPreset, *WorkloadRegistrationRequest) error // Start generating the workload.
-	StopGeneratingWorkload()                                                                            // Stop generating the workload prematurely.
+	GeneratePresetWorkload(EventConsumer, Workload, *WorkloadPreset, *WorkloadRegistrationRequest) error     // Start generating the workload.
+	GenerateTemplateWorkload(EventConsumer, Workload, *WorkloadTemplate, *WorkloadRegistrationRequest) error // Start generating the workload.
+	StopGeneratingWorkload()                                                                                 // Stop generating the workload prematurely.
 }
 
 type BaseMessage struct {
@@ -519,8 +520,8 @@ type WorkloadPreset struct {
 }
 
 type WorkloadTemplate struct {
-	Name     string            `json:"name"`
-	Sessions []WorkloadSession `json:"sessions"`
+	Name     string             `json:"name"`
+	Sessions []*WorkloadSession `json:"sessions"`
 }
 
 func (t *WorkloadTemplate) String() string {
@@ -969,11 +970,15 @@ type WorkloadSession struct {
 // Corresponds to the `TrainingEvent` struct defined in `web/app/Data/workloadImpl.tsx`.
 // Used by the frontend when submitting workloads created from templates (as opposed to presets).
 type TrainingEvent struct {
-	SessionId       string  `json:"sessionId"`
-	TrainingId      string  `json:"trainingId"`
-	CpuUtil         float64 `json:"cpuUtil"`
-	MemUsageGB      float64 `json:"memUsageGB"`
-	GpuUtil         float64 `json:"gpuUtil"`
-	StartTick       float64 `json:"startTick"`
-	DurationInTicks float64 `json:"durationInTicks"`
+	SessionId       string    `json:"sessionId"`
+	TrainingId      string    `json:"trainingId"`
+	CpuUtil         float64   `json:"cpuUtil"`
+	MemUsageGB      float64   `json:"memUsageGB"`
+	GpuUtil         []float64 `json:"gpuUtil"`
+	StartTick       int       `json:"startTick"`
+	DurationInTicks int       `json:"durationInTicks"`
+}
+
+func (e *TrainingEvent) NumGPUs() int {
+	return len(e.GpuUtil)
 }

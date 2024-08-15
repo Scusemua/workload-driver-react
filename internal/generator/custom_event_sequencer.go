@@ -24,10 +24,10 @@ type sessionWrapper struct {
 }
 
 type CustomEventSequencer struct {
-	sessions  map[string]*sessionWrapper
-	eventHeap internalEventHeap
-	driver    domain.WorkloadDriver
-	eqs       domain.EventQueueService
+	sessions      map[string]*sessionWrapper
+	eventHeap     internalEventHeap
+	eventConsumer domain.EventConsumer
+	eqs           domain.EventQueueService
 
 	log      *zap.Logger
 	sugarLog *zap.SugaredLogger
@@ -38,13 +38,13 @@ type CustomEventSequencer struct {
 	waitingEvents       map[string]*eventImpl // The event that will be submitted/enqueued once the next commit happens.
 }
 
-func NewCustomEventSequencer(driver domain.WorkloadDriver, eqs domain.EventQueueService, startingSeconds int64, tickDurationSeconds int64, atom *zap.AtomicLevel) *CustomEventSequencer {
+func NewCustomEventSequencer(eventConsumer domain.EventConsumer, eqs domain.EventQueueService, startingSeconds int64, tickDurationSeconds int64, atom *zap.AtomicLevel) *CustomEventSequencer {
 	customEventSequencer := &CustomEventSequencer{
 		sessions:            make(map[string]*sessionWrapper),
 		waitingEvents:       make(map[string]*eventImpl),
 		eventHeap:           internalEventHeap(make([]*internalEventHeapElement, 0, 100)),
 		podMap:              make(map[string]int),
-		driver:              driver,
+		eventConsumer:       eventConsumer,
 		eqs:                 eqs,
 		startingSeconds:     startingSeconds,
 		tickDurationSeconds: tickDurationSeconds,
@@ -68,7 +68,7 @@ func (s *CustomEventSequencer) SubmitEvents() {
 	go func() {
 		for s.eventHeap.Len() > 0 {
 			e := heap.Pop(&s.eventHeap).(*internalEventHeapElement)
-			s.driver.SubmitEvent(e.Event)
+			s.eventConsumer.SubmitEvent(e.Event)
 			s.sugarLog.Debugf("Submitted event '%s' targeting session '%s' [%v]", e.Event.Name(), e.Event.Data().(*Session).Pod, e.Event.Timestamp())
 		}
 	}()

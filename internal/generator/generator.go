@@ -271,12 +271,99 @@ func (g *workloadGeneratorImpl) waitForCpuGpuDriversToFinish(gpuDoneChan chan st
 	}
 }
 
-func (g *workloadGeneratorImpl) GeneratePresetWorkload(consumer domain.EventConsumer, workload domain.Workload, workloadPreset domain.WorkloadPreset, workloadRegistrationRequest *domain.WorkloadRegistrationRequest) error {
+func (g *workloadGeneratorImpl) GeneratePresetWorkload(consumer domain.EventConsumer, workload domain.Workload, workloadPreset *domain.WorkloadPreset, workloadRegistrationRequest *domain.WorkloadRegistrationRequest) error {
+	if workload == nil {
+		panic("Workload cannot be nil when the workload generator is running.")
+	}
+
+	if workloadPreset == nil {
+		panic("Workload preset cannot be nil when the workload generator is running for a template-based workload.")
+	}
+
+	if workloadRegistrationRequest == nil {
+		panic("Workload registration request cannot be nil when the workload generator is running.")
+	}
+
 	if workloadPreset.IsCsv() {
 		return g.generateWorkloadWithCsvPreset(consumer, workload, &workloadPreset.CsvWorkloadPreset, workloadRegistrationRequest)
 	} else {
 		return g.generateWorkloadWithXmlPreset(consumer, workload, &workloadPreset.XmlWorkloadPreset)
 	}
+}
+
+func (g *workloadGeneratorImpl) GenerateTemplateWorkload(consumer domain.EventConsumer, workload domain.Workload, workloadTemplate *domain.WorkloadTemplate, workloadRegistrationRequest *domain.WorkloadRegistrationRequest) error {
+	if workload == nil {
+		panic("Workload cannot be nil when the workload generator is running.")
+	}
+
+	if workloadTemplate == nil {
+		panic("Workload template cannot be nil when the workload generator is running for a template-based workload.")
+	}
+
+	if workloadRegistrationRequest == nil {
+		panic("Workload registration request cannot be nil when the workload generator is running.")
+	}
+
+	var cpuSessionMap, memSessionMap map[string]float64 = make(map[string]float64), make(map[string]float64)
+	var gpuSessionMap map[string]int = make(map[string]int)
+	var cpuTaskMap, memTaskMap map[string][]float64 = make(map[string][]float64), make(map[string][]float64)
+	var gpuTaskMap map[string][]int = make(map[string][]int)
+	g.ctx, g.cancelFunction = context.WithCancel(context.Background())
+	defer g.cancelFunction()
+
+	sessions := workloadTemplate.Sessions
+	if sessions == nil {
+		panic("Workload template did not contain any sessions.")
+	}
+
+	// Populate all of the above mappings using the data from the template.
+	for _, session := range sessions {
+		cpuSessionMap[session.Id] = session.MaxCPUs
+		memSessionMap[session.Id] = session.MaxMemoryGB
+		gpuSessionMap[session.Id] = session.MaxNumGPUs
+
+		if session.Trainings == nil {
+			panic(fmt.Sprintf("The `Trainings` field of Session %s is nil.", session.Id))
+		}
+
+		if len(session.Trainings) == 0 {
+			g.sugaredLogger.Warnf("Session %s has no trainings associated with it.", session.Id)
+			continue
+		}
+
+		// Iterate over each of the training events for the session to populate the per-training-event maps.
+		cpuPerTrainingTask := make([]float64, 0, len(session.Trainings))
+		memPerTrainingTask := make([]float64, 0, len(session.Trainings))
+		numGpusPerTrainingTask := make([]int, 0, len(session.Trainings))
+		for trainingIndex, trainingEvent := range session.Trainings {
+			cpuPerTrainingTask[trainingIndex] = trainingEvent.CpuUtil
+			memPerTrainingTask[trainingIndex] = trainingEvent.MemUsageGB
+			numGpusPerTrainingTask[trainingIndex] = len(trainingEvent.GpuUtil)
+		}
+
+		cpuTaskMap[session.Id] = cpuPerTrainingTask
+		memTaskMap[session.Id] = memPerTrainingTask
+		gpuTaskMap[session.Id] = numGpusPerTrainingTask
+	}
+
+	sequencer := NewCustomEventSequencer(consumer, consumer.GetEventQueue(), 0, 60, g.atom)
+
+	var (
+		generatorFunc SequencerFunction
+		err           error
+	)
+	if workloadTemplate.Name == "" {
+		generatorFunc, err = SingleSessionSingleTraining(workloadTemplate.Sessions)
+	} else {
+		panic(fmt.Sprintf("Unsupported workload template specified: \"%s\"", workloadTemplate.Name))
+	}
+
+	if err != nil {
+		g.logger.Error("Failed to apply template.", zap.Error(err))
+		return err
+	}
+
+	return generatorFunc(sequencer)
 }
 
 func (g *workloadGeneratorImpl) getSessionGpuMap(filePath string, adjustGpuReservations bool) (map[string]int, error) {

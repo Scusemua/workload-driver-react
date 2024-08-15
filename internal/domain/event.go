@@ -68,6 +68,7 @@ type EventSource interface {
 
 type EventConsumer interface {
 	SubmitEvent(Event) // Give an event to the EventConsumer so that it may be processed.
+	GetEventQueue() EventQueueService
 	DoneChan() chan interface{}
 }
 

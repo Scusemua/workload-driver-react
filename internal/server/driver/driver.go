@@ -259,6 +259,10 @@ func (d *workloadDriverImpl) ToggleDebugLogging(enabled bool) domain.Workload {
 	return d.workload
 }
 
+func (d *workloadDriverImpl) GetEventQueue() domain.EventQueueService {
+	return d.eventQueue
+}
+
 func (d *workloadDriverImpl) GetWorkload() domain.Workload {
 	return d.workload
 }
@@ -596,12 +600,20 @@ func (d *workloadDriverImpl) IssueClockTicks(timestamp time.Time) error {
 // Accepts a waitgroup that is used to notify the caller when the workload has entered the 'WorkloadRunning' state.
 // This processes events in response to clock ticks.
 func (d *workloadDriverImpl) ProcessWorkload(wg *sync.WaitGroup) {
-	d.logger.Info("Starting workload.", zap.String("workload-preset-name", d.workloadPreset.GetName()), zap.String("workload-preset-key", d.workloadPreset.GetKey()))
+	if d.workloadPreset != nil {
+		d.logger.Info("Starting workload.", zap.String("workload-name", d.workload.WorkloadName()), zap.String("workload-preset-name", d.workloadPreset.GetName()), zap.String("workload-preset-key", d.workloadPreset.GetKey()))
+	} else if d.workloadTemplate != nil {
+		d.logger.Info("Starting workload.", zap.String("workload-name", d.workload.WorkloadName()), zap.String("workload-template-name", d.workloadTemplate.Name))
+	} else {
+		d.logger.Info("Starting workload.", zap.String("workload-name", d.workload.WorkloadName()))
+	}
 
 	d.workloadGenerator = generator.NewWorkloadGenerator(d.opts, d.atom, d)
 
 	if d.workload.IsPresetWorkload() {
-		go d.workloadGenerator.GeneratePresetWorkload(d, d.workload, *d.workload.(*domain.WorkloadFromPreset).WorkloadPreset, d.workloadRegistrationRequest)
+		go d.workloadGenerator.GeneratePresetWorkload(d, d.workload, d.workload.(*domain.WorkloadFromPreset).WorkloadPreset, d.workloadRegistrationRequest)
+	} else if d.workload.IsTemplateWorkload() {
+		go d.workloadGenerator.GenerateTemplateWorkload(d, d.workload, d.workloadTemplate, d.workloadRegistrationRequest)
 	} else {
 		panic(fmt.Sprintf("Workload is of presently-unsuporrted type: \"%s\" -- cannot generate workload.", d.workload.GetWorkloadType()))
 	}
