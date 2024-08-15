@@ -63,8 +63,10 @@ del sock
 )
 
 var (
-	ErrWorkloadPresetNotFound    = errors.New("could not find workload preset with specified key")
-	ErrWorkloadAlreadyRegistered = errors.New("driver already has a workload registered with it")
+	ErrWorkloadPresetNotFound              = errors.New("could not find workload preset with specified key")
+	ErrWorkloadAlreadyRegistered           = errors.New("driver already has a workload registered with it")
+	ErrUnsupportedWorkloadType             = errors.New("unsupported workload type")
+	ErrWorkloadRegistrationMissingTemplate = errors.New("workload registration request for template-based workload is missing the template itself")
 
 	ErrWorkloadNotRunning = errors.New("the workload is currently not running")
 
@@ -113,7 +115,8 @@ type workloadDriverImpl struct {
 	currentTick                 domain.SimulationClock              // Contains the current tick of the workload.
 	clockTime                   domain.SimulationClock              // Contains the current clock time of the workload, which will be sometime between currentTick and currentTick + tick_duration.
 	workloadPresets             map[string]*domain.WorkloadPreset   // All of the available workload presets.
-	workloadPreset              *domain.WorkloadPreset              // The preset used by the associated workload.
+	workloadPreset              *domain.WorkloadPreset              // The preset used by the associated workload. Will only be non-nil if the associated workload is a preset-based workload, rather than a template-based workload.
+	workloadTemplate            *domain.WorkloadTemplate            // The template used by the associated workload. Will only be non-nil if the associated workload is a template-based workload, rather than a preset-based workload.
 	workloadRegistrationRequest *domain.WorkloadRegistrationRequest // The request that registered the workload that is being driven by this driver.
 	workload                    domain.Workload                     // The workload being driven by this driver.
 	websocket                   domain.ConcurrentWebSocket          // Shared Websocket used to communicate with frontend.
@@ -268,6 +271,39 @@ func (d *workloadDriverImpl) GetWorkloadRegistrationRequest() *domain.WorkloadRe
 	return d.workloadRegistrationRequest
 }
 
+// Register a workload that was created using a preset.
+func (d *workloadDriverImpl) registerWorkloadFromPreset(workloadRegistrationRequest *domain.WorkloadRegistrationRequest) (domain.Workload, error) {
+	var ok bool
+	if d.workloadPreset, ok = d.workloadPresets[workloadRegistrationRequest.Key]; !ok {
+		d.logger.Error("Could not find workload preset with specified key.", zap.String("key", workloadRegistrationRequest.Key))
+		return nil, ErrWorkloadPresetNotFound
+	}
+
+	d.workload = domain.NewWorkloadFromPreset(
+		domain.NewWorkload(d.id, workloadRegistrationRequest.WorkloadName,
+			d.workloadRegistrationRequest.Seed, workloadRegistrationRequest.DebugLogging),
+		d.workloadPreset)
+
+	return d.workload, nil
+}
+
+// Register a workload that was created using a template.
+func (d *workloadDriverImpl) registerWorkloadFromTemplate(workloadRegistrationRequest *domain.WorkloadRegistrationRequest) (domain.Workload, error) {
+	if workloadRegistrationRequest.Template == nil {
+		d.logger.Error("Workload Registration Request for template-based workload is missing the template!")
+		return nil, ErrWorkloadRegistrationMissingTemplate
+	}
+
+	d.workloadTemplate = workloadRegistrationRequest.Template
+	d.workload = domain.NewWorkloadFromTemplate(
+		domain.NewWorkload(d.id, workloadRegistrationRequest.WorkloadName,
+			d.workloadRegistrationRequest.Seed, workloadRegistrationRequest.DebugLogging),
+		d.workloadRegistrationRequest.Template,
+	)
+
+	return d.workload, nil
+}
+
 // Returns nil if the workload could not be registered.
 func (d *workloadDriverImpl) RegisterWorkload(workloadRegistrationRequest *domain.WorkloadRegistrationRequest) (domain.Workload, error) {
 	d.mu.Lock()
@@ -279,15 +315,8 @@ func (d *workloadDriverImpl) RegisterWorkload(workloadRegistrationRequest *domai
 	}
 
 	d.workloadRegistrationRequest = workloadRegistrationRequest
-	d.sugaredLogger.Debugf("User is requesting the execution of workload '%s'", workloadRegistrationRequest.Key)
 
-	var ok bool
-	if d.workloadPreset, ok = d.workloadPresets[workloadRegistrationRequest.Key]; !ok {
-		d.logger.Error("Could not find workload preset with specified key.", zap.String("key", workloadRegistrationRequest.Key))
-
-		return nil, ErrWorkloadPresetNotFound
-	}
-
+	// Setup log-level.
 	if !workloadRegistrationRequest.DebugLogging {
 		d.logger.Debug("Setting log-level to INFO.")
 		d.atom.SetLevel(zapcore.InfoLevel)
@@ -296,39 +325,31 @@ func (d *workloadDriverImpl) RegisterWorkload(workloadRegistrationRequest *domai
 		d.logger.Debug("Debug-level logging is ENABLED.")
 	}
 
-	// d.workload = &domain.WorkloadFromPreset{
-	// 	Workload: &domain.Workload{
-	// 		ID:                  d.id, // Same ID as the driver.
-	// 		Name:                workloadRegistrationRequest.WorkloadName,
-	// 		WorkloadState:       domain.WorkloadReady,
-	// 		TimeElasped:         time.Duration(0).String(),
-	// 		Seed:                d.workloadRegistrationRequest.Seed,
-	// 		RegisteredTime:      time.Now(),
-	// 		NumTasksExecuted:    0,
-	// 		NumEventsProcessed:  0,
-	// 		NumSessionsCreated:  0,
-	// 		NumActiveSessions:   0,
-	// 		NumActiveTrainings:  0,
-	// 		DebugLoggingEnabled: workloadRegistrationRequest.DebugLogging,
-	// 	},
-	// 	WorkloadPreset:     d.workloadPreset,
-	// 	WorkloadPresetName: d.workloadPreset.Name(),
-	// 	WorkloadPresetKey:  d.workloadPreset.Key(),
-	// }
-	d.workload = domain.NewWorkloadFromPreset(
-		domain.NewWorkload(d.id, workloadRegistrationRequest.WorkloadName,
-			d.workloadRegistrationRequest.Seed, workloadRegistrationRequest.DebugLogging),
-		d.workloadPreset)
+	d.sugaredLogger.Debugf("User is requesting the execution of workload '%s'", workloadRegistrationRequest.Key)
 
 	// If the workload seed is negative, then assign it a random value.
-	if d.workloadRegistrationRequest.Seed < 0 {
+	if workloadRegistrationRequest.Seed < 0 {
 		d.workload.SetSeed(rand.Int63n(2147483647)) // We restrict the user to the range 0-2,147,483,647 when they specify a seed.
 		d.logger.Debug("Will use random seed for RNG.", zap.Int64("seed", d.workload.GetSeed()))
 	} else {
 		d.logger.Debug("Will use user-specified seed for RNG.", zap.Int64("seed", d.workload.GetSeed()))
 	}
 
-	return d.workload, nil
+	switch workloadRegistrationRequest.Type {
+	case "preset":
+		{
+			return d.registerWorkloadFromPreset(workloadRegistrationRequest)
+		}
+	case "template":
+		{
+			return d.registerWorkloadFromTemplate(workloadRegistrationRequest)
+		}
+	default:
+		{
+			d.logger.Error("Unsupported workload type.", zap.String("workload-type", workloadRegistrationRequest.Type))
+			return nil, fmt.Errorf("%w: \"%s\"", ErrUnsupportedWorkloadType, workloadRegistrationRequest.Type)
+		}
+	}
 }
 
 // Write an error back to the client.
@@ -557,7 +578,7 @@ func (d *workloadDriverImpl) ProcessWorkload(wg *sync.WaitGroup) {
 	d.workloadGenerator = generator.NewWorkloadGenerator(d.opts, d.atom, d)
 
 	if d.workload.IsPresetWorkload() {
-		go d.workloadGenerator.GeneratePresetWorkload(d, d.workload, *d.workload.(domain.WorkloadFromPreset).WorkloadPreset, d.workloadRegistrationRequest)
+		go d.workloadGenerator.GeneratePresetWorkload(d, d.workload, *d.workload.(*domain.WorkloadFromPreset).WorkloadPreset, d.workloadRegistrationRequest)
 	} else {
 		panic(fmt.Sprintf("Workload is of presently-unsuporrted type: \"%s\" -- cannot generate workload.", d.workload.GetWorkloadType()))
 	}

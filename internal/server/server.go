@@ -635,20 +635,12 @@ func (s *serverImpl) serveWorkloadWebsocket(c *gin.Context) {
 		if err != nil {
 			s.logger.Error("Error while reading message from websocket.", zap.Error(err))
 			break
-			// if _, ok := err.(*websocket.CloseError); ok {
-			// 	break
-			// } else {
-			// 	time.Sleep(time.Millisecond * 100)
-			// 	continue
-			// }
 		}
 
 		var request map[string]interface{}
 		err = json.Unmarshal(message, &request)
 		if err != nil {
 			s.logger.Error("Error while unmarshalling data message from workload-related websocket.", zap.Error(err), zap.ByteString("message-bytes", message), zap.String("message-string", string(message)))
-			// doneChan <- struct{}{}
-			// s.logger.Error("Sent 'close' instruction to server-push goroutine.")
 
 			time.Sleep(time.Millisecond * 100)
 			continue
@@ -661,8 +653,6 @@ func (s *serverImpl) serveWorkloadWebsocket(c *gin.Context) {
 		var ok bool
 		if op_val, ok = request["op"]; !ok {
 			s.logger.Error("Received unexpected message on websocket. It did not contain an 'op' field.", zap.Binary("message", message))
-			// doneChan <- struct{}{}
-			// s.logger.Error("Sent 'close' instruction to server-push goroutine.")
 
 			time.Sleep(time.Millisecond * 100)
 			continue
@@ -670,8 +660,6 @@ func (s *serverImpl) serveWorkloadWebsocket(c *gin.Context) {
 
 		if msgIdVal, ok = request["msg_id"]; !ok {
 			s.logger.Error("Received unexpected message on websocket. It did not contain a 'msg_id' field.", zap.Binary("message", message))
-			// doneChan <- struct{}{}
-			// s.logger.Error("Sent 'close' instruction to server-push goroutine.")
 
 			time.Sleep(time.Millisecond * 100)
 			continue

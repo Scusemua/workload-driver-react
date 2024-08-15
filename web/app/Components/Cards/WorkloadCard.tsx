@@ -95,11 +95,40 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
     };
 
     const onConfirmRegisterWorkloadFromTemplate = (
-        workloadTitle: string,
-        workloadSeed: string,
+        workloadName: string,
+        workloadSeedString: string,
         debugLoggingEnabled: boolean,
         workloadTemplate: WorkloadTemplate,
     ) => {
+        toast('Registering template-based workload "' + workloadName + '" now.', {
+            icon: '🛈',
+        });
+
+        console.log("New workload '%s' registered by user with template:\n%s", workloadName, workloadTemplate.name);
+        setIsRegisterWorkloadModalOpen(false);
+        setIsRegisterNewWorkloadFromTemplateModalOpen(false);
+
+        let workloadSeed = -1;
+        if (workloadSeedString != '') {
+            workloadSeed = parseInt(workloadSeedString);
+        }
+
+        const messageId: string = uuidv4();
+        sendJsonMessage(
+            JSON.stringify({
+                op: 'register_workload',
+                msg_id: messageId,
+                workloadRegistrationRequest: {
+                    adjust_gpu_reservations: false,
+                    seed: workloadSeed,
+                    key: workloadTemplate.name,
+                    name: workloadName,
+                    debug_logging: debugLoggingEnabled,
+                    type: "template",
+                    template: workloadTemplate,
+                },
+            }),
+        );
     }
 
     const onRegisterWorkloadFromTemplateClicked = () => {
@@ -112,15 +141,15 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
         workloadSeedString: string,
         debugLoggingEnabled: boolean,
     ) => {
-        toast('Registering workload now.', {
+        toast('Registering preset-based workload "' + workloadName + '" now.', {
             icon: '🛈',
         });
 
         console.log("New workload '%s' registered by user with preset:\n%s", workloadName, selectedPreset.name);
         setIsRegisterWorkloadModalOpen(false);
+        setIsRegisterNewWorkloadFromTemplateModalOpen(false);
 
         let workloadSeed = -1;
-
         if (workloadSeedString != '') {
             workloadSeed = parseInt(workloadSeedString);
         }
@@ -136,6 +165,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                     key: selectedPreset.key,
                     name: workloadName,
                     debug_logging: debugLoggingEnabled,
+                    type: "preset",
                 },
             }),
         );
