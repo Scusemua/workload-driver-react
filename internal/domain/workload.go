@@ -266,7 +266,7 @@ type Workload interface {
 	SetWorkloadCompleted()
 	// Called after an event is processed for the Workload.
 	// Just updates some internal metrics.
-	ProcessedEvent()
+	ProcessedEvent(*WorkloadEvent)
 	// Called when a Session is created for/in the Workload.
 	// Just updates some internal metrics.
 	SessionCreated()
@@ -294,29 +294,40 @@ type Workload interface {
 	// Get the workload's Timescale Adjustment Factor, which effects the
 	// timescale at which tickets are replayed/"simulated".
 	GetTimescaleAdjustmentFactor() float64
+	// Return the events processed during this workload (so far).
+	GetProcessedEvents() []*WorkloadEvent
+}
+
+type WorkloadEvent struct {
+	Id          string `json:"id"`
+	Name        string `json:"event"`
+	Session     string `json:"session"`
+	Timestamp   string `json:"timestamp"`
+	ProcessedAt string `json:"processed_at"`
 }
 
 type workloadImpl struct {
-	Id                        string        `json:"id"`
-	Name                      string        `json:"name"`
-	WorkloadState             WorkloadState `json:"workload_state"`
-	DebugLoggingEnabled       bool          `json:"debug_logging_enabled"`
-	ErrorMessage              string        `json:"error_message"`
-	Seed                      int64         `json:"seed"`
-	seedSet                   bool
-	RegisteredTime            time.Time     `json:"registered_time"`
-	StartTime                 time.Time     `json:"start_time"`
-	EndTime                   time.Time     `json:"end_time"`
-	WorkloadDuration          time.Duration `json:"workload_duration"` // The total time that the workload executed for. This is only set once the workload has completed.
-	TimeElasped               time.Duration `json:"time_elapsed"`      // Computed at the time that the data is requested by the user. This is the time elapsed SO far.
-	TimeElaspedStr            string        `json:"time_elapsed_str"`
-	NumTasksExecuted          int64         `json:"num_tasks_executed"`
-	NumEventsProcessed        int64         `json:"num_events_processed"`
-	NumSessionsCreated        int64         `json:"num_sessions_created"`
-	NumActiveSessions         int64         `json:"num_active_sessions"`
-	NumActiveTrainings        int64         `json:"num_active_trainings"`
-	TimescaleAdjustmentFactor float64       `json:"timescale_adjustment_factor"`
-	WorkloadType              WorkloadType  `json:"workload_type"`
+	Id                        string           `json:"id"`
+	Name                      string           `json:"name"`
+	WorkloadState             WorkloadState    `json:"workload_state"`
+	DebugLoggingEnabled       bool             `json:"debug_logging_enabled"`
+	ErrorMessage              string           `json:"error_message"`
+	EventsProcessed           []*WorkloadEvent `json:"events_processed"`
+	Seed                      int64            `json:"seed"`
+	seedSet                   bool             `json:"-"`
+	RegisteredTime            time.Time        `json:"registered_time"`
+	StartTime                 time.Time        `json:"start_time"`
+	EndTime                   time.Time        `json:"end_time"`
+	WorkloadDuration          time.Duration    `json:"workload_duration"` // The total time that the workload executed for. This is only set once the workload has completed.
+	TimeElasped               time.Duration    `json:"time_elapsed"`      // Computed at the time that the data is requested by the user. This is the time elapsed SO far.
+	TimeElaspedStr            string           `json:"time_elapsed_str"`
+	NumTasksExecuted          int64            `json:"num_tasks_executed"`
+	NumEventsProcessed        int64            `json:"num_events_processed"`
+	NumSessionsCreated        int64            `json:"num_sessions_created"`
+	NumActiveSessions         int64            `json:"num_active_sessions"`
+	NumActiveTrainings        int64            `json:"num_active_trainings"`
+	TimescaleAdjustmentFactor float64          `json:"timescale_adjustment_factor"`
+	WorkloadType              WorkloadType     `json:"workload_type"`
 
 	// workloadSource interface{} `json:"-"`
 
@@ -351,6 +362,11 @@ func (w *workloadImpl) IsTraceWorkload() bool {
 // If this is a template workload, return the template information.
 func (w *workloadImpl) GetWorkloadSource() interface{} {
 	return w.workload.GetWorkloadSource()
+}
+
+// Return the events processed during this workload (so far).
+func (w *workloadImpl) GetProcessedEvents() []*WorkloadEvent {
+	return w.EventsProcessed
 }
 
 func (w *workloadImpl) StartWorkload() error {
@@ -485,8 +501,9 @@ func (w *workloadImpl) WorkloadName() string {
 
 // Called after an event is processed for the Workload.
 // Just updates some internal metrics.
-func (w *workloadImpl) ProcessedEvent() {
+func (w *workloadImpl) ProcessedEvent(evt *WorkloadEvent) {
 	w.NumEventsProcessed += 1
+	w.EventsProcessed = append(w.EventsProcessed, evt)
 }
 
 // Called when a Session is created for/in the Workload.
@@ -621,6 +638,7 @@ func NewWorkload(id string, workloadName string, seed int64, debugLoggingEnabled
 		DebugLoggingEnabled:       debugLoggingEnabled,
 		TimescaleAdjustmentFactor: timescaleAdjustmentFactor,
 		WorkloadType:              UnspecifiedWorkload,
+		EventsProcessed:           make([]*WorkloadEvent, 0),
 	}
 }
 

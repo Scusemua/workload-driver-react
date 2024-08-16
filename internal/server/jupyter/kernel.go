@@ -115,6 +115,7 @@ func (conn *kernelConnectionImpl) StopRunningTrainingCode(waitForResponse bool) 
 	if waitForResponse {
 		conn.logger.Debug("Waiting for response from `stop_running_training_code` message.", zap.String("kernel-id", conn.kernelId))
 		<-responseChan
+		conn.logger.Debug("Successfully received response for `stop_running_training_code` message.", zap.String("kernel-id", conn.kernelId))
 	}
 
 	return nil

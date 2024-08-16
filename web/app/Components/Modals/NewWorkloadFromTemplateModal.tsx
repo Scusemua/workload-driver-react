@@ -68,13 +68,13 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
     const [debugLoggingEnabled, setDebugLoggingEnabled] = React.useState(true);
 
     const [sessionId, setSessionId] = React.useState('');
-    const [sessionStartTick, setSessionStartTick] = React.useState<number | ''>(4);
-    const [sessionStopTick, setSessionStopTick] = React.useState<number | ''>(16);
-    const [trainingStartTick, setTrainingStartTick] = React.useState<number | ''>(8);
-    const [trainingDurationInTicks, setTrainingDurationInTicks] = React.useState<number | ''>(4);
+    const [sessionStartTick, setSessionStartTick] = React.useState<number | ''>(2);
+    const [sessionStopTick, setSessionStopTick] = React.useState<number | ''>(8);
+    const [trainingStartTick, setTrainingStartTick] = React.useState<number | ''>(4);
+    const [trainingDurationInTicks, setTrainingDurationInTicks] = React.useState<number | ''>(2);
     const [trainingCpuPercentUtil, setTrainingCpuPercentUtil] = React.useState<number | ''>(10.0);
     const [trainingMemUsageGb, setTrainingMemUsageGb] = React.useState<number | ''>(0.25);
-    const [timescaleAdjustmentFactor, setTimescaleAdjustmentFactor] = React.useState<number | ''>(1.0);
+    const [timescaleAdjustmentFactor, setTimescaleAdjustmentFactor] = React.useState<number | ''>(0.1);
 
     // const gpuUtilizations = React.useRef<string[]>(["0.0", "0.0", "0.0", "0.0", "0.0", "0.0", "0.0", "0.0"]);
     const [gpuUtilizations, setGpuUtilizations] = React.useState<(number | '')[]>([100.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);

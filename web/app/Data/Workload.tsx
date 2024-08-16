@@ -43,6 +43,15 @@ interface Workload {
     debug_logging_enabled: boolean;
     error_message: string;
     timescale_adjustment_factor: number;
+    events_processed: WorkloadEvent[];
+}
+
+interface WorkloadEvent {
+    id: string;
+    name: string;
+    session: string;
+    timestamp: string;
+    processed_at: string;
 }
 
 interface Session {
@@ -80,15 +89,42 @@ interface WorkloadTemplate {
     sessions: Session[];
 }
 
+function GetWorkloadStatusTooltip(workload: Workload | null) {
+    if (workload === null) {
+        return 'N/A';
+    }
+
+    switch (workload.workload_state) {
+        case WORKLOAD_STATE_READY:
+            return 'The workload has been registered and is ready to begin.';
+        case WORKLOAD_STATE_RUNNING:
+            return 'The workload is actively-running.';
+        case WORKLOAD_STATE_FINISHED:
+            return 'The workload has completed successfully.';
+        case WORKLOAD_STATE_ERRED:
+            return 'The workload has been aborted due to a critical error: ' + workload.error_message;
+        case WORKLOAD_STATE_TERMINATED:
+            return 'The workload has been explicitly/manually terminated.';
+    }
+
+    console.error(
+        `Workload ${workload.name} (ID=${workload.id}) is in an unsupported/unknown state: ${workload.workload_state}`,
+    );
+    return 'The workload is currently in an unknown/unsupported state.';
+};
+
 export { WORKLOAD_STATE_READY as WORKLOAD_STATE_READY };
 export { WORKLOAD_STATE_RUNNING as WORKLOAD_STATE_RUNNING };
 export { WORKLOAD_STATE_FINISHED as WORKLOAD_STATE_FINISHED };
 export { WORKLOAD_STATE_ERRED as WORKLOAD_STATE_ERRED };
 export { WORKLOAD_STATE_TERMINATED as WORKLOAD_STATE_TERMINATED };
 
+export { GetWorkloadStatusTooltip as GetWorkloadStatusTooltip };
+
 export type { Workload as Workload };
 export type { WorkloadPreset as WorkloadPreset };
 export type { WorkloadResponse as WorkloadResponse };
+export type { WorkloadEvent as WorkloadEvent };
 export type { Session as Session };
 export type { TrainingEvent as TrainingEvent };
 export type { WorkloadTemplate as WorkloadTemplate };

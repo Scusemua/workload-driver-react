@@ -795,14 +795,26 @@ func (d *workloadDriverImpl) processEvents(tick time.Time) {
 		// This enables us to process events targeting multiple sessiosn in-parallel.
 		go func(sessionId string, events []domain.Event) {
 			for idx, event := range events {
-				d.sugaredLogger.Debugf("Handling event %d/%d: \"%s\"", idx+1, len(eventsForTick), event.Name())
+				d.sugaredLogger.Debugf("Handling event %d/%d: \"%s\" now...", idx+1, len(eventsForTick), event.Name())
 				err := d.handleEvent(event)
 				if err != nil {
 					d.logger.Error("Failed to handle event.", zap.Any("event-name", event.Name()), zap.Any("event-id", event.Id()), zap.String("error-message", err.Error()), zap.Int("event-index", idx))
 					d.errorChan <- err
 					time.Sleep(time.Millisecond * time.Duration(100))
 				}
+
+				d.mu.Lock()
+				d.workload.ProcessedEvent(&domain.WorkloadEvent{
+					Id:          event.Id(),
+					Session:     event.SessionID(),
+					Name:        event.Name().String(),
+					Timestamp:   event.Timestamp().String(),
+					ProcessedAt: time.Now().String(),
+				})
+				d.mu.Unlock() // We have to explicitly unlock here, since we aren't returning immediately in this case.
+
 				waitGroup.Done()
+				d.sugaredLogger.Debugf("Successfully handled event %d/%d: \"%s\"", idx+1, len(eventsForTick), event.Name())
 			}
 		}(sessId, evts)
 	}
@@ -810,9 +822,8 @@ func (d *workloadDriverImpl) processEvents(tick time.Time) {
 	waitGroup.Wait()
 
 	d.mu.Lock()
-	d.workload.ProcessedEvent()
+	defer d.mu.Unlock()
 	d.workload.UpdateTimeElapsed()
-	d.mu.Unlock() // We have to explicitly unlock here, since we aren't returning immediately in this case.
 }
 
 // Given a session ID, such as from the trace data, return the ID used internally.
@@ -905,7 +916,7 @@ func (d *workloadDriverImpl) handleSessionReadyEvents(latestTick time.Time) {
 		sessionReadyEvent = d.eventQueue.GetNextSessionStartEvent(latestTick)
 	}
 
-	d.logger.Debug("Finished processing X events.", zap.Int("num-events-processed", numProcessed), zap.Duration("real-time-elapsed", time.Since(st)))
+	d.sugaredLogger.Debugf("Finished processing %d events in %v.", numProcessed, "real-time-elapsed", time.Since(st))
 }
 
 func (d *workloadDriverImpl) handleEvent(evt domain.Event) error {
