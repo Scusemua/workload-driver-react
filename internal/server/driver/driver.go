@@ -79,51 +79,43 @@ var (
 
 // The Workload Driver consumes events from the Workload Generator and takes action accordingly.
 type workloadDriverImpl struct {
-	id string // Unique ID (relative to other drivers). The workload registered with this driver will be assigned this ID.
-
-	kernelManager jupyter.KernelSessionManager
-
-	workloadGenerator domain.WorkloadGenerator
-
-	// Map from internal session ID to session connection.
-	sessionConnections map[string]*jupyter.SessionConnection
-
-	clockTrigger *Trigger
-
-	stats *WorkloadStats
-
 	logger        *zap.Logger
 	sugaredLogger *zap.SugaredLogger
 	atom          *zap.AtomicLevel
 
-	eventQueue                  domain.EventQueueService
-	tickDuration                time.Duration
-	tickDurationSeconds         int64                               // Cached total number of seconds of tickDuration
-	doneChan                    chan interface{}                    // Used to signal that the workload has successfully processed all events.
-	stopChan                    chan interface{}                    // Used to stop the workload early/prematurely (i.e., before all events have been processed).
-	errorChan                   chan error                          // Used to stop the workload due to a critical error.
-	tick                        time.Duration                       // The tick interval/step rate of the simulation.
-	ticker                      *Ticker                             // Receive Tick events this way.
-	ticksHandled                atomic.Int64                        // Incremented/accessed atomically.
-	servingTicks                atomic.Bool                         // The WorkloadDriver::ServeTicks() method will continue looping as long as this flag is set to true.
-	eventChan                   chan domain.Event                   // Receives events from the Synthesizer.
-	driverTimescale             float64                             // Multiplier that impacts the timescale at the Driver will operate on with respect to the trace data. For example, if each tick is 60 seconds, then a DriverTimescale value of 0.5 will mean that each tick will take 30 seconds.
-	performClockTicks           bool                                // If true, then we'll issue clock ticks. Otherwise, don't issue them. Mostly used for testing/debugging.
-	sessions                    *hashmap.HashMap                    // Responsible for creating sessions and maintaining a collection of all of the sessions active within the simulation.
-	seenSessions                map[string]struct{}                 // All sessions that we've ever seen before.
-	workloadEndTime             time.Time                           // The time at which the workload completed.
-	currentTick                 domain.SimulationClock              // Contains the current tick of the workload.
-	clockTime                   domain.SimulationClock              // Contains the current clock time of the workload, which will be sometime between currentTick and currentTick + tick_duration.
-	workloadPresets             map[string]*domain.WorkloadPreset   // All of the available workload presets.
-	workloadPreset              *domain.WorkloadPreset              // The preset used by the associated workload. Will only be non-nil if the associated workload is a preset-based workload, rather than a template-based workload.
-	workloadTemplate            *domain.WorkloadTemplate            // The template used by the associated workload. Will only be non-nil if the associated workload is a template-based workload, rather than a preset-based workload.
-	workloadRegistrationRequest *domain.WorkloadRegistrationRequest // The request that registered the workload that is being driven by this driver.
-	workload                    domain.Workload                     // The workload being driven by this driver.
-	websocket                   domain.ConcurrentWebSocket          // Shared Websocket used to communicate with frontend.
-
-	mu sync.Mutex
-
-	opts *domain.Configuration
+	clockTime                   domain.SimulationClock                // Contains the current clock time of the workload, which will be sometime between currentTick and currentTick + tick_duration.
+	clockTrigger                *Trigger                              // Trigger for the clock ticks
+	currentTick                 domain.SimulationClock                // Contains the current tick of the workload.
+	doneChan                    chan interface{}                      // Used to signal that the workload has successfully processed all events.
+	driverTimescale             float64                               // Multiplier that impacts the timescale at the Driver will operate on with respect to the trace data. For example, if each tick is 60 seconds, then a DriverTimescale value of 0.5 will mean that each tick will take 30 seconds.
+	errorChan                   chan error                            // Used to stop the workload due to a critical error.
+	eventChan                   chan domain.Event                     // Receives events from the Synthesizer.
+	eventQueue                  domain.EventQueueService              // Maintains a queue of events to be processed for each session.
+	id                          string                                // Unique ID (relative to other drivers). The workload registered with this driver will be assigned this ID.
+	kernelManager               jupyter.KernelSessionManager          // Simplified Go implementation of the Jupyter JavaScript API.
+	mu                          sync.Mutex                            // Synchronizes access to internal data structures. Can be locked externally using the Lock/Unlock API exposed by the WorkloadDriver.
+	opts                        *domain.Configuration                 // The system's configuration, read from a file.
+	performClockTicks           bool                                  // If true, then we'll issue clock ticks. Otherwise, don't issue them. Mostly used for testing/debugging.
+	seenSessions                map[string]struct{}                   // All sessions that we've ever seen before.
+	servingTicks                atomic.Bool                           // The WorkloadDriver::ServeTicks() method will continue looping as long as this flag is set to true.
+	sessionConnections          map[string]*jupyter.SessionConnection // Map from internal session ID to session connection.
+	sessions                    *hashmap.HashMap                      // Responsible for creating sessions and maintaining a collection of all of the sessions active within the simulation.
+	stats                       *WorkloadStats                        // Metrics related to the workload's execution.
+	stopChan                    chan interface{}                      // Used to stop the workload early/prematurely (i.e., before all events have been processed).
+	tick                        time.Duration                         // The tick interval/step rate of the simulation.
+	tickDuration                time.Duration                         // How long each tick is supposed to last.
+	tickDurationSeconds         int64                                 // Cached total number of seconds of tickDuration
+	ticker                      *Ticker                               // Receive Tick events this way.
+	ticksHandled                atomic.Int64                          // Incremented/accessed atomically.
+	timescaleAdjustmentFactor   float64                               // Adjusts the timescale of the simulation. Setting this to 1 means that each tick is simulated as a whole minute. Setting this to 0.5 means each tick will be simulated for half its real time. So, if ticks are 60 seconds, and this variable is set to 0.5, then each tick will be simulated for 30 seconds before continuing to the next tick.
+	websocket                   domain.ConcurrentWebSocket            // Shared Websocket used to communicate with frontend.
+	workload                    domain.Workload                       // The workload being driven by this driver.
+	workloadEndTime             time.Time                             // The time at which the workload completed.
+	workloadGenerator           domain.WorkloadGenerator              // The entity generating the workload (from trace data, a preset, or a template).
+	workloadPreset              *domain.WorkloadPreset                // The preset used by the associated workload. Will only be non-nil if the associated workload is a preset-based workload, rather than a template-based workload.
+	workloadPresets             map[string]*domain.WorkloadPreset     // All of the available workload presets.
+	workloadRegistrationRequest *domain.WorkloadRegistrationRequest   // The request that registered the workload that is being driven by this driver.
+	workloadTemplate            *domain.WorkloadTemplate              // The template used by the associated workload. Will only be non-nil if the associated workload is a template-based workload, rather than a preset-based workload.
 }
 
 func GenerateWorkloadID(n int) string {
@@ -144,30 +136,31 @@ func GenerateWorkloadID(n int) string {
 	return *(*string)(unsafe.Pointer(&b))
 }
 
-func NewWorkloadDriver(opts *domain.Configuration, performClockTicks bool, websocket domain.ConcurrentWebSocket) domain.WorkloadDriver {
+func NewWorkloadDriver(opts *domain.Configuration, performClockTicks bool, timescaleAdjustmentFactor float64, websocket domain.ConcurrentWebSocket) domain.WorkloadDriver {
 	atom := zap.NewAtomicLevelAt(zapcore.DebugLevel)
 	driver := &workloadDriverImpl{
-		id:                  GenerateWorkloadID(8),
-		eventChan:           make(chan domain.Event),
-		clockTrigger:        NewTrigger(),
-		opts:                opts,
-		doneChan:            make(chan interface{}, 1),
-		stopChan:            make(chan interface{}, 1),
-		errorChan:           make(chan error, 2),
-		atom:                &atom,
-		tickDuration:        time.Second * time.Duration(opts.TraceStep),
-		tickDurationSeconds: opts.TraceStep,
-		driverTimescale:     opts.DriverTimescale,
-		kernelManager:       jupyter.NewKernelSessionManager(opts.JupyterServerAddress, true, &atom),
-		sessionConnections:  make(map[string]*jupyter.SessionConnection),
-		performClockTicks:   performClockTicks,
-		eventQueue:          newEventQueue(&atom),
-		stats:               NewWorkloadStats(),
-		sessions:            hashmap.New(100),
-		seenSessions:        make(map[string]struct{}),
-		websocket:           websocket,
-		currentTick:         NewSimulationClock(),
-		clockTime:           NewSimulationClock(),
+		id:                        GenerateWorkloadID(8),
+		eventChan:                 make(chan domain.Event),
+		clockTrigger:              NewTrigger(),
+		opts:                      opts,
+		doneChan:                  make(chan interface{}, 1),
+		stopChan:                  make(chan interface{}, 1),
+		errorChan:                 make(chan error, 2),
+		atom:                      &atom,
+		tickDuration:              time.Second * time.Duration(opts.TraceStep),
+		tickDurationSeconds:       opts.TraceStep,
+		driverTimescale:           opts.DriverTimescale,
+		kernelManager:             jupyter.NewKernelSessionManager(opts.JupyterServerAddress, true, &atom),
+		sessionConnections:        make(map[string]*jupyter.SessionConnection),
+		performClockTicks:         performClockTicks,
+		eventQueue:                newEventQueue(&atom),
+		stats:                     NewWorkloadStats(),
+		sessions:                  hashmap.New(100),
+		seenSessions:              make(map[string]struct{}),
+		websocket:                 websocket,
+		timescaleAdjustmentFactor: timescaleAdjustmentFactor,
+		currentTick:               NewSimulationClock(),
+		clockTime:                 NewSimulationClock(),
 	}
 
 	// Create the ticker for the workload.
@@ -292,7 +285,7 @@ func (d *workloadDriverImpl) createWorkloadFromPreset(workloadRegistrationReques
 	d.logger.Debug("Creating new workload from preset.", zap.String("workload-name", workloadRegistrationRequest.WorkloadName), zap.String("workload-preset-name", d.workloadPreset.GetName()))
 	workload := domain.NewWorkloadFromPreset(
 		domain.NewWorkload(d.id, workloadRegistrationRequest.WorkloadName,
-			d.workloadRegistrationRequest.Seed, workloadRegistrationRequest.DebugLogging), d.workloadPreset)
+			d.workloadRegistrationRequest.Seed, workloadRegistrationRequest.DebugLogging, workloadRegistrationRequest.TimescaleAdjustmentFactor), d.workloadPreset)
 
 	return workload, nil
 }
@@ -311,7 +304,7 @@ func (d *workloadDriverImpl) createWorkloadFromTemplate(workloadRegistrationRequ
 	d.logger.Debug("Creating new workload from template.", zap.String("workload-name", workloadRegistrationRequest.WorkloadName), zap.String("workload-preset-name", d.workloadTemplate.Name))
 	workload := domain.NewWorkloadFromTemplate(
 		domain.NewWorkload(d.id, workloadRegistrationRequest.WorkloadName,
-			d.workloadRegistrationRequest.Seed, workloadRegistrationRequest.DebugLogging), d.workloadRegistrationRequest.Template,
+			d.workloadRegistrationRequest.Seed, workloadRegistrationRequest.DebugLogging, workloadRegistrationRequest.TimescaleAdjustmentFactor), d.workloadRegistrationRequest.Template,
 	)
 
 	return workload, nil

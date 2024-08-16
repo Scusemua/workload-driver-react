@@ -41,7 +41,10 @@ import {
     SpinnerIcon,
     StopCircleIcon,
     StopIcon,
+    Stopwatch20Icon,
+    StopwatchIcon,
     TimesCircleIcon,
+    UserClockIcon,
 } from '@patternfly/react-icons';
 
 import {
@@ -99,6 +102,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
         workloadSeedString: string,
         debugLoggingEnabled: boolean,
         workloadTemplate: WorkloadTemplate,
+        timescaleAdjustmentFactor: number,
     ) => {
         toast('Registering template-based workload "' + workloadName + '" now.', {
             icon: '🛈',
@@ -121,6 +125,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                 workloadRegistrationRequest: {
                     adjust_gpu_reservations: false,
                     seed: workloadSeed,
+                    timescale_adjustment_factor: timescaleAdjustmentFactor,
                     key: workloadTemplate.name,
                     name: workloadName,
                     debug_logging: debugLoggingEnabled,
@@ -140,6 +145,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
         selectedPreset: WorkloadPreset,
         workloadSeedString: string,
         debugLoggingEnabled: boolean,
+        timescaleAdjustmentFactor: number,
     ) => {
         toast('Registering preset-based workload "' + workloadName + '" now.', {
             icon: '🛈',
@@ -162,6 +168,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                 workloadRegistrationRequest: {
                     adjust_gpu_reservations: false,
                     seed: workloadSeed,
+                    timescale_adjustment_factor: timescaleAdjustmentFactor,
                     key: selectedPreset.key,
                     name: workloadName,
                     debug_logging: debugLoggingEnabled,
@@ -726,6 +733,16 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                                                                             </React.Fragment>
                                                                         </Tooltip>
                                                                     </FlexItem>
+                                                                    <FlexItem>
+                                                                        <Tooltip
+                                                                            content={'Timescale Adjustment Factor.'}
+                                                                            position="bottom"
+                                                                        >
+                                                                            <React.Fragment>
+                                                                                <ClockIcon /> {workload.timescale_adjustment_factor}
+                                                                            </React.Fragment>
+                                                                        </Tooltip>
+                                                                    </FlexItem>
 
                                                                     <FlexItem
                                                                         align={{ default: 'alignRight' }}
@@ -785,7 +802,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                                                                             position="bottom"
                                                                         >
                                                                             <React.Fragment>
-                                                                                <ClockIcon /> {workload.time_elapsed}
+                                                                                <StopwatchIcon /> {workload.time_elapsed}
                                                                             </React.Fragment>
                                                                         </Tooltip>
                                                                     </FlexItem>
@@ -793,15 +810,6 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                                                             </FlexItem>
                                                         </Flex>
                                                     </DataListCell>,
-                                                    // <DataListCell
-                                                    //     alignRight={true}
-                                                    //     key={'workload-secondary-content-' + idx}
-                                                    //     id={'workload-data-list-' + idx}
-                                                    //     aria-label="Workload Actions"
-                                                    //     aria-labelledby="Workload Actions"
-                                                    // >
-
-                                                    // </DataListCell>,
                                                 ]}
                                             />
                                         </DataListItemRow>
@@ -830,14 +838,6 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                                 title: '3 workloads',
                                 value: 3,
                             },
-                            // {
-                            //     title: '4',
-                            //     value: 4,
-                            // },
-                            // {
-                            //     title: '5',
-                            //     value: 5,
-                            // },
                         ]}
                         onSetPage={onSetPage}
                         onPerPageSelect={onPerPageSelect}

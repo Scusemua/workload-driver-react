@@ -932,7 +932,7 @@ func (s *serverImpl) handleStopWorkload(req *domain.StartStopWorkloadRequest) {
 }
 
 func (s *serverImpl) handleRegisterWorkload(request *domain.WorkloadRegistrationRequest, msgId string, websocket domain.ConcurrentWebSocket) {
-	workloadDriver := driver.NewWorkloadDriver(s.opts, true, websocket)
+	workloadDriver := driver.NewWorkloadDriver(s.opts, true, request.TimescaleAdjustmentFactor, websocket)
 
 	workload, _ := workloadDriver.RegisterWorkload(request)
 

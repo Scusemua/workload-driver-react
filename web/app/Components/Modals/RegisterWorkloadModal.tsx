@@ -15,6 +15,7 @@ import {
     MenuToggleElement,
     Modal,
     ModalVariant,
+    NumberInput,
     Popover,
     Switch,
     Text,
@@ -41,7 +42,14 @@ export interface StartWorkloadModalProps {
         preset: WorkloadPreset,
         workloadSeed: string,
         debugLoggingEnabled: boolean,
+        timescaleAdjustmentFactor: number,
     ) => void;
+}
+
+function assertIsNumber(value: number | ''): asserts value is number {
+    if (value === '') {
+        throw new Error("value is not number");
+    }
 }
 
 export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalProps> = (props) => {
@@ -52,6 +60,7 @@ export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalPr
     const [isWorkloadDataDropdownOpen, setIsWorkloadDataDropdownOpen] = React.useState(false);
     const [selectedWorkloadPreset, setSelectedWorkloadPreset] = React.useState<WorkloadPreset | null>(null);
     const [debugLoggingEnabled, setDebugLoggingEnabled] = React.useState(true);
+    const [timescaleAdjustmentFactor, setTimescaleAdjustmentFactor] = React.useState<number | ''>(1.0);
 
     const defaultWorkloadTitle = React.useRef(uuidv4());
 
@@ -141,6 +150,10 @@ export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalPr
             return true;
         }
 
+        if (validateTimescaleAdjustmentFactor() == 'error') {
+            return true; 
+        }
+
         return false;
     };
 
@@ -152,7 +165,9 @@ export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalPr
             workloadTitleToSubmit = defaultWorkloadTitle.current;
         }
 
-        props.onConfirm(workloadTitleToSubmit, selectedWorkloadPreset!, workloadSeed, debugLoggingEnabled);
+        assertIsNumber(timescaleAdjustmentFactor);
+
+        props.onConfirm(workloadTitleToSubmit, selectedWorkloadPreset!, workloadSeed, debugLoggingEnabled, timescaleAdjustmentFactor);
 
         // Reset all of the fields.
         setSelectedWorkloadPreset(null);
@@ -160,6 +175,14 @@ export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalPr
         setWorkloadTitle('');
 
         defaultWorkloadTitle.current = uuidv4();
+    };
+
+    const validateTimescaleAdjustmentFactor = () => {
+        if (timescaleAdjustmentFactor === '' || Number.isNaN(timescaleAdjustmentFactor)) {
+            return 'error';
+        }
+
+        return (timescaleAdjustmentFactor <= 0 || timescaleAdjustmentFactor > 10) ? 'error' : 'success';
     };
 
     return (
@@ -172,7 +195,7 @@ export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalPr
             help={
                 <Tooltip exitDelay={75} content={<div>Create new workload from template.</div>}>
                     <Button variant="plain" aria-label="Create New Workload From Template" onClick={props.onRegisterWorkloadFromTemplateClicked}>
-                        <PlusIcon/>
+                        <PlusIcon />
                     </Button>
                 </Tooltip>
             }
@@ -327,7 +350,6 @@ export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalPr
                                         type="button"
                                         aria-label="Select the preprocessed data to use for driving the workload. This largely determines which subset of trace data will be used to generate the workload."
                                         onClick={(e) => e.preventDefault()}
-                                        aria-describedby="simple-form-workload-preset-01"
                                         className={styles.formGroupLabelHelp}
                                     >
                                         <HelpIcon />
@@ -399,7 +421,54 @@ export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalPr
                             </FormHelperText>
                         </FormGroup>
                     </GridItem>
-                    <GridItem span={4}>
+                    <GridItem span={6}>
+                        <FormGroup
+                            label={'Timescale Adjustment Factor'}
+                            labelIcon={
+                                <Popover
+                                    aria-label="timescale-adjustment-factor-header"
+                                    headerContent={<div>Timescale Adjustment Factor</div>}
+                                    bodyContent={
+                                        <div>
+                                            This quantity adjusts the timescale at which the trace data is replayed.
+                                            For example, if each tick is 60 seconds, then setting this value to 1.0 will instruct
+                                            the Workload Driver to simulate each tick for the full 60 seconds.
+                                            Alternatively, setting this quantity to 2.0 will instruct the Workload Driver to spend 120 seconds on each tick.
+                                            Setting the quantity to 0.5 will instruct the Workload Driver to spend 30 seconds on each tick.
+                                        </div>
+                                    }
+                                >
+                                    <button
+                                        type="button"
+                                        aria-label="Set the Timescale Adjustment Factor."
+                                        onClick={(e) => e.preventDefault()}
+                                        className={styles.formGroupLabelHelp}
+                                    >
+                                        <HelpIcon />
+                                    </button>
+                                </Popover>
+                            }
+                        >
+                            <NumberInput
+                                value={timescaleAdjustmentFactor}
+                                onMinus={() => setTimescaleAdjustmentFactor((timescaleAdjustmentFactor || 0) - 0.25)}
+                                onChange={(event: React.FormEvent<HTMLInputElement>) => {
+                                    const value = (event.target as HTMLInputElement).value;
+                                    setTimescaleAdjustmentFactor(value === '' ? value : +value);
+                                }}
+                                onPlus={() => setTimescaleAdjustmentFactor((timescaleAdjustmentFactor || 0) + 0.25)}
+                                inputName="training-start-tick-input"
+                                inputAriaLabel="training-start-tick-input"
+                                minusBtnAriaLabel="minus"
+                                plusBtnAriaLabel="plus"
+                                validated={validateTimescaleAdjustmentFactor()}
+                                widthChars={4}
+                                min={0}
+                                max={10}
+                            />
+                        </FormGroup>
+                    </GridItem>
+                    <GridItem span={6}>
                         <FormGroup
                             label={'Verbose Server-Side Log Output'}
                             labelIcon={
@@ -417,7 +486,6 @@ export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalPr
                                         type="button"
                                         aria-label="Select the preprocessed data to use for driving the workload. This largely determines which subset of trace data will be used to generate the workload."
                                         onClick={(e) => e.preventDefault()}
-                                        aria-describedby="simple-form-workload-preset-01"
                                         className={styles.formGroupLabelHelp}
                                     >
                                         <HelpIcon />
@@ -426,12 +494,12 @@ export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalPr
                             }
                         >
                             <Switch
-                                id="debug-logging-switch"
+                                id="debug-logging-switch-preset"
                                 label="Debug logging enabled"
                                 labelOff="Debug logging disabled"
-                                aria-label="debug-logging-switch"
+                                aria-label="debug-logging-switch-preset"
                                 isChecked={debugLoggingEnabled}
-                                ouiaId="DebugLoggingSwitch"
+                                ouiaId="DebugLoggingSwitchPreset"
                                 onChange={(_event: React.FormEvent<HTMLInputElement>, checked: boolean) => {
                                     setDebugLoggingEnabled(checked);
                                 }}

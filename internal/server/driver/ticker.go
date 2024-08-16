@@ -8,8 +8,7 @@ import (
 	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
 )
 
-// A Ticker holds a channel that delivers “ticks” of a clock
-// at intervals.
+// A Ticker holds a channel that delivers "ticks" of a clock at intervals.
 type Ticker struct {
 	// The channel on which the ticks are delivered.
 	TickDelivery <-chan time.Time

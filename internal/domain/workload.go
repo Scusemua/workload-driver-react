@@ -142,13 +142,14 @@ func (r *StartStopWorkloadsRequest) String() string {
 type WorkloadRegistrationRequest struct {
 	// By default, sessions reserve 'NUM_GPUS' GPUs when being scheduled. If this property is enabled, then sessions will instead reserve 'NUM_GPUs' * 'MAX_GPU_UTIL'.
 	// This will lead to many sessions reserving fewer GPUs than when this property is disabled (default).
-	AdjustGpuReservations bool              `name:"adjust_gpu_reservations" json:"adjust_gpu_reservations" description:"By default, sessions reserve 'NUM_GPUS' GPUs when being scheduled. If this property is enabled, then sessions will instead reserve 'NUM_GPUs' * 'MAX_GPU_UTIL'. This will lead to many sessions reserving fewer GPUs than when this property is disabled (default)."`
-	WorkloadName          string            `name:"name" json:"name" yaml:"name" description:"Non-unique identifier of the workload created/specified by the user when launching the workload."`
-	DebugLogging          bool              `name:"debug_logging" json:"debug_logging" yaml:"debug_logging" description:"Flag indicating whether debug-level logging should be enabled."`
-	Template              *WorkloadTemplate `json:"workload_template"` // Will be nil if it is a preset-based workload, rather than a template-based workload.
-	Type                  string            `name:"type" json:"type"`
-	Key                   string            `name:"key" yaml:"key" json:"key" description:"Key for code-use only (i.e., we don't intend to display this to the user for the most part)."` // Key for code-use only (i.e., we don't intend to display this to the user for the most part).
-	Seed                  int64             `name:"seed" yaml:"seed" json:"seed" description:"RNG seed for the workload."`
+	AdjustGpuReservations     bool              `name:"adjust_gpu_reservations" json:"adjust_gpu_reservations" description:"By default, sessions reserve 'NUM_GPUS' GPUs when being scheduled. If this property is enabled, then sessions will instead reserve 'NUM_GPUs' * 'MAX_GPU_UTIL'. This will lead to many sessions reserving fewer GPUs than when this property is disabled (default)."`
+	WorkloadName              string            `name:"name" json:"name" yaml:"name" description:"Non-unique identifier of the workload created/specified by the user when launching the workload."`
+	DebugLogging              bool              `name:"debug_logging" json:"debug_logging" yaml:"debug_logging" description:"Flag indicating whether debug-level logging should be enabled."`
+	Template                  *WorkloadTemplate `json:"workload_template"` // Will be nil if it is a preset-based workload, rather than a template-based workload.
+	Type                      string            `name:"type" json:"type"`
+	Key                       string            `name:"key" yaml:"key" json:"key" description:"Key for code-use only (i.e., we don't intend to display this to the user for the most part)."` // Key for code-use only (i.e., we don't intend to display this to the user for the most part).
+	Seed                      int64             `name:"seed" yaml:"seed" json:"seed" description:"RNG seed for the workload."`
+	TimescaleAdjustmentFactor float64           `name:"timescale_adjustment_factor" json:"timescale_adjustment_factor" description:"Adjusts how long ticks are simulated for."`
 }
 
 func (r *WorkloadRegistrationRequest) String() string {
@@ -256,27 +257,31 @@ type Workload interface {
 	// If this is a trace workload, return the trace information.
 	// If this is a template workload, return the template information.
 	GetWorkloadSource() interface{}
+	// Get the workload's Timescale Adjustment Factor, which effects the
+	// timescale at which tickets are replayed/"simulated".
+	GetTimescaleAdjustmentFactor() float64
 }
 
 type workloadImpl struct {
-	Id                  string        `json:"id"`
-	Name                string        `json:"name"`
-	WorkloadState       WorkloadState `json:"workload_state"`
-	DebugLoggingEnabled bool          `json:"debug_logging_enabled"`
-	ErrorMessage        string        `json:"error_message"`
-	Seed                int64         `json:"seed"`
-	seedSet             bool
-	RegisteredTime      time.Time     `json:"registered_time"`
-	StartTime           time.Time     `json:"start_time"`
-	EndTime             time.Time     `json:"end_time"`
-	WorkloadDuration    time.Duration `json:"workload_duration"` // The total time that the workload executed for. This is only set once the workload has completed.
-	TimeElasped         time.Duration `json:"time_elapsed"`      // Computed at the time that the data is requested by the user. This is the time elapsed SO far.
-	NumTasksExecuted    int64         `json:"num_tasks_executed"`
-	NumEventsProcessed  int64         `json:"num_events_processed"`
-	NumSessionsCreated  int64         `json:"num_sessions_created"`
-	NumActiveSessions   int64         `json:"num_active_sessions"`
-	NumActiveTrainings  int64         `json:"num_active_trainings"`
-	WorkloadType        WorkloadType  `json:"workload_type"`
+	Id                        string        `json:"id"`
+	Name                      string        `json:"name"`
+	WorkloadState             WorkloadState `json:"workload_state"`
+	DebugLoggingEnabled       bool          `json:"debug_logging_enabled"`
+	ErrorMessage              string        `json:"error_message"`
+	Seed                      int64         `json:"seed"`
+	seedSet                   bool
+	RegisteredTime            time.Time     `json:"registered_time"`
+	StartTime                 time.Time     `json:"start_time"`
+	EndTime                   time.Time     `json:"end_time"`
+	WorkloadDuration          time.Duration `json:"workload_duration"` // The total time that the workload executed for. This is only set once the workload has completed.
+	TimeElasped               time.Duration `json:"time_elapsed"`      // Computed at the time that the data is requested by the user. This is the time elapsed SO far.
+	NumTasksExecuted          int64         `json:"num_tasks_executed"`
+	NumEventsProcessed        int64         `json:"num_events_processed"`
+	NumSessionsCreated        int64         `json:"num_sessions_created"`
+	NumActiveSessions         int64         `json:"num_active_sessions"`
+	NumActiveTrainings        int64         `json:"num_active_trainings"`
+	TimescaleAdjustmentFactor float64       `json:"timescale_adjustment_factor"`
+	WorkloadType              WorkloadType  `json:"workload_type"`
 
 	// workloadSource interface{} `json:"-"`
 
@@ -316,6 +321,10 @@ func (w *workloadImpl) GetWorkloadSource() interface{} {
 func (w *workloadImpl) StartWorkload() {
 	w.WorkloadState = WorkloadRunning
 	w.StartTime = time.Now()
+}
+
+func (w *workloadImpl) GetTimescaleAdjustmentFactor() float64 {
+	return w.TimescaleAdjustmentFactor
 }
 
 // Mark the workload as having completed successfully.
@@ -550,21 +559,22 @@ func (w *WorkloadFromPreset) GetWorkloadSource() interface{} {
 	return w.WorkloadPreset
 }
 
-func NewWorkload(id string, workloadName string, seed int64, debugLoggingEnabled bool) Workload {
+func NewWorkload(id string, workloadName string, seed int64, debugLoggingEnabled bool, timescaleAdjustmentFactor float64) Workload {
 	return &workloadImpl{
-		Id:                  id, // Same ID as the driver.
-		Name:                workloadName,
-		WorkloadState:       WorkloadReady,
-		TimeElasped:         time.Duration(0),
-		Seed:                seed,
-		RegisteredTime:      time.Now(),
-		NumTasksExecuted:    0,
-		NumEventsProcessed:  0,
-		NumSessionsCreated:  0,
-		NumActiveSessions:   0,
-		NumActiveTrainings:  0,
-		DebugLoggingEnabled: debugLoggingEnabled,
-		WorkloadType:        UnspecifiedWorkload,
+		Id:                        id, // Same ID as the driver.
+		Name:                      workloadName,
+		WorkloadState:             WorkloadReady,
+		TimeElasped:               time.Duration(0),
+		Seed:                      seed,
+		RegisteredTime:            time.Now(),
+		NumTasksExecuted:          0,
+		NumEventsProcessed:        0,
+		NumSessionsCreated:        0,
+		NumActiveSessions:         0,
+		NumActiveTrainings:        0,
+		DebugLoggingEnabled:       debugLoggingEnabled,
+		TimescaleAdjustmentFactor: timescaleAdjustmentFactor,
+		WorkloadType:              UnspecifiedWorkload,
 	}
 }
 

@@ -41,6 +41,7 @@ interface Workload {
     num_active_trainings: number;
     debug_logging_enabled: boolean;
     error_message: string;
+    timescale_adjustment_factor: number;
 }
 
 interface Session {
