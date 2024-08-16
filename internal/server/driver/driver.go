@@ -493,7 +493,7 @@ func (d *workloadDriverImpl) bootstrapSimulation() error {
 }
 
 // This should be called from its own goroutine.
-// Accepts a waitgroup that is used to notify the caller when the workload has entered the 'WorkloadRunning' state.
+// Accepts a waitgroup that is used to notify the caller when the workload has completed.
 // This issues clock ticks as events are submitted.
 func (d *workloadDriverImpl) DriveWorkload(wg *sync.WaitGroup) {
 	d.logger.Info("Workload Simulator has started running. Bootstrapping simulation now.")
@@ -554,7 +554,9 @@ OUTER:
 		}
 	}
 
-	wg.Done()
+	if wg != nil {
+		wg.Done()
+	}
 }
 
 // Issue clock ticks until the d.currentTick clock has caught up to the given timestamp.
@@ -574,6 +576,8 @@ func (d *workloadDriverImpl) IssueClockTicks(timestamp time.Time) error {
 
 	var numTicksIssued int64 = 0
 	for timestamp.After(currentTick) {
+		tickStart := time.Now()
+
 		tick, err := d.currentTick.IncrementClockBy(d.tickDuration)
 		if err != nil {
 			return err
@@ -584,6 +588,16 @@ func (d *workloadDriverImpl) IssueClockTicks(timestamp time.Time) error {
 		d.clockTrigger.Trigger(tick)
 		numTicksIssued += 1
 		currentTick = d.currentTick.GetClockTime()
+
+		tickElapsed := time.Since(tickStart)
+		tickRemaining := time.Duration(d.timescaleAdjustmentFactor * float64((d.tickDuration - tickElapsed)))
+
+		if tickRemaining < 0 {
+			panic(fmt.Sprintf("Issuing clock tick #%d took %v, which is greater than the configured tick duration of %v.", tickNumber, tickElapsed, d.tickDuration))
+		}
+
+		d.sugaredLogger.Debugf("Sleeping for %v to simulate remainder of tick #%d.", tickRemaining, tickNumber)
+		time.Sleep(tickRemaining)
 	}
 
 	if numTicksIssued != numTicksRequired {
@@ -594,7 +608,7 @@ func (d *workloadDriverImpl) IssueClockTicks(timestamp time.Time) error {
 }
 
 // This should be called from its own goroutine.
-// Accepts a waitgroup that is used to notify the caller when the workload has entered the 'WorkloadRunning' state.
+// Accepts a waitgroup that is used to notify the caller when the workload has completed.
 // This processes events in response to clock ticks.
 func (d *workloadDriverImpl) ProcessWorkload(wg *sync.WaitGroup) {
 	if d.workloadPreset != nil {
@@ -615,11 +629,13 @@ func (d *workloadDriverImpl) ProcessWorkload(wg *sync.WaitGroup) {
 		panic(fmt.Sprintf("Workload is of presently-unsuporrted type: \"%s\" -- cannot generate workload.", d.workload.GetWorkloadType()))
 	}
 
-	d.mu.Lock()
-	// d.workload.StartTime = time.Now()
-	// d.workload.WorkloadState = domain.WorkloadRunning
-	d.workload.StartWorkload()
-	d.mu.Unlock()
+	// Commented-out:
+	// Moved the starting of the workload to outside this function.
+	// d.mu.Lock()
+	// // d.workload.StartTime = time.Now()
+	// // d.workload.WorkloadState = domain.WorkloadRunning
+	// d.workload.StartWorkload()
+	// d.mu.Unlock()
 
 	d.logger.Info("The Workload Driver has started running.")
 
@@ -634,7 +650,10 @@ func (d *workloadDriverImpl) ProcessWorkload(wg *sync.WaitGroup) {
 				if err != nil {
 					d.logger.Error("Critical error occurred when attempting to increase clock time.", zap.Error(err))
 					d.handleCriticalError(err)
-					wg.Done()
+
+					if wg != nil {
+						wg.Done()
+					}
 					return
 				}
 
@@ -666,14 +685,18 @@ func (d *workloadDriverImpl) ProcessWorkload(wg *sync.WaitGroup) {
 			{
 				d.logger.Error("Recevied error.", zap.String("workload-id", d.workload.GetId()), zap.Error(err))
 				d.handleCriticalError(err)
-				wg.Done()
+				if wg != nil {
+					wg.Done()
+				}
 				return // We're done, so we can return.
 			}
 		case <-d.stopChan:
 			{
 				d.logger.Info("Workload has been instructed to terminate early.", zap.String("workload-id", d.workload.GetId()))
 				d.abortWorkload()
-				wg.Done()
+				if wg != nil {
+					wg.Done()
+				}
 				return // We're done, so we can return.
 			}
 		case <-d.doneChan: // This is placed after eventChan so that all events are processed first.
@@ -693,7 +716,9 @@ func (d *workloadDriverImpl) ProcessWorkload(wg *sync.WaitGroup) {
 				d.logger.Info("The Workload has ended.", zap.Any("workload-duration", time.Since(d.workload.GetStartTime())), zap.Any("workload-start-time", d.workload.GetStartTime()), zap.Any("workload-end-time", d.workloadEndTime))
 
 				// d.workload.WorkloadState = domain.WorkloadFinished
-				wg.Done()
+				if wg != nil {
+					wg.Done()
+				}
 
 				return // We're done, so we can return.
 			}
@@ -701,12 +726,16 @@ func (d *workloadDriverImpl) ProcessWorkload(wg *sync.WaitGroup) {
 	}
 }
 
-// Called from Cluster::ServeTicks at the end of serving a tick to signal to the Ticker/Trigger interface that the listener (i.e., the Cluster) is done.
+// Called from workloadDriverImpl::ProcessWorkload at the end of serving a tick to signal to the Ticker/Trigger interface that the listener (i.e., the Cluster) is done.
 func (d *workloadDriverImpl) doneServingTick() {
 	numEventsEnqueued := d.eventQueue.Len()
 	if d.sugaredLogger.Level() == zapcore.DebugLevel {
 		d.sugaredLogger.Debugf(">> [%v] Done serving tick. There is/are %d more session event(s) enqueued right now.", d.clockTime.GetClockTime(), numEventsEnqueued)
 	}
+
+	d.mu.Lock()
+	d.workload.UpdateTimeElapsed()
+	d.mu.Unlock()
 
 	d.ticker.Done()
 }

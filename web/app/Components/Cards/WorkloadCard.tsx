@@ -802,7 +802,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                                                                             position="bottom"
                                                                         >
                                                                             <React.Fragment>
-                                                                                <StopwatchIcon /> {workload.time_elapsed}
+                                                                                <StopwatchIcon /> {workload.time_elapsed_str}
                                                                             </React.Fragment>
                                                                         </Tooltip>
                                                                     </FlexItem>

@@ -11,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/elliotchance/orderedmap/v2"
@@ -45,6 +46,8 @@ type serverImpl struct {
 	pushUpdateInterval time.Duration
 	gatewayRpcClient   *handlers.ClusterDashboardHandler
 
+	workloadMessageIndex atomic.Int32
+
 	// Websockets that have submitted a workload and thus will want updates for that workload.
 	subscribers map[string]domain.ConcurrentWebSocket
 
@@ -76,6 +79,8 @@ func NewServer(opts *domain.Configuration) domain.Server {
 		getLogsResponseBodies: make(map[string]io.ReadCloser),
 		// workloadDriver: driver.NewWorkloadDriver(opts),
 	}
+
+	s.workloadMessageIndex.Store(0)
 
 	logger, err := zap.NewDevelopment()
 	if err != nil {
@@ -298,16 +303,20 @@ func (s *serverImpl) serverPushRoutine(workloadStartedChan chan string, doneChan
 				associatedDriver, _ := s.workloadDrivers.Get(workload.GetId())
 				associatedDriver.LockDriver()
 
+				workload.UpdateTimeElapsed() // Update this field.
+
 				// Lock the workloads' drivers while we marshal the workloads to JSON.
 				updatedWorkloads = append(updatedWorkloads, workload)
 			}
 			s.driversMutex.RUnlock()
 
-			msgId := uuid.NewString()
-			payload, err := json.Marshal(&domain.WorkloadResponse{
-				MessageId:         msgId,
-				ModifiedWorkloads: updatedWorkloads,
-			})
+			var msgId string = uuid.NewString()
+			payload, err := json.Marshal(s.createWorkloadResponseMessage(msgId, nil, updatedWorkloads, nil))
+			// 	&domain.WorkloadResponse{
+			// 	MessageId:         msgId,
+			// 	ModifiedWorkloads: updatedWorkloads,
+			// 	MessageIndex:      s.workloadMessageIndex.Add(1),
+			// })
 
 			if err != nil {
 				s.logger.Error("Error while marshalling message payload.", zap.Error(err))
@@ -746,6 +755,18 @@ func (s *serverImpl) broadcastToWorkloadWebsockets(payload []byte) []error {
 	return errors
 }
 
+// Create and return a *domain.WorkloadResponse struct.
+// We use this function so we can increment the message index field.
+func (s *serverImpl) createWorkloadResponseMessage(id string, new []domain.Workload, modified []domain.Workload, deleted []domain.Workload) *domain.WorkloadResponse {
+	return &domain.WorkloadResponse{
+		MessageId:         id,
+		MessageIndex:      s.workloadMessageIndex.Add(1),
+		NewWorkloads:      new,
+		ModifiedWorkloads: modified,
+		DeletedWorkloads:  deleted,
+	}
+}
+
 func (s *serverImpl) handleToggleDebugLogs(req *domain.ToggleDebugLogsRequest) {
 	s.driversMutex.RLock()
 	driver, _ := s.workloadDrivers.Get(req.WorkloadId)
@@ -755,10 +776,11 @@ func (s *serverImpl) handleToggleDebugLogs(req *domain.ToggleDebugLogsRequest) {
 		workload := driver.ToggleDebugLogging(req.Enabled)
 
 		driver.LockDriver()
-		payload, err := json.Marshal(&domain.WorkloadResponse{
-			MessageId:         req.MessageId,
-			ModifiedWorkloads: []domain.Workload{workload},
-		})
+		payload, err := json.Marshal(s.createWorkloadResponseMessage(req.MessageId, nil, []domain.Workload{workload}, nil))
+		// &domain.WorkloadResponse{
+		// 	MessageId:         req.MessageId,
+		// 	ModifiedWorkloads: []domain.Workload{workload},
+		// })
 		driver.UnlockDriver()
 
 		if err != nil {
@@ -786,15 +808,18 @@ func (s *serverImpl) handleStartWorkload(req *domain.StartStopWorkloadRequest, w
 	s.driversMutex.RUnlock()
 
 	if ok {
-		var wg sync.WaitGroup
-		wg.Add(1)
-		go workloadDriver.ProcessWorkload(&wg)
-		go workloadDriver.DriveWorkload(&wg)
-		wg.Wait()
+		// var wg sync.WaitGroup
+		// wg.Add(1)
+
+		// Start the workload.
+		// This sets the "start time" and transitions the workload to the "running" state.
+		workloadDriver.GetWorkload().StartWorkload()
+
+		go workloadDriver.ProcessWorkload(nil) // &wg
+		go workloadDriver.DriveWorkload(nil)   // &wg
 
 		s.workloadsMutex.RLock()
 		workload, _ := s.workloadsMap.Get(req.WorkloadId)
-		// workload.TimeElasped = time.Since(workload.StartTime).String()
 		workload.UpdateTimeElapsed()
 		s.workloadsMutex.RUnlock()
 
@@ -802,10 +827,11 @@ func (s *serverImpl) handleStartWorkload(req *domain.StartStopWorkloadRequest, w
 
 		// Lock the workload's driver while we marshal the workload to JSON.
 		workloadDriver.LockDriver()
-		payload, err := json.Marshal(&domain.WorkloadResponse{
-			MessageId:         req.MessageId,
-			ModifiedWorkloads: []domain.Workload{workload},
-		})
+		payload, err := json.Marshal(s.createWorkloadResponseMessage(req.MessageId, nil, []domain.Workload{workload}, nil))
+		// 	&domain.WorkloadResponse{
+		// 	MessageId:         req.MessageId,
+		// 	ModifiedWorkloads: []domain.Workload{workload},
+		// }
 		workloadDriver.UnlockDriver()
 
 		if err != nil {
@@ -864,11 +890,11 @@ func (s *serverImpl) handleStopWorkloads(req *domain.StartStopWorkloadsRequest) 
 	}
 
 	// Lock the workload's driver while we marshal the workload to JSON.
-	msgId := uuid.NewString()
-	payload, err := json.Marshal(&domain.WorkloadResponse{
-		MessageId:         msgId,
-		ModifiedWorkloads: updatedWorkloads,
-	})
+	payload, err := json.Marshal(s.createWorkloadResponseMessage(uuid.NewString(), nil, updatedWorkloads, nil))
+	// 	&domain.WorkloadResponse{
+	// 	MessageId:         msgId,
+	// 	ModifiedWorkloads: updatedWorkloads,
+	// }
 
 	if err != nil {
 		s.logger.Error("Error while marshalling message payload.", zap.Error(err))
@@ -912,10 +938,11 @@ func (s *serverImpl) handleStopWorkload(req *domain.StartStopWorkloadRequest) {
 
 		// Lock the workload's driver while we marshal the workload to JSON.
 		workloadDriver.LockDriver()
-		payload, err := json.Marshal(&domain.WorkloadResponse{
-			MessageId:         req.MessageId,
-			ModifiedWorkloads: []domain.Workload{workloadDriver.GetWorkload()},
-		})
+		payload, err := json.Marshal(s.createWorkloadResponseMessage(req.MessageId, nil, []domain.Workload{workloadDriver.GetWorkload()}, nil))
+		// 	&domain.WorkloadResponse{
+		// 	MessageId:         req.MessageId,
+		// 	ModifiedWorkloads: []domain.Workload{workloadDriver.GetWorkload()},
+		// }
 		workloadDriver.UnlockDriver()
 
 		if err != nil {
@@ -948,10 +975,11 @@ func (s *serverImpl) handleRegisterWorkload(request *domain.WorkloadRegistration
 
 		// Lock the workload's driver while we marshal the workload to JSON.
 		workloadDriver.LockDriver()
-		payload, err := json.Marshal(&domain.WorkloadResponse{
-			MessageId:    msgId,
-			NewWorkloads: []domain.Workload{workload},
-		})
+		payload, err := json.Marshal(s.createWorkloadResponseMessage(msgId, []domain.Workload{workload}, nil, nil))
+		// 	&domain.WorkloadResponse{
+		// 	MessageId:    msgId,
+		// 	NewWorkloads: []domain.Workload{workload},
+		// }
 		workloadDriver.UnlockDriver()
 
 		if err != nil {
@@ -973,10 +1001,11 @@ func (s *serverImpl) handleGetWorkloads(msgId string, conn domain.ConcurrentWebS
 		el.Value.LockDriver()
 	}
 
-	payload, err := json.Marshal(&domain.WorkloadResponse{
-		MessageId:         msgId,
-		ModifiedWorkloads: s.workloads, /* Send all as modified so they're all parsed */
-	})
+	payload, err := json.Marshal(s.createWorkloadResponseMessage(msgId, nil, s.workloads, nil))
+	// 	&domain.WorkloadResponse{
+	// 	MessageId:         msgId,
+	// 	ModifiedWorkloads: s.workloads, /* Send all as modified so they're all parsed */
+	// }
 
 	if err != nil {
 		s.logger.Error("Error while marshalling message payload.", zap.Error(err))

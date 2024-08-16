@@ -12,3 +12,4 @@ storybook-static
 config-files/
 config-files/*
 output.txt
+*.exe

@@ -2,6 +2,7 @@ package domain
 
 import (
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"os"
@@ -28,6 +29,10 @@ const (
 	TraceWorkload       WorkloadType = "WorkloadFromTrace"
 )
 
+var (
+	ErrInvalidState = errors.New("workload is in invalid state for the specified operation")
+)
+
 type WorkloadGenerator interface {
 	GeneratePresetWorkload(EventConsumer, Workload, *WorkloadPreset, *WorkloadRegistrationRequest) error     // Start generating the workload.
 	GenerateTemplateWorkload(EventConsumer, Workload, *WorkloadTemplate, *WorkloadRegistrationRequest) error // Start generating the workload.
@@ -41,6 +46,34 @@ type BaseMessage struct {
 
 type SubscriptionRequest struct {
 	*BaseMessage
+}
+
+// This will panic if an invalid workload state is specified.
+func GetWorkloadStateAsString(state WorkloadState) string {
+	switch state {
+	case WorkloadReady:
+		{
+			return "WorkloadReady"
+		}
+	case WorkloadRunning:
+		{
+			return "WorkloadRunning"
+		}
+	case WorkloadFinished:
+		{
+			return "WorkloadFinished"
+		}
+	case WorkloadErred:
+		{
+			return "WorkloadErred"
+		}
+	case WorkloadTerminated:
+		{
+			return "WorkloadTerminated"
+		}
+	default:
+		panic(fmt.Sprintf("Unknown workload state: %v", state))
+	}
 }
 
 func (r *SubscriptionRequest) String() string {
@@ -69,6 +102,7 @@ func (r *ToggleDebugLogsRequest) String() string {
 
 type WorkloadResponse struct {
 	MessageId         string     `json:"msg_id"`
+	MessageIndex      int32      `json:"message_index"`
 	NewWorkloads      []Workload `json:"new_workloads"`
 	ModifiedWorkloads []Workload `json:"modified_workloads"`
 	DeletedWorkloads  []Workload `json:"deleted_workloads"`
@@ -227,7 +261,7 @@ type Workload interface {
 	// Set the state of the workload.
 	SetWorkloadState(state WorkloadState)
 	// Start the Workload.
-	StartWorkload()
+	StartWorkload() error
 	// Mark the workload as having completed successfully.
 	SetWorkloadCompleted()
 	// Called after an event is processed for the Workload.
@@ -275,6 +309,7 @@ type workloadImpl struct {
 	EndTime                   time.Time     `json:"end_time"`
 	WorkloadDuration          time.Duration `json:"workload_duration"` // The total time that the workload executed for. This is only set once the workload has completed.
 	TimeElasped               time.Duration `json:"time_elapsed"`      // Computed at the time that the data is requested by the user. This is the time elapsed SO far.
+	TimeElaspedStr            string        `json:"time_elapsed_str"`
 	NumTasksExecuted          int64         `json:"num_tasks_executed"`
 	NumEventsProcessed        int64         `json:"num_events_processed"`
 	NumSessionsCreated        int64         `json:"num_sessions_created"`
@@ -318,9 +353,15 @@ func (w *workloadImpl) GetWorkloadSource() interface{} {
 	return w.workload.GetWorkloadSource()
 }
 
-func (w *workloadImpl) StartWorkload() {
+func (w *workloadImpl) StartWorkload() error {
+	if w.WorkloadState != WorkloadReady {
+		return fmt.Errorf("%w: cannot start workload that is in state '%s'", ErrInvalidState, GetWorkloadStateAsString(w.WorkloadState))
+	}
+
 	w.WorkloadState = WorkloadRunning
 	w.StartTime = time.Now()
+
+	return nil
 }
 
 func (w *workloadImpl) GetTimescaleAdjustmentFactor() float64 {
@@ -412,18 +453,23 @@ func (w *workloadImpl) GetTimeElasped() time.Duration {
 }
 
 // Return the time elapsed as a string, which is computed at the time that data is requested by the user.
+//
+// IMPORTANT: This updates the w.TimeElaspedStr field (setting it to w.TimeElapsed.String()) before returning it.
 func (w *workloadImpl) GetTimeElaspedAsString() string {
+	w.TimeElaspedStr = w.TimeElasped.String()
 	return w.TimeElasped.String()
 }
 
 // Update the time elapsed.
 func (w *workloadImpl) SetTimeElasped(timeElapsed time.Duration) {
 	w.TimeElasped = timeElapsed
+	w.TimeElaspedStr = w.TimeElasped.String()
 }
 
 // Instruct the Workload to recompute its 'time elapsed' field.
 func (w *workloadImpl) UpdateTimeElapsed() {
 	w.TimeElasped = time.Since(w.StartTime)
+	w.TimeElaspedStr = w.TimeElasped.String()
 }
 
 // Return the number of events processed by the workload.

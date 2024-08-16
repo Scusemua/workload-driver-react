@@ -32,7 +32,8 @@ interface Workload {
     workload_template: WorkloadTemplate;
     registered_time: string; // Timestamp of when the workload was registered.
     start_time: string;
-    time_elapsed: string;
+    time_elapsed: number;
+    time_elapsed_str: string;
     num_tasks_executed: number;
     seed: number;
     num_active_sessions: number;
