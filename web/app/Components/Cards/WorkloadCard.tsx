@@ -902,6 +902,8 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                 isOpen={inspectWorkloadModalOpen}
                 workload={workloadBeingInspected}
                 onClose={onCloseInspectWorkloadModal}
+                onStartClicked={() => {if (workloadBeingInspected) onStartWorkloadClicked(workloadBeingInspected)}}
+                onStopClicked={() => {if (workloadBeingInspected) onStopWorkloadClicked(workloadBeingInspected)}}
             />
         </React.Fragment>
     );

@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button, DescriptionList, DescriptionListDescription, DescriptionListGroup, DescriptionListTerm, Flex, FlexItem, Label, Modal, ModalVariant, Title, TitleSizes, Tooltip } from '@patternfly/react-core';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
-import { BlueprintIcon, CheckCircleIcon, ClipboardCheckIcon, ClockIcon, CpuIcon, DiceIcon, ErrorCircleOIcon, ExclamationTriangleIcon, HourglassStartIcon, MemoryIcon, OffIcon, OutlinedCalendarAltIcon, PendingIcon, QuestionCircleIcon, ResourcesEmptyIcon, RunningIcon, SpinnerIcon, TimesCircleIcon, UnknownIcon } from '@patternfly/react-icons';
+import { BlueprintIcon, CheckCircleIcon, ClipboardCheckIcon, ClockIcon, CloseIcon, CpuIcon, DiceIcon, ErrorCircleOIcon, ExclamationTriangleIcon, HourglassStartIcon, MemoryIcon, OffIcon, OutlinedCalendarAltIcon, PendingIcon, PlayIcon, QuestionCircleIcon, ResourcesEmptyIcon, RunningIcon, SpinnerIcon, StopIcon, TimesCircleIcon, UnknownIcon } from '@patternfly/react-icons';
 
 import {
     Session,
@@ -11,9 +11,6 @@ import {
     WORKLOAD_STATE_RUNNING,
     WORKLOAD_STATE_TERMINATED,
     Workload,
-    WorkloadPreset,
-    WorkloadTemplate,
-    GetWorkloadStatusTooltip,
     WorkloadEvent,
 } from '@app/Data/Workload';
 import text from '@patternfly/react-styles/css/utilities/Text/text';
@@ -23,9 +20,13 @@ export interface InspectWorkloadModalProps {
     children?: React.ReactNode;
     isOpen: boolean;
     onClose: () => void;
+    onStartClicked: () => void;
+    onStopClicked: () => void;
     workload: Workload | null;
 }
 
+// TODO: Add start/stop/pause buttons to this modal.
+// TODO: Add runtime metrics to this modal.
 export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalProps> = (props) => {
     const workloadStatus = (
         <React.Fragment>
@@ -171,8 +172,14 @@ export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalP
             maxWidth={1920}
             onClose={props.onClose}
             actions={[
-                <Button key="dismiss" variant="primary" onClick={props.onClose}>
-                    Dismiss
+                <Button key="start-workload" variant="primary" icon={<PlayIcon/>} onClick={props.onStartClicked} isDisabled={props.workload?.workload_state != WORKLOAD_STATE_READY}>
+                    Start Workload
+                </Button>,
+                <Button key="stop-workload" variant="danger" icon={<StopIcon/>} onClick={props.onStopClicked} isDisabled={props.workload?.workload_state != WORKLOAD_STATE_RUNNING }>
+                    Stop Workload
+                </Button>,
+                <Button key="dismiss-workload" variant="secondary" icon={<CloseIcon/>} onClick={props.onClose}>
+                    Close Window
                 </Button>,
             ]}
         >
