@@ -287,6 +287,8 @@ func (d *workloadDriverImpl) createWorkloadFromPreset(workloadRegistrationReques
 		domain.NewWorkload(d.id, workloadRegistrationRequest.WorkloadName,
 			d.workloadRegistrationRequest.Seed, workloadRegistrationRequest.DebugLogging, workloadRegistrationRequest.TimescaleAdjustmentFactor, d.atom), d.workloadPreset)
 
+	workload.SetSource(d.workloadPreset)
+
 	return workload, nil
 }
 
@@ -860,7 +862,7 @@ func (d *workloadDriverImpl) NewSession(id string, meta *generator.Session, crea
 
 	// d.workload.NumActiveSessions += 1
 	// d.workload.NumSessionsCreated += 1
-	d.workload.SessionCreated(internalSessionId)
+	d.workload.SessionCreated(id)
 	d.Stats().TotalNumSessions += 1
 	d.seenSessions[internalSessionId] = struct{}{}
 	d.sessions.Set(internalSessionId, session)
@@ -966,7 +968,7 @@ func (d *workloadDriverImpl) handleEvent(evt domain.Event) error {
 
 		d.mu.Lock()
 		// d.workload.NumActiveTrainings += 1
-		d.workload.TrainingStarted(internalSessionId)
+		d.workload.TrainingStarted(traceSessionId)
 		d.mu.Unlock()
 		d.logger.Debug("Handled TrainingStarted event.", zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
 	case domain.EventSessionUpdateGpuUtil:
@@ -1005,7 +1007,7 @@ func (d *workloadDriverImpl) handleEvent(evt domain.Event) error {
 			d.mu.Lock()
 			// d.workload.NumTasksExecuted += 1
 			// d.workload.NumActiveTrainings -= 1
-			d.workload.TrainingStopped(internalSessionId)
+			d.workload.TrainingStopped(traceSessionId)
 			d.mu.Unlock()
 			d.logger.Debug("Successfully handled TrainingEnded event.", zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
 		}
@@ -1023,7 +1025,7 @@ func (d *workloadDriverImpl) handleEvent(evt domain.Event) error {
 		delete(d.seenSessions, internalSessionId)
 
 		d.mu.Lock()
-		d.workload.SessionStopped(internalSessionId) // NumActiveSessions -= 1
+		d.workload.SessionStopped(traceSessionId) // NumActiveSessions -= 1
 		d.mu.Unlock()
 		d.logger.Debug("Handled SessionStopped event.", zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
 	}

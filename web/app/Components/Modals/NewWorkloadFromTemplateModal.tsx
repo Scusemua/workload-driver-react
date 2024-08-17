@@ -57,6 +57,15 @@ function assertIsNumber(value: number | ''): asserts value is number {
     }
 }
 
+const SessionStartTickDefault: number = 2;
+const SessionStopTickDefault: number = 8;
+const TrainingStartTickDefault: number = 4;
+const TrainingDurationInTicksDefault: number = 2;
+const TrainingCpuPercentUtilDefault: number = 10;
+const TrainingMemUsageGbDefault: number = 0.25;
+const TimeAdjustmentFactorDefault = 0.1;
+const NumberOfGpusDefault: number = 1;
+
 export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFromTemplateModalProps> = (props) => {
     const [workloadTitle, setWorkloadTitle] = React.useState('');
     const [workloadTitleIsValid, setWorkloadTitleIsValid] = React.useState(true);
@@ -68,18 +77,18 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
     const [debugLoggingEnabled, setDebugLoggingEnabled] = React.useState(true);
 
     const [sessionId, setSessionId] = React.useState('');
-    const [sessionStartTick, setSessionStartTick] = React.useState<number | ''>(2);
-    const [sessionStopTick, setSessionStopTick] = React.useState<number | ''>(8);
-    const [trainingStartTick, setTrainingStartTick] = React.useState<number | ''>(4);
-    const [trainingDurationInTicks, setTrainingDurationInTicks] = React.useState<number | ''>(2);
-    const [trainingCpuPercentUtil, setTrainingCpuPercentUtil] = React.useState<number | ''>(10.0);
-    const [trainingMemUsageGb, setTrainingMemUsageGb] = React.useState<number | ''>(0.25);
-    const [timescaleAdjustmentFactor, setTimescaleAdjustmentFactor] = React.useState<number | ''>(0.1);
+    const [sessionStartTick, setSessionStartTick] = React.useState<number | ''>(SessionStartTickDefault);
+    const [sessionStopTick, setSessionStopTick] = React.useState<number | ''>(SessionStopTickDefault);
+    const [trainingStartTick, setTrainingStartTick] = React.useState<number | ''>(TrainingStartTickDefault);
+    const [trainingDurationInTicks, setTrainingDurationInTicks] = React.useState<number | ''>(TrainingDurationInTicksDefault);
+    const [trainingCpuPercentUtil, setTrainingCpuPercentUtil] = React.useState<number | ''>(TrainingCpuPercentUtilDefault);
+    const [trainingMemUsageGb, setTrainingMemUsageGb] = React.useState<number | ''>(TrainingMemUsageGbDefault);
+    const [timescaleAdjustmentFactor, setTimescaleAdjustmentFactor] = React.useState<number | ''>(TimeAdjustmentFactorDefault);
 
     // const gpuUtilizations = React.useRef<string[]>(["0.0", "0.0", "0.0", "0.0", "0.0", "0.0", "0.0", "0.0"]);
     const [gpuUtilizations, setGpuUtilizations] = React.useState<(number | '')[]>([100.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
 
-    const [numberOfGPUs, setNumberOfGPUs] = React.useState<number | ''>(1);
+    const [numberOfGPUs, setNumberOfGPUs] = React.useState<number | ''>(NumberOfGpusDefault);
     // const [numberOfGPUsString, setNumberOfGPUsString] = React.useState<string>("1");
 
     const defaultWorkloadTitle = React.useRef(uuidv4());
@@ -297,6 +306,9 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
             start_tick: sessionStartTick,
             stop_tick: sessionStopTick,
             trainings: [trainingEvent],
+            trainings_completed: 0,
+            state: "awaiting start",
+            error_message: "",
         }
 
         const sessions: Session[] = [session]
@@ -402,16 +414,17 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
         setDebugLoggingEnabled(true);
 
         setSessionId('');
-        setSessionStartTick(4);
-        setSessionStopTick(16);
-        setTrainingStartTick(8);
-        setTrainingDurationInTicks(4);
-        setTrainingCpuPercentUtil(10.0);
-        setTrainingMemUsageGb(0.25);
+        setSessionStartTick(SessionStartTickDefault);
+        setSessionStopTick(SessionStopTickDefault);
+        setTrainingStartTick(TrainingStartTickDefault);
+        setTrainingDurationInTicks(TrainingDurationInTicksDefault);
+        setTrainingCpuPercentUtil(TrainingCpuPercentUtilDefault);
+        setTrainingMemUsageGb(TrainingMemUsageGbDefault);
+        setTimescaleAdjustmentFactor(TimeAdjustmentFactorDefault);
 
         setGpuUtilizations([100.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
 
-        setNumberOfGPUs(1);
+        setNumberOfGPUs(NumberOfGpusDefault);
         // setNumberOfGPUsString("1");
 
         defaultWorkloadTitle.current = uuidv4();

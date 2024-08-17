@@ -26,6 +26,7 @@ func (w *WorkloadFromTemplate) SetSource(source interface{}) {
 	}
 
 	w.workloadSource = template.Sessions
+	w.SetSessions(template.Sessions)
 }
 
 // Called when a Session is created for/in the Workload.
@@ -78,6 +79,7 @@ func (w *WorkloadFromTemplate) TrainingStopped(sessionId string) {
 
 	session := val.(*WorkloadSession)
 	session.State = SessionIdle
+	session.TrainingsCompleted += 1
 }
 
 func NewWorkloadFromTemplate(baseWorkload Workload, workloadTemplate *WorkloadTemplate) *WorkloadFromTemplate {

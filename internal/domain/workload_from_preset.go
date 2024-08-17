@@ -1,7 +1,5 @@
 package domain
 
-import "go.uber.org/zap"
-
 type WorkloadFromPreset struct {
 	*workloadImpl
 
@@ -33,53 +31,65 @@ func (w *WorkloadFromPreset) SetSource(source interface{}) {
 // Called when a Session is created for/in the Workload.
 // Just updates some internal metrics.
 func (w *WorkloadFromPreset) SessionCreated(sessionId string) {
-	val, ok := w.sessionsMap.Get(sessionId)
-	if !ok {
-		w.logger.Error("Failed to find newly-created session in session map.", zap.String("session-id", sessionId))
-		return
-	}
+	// Haven't implemented logic to add/create WorkloadSession structs for preset-based workloads.
+	panic("Not yet supported.")
 
-	session := val.(*WorkloadSession)
-	session.State = SessionIdle
+	// val, ok := w.sessionsMap.Get(sessionId)
+	// if !ok {
+	// 	w.logger.Error("Failed to find newly-created session in session map.", zap.String("session-id", sessionId))
+	// 	return
+	// }
+
+	// session := val.(*WorkloadSession)
+	// session.State = SessionIdle
 }
 
 // Called when a Session is stopped for/in the Workload.
 // Just updates some internal metrics.
 func (w *WorkloadFromPreset) SessionStopped(sessionId string) {
-	val, ok := w.sessionsMap.Get(sessionId)
-	if !ok {
-		w.logger.Error("Failed to find freshly-terminated session in session map.", zap.String("session-id", sessionId))
-		return
-	}
+	// Haven't implemented logic to add/create WorkloadSession structs for preset-based workloads.
+	panic("Not yet supported.")
 
-	session := val.(*WorkloadSession)
-	session.State = SessionStopped
+	// val, ok := w.sessionsMap.Get(sessionId)
+	// if !ok {
+	// 	w.logger.Error("Failed to find freshly-terminated session in session map.", zap.String("session-id", sessionId))
+	// 	return
+	// }
+
+	// session := val.(*WorkloadSession)
+	// session.State = SessionStopped
 }
 
 // Called when a training starts during/in the workload.
 // Just updates some internal metrics.
 func (w *WorkloadFromPreset) TrainingStarted(sessionId string) {
-	val, ok := w.sessionsMap.Get(sessionId)
-	if !ok {
-		w.logger.Error("Failed to find now-training session in session map.", zap.String("session-id", sessionId))
-		return
-	}
+	// Haven't implemented logic to add/create WorkloadSession structs for preset-based workloads.
+	panic("Not yet supported.")
 
-	session := val.(*WorkloadSession)
-	session.State = SessionTraining
+	// val, ok := w.sessionsMap.Get(sessionId)
+	// if !ok {
+	// 	w.logger.Error("Failed to find now-training session in session map.", zap.String("session-id", sessionId))
+	// 	return
+	// }
+
+	// session := val.(*WorkloadSession)
+	// session.State = SessionTraining
 }
 
 // Called when a training stops during/in the workload.
 // Just updates some internal metrics.
 func (w *WorkloadFromPreset) TrainingStopped(sessionId string) {
-	val, ok := w.sessionsMap.Get(sessionId)
-	if !ok {
-		w.logger.Error("Failed to find now-idle session in session map.", zap.String("session-id", sessionId))
-		return
-	}
+	// Haven't implemented logic to add/create WorkloadSession structs for preset-based workloads.
+	panic("Not yet supported.")
 
-	session := val.(*WorkloadSession)
-	session.State = SessionIdle
+	// val, ok := w.sessionsMap.Get(sessionId)
+	// if !ok {
+	// 	w.logger.Error("Failed to find now-idle session in session map.", zap.String("session-id", sessionId))
+	// 	return
+	// }
+
+	// session := val.(*WorkloadSession)
+	// session.State = SessionIdle
 }
 
 func NewWorkloadFromPreset(baseWorkload Workload, workloadPreset *WorkloadPreset) *WorkloadFromPreset {

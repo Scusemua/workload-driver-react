@@ -267,8 +267,9 @@ func (w *workloadImpl) SetSessions(sessions []*WorkloadSession) {
 
 	// Add each session to our internal mapping and initialize the session.
 	for _, session := range sessions {
-		session.State = SessionPending
+		session.State = SessionAwaitingStart
 
+		w.sessionsMap.Set()
 		w.sessionsMap.Set(session.Id, session)
 	}
 }
@@ -461,14 +462,17 @@ func (w *workloadImpl) SessionCreated(sessionId string) {
 	w.NumActiveSessions += 1
 	w.NumSessionsCreated += 1
 
-	val, ok := w.sessionsMap.Get(sessionId)
-	if !ok {
-		w.logger.Error("Failed to find newly-created session in session map.", zap.String("session-id", sessionId))
-		return
-	}
+	// Offload to `workload` field for session-specific steps/updates to session metrics.
+	w.workload.SessionCreated(sessionId)
 
-	session := val.(*WorkloadSession)
-	session.State = SessionIdle
+	// val, ok := w.sessionsMap.Get(sessionId)
+	// if !ok {
+	// 	w.logger.Error("Failed to find newly-created session in session map.", zap.String("session-id", sessionId))
+	// 	return
+	// }
+
+	// session := val.(*WorkloadSession)
+	// session.State = SessionIdle
 }
 
 // Called when a Session is stopped for/in the Workload.
@@ -476,14 +480,17 @@ func (w *workloadImpl) SessionCreated(sessionId string) {
 func (w *workloadImpl) SessionStopped(sessionId string) {
 	w.NumActiveSessions -= 1
 
-	val, ok := w.sessionsMap.Get(sessionId)
-	if !ok {
-		w.logger.Error("Failed to find freshly-terminated session in session map.", zap.String("session-id", sessionId))
-		return
-	}
+	// Offload to `workload` field for session-specific steps/updates to session metrics.
+	w.workload.SessionStopped(sessionId)
 
-	session := val.(*WorkloadSession)
-	session.State = SessionStopped
+	// val, ok := w.sessionsMap.Get(sessionId)
+	// if !ok {
+	// 	w.logger.Error("Failed to find freshly-terminated session in session map.", zap.String("session-id", sessionId))
+	// 	return
+	// }
+
+	// session := val.(*WorkloadSession)
+	// session.State = SessionStopped
 }
 
 // Called when a training starts during/in the workload.
@@ -491,14 +498,17 @@ func (w *workloadImpl) SessionStopped(sessionId string) {
 func (w *workloadImpl) TrainingStarted(sessionId string) {
 	w.NumActiveTrainings += 1
 
-	val, ok := w.sessionsMap.Get(sessionId)
-	if !ok {
-		w.logger.Error("Failed to find now-training session in session map.", zap.String("session-id", sessionId))
-		return
-	}
+	// Offload to `workload` field for session-specific steps/updates to session metrics.
+	w.workload.TrainingStarted(sessionId)
 
-	session := val.(*WorkloadSession)
-	session.State = SessionTraining
+	// val, ok := w.sessionsMap.Get(sessionId)
+	// if !ok {
+	// 	w.logger.Error("Failed to find now-training session in session map.", zap.String("session-id", sessionId))
+	// 	return
+	// }
+
+	// session := val.(*WorkloadSession)
+	// session.State = SessionTraining
 }
 
 // Called when a training stops during/in the workload.
@@ -507,14 +517,17 @@ func (w *workloadImpl) TrainingStopped(sessionId string) {
 	w.NumTasksExecuted += 1
 	w.NumActiveTrainings -= 1
 
-	val, ok := w.sessionsMap.Get(sessionId)
-	if !ok {
-		w.logger.Error("Failed to find now-idle session in session map.", zap.String("session-id", sessionId))
-		return
-	}
+	// Offload to `workload` field for session-specific steps/updates to session metrics.
+	w.workload.TrainingStopped(sessionId)
 
-	session := val.(*WorkloadSession)
-	session.State = SessionIdle
+	// val, ok := w.sessionsMap.Get(sessionId)
+	// if !ok {
+	// 	w.logger.Error("Failed to find now-idle session in session map.", zap.String("session-id", sessionId))
+	// 	return
+	// }
+
+	// session := val.(*WorkloadSession)
+	// session.State = SessionIdle
 }
 
 // Return the unique ID of the workload.

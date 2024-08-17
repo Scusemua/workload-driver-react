@@ -1,11 +1,11 @@
 package domain
 
 const (
-	SessionPending  SessionState = "pending"    // The session has not yet been created.
-	SessionIdle     SessionState = "idle"       // The session is running, but is not actively training.
-	SessionTraining SessionState = "training"   // The session is actively training.
-	SessionStopped  SessionState = "terminated" // The session has been terminated (without an error).
-	SessionErred    SessionState = "erred"      // An error occurred, forcing the session to terminate.
+	SessionAwaitingStart SessionState = "awaiting start" // The session has not yet been created.
+	SessionIdle          SessionState = "idle"           // The session is running, but is not actively training.
+	SessionTraining      SessionState = "training"       // The session is actively training.
+	SessionStopped       SessionState = "terminated"     // The session has been terminated (without an error).
+	SessionErred         SessionState = "erred"          // An error occurred, forcing the session to terminate.
 )
 
 type SessionState string
@@ -20,7 +20,7 @@ type WorkloadSession struct {
 	StartTick          int             `json:"start_tick"`
 	StopTick           int             `json:"stop_tick"`
 	Trainings          []TrainingEvent `json:"trainings"`
-	NumEventsProcessed int             `json:"num_events_processed"`
+	TrainingsCompleted int             `json:"trainings_completed"`
 	State              SessionState    `json:"state"`
 }
 

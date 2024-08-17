@@ -1,5 +1,7 @@
 package domain
 
+import "encoding/json"
+
 type BaseMessage struct {
 	Operation string `json:"op"`
 	MessageId string `json:"msg_id"`

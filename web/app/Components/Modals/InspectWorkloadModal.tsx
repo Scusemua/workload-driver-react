@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button, DescriptionList, DescriptionListDescription, DescriptionListGroup, DescriptionListTerm, Flex, FlexItem, Label, Modal, ModalVariant, Title, TitleSizes, Tooltip } from '@patternfly/react-core';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
-import { BlueprintIcon, CheckCircleIcon, ClipboardCheckIcon, ClockIcon, CpuIcon, DiceIcon, ExclamationTriangleIcon, HourglassStartIcon, OutlinedCalendarAltIcon, SpinnerIcon, TimesCircleIcon } from '@patternfly/react-icons';
+import { BlueprintIcon, CheckCircleIcon, ClipboardCheckIcon, ClockIcon, CpuIcon, DiceIcon, ErrorCircleOIcon, ExclamationTriangleIcon, HourglassStartIcon, MemoryIcon, OffIcon, OutlinedCalendarAltIcon, PendingIcon, QuestionCircleIcon, ResourcesEmptyIcon, RunningIcon, SpinnerIcon, TimesCircleIcon, UnknownIcon } from '@patternfly/react-icons';
 
 import {
     Session,
@@ -111,9 +111,27 @@ export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalP
         </Table>
     );
 
+    const getSessionStatusLabel = (session: Session) => {
+        const status: string = session.state;
+        switch (status) {
+            case "awaiting start":
+                return (<Tooltip content="This session has not yet been created or started yet."><Label icon={<PendingIcon/>} color='grey'>{status}</Label></Tooltip>);
+            case "idle":
+                return (<Tooltip content="This session is actively-running, but it is not currently training."><Label icon={<ResourcesEmptyIcon/>} color='grey'>{status}</Label></Tooltip>);
+            case "training":
+                return (<Tooltip content="This session is actively training."><Label icon={<RunningIcon/>} color='green'>{status}</Label></Tooltip>);
+            case "terminated":
+                return (<Tooltip content="This session has been stopped permanently (without error)."><Label icon={<OffIcon/>} color='gold'>{status}</Label></Tooltip>);
+            case "erred":
+                return (<Tooltip content={`This session has been terminated due to an unexpected error: ${session.error_message}`}><Label icon={<ErrorCircleOIcon/>} color='red'> {status}</Label></Tooltip>);
+            default:
+                return (<Tooltip content="This session is in an unknown or unexpected state."><Label icon={<UnknownIcon/>} color='orange'> unknown: {status}</Label></Tooltip>);
+        }
+    }
+
     // TODO: Add pagination to this table.
     // TODO: Define this table in its own file (probably).
-    const sessions_table_columns: string[] = ["Index", "ID", "Status", "#Events Processed", "Max vCPUs", "Max Memory (GB)", "Max vGPUs"]
+    const sessions_table_columns: string[] = ["Index", "ID", "Status", "Trainings Completed", "Max vCPUs", "Max Memory (GB)", "Max vGPUs"]
     const sessionTable = (
         <Table variant="compact">
             <Thead>
@@ -128,12 +146,12 @@ export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalP
                     return (
                         <Tr key={props.workload?.events_processed[0]?.id}>
                             <Td dataLabel={sessions_table_columns[0]}>{idx}</Td>
-                            <Td dataLabel={sessions_table_columns[1]}>{session?.id}</Td>
-                            <Td dataLabel={sessions_table_columns[2]}>{session?.state}</Td>
-                            <Td dataLabel={sessions_table_columns[3]}>{session?.num_events_processed}</Td>
-                            <Td dataLabel={sessions_table_columns[4]}><CpuIcon/> {session?.max_cpus}</Td>
-                            <Td dataLabel={sessions_table_columns[5]}><GpuIcon/> {session?.max_num_gpus}</Td>
-                            <Td dataLabel={sessions_table_columns[6]}><RamIcon/> {session?.max_memory_gb}</Td>
+                            <Td dataLabel={sessions_table_columns[1]}>{session.id}</Td>
+                            <Td dataLabel={sessions_table_columns[2]}>{getSessionStatusLabel(session)}</Td>
+                            <Td dataLabel={sessions_table_columns[3]}>{session.trainings_completed}</Td>
+                            <Td dataLabel={sessions_table_columns[4]}><CpuIcon /> {session?.max_cpus}</Td>
+                            <Td dataLabel={sessions_table_columns[5]}><GpuIcon /> {session?.max_num_gpus}</Td>
+                            <Td dataLabel={sessions_table_columns[6]}><MemoryIcon /> {session?.max_memory_gb}</Td>
                         </Tr>
                     )
                 })}
@@ -186,7 +204,7 @@ export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalP
                     {eventsTable}
                 </FlexItem>
                 <FlexItem>
-                    <ClipboardCheckIcon /> {<strong>Sessions:</strong>} {props.workload?.num_sessions_created}
+                    <ClipboardCheckIcon /> {<strong>Sessions:</strong>} {props.workload?.num_sessions_created} / {props.workload?.sessions.length} created
                 </FlexItem>
                 <FlexItem>
                     {sessionTable}
