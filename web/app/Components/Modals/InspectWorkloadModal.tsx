@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button, DescriptionList, DescriptionListDescription, DescriptionListGroup, DescriptionListTerm, Flex, FlexItem, Label, Modal, ModalVariant, Title, TitleSizes, Tooltip } from '@patternfly/react-core';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
-import { BlueprintIcon, CheckCircleIcon, ClipboardCheckIcon, ClockIcon, DiceIcon, ExclamationTriangleIcon, HourglassStartIcon, OutlinedCalendarAltIcon, SpinnerIcon, TimesCircleIcon } from '@patternfly/react-icons';
+import { BlueprintIcon, CheckCircleIcon, ClipboardCheckIcon, ClockIcon, CpuIcon, DiceIcon, ExclamationTriangleIcon, HourglassStartIcon, OutlinedCalendarAltIcon, SpinnerIcon, TimesCircleIcon } from '@patternfly/react-icons';
 
 import {
     Session,
@@ -17,6 +17,7 @@ import {
     WorkloadEvent,
 } from '@app/Data/Workload';
 import text from '@patternfly/react-styles/css/utilities/Text/text';
+import { GpuIcon, GpuIconAlt, RamIcon } from '@app/Icons';
 
 export interface InspectWorkloadModalProps {
     children?: React.ReactNode;
@@ -26,8 +27,6 @@ export interface InspectWorkloadModalProps {
 }
 
 export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalProps> = (props) => {
-    const events_processed_columns: string[] = ["Event Name", "Target Session ID", "Event Timestamp", "IRL Timestamp"];
-
     const workloadStatus = (
         <React.Fragment>
             {props.workload?.workload_state ==
@@ -46,10 +45,6 @@ export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalP
                             text.successColor_100
                         }
                     />} color="green">Running</Label>
-                    // <React.Fragment>
-
-                    //     Running
-                    // </React.Fragment>
                 )}
             {props.workload?.workload_state ==
                 WORKLOAD_STATE_FINISHED && (
@@ -58,14 +53,6 @@ export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalP
                             text.successColor_100
                         }
                     />} color="green">Complete</Label>
-                    // <React.Fragment>
-                    //     <CheckCircleIcon
-                    //         className={
-                    //             text.successColor_100
-                    //         }
-                    //     />
-                    //     {' Complete'}
-                    // </React.Fragment>
                 )}
             {props.workload?.workload_state ==
                 WORKLOAD_STATE_ERRED && (
@@ -74,14 +61,6 @@ export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalP
                             text.dangerColor_100
                         }
                     />} color="red">Erred</Label>
-                    // <React.Fragment>
-                    //     <TimesCircleIcon
-                    //         className={
-                    //             text.dangerColor_100
-                    //         }
-                    //     />
-                    //     {' Erred'}
-                    // </React.Fragment>
                 )}
             {props.workload?.workload_state ==
                 WORKLOAD_STATE_TERMINATED && (
@@ -90,14 +69,6 @@ export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalP
                             text.warningColor_100
                         }
                     />} color="orange">Terminated</Label>
-                    // <React.Fragment>
-                    //     <ExclamationTriangleIcon
-                    //         className={
-                    //             text.warningColor_100
-                    //         }
-                    //     />
-                    //     {' Terminated'}
-                    // </React.Fragment>
                 )}
         </React.Fragment>
     );
@@ -112,6 +83,64 @@ export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalP
         </React.Fragment>
     )
 
+    // TODO: Add pagination to this table.
+    // TODO: Define this table in its own file (probably).
+    const events_table_columns: string[] = ["Index", "Event Name", "Target Session ID", "Event Timestamp", "IRL Timestamp"];
+    const eventsTable = (
+        <Table variant="compact">
+            <Thead>
+                <Tr>
+                    {events_table_columns.map((column, columnIndex) => (
+                        <Th key={columnIndex}>{column}</Th>
+                    ))}
+                </Tr>
+            </Thead>
+            <Tbody>
+                {props.workload?.events_processed?.map((evt: WorkloadEvent, idx: number) => {
+                    return (
+                        <Tr key={props.workload?.events_processed[0]?.id}>
+                            <Td dataLabel={events_table_columns[0]}>{idx}</Td>
+                            <Td dataLabel={events_table_columns[1]}>{evt?.name}</Td>
+                            <Td dataLabel={events_table_columns[2]}>{evt?.session}</Td>
+                            <Td dataLabel={events_table_columns[3]}>{evt?.timestamp}</Td>
+                            <Td dataLabel={events_table_columns[4]}>{evt?.processed_at}</Td>
+                        </Tr>
+                    )
+                })}
+            </Tbody>
+        </Table>
+    );
+
+    // TODO: Add pagination to this table.
+    // TODO: Define this table in its own file (probably).
+    const sessions_table_columns: string[] = ["Index", "ID", "Status", "#Events Processed", "Max vCPUs", "Max Memory (GB)", "Max vGPUs"]
+    const sessionTable = (
+        <Table variant="compact">
+            <Thead>
+                <Tr>
+                    {sessions_table_columns.map((column, columnIndex) => (
+                        <Th key={columnIndex}>{column}</Th>
+                    ))}
+                </Tr>
+            </Thead>
+            <Tbody>
+                {props.workload?.sessions?.map((session: Session, idx: number) => {
+                    return (
+                        <Tr key={props.workload?.events_processed[0]?.id}>
+                            <Td dataLabel={sessions_table_columns[0]}>{idx}</Td>
+                            <Td dataLabel={sessions_table_columns[1]}>{session?.id}</Td>
+                            <Td dataLabel={sessions_table_columns[2]}>{session?.state}</Td>
+                            <Td dataLabel={sessions_table_columns[3]}>{session?.num_events_processed}</Td>
+                            <Td dataLabel={sessions_table_columns[4]}><CpuIcon/> {session?.max_cpus}</Td>
+                            <Td dataLabel={sessions_table_columns[5]}><GpuIcon/> {session?.max_num_gpus}</Td>
+                            <Td dataLabel={sessions_table_columns[6]}><RamIcon/> {session?.max_memory_gb}</Td>
+                        </Tr>
+                    )
+                })}
+            </Tbody>
+        </Table>
+    )
+
     console.log(`props.workload?.events_processed?: ${props.workload?.events_processed}`)
 
     return (
@@ -120,6 +149,8 @@ export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalP
             titleIconVariant={"info"}
             header={header}
             isOpen={props.isOpen}
+            width={1280}
+            maxWidth={1920}
             onClose={props.onClose}
             actions={[
                 <Button key="dismiss" variant="primary" onClick={props.onClose}>
@@ -152,27 +183,13 @@ export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalP
                     <ClipboardCheckIcon /> {<strong>Events Processed:</strong>} {props.workload?.num_events_processed}
                 </FlexItem>
                 <FlexItem>
-                    <Table variant="compact">
-                        <Thead>
-                            <Tr>
-                                {events_processed_columns.map((column, columnIndex) => (
-                                    <Th key={columnIndex}>{column}</Th>
-                                ))}
-                            </Tr>
-                        </Thead>
-                        <Tbody>
-                            {props.workload?.events_processed?.map((evt: WorkloadEvent) => {
-                                return (
-                                    <Tr key={props.workload?.events_processed[0]?.id}>
-                                        <Td dataLabel={events_processed_columns[0]}>{evt?.name}</Td>
-                                        <Td dataLabel={events_processed_columns[1]}>{evt?.session}</Td>
-                                        <Td dataLabel={events_processed_columns[2]}>{evt?.timestamp}</Td>
-                                        <Td dataLabel={events_processed_columns[3]}>{evt?.processed_at}</Td>
-                                    </Tr>
-                                )
-                            })}
-                        </Tbody>
-                    </Table>
+                    {eventsTable}
+                </FlexItem>
+                <FlexItem>
+                    <ClipboardCheckIcon /> {<strong>Sessions:</strong>} {props.workload?.num_sessions_created}
+                </FlexItem>
+                <FlexItem>
+                    {sessionTable}
                 </FlexItem>
             </Flex>
             <React.Fragment />

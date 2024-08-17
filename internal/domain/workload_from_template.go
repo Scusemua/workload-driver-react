@@ -1,0 +1,109 @@
+package domain
+
+import "go.uber.org/zap"
+
+type WorkloadFromTemplate struct {
+	*workloadImpl
+
+	Template *WorkloadTemplate `json:"workload_template"`
+}
+
+func (w *WorkloadFromTemplate) GetWorkloadSource() interface{} {
+	return w.Template
+}
+
+func (w *WorkloadFromTemplate) SetSource(source interface{}) {
+	if source == nil {
+		panic("Cannot use nil source for WorkloadFromTemplate")
+	}
+
+	var (
+		template *WorkloadTemplate
+		ok       bool
+	)
+	if template, ok = source.(*WorkloadTemplate); !ok {
+		panic("Workload source is not correct type for WorkloadFromTemplate.")
+	}
+
+	w.workloadSource = template.Sessions
+}
+
+// Called when a Session is created for/in the Workload.
+// Just updates some internal metrics.
+func (w *WorkloadFromTemplate) SessionCreated(sessionId string) {
+	val, ok := w.sessionsMap.Get(sessionId)
+	if !ok {
+		w.logger.Error("Failed to find newly-created session in session map.", zap.String("session-id", sessionId))
+		return
+	}
+
+	session := val.(*WorkloadSession)
+	session.State = SessionIdle
+}
+
+// Called when a Session is stopped for/in the Workload.
+// Just updates some internal metrics.
+func (w *WorkloadFromTemplate) SessionStopped(sessionId string) {
+	val, ok := w.sessionsMap.Get(sessionId)
+	if !ok {
+		w.logger.Error("Failed to find freshly-terminated session in session map.", zap.String("session-id", sessionId))
+		return
+	}
+
+	session := val.(*WorkloadSession)
+	session.State = SessionStopped
+}
+
+// Called when a training starts during/in the workload.
+// Just updates some internal metrics.
+func (w *WorkloadFromTemplate) TrainingStarted(sessionId string) {
+	val, ok := w.sessionsMap.Get(sessionId)
+	if !ok {
+		w.logger.Error("Failed to find now-training session in session map.", zap.String("session-id", sessionId))
+		return
+	}
+
+	session := val.(*WorkloadSession)
+	session.State = SessionTraining
+}
+
+// Called when a training stops during/in the workload.
+// Just updates some internal metrics.
+func (w *WorkloadFromTemplate) TrainingStopped(sessionId string) {
+	val, ok := w.sessionsMap.Get(sessionId)
+	if !ok {
+		w.logger.Error("Failed to find now-idle session in session map.", zap.String("session-id", sessionId))
+		return
+	}
+
+	session := val.(*WorkloadSession)
+	session.State = SessionIdle
+}
+
+func NewWorkloadFromTemplate(baseWorkload Workload, workloadTemplate *WorkloadTemplate) *WorkloadFromTemplate {
+	if workloadTemplate == nil {
+		panic("Workload template cannot be nil when creating a new workload from a template.")
+	}
+
+	if baseWorkload == nil {
+		panic("Base workload cannot be nil when creating a new workload.")
+	}
+
+	var (
+		baseWorkloadImpl *workloadImpl
+		ok               bool
+	)
+	if baseWorkloadImpl, ok = baseWorkload.(*workloadImpl); !ok {
+		panic("The provided workload is not a base workload, or it is not a pointer type.")
+	}
+
+	workload_from_template := &WorkloadFromTemplate{
+		workloadImpl: baseWorkloadImpl,
+		Template:     workloadTemplate,
+	}
+
+	baseWorkloadImpl.WorkloadType = TemplateWorkload
+	baseWorkloadImpl.workload = workload_from_template
+
+	return workload_from_template
+}

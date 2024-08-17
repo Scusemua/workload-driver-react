@@ -44,6 +44,7 @@ interface Workload {
     error_message: string;
     timescale_adjustment_factor: number;
     events_processed: WorkloadEvent[];
+    sessions: Session[];
 }
 
 interface WorkloadEvent {
@@ -56,12 +57,14 @@ interface WorkloadEvent {
 
 interface Session {
     id: string;
-    maxCPUs: number;
-    maxMemoryGB: number;
-    maxNumGPUs: number;
-    startTick: number;
-    stopTick: number;
+    max_cpus: number;
+    max_memory_gb: number;
+    max_num_gpus: number;
+    start_tick: number;
+    stop_tick: number;
     trainings: TrainingEvent[];
+    num_events_processed: number;
+    state: string; 
 }
 
 interface TrainingEvent {

@@ -291,11 +291,11 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
 
         const session: Session = {
             id: sessionIdentifier,
-            maxCPUs: trainingCpuPercentUtil,
-            maxMemoryGB: trainingMemUsageGb,
-            maxNumGPUs: numberOfGPUs,
-            startTick: sessionStartTick,
-            stopTick: sessionStopTick,
+            max_cpus: trainingCpuPercentUtil,
+            max_memory_gb: trainingMemUsageGb,
+            max_num_gpus: numberOfGPUs,
+            start_tick: sessionStartTick,
+            stop_tick: sessionStopTick,
             trainings: [trainingEvent],
         }
 
