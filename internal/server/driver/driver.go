@@ -77,6 +77,24 @@ var (
 	src = rand.NewSource(time.Now().UnixNano())
 )
 
+func GenerateWorkloadID(n int) string {
+	b := make([]byte, n)
+	// A src.Int63() generates 63 random bits, enough for letterIdxMax characters!
+	for i, cache, remain := n-1, src.Int63(), letterIdxMax; i >= 0; {
+		if remain == 0 {
+			cache, remain = src.Int63(), letterIdxMax
+		}
+		if idx := int(cache & letterIdxMask); idx < len(letterBytes) {
+			b[i] = letterBytes[idx]
+			i--
+		}
+		cache >>= letterIdxBits
+		remain--
+	}
+
+	return *(*string)(unsafe.Pointer(&b))
+}
+
 // The Workload Driver consumes events from the Workload Generator and takes action accordingly.
 type workloadDriverImpl struct {
 	logger        *zap.Logger
@@ -116,24 +134,6 @@ type workloadDriverImpl struct {
 	workloadPresets             map[string]*domain.WorkloadPreset     // All of the available workload presets.
 	workloadRegistrationRequest *domain.WorkloadRegistrationRequest   // The request that registered the workload that is being driven by this driver.
 	workloadTemplate            *domain.WorkloadTemplate              // The template used by the associated workload. Will only be non-nil if the associated workload is a template-based workload, rather than a preset-based workload.
-}
-
-func GenerateWorkloadID(n int) string {
-	b := make([]byte, n)
-	// A src.Int63() generates 63 random bits, enough for letterIdxMax characters!
-	for i, cache, remain := n-1, src.Int63(), letterIdxMax; i >= 0; {
-		if remain == 0 {
-			cache, remain = src.Int63(), letterIdxMax
-		}
-		if idx := int(cache & letterIdxMask); idx < len(letterBytes) {
-			b[i] = letterBytes[idx]
-			i--
-		}
-		cache >>= letterIdxBits
-		remain--
-	}
-
-	return *(*string)(unsafe.Pointer(&b))
 }
 
 func NewWorkloadDriver(opts *domain.Configuration, performClockTicks bool, timescaleAdjustmentFactor float64, websocket domain.ConcurrentWebSocket) domain.WorkloadDriver {
@@ -285,7 +285,7 @@ func (d *workloadDriverImpl) createWorkloadFromPreset(workloadRegistrationReques
 	d.logger.Debug("Creating new workload from preset.", zap.String("workload-name", workloadRegistrationRequest.WorkloadName), zap.String("workload-preset-name", d.workloadPreset.GetName()))
 	workload := domain.NewWorkloadFromPreset(
 		domain.NewWorkload(d.id, workloadRegistrationRequest.WorkloadName,
-			d.workloadRegistrationRequest.Seed, workloadRegistrationRequest.DebugLogging, workloadRegistrationRequest.TimescaleAdjustmentFactor), d.workloadPreset)
+			d.workloadRegistrationRequest.Seed, workloadRegistrationRequest.DebugLogging, workloadRegistrationRequest.TimescaleAdjustmentFactor, d.atom), d.workloadPreset)
 
 	return workload, nil
 }
@@ -304,7 +304,7 @@ func (d *workloadDriverImpl) createWorkloadFromTemplate(workloadRegistrationRequ
 	d.logger.Debug("Creating new workload from template.", zap.String("workload-name", workloadRegistrationRequest.WorkloadName), zap.String("workload-preset-name", d.workloadTemplate.Name))
 	workload := domain.NewWorkloadFromTemplate(
 		domain.NewWorkload(d.id, workloadRegistrationRequest.WorkloadName,
-			d.workloadRegistrationRequest.Seed, workloadRegistrationRequest.DebugLogging, workloadRegistrationRequest.TimescaleAdjustmentFactor), d.workloadRegistrationRequest.Template,
+			d.workloadRegistrationRequest.Seed, workloadRegistrationRequest.DebugLogging, workloadRegistrationRequest.TimescaleAdjustmentFactor, d.atom), d.workloadRegistrationRequest.Template,
 	)
 
 	return workload, nil
@@ -894,7 +894,7 @@ func (d *workloadDriverImpl) handleSessionReadyEvents(latestTick time.Time) {
 
 		sessionId := driverSession.Pod
 		if d.sugaredLogger.Level() == zapcore.DebugLevel {
-			d.sugaredLogger.Debugf("Handling EventSessionReady %d targeting Session %s [ts: %v].", numProcessed+1, sessionId, sessionReadyEvent.Timestamp)
+			d.sugaredLogger.Debugf("Handling EventSessionReady %d targeting Session %s [ts: %v].", numProcessed+1, sessionId, sessionReadyEvent.Timestamp())
 		}
 
 		provision_start := time.Now()
@@ -911,12 +911,22 @@ func (d *workloadDriverImpl) handleSessionReadyEvents(latestTick time.Time) {
 			d.logger.Debug("Successfully handled SessionStarted event.", zap.String(ZapInternalSessionIDKey, sessionId), zap.Duration("real-time-elapsed", time.Since(provision_start)))
 		}
 
+		d.mu.Lock()
+		d.workload.ProcessedEvent(&domain.WorkloadEvent{
+			Id:          sessionReadyEvent.Id(),
+			Session:     sessionReadyEvent.SessionID(),
+			Name:        domain.EventSessionStarted.String(),
+			Timestamp:   sessionReadyEvent.Timestamp().String(),
+			ProcessedAt: time.Now().String(),
+		})
+		d.mu.Unlock()
+
 		numProcessed += 1
 		// Get the next ready-to-process `EventSessionReady` event if there is one. If not, then this will return nil, and we'll exit the for-loop.
 		sessionReadyEvent = d.eventQueue.GetNextSessionStartEvent(latestTick)
 	}
 
-	d.sugaredLogger.Debugf("Finished processing %d events in %v.", numProcessed, "real-time-elapsed", time.Since(st))
+	d.sugaredLogger.Debugf("Finished processing %d events in %v.", numProcessed, time.Since(st))
 }
 
 func (d *workloadDriverImpl) handleEvent(evt domain.Event) error {

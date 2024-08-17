@@ -359,7 +359,7 @@ func (s *serverImpl) serverPushRoutine(workloadStartedChan chan string, doneChan
 				}
 			default:
 				// Do nothing.
-				time.Sleep(time.Second * 1)
+				time.Sleep(time.Second * 2)
 				done = true // No more notifications right now. We'll process what we have.
 			}
 		}

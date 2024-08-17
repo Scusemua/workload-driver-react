@@ -16,22 +16,22 @@ export const useWorkloads = () => {
 
     const setupWebsocket = (
         hostname: string,
-        forceRecreate: boolean,
-        next: (undefined | ((
+        // forceRecreate: boolean,
+        next: ((
             err?: Error | null | undefined,
             data?: Map<string, Workload> | MutatorCallback<Map<string, Workload>> | undefined,
-        ) => void)),
+        ) => void),
     ) => {
-        if (subscriberSocket.current == null || forceRecreate) {
+        if (subscriberSocket.current == null) {
             // We'll use this when we reconnect if we're disconnected.
-            if (next !== undefined && next !== null) {
-                lastNextFunc.current = next; // Cache the next function so we can reuse it.
-            } else if (lastNextFunc.current !== undefined && lastNextFunc.current !== null) {
-                console.debug("Used cached `next` function in Workload Websocket.");
-                next = lastNextFunc.current;
-            } else {
-                console.error("`next` parameter is null/undefined when setting up Workload Websocket, and we have no cached previous `next` function to fallback to...");
-            }
+            // if (next !== undefined && next !== null) {
+            //     lastNextFunc.current = next; // Cache the next function so we can reuse it.
+            // } else if (lastNextFunc.current !== undefined && lastNextFunc.current !== null) {
+            //     console.debug("Used cached `next` function in Workload Websocket.");
+            //     next = lastNextFunc.current;
+            // } else {
+            //     console.error("`next` parameter is null/undefined when setting up Workload Websocket, and we have no cached previous `next` function to fallback to...");
+            // }
 
             subscriberSocket.current = new WebSocket(hostname);
             subscriberSocket.current.addEventListener('open', () => {
@@ -55,7 +55,7 @@ export const useWorkloads = () => {
                             return respJson;
                         })
                         .then((workloadResponse: WorkloadResponse) =>
-                            next!(null, (prev: Map<string, Workload> | undefined) => {
+                            next(null, (prev: Map<string, Workload> | undefined) => {
                                 const newWorkloads: Workload[] | null | undefined = workloadResponse.new_workloads;
                                 const modifiedWorkloads: Workload[] | null | undefined =
                                     workloadResponse.modified_workloads;
@@ -100,7 +100,7 @@ export const useWorkloads = () => {
                 `Cannot send workload-related message via websocket. Websocket is in state ${subscriberSocket.current?.readyState}`,
             );
 
-            setupWebsocket(api_endpoint, true, undefined /* we'll use the cached one automatically */);
+            // setupWebsocket(api_endpoint, true, lastNextFunc.current);
             return;
         }
 
@@ -121,7 +121,8 @@ export const useWorkloads = () => {
 
     const subscribe: SWRSubscription<string, Map<string, Workload>, Error> = (key: string, { next }) => {
         console.log(`Connecting to Websocket server at '${key}'`);
-        setupWebsocket(key, false, next);
+        // setupWebsocket(key, false, next);
+        setupWebsocket(key, next);
         return () => {};
     };
 
@@ -130,6 +131,7 @@ export const useWorkloads = () => {
 
     return {
         workloads: Array.from(workloadsMap.values()),
+        workloadsMap: workloadsMap,
         isError: error,
         refreshWorkloads: refreshWorkloads,
         sendJsonMessage: sendJsonMessage,

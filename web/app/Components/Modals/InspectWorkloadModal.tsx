@@ -26,7 +26,7 @@ export interface InspectWorkloadModalProps {
 }
 
 export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalProps> = (props) => {
-    const events_processed_columns: string[] = ["Event Name", "Target Session ID", "Timestamp"];
+    const events_processed_columns: string[] = ["Event Name", "Target Session ID", "Event Timestamp", "IRL Timestamp"];
 
     const workloadStatus = (
         <React.Fragment>
@@ -112,6 +112,8 @@ export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalP
         </React.Fragment>
     )
 
+    console.log(`props.workload?.events_processed?: ${props.workload?.events_processed}`)
+
     return (
         <Modal
             variant={ModalVariant.large}
@@ -147,7 +149,7 @@ export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalP
                     </DescriptionList>
                 </FlexItem>
                 <FlexItem>
-                    <ClipboardCheckIcon /> {<strong>Events Processed</strong>}
+                    <ClipboardCheckIcon /> {<strong>Events Processed:</strong>} {props.workload?.num_events_processed}
                 </FlexItem>
                 <FlexItem>
                     <Table variant="compact">
@@ -158,13 +160,18 @@ export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalP
                                 ))}
                             </Tr>
                         </Thead>
-                        {props.workload && props.workload.events_processed && <Tbody>
-                            {props.workload.events_processed.map((event: WorkloadEvent) => {
-                                <Tr key={event.id}>
-                                    <Td dataLabel={events_processed_columns[0]}>{event.name}</Td>
-                                </Tr>
+                        <Tbody>
+                            {props.workload?.events_processed?.map((evt: WorkloadEvent) => {
+                                return (
+                                    <Tr key={props.workload?.events_processed[0]?.id}>
+                                        <Td dataLabel={events_processed_columns[0]}>{evt?.name}</Td>
+                                        <Td dataLabel={events_processed_columns[1]}>{evt?.session}</Td>
+                                        <Td dataLabel={events_processed_columns[2]}>{evt?.timestamp}</Td>
+                                        <Td dataLabel={events_processed_columns[3]}>{evt?.processed_at}</Td>
+                                    </Tr>
+                                )
                             })}
-                        </Tbody>}
+                        </Tbody>
                     </Table>
                 </FlexItem>
             </Flex>

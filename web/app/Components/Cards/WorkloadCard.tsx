@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import {
     Button,
     Card,
@@ -75,7 +75,6 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
     const [selectedWorkloadListId, setSelectedWorkloadListId] = React.useState('');
     const [page, setPage] = React.useState(1);
     const [perPage, setPerPage] = React.useState(props.workloadsPerPage);
-    const drawerRef = React.useRef<HTMLDivElement>();
 
     const [visualizeWorkloadModalOpen, setVisualizeWorkloadModalOpen] = React.useState(false);
     const [workloadBeingVisualized, setWorkloadBeingVisualized] = React.useState<Workload | null>(null);
@@ -85,7 +84,18 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
 
     const heightFactorContext: HeightFactorContext = React.useContext(WorkloadsHeightFactorContext);
 
-    const { workloads, sendJsonMessage } = useWorkloads();
+    const { workloads, workloadsMap, sendJsonMessage } = useWorkloads();
+
+    useEffect(() => {
+        if (workloadBeingInspected !== null && inspectWorkloadModalOpen) {
+            const updatedWorkload: Workload | undefined = workloadsMap.get(workloadBeingInspected.id);
+
+            // Ensure the workload is updated in the inspection panel. 
+            if (updatedWorkload) {
+                setWorkloadBeingInspected(updatedWorkload);
+            }
+        }
+    }, [workloadsMap, inspectWorkloadModalOpen, workloadBeingInspected])
 
     const onCloseVisualizeWorkloadModal = () => {
         setWorkloadBeingVisualized(null);

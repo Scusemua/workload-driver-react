@@ -10,6 +10,9 @@ import (
 	"strings"
 	"time"
 
+	"github.com/mattn/go-colorable"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	yaml "gopkg.in/yaml.v2"
 )
 
@@ -300,13 +303,17 @@ type Workload interface {
 
 type WorkloadEvent struct {
 	Id          string `json:"id"`
-	Name        string `json:"event"`
+	Name        string `json:"name"`
 	Session     string `json:"session"`
 	Timestamp   string `json:"timestamp"`
 	ProcessedAt string `json:"processed_at"`
 }
 
 type workloadImpl struct {
+	logger        *zap.Logger        `json:"-"`
+	sugaredLogger *zap.SugaredLogger `json:"-"`
+	atom          *zap.AtomicLevel   `json:"-"`
+
 	Id                        string           `json:"id"`
 	Name                      string           `json:"name"`
 	WorkloadState             WorkloadState    `json:"workload_state"`
@@ -335,6 +342,40 @@ type workloadImpl struct {
 	// So, if this is a preset workload, then this is the WorkloadFromPreset struct.
 	// We use this so we can delegate certain method calls to the child/derived struct.
 	workload Workload `json:"-"`
+}
+
+func NewWorkload(id string, workloadName string, seed int64, debugLoggingEnabled bool, timescaleAdjustmentFactor float64, atom *zap.AtomicLevel) Workload {
+	workload := &workloadImpl{
+		Id:                        id, // Same ID as the driver.
+		Name:                      workloadName,
+		WorkloadState:             WorkloadReady,
+		TimeElasped:               time.Duration(0),
+		Seed:                      seed,
+		RegisteredTime:            time.Now(),
+		NumTasksExecuted:          0,
+		NumEventsProcessed:        0,
+		NumSessionsCreated:        0,
+		NumActiveSessions:         0,
+		NumActiveTrainings:        0,
+		DebugLoggingEnabled:       debugLoggingEnabled,
+		TimescaleAdjustmentFactor: timescaleAdjustmentFactor,
+		WorkloadType:              UnspecifiedWorkload,
+		EventsProcessed:           make([]*WorkloadEvent, 0),
+		atom:                      atom,
+	}
+
+	zapConfig := zap.NewDevelopmentEncoderConfig()
+	zapConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+	core := zapcore.NewCore(zapcore.NewConsoleEncoder(zapConfig), zapcore.AddSync(colorable.NewColorableStdout()), atom)
+	logger := zap.New(core, zap.Development())
+	if logger == nil {
+		panic("failed to create logger for workload driver")
+	}
+
+	workload.logger = logger
+	workload.sugaredLogger = logger.Sugar()
+
+	return workload
 }
 
 // Get the type of workload (TRACE, PRESET, or TEMPLATE).
@@ -504,6 +545,8 @@ func (w *workloadImpl) WorkloadName() string {
 func (w *workloadImpl) ProcessedEvent(evt *WorkloadEvent) {
 	w.NumEventsProcessed += 1
 	w.EventsProcessed = append(w.EventsProcessed, evt)
+
+	w.sugaredLogger.Debugf("Workload %s processed event '%s' targeting session '%s'", w.Name, evt.Name, evt.Session)
 }
 
 // Called when a Session is created for/in the Workload.
@@ -620,26 +663,6 @@ type WorkloadFromPreset struct {
 
 func (w *WorkloadFromPreset) GetWorkloadSource() interface{} {
 	return w.WorkloadPreset
-}
-
-func NewWorkload(id string, workloadName string, seed int64, debugLoggingEnabled bool, timescaleAdjustmentFactor float64) Workload {
-	return &workloadImpl{
-		Id:                        id, // Same ID as the driver.
-		Name:                      workloadName,
-		WorkloadState:             WorkloadReady,
-		TimeElasped:               time.Duration(0),
-		Seed:                      seed,
-		RegisteredTime:            time.Now(),
-		NumTasksExecuted:          0,
-		NumEventsProcessed:        0,
-		NumSessionsCreated:        0,
-		NumActiveSessions:         0,
-		NumActiveTrainings:        0,
-		DebugLoggingEnabled:       debugLoggingEnabled,
-		TimescaleAdjustmentFactor: timescaleAdjustmentFactor,
-		WorkloadType:              UnspecifiedWorkload,
-		EventsProcessed:           make([]*WorkloadEvent, 0),
-	}
 }
 
 func NewWorkloadFromPreset(baseWorkload Workload, workloadPreset *WorkloadPreset) *WorkloadFromPreset {
