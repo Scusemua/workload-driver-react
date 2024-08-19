@@ -42,8 +42,10 @@ import {
     SpinnerIcon,
     StopCircleIcon,
     StopIcon,
+    Stopwatch20Icon,
     StopwatchIcon,
     TimesCircleIcon,
+    UserClockIcon,
 } from '@patternfly/react-icons';
 
 import {
@@ -790,7 +792,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                                                                     </Flex>
                                                                 </FlexItem>
                                                                 <FlexItem className="workload-descriptive-icons">
-                                                                    <Flex direction={{ 'default': 'column' }} spaceItems={{'default': 'spaceItemsNone'}}>
+                                                                    <Flex direction={{ 'default': 'column' }} spaceItems={{ 'default': 'spaceItemsNone' }}>
                                                                         <FlexItem>
                                                                             <Text component={TextVariants.small}>
                                                                                 <strong>Runtime Metrics</strong>
@@ -837,6 +839,20 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                                                                                             </React.Fragment>
                                                                                         </Tooltip>
                                                                                     </FlexItem>}
+                                                                                    <FlexItem>
+                                                                                        <Tooltip content="The current value of the internal workload/simulation clock.">
+                                                                                            <React.Fragment>
+                                                                                                <UserClockIcon /> {workload.simulation_clock_time == '' ? 'N/A' : workload.simulation_clock_time}
+                                                                                            </React.Fragment>
+                                                                                        </Tooltip>
+                                                                                    </FlexItem>
+                                                                                    <FlexItem>
+                                                                                        <Tooltip content="The current tick of the workload.">
+                                                                                            <React.Fragment>
+                                                                                                <Stopwatch20Icon /> {workload.current_tick}
+                                                                                            </React.Fragment>
+                                                                                        </Tooltip>
+                                                                                    </FlexItem>
                                                                                 </Flex>
                                                                             </Label>
                                                                         </FlexItem>
@@ -902,8 +918,8 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                 isOpen={inspectWorkloadModalOpen}
                 workload={workloadBeingInspected}
                 onClose={onCloseInspectWorkloadModal}
-                onStartClicked={() => {if (workloadBeingInspected) onStartWorkloadClicked(workloadBeingInspected)}}
-                onStopClicked={() => {if (workloadBeingInspected) onStopWorkloadClicked(workloadBeingInspected)}}
+                onStartClicked={() => { if (workloadBeingInspected) onStartWorkloadClicked(workloadBeingInspected) }}
+                onStopClicked={() => { if (workloadBeingInspected) onStopWorkloadClicked(workloadBeingInspected) }}
             />
         </React.Fragment>
     );

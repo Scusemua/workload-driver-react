@@ -68,8 +68,6 @@ var (
 	ErrUnsupportedWorkloadType             = errors.New("unsupported workload type")
 	ErrWorkloadRegistrationMissingTemplate = errors.New("workload registration request for template-based workload is missing the template itself")
 
-	ErrWorkloadNotRunning = errors.New("the workload is currently not running")
-
 	ErrUnknownSession      = errors.New("received 'training-started' or 'training-ended' event for unknown session")
 	ErrNoSessionConnection = errors.New("received 'training-started' or 'training-ended' event for session for which no session connection exists")
 	ErrNoKernelConnection  = errors.New("received 'training-started' or 'training-ended' event for session for which no kernel connection exists")
@@ -406,7 +404,7 @@ func (d *workloadDriverImpl) ID() string {
 // Returns nil on success, or an error if one occurred.
 func (d *workloadDriverImpl) StopWorkload() error {
 	if !d.workload.IsRunning() {
-		return ErrWorkloadNotRunning
+		return domain.ErrWorkloadNotRunning
 	}
 
 	d.logger.Debug("Stopping workload.", zap.String("workload-id", d.id))
@@ -415,8 +413,9 @@ func (d *workloadDriverImpl) StopWorkload() error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	d.workloadEndTime = time.Now()
-	d.workload.SetWorkloadState(domain.WorkloadTerminated)
+	d.workload.TerminateWorkloadPrematurely()
+	d.workloadEndTime, _ = d.workload.GetEndTime()
+
 	return nil
 }
 
@@ -738,7 +737,7 @@ func (d *workloadDriverImpl) doneServingTick() {
 	}
 
 	d.mu.Lock()
-	d.workload.UpdateTimeElapsed()
+	d.workload.TickCompleted(d.ticksHandled.Load(), d.clockTime.GetClockTime())
 	d.mu.Unlock()
 
 	d.ticker.Done()

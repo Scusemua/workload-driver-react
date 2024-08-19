@@ -4,3 +4,4 @@ export * from './NodeList';
 export * from './LogViewCard';
 export * from './UtilizationCard';
 export * from './WorkloadCard';
+export * from './Tables';

@@ -32,6 +32,9 @@ func (w *WorkloadFromTemplate) SetSource(source interface{}) {
 // Called when a Session is created for/in the Workload.
 // Just updates some internal metrics.
 func (w *WorkloadFromTemplate) SessionCreated(sessionId string) {
+	w.NumActiveSessions += 1
+	w.NumSessionsCreated += 1
+
 	val, ok := w.sessionsMap.Get(sessionId)
 	if !ok {
 		w.logger.Error("Failed to find newly-created session in session map.", zap.String("session-id", sessionId))
@@ -45,6 +48,8 @@ func (w *WorkloadFromTemplate) SessionCreated(sessionId string) {
 // Called when a Session is stopped for/in the Workload.
 // Just updates some internal metrics.
 func (w *WorkloadFromTemplate) SessionStopped(sessionId string) {
+	w.NumActiveSessions -= 1
+
 	val, ok := w.sessionsMap.Get(sessionId)
 	if !ok {
 		w.logger.Error("Failed to find freshly-terminated session in session map.", zap.String("session-id", sessionId))
@@ -58,6 +63,8 @@ func (w *WorkloadFromTemplate) SessionStopped(sessionId string) {
 // Called when a training starts during/in the workload.
 // Just updates some internal metrics.
 func (w *WorkloadFromTemplate) TrainingStarted(sessionId string) {
+	w.NumActiveTrainings += 1
+
 	val, ok := w.sessionsMap.Get(sessionId)
 	if !ok {
 		w.logger.Error("Failed to find now-training session in session map.", zap.String("session-id", sessionId))
@@ -71,6 +78,9 @@ func (w *WorkloadFromTemplate) TrainingStarted(sessionId string) {
 // Called when a training stops during/in the workload.
 // Just updates some internal metrics.
 func (w *WorkloadFromTemplate) TrainingStopped(sessionId string) {
+	w.NumTasksExecuted += 1
+	w.NumActiveTrainings -= 1
+
 	val, ok := w.sessionsMap.Get(sessionId)
 	if !ok {
 		w.logger.Error("Failed to find now-idle session in session map.", zap.String("session-id", sessionId))

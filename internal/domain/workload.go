@@ -4,8 +4,10 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"sync"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/mattn/go-colorable"
 	"github.com/zhangjyr/hashmap"
 	"go.uber.org/zap"
@@ -26,7 +28,8 @@ const (
 )
 
 var (
-	ErrInvalidState = errors.New("workload is in invalid state for the specified operation")
+	ErrWorkloadNotRunning = errors.New("the workload is currently not running")
+	ErrInvalidState       = errors.New("workload is in invalid state for the specified operation")
 )
 
 type WorkloadState int
@@ -102,6 +105,8 @@ type Workload interface {
 	SetWorkloadState(state WorkloadState)
 	// Start the Workload.
 	StartWorkload() error
+	// Explicitly/manually stop the workload early.
+	TerminateWorkloadPrematurely() error
 	// Mark the workload as having completed successfully.
 	SetWorkloadCompleted()
 	// Called after an event is processed for the Workload.
@@ -144,6 +149,13 @@ type Workload interface {
 	SetSessions([]*WorkloadSession)
 	// Set the source of the workload, namely a template or a preset.
 	SetSource(interface{})
+	// Return the current tick.
+	GetCurrentTick() int64
+	// Return the simulation clock time.
+	GetSimulationClockTimeStr() string
+	// Called by the driver after each tick.
+	// Updates the time elapsed, current tick, and simulation clock time.
+	TickCompleted(int64, time.Time)
 }
 
 // This will panic if an invalid workload state is specified.
@@ -175,6 +187,7 @@ func GetWorkloadStateAsString(state WorkloadState) string {
 }
 
 type WorkloadEvent struct {
+	Index       int    `json:"idx"`
 	Id          string `json:"id"`
 	Name        string `json:"name"`
 	Session     string `json:"session"`
@@ -190,6 +203,7 @@ type workloadImpl struct {
 	Id                        string             `json:"id"`
 	Name                      string             `json:"name"`
 	WorkloadState             WorkloadState      `json:"workload_state"`
+	CurrentTick               int64              `json:"current_tick"`
 	DebugLoggingEnabled       bool               `json:"debug_logging_enabled"`
 	ErrorMessage              string             `json:"error_message"`
 	EventsProcessed           []*WorkloadEvent   `json:"events_processed"`
@@ -207,6 +221,7 @@ type workloadImpl struct {
 	NumActiveSessions         int64              `json:"num_active_sessions"`
 	NumActiveTrainings        int64              `json:"num_active_trainings"`
 	TimescaleAdjustmentFactor float64            `json:"timescale_adjustment_factor"`
+	SimulationClockTimeStr    string             `json:"simulation_clock_time"`
 	WorkloadType              WorkloadType       `json:"workload_type"`
 
 	// workloadSource interface{} `json:"-"`
@@ -214,12 +229,12 @@ type workloadImpl struct {
 	// This is basically the child struct.
 	// So, if this is a preset workload, then this is the WorkloadFromPreset struct.
 	// We use this so we can delegate certain method calls to the child/derived struct.
-	workload       Workload    `json:"-"`
-	workloadSource interface{} `json:"-"`
-
-	sessionsMap *hashmap.HashMap `json:"-"` // Internal mapping of session ID to session.
-	seedSet     bool             `json:"-"` // Flag keeping track of whether we've already set the seed for this workload.
-	sessionsSet bool             `json:"-"` // Flag keeping track of whether we've already set the sessions for this workload.
+	workload       Workload         `json:"-"`
+	workloadSource interface{}      `json:"-"`
+	mu             sync.Mutex       `json:"-"`
+	sessionsMap    *hashmap.HashMap `json:"-"` // Internal mapping of session ID to session.
+	seedSet        bool             `json:"-"` // Flag keeping track of whether we've already set the seed for this workload.
+	sessionsSet    bool             `json:"-"` // Flag keeping track of whether we've already set the sessions for this workload.
 }
 
 func NewWorkload(id string, workloadName string, seed int64, debugLoggingEnabled bool, timescaleAdjustmentFactor float64, atom *zap.AtomicLevel) Workload {
@@ -241,6 +256,7 @@ func NewWorkload(id string, workloadName string, seed int64, debugLoggingEnabled
 		EventsProcessed:           make([]*WorkloadEvent, 0),
 		atom:                      atom,
 		sessionsMap:               hashmap.New(32),
+		CurrentTick:               0,
 		Sessions:                  make([]*WorkloadSession, 0), // For template workloads, this will be overwritten.
 	}
 
@@ -258,10 +274,34 @@ func NewWorkload(id string, workloadName string, seed int64, debugLoggingEnabled
 	return workload
 }
 
+// Called by the driver after each tick.
+// Updates the time elapsed, current tick, and simulation clock time.
+func (w *workloadImpl) TickCompleted(tick int64, simClock time.Time) {
+	w.mu.Lock()
+	w.CurrentTick = tick
+	w.SimulationClockTimeStr = simClock.String()
+	w.mu.Unlock()
+
+	w.UpdateTimeElapsed()
+}
+
+// Return the current tick.
+func (w *workloadImpl) GetCurrentTick() int64 {
+	return w.CurrentTick
+}
+
+// Return the simulation clock time.
+func (w *workloadImpl) GetSimulationClockTimeStr() string {
+	return w.SimulationClockTimeStr
+}
+
 // Set the sessions that will be involved in this workload.
 //
 // IMPORTANT: This can only be set once per workload. If it is called more than once, it will panic.
 func (w *workloadImpl) SetSessions(sessions []*WorkloadSession) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	w.Sessions = sessions
 	w.sessionsSet = true
 
@@ -269,7 +309,6 @@ func (w *workloadImpl) SetSessions(sessions []*WorkloadSession) {
 	for _, session := range sessions {
 		session.State = SessionAwaitingStart
 
-		w.sessionsMap.Set()
 		w.sessionsMap.Set(session.Id, session)
 	}
 }
@@ -277,6 +316,9 @@ func (w *workloadImpl) SetSessions(sessions []*WorkloadSession) {
 // Set the source of the workload, namely a template or a preset.
 // This defers the execution of the method to the `workloadImpl::workload` field.
 func (w *workloadImpl) SetSource(source interface{}) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	w.workload.SetSource(source)
 }
 
@@ -317,7 +359,38 @@ func (w *workloadImpl) GetProcessedEvents() []*WorkloadEvent {
 	return w.EventsProcessed
 }
 
+// Stop the workload.
+func (w *workloadImpl) TerminateWorkloadPrematurely() error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	if !w.IsRunning() {
+		return ErrWorkloadNotRunning
+	}
+
+	now := time.Now()
+	w.EndTime = now
+
+	w.WorkloadState = WorkloadTerminated
+
+	w.NumEventsProcessed += 1
+	w.EventsProcessed = append(w.EventsProcessed, &WorkloadEvent{
+		Index:       len(w.EventsProcessed),
+		Id:          uuid.NewString(),
+		Name:        "workload-terminated",
+		Session:     "N/A",
+		Timestamp:   "-",
+		ProcessedAt: now.String(),
+	})
+
+	return nil
+}
+
+// Start the Workload.
 func (w *workloadImpl) StartWorkload() error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	if w.WorkloadState != WorkloadReady {
 		return fmt.Errorf("%w: cannot start workload that is in state '%s'", ErrInvalidState, GetWorkloadStateAsString(w.WorkloadState))
 	}
@@ -334,6 +407,9 @@ func (w *workloadImpl) GetTimescaleAdjustmentFactor() float64 {
 
 // Mark the workload as having completed successfully.
 func (w *workloadImpl) SetWorkloadCompleted() {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	w.WorkloadState = WorkloadFinished
 	w.EndTime = time.Now()
 	w.WorkloadDuration = time.Since(w.StartTime)
@@ -352,6 +428,9 @@ func (w *workloadImpl) GetErrorMessage() (string, bool) {
 
 // Set the error message for the workload.
 func (w *workloadImpl) SetErrorMessage(errorMessage string) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	w.ErrorMessage = errorMessage
 }
 
@@ -362,11 +441,17 @@ func (w *workloadImpl) IsDebugLoggingEnabled() bool {
 
 // Enable or disable debug logging for the workload.
 func (w *workloadImpl) SetDebugLoggingEnabled(enabled bool) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	w.DebugLoggingEnabled = enabled
 }
 
 // Set the workload's seed. Can only be performed once. If attempted again, this will panic.
 func (w *workloadImpl) SetSeed(seed int64) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	if w.seedSet {
 		panic(fmt.Sprintf("Workload seed has already been set to value %d", w.Seed))
 	}
@@ -387,6 +472,9 @@ func (w *workloadImpl) GetWorkloadState() WorkloadState {
 
 // Set the state of the workload.
 func (w *workloadImpl) SetWorkloadState(state WorkloadState) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	w.WorkloadState = state
 }
 
@@ -426,12 +514,18 @@ func (w *workloadImpl) GetTimeElaspedAsString() string {
 
 // Update the time elapsed.
 func (w *workloadImpl) SetTimeElasped(timeElapsed time.Duration) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	w.TimeElasped = timeElapsed
 	w.TimeElaspedStr = w.TimeElasped.String()
 }
 
 // Instruct the Workload to recompute its 'time elapsed' field.
 func (w *workloadImpl) UpdateTimeElapsed() {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	w.TimeElasped = time.Since(w.StartTime)
 	w.TimeElaspedStr = w.TimeElasped.String()
 }
@@ -450,7 +544,11 @@ func (w *workloadImpl) WorkloadName() string {
 // Called after an event is processed for the Workload.
 // Just updates some internal metrics.
 func (w *workloadImpl) ProcessedEvent(evt *WorkloadEvent) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	w.NumEventsProcessed += 1
+	evt.Index = len(w.EventsProcessed)
 	w.EventsProcessed = append(w.EventsProcessed, evt)
 
 	w.sugaredLogger.Debugf("Workload %s processed event '%s' targeting session '%s'", w.Name, evt.Name, evt.Session)
@@ -459,75 +557,40 @@ func (w *workloadImpl) ProcessedEvent(evt *WorkloadEvent) {
 // Called when a Session is created for/in the Workload.
 // Just updates some internal metrics.
 func (w *workloadImpl) SessionCreated(sessionId string) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	w.NumActiveSessions += 1
 	w.NumSessionsCreated += 1
 
-	// Offload to `workload` field for session-specific steps/updates to session metrics.
 	w.workload.SessionCreated(sessionId)
-
-	// val, ok := w.sessionsMap.Get(sessionId)
-	// if !ok {
-	// 	w.logger.Error("Failed to find newly-created session in session map.", zap.String("session-id", sessionId))
-	// 	return
-	// }
-
-	// session := val.(*WorkloadSession)
-	// session.State = SessionIdle
 }
 
 // Called when a Session is stopped for/in the Workload.
 // Just updates some internal metrics.
 func (w *workloadImpl) SessionStopped(sessionId string) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	w.NumActiveSessions -= 1
 
-	// Offload to `workload` field for session-specific steps/updates to session metrics.
 	w.workload.SessionStopped(sessionId)
-
-	// val, ok := w.sessionsMap.Get(sessionId)
-	// if !ok {
-	// 	w.logger.Error("Failed to find freshly-terminated session in session map.", zap.String("session-id", sessionId))
-	// 	return
-	// }
-
-	// session := val.(*WorkloadSession)
-	// session.State = SessionStopped
 }
 
 // Called when a training starts during/in the workload.
 // Just updates some internal metrics.
 func (w *workloadImpl) TrainingStarted(sessionId string) {
-	w.NumActiveTrainings += 1
-
-	// Offload to `workload` field for session-specific steps/updates to session metrics.
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	w.workload.TrainingStarted(sessionId)
-
-	// val, ok := w.sessionsMap.Get(sessionId)
-	// if !ok {
-	// 	w.logger.Error("Failed to find now-training session in session map.", zap.String("session-id", sessionId))
-	// 	return
-	// }
-
-	// session := val.(*WorkloadSession)
-	// session.State = SessionTraining
 }
 
 // Called when a training stops during/in the workload.
 // Just updates some internal metrics.
 func (w *workloadImpl) TrainingStopped(sessionId string) {
-	w.NumTasksExecuted += 1
-	w.NumActiveTrainings -= 1
-
-	// Offload to `workload` field for session-specific steps/updates to session metrics.
+	w.mu.Lock()
+	defer w.mu.Unlock()
 	w.workload.TrainingStopped(sessionId)
-
-	// val, ok := w.sessionsMap.Get(sessionId)
-	// if !ok {
-	// 	w.logger.Error("Failed to find now-idle session in session map.", zap.String("session-id", sessionId))
-	// 	return
-	// }
-
-	// session := val.(*WorkloadSession)
-	// session.State = SessionIdle
 }
 
 // Return the unique ID of the workload.
