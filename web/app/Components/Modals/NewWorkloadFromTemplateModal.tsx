@@ -318,7 +318,6 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
             sessions: sessions,
         }
 
-        // TODO: Create and pass sessions.
         props.onConfirm(workloadTitleToSubmit, workloadSeed, debugLoggingEnabled, workloadTemplate, timescaleAdjustmentFactor);
 
         // Reset all of the fields.

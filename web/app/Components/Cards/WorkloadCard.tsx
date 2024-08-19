@@ -813,7 +813,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                                                                                     <FlexItem>
                                                                                         <Tooltip
                                                                                             content={
-                                                                                                'Number of training sessions completed.'
+                                                                                                'Number of training events completed.'
                                                                                             }
                                                                                             position="bottom"
                                                                                         >

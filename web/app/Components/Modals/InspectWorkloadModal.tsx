@@ -1,7 +1,7 @@
 import React from 'react';
 import { Button, DescriptionList, DescriptionListDescription, DescriptionListGroup, DescriptionListTerm, Flex, FlexItem, Label, Modal, ModalVariant, Title, TitleSizes, Tooltip } from '@patternfly/react-core';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
-import { BlueprintIcon, CheckCircleIcon, ClipboardCheckIcon, ClockIcon, CloseIcon, CpuIcon, DiceIcon, ErrorCircleOIcon, ExclamationTriangleIcon, HourglassStartIcon, MemoryIcon, OffIcon, OutlinedCalendarAltIcon, PendingIcon, PlayIcon, QuestionCircleIcon, ResourcesEmptyIcon, RunningIcon, SpinnerIcon, StopIcon, TimesCircleIcon, UnknownIcon } from '@patternfly/react-icons';
+import { BlueprintIcon, CheckCircleIcon, ClipboardCheckIcon, ClockIcon, CloseIcon, CodeIcon, CpuIcon, DiceIcon, ErrorCircleOIcon, ExclamationTriangleIcon, HourglassStartIcon, MemoryIcon, MonitoringIcon, OffIcon, OutlinedCalendarAltIcon, PendingIcon, PlayIcon, QuestionCircleIcon, ResourcesEmptyIcon, RunningIcon, SpinnerIcon, StopIcon, StopwatchIcon, TimesCircleIcon, UnknownIcon } from '@patternfly/react-icons';
 
 import {
     Session,
@@ -25,8 +25,6 @@ export interface InspectWorkloadModalProps {
     workload: Workload | null;
 }
 
-// TODO: Add start/stop/pause buttons to this modal.
-// TODO: Add runtime metrics to this modal.
 export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalProps> = (props) => {
     const workloadStatus = (
         <React.Fragment>
@@ -160,6 +158,14 @@ export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalP
         </Table>
     )
 
+    const getTimeElapsedString = () => {
+        if (props.workload?.workload_state == 0) {
+            return "N/A"
+        }
+
+        return props.workload?.time_elapsed_str;
+    }
+
     console.log(`props.workload?.events_processed?: ${props.workload?.events_processed}`)
 
     return (
@@ -201,6 +207,18 @@ export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalP
                         <DescriptionListGroup>
                             <DescriptionListTerm>Time Adjustment Factor <ClockIcon /> </DescriptionListTerm>
                             <DescriptionListDescription>{props.workload?.timescale_adjustment_factor}</DescriptionListDescription>
+                        </DescriptionListGroup>
+                        <DescriptionListGroup>
+                            <DescriptionListTerm>Events Processed <MonitoringIcon /></DescriptionListTerm>
+                            <DescriptionListDescription>{props.workload?.num_events_processed}</DescriptionListDescription>
+                        </DescriptionListGroup>
+                        <DescriptionListGroup>
+                            <DescriptionListTerm>Training Events Completed <CodeIcon /></DescriptionListTerm>
+                            <DescriptionListDescription>{props.workload?.num_tasks_executed}</DescriptionListDescription>
+                        </DescriptionListGroup>
+                        <DescriptionListGroup>
+                            <DescriptionListTerm>Time Elapsed <StopwatchIcon/></DescriptionListTerm>
+                            <DescriptionListDescription>{getTimeElapsedString()}</DescriptionListDescription>
                         </DescriptionListGroup>
                     </DescriptionList>
                 </FlexItem>
