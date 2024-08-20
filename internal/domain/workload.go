@@ -106,7 +106,7 @@ type Workload interface {
 	// Start the Workload.
 	StartWorkload() error
 	// Explicitly/manually stop the workload early.
-	TerminateWorkloadPrematurely() error
+	TerminateWorkloadPrematurely(time.Time) error
 	// Mark the workload as having completed successfully.
 	SetWorkloadCompleted()
 	// Called after an event is processed for the Workload.
@@ -362,7 +362,7 @@ func (w *workloadImpl) GetProcessedEvents() []*WorkloadEvent {
 }
 
 // Stop the workload.
-func (w *workloadImpl) TerminateWorkloadPrematurely() error {
+func (w *workloadImpl) TerminateWorkloadPrematurely(simulationTimestamp time.Time) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
@@ -381,7 +381,7 @@ func (w *workloadImpl) TerminateWorkloadPrematurely() error {
 		Id:                    uuid.NewString(),
 		Name:                  "workload-terminated",
 		Session:               "N/A",
-		Timestamp:             "-",
+		Timestamp:             simulationTimestamp.String(),
 		ProcessedAt:           now.String(),
 		ProcessedSuccessfully: true,
 	})

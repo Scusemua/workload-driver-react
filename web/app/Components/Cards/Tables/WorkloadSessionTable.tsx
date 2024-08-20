@@ -38,17 +38,17 @@ export const WorkloadSessionTable: React.FunctionComponent<WorkloadSessionTableP
         const status: string = session.state;
         switch (status) {
             case "awaiting start":
-                return (<Tooltip content="This session has not yet been created or started yet."><Label icon={<PendingIcon />} color='grey'>{status}</Label></Tooltip>);
+                return (<Tooltip position='right' content="This session has not yet been created or started yet."><Label icon={<PendingIcon />} color='grey'>{status}</Label></Tooltip>);
             case "idle":
-                return (<Tooltip content="This session is actively-running, but it is not currently training."><Label icon={<ResourcesEmptyIcon />} color='grey'>{status}</Label></Tooltip>);
+                return (<Tooltip position='right' content="This session is actively-running, but it is not currently training."><Label icon={<ResourcesEmptyIcon />} color='blue'>{status}</Label></Tooltip>);
             case "training":
-                return (<Tooltip content="This session is actively training."><Label icon={<RunningIcon />} color='green'>{status}</Label></Tooltip>);
+                return (<Tooltip position='right' content="This session is actively training."><Label icon={<RunningIcon />} color='green'>{status}</Label></Tooltip>);
             case "terminated":
-                return (<Tooltip content="This session has been stopped permanently (without error)."><Label icon={<OffIcon />} color='gold'>{status}</Label></Tooltip>);
+                return (<Tooltip position='right' content="This session has been stopped permanently (without error)."><Label icon={<OffIcon />} color='gold'>{status}</Label></Tooltip>);
             case "erred":
-                return (<Tooltip content={`This session has been terminated due to an unexpected error: ${session.error_message}`}><Label icon={<ErrorCircleOIcon />} color='red'> {status}</Label></Tooltip>);
+                return (<Tooltip position='right' content={`This session has been terminated due to an unexpected error: ${session.error_message}`}><Label icon={<ErrorCircleOIcon />} color='red'> {status}</Label></Tooltip>);
             default:
-                return (<Tooltip content="This session is in an unknown or unexpected state."><Label icon={<UnknownIcon />} color='orange'> unknown: {status}</Label></Tooltip>);
+                return (<Tooltip position='right' content="This session is in an unknown or unexpected state."><Label icon={<UnknownIcon />} color='orange'> unknown: {status}</Label></Tooltip>);
         }
     }
 

@@ -24,6 +24,7 @@ type KernelMessage interface {
 	GetBuffers() []byte
 	GetMetadata() map[string]interface{}
 	GetParentHeader() *KernelMessageHeader
+	DecodeContent() (map[string]interface{}, error)
 
 	String() string
 }
@@ -39,6 +40,12 @@ type baseKernelMessage struct {
 
 func (m *baseKernelMessage) GetHeader() *KernelMessageHeader {
 	return m.Header
+}
+
+func (m *baseKernelMessage) DecodeContent() (map[string]interface{}, error) {
+	var content map[string]interface{}
+	err := json.Unmarshal(m.Content.([]byte), &content)
+	return content, err
 }
 
 func (m *baseKernelMessage) GetChannel() KernelSocketChannel {

@@ -75,8 +75,6 @@ type kernelConnectionImpl struct {
 	sugaredLogger *zap.SugaredLogger
 	atom          *zap.AtomicLevel
 
-	prependId bool
-
 	// TODO: The response delivery mechanism is wrong. For one, control/shell messages should receive messages on that channel.
 	// But if we receive an IOPub message with a parent as a shell message, then the IOPub message is considered to be the response.
 	// So, we need to look at parent header request ID, channel type, AND we also need to check the message type.
@@ -90,21 +88,19 @@ type kernelConnectionImpl struct {
 	// See the documentation of those functions for additional details.
 	responseChannels map[string]chan KernelMessage
 
-	// How many messages we've sent. Used when creating message IDs.
-	messageCount int
-
-	connectionStatus KernelConnectionStatus
-
-	kernelId                      string
-	jupyterServerAddress          string
-	clientId                      string
-	username                      string
-	webSocket                     *websocket.Conn
-	originalWebsocketCloseHandler func(int, string) error
-	model                         *jupyterKernel
-
-	registeredShell   bool // True if we've successfully registered our shell channel as a Golang frontend.
-	registeredControl bool // True if we've successfully registered our control channel as a Golang frontend.
+	messageCount                  int                     // How many messages we've sent. Used when creating message IDs.
+	connectionStatus              KernelConnectionStatus  // Connection status with the remote kernel.
+	kernelId                      string                  // ID of the associated kernel
+	jupyterServerAddress          string                  // Jupyter server IP address
+	clientId                      string                  // Jupyter client ID
+	username                      string                  // Jupyter username
+	webSocket                     *websocket.Conn         // The websocket that is connected to Jupyter
+	originalWebsocketCloseHandler func(int, string) error // The original close handler method of the websocket; we replace this with our own, and we call the original from ours.
+	model                         *jupyterKernel          // Jupyter kernel model.
+	kernelStdout                  []string                // STDOUT history from the kernel, as extracted from IOPub messages.
+	kernelStderr                  []string                // STDERR history from the kernel, as extracted from IOPub messages.
+	registeredShell               bool                    // True if we've successfully registered our shell channel as a Golang frontend.
+	registeredControl             bool                    // True if we've successfully registered our control channel as a Golang frontend.
 
 	// Gorilla Websockets support 1 concurrent reader and 1 concurrent writer on the same websocket.
 	// What this means is that we can read from the websocket with one goroutine while we write to the websocket with another goroutine.
@@ -113,6 +109,7 @@ type kernelConnectionImpl struct {
 
 	rlock sync.Mutex // Synchronizes read operations on the websocket.
 	wlock sync.Mutex // Synchronizes write operations on the websocket.
+
 }
 
 func NewKernelConnection(kernelId string, clientId string, username string, jupyterServerAddress string, atom *zap.AtomicLevel) (*kernelConnectionImpl, error) {
@@ -129,9 +126,10 @@ func NewKernelConnection(kernelId string, clientId string, username string, jupy
 		messageCount:         0,
 		connectionStatus:     KernelConnectionInit,
 		responseChannels:     make(map[string]chan KernelMessage),
-		prependId:            true,
 		registeredShell:      false,
 		registeredControl:    false,
+		kernelStdout:         make([]string, 0),
+		kernelStderr:         make([]string, 0),
 	}
 
 	zapConfig := zap.NewDevelopmentEncoderConfig()
@@ -227,13 +225,15 @@ func (conn *kernelConnectionImpl) StopRunningTrainingCode(waitForResponse bool) 
 }
 
 // Return the address of the Jupyter Server associated with this kernel.
-func (conn *kernelConnectionImpl) sendAck(msg *baseKernelMessage, channel KernelSocketChannel) error {
+func (conn *kernelConnectionImpl) sendAck(msg KernelMessage, channel KernelSocketChannel) error {
+	conn.logger.Debug("Attempting to ACK message.", zap.String("message-id", msg.GetHeader().MessageId), zap.String("channel", string(msg.GetChannel())), zap.String("kernel-id", conn.kernelId))
+
 	if channel != ShellChannel && channel != ControlChannel {
 		conn.sugaredLogger.Warnf("Cannot ACK message of type \"%s\"...", channel)
 	}
 
 	if (channel == ShellChannel && !conn.registeredShell) || (channel == ControlChannel && !conn.registeredControl) {
-		conn.sugaredLogger.Warnf("Cannot ACK '%s' '%s' message '%s' as %s channel registration has not yet completed.", channel, msg.Header.MessageType, msg.Header.MessageId, channel)
+		conn.sugaredLogger.Warnf("Cannot ACK '%s' '%s' message '%s' as %s channel registration has not yet completed.", channel, msg.GetHeader().MessageType, msg.GetHeader().MessageId, channel)
 		return fmt.Errorf("%w: %s", ErrCantAckNotRegistered, channel)
 	}
 
@@ -241,10 +241,10 @@ func (conn *kernelConnectionImpl) sendAck(msg *baseKernelMessage, channel Kernel
 	content["sender-identity"] = fmt.Sprintf("GoJupyter-%s", conn.kernelId)
 
 	ack_message, _ := conn.createKernelMessage(AckMessage, channel, content)
-	ack_message.(*baseKernelMessage).ParentHeader = msg.ParentHeader
+	ack_message.(*baseKernelMessage).ParentHeader = msg.GetParentHeader()
 
-	firstPart := fmt.Sprintf(LightBlueStyle.Render("Sending ACK for %v \"%v\""), channel, msg.ParentHeader.MessageType)
-	secondPart := fmt.Sprintf("(MsgId=%v)", LightPurpleStyle.Render(msg.ParentHeader.MessageId))
+	firstPart := fmt.Sprintf(LightBlueStyle.Render("Sending ACK for %v \"%v\""), channel, msg.GetParentHeader().MessageType)
+	secondPart := fmt.Sprintf("(MsgId=%v)", LightPurpleStyle.Render(msg.GetParentHeader().MessageId))
 	thirdPart := fmt.Sprintf(LightBlueStyle.Render("message: %v"), ack_message)
 	conn.sugaredLogger.Debugf("%s %s %s", firstPart, secondPart, thirdPart)
 
@@ -461,14 +461,11 @@ func (conn *kernelConnectionImpl) serveMessages() {
 			continue
 		}
 
-		// TODO: Extract stderr/stdout output from IOPub messages and save it with the associated Session.
-		// TODO: Make it so we can query/view all of the output generated by a Session via the Workload Driver console/frontend.
-		conn.logger.Debug("Received message from kernel.", zap.String("message-id", kernelMessage.Header.MessageId), zap.String("channel", string(kernelMessage.Channel)), zap.String("kernel-id", conn.kernelId), zap.String("parent-message-id", kernelMessage.GetParentHeader().MessageId), zap.Any("message", kernelMessage.String()))
-
 		// We send ACKs for Shell and Control messages.
 		// We will also attempt to pair the message with its original request.
 		if kernelMessage.Channel == ShellChannel || kernelMessage.Channel == ControlChannel {
-			conn.logger.Debug("Will attempt to ACK message.", zap.String("message-id", kernelMessage.Header.MessageId), zap.String("channel", string(kernelMessage.Channel)), zap.String("kernel-id", conn.kernelId))
+			conn.sugaredLogger.Debugf("Received %s \"%s\" message '%s' from kernel %s: %v", kernelMessage.Channel, kernelMessage.Header.MessageType, kernelMessage.Header.MessageId, conn.kernelId, kernelMessage)
+
 			// We do this in another goroutine so as not to block this message-receiver goroutine.
 			go conn.sendAck(kernelMessage, kernelMessage.Channel)
 
@@ -480,20 +477,60 @@ func (conn *kernelConnectionImpl) serveMessages() {
 			} else {
 				conn.logger.Warn("Could not find response channel associated with message.", zap.String("request-message-id", kernelMessage.GetParentHeader().MessageId), zap.String("response-message-id", kernelMessage.GetHeader().MessageId), zap.String("message-type", string(kernelMessage.Header.MessageType)), zap.String("channel", kernelMessage.Channel.String()), zap.String("response-channel-key", responseChannelKey), zap.String("kernel-id", conn.kernelId))
 			}
+		} else {
+			// For messages that are not Shell or Control, we do not actually log the message. Too much output. (IOPub messages generate a lot of output.)
+			conn.sugaredLogger.Debugf("Received %s \"%s\" message '%s' from kernel %s.", kernelMessage.Channel, kernelMessage.Header.MessageType, kernelMessage.Header.MessageId, conn.kernelId)
+
+			if kernelMessage.Channel == IOPubChannel {
+				// TODO: Make it so we can query/view all of the output generated by a Session via the Workload Driver console/frontend.
+				conn.handleIOPubMessage(kernelMessage)
+			}
 		}
 	}
 }
 
-// func (conn *kernelConnectionImpl) getKernelMessageBuilder() *kernelMessageBuilderImpl {
-// 	messageId := conn.getNextMessageId()
-// 	builder := &kernelMessageBuilderImpl{
-// 		messageId: messageId,
-// 		session:   conn.clientId,
-// 		username:  conn.clientId,
-// 		version:   VERSION,
-// 	}
-// 	return builder
-// }
+func (conn *kernelConnectionImpl) handleIOPubMessage(kernelMessage KernelMessage) error {
+	// We just want to extract the output from 'stream' IOPub messages.
+	// We don't care about non-stream-type IOPub messages here, so we'll just return.
+	if kernelMessage.GetHeader().MessageType != "stream" {
+		return nil
+	}
+
+	content := kernelMessage.GetContent().(map[string]interface{})
+
+	var (
+		stream string
+		text   string
+		ok     bool
+	)
+
+	stream, ok = content["name"].(string)
+	if !ok {
+		conn.logger.Warn("Content of IOPub message did not contain an entry with key \"name\" and value of type string.", zap.Any("content", content), zap.Any("message", kernelMessage), zap.String("kernel-id", conn.kernelId))
+		return nil
+	}
+
+	text, ok = content["text"].(string)
+	if !ok {
+		conn.logger.Warn("Content of IOPub message did not contain an entry with key \"text\" and value of type string.", zap.Any("content", content), zap.Any("message", kernelMessage), zap.String("kernel-id", conn.kernelId))
+		return nil
+	}
+
+	switch stream {
+	case "stdout":
+		{
+			conn.kernelStdout = append(conn.kernelStdout, text)
+		}
+	case "stderr":
+		{
+			conn.kernelStderr = append(conn.kernelStdout, text)
+		}
+	default:
+		conn.logger.Error("Unknown or unsupported stream found in IOPub message.", zap.String("stream", stream), zap.String("kernel-id", conn.kernelId), zap.Any("message", kernelMessage))
+	}
+
+	return nil
+}
 
 func (conn *kernelConnectionImpl) createKernelMessage(messageType MessageType, channel KernelSocketChannel, content interface{}) (KernelMessage, chan KernelMessage) {
 	messageId := conn.getNextMessageId()
@@ -632,7 +669,9 @@ func (conn *kernelConnectionImpl) setupWebsocket(jupyterServerAddress string) er
 
 	conn.updateConnectionStatus(KernelConnected)
 
-	conn.registerAsGolangFrontend()
+	// Skip for now... we may or may not need this.
+	// The registration idea was so we could figure out a way to add support for ACKs between the Cluster Gateway and the Golang Jupyter frontends.
+	// conn.registerAsGolangFrontend()
 
 	return nil
 }
@@ -647,24 +686,25 @@ func (conn *kernelConnectionImpl) registerAsGolangFrontend() error {
 	send_golang_frontend_registration_msg := func(message KernelMessage, responseChan chan KernelMessage) error {
 		conn.logger.Debug("Sending 'golang_frontend_registration_request' message now.", zap.String("message-id", message.GetHeader().MessageId), zap.String("kernel_id", conn.kernelId), zap.String("session", message.GetHeader().Session), zap.String("message", message.String()))
 
-		err := conn.sendMessage(message)
-		if err != nil {
-			return err
-		}
+		return conn.sendMessage(message)
+		// err := conn.sendMessage(message)
+		// if err != nil {
+		// 	return err
+		// }
 
-		timeout := time.Second * time.Duration(5)
-		ctx, cancel := context.WithTimeout(context.Background(), timeout)
-		defer cancel()
+		// timeout := time.Second * time.Duration(10)
+		// ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		// defer cancel()
 
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("%w : %s", ErrRequestTimedOut, ctx.Err())
-		case resp := <-responseChan:
-			{
-				conn.logger.Debug("Received response to 'golang_frontend_registration_request' request.", zap.String("response", resp.String()))
-				return nil
-			}
-		}
+		// select {
+		// case <-ctx.Done():
+		// 	return fmt.Errorf("%w : %s", ErrRequestTimedOut, ctx.Err())
+		// case resp := <-responseChan:
+		// 	{
+		// 		conn.logger.Debug("Received response to 'golang_frontend_registration_request' request.", zap.String("response", resp.String()))
+		// 		return nil
+		// 	}
+		// }
 	}
 
 	shellMessage, shellResponseChan := conn.createKernelMessage(GolangFrontendRegistrationRequest, ShellChannel, content)
@@ -753,7 +793,7 @@ func (conn *kernelConnectionImpl) reconnect() bool {
 }
 
 func (conn *kernelConnectionImpl) getKernelModel() (*jupyterKernel, error) {
-	conn.logger.Debug("Retrieving kernel model via HTTP Rest API.", zap.String("kernelId", conn.kernelId))
+	conn.logger.Debug("Retrieving kernel model via HTTP Rest API.", zap.String("kernel-id", conn.kernelId))
 
 	url := fmt.Sprintf("http://%s/api/kernels/%s", conn.jupyterServerAddress, conn.kernelId)
 	req, err := http.NewRequest(http.MethodGet, url, nil)

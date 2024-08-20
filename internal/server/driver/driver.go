@@ -413,7 +413,7 @@ func (d *workloadDriverImpl) StopWorkload() error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	d.workload.TerminateWorkloadPrematurely()
+	d.workload.TerminateWorkloadPrematurely(d.clockTime.GetClockTime())
 	d.workloadEndTime, _ = d.workload.GetEndTime()
 
 	return nil
