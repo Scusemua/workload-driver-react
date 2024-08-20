@@ -48,7 +48,7 @@ type KernelConnection interface {
 	// request fails or the response is invalid.
 	InterruptKernel() error
 
-	// Send a `stop_running_training_code` message.
+	// Send a 'stop_running_training_code_request' message.
 	StopRunningTrainingCode(waitForResponse bool) error
 
 	// Close the connection to the kernel.

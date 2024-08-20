@@ -13,6 +13,10 @@ const (
 
 type KernelSocketChannel string
 
+func (s KernelSocketChannel) String() string {
+	return string(s)
+}
+
 type KernelMessage interface {
 	GetHeader() *KernelMessageHeader
 	GetChannel() KernelSocketChannel
