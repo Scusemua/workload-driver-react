@@ -377,12 +377,13 @@ func (w *workloadImpl) TerminateWorkloadPrematurely() error {
 
 	w.NumEventsProcessed += 1
 	w.EventsProcessed = append(w.EventsProcessed, &WorkloadEvent{
-		Index:       len(w.EventsProcessed),
-		Id:          uuid.NewString(),
-		Name:        "workload-terminated",
-		Session:     "N/A",
-		Timestamp:   "-",
-		ProcessedAt: now.String(),
+		Index:                 len(w.EventsProcessed),
+		Id:                    uuid.NewString(),
+		Name:                  "workload-terminated",
+		Session:               "N/A",
+		Timestamp:             "-",
+		ProcessedAt:           now.String(),
+		ProcessedSuccessfully: true,
 	})
 
 	return nil

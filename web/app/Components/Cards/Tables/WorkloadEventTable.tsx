@@ -1,7 +1,7 @@
 import React from 'react';
-import { Card, CardBody, Label, Pagination } from '@patternfly/react-core';
+import { Card, CardBody, Label, Pagination, Tooltip } from '@patternfly/react-core';
 import { Table, Tbody, Td, Th, Thead, ThProps, Tr } from '@patternfly/react-table';
-import { CheckCircleIcon, ErrorCircleOIcon, MigrationIcon, MonitoringIcon, OffIcon, PendingIcon, StopIcon } from '@patternfly/react-icons';
+import { CheckCircleIcon, ErrorCircleOIcon, ExclamationCircleIcon, MigrationIcon, MonitoringIcon, OffIcon, PendingIcon, StopIcon } from '@patternfly/react-icons';
 
 import {
     Workload,
@@ -27,14 +27,14 @@ export const WorkloadEventTable: React.FunctionComponent<WorkloadEventTableProps
     // This example is trivial since our data objects just contain strings, but if the data was more complex
     // this would be a place to return simplified string or number versions of each column to sort by.
     const getSortableRowValues = (event: WorkloadEvent): (string | number | Date)[] => {
-        const { idx, id, name, session, timestamp, processed_at } = event;
+        const { idx, id, name, session, timestamp, processed_at, processed_successfully, error_message } = event;
         const timestamp_adjusted: string = timestamp.substring(0, timestamp.length - 10);
         const processed_at_adjusted: string = processed_at.substring(0, 27);
 
         console.log(`Timestamp Adjusted: ${timestamp_adjusted}, Processed-At Adjusted: ${processed_at_adjusted}`)
 
-        // Note: We're omitting the event's "id" field here.
-        return [idx, name, session, Date.parse(timestamp_adjusted), Date.parse(processed_at_adjusted)];
+        // Note: We're omitting the event's "id" and "error_message" fields here.
+        return [idx, name, session, Date.parse(timestamp_adjusted), Date.parse(processed_at_adjusted), processed_successfully === true ? 1 : 0 ];
     };
 
     // Note that we perform the sort as part of the component's render logic and not in onSort.
@@ -94,7 +94,7 @@ export const WorkloadEventTable: React.FunctionComponent<WorkloadEventTableProps
         setPage(newPage);
     };
 
-    const events_table_columns: string[] = ["Index", "Name", "Target Session", "Event Timestamp", "IRL Timestamp"];
+    const events_table_columns: string[] = ["Index", "Name", "Target Session", "Event Timestamp", "IRL Timestamp", "Status"];
 
     const getEventLabel = (event_name: string) => {
         switch (event_name) {
@@ -111,10 +111,18 @@ export const WorkloadEventTable: React.FunctionComponent<WorkloadEventTableProps
             case "update-gpu-util":
                 return (<Label color='grey'>{event_name}</Label>)
             case "workload-terminated":
-                return (<Label color='red' icon={<StopIcon/>}>{event_name}</Label>)
+                return (<Label color='orange' icon={<ExclamationCircleIcon/>}>{event_name}</Label>)
             default:
                 console.error(`Unexpected event name: \"${event_name}\"`);
                 return (<Label color='red' icon={<ErrorCircleOIcon />}>{event_name}</Label>)
+        }
+    }
+
+    const getStatusLabel = (evt: WorkloadEvent) => {
+        if (evt.processed_successfully) {
+            return (<Tooltip position='left-start' content={"The event was processed successfully."}><Label color="green" icon={<CheckCircleIcon/>}>Processed</Label></Tooltip>)
+        } else {
+            return (<Tooltip position='left-start' content={`The event was NOT processed successfully. Reason: ${evt.error_message !== undefined ? evt.error_message : "N/A"}`}><Label color="red" icon={<ErrorCircleOIcon/>}>Error</Label></Tooltip>)
         }
     }
 
@@ -138,6 +146,7 @@ export const WorkloadEventTable: React.FunctionComponent<WorkloadEventTableProps
                                     <Td dataLabel={events_table_columns[2]}>{evt?.session}</Td>
                                     <Td dataLabel={events_table_columns[3]}>{evt?.timestamp.substring(0, evt?.timestamp.length - 10)}</Td>
                                     <Td dataLabel={events_table_columns[4]}>{evt?.processed_at.substring(0, 27)}</Td>
+                                    <Td dataLabel={events_table_columns[5]}>{getStatusLabel(evt)}</Td>
                                 </Tr>
                             )
                         })}
