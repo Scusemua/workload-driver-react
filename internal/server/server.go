@@ -333,6 +333,7 @@ func (s *serverImpl) serverPushRoutine(workloadStartedChan chan string, doneChan
 			// Send an update to the frontend.
 			s.broadcastToWorkloadWebsockets(payload)
 
+			// TODO: Only push updates if something meaningful has changed.
 			s.logger.Debug("Pushed 'Active Workloads' update to frontend.", zap.String("message-id", msgId))
 
 			// Remove workloads that are now inactive from the map.
@@ -1089,29 +1090,28 @@ func newConcurrentWebSocket(conn *websocket.Conn) domain.ConcurrentWebSocket {
 
 // WriteJSON writes the JSON encoding of v as a message.
 func (w *concurrentWebSocketImpl) WriteJSON(v interface{}) error {
-	log.Printf("Preparing to write JSON message. Acquiring lock...\n")
+	// log.Printf("Preparing to write JSON message. Acquiring lock...\n")
 	w.wlock.Lock()
 	defer w.wlock.Unlock()
-
-	log.Printf("Preparing to write JSON message. Successfully acquired lock...\n")
+	// log.Printf("Preparing to write JSON message. Successfully acquired lock...\n")
 	return w.conn.WriteJSON(v)
 }
 
 // Close the websocket.
 func (w *concurrentWebSocketImpl) Close() error {
-	log.Printf("Preparing to close websocket. Acquiring lock...\n")
-
-	log.Printf("Preparing to close websocket. Successfully acquired lock...\n")
+	// log.Printf("Preparing to close websocket. Acquiring lock...\n")
+	w.wlock.Lock()
+	defer w.wlock.Unlock()
+	// log.Printf("Preparing to close websocket. Successfully acquired lock...\n")
 	return w.conn.Close()
 }
 
 // WriteMessage is a helper method for getting a writer using NextWriter, writing the message and closing the writer.
 func (w *concurrentWebSocketImpl) WriteMessage(messageType int, data []byte) error {
-	log.Printf("Preparing to write %v message. Acquiring lock...\n", messageType)
+	// log.Printf("Preparing to write %v message. Acquiring lock...\n", messageType)
 	w.wlock.Lock()
 	defer w.wlock.Unlock()
-
-	log.Printf("Preparing to write %v message. Successfully acquired lock...\n", messageType)
+	// log.Printf("Preparing to write %v message. Successfully acquired lock...\n", messageType)
 	return w.conn.WriteMessage(messageType, data)
 }
 

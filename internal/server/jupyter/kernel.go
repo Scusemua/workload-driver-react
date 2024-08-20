@@ -466,8 +466,9 @@ func (conn *kernelConnectionImpl) serveMessages() {
 		if kernelMessage.Channel == ShellChannel || kernelMessage.Channel == ControlChannel {
 			conn.sugaredLogger.Debugf("Received %s \"%s\" message '%s' from kernel %s: %v", kernelMessage.Channel, kernelMessage.Header.MessageType, kernelMessage.Header.MessageId, conn.kernelId, kernelMessage)
 
+			// Commented-out; for now, we're not ACKING anything.
 			// We do this in another goroutine so as not to block this message-receiver goroutine.
-			go conn.sendAck(kernelMessage, kernelMessage.Channel)
+			// go conn.sendAck(kernelMessage, kernelMessage.Channel)
 
 			responseChannelKey := getResponseChannelKeyFromReply(kernelMessage)
 			if responseChannel, ok := conn.responseChannels[responseChannelKey]; ok {

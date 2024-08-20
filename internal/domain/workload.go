@@ -110,7 +110,8 @@ type Workload interface {
 	// Mark the workload as having completed successfully.
 	SetWorkloadCompleted()
 	// Called after an event is processed for the Workload.
-	// Just updates some internal metrics.
+	// Updates some internal metrics.
+	// Automatically sets the WorkloadEvent's index field.
 	ProcessedEvent(*WorkloadEvent)
 	// Called when a Session is created for/in the Workload.
 	// Just updates some internal metrics.
@@ -194,7 +195,25 @@ type WorkloadEvent struct {
 	Timestamp             string `json:"timestamp"`
 	ProcessedAt           string `json:"processed_at"`
 	ProcessedSuccessfully bool   `json:"processed_successfully"`  // True if the event was processed without error.
-	ErrorMessage          error  `json:"error_message,omitempty"` // Error message from the error that caused the event to not be processed successfully.
+	ErrorMessage          string `json:"error_message,omitempty"` // Error message from the error that caused the event to not be processed successfully.
+}
+
+func NewWorkloadEvent(idx int, id string, name string, session string, timestamp string, processedAt string, processedSuccessfully bool, err error) *WorkloadEvent {
+	event := &WorkloadEvent{
+		Index:                 idx,
+		Id:                    id,
+		Name:                  name,
+		Session:               session,
+		Timestamp:             timestamp,
+		ProcessedAt:           processedAt,
+		ProcessedSuccessfully: processedSuccessfully,
+	}
+
+	if err != nil {
+		event.ErrorMessage = err.Error()
+	}
+
+	return event
 }
 
 type workloadImpl struct {
@@ -376,15 +395,17 @@ func (w *workloadImpl) TerminateWorkloadPrematurely(simulationTimestamp time.Tim
 	w.WorkloadState = WorkloadTerminated
 
 	w.NumEventsProcessed += 1
-	w.EventsProcessed = append(w.EventsProcessed, &WorkloadEvent{
-		Index:                 len(w.EventsProcessed),
-		Id:                    uuid.NewString(),
-		Name:                  "workload-terminated",
-		Session:               "N/A",
-		Timestamp:             simulationTimestamp.String(),
-		ProcessedAt:           now.String(),
-		ProcessedSuccessfully: true,
-	})
+	workloadEvent := NewWorkloadEvent(len(w.EventsProcessed), uuid.NewString(), "workload-terminated", "N/A", simulationTimestamp.String(), now.String(), true, nil)
+	w.EventsProcessed = append(w.EventsProcessed, workloadEvent)
+	// w.EventsProcessed = append(w.EventsProcessed, &WorkloadEvent{
+	// 	Index:                 len(w.EventsProcessed),
+	// 	Id:                    uuid.NewString(),
+	// 	Name:                  "workload-terminated",
+	// 	Session:               "N/A",
+	// 	Timestamp:             simulationTimestamp.String(),
+	// 	ProcessedAt:           now.String(),
+	// 	ProcessedSuccessfully: true,
+	// })
 
 	return nil
 }

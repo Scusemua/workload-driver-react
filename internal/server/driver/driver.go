@@ -809,7 +809,7 @@ func (d *workloadDriverImpl) processEvents(tick time.Time) {
 					Timestamp:             event.Timestamp().String(),
 					ProcessedAt:           time.Now().String(),
 					ProcessedSuccessfully: (err == nil),
-					ErrorMessage:          err, /* Will be nil if no error occurred */
+					ErrorMessage:          err.Error(), /* Will be nil if no error occurred */
 				}
 
 				d.mu.Lock()
@@ -912,15 +912,16 @@ func (d *workloadDriverImpl) handleSessionReadyEvents(latestTick time.Time) {
 		_, err := d.provisionSession(sessionId, driverSession, sessionReadyEvent.Timestamp())
 
 		d.mu.Lock()
-		d.workload.ProcessedEvent(&domain.WorkloadEvent{
-			Id:                    sessionReadyEvent.Id(),
-			Session:               sessionReadyEvent.SessionID(),
-			Name:                  domain.EventSessionStarted.String(),
-			Timestamp:             sessionReadyEvent.Timestamp().String(),
-			ProcessedAt:           time.Now().String(),
-			ProcessedSuccessfully: (err == nil),
-			ErrorMessage:          err, /* Will be nil if no error occurred */
-		})
+		d.workload.ProcessedEvent(domain.NewWorkloadEvent(-1 /* This will be populated automatically by the ProcessedEvent method */, sessionReadyEvent.Id(), sessionReadyEvent.SessionID(), domain.EventSessionStarted.String(), sessionReadyEvent.Timestamp().String(), time.Now().String(), (err == nil), err))
+		// &domain.WorkloadEvent{
+		// 	Id:                    sessionReadyEvent.Id(),
+		// 	Session:               sessionReadyEvent.SessionID(),
+		// 	Name:                  domain.EventSessionStarted.String(),
+		// 	Timestamp:             sessionReadyEvent.Timestamp().String(),
+		// 	ProcessedAt:           time.Now().String(),
+		// 	ProcessedSuccessfully: (err == nil),
+		// 	ErrorMessage:          err.Error(), /* Will be nil if no error occurred */
+		// })
 		d.mu.Unlock()
 
 		if err != nil {
