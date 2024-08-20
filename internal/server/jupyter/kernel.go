@@ -60,6 +60,11 @@ type kernelConnectionImpl struct {
 
 	prependId bool
 
+	// TODO: The response delivery mechanism is wrong. For one, control/shell messages should receive messages on that channel.
+	// But if we receive an IOPub message with a parent as a shell message, then the IOPub message is considered to be the response.
+	// So, we need to look at parent header request ID, channel type, AND we also need to check the message type.
+	// The request is in the form <action>_request and the response is <action>_reply.
+
 	// Register callbacks for responses to particular messages.
 	responseChannels map[string]chan KernelMessage
 
