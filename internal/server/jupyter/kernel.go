@@ -15,6 +15,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"github.com/mattn/go-colorable"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -29,10 +30,13 @@ const (
 	KernelDisconnected   KernelConnectionStatus = "disconnected" // We're not connected to the kernel, but we're unsure if it is dead or not.
 	KernelDead           KernelConnectionStatus = "dead"         // Kernel is dead. We're not connected.
 
-	ExecuteRequest          string = "execute_request"
-	KernelInfoRequest       string = "kernel_info_request"
-	CommCloseMessage        string = "comm_close"
-	StopRunningTrainingCode string = "stop_running_training_code"
+	ExecuteRequest                    MessageType = "execute_request"
+	KernelInfoRequest                 MessageType = "kernel_info_request"
+	GolangFrontendRegistrationRequest MessageType = "golang_frontend_registration"
+	AckMessage                        MessageType = "ACK"
+	CommCloseMessage                  MessageType = "comm_close"
+	StopRunningTrainingCode           MessageType = "stop_running_training_code"
+	DummyMessage                      MessageType = "dummy_message"
 )
 
 var (
@@ -43,14 +47,18 @@ var (
 	ErrUnexpectedFailure       = errors.New("the request could not be completed for some unexpected reason")
 	ErrKernelIsDead            = errors.New("kernel is dead")
 	ErrNotConnected            = errors.New("kernel is not connected")
+	ErrCantAckNotRegistered    = errors.New("cannot ACK message as registration for associated channel has not yet completed")
 )
 
+type MessageType string
 type KernelConnectionStatus string
 
 type kernelConnectionImpl struct {
 	logger        *zap.Logger
 	sugaredLogger *zap.SugaredLogger
 	atom          *zap.AtomicLevel
+
+	prependId bool
 
 	// Register callbacks for responses to particular messages.
 	responseChannels map[string]chan KernelMessage
@@ -68,8 +76,16 @@ type kernelConnectionImpl struct {
 	originalWebsocketCloseHandler func(int, string) error
 	model                         *jupyterKernel
 
-	rlock sync.Mutex
-	wlock sync.Mutex
+	registeredShell   bool // True if we've successfully registered our shell channel as a Golang frontend.
+	registeredControl bool // True if we've successfully registered our control channel as a Golang frontend.
+
+	// Gorilla Websockets support 1 concurrent reader and 1 concurrent writer on the same websocket.
+	// What this means is that we can read from the websocket with one goroutine while we write to the websocket with another goroutine.
+	// However, we cannot have > 1 goroutines reading at the same time, nor can we have > 1 goroutines write at the same time.
+	// So, we have two locks: one for reading, and one for writing.
+
+	rlock sync.Mutex // Synchronizes read operations on the websocket.
+	wlock sync.Mutex // Synchronizes write operations on the websocket.
 }
 
 func NewKernelConnection(kernelId string, clientId string, username string, jupyterServerAddress string, atom *zap.AtomicLevel) (*kernelConnectionImpl, error) {
@@ -86,12 +102,25 @@ func NewKernelConnection(kernelId string, clientId string, username string, jupy
 		messageCount:         0,
 		connectionStatus:     KernelConnectionInit,
 		responseChannels:     make(map[string]chan KernelMessage),
+		prependId:            true,
+		registeredShell:      false,
+		registeredControl:    false,
 	}
 
-	core := zapcore.NewCore(zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()), os.Stdout, atom)
-	conn.logger = zap.New(core, zap.Development())
+	zapConfig := zap.NewDevelopmentEncoderConfig()
+	zapConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+	core := zapcore.NewCore(zapcore.NewConsoleEncoder(zapConfig), zapcore.AddSync(colorable.NewColorableStdout()), atom)
+	logger := zap.New(core, zap.Development())
+	if logger == nil {
+		panic("failed to create logger for workload driver")
+	}
 
-	conn.sugaredLogger = conn.logger.Sugar()
+	conn.logger = logger
+	conn.sugaredLogger = logger.Sugar()
+
+	// core := zapcore.NewCore(zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()), os.Stdout, atom)
+	// conn.logger = zap.New(core, zap.Development())
+	// conn.sugaredLogger = conn.logger.Sugar()
 
 	err := conn.setupWebsocket(conn.jupyterServerAddress)
 	if err != nil {
@@ -102,20 +131,100 @@ func NewKernelConnection(kernelId string, clientId string, username string, jupy
 	return conn, nil
 }
 
+func (conn *kernelConnectionImpl) waitForResponseWithTimeout(responseChan chan KernelMessage, timeoutInterval time.Duration, messageType MessageType) (KernelMessage, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeoutInterval)
+	defer cancel()
+
+	conn.sugaredLogger.Debugf("Waiting for response to \"%s\" message from kernel %s.", messageType, conn.kernelId)
+	select {
+	case <-ctx.Done():
+		{
+			err := ctx.Err()
+			conn.sugaredLogger.Errorf("Failed to receive response to \"%s\" message from kernel %s before timing out (interval=%v): %v", messageType, conn.kernelId, timeoutInterval, err)
+			return nil, err
+		}
+	case resp := <-responseChan:
+		{
+			conn.sugaredLogger.Debugf("Successfully received response to \"%s\" message from kernel %s.", messageType, conn.kernelId)
+			return resp, nil
+		}
+	}
+}
+
+func (conn *kernelConnectionImpl) SendDummyMessage(channel KernelSocketChannel, content interface{}, waitForResponse bool) (KernelMessage, error) {
+	message, responseChan := conn.createKernelMessage(DummyMessage, channel, content)
+	err := conn.sendMessage(message)
+	if err != nil {
+		conn.logger.Error("Error while writing `dummy_message` message.", zap.String("kernel-id", conn.kernelId), zap.Error(err))
+		return nil, err
+	}
+
+	if waitForResponse {
+		return conn.waitForResponseWithTimeout(responseChan, time.Second*5, DummyMessage)
+	} else {
+		return nil, nil
+	}
+}
+
 // Send a `stop_running_training_code` message.
 func (conn *kernelConnectionImpl) StopRunningTrainingCode(waitForResponse bool) error {
 	message, responseChan := conn.createKernelMessage(StopRunningTrainingCode, ControlChannel, nil)
 
 	err := conn.sendMessage(message)
 	if err != nil {
-		conn.logger.Error("Error while writing `stop_running_training_code` message.", zap.String("kernel-id", conn.kernelId), zap.Error(err))
+		conn.logger.Error("Error while writing 'stop_running_training_code' message.", zap.String("kernel-id", conn.kernelId), zap.Error(err))
 		return err
 	}
 
 	if waitForResponse {
-		conn.logger.Debug("Waiting for response from `stop_running_training_code` message.", zap.String("kernel-id", conn.kernelId))
-		<-responseChan
-		conn.logger.Debug("Successfully received response for `stop_running_training_code` message.", zap.String("kernel-id", conn.kernelId))
+		_, err := conn.waitForResponseWithTimeout(responseChan, time.Second*10, StopRunningTrainingCode)
+
+		if err != nil {
+			conn.logger.Warn("Sending 'dummy' control request to see if we receive a response, seeing as our 'stop_running_training_code' request timed-out...", zap.String("kernel-id", conn.kernelId))
+			dummyResp, dummyErr := conn.SendDummyMessage(ControlChannel, nil, true)
+
+			if dummyErr != nil {
+				conn.logger.Error("'dummy_message' request failed as well (in addition to the failed 'stop_running_training_code' request).'", zap.String("kernel-id", conn.kernelId), zap.Error(dummyErr))
+			} else {
+				conn.logger.Warn("Successfully received response to 'dummy' request.", zap.Any("dummy-response", dummyResp))
+			}
+
+			return err // Return the original error.
+		}
+
+		// This will be nil if we successfully received a response.
+		return err
+	}
+
+	return nil
+}
+
+// Return the address of the Jupyter Server associated with this kernel.
+func (conn *kernelConnectionImpl) sendAck(msg *baseKernelMessage, channel KernelSocketChannel) error {
+	if channel != ShellChannel && channel != ControlChannel {
+		conn.sugaredLogger.Warnf("Cannot ACK message of type \"%s\"...", channel)
+	}
+
+	if (channel == ShellChannel && !conn.registeredShell) || (channel == ControlChannel && !conn.registeredControl) {
+		conn.sugaredLogger.Warnf("Cannot ACK '%s' '%s' message '%s' as %s channel registration has not yet completed.", channel, msg.Header.MessageType, msg.Header.MessageId, channel)
+		return fmt.Errorf("%w: %s", ErrCantAckNotRegistered, channel)
+	}
+
+	var content map[string]interface{} = make(map[string]interface{})
+	content["sender-identity"] = fmt.Sprintf("GoJupyter-%s", conn.kernelId)
+
+	ack_message, _ := conn.createKernelMessage(AckMessage, channel, content)
+	ack_message.(*baseKernelMessage).ParentHeader = msg.ParentHeader
+
+	firstPart := fmt.Sprintf(LightBlueStyle.Render("Sending ACK for %v \"%v\""), channel, msg.ParentHeader.MessageType)
+	secondPart := fmt.Sprintf("(MsgId=%v)", LightPurpleStyle.Render(msg.ParentHeader.MessageId))
+	thirdPart := fmt.Sprintf(LightBlueStyle.Render("message: %v"), ack_message)
+	conn.sugaredLogger.Debugf("%s %s %s", firstPart, secondPart, thirdPart)
+
+	err := conn.sendMessage(ack_message)
+	if err != nil {
+		conn.logger.Error("Error while writing 'ACK' message.", zap.String("kernel-id", conn.kernelId), zap.Error(err))
+		return err
 	}
 
 	return nil
@@ -176,6 +285,8 @@ func (conn *kernelConnectionImpl) RequestExecute(code string, silent bool, store
 	}
 
 	if waitForResponse {
+		// Wait without a timeout for the response.
+		// Code executions can take an arbitrary amount of time.
 		response := <-responseChan
 		conn.sugaredLogger.Debugf("Received response to `execute_request` message %s: %v", message.GetHeader().MessageId, response)
 	}
@@ -184,7 +295,10 @@ func (conn *kernelConnectionImpl) RequestExecute(code string, silent bool, store
 }
 
 func (conn *kernelConnectionImpl) RequestKernelInfo() (KernelMessage, error) {
-	message, responseChan := conn.createKernelMessage(KernelInfoRequest, ShellChannel, nil)
+	content := make(map[string]interface{}, 0)
+	content["sender-id"] = fmt.Sprintf("GoJupyter-%s", conn.kernelId)
+
+	message, responseChan := conn.createKernelMessage(KernelInfoRequest, ShellChannel, content)
 
 	conn.logger.Debug("Sending 'request-info' message now.", zap.String("message-id", message.GetHeader().MessageId), zap.String("kernel_id", conn.kernelId), zap.String("session", message.GetHeader().Session), zap.String("message", message.String()))
 
@@ -195,25 +309,15 @@ func (conn *kernelConnectionImpl) RequestKernelInfo() (KernelMessage, error) {
 
 	timeout := time.Second * time.Duration(5)
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
+	defer cancel()
 
-	go func() {
-		time.Sleep(timeout)
-		cancel()
-	}()
-
-	for {
-		select {
-		case <-ctx.Done():
-			return nil, fmt.Errorf("ErrRequestTimedOut %w : %s", ErrRequestTimedOut, ctx.Err())
-		case resp := <-responseChan:
-			{
-				conn.logger.Debug("Received response to 'request-info' request.", zap.String("response", resp.String()))
-				return resp, nil
-			}
-		default:
-			{
-				time.Sleep(time.Millisecond * 250)
-			}
+	select {
+	case <-ctx.Done():
+		return nil, fmt.Errorf("ErrRequestTimedOut %w : %s", ErrRequestTimedOut, ctx.Err())
+	case resp := <-responseChan:
+		{
+			conn.logger.Debug("Received response to 'request-info' request.", zap.String("response", resp.String()))
+			return resp, nil
 		}
 	}
 }
@@ -307,11 +411,12 @@ func (conn *kernelConnectionImpl) serveMessages() {
 		conn.rlock.Unlock()
 
 		if err != nil {
-			conn.logger.Error("Websocket::Read error.", zap.Error(err))
-
 			if errors.Is(err, &websocket.CloseError{}) {
+				conn.logger.Warn("Websocket::CloseError.", zap.Error(err))
 				return
 			}
+
+			conn.logger.Error("Websocket::Read error.", zap.Error(err))
 
 			var rawJsonMap map[string]interface{}
 			conn.rlock.Lock()
@@ -329,16 +434,35 @@ func (conn *kernelConnectionImpl) serveMessages() {
 			continue
 		}
 
-		conn.logger.Debug("Received message from kernel.", zap.String("message-id", kernelMessage.Header.MessageId), zap.String("session", kernelMessage.Header.Session), zap.String("parent-message-id", kernelMessage.GetParentHeader().MessageId), zap.Any("message", kernelMessage.String()))
+		conn.logger.Debug("Received message from kernel.", zap.String("message-id", kernelMessage.Header.MessageId), zap.String("channel", string(kernelMessage.Channel)), zap.String("kernel-id", conn.kernelId), zap.String("parent-message-id", kernelMessage.GetParentHeader().MessageId), zap.Any("message", kernelMessage.String()))
+
+		// Send ACKs for Shell and Control messages.
+		if kernelMessage.Channel == ShellChannel || kernelMessage.Channel == ControlChannel {
+			conn.logger.Debug("Will attempt to ACK message.", zap.String("message-id", kernelMessage.Header.MessageId), zap.String("channel", string(kernelMessage.Channel)), zap.String("kernel-id", conn.kernelId))
+			// We do this in another goroutine so as not to block this message-receiver goroutine.
+			go conn.sendAck(kernelMessage, kernelMessage.Channel)
+		}
 
 		if responseChannel, ok := conn.responseChannels[kernelMessage.GetParentHeader().MessageId]; ok {
-			conn.logger.Debug("Found response channel for message.", zap.String("message-id", kernelMessage.GetParentHeader().MessageId))
+			conn.logger.Debug("Found response channel for websocket message.", zap.String("message-id", kernelMessage.GetParentHeader().MessageId), zap.String("message-type", string(kernelMessage.Header.MessageType)), zap.String("kernel-id", conn.kernelId))
 			responseChannel <- kernelMessage
+			conn.logger.Debug("Response delivered (via channel) for websocket message.", zap.String("message-id", kernelMessage.GetParentHeader().MessageId))
 		}
 	}
 }
 
-func (conn *kernelConnectionImpl) createKernelMessage(messageType string, channel KernelSocketChannel, content interface{}) (KernelMessage, chan KernelMessage) {
+// func (conn *kernelConnectionImpl) getKernelMessageBuilder() *kernelMessageBuilderImpl {
+// 	messageId := conn.getNextMessageId()
+// 	builder := &kernelMessageBuilderImpl{
+// 		messageId: messageId,
+// 		session:   conn.clientId,
+// 		username:  conn.clientId,
+// 		version:   VERSION,
+// 	}
+// 	return builder
+// }
+
+func (conn *kernelConnectionImpl) createKernelMessage(messageType MessageType, channel KernelSocketChannel, content interface{}) (KernelMessage, chan KernelMessage) {
 	messageId := conn.getNextMessageId()
 	header := &KernelMessageHeader{
 		Date:        time.Now().UTC().Format(JavascriptISOString),
@@ -353,16 +477,21 @@ func (conn *kernelConnectionImpl) createKernelMessage(messageType string, channe
 		content = make(map[string]interface{})
 	}
 
+	metadata := make(map[string]interface{})
+	metadata["kernel-id"] = conn.kernelId
+
 	message := &baseKernelMessage{
 		Channel:      channel,
 		Header:       header,
 		Content:      content,
-		Metadata:     make(map[string]interface{}),
+		Metadata:     metadata,
 		Buffers:      make([]byte, 0),
 		ParentHeader: &KernelMessageHeader{},
 	}
 
-	responseChannel := make(chan KernelMessage)
+	// We create a buffered channel so that the 'message-receiver' goroutine cannot get blocked trying to put
+	// a result into a response channelfor which the receiver is not actively listening/waiting for said response.
+	responseChannel := make(chan KernelMessage, 1)
 	conn.responseChannels[messageId] = responseChannel
 
 	return message, responseChannel
@@ -463,6 +592,58 @@ func (conn *kernelConnectionImpl) setupWebsocket(jupyterServerAddress string) er
 	conn.webSocket.SetCloseHandler(conn.websocketClosed)
 
 	conn.updateConnectionStatus(KernelConnected)
+
+	conn.registerAsGolangFrontend()
+
+	return nil
+}
+
+// Register with the Cluster Gateway, informing it that we're a Golang frontend and that it should expect us to ACK messages.
+// This is noteworthy insofar as Jupyter frontends typically do not ACK messages.
+// We don't want to lose any messages, though, so we tell the Cluster Gateway that we WILL be ACKing messages.
+func (conn *kernelConnectionImpl) registerAsGolangFrontend() error {
+	content := make(map[string]interface{}, 0)
+	content["sender-id"] = fmt.Sprintf("GoJupyter-%s", conn.kernelId)
+
+	send_golang_frontend_registration_msg := func(message KernelMessage, responseChan chan KernelMessage) error {
+		conn.logger.Debug("Sending 'golang_frontend_registration' message now.", zap.String("message-id", message.GetHeader().MessageId), zap.String("kernel_id", conn.kernelId), zap.String("session", message.GetHeader().Session), zap.String("message", message.String()))
+
+		err := conn.sendMessage(message)
+		if err != nil {
+			return err
+		}
+
+		timeout := time.Second * time.Duration(5)
+		ctx, cancel := context.WithTimeout(context.Background(), timeout)
+		defer cancel()
+
+		select {
+		case <-ctx.Done():
+			return fmt.Errorf("%w : %s", ErrRequestTimedOut, ctx.Err())
+		case resp := <-responseChan:
+			{
+				conn.logger.Debug("Received response to 'golang_frontend_registration' request.", zap.String("response", resp.String()))
+				return nil
+			}
+		}
+	}
+
+	shellMessage, shellResponseChan := conn.createKernelMessage(GolangFrontendRegistrationRequest, ShellChannel, content)
+	if err := send_golang_frontend_registration_msg(shellMessage, shellResponseChan); err != nil {
+		conn.logger.Error("Failed to send shell 'golang_frontend_registration' message.", zap.Error(err))
+		return err
+	} else {
+		conn.registeredShell = true
+	}
+
+	controlMessage, controlResponseChan := conn.createKernelMessage(GolangFrontendRegistrationRequest, ControlChannel, content)
+	if err := send_golang_frontend_registration_msg(controlMessage, controlResponseChan); err != nil {
+		conn.logger.Error("Failed to send control 'golang_frontend_registration' message.", zap.Error(err))
+		return err
+	} else {
+		conn.registeredControl = true
+	}
+
 	return nil
 }
 

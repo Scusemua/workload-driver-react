@@ -773,6 +773,7 @@ func (d *workloadDriverImpl) processEvents(tick time.Time) {
 			break
 		}
 
+		// Get the list of events for the particular session, creating said list if it does not already exist.
 		sessionId := evt.Data().(domain.PodData).GetPod()
 		sessionEvents, ok := eventsForTick[sessionId]
 		if !ok {
@@ -780,7 +781,7 @@ func (d *workloadDriverImpl) processEvents(tick time.Time) {
 		}
 
 		sessionEvents = append(sessionEvents, evt.GetEvent())
-		eventsForTick[sessionId] = sessionEvents
+		eventsForTick[sessionId] = sessionEvents // Put the list back into the map.
 	}
 
 	if len(eventsForTick) == 0 {
@@ -789,36 +790,43 @@ func (d *workloadDriverImpl) processEvents(tick time.Time) {
 	}
 
 	waitGroup.Add(len(eventsForTick))
-	d.sugaredLogger.Debugf("Processing %d event(s) for tick %v.", len(eventsForTick), tick)
+	d.sugaredLogger.Debugf("Processing events for %d session(s) in tick %v.", len(eventsForTick), tick)
 
 	for sessId, evts := range eventsForTick {
 		d.sugaredLogger.Debugf("Number of events for Session %s: %d", sessId, len(evts))
 
-		// Create a go routine to process all of the events for the particular session serially.
-		// This enables us to process events targeting multiple sessiosn in-parallel.
+		// Create a go routine to process all of the events for the particular session.
+		// This enables us to process events targeting multiple sessions in-parallel.
 		go func(sessionId string, events []domain.Event) {
 			for idx, event := range events {
-				d.sugaredLogger.Debugf("Handling event %d/%d: \"%s\" now...", idx+1, len(eventsForTick), event.Name())
+				d.sugaredLogger.Debugf("Handling event %d/%d \"%s\" for session %s now...", idx+1, len(eventsForTick), sessionId, event.Name())
 				err := d.handleEvent(event)
-				if err != nil {
-					d.logger.Error("Failed to handle event.", zap.Any("event-name", event.Name()), zap.Any("event-id", event.Id()), zap.String("error-message", err.Error()), zap.Int("event-index", idx))
-					d.errorChan <- err
-					time.Sleep(time.Millisecond * time.Duration(100))
+
+				processed_workload_event := &domain.WorkloadEvent{
+					Id:                    event.Id(),
+					Session:               event.SessionID(),
+					Name:                  event.Name().String(),
+					Timestamp:             event.Timestamp().String(),
+					ProcessedAt:           time.Now().String(),
+					ProcessedSuccessfully: (err == nil),
+					ErrorMessage:          err, /* Will be nil if no error occurred */
 				}
 
 				d.mu.Lock()
-				d.workload.ProcessedEvent(&domain.WorkloadEvent{
-					Id:          event.Id(),
-					Session:     event.SessionID(),
-					Name:        event.Name().String(),
-					Timestamp:   event.Timestamp().String(),
-					ProcessedAt: time.Now().String(),
-				})
-				d.mu.Unlock() // We have to explicitly unlock here, since we aren't returning immediately in this case.
+				d.workload.ProcessedEvent(processed_workload_event) // Record it as processed even if there was an error when processing the event.
+				d.mu.Unlock()                                       // We have to explicitly unlock here, since we aren't returning immediately in this case.
 
-				waitGroup.Done()
-				d.sugaredLogger.Debugf("Successfully handled event %d/%d: \"%s\"", idx+1, len(eventsForTick), event.Name())
+				if err != nil {
+					d.sugaredLogger.Errorf("Failed to handle event %d/%d \"%s\" for session %s: %v", idx+1, len(eventsForTick), sessionId, event.Name(), err)
+					d.errorChan <- err
+					return // We just return immediately, as the workload is going to be aborted due to the error.
+				} else {
+					d.sugaredLogger.Debugf("Successfully handled event %d/%d: \"%s\"", idx+1, len(eventsForTick), event.Name())
+				}
 			}
+
+			d.sugaredLogger.Debugf("Finished processing %d event(s) for session \"%s\" in tick %v.", len(events), sessionId, tick)
+			waitGroup.Done()
 		}(sessId, evts)
 	}
 
@@ -902,6 +910,19 @@ func (d *workloadDriverImpl) handleSessionReadyEvents(latestTick time.Time) {
 
 		provision_start := time.Now()
 		_, err := d.provisionSession(sessionId, driverSession, sessionReadyEvent.Timestamp())
+
+		d.mu.Lock()
+		d.workload.ProcessedEvent(&domain.WorkloadEvent{
+			Id:                    sessionReadyEvent.Id(),
+			Session:               sessionReadyEvent.SessionID(),
+			Name:                  domain.EventSessionStarted.String(),
+			Timestamp:             sessionReadyEvent.Timestamp().String(),
+			ProcessedAt:           time.Now().String(),
+			ProcessedSuccessfully: (err == nil),
+			ErrorMessage:          err, /* Will be nil if no error occurred */
+		})
+		d.mu.Unlock()
+
 		if err != nil {
 			d.logger.Error("Failed to provision new Jupyter session.", zap.String(ZapInternalSessionIDKey, sessionId), zap.Duration("real-time-elapsed", time.Since(provision_start)), zap.Error(err))
 			payload, _ := json.Marshal(domain.ErrorMessage{
@@ -910,19 +931,11 @@ func (d *workloadDriverImpl) handleSessionReadyEvents(latestTick time.Time) {
 				Valid:        true,
 			})
 			d.websocket.WriteMessage(websocket.BinaryMessage, payload)
+			d.errorChan <- err
+			return // Just return; the workload is about to end anyway (since there was an error).
 		} else {
 			d.logger.Debug("Successfully handled SessionStarted event.", zap.String(ZapInternalSessionIDKey, sessionId), zap.Duration("real-time-elapsed", time.Since(provision_start)))
 		}
-
-		d.mu.Lock()
-		d.workload.ProcessedEvent(&domain.WorkloadEvent{
-			Id:          sessionReadyEvent.Id(),
-			Session:     sessionReadyEvent.SessionID(),
-			Name:        domain.EventSessionStarted.String(),
-			Timestamp:   sessionReadyEvent.Timestamp().String(),
-			ProcessedAt: time.Now().String(),
-		})
-		d.mu.Unlock()
 
 		numProcessed += 1
 		// Get the next ready-to-process `EventSessionReady` event if there is one. If not, then this will return nil, and we'll exit the for-loop.
@@ -963,6 +976,7 @@ func (d *workloadDriverImpl) handleEvent(evt domain.Event) error {
 		err := kernelConnection.RequestExecute(TrainingCode, false, true, make(map[string]interface{}), true, false, false)
 		if err != nil {
 			d.logger.Error("Error while attempting to execute training code.", zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId), zap.Error(err))
+			return err
 		}
 
 		d.mu.Lock()
@@ -1002,6 +1016,7 @@ func (d *workloadDriverImpl) handleEvent(evt domain.Event) error {
 		err := kernelConnection.StopRunningTrainingCode(true)
 		if err != nil {
 			d.logger.Error("Error while attempting to stop training.", zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId), zap.Error(err))
+			return err
 		} else {
 			d.mu.Lock()
 			// d.workload.NumTasksExecuted += 1

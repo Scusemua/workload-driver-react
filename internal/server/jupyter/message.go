@@ -11,6 +11,8 @@ const (
 	StdinChannel   KernelSocketChannel = "stdin"
 )
 
+type KernelSocketChannel string
+
 type KernelMessage interface {
 	GetHeader() *KernelMessageHeader
 	GetChannel() KernelSocketChannel
@@ -23,12 +25,12 @@ type KernelMessage interface {
 }
 
 type baseKernelMessage struct {
-	Header       *KernelMessageHeader   `json:"header"`
 	Channel      KernelSocketChannel    `json:"channel"`
+	Header       *KernelMessageHeader   `json:"header"`
+	ParentHeader *KernelMessageHeader   `json:"parent_header"`
+	Metadata     map[string]interface{} `json:"metadata"`
 	Content      interface{}            `json:"content"`
 	Buffers      []byte                 `json:"buffers"`
-	Metadata     map[string]interface{} `json:"metadata"`
-	ParentHeader *KernelMessageHeader   `json:"parent_header"`
 }
 
 func (m *baseKernelMessage) GetHeader() *KernelMessageHeader {
@@ -55,8 +57,6 @@ func (m *baseKernelMessage) GetParentHeader() *KernelMessageHeader {
 	return m.ParentHeader
 }
 
-type KernelSocketChannel string
-
 func (m *baseKernelMessage) String() string {
 	out, err := json.Marshal(m)
 	if err != nil {
@@ -67,12 +67,12 @@ func (m *baseKernelMessage) String() string {
 }
 
 type KernelMessageHeader struct {
-	Date        string `json:"date"`
-	MessageId   string `json:"msg_id"`
-	MessageType string `json:"msg_type"`
-	Session     string `json:"session"`
-	Username    string `json:"username"`
-	Version     string `json:"version"`
+	Date        string      `json:"date"`
+	MessageId   string      `json:"msg_id"`
+	MessageType MessageType `json:"msg_type"`
+	Session     string      `json:"session"`
+	Username    string      `json:"username"`
+	Version     string      `json:"version"`
 }
 
 func (h *KernelMessageHeader) String() string {
@@ -101,3 +101,78 @@ func (m *executeRequestKernelMessageContent) String() string {
 
 	return string(out)
 }
+
+// type KernelMessageBuilder interface {
+// 	WithChannel(channel KernelSocketChannel) KernelMessageBuilder
+// 	WithContent(content interface{}) KernelMessageBuilder
+// 	WithMessageType(messageType string) KernelMessageBuilder
+// 	BuildMessage() KernelMessage
+// }
+
+// type kernelMessageBuilderImpl struct {
+// 	channel      KernelSocketChannel
+// 	header       *KernelMessageHeader
+// 	parentHeader *KernelMessageHeader
+// 	metadata     map[string]interface{}
+// 	content      interface{}
+// 	buffers      []byte
+
+// 	// For header.
+// 	messageId   string
+// 	session     string
+// 	username    string
+// 	version     string
+// 	messageType string
+// }
+
+// func newKernelMessageBuilder(messageId string) KernelMessageBuilder {
+// 	return &kernelMessageBuilderImpl{}
+// }
+
+// func (b *kernelMessageBuilderImpl) WithChannel(channel KernelSocketChannel) *kernelMessageBuilderImpl {
+// 	b.channel = channel
+// 	return b
+// }
+
+// // This doesn't do any sort of type checking on the content.
+// // Content should probably just be a map[string]interface{} for a majority of cases.
+// func (b *kernelMessageBuilderImpl) WithContent(content interface{}) *kernelMessageBuilderImpl {
+// 	b.content = content
+// 	return b
+// }
+
+// func (b *kernelMessageBuilderImpl) WithMessageType(messageType string) *kernelMessageBuilderImpl {
+// 	b.messageType = messageType
+// 	return b
+// }
+
+// func (b *kernelMessageBuilderImpl) BuildMessage() KernelMessage {
+// 	date := time.Now().UTC().Format(JavascriptISOString)
+
+// 	header := &KernelMessageHeader{
+// 		Date:        date,
+// 		MessageId:   b.messageId,
+// 		MessageType: b.messageType,
+// 		Session:     b.session,
+// 		Username:    b.username,
+// 		Version:     b.version,
+// 	}
+
+// 	if b.content == nil {
+// 		b.content = make(map[string]interface{})
+// 	}
+
+// 	metadata := make(map[string]interface{})
+
+// 	message := &baseKernelMessage{
+// 		Channel:      b.channel,
+// 		Header:       header,
+// 		Content:      b.content,
+// 		Metadata:     metadata,
+// 		Buffers:      make([]byte, 0),
+// 		ParentHeader: &KernelMessageHeader{},
+// 	}
+
+// 	responseChannel := make(chan KernelMessage)
+// 	conn.responseChannels[messageId] = responseChannel
+// }

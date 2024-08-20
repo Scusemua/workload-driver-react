@@ -56,6 +56,8 @@ interface WorkloadEvent {
     session: string;
     timestamp: string;
     processed_at: string;
+    processed_successfully: boolean;
+    error_message: string;
 }
 
 interface Session {

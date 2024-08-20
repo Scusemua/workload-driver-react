@@ -94,7 +94,7 @@ export const WorkloadEventTable: React.FunctionComponent<WorkloadEventTableProps
         setPage(newPage);
     };
 
-    const events_table_columns: string[] = ["Index", "Event Name", "Target Session ID", "Event Timestamp", "IRL Timestamp"];
+    const events_table_columns: string[] = ["Index", "Name", "Target Session", "Event Timestamp", "IRL Timestamp"];
 
     const getEventLabel = (event_name: string) => {
         switch (event_name) {
@@ -136,8 +136,8 @@ export const WorkloadEventTable: React.FunctionComponent<WorkloadEventTableProps
                                     <Td dataLabel={events_table_columns[0]}>{evt?.idx}</Td>
                                     <Td dataLabel={events_table_columns[1]}>{getEventLabel(evt?.name)}</Td>
                                     <Td dataLabel={events_table_columns[2]}>{evt?.session}</Td>
-                                    <Td dataLabel={events_table_columns[3]}>{evt?.timestamp}</Td>
-                                    <Td dataLabel={events_table_columns[4]}>{evt?.processed_at}</Td>
+                                    <Td dataLabel={events_table_columns[3]}>{evt?.timestamp.substring(0, evt?.timestamp.length - 10)}</Td>
+                                    <Td dataLabel={events_table_columns[4]}>{evt?.processed_at.substring(0, 27)}</Td>
                                 </Tr>
                             )
                         })}

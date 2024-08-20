@@ -187,12 +187,14 @@ func GetWorkloadStateAsString(state WorkloadState) string {
 }
 
 type WorkloadEvent struct {
-	Index       int    `json:"idx"`
-	Id          string `json:"id"`
-	Name        string `json:"name"`
-	Session     string `json:"session"`
-	Timestamp   string `json:"timestamp"`
-	ProcessedAt string `json:"processed_at"`
+	Index                 int    `json:"idx"`
+	Id                    string `json:"id"`
+	Name                  string `json:"name"`
+	Session               string `json:"session"`
+	Timestamp             string `json:"timestamp"`
+	ProcessedAt           string `json:"processed_at"`
+	ProcessedSuccessfully bool   `json:"processed_successfully"`  // True if the event was processed without error.
+	ErrorMessage          error  `json:"error_message,omitempty"` // Error message from the error that caused the event to not be processed successfully.
 }
 
 type workloadImpl struct {
