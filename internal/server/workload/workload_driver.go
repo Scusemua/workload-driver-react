@@ -868,21 +868,22 @@ func (d *workloadDriverImpl) getOriginalSessionIdFromInternalSessionId(internalS
 }
 
 // Create and return a new Session with the given ID.
-func (d *workloadDriverImpl) NewSession(id string, meta *generator.Session, createdAtTime time.Time) *Session {
+func (d *workloadDriverImpl) NewSession(id string, meta *generator.Session, createdAtTime time.Time) *domain.WorkloadSession {
 	d.sugaredLogger.Debugf("Creating new Session %v. MaxSessionCPUs: %.2f; MaxSessionMemory: %.2f. MaxSessionGPUs: %d. TotalNumSessions: %d", id, meta.MaxSessionCPUs, meta.MaxSessionMemory, meta.MaxSessionGPUs, d.sessions.Len())
 
-	var session *Session = d.GetSession(id)
-	if session != nil {
+	// Make sure the Session doesn't already exist.
+	var session *domain.WorkloadSession
+	if session = d.GetSession(id); session != nil {
 		panic(fmt.Sprintf("Attempted to create existing Session %s.", id))
 	}
 
 	// The Session only exposes the CPUs, Memory, and
-	resourceRequest := domain.NewResourceRequest(meta.MaxSessionCPUs, meta.MaxSessionMemory, float64(meta.MaxSessionGPUs), AnyGPU)
-	session = NewSession(id, meta, resourceRequest, createdAtTime)
+	resourceRequest := domain.NewResourceRequest(meta.MaxSessionCPUs, meta.MaxSessionMemory, meta.MaxSessionGPUs, AnyGPU)
+	session = domain.NewWorkloadSession(id, meta, resourceRequest, createdAtTime)
 
 	d.mu.Lock()
 
-	internalSessionId := d.getInternalSessionId(session.Id())
+	internalSessionId := d.getInternalSessionId(session.Id)
 
 	// d.workload.NumActiveSessions += 1
 	// d.workload.NumSessionsCreated += 1
@@ -898,11 +899,11 @@ func (d *workloadDriverImpl) NewSession(id string, meta *generator.Session, crea
 
 // Get and return the Session identified by the given ID, if one exists. Otherwise, return nil.
 // If the caller is attempting to retrieve a Session that once existed but has since been terminated, then this will return nil.
-func (d *workloadDriverImpl) GetSession(id string) *Session {
+func (d *workloadDriverImpl) GetSession(id string) *domain.WorkloadSession {
 	session, ok := d.sessions.Get(id)
 
 	if ok {
-		return session.(*Session)
+		return session.(*domain.WorkloadSession)
 	}
 
 	return nil

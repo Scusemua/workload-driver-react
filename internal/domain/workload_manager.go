@@ -1,14 +1,20 @@
 package domain
 
-type WorkloadManager interface {
-	WorkloadProvider
-}
+import "github.com/gin-gonic/gin"
 
-// Provides access to the currently-registered workloads.
-type WorkloadProvider interface {
+// Central hub that manages/maintains all of the different workloads.
+type WorkloadManager interface {
+	// Return a function that can handle WebSocket requests for workload operations.
+	//
+	// This simply returns the handler function of the WorkloadWebsocketHandler struct of the WorkloadManager.
+	GetWorkloadWebsocketHandler() gin.HandlerFunc
+
 	// Return a slice containing all currently-registered workloads (at the time that the method is called).
 	// The workloads within this slice should not be modified by the caller.
 	GetWorkloads() []Workload
+
+	// Return a map from Workload ID to Workload struct containing workloads that are active when the method is called.
+	GetActiveWorkloads() map[string]Workload
 
 	// Return the workload driver associated with the given workload ID.
 	// If there is no driver associated with the provided workload ID, then nil is returned.

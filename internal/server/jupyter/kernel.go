@@ -680,52 +680,52 @@ func (conn *kernelConnectionImpl) setupWebsocket(jupyterServerAddress string) er
 // Register with the Cluster Gateway, informing it that we're a Golang frontend and that it should expect us to ACK messages.
 // This is noteworthy insofar as Jupyter frontends typically do not ACK messages.
 // We don't want to lose any messages, though, so we tell the Cluster Gateway that we WILL be ACKing messages.
-func (conn *kernelConnectionImpl) registerAsGolangFrontend() error {
-	content := make(map[string]interface{}, 0)
-	content["sender-id"] = fmt.Sprintf("GoJupyter-%s", conn.kernelId)
+// func (conn *kernelConnectionImpl) registerAsGolangFrontend() error {
+// 	content := make(map[string]interface{}, 0)
+// 	content["sender-id"] = fmt.Sprintf("GoJupyter-%s", conn.kernelId)
 
-	send_golang_frontend_registration_msg := func(message KernelMessage, responseChan chan KernelMessage) error {
-		conn.logger.Debug("Sending 'golang_frontend_registration_request' message now.", zap.String("message-id", message.GetHeader().MessageId), zap.String("kernel_id", conn.kernelId), zap.String("session", message.GetHeader().Session), zap.String("message", message.String()))
+// 	send_golang_frontend_registration_msg := func(message KernelMessage, responseChan chan KernelMessage) error {
+// 		conn.logger.Debug("Sending 'golang_frontend_registration_request' message now.", zap.String("message-id", message.GetHeader().MessageId), zap.String("kernel_id", conn.kernelId), zap.String("session", message.GetHeader().Session), zap.String("message", message.String()))
 
-		return conn.sendMessage(message)
-		// err := conn.sendMessage(message)
-		// if err != nil {
-		// 	return err
-		// }
+// 		return conn.sendMessage(message)
+// 		// err := conn.sendMessage(message)
+// 		// if err != nil {
+// 		// 	return err
+// 		// }
 
-		// timeout := time.Second * time.Duration(10)
-		// ctx, cancel := context.WithTimeout(context.Background(), timeout)
-		// defer cancel()
+// 		// timeout := time.Second * time.Duration(10)
+// 		// ctx, cancel := context.WithTimeout(context.Background(), timeout)
+// 		// defer cancel()
 
-		// select {
-		// case <-ctx.Done():
-		// 	return fmt.Errorf("%w : %s", ErrRequestTimedOut, ctx.Err())
-		// case resp := <-responseChan:
-		// 	{
-		// 		conn.logger.Debug("Received response to 'golang_frontend_registration_request' request.", zap.String("response", resp.String()))
-		// 		return nil
-		// 	}
-		// }
-	}
+// 		// select {
+// 		// case <-ctx.Done():
+// 		// 	return fmt.Errorf("%w : %s", ErrRequestTimedOut, ctx.Err())
+// 		// case resp := <-responseChan:
+// 		// 	{
+// 		// 		conn.logger.Debug("Received response to 'golang_frontend_registration_request' request.", zap.String("response", resp.String()))
+// 		// 		return nil
+// 		// 	}
+// 		// }
+// 	}
 
-	shellMessage, shellResponseChan := conn.createKernelMessage(GolangFrontendRegistrationRequest, ShellChannel, content)
-	if err := send_golang_frontend_registration_msg(shellMessage, shellResponseChan); err != nil {
-		conn.logger.Error("Failed to send shell 'golang_frontend_registration_request' message.", zap.Error(err))
-		return err
-	} else {
-		conn.registeredShell = true
-	}
+// 	shellMessage, shellResponseChan := conn.createKernelMessage(GolangFrontendRegistrationRequest, ShellChannel, content)
+// 	if err := send_golang_frontend_registration_msg(shellMessage, shellResponseChan); err != nil {
+// 		conn.logger.Error("Failed to send shell 'golang_frontend_registration_request' message.", zap.Error(err))
+// 		return err
+// 	} else {
+// 		conn.registeredShell = true
+// 	}
 
-	controlMessage, controlResponseChan := conn.createKernelMessage(GolangFrontendRegistrationRequest, ControlChannel, content)
-	if err := send_golang_frontend_registration_msg(controlMessage, controlResponseChan); err != nil {
-		conn.logger.Error("Failed to send control 'golang_frontend_registration_request' message.", zap.Error(err))
-		return err
-	} else {
-		conn.registeredControl = true
-	}
+// 	controlMessage, controlResponseChan := conn.createKernelMessage(GolangFrontendRegistrationRequest, ControlChannel, content)
+// 	if err := send_golang_frontend_registration_msg(controlMessage, controlResponseChan); err != nil {
+// 		conn.logger.Error("Failed to send control 'golang_frontend_registration_request' message.", zap.Error(err))
+// 		return err
+// 	} else {
+// 		conn.registeredControl = true
+// 	}
 
-	return nil
-}
+// 	return nil
+// }
 
 func (conn *kernelConnectionImpl) websocketClosed(code int, text string) error {
 	if conn.originalWebsocketCloseHandler == nil {

@@ -6,6 +6,8 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// Drives a workload.
+// Each WorkloadDriver can be assigned a single workload via the WorkloadDriver::RegisterWorkload method.
 type WorkloadDriver interface {
 	EventConsumer
 
@@ -51,6 +53,7 @@ type WorkloadDriver interface {
 	GetWorkloadRegistrationRequest() *WorkloadRegistrationRequest
 
 	// Returns nil if the workload could not be registered.
+	// Only one workload may be registered with a WorkloadDriver struct.
 	RegisterWorkload(workloadRegistrationRequest *WorkloadRegistrationRequest) (Workload, error)
 
 	// Write an error back to the client.

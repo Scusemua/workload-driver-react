@@ -322,9 +322,9 @@ func (g *workloadGeneratorImpl) GenerateTemplateWorkload(consumer domain.EventCo
 
 	// Populate all of the above mappings using the data from the template.
 	for _, session := range sessions {
-		cpuSessionMap[session.Id] = session.MaxCPUs
-		memSessionMap[session.Id] = session.MaxMemoryGB
-		gpuSessionMap[session.Id] = session.MaxNumGPUs
+		cpuSessionMap[session.Id] = session.ResourceRequest.Cpus
+		memSessionMap[session.Id] = session.ResourceRequest.MemoryGB
+		gpuSessionMap[session.Id] = session.ResourceRequest.Gpus
 
 		if session.Trainings == nil {
 			panic(fmt.Sprintf("The `Trainings` field of Session %s is nil.", session.Id))

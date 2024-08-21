@@ -60,11 +60,16 @@ interface WorkloadEvent {
     error_message: string;
 }
 
+interface ResourceRequest {
+    cpus: number;
+    gpus: number;
+    memory_gb: number;
+    gpu_type: string;
+}
+
 interface Session {
     id: string;
-    max_cpus: number;
-    max_memory_gb: number;
-    max_num_gpus: number;
+    resource_request: ResourceRequest;
     start_tick: number;
     stop_tick: number;
     trainings: TrainingEvent[];
@@ -137,3 +142,4 @@ export type { WorkloadEvent as WorkloadEvent };
 export type { Session as Session };
 export type { TrainingEvent as TrainingEvent };
 export type { WorkloadTemplate as WorkloadTemplate };
+export type { ResourceRequest as ResourceRequest };

@@ -121,16 +121,16 @@ func validateSession(session *domain.WorkloadSession) error {
 		panic("Session's `Trainings` field should not be nil.")
 	}
 
-	if session.MaxCPUs < 0 {
-		return fmt.Errorf("%w: invalid maximum number of CPUs specified (%f). Quantity must be greater than or equal to 0", ErrInvalidConfiguration, session.MaxCPUs)
+	if session.ResourceRequest.Cpus < 0 {
+		return fmt.Errorf("%w: invalid maximum number of CPUs specified (%f). Quantity must be greater than or equal to 0", ErrInvalidConfiguration, session.ResourceRequest.Cpus)
 	}
 
-	if session.MaxNumGPUs < 0 {
-		return fmt.Errorf("%w: invalid maximum number of GPUs specified (%d). Quantity must be greater than or equal to 0", ErrInvalidConfiguration, session.MaxNumGPUs)
+	if session.ResourceRequest.Gpus < 0 {
+		return fmt.Errorf("%w: invalid maximum number of GPUs specified (%d). Quantity must be greater than or equal to 0", ErrInvalidConfiguration, session.ResourceRequest.Gpus)
 	}
 
-	if session.MaxMemoryGB < 0 {
-		return fmt.Errorf("%w: invalid maximum memory usage (in GB) specified (%f). Quantity must be greater than or equal to 0", ErrInvalidConfiguration, session.MaxMemoryGB)
+	if session.ResourceRequest.MemoryGB < 0 {
+		return fmt.Errorf("%w: invalid maximum memory usage (in GB) specified (%f). Quantity must be greater than or equal to 0", ErrInvalidConfiguration, session.ResourceRequest.MemoryGB)
 	}
 
 	// Validate `session.StartTick`
@@ -198,16 +198,16 @@ func validateSessionArgumentsAgainstTrainingArguments(session *domain.WorkloadSe
 	}
 
 	for _, trainingEvent := range session.Trainings {
-		if session.MaxCPUs < trainingEvent.CpuUtil {
-			return fmt.Errorf("%w: incompatible max CPUs (%f) and training CPU utilization (%f) specified. Training CPU utilization cannot exceed maximum session CPUs", ErrInvalidConfiguration, session.MaxCPUs, trainingEvent.CpuUtil)
+		if session.ResourceRequest.Cpus < trainingEvent.CpuUtil {
+			return fmt.Errorf("%w: incompatible max CPUs (%f) and training CPU utilization (%f) specified. Training CPU utilization cannot exceed maximum session CPUs", ErrInvalidConfiguration, session.ResourceRequest.Cpus, trainingEvent.CpuUtil)
 		}
 
-		if session.MaxNumGPUs < trainingEvent.NumGPUs() {
-			return fmt.Errorf("%w: incompatible max GPUs (%d) and training GPU utilization (%d) specified. Training GPU utilization cannot exceed maximum session GPUs", ErrInvalidConfiguration, session.MaxNumGPUs, trainingEvent.NumGPUs())
+		if session.ResourceRequest.Gpus < trainingEvent.NumGPUs() {
+			return fmt.Errorf("%w: incompatible max GPUs (%d) and training GPU utilization (%d) specified. Training GPU utilization cannot exceed maximum session GPUs", ErrInvalidConfiguration, session.ResourceRequest.Gpus, trainingEvent.NumGPUs())
 		}
 
-		if session.MaxMemoryGB < trainingEvent.MemUsageGB {
-			return fmt.Errorf("%w: incompatible max memory usage (%f GB) and training memory usage (%f GB) specified. Training memory usage cannot exceed maximum session memory usage", ErrInvalidConfiguration, session.MaxMemoryGB, trainingEvent.MemUsageGB)
+		if session.ResourceRequest.MemoryGB < trainingEvent.MemUsageGB {
+			return fmt.Errorf("%w: incompatible max memory usage (%f GB) and training memory usage (%f GB) specified. Training memory usage cannot exceed maximum session memory usage", ErrInvalidConfiguration, session.ResourceRequest.MemoryGB, trainingEvent.MemUsageGB)
 		}
 	}
 
@@ -252,7 +252,7 @@ func SingleSessionSingleTraining(sessions []*domain.WorkloadSession) (SequencerF
 	}
 
 	return func(sequencer *CustomEventSequencer) error {
-		sequencer.RegisterSession(session.Id, session.MaxCPUs, session.MaxMemoryGB, session.MaxNumGPUs, 0)
+		sequencer.RegisterSession(session.Id, session.ResourceRequest.Cpus, session.ResourceRequest.MemoryGB, session.ResourceRequest.Gpus, 0)
 
 		trainingEvent := session.Trainings[0]
 

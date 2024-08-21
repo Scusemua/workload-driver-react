@@ -302,7 +302,7 @@ func (s *Synthesizer) Synthesize(ctx context.Context, opts *domain.Configuration
 		s.sessions = nil
 	}()
 
-	numDriversFinished := 0
+	// numDriversFinished := 0
 
 	s.sugarLog.Debugf("There are %d event sources.", len(s.Sources))
 
@@ -344,10 +344,10 @@ func (s *Synthesizer) Synthesize(ctx context.Context, opts *domain.Configuration
 				sugarLog.Debugf("%v, %d sources left.", evt, s.eventsHeap.Len())
 			}
 
-			switch evt.EventSource().(type) {
-			case TraceDriver:
-				numDriversFinished += 1
-			}
+			// switch evt.EventSource().(type) {
+			// case TraceDriver:
+			// 	numDriversFinished += 1
+			// }
 			continue
 		}
 

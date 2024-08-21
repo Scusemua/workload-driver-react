@@ -32,7 +32,7 @@ import HelpIcon from '@patternfly/react-icons/dist/esm/icons/help-icon';
 import styles from '@patternfly/react-styles/css/components/Form/form';
 
 import { CpuIcon, MemoryIcon, MinusCircleIcon, PlusCircleIcon, SyncIcon } from '@patternfly/react-icons';
-import { Session, TrainingEvent, WorkloadPreset, WorkloadTemplate } from '@app/Data';
+import { ResourceRequest, Session, TrainingEvent, WorkloadPreset, WorkloadTemplate } from '@app/Data';
 import { useWorkloadPresets } from '@providers/WorkloadPresetProvider';
 import { PlusIcon } from '@patternfly/react-icons';
 import { GpuIcon } from '@app/Icons';
@@ -219,7 +219,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
         if (numberOfGPUs === '' || numberOfGPUs < 0 || numberOfGPUs > 8) {
             return true;
         }
-        
+
         const numGPUs: number = (numberOfGPUs || 1);
         for (let i = 0; i < numGPUs; i++) {
             if (validateGpuUtilInput(i) !== 'success') {
@@ -228,7 +228,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
         }
 
         if (validateTimescaleAdjustmentFactor() == 'error') {
-            return true; 
+            return true;
         }
 
         return false;
@@ -284,7 +284,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
             // Add only the GPU utilizations for the number of GPUs that the user has configured for the workload.
             // If we just passed `gpuUtilizations` directly, then we'd pass all 8 GPU utilizations, which would be wrong.
             gpuUtilizationsToSubmit.push(gpuUtilizations[i]);
-            
+
             console.debug(`GPU Utilization of GPU#${i}: ${gpuUtilizations[i]}`)
         }
 
@@ -298,11 +298,16 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
             durationInTicks: trainingDurationInTicks,
         }
 
+        const resource_request: ResourceRequest = {
+            cpus: trainingCpuPercentUtil,
+            memory_gb: trainingMemUsageGb,
+            gpus: numberOfGPUs,
+            gpu_type: "",
+        }
+
         const session: Session = {
             id: sessionIdentifier,
-            max_cpus: trainingCpuPercentUtil,
-            max_memory_gb: trainingMemUsageGb,
-            max_num_gpus: numberOfGPUs,
+            resource_request: resource_request,
             start_tick: sessionStartTick,
             stop_tick: sessionStopTick,
             trainings: [trainingEvent],
@@ -348,7 +353,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
         if (sessionStartTick === '' || trainingStartTick === '' || trainingDurationInTicks === '') {
             return 'warning';
         }
-        
+
         return (sessionStopTick >= 0 && trainingStartTick < sessionStopTick && sessionStartTick < sessionStopTick && trainingStartTick + trainingDurationInTicks < sessionStopTick) ? 'success' : 'error'
     }
 
@@ -663,52 +668,52 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                             </FormGroup>
                         </GridItem>
                         <GridItem span={4}>
-                        <FormGroup
-                            label={'Timescale Adjustment Factor'}
-                            labelIcon={
-                                <Popover
-                                    aria-label="timescale-adjustment-factor-header"
-                                    headerContent={<div>Timescale Adjustment Factor</div>}
-                                    bodyContent={
-                                        <div>
-                                            This quantity adjusts the timescale at which the trace data is replayed.
-                                            For example, if each tick is 60 seconds, then setting this value to 1.0 will instruct
-                                            the Workload Driver to simulate each tick for the full 60 seconds.
-                                            Alternatively, setting this quantity to 2.0 will instruct the Workload Driver to spend 120 seconds on each tick.
-                                            Setting the quantity to 0.5 will instruct the Workload Driver to spend 30 seconds on each tick.
-                                        </div>
-                                    }
-                                >
-                                    <button
-                                        type="button"
-                                        aria-label="Set the Timescale Adjustment Factor."
-                                        onClick={(e) => e.preventDefault()}
-                                        className={styles.formGroupLabelHelp}
+                            <FormGroup
+                                label={'Timescale Adjustment Factor'}
+                                labelIcon={
+                                    <Popover
+                                        aria-label="timescale-adjustment-factor-header"
+                                        headerContent={<div>Timescale Adjustment Factor</div>}
+                                        bodyContent={
+                                            <div>
+                                                This quantity adjusts the timescale at which the trace data is replayed.
+                                                For example, if each tick is 60 seconds, then setting this value to 1.0 will instruct
+                                                the Workload Driver to simulate each tick for the full 60 seconds.
+                                                Alternatively, setting this quantity to 2.0 will instruct the Workload Driver to spend 120 seconds on each tick.
+                                                Setting the quantity to 0.5 will instruct the Workload Driver to spend 30 seconds on each tick.
+                                            </div>
+                                        }
                                     >
-                                        <HelpIcon />
-                                    </button>
-                                </Popover>
-                            }
-                        >
-                            <NumberInput
-                                value={timescaleAdjustmentFactor}
-                                onMinus={() => setTimescaleAdjustmentFactor((timescaleAdjustmentFactor || 0) - 0.25)}
-                                onChange={(event: React.FormEvent<HTMLInputElement>) => {
-                                    const value = (event.target as HTMLInputElement).value;
-                                    setTimescaleAdjustmentFactor(value === '' ? value : +value);
-                                }}
-                                onPlus={() => setTimescaleAdjustmentFactor((timescaleAdjustmentFactor || 0) + 0.25)}
-                                inputName="training-start-tick-input"
-                                inputAriaLabel="training-start-tick-input"
-                                minusBtnAriaLabel="minus"
-                                plusBtnAriaLabel="plus"
-                                validated={validateTimescaleAdjustmentFactor()}
-                                widthChars={4}
-                                min={0}
-                                max={10}
-                            />
-                        </FormGroup>
-                    </GridItem>
+                                        <button
+                                            type="button"
+                                            aria-label="Set the Timescale Adjustment Factor."
+                                            onClick={(e) => e.preventDefault()}
+                                            className={styles.formGroupLabelHelp}
+                                        >
+                                            <HelpIcon />
+                                        </button>
+                                    </Popover>
+                                }
+                            >
+                                <NumberInput
+                                    value={timescaleAdjustmentFactor}
+                                    onMinus={() => setTimescaleAdjustmentFactor((timescaleAdjustmentFactor || 0) - 0.25)}
+                                    onChange={(event: React.FormEvent<HTMLInputElement>) => {
+                                        const value = (event.target as HTMLInputElement).value;
+                                        setTimescaleAdjustmentFactor(value === '' ? value : +value);
+                                    }}
+                                    onPlus={() => setTimescaleAdjustmentFactor((timescaleAdjustmentFactor || 0) + 0.25)}
+                                    inputName="training-start-tick-input"
+                                    inputAriaLabel="training-start-tick-input"
+                                    minusBtnAriaLabel="minus"
+                                    plusBtnAriaLabel="plus"
+                                    validated={validateTimescaleAdjustmentFactor()}
+                                    widthChars={4}
+                                    min={0}
+                                    max={10}
+                                />
+                            </FormGroup>
+                        </GridItem>
                         <GridItem span={4}>
                             <FormGroup
                                 label={'Verbose Server-Side Log Output'}
@@ -952,7 +957,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                                             onMinus={() => setGpuUtil(idx, (gpuUtilizations[idx] || 0) - 1)}
                                             onChange={(event: React.FormEvent<HTMLInputElement>) => {
                                                 const value = (event.target as HTMLInputElement).value;
-                                                
+
                                                 setGpuUtil(idx, value === '' ? value : +value);
                                             }}
                                             onPlus={() => setGpuUtil(idx, (gpuUtilizations[idx] || 0) + 1)}

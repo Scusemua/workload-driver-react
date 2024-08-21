@@ -71,9 +71,9 @@ export const WorkloadSessionTable: React.FunctionComponent<WorkloadSessionTableP
                                     <Td dataLabel={sessions_table_columns[1]}>{session.id}</Td>
                                     <Td dataLabel={sessions_table_columns[2]}>{getSessionStatusLabel(session)}</Td>
                                     <Td dataLabel={sessions_table_columns[3]}>{session.trainings_completed || '0'}</Td>
-                                    <Td dataLabel={sessions_table_columns[4]}><CpuIcon /> {session?.max_cpus}</Td>
-                                    <Td dataLabel={sessions_table_columns[5]}><MemoryIcon /> {session?.max_memory_gb} </Td>
-                                    <Td dataLabel={sessions_table_columns[6]}><GpuIcon /> {session?.max_num_gpus}</Td>
+                                    <Td dataLabel={sessions_table_columns[4]}><CpuIcon /> {session?.resource_request.cpus}</Td>
+                                    <Td dataLabel={sessions_table_columns[5]}><MemoryIcon /> {session?.resource_request.memory_gb} </Td>
+                                    <Td dataLabel={sessions_table_columns[6]}><GpuIcon /> {session?.resource_request.gpus}</Td>
                                 </Tr>
                             )
                         })}

@@ -6,10 +6,8 @@ import (
 	"fmt"
 	"net/http"
 	"sync/atomic"
-	"time"
 
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/mattn/go-colorable"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
@@ -54,18 +52,17 @@ type WorkloadWebsocketHandler struct {
 	handlers             map[string]websocketRequestHandler    // A map from operation ID to the associated request handler.
 	subscribers          map[string]domain.ConcurrentWebSocket // Websockets that have submitted a workload and thus will want updates for that workload.
 	expectedOriginPort   int                                   // The origin port expected for incoming WebSocket connections.
-	pushUpdateInterval   time.Duration                         // The interval at which we push updates to the workloads to the frontend.
-	workloadStartedChan  chan string                           // Channel of workload IDs. When a workload is started, its ID is submitted to this channel.
+	workloadStartedChan  chan<- string                         // Channel of workload IDs. When a workload is started, its ID is submitted to this channel.
 }
 
-func NewWorkloadWebsocketHandler(configuration *domain.Configuration, workloadManager domain.WorkloadManager, atom *zap.AtomicLevel) *WorkloadWebsocketHandler {
+func NewWorkloadWebsocketHandler(configuration *domain.Configuration, workloadManager domain.WorkloadManager, workloadStartedChan chan<- string, atom *zap.AtomicLevel) *WorkloadWebsocketHandler {
 	handler := &WorkloadWebsocketHandler{
 		configuration:       configuration,
 		workloadManager:     workloadManager,
 		atom:                atom,
 		handlers:            make(map[string]websocketRequestHandler),
 		subscribers:         make(map[string]domain.ConcurrentWebSocket),
-		workloadStartedChan: make(chan string, 16),
+		workloadStartedChan: workloadStartedChan,
 	}
 
 	zapConfig := zap.NewDevelopmentEncoderConfig()
@@ -206,19 +203,15 @@ func (h *WorkloadWebsocketHandler) getResponsePayload(response []byte, err error
 
 // Upgrade the HTTP connection to a WebSocket connection.
 // Then, serve requests sent by the remote WebSocket.
-func (h *WorkloadWebsocketHandler) serveWorkloadWebsocket(c *gin.Context) error {
+func (h *WorkloadWebsocketHandler) serveWorkloadWebsocket(c *gin.Context) {
 	h.logger.Debug("Handling workload-related websocket connection")
 
 	ws, err := h.upgradeConnectionToWebsocket(c)
 	if err != nil {
 		h.logger.Error("Failed to update HTTP connection to WebSocket connection.", zap.Error(err))
 		c.AbortWithError(http.StatusInternalServerError, err)
-		return err
+		return
 	}
-
-	// Used to notify the server-push goroutine that a new workload has been registered.
-	doneChan := make(chan struct{})
-	go h.serverPushRoutine(doneChan)
 
 	// Process messages until the remote client disconnects or an irrecoverable error occurs.
 	for {
@@ -228,7 +221,8 @@ func (h *WorkloadWebsocketHandler) serveWorkloadWebsocket(c *gin.Context) error 
 		_, message, err := ws.ReadMessage()
 		if err != nil {
 			h.logger.Error("Error while reading message from websocket.", zap.Error(err))
-			return err
+			c.AbortWithError(http.StatusInternalServerError, err)
+			return
 		}
 
 		// Handle the request.
@@ -247,7 +241,7 @@ func (h *WorkloadWebsocketHandler) serveWorkloadWebsocket(c *gin.Context) error 
 		if err = h.sendMessage(ws, response); err != nil {
 			h.logger.Error("Failed to write WebSocket response.", zap.String("msg_id", msgId), zap.Any("response", response), zap.Error(err))
 			c.AbortWithError(http.StatusInternalServerError, err)
-			return err
+			return
 		}
 	}
 }
@@ -268,13 +262,11 @@ func (h *WorkloadWebsocketHandler) handleSubscriptionRequest(msgId string, messa
 }
 
 // Remove a websocket from the subscribers field.
-func (h *WorkloadWebsocketHandler) removeSubscription(msgId string, message []byte, ws domain.ConcurrentWebSocket) ([]byte, error) {
+func (h *WorkloadWebsocketHandler) removeSubscription(ws domain.ConcurrentWebSocket) {
 	if ws.RemoteAddr() != nil {
 		h.logger.Debug("Removing subscription for WebSocket.", zap.String("remote-address", ws.RemoteAddr().String()))
 		delete(h.subscribers, ws.RemoteAddr().String())
 	}
-
-	return nil, nil
 }
 
 // Handle a request to toggle debug logging on/off for a particular workload.
@@ -448,124 +440,26 @@ func (h *WorkloadWebsocketHandler) handleRegisterWorkload(msgId string, message 
 	return response.Encode()
 }
 
-// Used to push updates about active workloads to the frontend.
-func (h *WorkloadWebsocketHandler) serverPushRoutine(doneChan chan struct{}) {
-	// Keep track of the active workloads.
-	var (
-		activeWorkloads     map[string]domain.Workload = make(map[string]domain.Workload)
-		workloadStartedChan <-chan string              = h.workloadStartedChan
-	)
-
-	// Add all active workloads to the map.
-	for _, workload := range h.workloads {
-		if workload.IsRunning() {
-			activeWorkloads[workload.GetId()] = workload
-		}
-	}
-
-	// We'll loop forever, unless the connection is terminated.
-	for {
-		// If we have any active workloads, then we'll push some updates to the front-end for the active workloads.
-		if len(activeWorkloads) > 0 {
-			toRemove := make([]string, 0)
-			updatedWorkloads := make([]domain.Workload, 0)
-
-			h.driversMutex.RLock()
-			// Iterate over all the active workloads.
-			for _, workload := range activeWorkloads {
-				// If the workload is no longer active, then make a note to remove it after this next update.
-				// (We need to include it in the update so the frontend knows it's no longer active.)
-				if !workload.IsRunning() {
-					toRemove = append(toRemove, workload.GetId())
-				}
-
-				associatedDriver, _ := h.workloadDrivers.Get(workload.GetId())
-				associatedDriver.LockDriver()
-
-				workload.UpdateTimeElapsed() // Update this field.
-
-				// Lock the workloads' drivers while we marshal the workloads to JSON.
-				updatedWorkloads = append(updatedWorkloads, workload)
-			}
-			h.driversMutex.RUnlock()
-
-			var msgId string = uuid.NewString()
-			payload, err := json.Marshal(h.createWorkloadResponseMessage(msgId, nil, updatedWorkloads, nil))
-			// 	&domain.WorkloadResponse{
-			// 	MessageId:         msgId,
-			// 	ModifiedWorkloads: updatedWorkloads,
-			// 	MessageIndex:      h.workloadMessageIndex.Add(1),
-			// })
-
-			if err != nil {
-				h.logger.Error("Error while marshalling message payload.", zap.Error(err))
-				panic(err)
-			}
-
-			h.driversMutex.RLock()
-			for _, workload := range updatedWorkloads {
-				associatedDriver, _ := h.workloadDrivers.Get(workload.GetId())
-				associatedDriver.UnlockDriver()
-			}
-			h.driversMutex.RUnlock()
-
-			// Send an update to the frontend.
-			h.broadcastToWorkloadWebsockets(payload)
-
-			// TODO: Only push updates if something meaningful has changed.
-			h.logger.Debug("Pushed 'Active Workloads' update to frontend.", zap.String("message-id", msgId))
-
-			// Remove workloads that are now inactive from the map.
-			for _, id := range toRemove {
-				delete(activeWorkloads, id)
-			}
-		}
-
-		// In case there are a bunch of notifications in the 'workload started channel', consume all of them before breaking out.
-		var done bool = false
-		for !done {
-			// Do stuff.
-			select {
-			case id := <-workloadStartedChan:
-				{
-					h.workloadsMutex.RLock()
-					// Add the newly-registered workload to the active workloads map.
-					activeWorkloads[id], _ = h.workloadsMap.Get(id)
-					h.workloadsMutex.RUnlock()
-				}
-			case <-doneChan:
-				{
-					return
-				}
-			default:
-				// Do nothing.
-				time.Sleep(time.Second * 2)
-				done = true // No more notifications right now. We'll process what we have.
-			}
-		}
-	}
-}
-
 // Send a binary websocket message to all workload websockets (contained in the 'subscribers' field of the serverImpl struct).
 func (h *WorkloadWebsocketHandler) broadcastToWorkloadWebsockets(payload []byte) []error {
 	errors := make([]error, 0)
 
 	toRemove := make([]domain.ConcurrentWebSocket, 0)
 
-	for _, conn := range h.subscribers {
-		err := conn.WriteMessage(websocket.BinaryMessage, payload)
+	for _, ws := range h.subscribers {
+		err := ws.WriteMessage(websocket.BinaryMessage, payload)
 		if err != nil {
 			h.logger.Error("Error while broadcasting websocket message.", zap.Error(err))
 			errors = append(errors, err)
 
 			if _, ok := err.(*websocket.CloseError); ok || err == websocket.ErrCloseSent {
-				toRemove = append(toRemove, conn)
+				toRemove = append(toRemove, ws)
 			}
 		}
 	}
 
-	for _, conn := range toRemove {
-		h.removeSubscription(conn)
+	for _, ws := range toRemove {
+		h.removeSubscription(ws)
 	}
 
 	return errors
