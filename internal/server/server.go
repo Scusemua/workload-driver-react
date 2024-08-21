@@ -21,12 +21,14 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/koding/websocketproxy"
+	"github.com/mattn/go-colorable"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
 	gateway "github.com/scusemua/workload-driver-react/m/v2/internal/server/api/proto"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/server/driver"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/server/handlers"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/server/proxy"
 	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 )
 
 var upgrader = websocket.Upgrader{
@@ -37,6 +39,7 @@ var upgrader = websocket.Upgrader{
 type serverImpl struct {
 	logger             *zap.Logger
 	sugaredLogger      *zap.SugaredLogger
+	atom               *zap.AtomicLevel
 	opts               *domain.Configuration
 	app                *proxy.JupyterProxyRouter
 	engine             *gin.Engine
@@ -66,8 +69,10 @@ type serverImpl struct {
 }
 
 func NewServer(opts *domain.Configuration) domain.Server {
+	atom := zap.NewAtomicLevelAt(zapcore.DebugLevel)
 	s := &serverImpl{
 		opts:                  opts,
+		atom:                  &atom,
 		pushUpdateInterval:    time.Second * time.Duration(opts.PushUpdateInterval),
 		engine:                gin.New(),
 		expectedOriginPort:    opts.ExpectedOriginPort,
@@ -82,13 +87,24 @@ func NewServer(opts *domain.Configuration) domain.Server {
 
 	s.workloadMessageIndex.Store(0)
 
-	logger, err := zap.NewDevelopment()
-	if err != nil {
-		panic(err)
+	zapConfig := zap.NewDevelopmentEncoderConfig()
+	zapConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+	core := zapcore.NewCore(zapcore.NewConsoleEncoder(zapConfig), zapcore.AddSync(colorable.NewColorableStdout()), atom)
+	logger := zap.New(core, zap.Development())
+	if logger == nil {
+		panic("failed to create logger for workload driver")
 	}
 
 	s.logger = logger
 	s.sugaredLogger = logger.Sugar()
+
+	// logger, err := zap.NewDevelopment()
+	// if err != nil {
+	// 	panic(err)
+	// }
+
+	// s.logger = logger
+	// s.sugaredLogger = logger.Sugar()
 
 	s.setupRoutes()
 
@@ -165,7 +181,7 @@ func (s *serverImpl) setupRoutes() error {
 		apiGroup.GET(fmt.Sprintf("%s/pods/:pod", domain.LOGS_ENDPOINT), handlers.NewLogHttpHandler(s.opts).HandleRequest)
 
 		// Used to tell a kernel to stop training.
-		apiGroup.POST(domain.STOP_TRAINING_ENDPOINT, handlers.NewStopTrainingHandler(s.opts).HandleRequest)
+		apiGroup.POST(domain.STOP_TRAINING_ENDPOINT, handlers.NewStopTrainingHandler(s.opts, s.atom).HandleRequest)
 	}
 
 	///////////////////////////
@@ -960,7 +976,7 @@ func (s *serverImpl) handleStopWorkload(req *domain.StartStopWorkloadRequest) {
 }
 
 func (s *serverImpl) handleRegisterWorkload(request *domain.WorkloadRegistrationRequest, msgId string, websocket domain.ConcurrentWebSocket) {
-	workloadDriver := driver.NewWorkloadDriver(s.opts, true, request.TimescaleAdjustmentFactor, websocket)
+	workloadDriver := driver.NewWorkloadDriver(s.opts, true, request.TimescaleAdjustmentFactor, websocket, s.atom)
 
 	workload, _ := workloadDriver.RegisterWorkload(request)
 

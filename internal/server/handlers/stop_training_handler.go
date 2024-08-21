@@ -8,7 +8,6 @@ import (
 	"github.com/scusemua/workload-driver-react/m/v2/internal/server/jupyter"
 	"github.com/zhangjyr/hashmap"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
 type StopTrainingHandler struct {
@@ -19,11 +18,11 @@ type StopTrainingHandler struct {
 	kernelConnections *hashmap.HashMap
 }
 
-func NewStopTrainingHandler(opts *domain.Configuration) domain.BackendHttpGetHandler {
-	atom := zap.NewAtomicLevelAt(zapcore.DebugLevel)
+func NewStopTrainingHandler(opts *domain.Configuration, atom *zap.AtomicLevel) domain.BackendHttpGetHandler {
+	// atom := zap.NewAtomicLevelAt(zapcore.DebugLevel)
 	handler := &StopTrainingHandler{
 		BaseHandler:       newBaseHandler(opts),
-		manager:           jupyter.NewKernelSessionManager(opts.JupyterServerAddress, true, &atom),
+		manager:           jupyter.NewKernelSessionManager(opts.JupyterServerAddress, true, atom),
 		kernelConnections: hashmap.New(8),
 	}
 	handler.BackendHttpGetHandler = handler

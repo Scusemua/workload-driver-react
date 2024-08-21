@@ -134,8 +134,8 @@ type workloadDriverImpl struct {
 	workloadTemplate            *domain.WorkloadTemplate              // The template used by the associated workload. Will only be non-nil if the associated workload is a template-based workload, rather than a preset-based workload.
 }
 
-func NewWorkloadDriver(opts *domain.Configuration, performClockTicks bool, timescaleAdjustmentFactor float64, websocket domain.ConcurrentWebSocket) domain.WorkloadDriver {
-	atom := zap.NewAtomicLevelAt(zapcore.DebugLevel)
+func NewWorkloadDriver(opts *domain.Configuration, performClockTicks bool, timescaleAdjustmentFactor float64, websocket domain.ConcurrentWebSocket, atom *zap.AtomicLevel) domain.WorkloadDriver {
+	// atom := zap.NewAtomicLevelAt(zapcore.DebugLevel)
 	driver := &workloadDriverImpl{
 		id:                        GenerateWorkloadID(8),
 		eventChan:                 make(chan domain.Event),
@@ -144,14 +144,14 @@ func NewWorkloadDriver(opts *domain.Configuration, performClockTicks bool, times
 		doneChan:                  make(chan interface{}, 1),
 		stopChan:                  make(chan interface{}, 1),
 		errorChan:                 make(chan error, 2),
-		atom:                      &atom,
+		atom:                      atom,
 		tickDuration:              time.Second * time.Duration(opts.TraceStep),
 		tickDurationSeconds:       opts.TraceStep,
 		driverTimescale:           opts.DriverTimescale,
-		kernelManager:             jupyter.NewKernelSessionManager(opts.JupyterServerAddress, true, &atom),
+		kernelManager:             jupyter.NewKernelSessionManager(opts.JupyterServerAddress, true, atom),
 		sessionConnections:        make(map[string]*jupyter.SessionConnection),
 		performClockTicks:         performClockTicks,
-		eventQueue:                newEventQueue(&atom),
+		eventQueue:                newEventQueue(atom),
 		stats:                     NewWorkloadStats(),
 		sessions:                  hashmap.New(100),
 		seenSessions:              make(map[string]struct{}),
