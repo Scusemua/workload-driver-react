@@ -61,7 +61,7 @@ type WorkloadDriver interface {
 
 	// Return the unique ID of this workload driver.
 	// This is not necessarily the same as the workload's unique ID (TODO: or is it?).
-	IDd() string
+	ID() string
 
 	// Stop a workload that's already running/in-progress.
 	// Returns nil on success, or an error if one occurred.

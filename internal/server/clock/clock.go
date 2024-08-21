@@ -1,4 +1,4 @@
-package workload
+package clock
 
 import (
 	"errors"

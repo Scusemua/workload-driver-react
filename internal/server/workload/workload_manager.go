@@ -12,17 +12,25 @@ import (
 )
 
 type workloadManagerImpl struct {
+	atom          *zap.AtomicLevel
 	logger        *zap.Logger
 	sugaredLogger *zap.SugaredLogger
 
+	configuration   *domain.Configuration                                 // Server-wide configuration.
 	workloadDrivers *orderedmap.OrderedMap[string, domain.WorkloadDriver] // Map from workload ID to the associated driver.
 	workloadsMap    *orderedmap.OrderedMap[string, domain.Workload]       // Map from workload ID to workload
 	workloads       []domain.Workload                                     // Slice of workloads. Same contents as the map, but in slice form.
-	workloadMutex   sync.Mutex                                            // Synchronizes access to the workload drivers and the workloads themselves (both the map and the slice).
+	mu              sync.Mutex                                            // Synchronizes access to the workload drivers and the workloads themselves (both the map and the slice).
 }
 
-func NewWorkloadManager(atom *zap.AtomicLevel) domain.WorkloadManager {
-	manager := &workloadManagerImpl{}
+func NewWorkloadManager(configuration *domain.Configuration, atom *zap.AtomicLevel) domain.WorkloadManager {
+	manager := &workloadManagerImpl{
+		atom:            atom,
+		configuration:   configuration,
+		workloadDrivers: orderedmap.NewOrderedMap[string, domain.WorkloadDriver](),
+		workloadsMap:    orderedmap.NewOrderedMap[string, domain.Workload](),
+		workloads:       make([]domain.Workload, 0),
+	}
 
 	zapConfig := zap.NewDevelopmentEncoderConfig()
 	zapConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
@@ -42,7 +50,7 @@ func NewWorkloadManager(atom *zap.AtomicLevel) domain.WorkloadManager {
 // This locks each individual driver as well as the top-level workloads mutex.
 // It does not release any locks.
 func (m *workloadManagerImpl) lockWorkloadDrivers() {
-	m.workloadMutex.Lock()
+	m.mu.Lock()
 
 	for el := m.workloadDrivers.Front(); el != nil; el = el.Next() {
 		el.Value.LockDriver()
@@ -51,12 +59,12 @@ func (m *workloadManagerImpl) lockWorkloadDrivers() {
 
 // Unlock all workload drivers in the reverse order that they were locked.
 //
-// If the 'releaseMainLock' parameter is true, then this will also unlock the workloadManagerImpl::workloadMutex.
+// If the 'releaseMainLock' parameter is true, then this will also unlock the workloadManagerImpl::mu.
 //
-// IMPORTANT: This must be called while the workloadManagerImpl::workloadMutex is held.
+// IMPORTANT: This must be called while the workloadManagerImpl::mu is held.
 func (m *workloadManagerImpl) unlockWorkloadDrivers(releaseMainLock bool) {
 	if releaseMainLock {
-		defer m.workloadMutex.Unlock()
+		defer m.mu.Unlock()
 	}
 
 	for el := m.workloadDrivers.Back(); el != nil; el = el.Prev() {
@@ -76,8 +84,8 @@ func (m *workloadManagerImpl) GetWorkloads() []domain.Workload {
 // Return the workload driver associated with the given workload ID.
 // If there is no driver associated with the provided workload ID, then nil is returned.
 func (m *workloadManagerImpl) GetWorkloadDriver(workloadId string) domain.WorkloadDriver {
-	m.workloadMutex.Lock()
-	defer m.workloadMutex.Unlock()
+	m.mu.Lock()
+	defer m.mu.Unlock()
 
 	return m.workloadDrivers.GetOrDefault(workloadId, nil)
 }
@@ -154,4 +162,28 @@ func (m *workloadManagerImpl) StopWorkload(workloadId string) (domain.Workload, 
 	}
 
 	return workloadDriver.GetWorkload(), nil
+}
+
+// Register a new workload.
+func (m *workloadManagerImpl) RegisterWorkload(request *domain.WorkloadRegistrationRequest, ws domain.ConcurrentWebSocket) (domain.Workload, error) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+
+	// Create a new workload driver.
+	workloadDriver := NewWorkloadDriver(m.configuration, true, request.TimescaleAdjustmentFactor, ws, m.atom)
+
+	// Create a new workload.
+	workload, err := workloadDriver.RegisterWorkload(request)
+	if err != nil {
+		m.logger.Error("Failed to create and register new workload.", zap.Any("workload-registration-request", request), zap.Error(err))
+		return nil, err
+	}
+
+	// Update our internal state and perform the necessary book-keeping.
+	workloadId := workload.GetId()
+	m.workloads = append(m.workloads, workload)
+	m.workloadsMap.Set(workloadId, workload)
+	m.workloadDrivers.Set(workloadId, workloadDriver)
+
+	return workload, err
 }

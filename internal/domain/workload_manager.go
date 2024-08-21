@@ -34,11 +34,7 @@ type WorkloadProvider interface {
 	// If successful, then this returns the updated workload.
 	// If there is no workload with the specified ID, or the specified workload is not actively-running, then an error is returned.
 	StopWorkload(workloadId string) (Workload, error)
-}
 
-// type WorkloadSubscriptionHandler interface {
-// 	// Register a new subscriber.
-// 	AddSubscription(ws ConcurrentWebSocket) error
-// 	// Unregister an existing subscriber.
-// 	RemoveSubscription(ws ConcurrentWebSocket) error
-// }
+	// Register a new workload.
+	RegisterWorkload(request *WorkloadRegistrationRequest, ws ConcurrentWebSocket) (Workload, error)
+}

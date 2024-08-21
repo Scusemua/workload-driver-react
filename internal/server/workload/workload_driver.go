@@ -19,6 +19,7 @@ import (
 	"github.com/mgutz/ansi"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/generator"
+	"github.com/scusemua/workload-driver-react/m/v2/internal/server/clock"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/server/event_queue"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/server/jupyter"
 	"github.com/zhangjyr/hashmap"
@@ -176,6 +177,7 @@ func NewWorkloadDriver(opts *domain.Configuration, performClockTicks bool, times
 	driver.logger = logger
 	driver.sugaredLogger = logger.Sugar()
 
+	// TODO: Can we just load them in from a file once? Why do this for every single workload?
 	// Load the list of workload presets from the specified file.
 	driver.logger.Debug("Loading workload presets from file now.", zap.String("filepath", opts.WorkloadPresetsFilepath))
 	presets, err := domain.LoadWorkloadPresetsFromFile(opts.WorkloadPresetsFilepath)
@@ -875,7 +877,7 @@ func (d *workloadDriverImpl) NewSession(id string, meta *generator.Session, crea
 	}
 
 	// The Session only exposes the CPUs, Memory, and
-	resourceRequest := NewResourceRequest(meta.MaxSessionCPUs, meta.MaxSessionMemory, float64(meta.MaxSessionGPUs), AnyGPU)
+	resourceRequest := domain.NewResourceRequest(meta.MaxSessionCPUs, meta.MaxSessionMemory, float64(meta.MaxSessionGPUs), AnyGPU)
 	session = NewSession(id, meta, resourceRequest, createdAtTime)
 
 	d.mu.Lock()
