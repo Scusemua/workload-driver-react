@@ -250,7 +250,7 @@ func (s *Synthesizer) transitionAndSubmitEvent(evt domain.Event) {
 					eventData.CurrentTrainingMaxGPUs = s.GpuTrainingTaskMap()[sess.Pod][trainingIdx]
 				}
 
-				if evtName == EventSessionTrainingStarted {
+				if evtName == domain.EventSessionTrainingStarted {
 					if len(s.CpuTrainingTaskMap()[sess.Pod]) <= (trainingIdx + 1) {
 						s.sugarLog.Warnf("Cannot incr training idx for Session %s. len(CpuTrainingTaskMap): %d. Training index: %d", sess.Pod, len(s.CpuTrainingTaskMap()[sess.Pod]), trainingIdx)
 					} else if len(s.MemTrainingTaskMap()[sess.Pod]) <= (trainingIdx + 1) {
@@ -267,11 +267,11 @@ func (s *Synthesizer) transitionAndSubmitEvent(evt domain.Event) {
 				s.consumer.SubmitEvent(sessEvt)
 			} else {
 				switch evtName {
-				case EventSessionTrainingStarted:
+				case domain.EventSessionTrainingStarted:
 					for _, evtSrc := range s.Sources {
 						evtSrc.TrainingStarted(sess.Pod)
 					}
-				case EventSessionTrainingEnded:
+				case domain.EventSessionTrainingEnded:
 					for _, evtSrc := range s.Sources {
 						evtSrc.TrainingEnded(sess.Pod)
 					}

@@ -2,6 +2,7 @@ package event_queue
 
 import (
 	"container/heap"
+	"errors"
 	"fmt"
 	"os"
 	"sync"
@@ -11,6 +12,11 @@ import (
 	"github.com/zhangjyr/hashmap"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+)
+
+var (
+	ErrNoEventQueue = errors.New("no corresponding event queue for given Session")
+	ErrNoMoreEvents = errors.New("there are no more events for the specified Session")
 )
 
 // Maintains a queue of events (sorted by timestamp) for each unique session.
@@ -87,7 +93,7 @@ func (q *eventQueue) GetNextSessionStartEvent(currentTime time.Time) domain.Even
 
 	evt := heap.Pop(&q.sessionReadyEvents).(domain.Event)
 
-	q.sugaredLogger.Debugf("SessionReadyEvent for Session %s with timestamp %v occurs during or before current tick %v.", evt.Data().(*domain.SessionMeta).Pod, evt.Timestamp(), currentTime)
+	q.sugaredLogger.Debugf("SessionReadyEvent for Session %s with timestamp %v occurs during or before current tick %v.", evt.Data().(domain.SessionMetadata).GetPod(), evt.Timestamp(), currentTime)
 
 	return evt
 }
@@ -110,7 +116,7 @@ func (q *eventQueue) HasEventsForSession(podId string) (bool, error) {
 	val, ok := q.eventsPerSession.Get(podId)
 
 	if !ok {
-		return false, domain.ErrNoEventQueue
+		return false, ErrNoEventQueue
 	}
 
 	hasEvents := val.(*hashmap.HashMap).Len() > 0
@@ -124,19 +130,19 @@ func (q *eventQueue) EnqueueEvent(evt domain.Event) {
 	q.eventHeapMutex.Lock()
 	defer q.eventHeapMutex.Unlock()
 
-	sess := evt.Data().(*domain.SessionMeta)
+	sess := evt.Data().(domain.SessionMetadata)
 	if evt.Name() == domain.EventSessionReady {
 		// The event heap for "regular" events corresponding to the same Session.
-		q.eventsPerSession.GetOrInsert(sess.Pod, hashmap.New(10))
+		q.eventsPerSession.GetOrInsert(sess.GetPod(), hashmap.New(10))
 
 		// As described above, EventSessionReady events must be processed differently.
 		heap.Push(&q.sessionReadyEvents, evt)
 
-		q.sugaredLogger.Debugf("Enqueued SessionReadyEvent: session=%s; ts=%v.", sess.Pod, evt.Timestamp())
+		q.sugaredLogger.Debugf("Enqueued SessionReadyEvent: session=%s; ts=%v.", sess.GetPod(), evt.Timestamp())
 	} else if evt.Name() == domain.EventSessionStarted { // Do nothing other than try to create the heap.
-		q.eventsPerSession.GetOrInsert(sess.Pod, hashmap.New(10)) // Don't bother capturing the return value. We just don't want to overwrite the existing hashmap if it exists.
-	} else if sess, ok := evt.Data().(*domain.SessionMeta); ok {
-		podId := sess.Pod
+		q.eventsPerSession.GetOrInsert(sess.GetPod(), hashmap.New(10)) // Don't bother capturing the return value. We just don't want to overwrite the existing hashmap if it exists.
+	} else if sess, ok := evt.Data().(domain.SessionMetadata); ok {
+		podId := sess.GetPod()
 
 		// If the session has been terminated permanently, then discard its events.
 		if _, ok = q.terminatedSessions.Get(podId); ok {
@@ -199,7 +205,7 @@ func (q *eventQueue) FixEvents(sessionId string, updatedDelay time.Duration) {
 // If there are no session events enqueued, then this will return time.Time{} and an ErrNoMoreEvents error.
 func (q *eventQueue) GetTimestampOfNextReadyEvent() (time.Time, error) {
 	if q.Len() == 0 {
-		return time.Time{}, domain.ErrNoMoreEvents
+		return time.Time{}, ErrNoMoreEvents
 	}
 
 	nextEvent := q.eventHeap.Peek()

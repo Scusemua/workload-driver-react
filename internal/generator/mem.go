@@ -335,7 +335,7 @@ type MemoryDriver struct {
 }
 
 func NewMemoryDriver(id int, configs ...func(TraceDriver)) TraceDriver {
-	log.Debug("Creating MemoryDriver now.\n")
+	logger.Debug("Creating MemoryDriver now.\n")
 	drv := &MemoryDriver{BaseDriver: NewBaseDriver(id)}
 	drv.TraceDriver = drv
 	for _, config := range configs {

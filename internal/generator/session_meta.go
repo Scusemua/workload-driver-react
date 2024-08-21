@@ -102,7 +102,7 @@ func (s *SessionMeta) GetPod() string {
 	return s.Pod
 }
 
-func (s *SessionMeta) Transit(evt domain.Event, inspect bool) ([]SessionEvent, error) {
+func (s *SessionMeta) Transit(evt domain.Event, inspect bool) ([]domain.SessionEvent, error) {
 	if s.pending == nil {
 		s.pending = make([]domain.Event, 0, 3)
 	}
@@ -147,7 +147,7 @@ func (s *SessionMeta) Transit(evt domain.Event, inspect bool) ([]SessionEvent, e
 	return events, nil
 }
 
-func (s *SessionMeta) transit(evt domain.Event) ([]SessionEvent, error) {
+func (s *SessionMeta) transit(evt domain.Event) ([]domain.SessionEvent, error) {
 	// log.Debug("Transitioning SessionMeta. CurrentStatus=%v. Event=%v.", s.Status, evt)
 	switch s.Status {
 	case SessionStatusInit:
@@ -157,14 +157,14 @@ func (s *SessionMeta) transit(evt domain.Event) ([]SessionEvent, error) {
 			s.InitedAt = evt.Timestamp()
 			s.resetReadyFlags()
 			s.setReadyFlag(SessionReadyExpects, SessionGPUReady)
-			return []SessionEvent{EventSessionStarted}, nil
+			return []domain.SessionEvent{domain.EventSessionStarted}, nil
 		} else if evt.Name() == EventCPUStarted {
 			s.CPU = evt.Data().(*CPUUtil)
 			s.Status = SessionStatusInitializing
 			s.InitedAt = evt.Timestamp()
 			s.resetReadyFlags()
 			s.setReadyFlag(SessionReadyExpects, SessionCPUReady)
-			return []SessionEvent{EventSessionStarted}, nil
+			return []domain.SessionEvent{domain.EventSessionStarted}, nil
 		} else if evt.Name() == EventMemoryStarted {
 			s.MemoryQuerier = evt.Data().(*MemoryUtilBuffer)
 			s.Memory = s.MemoryQuerier.Lookup(evt.Timestamp())
@@ -172,7 +172,7 @@ func (s *SessionMeta) transit(evt domain.Event) ([]SessionEvent, error) {
 			s.InitedAt = evt.Timestamp()
 			s.resetReadyFlags()
 			s.setReadyFlag(SessionReadyExpects, SessionMemReady)
-			return []SessionEvent{EventSessionStarted}, nil
+			return []domain.SessionEvent{domain.EventSessionStarted}, nil
 		}
 		return NoSessionEvent, Errorf(ErrUnexpectedSessionStTrans, "SessionStatusInit on %v", evt)
 	case SessionStatusInitializing:
@@ -205,7 +205,7 @@ func (s *SessionMeta) transit(evt domain.Event) ([]SessionEvent, error) {
 			if s.MemoryQuerier != nil {
 				s.Memory = s.MemoryQuerier.Lookup(evt.Timestamp()) // Update memory reading.
 			}
-			return []SessionEvent{EventSessionReady}, nil
+			return []domain.SessionEvent{domain.EventSessionReady}, nil
 		}
 		return NoSessionEvent, nil
 	case SessionStatusIdle:
@@ -221,7 +221,7 @@ func (s *SessionMeta) transit(evt domain.Event) ([]SessionEvent, error) {
 			if s.MemoryQuerier != nil {
 				s.Memory = s.MemoryQuerier.Lookup(evt.Timestamp()) // Update memory reading.
 			}
-			return []SessionEvent{EventSessionTrainingStarted}, nil
+			return []domain.SessionEvent{domain.EventSessionTrainingStarted}, nil
 		} else if evt.Name() == EventGPUStopped {
 			s.GPU = evt.Data().(*GPUUtil)
 			s.Status = SessionStatusStopping
@@ -247,7 +247,7 @@ func (s *SessionMeta) transit(evt domain.Event) ([]SessionEvent, error) {
 			if s.MemoryQuerier != nil {
 				s.Memory = s.MemoryQuerier.Lookup(evt.Timestamp()) // Update memory reading.
 			}
-			return []SessionEvent{EventSessionTrainingEnded}, nil
+			return []domain.SessionEvent{domain.EventSessionTrainingEnded}, nil
 		} else if evt.Name() == EventCPUActivated || evt.Name() == EventCPUDeactivated {
 			break
 		} else if evt.Name() == EventCPUStopped {
@@ -293,7 +293,7 @@ func (s *SessionMeta) transit(evt domain.Event) ([]SessionEvent, error) {
 			if s.MemoryQuerier != nil {
 				s.Memory = s.MemoryQuerier.Lookup(evt.Timestamp()) // Update memory reading.
 			}
-			return []SessionEvent{EventSessionStopped}, nil
+			return []domain.SessionEvent{domain.EventSessionStopped}, nil
 		}
 		return NoSessionEvent, nil
 	case SessionStatusStopped:

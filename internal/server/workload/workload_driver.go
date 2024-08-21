@@ -305,7 +305,7 @@ func (d *workloadDriverImpl) createWorkloadFromPreset(workloadRegistrationReques
 }
 
 // Create a workload that was created using a template.
-func (d *workloadDriverImpl) createWorkloadFromTemplate(workloadRegistrationRequest *domain.WorkloadRegistrationRequest) (domain.Workload, error) {
+func (d *workloadDriverImpl) createWorkloadFromTemplate(workloadRegistrationRequest *domain.WorkloadRegistrationRequest) (*domain.WorkloadFromTemplate, error) {
 	// The workload request needs to have a workload template in it.
 	// If the registration request does not contain a workload template,
 	// then the request is invalid, and we'll return an error.

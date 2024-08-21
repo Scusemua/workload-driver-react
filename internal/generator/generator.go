@@ -322,32 +322,32 @@ func (g *workloadGeneratorImpl) GenerateTemplateWorkload(consumer domain.EventCo
 
 	// Populate all of the above mappings using the data from the template.
 	for _, session := range sessions {
-		cpuSessionMap[session.Id] = session.ResourceRequest.Cpus
-		memSessionMap[session.Id] = session.ResourceRequest.MemoryGB
-		gpuSessionMap[session.Id] = session.ResourceRequest.Gpus
+		cpuSessionMap[session.GetId()] = session.GetResourceRequest().Cpus
+		memSessionMap[session.GetId()] = session.GetResourceRequest().MemoryGB
+		gpuSessionMap[session.GetId()] = session.GetResourceRequest().Gpus
 
-		if session.Trainings == nil {
-			panic(fmt.Sprintf("The `Trainings` field of Session %s is nil.", session.Id))
+		if session.GetTrainings() == nil {
+			panic(fmt.Sprintf("The `Trainings` field of Session %s is nil.", session.GetId()))
 		}
 
-		if len(session.Trainings) == 0 {
-			g.sugaredLogger.Warnf("Session %s has no trainings associated with it.", session.Id)
+		if len(session.GetTrainings()) == 0 {
+			g.sugaredLogger.Warnf("Session %s has no trainings associated with it.", session.GetId())
 			continue
 		}
 
 		// Iterate over each of the training events for the session to populate the per-training-event maps.
-		cpuPerTrainingTask := make([]float64, len(session.Trainings))
-		memPerTrainingTask := make([]float64, len(session.Trainings))
-		numGpusPerTrainingTask := make([]int, len(session.Trainings))
-		for trainingIndex, trainingEvent := range session.Trainings {
+		cpuPerTrainingTask := make([]float64, len(session.GetTrainings()))
+		memPerTrainingTask := make([]float64, len(session.GetTrainings()))
+		numGpusPerTrainingTask := make([]int, len(session.GetTrainings()))
+		for trainingIndex, trainingEvent := range session.GetTrainings() {
 			cpuPerTrainingTask[trainingIndex] = trainingEvent.CpuUtil
 			memPerTrainingTask[trainingIndex] = trainingEvent.MemUsageGB
 			numGpusPerTrainingTask[trainingIndex] = len(trainingEvent.GpuUtil)
 		}
 
-		cpuTaskMap[session.Id] = cpuPerTrainingTask
-		memTaskMap[session.Id] = memPerTrainingTask
-		gpuTaskMap[session.Id] = numGpusPerTrainingTask
+		cpuTaskMap[session.GetId()] = cpuPerTrainingTask
+		memTaskMap[session.GetId()] = memPerTrainingTask
+		gpuTaskMap[session.GetId()] = numGpusPerTrainingTask
 	}
 
 	sequencer := NewCustomEventSequencer(consumer, consumer.GetEventQueue(), 0, 60, g.atom)
@@ -358,7 +358,7 @@ func (g *workloadGeneratorImpl) GenerateTemplateWorkload(consumer domain.EventCo
 	)
 
 	if workloadTemplate.Name == OneSessionOneTraining {
-		generatorFunc, err = SingleSessionSingleTraining(workloadTemplate.Sessions)
+		generatorFunc, err = SingleSessionSingleTraining(workloadTemplate.GetSessions())
 	} else {
 		panic(fmt.Sprintf("Unsupported workload template specified: \"%s\"", workloadTemplate.Name))
 	}

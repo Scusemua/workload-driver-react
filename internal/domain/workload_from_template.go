@@ -25,8 +25,16 @@ func (w *WorkloadFromTemplate) SetSource(source interface{}) {
 		panic("Workload source is not correct type for WorkloadFromTemplate.")
 	}
 
-	w.workloadSource = template.Sessions
-	w.SetSessions(template.Sessions)
+	w.workloadSource = template.GetSessions()
+
+	workloadTemplateSessions := template.GetSessions()
+	sessions := make([]WorkloadSession, 0, len(workloadTemplateSessions))
+
+	for _, workloadTemplateSession := range workloadTemplateSessions {
+		sessions = append(sessions, workloadTemplateSession)
+	}
+
+	w.SetSessions(sessions)
 }
 
 // Called when a Session is created for/in the Workload.

@@ -79,7 +79,7 @@ type BaseDriver struct {
 	LastTimestamp time.Time
 
 	events    chan domain.Event
-	eventBuff EventBuff
+	eventBuff domain.EventBuff
 	lastEvent domain.Event
 
 	// Synchronizes concurrent access to the maps containing maximum utilization values.
@@ -115,7 +115,7 @@ func NewBaseDriver(id int) *BaseDriver {
 	driver := &BaseDriver{
 		id:                         id,
 		events:                     make(chan domain.Event),
-		eventBuff:                  make(EventBuff, 0, 1000),
+		eventBuff:                  make(domain.EventBuff, 0, 1000),
 		SessionMaxes:               make(map[string]float64),
 		SessionNumGPUs:             make(map[string]int),
 		TrainingMaxes:              make(map[string][]float64),
@@ -193,7 +193,7 @@ func (d *BaseDriver) TrainingEnded(podId string) {
 	// Get the training maxes for the Session whose training just ended.
 	podTrainingMaxes, ok := d.TrainingMaxes[podId]
 	if !ok {
-		log.Error(fmt.Sprintf("[%s] Expected to find set of training maxes for pod \"%s\"", d.DriverType, podId))
+		logger.Error(fmt.Sprintf("[%s] Expected to find set of training maxes for pod \"%s\"", d.DriverType, podId))
 		panic(fmt.Sprintf("Expected to find set of training maxes for pod \"%s\"", podId))
 	}
 
@@ -206,7 +206,7 @@ func (d *BaseDriver) TrainingEnded(podId string) {
 		podTrainingNumGPUs, ok2 := d.TrainingNumGPUs[podId]
 
 		if !ok2 {
-			log.Error(fmt.Sprintf("[%s] Expected to find set of training numGPU values for pod \"%s\"", d.DriverType, podId))
+			logger.Error(fmt.Sprintf("[%s] Expected to find set of training numGPU values for pod \"%s\"", d.DriverType, podId))
 			panic(fmt.Sprintf("Expected to find set of training numGPU values for pod \"%s\"", podId))
 		}
 

@@ -233,7 +233,7 @@ func (m *workloadManagerImpl) RegisterWorkload(request *domain.WorkloadRegistrat
 func (m *workloadManagerImpl) pushWorkloadUpdate(payload []byte) error {
 	errs := m.workloadWebsocketHandler.broadcastToWorkloadWebsockets(payload)
 
-	if errs != nil && len(errs) >= 1 {
+	if len(errs) >= 1 {
 		return errors.Join(errs...)
 	}
 

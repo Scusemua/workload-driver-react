@@ -112,102 +112,102 @@ func (a *TrainingResourceUtilizationArgs) WithGpuUtilizationForSpecificGpu(gpuIn
 	return a
 }
 
-func validateSession(session *domain.WorkloadTemplateSession) error {
+func validateSession(session domain.WorkloadTemplateSession) error {
 	if session == nil {
 		panic("Session should not be nil.")
 	}
 
-	if session.Trainings == nil {
+	if session.GetTrainings() == nil {
 		panic("Session's `Trainings` field should not be nil.")
 	}
 
-	if session.ResourceRequest.Cpus < 0 {
-		return fmt.Errorf("%w: invalid maximum number of CPUs specified (%f). Quantity must be greater than or equal to 0", ErrInvalidConfiguration, session.ResourceRequest.Cpus)
+	if session.GetResourceRequest().Cpus < 0 {
+		return fmt.Errorf("%w: invalid maximum number of CPUs specified (%f). Quantity must be greater than or equal to 0", ErrInvalidConfiguration, session.GetResourceRequest().Cpus)
 	}
 
-	if session.ResourceRequest.Gpus < 0 {
-		return fmt.Errorf("%w: invalid maximum number of GPUs specified (%d). Quantity must be greater than or equal to 0", ErrInvalidConfiguration, session.ResourceRequest.Gpus)
+	if session.GetResourceRequest().Gpus < 0 {
+		return fmt.Errorf("%w: invalid maximum number of GPUs specified (%d). Quantity must be greater than or equal to 0", ErrInvalidConfiguration, session.GetResourceRequest().Gpus)
 	}
 
-	if session.ResourceRequest.MemoryGB < 0 {
-		return fmt.Errorf("%w: invalid maximum memory usage (in GB) specified (%f). Quantity must be greater than or equal to 0", ErrInvalidConfiguration, session.ResourceRequest.MemoryGB)
+	if session.GetResourceRequest().MemoryGB < 0 {
+		return fmt.Errorf("%w: invalid maximum memory usage (in GB) specified (%f). Quantity must be greater than or equal to 0", ErrInvalidConfiguration, session.GetResourceRequest().MemoryGB)
 	}
 
-	// Validate `session.StartTick`
-	if session.StartTick < 0 {
-		return fmt.Errorf("%w: invalid starting tick specified: %d. Must be greater than or equal to 0", ErrInvalidConfiguration, session.StartTick)
+	// Validate `session.GetStartTick()`
+	if session.GetStartTick() < 0 {
+		return fmt.Errorf("%w: invalid starting tick specified: %d. Must be greater than or equal to 0", ErrInvalidConfiguration, session.GetStartTick())
 	}
 
-	if len(session.Id) == 0 {
-		return fmt.Errorf("%w: invalid session ID specified (\"%s\"). The Session ID cannot be the empty string", ErrInvalidConfiguration, session.Id)
+	if len(session.GetId()) == 0 {
+		return fmt.Errorf("%w: invalid session ID specified (\"%s\"). The Session ID cannot be the empty string", ErrInvalidConfiguration, session.GetId())
 	}
 
-	// Validate `session.StartTick` and `sessionTerminateTick` arguments
-	if session.StartTick > session.StopTick {
-		return fmt.Errorf("%w: specified 'start-tick' (%d) occurs after specified 'start-terminated' tick (%d). Session must be started before it may be terminated", ErrInvalidConfiguration, session.StartTick, session.StopTick)
+	// Validate `session.GetStartTick()` and `sessionTerminateTick` arguments
+	if session.GetStartTick() > session.GetStopTick() {
+		return fmt.Errorf("%w: specified 'start-tick' (%d) occurs after specified 'start-terminated' tick (%d). Session must be started before it may be terminated", ErrInvalidConfiguration, session.GetStartTick(), session.GetStopTick())
 	}
 
 	// If the session trains at least once, then verify that the first and last training are within the bounds of the session.
-	if len(session.Trainings) >= 1 {
-		firstTraining := session.Trainings[0]
+	if len(session.GetTrainings()) >= 1 {
+		firstTraining := session.GetTrainings()[0]
 		startTrainingTick := firstTraining.StartTick
 
-		if session.StartTick > startTrainingTick {
-			return fmt.Errorf("%w: specified 'start-tick' (%d) occurs after specified 'start-training' tick (%d) for session's first training event. Session must be started before it may begin training", ErrInvalidConfiguration, session.StartTick, startTrainingTick)
+		if session.GetStartTick() > startTrainingTick {
+			return fmt.Errorf("%w: specified 'start-tick' (%d) occurs after specified 'start-training' tick (%d) for session's first training event. Session must be started before it may begin training", ErrInvalidConfiguration, session.GetStartTick(), startTrainingTick)
 		}
 
 		// Validate `startTrainingTick` and `sessionTerminateTick` arguments
-		if startTrainingTick > session.StopTick {
-			return fmt.Errorf("%w: specified 'start-training' (%d) occurs after specified 'start-terminated' tick (%d) for session's first training event. Session cannot start training after it has been terminated", ErrInvalidConfiguration, startTrainingTick, session.StopTick)
+		if startTrainingTick > session.GetStopTick() {
+			return fmt.Errorf("%w: specified 'start-training' (%d) occurs after specified 'start-terminated' tick (%d) for session's first training event. Session cannot start training after it has been terminated", ErrInvalidConfiguration, startTrainingTick, session.GetStopTick())
 		}
 
-		if (startTrainingTick + firstTraining.DurationInTicks) > session.StopTick {
-			return fmt.Errorf("%w: session's first training would conclude after the session is supposed to terminate [SessionStart: %d, TrainingStart: %d, TrainingDuration: %d, SessionEnd: %d]", ErrInvalidConfiguration, session.StartTick, startTrainingTick, firstTraining.DurationInTicks, session.StopTick)
+		if (startTrainingTick + firstTraining.DurationInTicks) > session.GetStopTick() {
+			return fmt.Errorf("%w: session's first training would conclude after the session is supposed to terminate [SessionStart: %d, TrainingStart: %d, TrainingDuration: %d, SessionEnd: %d]", ErrInvalidConfiguration, session.GetStartTick(), startTrainingTick, firstTraining.DurationInTicks, session.GetStopTick())
 		}
 	}
 
 	// Also check the last training, if there's at least 2 training events.
-	if len(session.Trainings) >= 2 {
-		lastTraining := session.Trainings[len(session.Trainings)-1]
+	if len(session.GetTrainings()) >= 2 {
+		lastTraining := session.GetTrainings()[len(session.GetTrainings())-1]
 		startTrainingTick := lastTraining.StartTick
 
-		if session.StartTick > startTrainingTick {
-			return fmt.Errorf("%w: specified 'start-tick' (%d) occurs after specified 'start-training' tick (%d) for session's final training event. Session must be started before it may begin training", ErrInvalidConfiguration, session.StartTick, startTrainingTick)
+		if session.GetStartTick() > startTrainingTick {
+			return fmt.Errorf("%w: specified 'start-tick' (%d) occurs after specified 'start-training' tick (%d) for session's final training event. Session must be started before it may begin training", ErrInvalidConfiguration, session.GetStartTick(), startTrainingTick)
 		}
 
 		// Validate `startTrainingTick` and `sessionTerminateTick` arguments
-		if startTrainingTick > session.StopTick {
-			return fmt.Errorf("%w: specified 'start-training' (%d) occurs after specified 'start-terminated' tick (%d) for session's final training event. Session cannot start training after it has been terminated", ErrInvalidConfiguration, startTrainingTick, session.StopTick)
+		if startTrainingTick > session.GetStopTick() {
+			return fmt.Errorf("%w: specified 'start-training' (%d) occurs after specified 'start-terminated' tick (%d) for session's final training event. Session cannot start training after it has been terminated", ErrInvalidConfiguration, startTrainingTick, session.GetStopTick())
 		}
 
-		if (startTrainingTick + lastTraining.DurationInTicks) > session.StopTick {
-			return fmt.Errorf("%w: session's final training would conclude after the session is supposed to terminate [SessionStart: %d, TrainingStart: %d, TrainingDuration: %d, SessionEnd: %d]", ErrInvalidConfiguration, session.StartTick, startTrainingTick, lastTraining.DurationInTicks, session.StopTick)
+		if (startTrainingTick + lastTraining.DurationInTicks) > session.GetStopTick() {
+			return fmt.Errorf("%w: session's final training would conclude after the session is supposed to terminate [SessionStart: %d, TrainingStart: %d, TrainingDuration: %d, SessionEnd: %d]", ErrInvalidConfiguration, session.GetStartTick(), startTrainingTick, lastTraining.DurationInTicks, session.GetStopTick())
 		}
 	}
 
 	return nil
 }
 
-func validateSessionArgumentsAgainstTrainingArguments(session *domain.WorkloadTemplateSession) error {
+func validateSessionArgumentsAgainstTrainingArguments(session domain.WorkloadTemplateSession) error {
 	if session == nil {
 		panic("Session cannot be nil.")
 	}
 
-	if session.Trainings == nil {
+	if session.GetTrainings() == nil {
 		panic("Session's `Trainings` field cannot be nil.")
 	}
 
-	for _, trainingEvent := range session.Trainings {
-		if session.ResourceRequest.Cpus < trainingEvent.CpuUtil {
-			return fmt.Errorf("%w: incompatible max CPUs (%f) and training CPU utilization (%f) specified. Training CPU utilization cannot exceed maximum session CPUs", ErrInvalidConfiguration, session.ResourceRequest.Cpus, trainingEvent.CpuUtil)
+	for _, trainingEvent := range session.GetTrainings() {
+		if session.GetResourceRequest().Cpus < trainingEvent.CpuUtil {
+			return fmt.Errorf("%w: incompatible max CPUs (%f) and training CPU utilization (%f) specified. Training CPU utilization cannot exceed maximum session CPUs", ErrInvalidConfiguration, session.GetResourceRequest().Cpus, trainingEvent.CpuUtil)
 		}
 
-		if session.ResourceRequest.Gpus < trainingEvent.NumGPUs() {
-			return fmt.Errorf("%w: incompatible max GPUs (%d) and training GPU utilization (%d) specified. Training GPU utilization cannot exceed maximum session GPUs", ErrInvalidConfiguration, session.ResourceRequest.Gpus, trainingEvent.NumGPUs())
+		if session.GetResourceRequest().Gpus < trainingEvent.NumGPUs() {
+			return fmt.Errorf("%w: incompatible max GPUs (%d) and training GPU utilization (%d) specified. Training GPU utilization cannot exceed maximum session GPUs", ErrInvalidConfiguration, session.GetResourceRequest().Gpus, trainingEvent.NumGPUs())
 		}
 
-		if session.ResourceRequest.MemoryGB < trainingEvent.MemUsageGB {
-			return fmt.Errorf("%w: incompatible max memory usage (%f GB) and training memory usage (%f GB) specified. Training memory usage cannot exceed maximum session memory usage", ErrInvalidConfiguration, session.ResourceRequest.MemoryGB, trainingEvent.MemUsageGB)
+		if session.GetResourceRequest().MemoryGB < trainingEvent.MemUsageGB {
+			return fmt.Errorf("%w: incompatible max memory usage (%f GB) and training memory usage (%f GB) specified. Training memory usage cannot exceed maximum session memory usage", ErrInvalidConfiguration, session.GetResourceRequest().MemoryGB, trainingEvent.MemUsageGB)
 		}
 	}
 
@@ -224,7 +224,7 @@ func validateSessionArgumentsAgainstTrainingArguments(session *domain.WorkloadTe
 // - the number of GPUs to use while training (> 0)
 //
 // This will return nil and an ErrInvalidConfiguration error if the arguments are invalid.
-func SingleSessionSingleTraining(sessions []*domain.WorkloadTemplateSession) (SequencerFunction, error) {
+func SingleSessionSingleTraining(sessions []domain.WorkloadTemplateSession) (SequencerFunction, error) {
 	if sessions == nil {
 		panic("Session arguments cannot be nil.")
 	}
@@ -233,7 +233,7 @@ func SingleSessionSingleTraining(sessions []*domain.WorkloadTemplateSession) (Se
 		panic(fmt.Sprintf("Sessions has unexpected length: %d", len(sessions)))
 	}
 
-	var session *domain.WorkloadTemplateSession = sessions[0]
+	var session domain.WorkloadTemplateSession = sessions[0]
 	if err := validateSession(session); err != nil {
 		return nil, err
 	}
@@ -242,23 +242,23 @@ func SingleSessionSingleTraining(sessions []*domain.WorkloadTemplateSession) (Se
 		return nil, err
 	}
 
-	if len(session.Trainings) != 1 {
-		return nil, fmt.Errorf("%w: session has illegal number of training events for this particular template (%d, expected 1)", ErrInvalidConfiguration, len(session.Trainings))
+	if len(session.GetTrainings()) != 1 {
+		return nil, fmt.Errorf("%w: session has illegal number of training events for this particular template (%d, expected 1)", ErrInvalidConfiguration, len(session.GetTrainings()))
 	}
 
-	trainingEvent := session.Trainings[0]
+	trainingEvent := session.GetTrainings()[0]
 	if trainingEvent.DurationInTicks <= 0 {
 		return nil, fmt.Errorf("%w: invalid training duration specified: %d ticks. Must be strictly greater than 0", ErrInvalidConfiguration, trainingEvent.DurationInTicks)
 	}
 
 	return func(sequencer *CustomEventSequencer) error {
-		sequencer.RegisterSession(session.Id, session.ResourceRequest.Cpus, session.ResourceRequest.MemoryGB, session.ResourceRequest.Gpus, 0)
+		sequencer.RegisterSession(session.GetId(), session.GetResourceRequest().Cpus, session.GetResourceRequest().MemoryGB, session.GetResourceRequest().Gpus, 0)
 
-		trainingEvent := session.Trainings[0]
+		trainingEvent := session.GetTrainings()[0]
 
-		sequencer.AddSessionStartedEvent(session.Id, session.StartTick, 0, 0, 0, 1)
-		sequencer.AddTrainingEvent(session.Id, trainingEvent.StartTick, trainingEvent.DurationInTicks, trainingEvent.CpuUtil, trainingEvent.MemUsageGB, trainingEvent.GpuUtil) // TODO: Fix GPU util/num GPU specified here.
-		sequencer.AddSessionTerminatedEvent(session.Id, session.StopTick)
+		sequencer.AddSessionStartedEvent(session.GetId(), session.GetStartTick(), 0, 0, 0, 1)
+		sequencer.AddTrainingEvent(session.GetId(), trainingEvent.StartTick, trainingEvent.DurationInTicks, trainingEvent.CpuUtil, trainingEvent.MemUsageGB, trainingEvent.GpuUtil) // TODO: Fix GPU util/num GPU specified here.
+		sequencer.AddSessionTerminatedEvent(session.GetId(), session.GetStopTick())
 
 		sequencer.SubmitEvents()
 

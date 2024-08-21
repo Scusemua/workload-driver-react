@@ -270,7 +270,7 @@ func (s *CustomEventSequencer) AddSessionStartedEvent(sessionId string, tickNumb
 	session.memBuffer.Debug_Commit(nextUtil)
 
 	evt := &eventImpl{
-		name:                EventSessionReady,
+		name:                domain.EventSessionReady,
 		eventSource:         nil,
 		originalEventSource: nil,
 		// Data:                data,
@@ -300,7 +300,7 @@ func (s *CustomEventSequencer) AddSessionTerminatedEvent(sessionId string, tickN
 
 	data := sessionMeta.Snapshot()
 	evt := &eventImpl{
-		name:                EventSessionStopped,
+		name:                domain.EventSessionStopped,
 		eventSource:         nil,
 		originalEventSource: nil,
 		data:                data,
@@ -345,7 +345,7 @@ func (s *CustomEventSequencer) AddTrainingEvent(sessionId string, tickNumber int
 	s.stepMemory(sessionId, endTime, 0)
 
 	trainingStartedEvent := &eventImpl{
-		name:                EventSessionTrainingStarted,
+		name:                domain.EventSessionTrainingStarted,
 		eventSource:         nil,
 		originalEventSource: nil,
 		data:                sessionMeta.Snapshot(),
@@ -356,7 +356,7 @@ func (s *CustomEventSequencer) AddTrainingEvent(sessionId string, tickNumber int
 	s.sugarLog.Debugf("Added 'training-started' event for Session %s with timestamp %v (sec=%d).", sessionId, startTime, startSec)
 
 	trainingEndedEvent := &eventImpl{
-		name:                EventSessionTrainingEnded,
+		name:                domain.EventSessionTrainingEnded,
 		eventSource:         nil,
 		originalEventSource: nil,
 		data:                nil,
@@ -390,9 +390,9 @@ func (h internalEventHeap) Less(i, j int) bool {
 	if h[i].Timestamp().Equal(h[j].Timestamp()) {
 		// We want to ensure that TrainingEnded events are processed before SessionStopped events.
 		// So, if event i is TrainingEnded and event j is SessionStopped, then event i should be processed first.
-		if h[i].Name() == EventSessionTrainingEnded && h[j].Name() == EventSessionStopped {
+		if h[i].Name() == domain.EventSessionTrainingEnded && h[j].Name() == domain.EventSessionStopped {
 			return true
-		} else if h[j].Name() == EventSessionTrainingEnded && h[i].Name() == EventSessionStopped {
+		} else if h[j].Name() == domain.EventSessionTrainingEnded && h[i].Name() == domain.EventSessionStopped {
 			return false
 		}
 

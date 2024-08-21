@@ -323,7 +323,7 @@ type GPUDriver struct {
 }
 
 func NewGPUDriver(id int, configs ...func(TraceDriver)) TraceDriver {
-	log.Debug("Creating GPUDriver now.\n")
+	logger.Debug("Creating GPUDriver now.\n")
 	drv := &GPUDriver{
 		BaseDriver:          NewBaseDriver(id),
 		gcBuff:              make([]*GPUUtil, 0, 1000),
