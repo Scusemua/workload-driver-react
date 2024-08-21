@@ -36,11 +36,16 @@ func (r *ToggleDebugLogsRequest) String() string {
 }
 
 type WorkloadResponse struct {
+	// MessageIndex      int32      `json:"message_index"`
 	MessageId         string     `json:"msg_id"`
-	MessageIndex      int32      `json:"message_index"`
 	NewWorkloads      []Workload `json:"new_workloads"`
 	ModifiedWorkloads []Workload `json:"modified_workloads"`
 	DeletedWorkloads  []Workload `json:"deleted_workloads"`
+}
+
+// Encode the response to a JSON format.
+func (r *WorkloadResponse) Encode() ([]byte, error) {
+	return json.Marshal(r)
 }
 
 func (r *WorkloadResponse) String() string {

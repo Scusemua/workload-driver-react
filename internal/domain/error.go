@@ -13,11 +13,16 @@ type ErrorMessage struct {
 	Valid        bool   `json:"Valid"`        // Used to determine if the struct was sent/received correctly over the network.
 }
 
-func (m *ErrorMessage) String() string {
+func (m *ErrorMessage) Encode() []byte {
 	out, err := json.Marshal(m)
 	if err != nil {
 		panic(err)
 	}
 
+	return out
+}
+
+func (m *ErrorMessage) String() string {
+	out := m.Encode()
 	return string(out)
 }
