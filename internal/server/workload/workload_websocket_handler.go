@@ -326,7 +326,7 @@ func (h *WorkloadWebsocketHandler) handleStopWorkload(msgId string, message []by
 
 	h.logger.Debug("Stopping workload.", zap.String("workload-id", req.WorkloadId))
 
-	stoppedWorkload, err := h.workloadManager.StartWorkload(req.MessageId)
+	stoppedWorkload, err := h.workloadManager.StopWorkload(req.MessageId)
 	if err != nil {
 		return nil, err
 	}
