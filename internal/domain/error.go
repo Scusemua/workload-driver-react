@@ -1,6 +1,8 @@
 package domain
 
-import "encoding/json"
+import (
+	"encoding/json"
+)
 
 // Used to pass errors back to another window.
 type ErrorHandler interface {

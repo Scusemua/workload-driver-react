@@ -34,7 +34,7 @@ func (w *WorkloadFromPreset) SessionCreated(sessionId string) {
 	w.NumActiveSessions += 1
 	w.NumSessionsCreated += 1
 
-	// Haven't implemented logic to add/create WorkloadSession structs for preset-based workloads.
+	// Haven't implemented logic to add/create WorkloadSessions for preset-based workloads.
 	panic("Not yet supported.")
 }
 
@@ -43,7 +43,7 @@ func (w *WorkloadFromPreset) SessionCreated(sessionId string) {
 func (w *WorkloadFromPreset) SessionStopped(sessionId string) {
 	w.NumActiveSessions -= 1
 
-	// Haven't implemented logic to add/create WorkloadSession structs for preset-based workloads.
+	// Haven't implemented logic to add/create WorkloadSessions for preset-based workloads.
 	panic("Not yet supported.")
 }
 
@@ -52,7 +52,7 @@ func (w *WorkloadFromPreset) SessionStopped(sessionId string) {
 func (w *WorkloadFromPreset) TrainingStarted(sessionId string) {
 	w.NumActiveTrainings += 1
 
-	// Haven't implemented logic to add/create WorkloadSession structs for preset-based workloads.
+	// Haven't implemented logic to add/create WorkloadSessions for preset-based workloads.
 	panic("Not yet supported.")
 }
 
@@ -62,7 +62,7 @@ func (w *WorkloadFromPreset) TrainingStopped(sessionId string) {
 	w.NumTasksExecuted += 1
 	w.NumActiveTrainings -= 1
 
-	// Haven't implemented logic to add/create WorkloadSession structs for preset-based workloads.
+	// Haven't implemented logic to add/create WorkloadSessions for preset-based workloads.
 	panic("Not yet supported.")
 }
 

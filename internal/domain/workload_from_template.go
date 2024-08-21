@@ -41,8 +41,8 @@ func (w *WorkloadFromTemplate) SessionCreated(sessionId string) {
 		return
 	}
 
-	session := val.(*WorkloadSession)
-	session.State = SessionIdle
+	session := val.(WorkloadSession)
+	session.SetState(SessionIdle)
 }
 
 // Called when a Session is stopped for/in the Workload.
@@ -56,8 +56,8 @@ func (w *WorkloadFromTemplate) SessionStopped(sessionId string) {
 		return
 	}
 
-	session := val.(*WorkloadSession)
-	session.State = SessionStopped
+	session := val.(WorkloadSession)
+	session.SetState(SessionStopped)
 }
 
 // Called when a training starts during/in the workload.
@@ -71,8 +71,8 @@ func (w *WorkloadFromTemplate) TrainingStarted(sessionId string) {
 		return
 	}
 
-	session := val.(*WorkloadSession)
-	session.State = SessionTraining
+	session := val.(WorkloadSession)
+	session.SetState(SessionTraining)
 }
 
 // Called when a training stops during/in the workload.
@@ -87,9 +87,9 @@ func (w *WorkloadFromTemplate) TrainingStopped(sessionId string) {
 		return
 	}
 
-	session := val.(*WorkloadSession)
-	session.State = SessionIdle
-	session.TrainingsCompleted += 1
+	session := val.(WorkloadSession)
+	session.SetState(SessionIdle)
+	session.GetAndIncrementTrainingsCompleted()
 }
 
 func NewWorkloadFromTemplate(baseWorkload Workload, workloadTemplate *WorkloadTemplate) *WorkloadFromTemplate {

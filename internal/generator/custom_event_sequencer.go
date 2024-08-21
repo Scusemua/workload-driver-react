@@ -15,8 +15,8 @@ var (
 	globalCustomEventIndex atomic.Uint64
 )
 
-type sessionWrapper struct {
-	session *Session
+type sessionMetaWrapper struct {
+	session *SessionMeta
 
 	gpu       *GPUUtil
 	cpu       *CPUUtil
@@ -24,7 +24,7 @@ type sessionWrapper struct {
 }
 
 type CustomEventSequencer struct {
-	sessions      map[string]*sessionWrapper
+	sessions      map[string]*sessionMetaWrapper
 	eventHeap     internalEventHeap
 	eventConsumer domain.EventConsumer
 	eqs           domain.EventQueueService
@@ -40,7 +40,7 @@ type CustomEventSequencer struct {
 
 func NewCustomEventSequencer(eventConsumer domain.EventConsumer, eqs domain.EventQueueService, startingSeconds int64, tickDurationSeconds int64, atom *zap.AtomicLevel) *CustomEventSequencer {
 	customEventSequencer := &CustomEventSequencer{
-		sessions:            make(map[string]*sessionWrapper),
+		sessions:            make(map[string]*sessionMetaWrapper),
 		waitingEvents:       make(map[string]*eventImpl),
 		eventHeap:           internalEventHeap(make([]*internalEventHeapElement, 0, 100)),
 		podMap:              make(map[string]int),
@@ -69,7 +69,7 @@ func (s *CustomEventSequencer) SubmitEvents() {
 		for s.eventHeap.Len() > 0 {
 			e := heap.Pop(&s.eventHeap).(*internalEventHeapElement)
 			s.eventConsumer.SubmitEvent(e.Event)
-			s.sugarLog.Debugf("Submitted event '%s' targeting session '%s' [%v]", e.Event.Name(), e.Event.Data().(*Session).Pod, e.Event.Timestamp())
+			s.sugarLog.Debugf("Submitted event '%s' targeting session '%s' [%v]", e.Event.Name(), e.Event.Data().(*SessionMeta).Pod, e.Event.Timestamp())
 		}
 	}()
 }
@@ -79,14 +79,14 @@ func (s *CustomEventSequencer) RegisterSession(sessionId string, maxCPUs float64
 		panic(fmt.Sprintf("Cannot register session %s; session was same ID already exists!", sessionId))
 	}
 
-	session := &Session{
+	session := &SessionMeta{
 		Pod:              sessionId,
 		MaxSessionCPUs:   maxCPUs,
 		MaxSessionMemory: maxMem,
 		MaxSessionGPUs:   maxGPUs,
 	}
 
-	wrappedSession := &sessionWrapper{
+	wrappedSession := &sessionMetaWrapper{
 		session: session,
 	}
 
@@ -97,9 +97,9 @@ func (s *CustomEventSequencer) RegisterSession(sessionId string, maxCPUs float64
 	s.sugarLog.Debugf("Registered session \"%s\". MaxCPUs: %.2f, MaxMemory: %.2f, MaxGPUs: %d.", sessionId, maxCPUs, maxMem, maxGPUs)
 }
 
-func (s *CustomEventSequencer) getSession(sessionId string) *Session {
+func (s *CustomEventSequencer) getSessionMeta(sessionId string) *SessionMeta {
 	var (
-		wrappedSession *sessionWrapper
+		wrappedSession *sessionMetaWrapper
 		ok             bool
 	)
 
@@ -110,9 +110,9 @@ func (s *CustomEventSequencer) getSession(sessionId string) *Session {
 	return wrappedSession.session
 }
 
-func (s *CustomEventSequencer) getWrappedSession(sessionId string) *sessionWrapper {
+func (s *CustomEventSequencer) getWrappedSession(sessionId string) *sessionMetaWrapper {
 	var (
-		wrappedSession *sessionWrapper
+		wrappedSession *sessionMetaWrapper
 		ok             bool
 	)
 
@@ -270,7 +270,7 @@ func (s *CustomEventSequencer) AddSessionStartedEvent(sessionId string, tickNumb
 	session.memBuffer.Debug_Commit(nextUtil)
 
 	evt := &eventImpl{
-		name:                domain.EventSessionReady,
+		name:                EventSessionReady,
 		eventSource:         nil,
 		originalEventSource: nil,
 		// Data:                data,
@@ -285,22 +285,22 @@ func (s *CustomEventSequencer) AddSessionStartedEvent(sessionId string, tickNumb
 func (s *CustomEventSequencer) AddSessionTerminatedEvent(sessionId string, tickNumber int) {
 	sec := s.startingSeconds + (int64(tickNumber) * s.tickDurationSeconds)
 	timestamp := time.Unix(sec, 0)
-	session := s.getSession(sessionId)
+	sessionMeta := s.getSessionMeta(sessionId)
 
 	s.stepCpu(sessionId, timestamp, 0)
 	s.stepGpu(sessionId, timestamp, []float64{0})
 	s.stepMemory(sessionId, timestamp, 0)
 
-	s.submitWaitingEvent(session)
+	s.submitWaitingEvent(sessionMeta)
 
 	// Step again just to commit the 0 util entries that were initialized above.
 	s.stepCpu(sessionId, timestamp, 0)
 	s.stepGpu(sessionId, timestamp, []float64{0})
 	s.stepMemory(sessionId, timestamp, 0)
 
-	data := session.Snapshot()
+	data := sessionMeta.Snapshot()
 	evt := &eventImpl{
-		name:                domain.EventSessionStopped,
+		name:                EventSessionStopped,
 		eventSource:         nil,
 		originalEventSource: nil,
 		data:                data,
@@ -312,9 +312,9 @@ func (s *CustomEventSequencer) AddSessionTerminatedEvent(sessionId string, tickN
 	s.sugarLog.Debugf("Added 'stopped' event for Session %s with timestamp %v (sec=%d).", sessionId, timestamp, sec)
 }
 
-func (s *CustomEventSequencer) submitWaitingEvent(session *Session) {
-	sessionId := session.Pod
-	dataForWaitingEvent := session.Snapshot()
+func (s *CustomEventSequencer) submitWaitingEvent(sessionMeta *SessionMeta) {
+	sessionId := sessionMeta.Pod
+	dataForWaitingEvent := sessionMeta.Snapshot()
 	s.waitingEvents[sessionId].data = dataForWaitingEvent
 	heap.Push(&s.eventHeap, &internalEventHeapElement{s.waitingEvents[sessionId], -1, globalCustomEventIndex.Add(1)})
 	s.sugarLog.Debugf("Added '%s' event for Session %s with timestamp %v.", s.waitingEvents[sessionId].Name, sessionId, s.waitingEvents[sessionId].Timestamp)
@@ -329,13 +329,13 @@ func (s *CustomEventSequencer) submitWaitingEvent(session *Session) {
 func (s *CustomEventSequencer) AddTrainingEvent(sessionId string, tickNumber int, durationInTicks int, cpuUtil float64, memUtil float64, gpuUtil []float64) {
 	startSec := s.startingSeconds + (int64(tickNumber) * s.tickDurationSeconds)
 	startTime := time.Unix(startSec, 0)
-	session := s.getSession(sessionId)
+	sessionMeta := s.getSessionMeta(sessionId)
 
 	s.stepCpu(sessionId, startTime, cpuUtil)
 	s.stepGpu(sessionId, startTime, gpuUtil)
 	s.stepMemory(sessionId, startTime, memUtil)
 
-	s.submitWaitingEvent(session)
+	s.submitWaitingEvent(sessionMeta)
 
 	endSec := s.startingSeconds + (int64(tickNumber+durationInTicks) * s.tickDurationSeconds)
 	endTime := time.Unix(endSec, 0)
@@ -345,10 +345,10 @@ func (s *CustomEventSequencer) AddTrainingEvent(sessionId string, tickNumber int
 	s.stepMemory(sessionId, endTime, 0)
 
 	trainingStartedEvent := &eventImpl{
-		name:                domain.EventSessionTrainingStarted,
+		name:                EventSessionTrainingStarted,
 		eventSource:         nil,
 		originalEventSource: nil,
-		data:                session.Snapshot(),
+		data:                sessionMeta.Snapshot(),
 		timestamp:           startTime,
 		id:                  uuid.New().String(),
 	}
@@ -356,7 +356,7 @@ func (s *CustomEventSequencer) AddTrainingEvent(sessionId string, tickNumber int
 	s.sugarLog.Debugf("Added 'training-started' event for Session %s with timestamp %v (sec=%d).", sessionId, startTime, startSec)
 
 	trainingEndedEvent := &eventImpl{
-		name:                domain.EventSessionTrainingEnded,
+		name:                EventSessionTrainingEnded,
 		eventSource:         nil,
 		originalEventSource: nil,
 		data:                nil,
@@ -390,9 +390,9 @@ func (h internalEventHeap) Less(i, j int) bool {
 	if h[i].Timestamp().Equal(h[j].Timestamp()) {
 		// We want to ensure that TrainingEnded events are processed before SessionStopped events.
 		// So, if event i is TrainingEnded and event j is SessionStopped, then event i should be processed first.
-		if h[i].Name() == domain.EventSessionTrainingEnded && h[j].Name() == domain.EventSessionStopped {
+		if h[i].Name() == EventSessionTrainingEnded && h[j].Name() == EventSessionStopped {
 			return true
-		} else if h[j].Name() == domain.EventSessionTrainingEnded && h[i].Name() == domain.EventSessionStopped {
+		} else if h[j].Name() == EventSessionTrainingEnded && h[i].Name() == EventSessionStopped {
 			return false
 		}
 

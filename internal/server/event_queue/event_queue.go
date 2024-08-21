@@ -8,7 +8,6 @@ import (
 	"time"
 
 	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
-	"github.com/scusemua/workload-driver-react/m/v2/internal/generator"
 	"github.com/zhangjyr/hashmap"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -88,7 +87,7 @@ func (q *eventQueue) GetNextSessionStartEvent(currentTime time.Time) domain.Even
 
 	evt := heap.Pop(&q.sessionReadyEvents).(domain.Event)
 
-	q.sugaredLogger.Debugf("SessionReadyEvent for Session %s with timestamp %v occurs during or before current tick %v.", evt.Data().(*generator.Session).Pod, evt.Timestamp(), currentTime)
+	q.sugaredLogger.Debugf("SessionReadyEvent for Session %s with timestamp %v occurs during or before current tick %v.", evt.Data().(*domain.SessionMeta).Pod, evt.Timestamp(), currentTime)
 
 	return evt
 }
@@ -125,7 +124,7 @@ func (q *eventQueue) EnqueueEvent(evt domain.Event) {
 	q.eventHeapMutex.Lock()
 	defer q.eventHeapMutex.Unlock()
 
-	sess := evt.Data().(*generator.Session)
+	sess := evt.Data().(*domain.SessionMeta)
 	if evt.Name() == domain.EventSessionReady {
 		// The event heap for "regular" events corresponding to the same Session.
 		q.eventsPerSession.GetOrInsert(sess.Pod, hashmap.New(10))
@@ -136,7 +135,7 @@ func (q *eventQueue) EnqueueEvent(evt domain.Event) {
 		q.sugaredLogger.Debugf("Enqueued SessionReadyEvent: session=%s; ts=%v.", sess.Pod, evt.Timestamp())
 	} else if evt.Name() == domain.EventSessionStarted { // Do nothing other than try to create the heap.
 		q.eventsPerSession.GetOrInsert(sess.Pod, hashmap.New(10)) // Don't bother capturing the return value. We just don't want to overwrite the existing hashmap if it exists.
-	} else if sess, ok := evt.Data().(*generator.Session); ok {
+	} else if sess, ok := evt.Data().(*domain.SessionMeta); ok {
 		podId := sess.Pod
 
 		// If the session has been terminated permanently, then discard its events.

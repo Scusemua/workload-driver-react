@@ -112,7 +112,7 @@ func (a *TrainingResourceUtilizationArgs) WithGpuUtilizationForSpecificGpu(gpuIn
 	return a
 }
 
-func validateSession(session *domain.WorkloadSession) error {
+func validateSession(session *domain.WorkloadTemplateSession) error {
 	if session == nil {
 		panic("Session should not be nil.")
 	}
@@ -188,7 +188,7 @@ func validateSession(session *domain.WorkloadSession) error {
 	return nil
 }
 
-func validateSessionArgumentsAgainstTrainingArguments(session *domain.WorkloadSession) error {
+func validateSessionArgumentsAgainstTrainingArguments(session *domain.WorkloadTemplateSession) error {
 	if session == nil {
 		panic("Session cannot be nil.")
 	}
@@ -224,7 +224,7 @@ func validateSessionArgumentsAgainstTrainingArguments(session *domain.WorkloadSe
 // - the number of GPUs to use while training (> 0)
 //
 // This will return nil and an ErrInvalidConfiguration error if the arguments are invalid.
-func SingleSessionSingleTraining(sessions []*domain.WorkloadSession) (SequencerFunction, error) {
+func SingleSessionSingleTraining(sessions []*domain.WorkloadTemplateSession) (SequencerFunction, error) {
 	if sessions == nil {
 		panic("Session arguments cannot be nil.")
 	}
@@ -233,7 +233,7 @@ func SingleSessionSingleTraining(sessions []*domain.WorkloadSession) (SequencerF
 		panic(fmt.Sprintf("Sessions has unexpected length: %d", len(sessions)))
 	}
 
-	var session *domain.WorkloadSession = sessions[0]
+	var session *domain.WorkloadTemplateSession = sessions[0]
 	if err := validateSession(session); err != nil {
 		return nil, err
 	}

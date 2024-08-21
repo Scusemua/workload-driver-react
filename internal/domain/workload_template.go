@@ -3,8 +3,8 @@ package domain
 import "fmt"
 
 type WorkloadTemplate struct {
-	Name     string             `json:"name"`
-	Sessions []*WorkloadSession `json:"sessions"`
+	Name     string                     `json:"name"`
+	Sessions []*WorkloadTemplateSession `json:"sessions"`
 }
 
 func (t *WorkloadTemplate) String() string {

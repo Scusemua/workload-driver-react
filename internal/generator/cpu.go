@@ -20,8 +20,8 @@ const (
 
 var (
 	ErrUnexpectedCPUStTrans = errors.New("unexpected CPU state transition")
-	log, _                  = zap.NewDevelopment()
-	sugarLog                = log.Sugar()
+	logger, _               = zap.NewDevelopment()
+	sugarLog                = logger.Sugar()
 )
 
 type CPUEvent string
@@ -58,7 +58,7 @@ type CPUUtil struct {
 	Value          float64
 	Max            float64
 	Status         CPUStatus
-	CurrentSession Session
+	CurrentSession SessionMeta
 
 	MaxTaskCPU    float64
 	MaxSessionCPU float64
@@ -88,7 +88,7 @@ func (ed *CPUUtil) GetPod() string {
 
 func (ed *CPUUtil) Committed() *CPUUtil {
 	if ed.prototype == nil {
-		log.Error("CPUUtil::Committed cannot return as `prototype` field is null for CPUUtil struct.", zap.Any("cpuutil", ed))
+		logger.Error("CPUUtil::Committed cannot return as `prototype` field is null for CPUUtil struct.", zap.Any("cpuutil", ed))
 		panic("Error")
 	}
 	return ed.prototype
@@ -170,7 +170,7 @@ func (ed *CPUUtil) transit(evtBuff []CPUEvent, force bool) ([]CPUEvent, error) {
 		lastStatus = ed.LastUtil.Status
 	}
 
-	// log.Debug("Transitioning CPU Status. Last Status: %v.", lastStatus)
+	// logger.Debug("Transitioning CPU Status. Last Status: %v.", lastStatus)
 
 	// Support the detection of series transitions
 	for {
@@ -280,7 +280,7 @@ type CPUDriver struct {
 }
 
 func NewCPUDriver(id int, configs ...func(TraceDriver)) TraceDriver {
-	log.Debug("Creating CPUDriver now.\n")
+	logger.Debug("Creating CPUDriver now.\n")
 	drv := &CPUDriver{BaseDriver: NewBaseDriver(id)}
 	drv.TraceDriver = drv
 	for _, config := range configs {
@@ -311,7 +311,7 @@ func (d *CPUDriver) Setup(ctx context.Context) error {
 
 	if d.MapperPath == "" {
 		d.pods = make([]*CPUUtil, 1000)
-		log.Debug(fmt.Sprintf("%v set up, no mapper loaded", d))
+		logger.Debug(fmt.Sprintf("%v set up, no mapper loaded", d))
 		return nil
 	}
 
@@ -320,7 +320,7 @@ func (d *CPUDriver) Setup(ctx context.Context) error {
 	err := d.DriveSync(context.TODO(), d.MapperPath)
 	d.podMapper = nil
 	d.pods = make([]*CPUUtil, len(d.podMap))
-	log.Info(fmt.Sprintf("%v set up, mapper loaded, %d entries", d, len(d.podMap)))
+	logger.Info(fmt.Sprintf("%v set up, mapper loaded, %d entries", d, len(d.podMap)))
 	return err
 }
 
@@ -401,7 +401,7 @@ func (d *CPUDriver) HandleRecord(ctx context.Context, r Record) {
 		d.MaxesMutex.Unlock()
 	}
 
-	// log.Trace("Got %v from ensuring pod.", cpu)
+	// logger.Trace("Got %v from ensuring pod.", cpu)
 	events := make([]CPUEvent, 0, 2) // events buffer
 	committed := cpu.commit(rec)
 
@@ -432,20 +432,20 @@ func (d *CPUDriver) HandleRecord(ctx context.Context, r Record) {
 	}
 
 	events, err := committed.transit(events, false)
-	// log.Debug("Transitioned CPU Status. New Status: %v.", committed.Status)
+	// logger.Debug("Transitioned CPU Status. New Status: %v.", committed.Status)
 	if err != nil {
 		sugarLog.Warnf("Error on handling records: %v", err)
 	}
 	d.triggerMulti(ctx, events, committed)
 
-	// log.Debug("Finished processing CPU record: %v.", rec)
+	// logger.Debug("Finished processing CPU record: %v.", rec)
 }
 
 // When executing in the "pre-run" mode, we record the maximum CPU utilization for each session.
 // This function compares the latest reading from the trace against the maximum CPU utilization
 // we've recorded for the associated session and updates the record if the latest reading is greater.
 func (d *CPUDriver) updateSessionMaxCPU(committed *CPUUtil) {
-	// log.Info("[%s] Acquiring MaxesMutex lock.", d.DriverType)
+	// logger.Info("[%s] Acquiring MaxesMutex lock.", d.DriverType)
 	if d.ExecutionMode == 0 {
 		// sugarLog.Debugf("Committed CPU util of %0.4f for session %s", committed.Value, committed.Pod)
 

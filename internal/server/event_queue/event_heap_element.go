@@ -5,7 +5,6 @@ import (
 	"time"
 
 	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
-	"github.com/scusemua/workload-driver-react/m/v2/internal/generator"
 )
 
 // This is a wrapper around a *generator.Event.
@@ -56,7 +55,7 @@ func (e *eventHeapElementImpl) AdjustedTimestamp() time.Time {
 
 // Return the ID of the associated Session.
 func (e *eventHeapElementImpl) SessionID() string {
-	return e.Event.Data().(*generator.Session).Pod
+	return e.Event.Data().(domain.SessionMetadata).GetPod()
 }
 
 // Return the underlying *generator.Event struct.
@@ -66,7 +65,7 @@ func (e *eventHeapElementImpl) GetEvent() domain.Event {
 
 // ToString for eventHeapElementImpl.
 func (e *eventHeapElementImpl) String() string {
-	sessionId := e.Event.Data().(*generator.Session).Pod
+	sessionId := e.Event.Data().(domain.SessionMetadata).GetPod()
 	return fmt.Sprintf("eventHeapElementImpl[idx=%d, adjustedTimestamp=%v, eventID=%s, eventName=%v, session=%s]", e.idx, e.adjustedTimestamp, e.Id(), e.Name(), sessionId)
 }
 

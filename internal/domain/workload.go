@@ -147,11 +147,11 @@ type Workload interface {
 	// Return the events processed during this workload (so far).
 	GetProcessedEvents() []*WorkloadEvent
 	// Return the sessions involved in this workload.
-	GetSessions() []*WorkloadSession
+	GetSessions() []WorkloadSession
 	// Set the sessions that will be involved in this workload.
 	//
 	// IMPORTANT: This can only be set once per workload. If it is called more than once, it will panic.
-	SetSessions([]*WorkloadSession)
+	SetSessions([]WorkloadSession)
 	// Set the source of the workload, namely a template or a preset.
 	SetSource(interface{})
 	// Return the current tick.
@@ -225,29 +225,29 @@ type workloadImpl struct {
 	sugaredLogger *zap.SugaredLogger `json:"-"`
 	atom          *zap.AtomicLevel   `json:"-"`
 
-	Id                        string             `json:"id"`
-	Name                      string             `json:"name"`
-	WorkloadState             WorkloadState      `json:"workload_state"`
-	CurrentTick               int64              `json:"current_tick"`
-	DebugLoggingEnabled       bool               `json:"debug_logging_enabled"`
-	ErrorMessage              string             `json:"error_message"`
-	EventsProcessed           []*WorkloadEvent   `json:"events_processed"`
-	Sessions                  []*WorkloadSession `json:"sessions"`
-	Seed                      int64              `json:"seed"`
-	RegisteredTime            time.Time          `json:"registered_time"`
-	StartTime                 time.Time          `json:"start_time"`
-	EndTime                   time.Time          `json:"end_time"`
-	WorkloadDuration          time.Duration      `json:"workload_duration"` // The total time that the workload executed for. This is only set once the workload has completed.
-	TimeElasped               time.Duration      `json:"time_elapsed"`      // Computed at the time that the data is requested by the user. This is the time elapsed SO far.
-	TimeElaspedStr            string             `json:"time_elapsed_str"`
-	NumTasksExecuted          int64              `json:"num_tasks_executed"`
-	NumEventsProcessed        int64              `json:"num_events_processed"`
-	NumSessionsCreated        int64              `json:"num_sessions_created"`
-	NumActiveSessions         int64              `json:"num_active_sessions"`
-	NumActiveTrainings        int64              `json:"num_active_trainings"`
-	TimescaleAdjustmentFactor float64            `json:"timescale_adjustment_factor"`
-	SimulationClockTimeStr    string             `json:"simulation_clock_time"`
-	WorkloadType              WorkloadType       `json:"workload_type"`
+	Id                        string            `json:"id"`
+	Name                      string            `json:"name"`
+	WorkloadState             WorkloadState     `json:"workload_state"`
+	CurrentTick               int64             `json:"current_tick"`
+	DebugLoggingEnabled       bool              `json:"debug_logging_enabled"`
+	ErrorMessage              string            `json:"error_message"`
+	EventsProcessed           []*WorkloadEvent  `json:"events_processed"`
+	Sessions                  []WorkloadSession `json:"sessions"`
+	Seed                      int64             `json:"seed"`
+	RegisteredTime            time.Time         `json:"registered_time"`
+	StartTime                 time.Time         `json:"start_time"`
+	EndTime                   time.Time         `json:"end_time"`
+	WorkloadDuration          time.Duration     `json:"workload_duration"` // The total time that the workload executed for. This is only set once the workload has completed.
+	TimeElasped               time.Duration     `json:"time_elapsed"`      // Computed at the time that the data is requested by the user. This is the time elapsed SO far.
+	TimeElaspedStr            string            `json:"time_elapsed_str"`
+	NumTasksExecuted          int64             `json:"num_tasks_executed"`
+	NumEventsProcessed        int64             `json:"num_events_processed"`
+	NumSessionsCreated        int64             `json:"num_sessions_created"`
+	NumActiveSessions         int64             `json:"num_active_sessions"`
+	NumActiveTrainings        int64             `json:"num_active_trainings"`
+	TimescaleAdjustmentFactor float64           `json:"timescale_adjustment_factor"`
+	SimulationClockTimeStr    string            `json:"simulation_clock_time"`
+	WorkloadType              WorkloadType      `json:"workload_type"`
 
 	// workloadSource interface{} `json:"-"`
 
@@ -282,7 +282,7 @@ func NewWorkload(id string, workloadName string, seed int64, debugLoggingEnabled
 		atom:                      atom,
 		sessionsMap:               hashmap.New(32),
 		CurrentTick:               0,
-		Sessions:                  make([]*WorkloadSession, 0), // For template workloads, this will be overwritten.
+		Sessions:                  make([]WorkloadSession, 0), // For template workloads, this will be overwritten.
 	}
 
 	zapConfig := zap.NewDevelopmentEncoderConfig()
@@ -323,7 +323,7 @@ func (w *workloadImpl) GetSimulationClockTimeStr() string {
 // Set the sessions that will be involved in this workload.
 //
 // IMPORTANT: This can only be set once per workload. If it is called more than once, it will panic.
-func (w *workloadImpl) SetSessions(sessions []*WorkloadSession) {
+func (w *workloadImpl) SetSessions(sessions []WorkloadSession) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
@@ -332,9 +332,9 @@ func (w *workloadImpl) SetSessions(sessions []*WorkloadSession) {
 
 	// Add each session to our internal mapping and initialize the session.
 	for _, session := range sessions {
-		session.State = SessionAwaitingStart
+		session.SetState(SessionAwaitingStart)
 
-		w.sessionsMap.Set(session.Id, session)
+		w.sessionsMap.Set(session.GetId(), session)
 	}
 }
 
@@ -348,7 +348,7 @@ func (w *workloadImpl) SetSource(source interface{}) {
 }
 
 // Return the sessions involved in this workload.
-func (w *workloadImpl) GetSessions() []*WorkloadSession {
+func (w *workloadImpl) GetSessions() []WorkloadSession {
 	return w.Sessions
 }
 

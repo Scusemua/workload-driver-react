@@ -868,22 +868,22 @@ func (d *workloadDriverImpl) getOriginalSessionIdFromInternalSessionId(internalS
 }
 
 // Create and return a new Session with the given ID.
-func (d *workloadDriverImpl) NewSession(id string, meta *generator.Session, createdAtTime time.Time) *domain.WorkloadSession {
-	d.sugaredLogger.Debugf("Creating new Session %v. MaxSessionCPUs: %.2f; MaxSessionMemory: %.2f. MaxSessionGPUs: %d. TotalNumSessions: %d", id, meta.MaxSessionCPUs, meta.MaxSessionMemory, meta.MaxSessionGPUs, d.sessions.Len())
+func (d *workloadDriverImpl) NewSession(id string, meta domain.SessionMetadata, createdAtTime time.Time) domain.WorkloadSession {
+	d.sugaredLogger.Debugf("Creating new Session %v. MaxSessionCPUs: %.2f; MaxSessionMemory: %.2f. MaxSessionGPUs: %d. TotalNumSessions: %d", id, meta.GetMaxSessionCPUs(), meta.GetMaxSessionMemory(), meta.GetMaxSessionGPUs(), d.sessions.Len())
 
 	// Make sure the Session doesn't already exist.
-	var session *domain.WorkloadSession
+	var session domain.WorkloadSession
 	if session = d.GetSession(id); session != nil {
 		panic(fmt.Sprintf("Attempted to create existing Session %s.", id))
 	}
 
 	// The Session only exposes the CPUs, Memory, and
-	resourceRequest := domain.NewResourceRequest(meta.MaxSessionCPUs, meta.MaxSessionMemory, meta.MaxSessionGPUs, AnyGPU)
+	resourceRequest := domain.NewResourceRequest(meta.GetMaxSessionCPUs(), meta.GetMaxSessionMemory(), meta.GetMaxSessionGPUs(), AnyGPU)
 	session = domain.NewWorkloadSession(id, meta, resourceRequest, createdAtTime)
 
 	d.mu.Lock()
 
-	internalSessionId := d.getInternalSessionId(session.Id)
+	internalSessionId := d.getInternalSessionId(session.GetId())
 
 	// d.workload.NumActiveSessions += 1
 	// d.workload.NumSessionsCreated += 1
@@ -899,11 +899,11 @@ func (d *workloadDriverImpl) NewSession(id string, meta *generator.Session, crea
 
 // Get and return the Session identified by the given ID, if one exists. Otherwise, return nil.
 // If the caller is attempting to retrieve a Session that once existed but has since been terminated, then this will return nil.
-func (d *workloadDriverImpl) GetSession(id string) *domain.WorkloadSession {
+func (d *workloadDriverImpl) GetSession(id string) domain.WorkloadSession {
 	session, ok := d.sessions.Get(id)
 
 	if ok {
-		return session.(*domain.WorkloadSession)
+		return session.(domain.WorkloadSession)
 	}
 
 	return nil
@@ -919,15 +919,15 @@ func (d *workloadDriverImpl) handleSessionReadyEvents(latestTick time.Time) {
 	numProcessed := 0
 	st := time.Now()
 	for sessionReadyEvent != nil {
-		driverSession := sessionReadyEvent.Data().(*generator.Session)
+		sessionMeta := sessionReadyEvent.Data().(domain.SessionMetadata)
 
-		sessionId := driverSession.Pod
+		sessionId := sessionMeta.GetPod()
 		if d.sugaredLogger.Level() == zapcore.DebugLevel {
 			d.sugaredLogger.Debugf("Handling EventSessionReady %d targeting Session %s [ts: %v].", numProcessed+1, sessionId, sessionReadyEvent.Timestamp())
 		}
 
 		provision_start := time.Now()
-		_, err := d.provisionSession(sessionId, driverSession, sessionReadyEvent.Timestamp())
+		_, err := d.provisionSession(sessionId, sessionMeta, sessionReadyEvent.Timestamp())
 
 		d.mu.Lock()
 		d.workload.ProcessedEvent(domain.NewWorkloadEvent(-1 /* This will be populated automatically by the ProcessedEvent method */, sessionReadyEvent.Id(), sessionReadyEvent.SessionID(), domain.EventSessionStarted.String(), sessionReadyEvent.Timestamp().String(), time.Now().String(), (err == nil), err))
@@ -965,7 +965,7 @@ func (d *workloadDriverImpl) handleSessionReadyEvents(latestTick time.Time) {
 }
 
 func (d *workloadDriverImpl) handleEvent(evt domain.Event) error {
-	traceSessionId := evt.Data().(*generator.Session).Pod
+	traceSessionId := evt.Data().(domain.SessionMetadata).GetPod()
 	internalSessionId := d.getInternalSessionId(traceSessionId)
 
 	switch evt.Name() {
@@ -1066,7 +1066,7 @@ func (d *workloadDriverImpl) handleEvent(evt domain.Event) error {
 	return nil
 }
 
-func (d *workloadDriverImpl) provisionSession(sessionId string, meta *generator.Session, createdAtTime time.Time) (*jupyter.SessionConnection, error) {
+func (d *workloadDriverImpl) provisionSession(sessionId string, meta domain.SessionMetadata, createdAtTime time.Time) (*jupyter.SessionConnection, error) {
 	d.logger.Debug("Creating new kernel.", zap.String("kernel-id", sessionId))
 	st := time.Now()
 	sessionConnection, err := d.kernelManager.CreateSession(sessionId /*strings.ToLower(sessionId) */, fmt.Sprintf("%s.ipynb", sessionId), "notebook", "distributed")

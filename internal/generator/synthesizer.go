@@ -46,7 +46,7 @@ type Synthesizer struct {
 
 	executionMode int
 	// Per synthsizing fields
-	sessions   map[string]*Session
+	sessions   map[string]*SessionMeta
 	lastTickTs int64
 	// firstEventTs int64
 }
@@ -166,7 +166,7 @@ func (s *Synthesizer) transitionAndSubmitEvent(evt domain.Event) {
 		sess, initted := s.sessions[podData.GetPod()]
 
 		if evt.Name() == EventGpuUpdateUtil {
-			if !initted || sess.Status != SessionTraining {
+			if !initted || sess.Status != SessionStatusTraining {
 				return
 			}
 		}
@@ -215,7 +215,7 @@ func (s *Synthesizer) transitionAndSubmitEvent(evt domain.Event) {
 				maxGPUs = 1
 			}
 
-			sess = &Session{
+			sess = &SessionMeta{
 				Pod:              podData.GetPod(),
 				MaxSessionCPUs:   maxCPUs,
 				MaxSessionMemory: maxMem,
@@ -250,7 +250,7 @@ func (s *Synthesizer) transitionAndSubmitEvent(evt domain.Event) {
 					eventData.CurrentTrainingMaxGPUs = s.GpuTrainingTaskMap()[sess.Pod][trainingIdx]
 				}
 
-				if evtName == domain.EventSessionTrainingStarted {
+				if evtName == EventSessionTrainingStarted {
 					if len(s.CpuTrainingTaskMap()[sess.Pod]) <= (trainingIdx + 1) {
 						s.sugarLog.Warnf("Cannot incr training idx for Session %s. len(CpuTrainingTaskMap): %d. Training index: %d", sess.Pod, len(s.CpuTrainingTaskMap()[sess.Pod]), trainingIdx)
 					} else if len(s.MemTrainingTaskMap()[sess.Pod]) <= (trainingIdx + 1) {
@@ -263,15 +263,15 @@ func (s *Synthesizer) transitionAndSubmitEvent(evt domain.Event) {
 				}
 
 				sessEvt := &eventImpl{name: evtName, eventSource: evt.EventSource(), originalEventSource: evt.OriginalEventSource(), data: eventData, timestamp: sess.Timestamp, id: uuid.New().String()}
-				s.sugarLog.Debugf("Enqueuing Session-level event targeting pod %s: %s [ts=%v]", sessEvt.Data().(*Session).Pod, evtName, sess.Timestamp)
+				s.sugarLog.Debugf("Enqueuing Session-level event targeting pod %s: %s [ts=%v]", sessEvt.Data().(*SessionMeta).Pod, evtName, sess.Timestamp)
 				s.consumer.SubmitEvent(sessEvt)
 			} else {
 				switch evtName {
-				case domain.EventSessionTrainingStarted:
+				case EventSessionTrainingStarted:
 					for _, evtSrc := range s.Sources {
 						evtSrc.TrainingStarted(sess.Pod)
 					}
-				case domain.EventSessionTrainingEnded:
+				case EventSessionTrainingEnded:
 					for _, evtSrc := range s.Sources {
 						evtSrc.TrainingEnded(sess.Pod)
 					}
@@ -295,7 +295,7 @@ func (s *Synthesizer) Synthesize(ctx context.Context, opts *domain.Configuration
 
 	s.eventsHeap = make(domain.SimpleEventHeap, 0, len(s.Sources))
 	if s.drivingCPU && s.drivingGPU {
-		s.sessions = make(map[string]*Session, 1000)
+		s.sessions = make(map[string]*SessionMeta, 1000)
 	}
 	s.lastTickTs = 0
 	defer func() {
@@ -332,16 +332,16 @@ func (s *Synthesizer) Synthesize(ctx context.Context, opts *domain.Configuration
 		switch evt.Name() {
 		case EventError:
 			if evt.Data() != context.Canceled {
-				log.Error(evt.String())
+				s.log.Error(evt.String())
 			}
 			fallthrough
 		case EventNoMore:
 			// The source of most recent event is drained or there is an error. Pop the source
 			heap.Pop(&s.eventsHeap)
 			if evt.Name() == EventNoMore {
-				sugarLog.Infof("%v, %d sources left.", evt, s.eventsHeap.Len())
+				s.sugarLog.Infof("%v, %d sources left.", evt, s.eventsHeap.Len())
 			} else {
-				sugarLog.Debugf("%v, %d sources left.", evt, s.eventsHeap.Len())
+				s.sugarLog.Debugf("%v, %d sources left.", evt, s.eventsHeap.Len())
 			}
 
 			// switch evt.EventSource().(type) {
