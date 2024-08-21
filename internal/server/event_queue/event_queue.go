@@ -1,4 +1,4 @@
-package driver
+package event_queue
 
 import (
 	"container/heap"
@@ -29,7 +29,7 @@ type eventQueue struct {
 	doneChan           chan interface{}
 }
 
-func newEventQueue(atom *zap.AtomicLevel) *eventQueue {
+func NewEventQueue(atom *zap.AtomicLevel) domain.EventQueueService {
 	queue := &eventQueue{
 		atom:               atom,
 		eventsPerSession:   hashmap.New(100),

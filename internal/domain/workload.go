@@ -30,6 +30,7 @@ const (
 var (
 	ErrWorkloadNotRunning = errors.New("the workload is currently not running")
 	ErrInvalidState       = errors.New("workload is in invalid state for the specified operation")
+	ErrWorkloadNotFound   = errors.New("could not find workload with the specified ID")
 )
 
 type WorkloadState int
@@ -104,6 +105,9 @@ type Workload interface {
 	// Set the state of the workload.
 	SetWorkloadState(state WorkloadState)
 	// Start the Workload.
+	//
+	// If the workload is already running, then an error is returned.
+	// Likewise, if the workload was previously running but has already stopped, then an error is returned.
 	StartWorkload() error
 	// Explicitly/manually stop the workload early.
 	TerminateWorkloadPrematurely(time.Time) error
@@ -411,6 +415,9 @@ func (w *workloadImpl) TerminateWorkloadPrematurely(simulationTimestamp time.Tim
 }
 
 // Start the Workload.
+//
+// If the workload is already running, then an error is returned.
+// Likewise, if the workload was previously running but has already stopped, then an error is returned.
 func (w *workloadImpl) StartWorkload() error {
 	w.mu.Lock()
 	defer w.mu.Unlock()

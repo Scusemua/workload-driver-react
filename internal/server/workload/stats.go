@@ -1,4 +1,4 @@
-package driver
+package workload
 
 type WorkloadStats struct {
 	CumulativeNumStaticTrainingReplicas int `json:"CumulativeNumStaticTrainingReplicas"`

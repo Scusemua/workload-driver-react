@@ -1,4 +1,4 @@
-package driver
+package domain
 
 import (
 	"fmt"

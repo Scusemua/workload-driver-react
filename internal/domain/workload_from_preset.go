@@ -36,15 +36,6 @@ func (w *WorkloadFromPreset) SessionCreated(sessionId string) {
 
 	// Haven't implemented logic to add/create WorkloadSession structs for preset-based workloads.
 	panic("Not yet supported.")
-
-	// val, ok := w.sessionsMap.Get(sessionId)
-	// if !ok {
-	// 	w.logger.Error("Failed to find newly-created session in session map.", zap.String("session-id", sessionId))
-	// 	return
-	// }
-
-	// session := val.(*WorkloadSession)
-	// session.State = SessionIdle
 }
 
 // Called when a Session is stopped for/in the Workload.
@@ -54,15 +45,6 @@ func (w *WorkloadFromPreset) SessionStopped(sessionId string) {
 
 	// Haven't implemented logic to add/create WorkloadSession structs for preset-based workloads.
 	panic("Not yet supported.")
-
-	// val, ok := w.sessionsMap.Get(sessionId)
-	// if !ok {
-	// 	w.logger.Error("Failed to find freshly-terminated session in session map.", zap.String("session-id", sessionId))
-	// 	return
-	// }
-
-	// session := val.(*WorkloadSession)
-	// session.State = SessionStopped
 }
 
 // Called when a training starts during/in the workload.
@@ -72,15 +54,6 @@ func (w *WorkloadFromPreset) TrainingStarted(sessionId string) {
 
 	// Haven't implemented logic to add/create WorkloadSession structs for preset-based workloads.
 	panic("Not yet supported.")
-
-	// val, ok := w.sessionsMap.Get(sessionId)
-	// if !ok {
-	// 	w.logger.Error("Failed to find now-training session in session map.", zap.String("session-id", sessionId))
-	// 	return
-	// }
-
-	// session := val.(*WorkloadSession)
-	// session.State = SessionTraining
 }
 
 // Called when a training stops during/in the workload.
@@ -91,15 +64,6 @@ func (w *WorkloadFromPreset) TrainingStopped(sessionId string) {
 
 	// Haven't implemented logic to add/create WorkloadSession structs for preset-based workloads.
 	panic("Not yet supported.")
-
-	// val, ok := w.sessionsMap.Get(sessionId)
-	// if !ok {
-	// 	w.logger.Error("Failed to find now-idle session in session map.", zap.String("session-id", sessionId))
-	// 	return
-	// }
-
-	// session := val.(*WorkloadSession)
-	// session.State = SessionIdle
 }
 
 func NewWorkloadFromPreset(baseWorkload Workload, workloadPreset *WorkloadPreset) *WorkloadFromPreset {

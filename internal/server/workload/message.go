@@ -13,15 +13,29 @@ type responseBuilder struct {
 	// messageIndex      int32
 }
 
-func newResponseBuilder() *responseBuilder {
+// Pass an empty string for the 'msgId' parameter in order to have the message ID to be automatically generated (as a UUID).
+func newResponseBuilder(msgId string) *responseBuilder {
+	if len(msgId) == 0 {
+		msgId = uuid.NewString()
+	}
+
 	return &responseBuilder{
-		messageId: uuid.NewString(),
+		messageId: msgId,
 		// messageIndex: messageIndex,
 	}
 }
 
 func (b *responseBuilder) WithNewWorkloads(newWorkloads []domain.Workload) *responseBuilder {
 	b.newWorkloads = newWorkloads
+	return b
+}
+
+func (b *responseBuilder) WithModifiedWorkload(modifiedWorkload domain.Workload) *responseBuilder {
+	if b.modifiedWorkloads == nil {
+		b.modifiedWorkloads = make([]domain.Workload, 0)
+	}
+
+	b.modifiedWorkloads = append(b.modifiedWorkloads, modifiedWorkload)
 	return b
 }
 

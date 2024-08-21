@@ -1,4 +1,4 @@
-package driver
+package workload
 
 import (
 	"encoding/json"
@@ -19,6 +19,7 @@ import (
 	"github.com/mgutz/ansi"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/generator"
+	"github.com/scusemua/workload-driver-react/m/v2/internal/server/event_queue"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/server/jupyter"
 	"github.com/zhangjyr/hashmap"
 	"go.uber.org/zap"
@@ -100,7 +101,7 @@ type workloadDriverImpl struct {
 	atom          *zap.AtomicLevel
 
 	clockTime                   domain.SimulationClock                // Contains the current clock time of the workload, which will be sometime between currentTick and currentTick + tick_duration.
-	clockTrigger                *Trigger                              // Trigger for the clock ticks
+	clockTrigger                *clock.Trigger                        // Trigger for the clock ticks
 	currentTick                 domain.SimulationClock                // Contains the current tick of the workload.
 	doneChan                    chan interface{}                      // Used to signal that the workload has successfully processed all events.
 	driverTimescale             float64                               // Multiplier that impacts the timescale at the Driver will operate on with respect to the trace data. For example, if each tick is 60 seconds, then a DriverTimescale value of 0.5 will mean that each tick will take 30 seconds.
@@ -121,7 +122,7 @@ type workloadDriverImpl struct {
 	tick                        time.Duration                         // The tick interval/step rate of the simulation.
 	tickDuration                time.Duration                         // How long each tick is supposed to last.
 	tickDurationSeconds         int64                                 // Cached total number of seconds of tickDuration
-	ticker                      *Ticker                               // Receive Tick events this way.
+	ticker                      *clock.Ticker                         // Receive Tick events this way.
 	ticksHandled                atomic.Int64                          // Incremented/accessed atomically.
 	timescaleAdjustmentFactor   float64                               // Adjusts the timescale of the simulation. Setting this to 1 means that each tick is simulated as a whole minute. Setting this to 0.5 means each tick will be simulated for half its real time. So, if ticks are 60 seconds, and this variable is set to 0.5, then each tick will be simulated for 30 seconds before continuing to the next tick.
 	websocket                   domain.ConcurrentWebSocket            // Shared Websocket used to communicate with frontend.
@@ -139,7 +140,7 @@ func NewWorkloadDriver(opts *domain.Configuration, performClockTicks bool, times
 	driver := &workloadDriverImpl{
 		id:                        GenerateWorkloadID(8),
 		eventChan:                 make(chan domain.Event),
-		clockTrigger:              NewTrigger(),
+		clockTrigger:              clock.NewTrigger(),
 		opts:                      opts,
 		doneChan:                  make(chan interface{}, 1),
 		stopChan:                  make(chan interface{}, 1),
@@ -151,14 +152,14 @@ func NewWorkloadDriver(opts *domain.Configuration, performClockTicks bool, times
 		kernelManager:             jupyter.NewKernelSessionManager(opts.JupyterServerAddress, true, atom),
 		sessionConnections:        make(map[string]*jupyter.SessionConnection),
 		performClockTicks:         performClockTicks,
-		eventQueue:                newEventQueue(atom),
+		eventQueue:                event_queue.NewEventQueue(atom),
 		stats:                     NewWorkloadStats(),
 		sessions:                  hashmap.New(100),
 		seenSessions:              make(map[string]struct{}),
 		websocket:                 websocket,
 		timescaleAdjustmentFactor: timescaleAdjustmentFactor,
-		currentTick:               NewSimulationClock(),
-		clockTime:                 NewSimulationClock(),
+		currentTick:               clock.NewSimulationClock(),
+		clockTime:                 clock.NewSimulationClock(),
 	}
 
 	// Create the ticker for the workload.
@@ -193,24 +194,35 @@ func NewWorkloadDriver(opts *domain.Configuration, performClockTicks bool, times
 	return driver
 }
 
+// Start the Workload that is associated with/managed by this workload driver.
+//
+// If the workload is already running, then an error is returned.
+// Likewise, if the workload was previously running but has already stopped, then an error is returned.
+func (d *workloadDriverImpl) StartWorkload() error {
+	return d.workload.StartWorkload()
+}
+
+// Return the channel used to report critical errors encountered while executing the workload.
 func (d *workloadDriverImpl) GetErrorChan() chan<- error {
 	return d.errorChan
 }
 
-// Contains the current tick of the workload.
+// Return the current tick of the workload.
 func (d *workloadDriverImpl) CurrentTick() domain.SimulationClock {
 	return d.currentTick
 }
 
-// Contains the current clock time of the workload, which will be sometime between currentTick and currentTick + tick_duration.
+// Return the current clock time of the workload, which will be sometime between currentTick and currentTick + tick_duration.
 func (d *workloadDriverImpl) ClockTime() domain.SimulationClock {
 	return d.clockTime
 }
 
+// Return the WebSocket connection on which this workload was registered by a remote client and on/through which updates about the workload are reported.
 func (d *workloadDriverImpl) WebSocket() domain.ConcurrentWebSocket {
 	return d.websocket
 }
 
+// Return the stats of the workload.
 func (d *workloadDriverImpl) Stats() *WorkloadStats {
 	return d.stats
 }
@@ -396,6 +408,8 @@ func (d *workloadDriverImpl) IsWorkloadComplete() bool {
 	return d.workload.GetWorkloadState() == domain.WorkloadFinished
 }
 
+// Return the unique ID of this workload driver.
+// This is not necessarily the same as the workload's unique ID (TODO: or is it?).
 func (d *workloadDriverImpl) ID() string {
 	return d.id
 }
@@ -419,7 +433,8 @@ func (d *workloadDriverImpl) StopWorkload() error {
 	return nil
 }
 
-func (d *workloadDriverImpl) StopChan() chan interface{} {
+// Return the channel used to tell the workload to stop.
+func (d *workloadDriverImpl) StopChan() chan<- interface{} {
 	return d.stopChan
 }
 

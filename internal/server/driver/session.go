@@ -6,6 +6,7 @@ import (
 	"github.com/scusemua/workload-driver-react/m/v2/internal/generator"
 )
 
+// TODO: Merge this with the WorkloadSession struct.
 type Session struct {
 	sessionId       string
 	meta            *generator.Session
