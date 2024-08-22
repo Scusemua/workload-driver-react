@@ -144,22 +144,22 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
         }
 
         const messageId: string = uuidv4();
-        sendJsonMessage(
-            JSON.stringify({
-                op: 'register_workload',
-                msg_id: messageId,
-                workloadRegistrationRequest: {
-                    adjust_gpu_reservations: false,
-                    seed: workloadSeed,
-                    timescale_adjustment_factor: timescaleAdjustmentFactor,
-                    key: workloadTemplate.name,
-                    name: workloadName,
-                    debug_logging: debugLoggingEnabled,
-                    type: "template",
-                    workload_template: workloadTemplate,
-                },
-            }),
-        );
+        const workloadRegistrationRequest: string = JSON.stringify({
+            op: 'register_workload',
+            msg_id: messageId,
+            workloadRegistrationRequest: {
+                adjust_gpu_reservations: false,
+                seed: workloadSeed,
+                timescale_adjustment_factor: timescaleAdjustmentFactor,
+                key: workloadTemplate.name,
+                name: workloadName,
+                debug_logging: debugLoggingEnabled,
+                type: "template",
+                workload_template: workloadTemplate,
+            },
+        });
+        console.log(`Sending WorkloadRegistrationRequest: ${workloadRegistrationRequest}`)
+        sendJsonMessage(workloadRegistrationRequest);
     }
 
     const onRegisterWorkloadFromTemplateClicked = () => {

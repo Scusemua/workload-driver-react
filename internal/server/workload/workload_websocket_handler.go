@@ -63,6 +63,7 @@ func NewWorkloadWebsocketHandler(configuration *domain.Configuration, workloadMa
 		handlers:            make(map[string]websocketRequestHandler),
 		subscribers:         make(map[string]domain.ConcurrentWebSocket),
 		workloadStartedChan: workloadStartedChan,
+		expectedOriginPort:  configuration.ExpectedOriginPort,
 	}
 
 	zapConfig := zap.NewDevelopmentEncoderConfig()
@@ -104,7 +105,7 @@ func (h *WorkloadWebsocketHandler) upgradeConnectionToWebsocket(c *gin.Context) 
 			return true
 		}
 
-		h.sugaredLogger.Errorf("Unexpected origin: %v", r.Header.Get("Origin"))
+		h.sugaredLogger.Errorf("Unexpected origin: %v. Expected either %s or %s.", r.Header.Get("Origin"), expectedOriginV1, expectedOriginV2)
 		return false
 	}
 
@@ -238,8 +239,8 @@ func (h *WorkloadWebsocketHandler) serveWorkloadWebsocket(c *gin.Context) {
 		}
 
 		// The encoded response is non-nil, so we'll send it back to the remote client.
-		if err = h.sendMessage(ws, response); err != nil {
-			h.logger.Error("Failed to write WebSocket response.", zap.String("msg_id", msgId), zap.Any("response", response), zap.Error(err))
+		if err = h.sendMessage(ws, payload); err != nil {
+			h.logger.Error("Failed to write WebSocket response.", zap.String("msg_id", msgId), zap.ByteString("response", payload), zap.Error(err))
 			c.AbortWithError(http.StatusInternalServerError, err)
 			return
 		}
@@ -304,7 +305,7 @@ func (h *WorkloadWebsocketHandler) handleStartWorkload(msgId string, message []b
 
 	h.logger.Debug("Starting workload.", zap.String("workload-id", req.WorkloadId))
 
-	startedWorkload, err := h.workloadManager.StartWorkload(req.MessageId)
+	startedWorkload, err := h.workloadManager.StartWorkload(req.WorkloadId)
 	if err != nil {
 		return nil, err
 	}
@@ -427,13 +428,25 @@ func (h *WorkloadWebsocketHandler) handleUnpauseWorkload(msgId string, message [
 // Handle a request to register a new workload.
 // This does not start the workload; that is a separate operation.
 func (h *WorkloadWebsocketHandler) handleRegisterWorkload(msgId string, message []byte, ws domain.ConcurrentWebSocket) ([]byte, error) {
-	req, err := domain.UnmarshalRequestPayload[*domain.WorkloadRegistrationRequest](message)
+	req, err := domain.UnmarshalRequestPayload[*domain.WorkloadRegistrationRequestWrapper](message)
 	if err != nil {
-		h.logger.Error("Failed to unmarshal WorkloadRegistrationRequest.", zap.Error(err))
+		h.logger.Error("Failed to unmarshal WorkloadRegistrationRequestWrapper.", zap.Error(err))
 		return nil, err
 	}
 
-	workload, err := h.workloadManager.RegisterWorkload(req, ws)
+	// var req *domain.WorkloadRegistrationRequestWrapper
+	// if err := json.Unmarshal(message, req); err != nil {
+	// 	h.logger.Error("Failed to unmarshal WorkloadRegistrationRequestWrapper.", zap.Error(err))
+	// 	return nil, err
+	// }
+
+	h.logger.Debug("Received WorkloadRegistrationRequest", zap.Any("wrapper-request", req))
+
+	workload, err := h.workloadManager.RegisterWorkload(req.WorkloadRegistrationRequest, ws)
+	if err != nil {
+		h.logger.Error("Failed to register new workload.", zap.Any("workload-registration-request", req.WorkloadRegistrationRequest), zap.Error(err))
+		return nil, err
+	}
 
 	responseBuilder := newResponseBuilder(msgId)
 	response := responseBuilder.WithNewWorkload(workload).BuildResponse()

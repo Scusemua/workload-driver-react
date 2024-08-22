@@ -190,7 +190,7 @@ func NewWorkloadDriver(opts *domain.Configuration, performClockTicks bool, times
 	for _, preset := range presets {
 		driver.workloadPresets[preset.GetKey()] = preset
 
-		driver.logger.Debug("Discovered preset.", zap.Any(fmt.Sprintf("preset-%s", preset.GetKey()), preset.String()))
+		// driver.logger.Debug("Discovered preset.", zap.Any(fmt.Sprintf("preset-%s", preset.GetKey()), preset.String()))
 	}
 
 	return driver
@@ -201,6 +201,7 @@ func NewWorkloadDriver(opts *domain.Configuration, performClockTicks bool, times
 // If the workload is already running, then an error is returned.
 // Likewise, if the workload was previously running but has already stopped, then an error is returned.
 func (d *workloadDriverImpl) StartWorkload() error {
+	d.logger.Debug("Workload Driver is starting workload.", zap.String("workload-driver-id", d.id))
 	return d.workload.StartWorkload()
 }
 

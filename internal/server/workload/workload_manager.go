@@ -157,6 +157,7 @@ func (m *workloadManagerImpl) ToggleDebugLogging(workloadId string, enabled bool
 func (m *workloadManagerImpl) StartWorkload(workloadId string) (domain.Workload, error) {
 	workloadDriver := m.GetWorkloadDriver(workloadId)
 	if workloadDriver == nil {
+		m.sugaredLogger.Errorf("Cannot start workload \"%s\" as it has not yet been reigstered with the Workload Manager.", workloadId)
 		return nil, fmt.Errorf("%w: \"%s\"", domain.ErrWorkloadNotFound, workloadId)
 	}
 
@@ -225,6 +226,8 @@ func (m *workloadManagerImpl) RegisterWorkload(request *domain.WorkloadRegistrat
 	m.workloads = append(m.workloads, workload)
 	m.workloadsMap.Set(workloadId, workload)
 	m.workloadDrivers.Set(workloadId, workloadDriver)
+
+	m.sugaredLogger.Debugf("Successfully registered workload \"%s\" with Workload Manager.", workloadId)
 
 	return workload, err
 }

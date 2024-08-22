@@ -109,9 +109,9 @@ func (p *WorkloadPreset) UnmarshalYAML(unmarshal func(interface{}) error) error 
 		if err != nil {
 			log.Fatalf("Failed to unmarshal CSV workload preset: %v\n", err)
 		}
-		log.Printf("Unmarshaled CSV workload preset (1): \"%v\"\n", csvPreset)
-		log.Printf("Unmarshaled CSV workload preset (2): \"%v\"\n", p.CsvWorkloadPreset)
-		log.Printf("Unmarshaled CSV workload preset (3): \"%s\"\n", p.CsvWorkloadPreset.Name)
+		// log.Printf("Unmarshaled CSV workload preset (1): \"%v\"\n", csvPreset)
+		// log.Printf("Unmarshaled CSV workload preset (2): \"%v\"\n", p.CsvWorkloadPreset)
+		// log.Printf("Unmarshaled CSV workload preset (3): \"%s\"\n", p.CsvWorkloadPreset.Name)
 	} else if basePreset.PresetType == XmlWorkloadPresetType {
 		var xmlPreset XmlWorkloadPreset
 		err := unmarshal(&xmlPreset)
@@ -126,9 +126,10 @@ func (p *WorkloadPreset) UnmarshalYAML(unmarshal func(interface{}) error) error 
 			err = xmlPreset.LoadSvgContent()
 			if err != nil {
 				log.Printf("[ERROR] Could not load SVG content for XML preset %s from file \"%s\": %v\n", xmlPreset.GetName(), xmlPreset.SvgFilePath, err)
-			} else {
-				log.Printf("Successfully loaded SVG content for for XML preset %s from file \"%s\"\n", xmlPreset.GetName(), xmlPreset.SvgFilePath)
 			}
+			// else {
+			// 	log.Printf("Successfully loaded SVG content for for XML preset %s from file \"%s\"\n", xmlPreset.GetName(), xmlPreset.SvgFilePath)
+			// }
 		}
 
 		cpuSessionMap := make(map[string]float64)
@@ -158,7 +159,7 @@ func (p *WorkloadPreset) UnmarshalYAML(unmarshal func(interface{}) error) error 
 		if err != nil {
 			log.Fatalf("Failed to unmarshal CSV workload preset: %v\n", err)
 		}
-		log.Printf("Unmarshaled XML workload preset \"%s\"\n", p.XmlWorkloadPreset.Name)
+		// log.Printf("Unmarshaled XML workload preset \"%s\"\n", p.XmlWorkloadPreset.Name)
 	} else {
 		log.Fatalf("Unsupported workload preset type: %v", basePreset.PresetType)
 	}

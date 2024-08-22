@@ -93,15 +93,7 @@ func NewWorkloadSession(id string, meta SessionMetadata, resourceRequest *Resour
 	return newWorkloadSession(id, meta, resourceRequest, createdAtTime)
 }
 
-type WorkloadTemplateSession interface {
-	WorkloadSession
-
-	GetStartTick() int
-	GetStopTick() int
-	GetTrainings() []TrainingEvent
-}
-
-type workloadTemplateSessionImpl struct {
+type WorkloadTemplateSession struct {
 	*BasicWorkloadSession
 
 	StartTick int             `json:"start_tick"`
@@ -109,10 +101,10 @@ type workloadTemplateSessionImpl struct {
 	Trainings []TrainingEvent `json:"trainings"`
 }
 
-func NewWorkloadTemplateSession(id string, meta SessionMetadata, resourceRequest *ResourceRequest, createdAtTime time.Time, startTick int, stopTick int) *workloadTemplateSessionImpl {
+func NewWorkloadTemplateSession(id string, meta SessionMetadata, resourceRequest *ResourceRequest, createdAtTime time.Time, startTick int, stopTick int) WorkloadTemplateSession {
 	workload_session := newWorkloadSession(id, meta, resourceRequest, createdAtTime)
 
-	return &workloadTemplateSessionImpl{
+	return WorkloadTemplateSession{
 		BasicWorkloadSession: workload_session,
 		StartTick:            startTick,
 		StopTick:             stopTick,
@@ -120,15 +112,15 @@ func NewWorkloadTemplateSession(id string, meta SessionMetadata, resourceRequest
 	}
 }
 
-func (t *workloadTemplateSessionImpl) GetStartTick() int {
+func (t WorkloadTemplateSession) GetStartTick() int {
 	return t.StartTick
 }
 
-func (t *workloadTemplateSessionImpl) GetStopTick() int {
+func (t WorkloadTemplateSession) GetStopTick() int {
 	return t.StopTick
 }
 
-func (t *workloadTemplateSessionImpl) GetTrainings() []TrainingEvent {
+func (t WorkloadTemplateSession) GetTrainings() []TrainingEvent {
 	return t.Trainings
 }
 

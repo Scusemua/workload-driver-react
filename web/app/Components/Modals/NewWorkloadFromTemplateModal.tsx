@@ -21,22 +21,14 @@ import {
     Popover,
     Switch,
     TextInput,
-    Tooltip,
     ValidatedOptions,
-    Flex,
-    FlexItem,
 } from '@patternfly/react-core';
 
 import { v4 as uuidv4 } from 'uuid';
 import HelpIcon from '@patternfly/react-icons/dist/esm/icons/help-icon';
 import styles from '@patternfly/react-styles/css/components/Form/form';
 
-import { CpuIcon, MemoryIcon, MinusCircleIcon, PlusCircleIcon, SyncIcon } from '@patternfly/react-icons';
-import { ResourceRequest, Session, TrainingEvent, WorkloadPreset, WorkloadTemplate } from '@app/Data';
-import { useWorkloadPresets } from '@providers/WorkloadPresetProvider';
-import { PlusIcon } from '@patternfly/react-icons';
-import { GpuIcon } from '@app/Icons';
-import { isArrayOfString } from '@patternfly/react-log-viewer/dist/js/LogViewer/utils/utils';
+import { ResourceRequest, Session, TrainingEvent, WorkloadTemplate } from '@app/Data';
 
 export interface NewWorkloadFromTemplateModalProps {
     children?: React.ReactNode;
@@ -57,9 +49,9 @@ function assertIsNumber(value: number | ''): asserts value is number {
     }
 }
 
-const SessionStartTickDefault: number = 2;
-const SessionStopTickDefault: number = 8;
-const TrainingStartTickDefault: number = 4;
+const SessionStartTickDefault: number = 1;
+const SessionStopTickDefault: number = 6;
+const TrainingStartTickDefault: number = 2;
 const TrainingDurationInTicksDefault: number = 2;
 const TrainingCpuPercentUtilDefault: number = 10;
 const TrainingMemUsageGbDefault: number = 0.25;
@@ -323,6 +315,8 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
             sessions: sessions,
         }
 
+        console.log(`Submitting workload template: ${JSON.stringify(workloadTemplate)}`)
+
         props.onConfirm(workloadTitleToSubmit, workloadSeed, debugLoggingEnabled, workloadTemplate, timescaleAdjustmentFactor);
 
         // Reset all of the fields.
@@ -463,10 +457,10 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                 </Popover>
             }
             actions={[
-                <Button key="submit" variant="primary" onClick={onSubmitWorkload} isDisabled={isSubmitButtonDisabled()}>
+                <Button key="submit-workload-from-template-button" variant="primary" onClick={onSubmitWorkload} isDisabled={isSubmitButtonDisabled()}>
                     Submit
                 </Button>,
-                <Button key="cancel" variant="link" onClick={props.onClose}>
+                <Button key="cancel-submission-of-workload-from-template-button" variant="link" onClick={props.onClose}>
                     Cancel
                 </Button>,
             ]}
@@ -936,6 +930,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                                             }}
                                             onPlus={() => setNumberOfGPUs((numberOfGPUs || 0) + 1)}
                                             inputName="num-gpus-input"
+                                            key="num-gpus-input"
                                             inputAriaLabel="num-gpus-input"
                                             minusBtnAriaLabel="minus"
                                             plusBtnAriaLabel="plus"
@@ -950,7 +945,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                         </GridItem>
                         {Array.from({ length: Math.max(Math.min((numberOfGPUs || 1), 8), 1) }).map((_, idx: number) => {
                             return (
-                                <GridItem span={3} rowSpan={1} hidden={(numberOfGPUs || 1) < idx}>
+                                <GridItem key={`gpu-${idx}-util-input-grditem`} span={3} rowSpan={1} hidden={(numberOfGPUs || 1) < idx}>
                                     <FormGroup label={`GPU #${idx} % Utilization`}>
                                         <NumberInput
                                             value={gpuUtilizations[idx]}
