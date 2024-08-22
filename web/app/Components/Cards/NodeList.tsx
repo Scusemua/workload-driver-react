@@ -348,10 +348,10 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
         <Table isStriped aria-label="Pods Table" variant={'compact'} borders={true}>
             <Thead>
                 <Tr>
-                    <Th>Pod ID</Th>
-                    <Th>Phase</Th>
-                    <Th>Age</Th>
-                    <Th>IP</Th>
+                    <Th aria-label={"pod-id"}>Pod ID</Th>
+                    <Th aria-label={"pod-phase"}>Phase</Th>
+                    <Th aria-label={"pod-age"}>Age</Th>
+                    <Th aria-label={"pod-label"}>IP</Th>
                 </Tr>
             </Thead>
             <Tbody>

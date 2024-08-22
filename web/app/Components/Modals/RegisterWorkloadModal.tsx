@@ -190,6 +190,7 @@ export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalPr
             variant={ModalVariant.medium}
             titleIconVariant={'info'}
             title={'Register Workload from Preset'}
+            aria-label="register-workload-from-preset-modal"
             isOpen={props.isOpen}
             onClose={props.onClose}
             help={

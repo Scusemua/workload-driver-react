@@ -292,7 +292,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
 
         const resource_request: ResourceRequest = {
             cpus: trainingCpuPercentUtil,
-            memory_gb: trainingMemUsageGb,
+            mem_gb: trainingMemUsageGb,
             gpus: numberOfGPUs,
             gpu_type: "",
         }
@@ -435,6 +435,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
         <Modal
             variant={ModalVariant.medium}
             titleIconVariant={'info'}
+            aria-label="Modal to create a new workload from a template"
             title={'Create New Workload from Template'}
             isOpen={props.isOpen}
             onClose={props.onClose}

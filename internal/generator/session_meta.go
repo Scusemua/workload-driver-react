@@ -72,6 +72,24 @@ type SessionMeta struct {
 	pending []domain.Event // For special cases, previous event will be saved here. See Transit implementation.
 }
 
+// The maximum number of CPUs that this SessionMeta will ever use.
+// This is obtained by performing a "pre-run".
+func (s *SessionMeta) GetMaxSessionCPUs() float64 {
+	return s.MaxSessionCPUs
+}
+
+// The maximum amount of memory (in GB) that this SessionMeta will ever use.
+// This is obtained by performing a "pre-run".
+func (s *SessionMeta) GetMaxSessionMemory() float64 {
+	return s.MaxSessionMemory
+}
+
+// The maximum number of GPUs that this SessionMeta will ever use.
+// This is obtained by performing a "pre-run".
+func (s *SessionMeta) GetMaxSessionGPUs() int {
+	return s.MaxSessionGPUs
+}
+
 func (s *SessionMeta) String() string {
 	return fmt.Sprintf("drv.Sess[Pod=%s, Timestamp=%v, MaxCPU=%.2f, MaxMem=%.2f, Status=%v, CPU=%v, Memory=%v GPU=%v]", s.Pod, s.Timestamp, s.MaxSessionCPUs, s.MaxSessionMemory, s.Status, s.CPU, s.Memory, s.GPU)
 	// if s.Status == SessionStatusInitializing || s.Status == SessionStatusInit {

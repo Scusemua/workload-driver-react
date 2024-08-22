@@ -167,13 +167,14 @@ export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalP
         return props.workload?.time_elapsed_str;
     }
 
-    console.log(`props.workload?.events_processed?: ${props.workload?.events_processed}`)
+    // console.log(`props.workload?.events_processed?: ${props.workload?.events_processed}`)
 
     return (
         <Modal
             variant={ModalVariant.large}
             titleIconVariant={"info"}
             header={header}
+            aria-label="inspect-workload-modal"
             isOpen={props.isOpen}
             width={1500}
             maxWidth={1920}

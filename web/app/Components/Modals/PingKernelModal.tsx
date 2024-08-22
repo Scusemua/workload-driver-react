@@ -14,6 +14,7 @@ export const PingKernelModal: React.FunctionComponent<PingKernelModalProps> = (p
         <Modal
             variant={ModalVariant.medium}
             titleIconVariant={'info'}
+            aria-label="Modal to Ping a kernel"
             title={"Select Socket Type for Ping Operation"}
             isOpen={props.isOpen}
             onClose={props.onClose}

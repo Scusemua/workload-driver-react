@@ -65,12 +65,21 @@ export const useWorkloads = () => {
                                 const nextData: Map<string, Workload> = new Map(prev);
 
                                 newWorkloads?.forEach((workload: Workload) => {
+                                    if (workload === null || workload === undefined) {
+                                        return;
+                                    }
                                     nextData.set(workload.id, workload);
                                 });
                                 modifiedWorkloads?.forEach((workload: Workload) => {
+                                    if (workload === null || workload === undefined) {
+                                        return;
+                                    }
                                     nextData.set(workload.id, workload);
                                 });
                                 deletedWorkloads?.forEach((workload: Workload) => {
+                                    if (workload === null || workload === undefined) {
+                                        return;
+                                    }
                                     nextData.delete(workload.id);
                                 });
 

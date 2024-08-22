@@ -827,7 +827,10 @@ func (d *workloadDriverImpl) processEvents(tick time.Time) {
 					Timestamp:             event.Timestamp().String(),
 					ProcessedAt:           time.Now().String(),
 					ProcessedSuccessfully: (err == nil),
-					ErrorMessage:          err.Error(), /* Will be nil if no error occurred */
+				}
+
+				if err != nil {
+					processed_workload_event.ErrorMessage = err.Error()
 				}
 
 				d.mu.Lock()

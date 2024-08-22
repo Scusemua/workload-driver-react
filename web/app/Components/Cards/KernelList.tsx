@@ -155,12 +155,16 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
 
     // If there are any new kernels, decrement `numKernelsCreating`.
     kernels.forEach((kernel: DistributedJupyterKernel) => {
+        if (kernel === null || kernel === undefined) {
+            return;
+        }
+        
         if (!kernelIdSet.current.has(kernel.kernelId)) {
             kernelIdSet.current.add(kernel.kernelId);
             numKernelsCreating.current -= 1;
 
             if (numKernelsCreating.current < 0) {
-                console.warn("Tried to decrement 'numKernelsCreating' below 0...");
+                console.warn(`Tried to decrement 'numKernelsCreating' below 0 (kernelID: ${kernel.kernelId})...`);
                 numKernelsCreating.current = 0;
             }
         }
@@ -1057,16 +1061,16 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         <Table isStriped aria-label="Pods Table" variant={'compact'} borders={true}>
             <Thead>
                 <Tr>
-                    <Th>ID</Th>
-                    <Th>
+                    <Th aria-label={"kernel-ID"}>ID</Th>
+                    <Th aria-label={"kernel-pod"}>
                         <BundleIcon />
                         {' Pod'}
                     </Th>
-                    <Th>
+                    <Th aria-label={"kernel-node"}>
                         <VirtualMachineIcon />
                         {' Node'}
                     </Th>
-                    <Th />
+                    <Th aria-label={"blank"}/>
                 </Tr>
             </Thead>
             <Tbody>

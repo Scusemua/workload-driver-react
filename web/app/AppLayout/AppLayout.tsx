@@ -24,9 +24,9 @@ const AppLayout: React.FunctionComponent = () => {
     const { alerts, setAlerts, expanded, notifications, addNewNotification, toggleExpansion } =
         React.useContext(NotificationContext);
 
-    React.useEffect(() => {
-        console.log(`Number of alerts: ${alerts.length}. Number of notifications: ${notifications.length}.`);
-    }, [alerts, notifications]);
+    // React.useEffect(() => {
+    //     console.log(`Number of alerts: ${alerts.length}. Number of notifications: ${notifications.length}.`);
+    // }, [alerts, notifications]);
 
     React.useEffect(() => {
         setOverflowMessage(buildOverflowMessage());
@@ -72,7 +72,7 @@ const AppLayout: React.FunctionComponent = () => {
 
                 addNewNotification(notification);
             } else {
-                console.warn(`Received JSON message of unknown type: ${message}`);
+                console.warn(`Received JSON message of unknown type: ${JSON.stringify(message)}`);
             }
         }
     }, [lastJsonMessage]);

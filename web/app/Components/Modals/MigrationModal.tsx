@@ -19,6 +19,7 @@ export const MigrationModal: React.FunctionComponent<MigrationModalProps> = (pro
         <Modal
             variant={ModalVariant.medium}
             titleIconVariant="info"
+            aria-label="migration-modal"
             title={'Migrate replica ' + props.targetReplica?.replicaId + ' of kernel ' + props.targetKernel?.kernelId}
             isOpen={props.isOpen}
             onClose={props.onClose}

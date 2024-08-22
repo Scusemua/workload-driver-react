@@ -332,9 +332,9 @@ func (s *serverImpl) serveGeneralWebsocket(c *gin.Context) {
 
 		s.logger.Debug("Received general WebSocket message.", zap.Any("op", op_val), zap.Any("message-id", msgIdVal))
 
-		var resp map[string]string = make(map[string]string)
-		resp["message"] = fmt.Sprintf("Hello there, WebSocket %s.", remote_ip)
-		conn.WriteJSON(resp)
+		// var resp map[string]string = make(map[string]string)
+		// resp["message"] = fmt.Sprintf("Hello there, WebSocket %s.", remote_ip)
+		// conn.WriteJSON(resp)
 	}
 }
 

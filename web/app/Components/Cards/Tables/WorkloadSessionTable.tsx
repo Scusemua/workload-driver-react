@@ -59,7 +59,7 @@ export const WorkloadSessionTable: React.FunctionComponent<WorkloadSessionTableP
                     <Thead noWrap>
                         <Tr>
                             {sessions_table_columns.map((column, columnIndex) => (
-                                <Th key={columnIndex}>{column}</Th>
+                                <Th key={columnIndex} aria-label={`${column}-column`}>{column}</Th>
                             ))}
                         </Tr>
                     </Thead>
@@ -72,7 +72,7 @@ export const WorkloadSessionTable: React.FunctionComponent<WorkloadSessionTableP
                                     <Td dataLabel={sessions_table_columns[2]}>{getSessionStatusLabel(session)}</Td>
                                     <Td dataLabel={sessions_table_columns[3]}>{session.trainings_completed || '0'}</Td>
                                     <Td dataLabel={sessions_table_columns[4]}><CpuIcon /> {session?.resource_request.cpus}</Td>
-                                    <Td dataLabel={sessions_table_columns[5]}><MemoryIcon /> {session?.resource_request.memory_gb} </Td>
+                                    <Td dataLabel={sessions_table_columns[5]}><MemoryIcon /> {session?.resource_request.mem_gb} </Td>
                                     <Td dataLabel={sessions_table_columns[6]}><GpuIcon /> {session?.resource_request.gpus}</Td>
                                 </Tr>
                             )

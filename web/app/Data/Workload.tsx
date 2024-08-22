@@ -63,7 +63,7 @@ interface WorkloadEvent {
 interface ResourceRequest {
     cpus: number;
     gpus: number;
-    memory_gb: number;
+    mem_gb: number;
     gpu_type: string;
 }
 

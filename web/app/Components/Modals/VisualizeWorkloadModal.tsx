@@ -21,6 +21,7 @@ export const VisualizeWorkloadModal: React.FunctionComponent<VisualizeWorkloadMo
         <Modal
             variant={ModalVariant.small}
             titleIconVariant={'info'}
+            aria-label="visualize-workload-modal"
             title={`Inspecting Workload ${props.workload?.name}`}
             isOpen={props.isOpen}
             onClose={props.onClose}

@@ -368,7 +368,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
         </React.Fragment>
     );
 
-    console.log(`Workloads (${workloads.length}):`);
+    // console.log(`Workloads (${workloads.length}):`);
     for (let i = 0; i < workloads.length; i++) {
         const workload: Workload = workloads[i];
 
