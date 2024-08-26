@@ -15,16 +15,18 @@ import (
 )
 
 const (
-	WorkloadReady      WorkloadState = iota // workloadImpl is registered and ready to be started.
-	WorkloadRunning    WorkloadState = 1    // workloadImpl is actively running/in-progress.
-	WorkloadFinished   WorkloadState = 2    // workloadImpl stopped naturally/successfully after processing all events.
-	WorkloadErred      WorkloadState = 3    // workloadImpl stopped due to an error.
-	WorkloadTerminated WorkloadState = 4    // workloadImpl stopped because it was explicitly terminated early/premature.
+	WorkloadReady      WorkloadState = "WorkloadReady"      // workloadImpl is registered and ready to be started.
+	WorkloadRunning    WorkloadState = "WorkloadRunning"    // workloadImpl is actively running/in-progress.
+	WorkloadFinished   WorkloadState = "WorkloadFinished"   // workloadImpl stopped naturally/successfully after processing all events.
+	WorkloadErred      WorkloadState = "WorkloadErred"      // workloadImpl stopped due to an error.
+	WorkloadTerminated WorkloadState = "WorkloadTerminated" // workloadImpl stopped because it was explicitly terminated early/premature.
 
 	UnspecifiedWorkload WorkloadType = "UnspecifiedWorkloadType" // Default value, before it is set.
 	PresetWorkload      WorkloadType = "WorkloadFromPreset"
 	TemplateWorkload    WorkloadType = "WorkloadFromTemplate"
 	TraceWorkload       WorkloadType = "WorkloadFromTrace"
+
+	WorkloadTerminatedEventName string = "workload-terminated"
 )
 
 var (
@@ -33,7 +35,7 @@ var (
 	ErrWorkloadNotFound   = errors.New("could not find workload with the specified ID")
 )
 
-type WorkloadState int
+type WorkloadState string
 
 // Workloads can be of several different types, namely 'preset' and 'template' and possibly 'trace'.
 // Have not fully committed to making 'trace' a separate type from 'preset'.
@@ -192,17 +194,25 @@ func GetWorkloadStateAsString(state WorkloadState) string {
 }
 
 type WorkloadEvent struct {
-	Index                 int    `json:"idx"`
-	Id                    string `json:"id"`
-	Name                  string `json:"name"`
-	Session               string `json:"session"`
-	Timestamp             string `json:"timestamp"`
-	ProcessedAt           string `json:"processed_at"`
+	Index                 int    `json:"idx"`                     // Index of the event relative to the workload in which the event occurred. The first event to occur has index 0.
+	Id                    string `json:"id"`                      // Unique ID of the event.
+	Name                  string `json:"name"`                    // The name of the event.
+	Session               string `json:"session"`                 // The ID of the session targeted by the event.
+	Timestamp             string `json:"timestamp"`               // The timestamp specified by the trace data/template/preset.
+	ProcessedAt           string `json:"processed_at"`            // The real-world clocktime at which the event was processed.
+	SimProcessedAt        string `json:"sim_processed_at"`        // The simulation clocktime at which the event was processed. May differ from the 'Timestamp' field if there were delays.
 	ProcessedSuccessfully bool   `json:"processed_successfully"`  // True if the event was processed without error.
 	ErrorMessage          string `json:"error_message,omitempty"` // Error message from the error that caused the event to not be processed successfully.
 }
 
-func NewWorkloadEvent(idx int, id string, name string, session string, timestamp string, processedAt string, processedSuccessfully bool, err error) *WorkloadEvent {
+// Return an "empty" workload event -- with none of its fields populated.
+// This is intended to be used with the WorkloadEvent::WithX functions, as
+// another means of constructing WorkloadEvent structs.
+func NewEmptyWorkloadEvent() *WorkloadEvent {
+	return &WorkloadEvent{}
+}
+
+func NewWorkloadEvent(idx int, id string, name string, session string, timestamp string, processedAt string, simulationProcessedAt string, processedSuccessfully bool, err error) *WorkloadEvent {
 	event := &WorkloadEvent{
 		Index:                 idx,
 		Id:                    id,
@@ -211,6 +221,7 @@ func NewWorkloadEvent(idx int, id string, name string, session string, timestamp
 		Timestamp:             timestamp,
 		ProcessedAt:           processedAt,
 		ProcessedSuccessfully: processedSuccessfully,
+		SimProcessedAt:        simulationProcessedAt,
 	}
 
 	if err != nil {
@@ -218,6 +229,89 @@ func NewWorkloadEvent(idx int, id string, name string, session string, timestamp
 	}
 
 	return event
+}
+
+// Should be used with caution; the workload implementation should be the only entity that uses this function.
+func (evt *WorkloadEvent) WithIndex(eventIndex int) *WorkloadEvent {
+	evt.Index = eventIndex
+	return evt
+}
+
+func (evt *WorkloadEvent) WithEventId(eventId string) *WorkloadEvent {
+	evt.Id = eventId
+	return evt
+}
+
+func (evt *WorkloadEvent) WithSessionId(sessionId string) *WorkloadEvent {
+	evt.Session = sessionId
+	return evt
+}
+
+func (evt *WorkloadEvent) WithEventName(name EventName) *WorkloadEvent {
+	evt.Name = name.String()
+	return evt
+}
+
+func (evt *WorkloadEvent) WithEventNameString(name string) *WorkloadEvent {
+	evt.Name = name
+	return evt
+}
+
+func (evt *WorkloadEvent) WithEventTimestamp(eventTimestamp time.Time) *WorkloadEvent {
+	evt.Timestamp = eventTimestamp.String()
+	return evt
+}
+
+func (evt *WorkloadEvent) WithEventTimestampAsString(eventTimestamp string) *WorkloadEvent {
+	evt.Timestamp = eventTimestamp
+	return evt
+}
+
+func (evt *WorkloadEvent) WithProcessedAtTime(processedAt time.Time) *WorkloadEvent {
+	evt.ProcessedAt = processedAt.String()
+	return evt
+}
+
+func (evt *WorkloadEvent) WithProcessedAtTimeAsString(processedAt string) *WorkloadEvent {
+	evt.ProcessedAt = processedAt
+	return evt
+}
+
+func (evt *WorkloadEvent) WithSimProcessedAtTime(simulationProcessedAt time.Time) *WorkloadEvent {
+	evt.SimProcessedAt = simulationProcessedAt.String()
+	return evt
+}
+
+func (evt *WorkloadEvent) WithSimProcessedAtTimeAsString(simulationProcessedAt string) *WorkloadEvent {
+	evt.SimProcessedAt = simulationProcessedAt
+	return evt
+}
+
+func (evt *WorkloadEvent) WithProcessedStatus(success bool) *WorkloadEvent {
+	evt.ProcessedSuccessfully = success
+	return evt
+}
+
+// Conditionally set the 'ErrorMessage' field of the WorkloadEvent struct if the error argument is non-nil.
+func (evt *WorkloadEvent) WithError(err error) *WorkloadEvent {
+	if err != nil {
+		evt.ErrorMessage = err.Error()
+	}
+	return evt
+}
+
+func (evt *WorkloadEvent) WithErrorMessage(errorMessage string) *WorkloadEvent {
+	evt.ErrorMessage = errorMessage
+	return evt
+}
+
+func (evt *WorkloadEvent) String() string {
+	out, err := json.Marshal(evt)
+	if err != nil {
+		panic(err)
+	}
+
+	return string(out)
 }
 
 type workloadImpl struct {
@@ -399,7 +493,18 @@ func (w *workloadImpl) TerminateWorkloadPrematurely(simulationTimestamp time.Tim
 	w.WorkloadState = WorkloadTerminated
 
 	w.NumEventsProcessed += 1
-	workloadEvent := NewWorkloadEvent(len(w.EventsProcessed), uuid.NewString(), "workload-terminated", "N/A", simulationTimestamp.String(), now.String(), true, nil)
+
+	// workloadEvent := NewWorkloadEvent(len(w.EventsProcessed), uuid.NewString(), "workload-terminated", "N/A", simulationTimestamp.String(), now.String(), true, nil)
+	workloadEvent := NewEmptyWorkloadEvent().
+		WithIndex(len(w.EventsProcessed)).
+		WithEventId(uuid.NewString()).
+		WithEventNameString(WorkloadTerminatedEventName).
+		WithSessionId("N/A").
+		WithEventTimestamp(simulationTimestamp).
+		WithProcessedAtTime(now).
+		WithSimProcessedAtTime(simulationTimestamp).
+		WithProcessedStatus(true)
+
 	w.EventsProcessed = append(w.EventsProcessed, workloadEvent)
 	// w.EventsProcessed = append(w.EventsProcessed, &WorkloadEvent{
 	// 	Index:                 len(w.EventsProcessed),

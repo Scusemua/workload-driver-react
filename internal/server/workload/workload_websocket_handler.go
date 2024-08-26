@@ -335,9 +335,9 @@ func (h *WorkloadWebsocketHandler) handleStopWorkload(msgId string, message []by
 	}
 
 	h.logger.Debug("Stopping workload.", zap.String("workload-id", req.WorkloadId))
-
-	stoppedWorkload, err := h.workloadManager.StopWorkload(req.MessageId)
+	stoppedWorkload, err := h.workloadManager.StopWorkload(req.WorkloadId)
 	if err != nil {
+		h.logger.Error("Failed to stop workload.", zap.String("workload-id", req.WorkloadId), zap.Error(err))
 		return nil, err
 	}
 
@@ -370,20 +370,26 @@ func (h *WorkloadWebsocketHandler) handleStopWorkloads(msgId string, message []b
 	var stoppedWorkloads []domain.Workload = make([]domain.Workload, 0, len(req.WorkloadIDs))
 
 	// Errors accumulated while stopping the workloads specified in the request.
-	var errors []error = make([]error, 0)
+	var errs []error = make([]error, 0)
 
+	h.logger.Debug("Stopping workloads.", zap.Int("num-workloads", len(req.WorkloadIDs)))
 	for _, workloadId := range req.WorkloadIDs {
 		h.logger.Debug("Stopping workload.", zap.String("workload-id", workloadId))
 
-		stoppedWorkload, err := h.workloadManager.StopWorkload(req.MessageId)
+		stoppedWorkload, err := h.workloadManager.StopWorkload(workloadId)
 		if err != nil {
 			h.logger.Error("Failed to stop workload.", zap.String("workload-id", workloadId), zap.Error(err))
-			errors = append(errors, err)
+			errs = append(errs, err)
 			continue
 		}
 
 		stoppedWorkload.UpdateTimeElapsed()
 		stoppedWorkloads = append(stoppedWorkloads, stoppedWorkload)
+	}
+
+	if len(errs) > 0 {
+		h.logger.Error("Failed to stop one or more workloads.", zap.Int("num-errors", len(errs)), zap.Errors("errors", errs))
+		return nil, errors.Join(errs...)
 	}
 
 	responseBuilder := newResponseBuilder(msgId)

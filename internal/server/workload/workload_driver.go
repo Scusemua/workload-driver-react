@@ -424,7 +424,7 @@ func (d *workloadDriverImpl) StopWorkload() error {
 		return domain.ErrWorkloadNotRunning
 	}
 
-	d.logger.Debug("Stopping workload.", zap.String("workload-id", d.id))
+	d.logger.Debug("Stopping workload.", zap.String("workload-id", d.id), zap.String("workload-state", string(d.workload.GetWorkloadState())))
 	d.stopChan <- struct{}{}
 
 	d.mu.Lock()
@@ -456,7 +456,7 @@ func (d *workloadDriverImpl) handleCriticalError(err error) {
 // Manually abort the workload.
 // Clean up any sessions/kernels that were created.
 func (d *workloadDriverImpl) abortWorkload() error {
-	d.logger.Warn("Stopping workload.", zap.String("workload-id", d.id))
+	d.logger.Warn("Aborting workload.", zap.String("workload-id", d.id))
 
 	if d.workloadGenerator == nil {
 		d.logger.Error("Cannot stop workload. Workload Generator is nil.", zap.String("workload-id", d.id))
@@ -934,7 +934,19 @@ func (d *workloadDriverImpl) handleSessionReadyEvents(latestTick time.Time) {
 		_, err := d.provisionSession(sessionId, sessionMeta, sessionReadyEvent.Timestamp())
 
 		d.mu.Lock()
-		d.workload.ProcessedEvent(domain.NewWorkloadEvent(-1 /* This will be populated automatically by the ProcessedEvent method */, sessionReadyEvent.Id(), sessionReadyEvent.SessionID(), domain.EventSessionStarted.String(), sessionReadyEvent.Timestamp().String(), time.Now().String(), (err == nil), err))
+
+		// The event index will be populated automatically by the ProcessedEvent method.
+		// d.workload.ProcessedEvent(domain.NewWorkloadEvent(-1, sessionReadyEvent.Id(), domain.EventSessionStarted.String(), sessionReadyEvent.SessionID(), sessionReadyEvent.Timestamp().String(), time.Now().String(), (err == nil), err))
+		workloadEvent := domain.NewEmptyWorkloadEvent().
+			WithEventId(sessionReadyEvent.Id()).
+			WithEventName(domain.EventSessionStarted).
+			WithSessionId(sessionReadyEvent.SessionID()).
+			WithEventTimestamp(sessionReadyEvent.Timestamp()).
+			WithProcessedAtTime(time.Now()).
+			WithProcessedStatus((err == nil)).
+			WithSimProcessedAtTime(d.clockTime.GetClockTime()).
+			WithError(err)
+		d.workload.ProcessedEvent(workloadEvent)
 		// &domain.WorkloadEvent{
 		// 	Id:                    sessionReadyEvent.Id(),
 		// 	Session:               sessionReadyEvent.SessionID(),

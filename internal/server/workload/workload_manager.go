@@ -190,14 +190,14 @@ func (m *workloadManagerImpl) StartWorkload(workloadId string) (domain.Workload,
 func (m *workloadManagerImpl) StopWorkload(workloadId string) (domain.Workload, error) {
 	workloadDriver := m.GetWorkloadDriver(workloadId)
 	if workloadDriver == nil {
+		m.logger.Error("Could not find workload driver with specified workload ID.", zap.String("workload-id", workloadId))
 		return nil, fmt.Errorf("%w: \"%s\"", domain.ErrWorkloadNotFound, workloadId)
 	}
 
 	workloadDriver.LockDriver()
 	defer workloadDriver.UnlockDriver()
 
-	// Start the workload.
-	// This sets the "start time" and transitions the workload to the "running" state.
+	// Stop the workload.
 	err := workloadDriver.StopWorkload()
 	if err != nil {
 		return nil, err

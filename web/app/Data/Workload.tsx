@@ -1,8 +1,8 @@
-const WORKLOAD_STATE_READY: number = 0; // Workload is registered and ready to be started.
-const WORKLOAD_STATE_RUNNING: number = 1; // Workload is actively running/in-progress.
-const WORKLOAD_STATE_FINISHED: number = 2; // Workload stopped naturally/successfully after processing all events.
-const WORKLOAD_STATE_ERRED: number = 3; // Workload stopped due to an error.
-const WORKLOAD_STATE_TERMINATED: number = 4; // Workload stopped because it was explicitly terminated early/premature.
+const WORKLOAD_STATE_READY: string = "WorkloadReady"   ; // Workload is registered and ready to be started.
+const WORKLOAD_STATE_RUNNING: string = "WorkloadRunning"; // Workload is actively running/in-progress.
+const WORKLOAD_STATE_FINISHED: string = "WorkloadFinished"; // Workload stopped naturally/successfully after processing all events.
+const WORKLOAD_STATE_ERRED: string = "WorkloadErred"; // Workload stopped due to an error.
+const WORKLOAD_STATE_TERMINATED: string = "WorkloadTerminated"; // Workload stopped because it was explicitly terminated early/premature.
 
 interface WorkloadPreset {
     name: string; // Human-readable name for this particular workload preset.
@@ -25,7 +25,7 @@ interface WorkloadPreset {
 interface Workload {
     id: string;
     name: string;
-    workload_state: number;
+    workload_state: string;
     workload_preset: WorkloadPreset;
     workload_preset_name: string;
     workload_preset_key: string;

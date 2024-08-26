@@ -1,5 +1,4 @@
 import React, { useEffect, useReducer, useRef } from 'react';
-import { createPortal } from 'react-dom';
 import {
     Button,
     Card,
@@ -164,6 +163,8 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             numKernelsCreating.current -= 1;
 
             if (numKernelsCreating.current < 0) {
+                // TODO: Need to keep track of how many kernels we're actually waiting on.
+                // If we're not waiting on any kernels, then we shouldn't try to decrement 'numKernelsCreating'.
                 console.warn(`Tried to decrement 'numKernelsCreating' below 0 (kernelID: ${kernel.kernelId})...`);
                 numKernelsCreating.current = 0;
             }
@@ -1108,7 +1109,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                                     variant={'link'}
                                                     icon={<CodeIcon />}
                                                     /* Disable the 'Execute' button if we have no replicas, or if we don't have at least 3. */
-                                                    isDisabled={kernel.replicas === null || kernel.replicas.length < 3}
+                                                    isDisabled={kernel == null || kernel == undefined || kernel?.replicas === null || kernel?.replicas?.length < 3}
                                                     onClick={() => onExecuteCodeClicked(kernel, replicaIdx)}
                                                 >
                                                     Execute
@@ -1168,7 +1169,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                                     aria-label="execute-code-replica-dropdown"
                                                     isShared
                                                     /* Disable the 'Execute' button if we have no replicas, or if we don't have at least 3. */
-                                                    isDisabled={kernel.replicas === null || kernel.replicas.length < 3}
+                                                    isDisabled={kernel == null || kernel == undefined || kernel?.replicas === null || kernel?.replicas?.length < 3}
                                                     icon={<CodeIcon />}
                                                     onClick={() => {
                                                         onExecuteCodeClicked(kernel, replicaIdx);
@@ -1343,7 +1344,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                                                 kernel?.replicas === undefined ||
                                                                 (kernel !== undefined &&
                                                                     kernel.replicas !== undefined &&
-                                                                    kernel?.replicas.length < 3)
+                                                                    kernel?.replicas?.length < 3)
                                                             }
                                                             onClick={() => onExecuteCodeClicked(kernel)}
                                                         >
@@ -1362,6 +1363,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                                             variant={'link'}
                                                             isDanger
                                                             icon={<PauseIcon />}
+                                                            isDisabled={kernel == null || kernel == undefined || kernel?.replicas === null || kernel?.replicas?.length < 3}
                                                             // isDisabled={
                                                             //     kernel == null || kernel?.aggregateBusyStatus === 'idle'
                                                             // }
@@ -1388,7 +1390,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                                         <Button
                                                             variant={'link'}
                                                             icon={<InfoAltIcon />}
-                                                            isDisabled={kernel == null}
+                                                            isDisabled={kernel == null || kernel == undefined || kernel?.replicas === null || kernel?.replicas?.length < 3}
                                                             onClick={() => onPingKernelClicked(filteredKernels[idx])}
                                                         >
                                                             Ping
@@ -1547,46 +1549,33 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                 {kernels.length == 0 && pendingKernelArr.length == 0 && (
                     <Text component={TextVariants.h2}>There are no active kernels.</Text>
                 )}
-                {createPortal(
-                    <CreateKernelsModal
+                <CreateKernelsModal
                         isOpen={isConfirmCreateModalOpen}
                         onConfirm={onConfirmCreateKernelClicked}
                         onClose={onCancelCreateKernelClicked}
-                    />,
-                    document.body,
-                )}
-                {createPortal(
-                    <ConfirmationModal
+                    />
+                <ConfirmationModal
                         isOpen={isConfirmDeleteKernelsModalOpen}
                         onConfirm={() => onConfirmDeleteKernelsClicked(selectedKernels)}
                         onClose={onCancelDeleteKernelsClicked}
                         title={'Terminate Selected Kernels'}
                         message={"Are you sure you'd like to delete the specified kernel(s)?"}
-                    />,
-                    document.body,
-                )}
-                {createPortal(
-                    <ConfirmationModal
+                    />
+                <ConfirmationModal
                         isOpen={isConfirmDeleteKernelModalOpen}
                         onConfirm={() => onConfirmDeleteKernelsClicked([kernelToDelete])}
                         onClose={onCancelDeleteKernelClicked}
                         title={'Terminate Kernel'}
                         message={"Are you sure you'd like to delete the specified kernel?"}
-                    />,
-                    document.body,
-                )}
-                {createPortal(
-                    <ExecuteCodeOnKernelModal
+                    />
+                <ExecuteCodeOnKernelModal
                         kernel={executeCodeKernel}
                         replicaId={executeCodeKernelReplica?.replicaId}
                         isOpen={isExecuteCodeModalOpen}
                         onClose={onCancelExecuteCodeClicked}
                         onSubmit={onConfirmExecuteCodeClicked}
-                    />,
-                    document.body,
-                )}
-                {createPortal(
-                    <InformationModal
+                    />
+                <InformationModal
                         isOpen={isErrorModalOpen}
                         onClose={() => {
                             setIsErrorModalOpen(false);
@@ -1597,18 +1586,13 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                         titleIconVariant="danger"
                         message1={errorMessagePreamble}
                         message2={errorMessage}
-                    />,
-                    document.body,
-                )}
-                {createPortal(
-                    <PingKernelModal
+                    />
+                <PingKernelModal
                         isOpen={isPingKernelModalOpen}
                         onClose={onCancelPingKernelClicked}
                         onConfirm={onConfirmPingKernelClicked}
                         kernelId={targetIdPingKernel}
-                    />,
-                    document.body,
-                )}
+                    />
                 <Pagination
                     hidden={kernels.length == 0}
                     isDisabled={kernels.length == 0}

@@ -130,9 +130,10 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
         workloadTemplate: WorkloadTemplate,
         timescaleAdjustmentFactor: number,
     ) => {
-        toast('Registering template-based workload "' + workloadName + '" now.', {
-            icon: '🛈',
-        });
+        // toast('Registering template-based workload "' + workloadName + '" now.', {
+        //     icon: '🛈',
+        // });
+        toast('Registering template-based workload "' + workloadName + '" now.', {style: { maxWidth: 675 }});
 
         console.log("New workload '%s' registered by user with template:\n%s", workloadName, workloadTemplate.name);
         setIsRegisterWorkloadModalOpen(false);
@@ -173,9 +174,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
         debugLoggingEnabled: boolean,
         timescaleAdjustmentFactor: number,
     ) => {
-        toast('Registering preset-based workload "' + workloadName + '" now.', {
-            icon: '🛈',
-        });
+        toast('Registering preset-based workload "' + workloadName + '" now.', {style: { maxWidth: 650 }});
 
         console.log("New workload '%s' registered by user with preset:\n%s", workloadName, selectedPreset.name);
         setIsRegisterWorkloadModalOpen(false);
@@ -296,7 +295,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                     </Text>
                 </FlexItem>
             </Flex>
-        ));
+        ), {style: { maxWidth: 650 }});
 
         console.log(`Starting workload '${workload.name}' (ID=${workload.id})`);
 
@@ -315,7 +314,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
     };
 
     const onStopWorkloadClicked = (workload: Workload) => {
-        toast(`Stopping workload ${workload.name} (ID = ${workload.id}).`);
+        toast(`Stopping workload ${workload.name} (ID = ${workload.id}).`, {style: { maxWidth: 650 }});
 
         console.log("Stopping workload '%s' (ID=%s)", workload.name, workload.id);
 

@@ -160,7 +160,7 @@ export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalP
     // )
 
     const getTimeElapsedString = () => {
-        if (props.workload?.workload_state == 0) {
+        if (props.workload?.workload_state === undefined || props.workload?.workload_state === "") {
             return "N/A"
         }
 
