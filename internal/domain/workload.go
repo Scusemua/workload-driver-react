@@ -112,7 +112,8 @@ type Workload interface {
 	// Likewise, if the workload was previously running but has already stopped, then an error is returned.
 	StartWorkload() error
 	// Explicitly/manually stop the workload early.
-	TerminateWorkloadPrematurely(time.Time) error
+	// Return the time at which the workload terminated and an error if one occurred.
+	TerminateWorkloadPrematurely(time.Time) (time.Time, error)
 	// Mark the workload as having completed successfully.
 	SetWorkloadCompleted()
 	// Called after an event is processed for the Workload.
@@ -350,7 +351,7 @@ type workloadImpl struct {
 	// We use this so we can delegate certain method calls to the child/derived struct.
 	workload       Workload         `json:"-"`
 	workloadSource interface{}      `json:"-"`
-	mu             sync.Mutex       `json:"-"`
+	mu             sync.RWMutex     `json:"-"`
 	sessionsMap    *hashmap.HashMap `json:"-"` // Internal mapping of session ID to session.
 	seedSet        bool             `json:"-"` // Flag keeping track of whether we've already set the seed for this workload.
 	sessionsSet    bool             `json:"-"` // Flag keeping track of whether we've already set the sessions for this workload.
@@ -406,11 +407,15 @@ func (w *workloadImpl) TickCompleted(tick int64, simClock time.Time) {
 
 // Return the current tick.
 func (w *workloadImpl) GetCurrentTick() int64 {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
 	return w.CurrentTick
 }
 
 // Return the simulation clock time.
 func (w *workloadImpl) GetSimulationClockTimeStr() string {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
 	return w.SimulationClockTimeStr
 }
 
@@ -443,26 +448,36 @@ func (w *workloadImpl) SetSource(source interface{}) {
 
 // Return the sessions involved in this workload.
 func (w *workloadImpl) GetSessions() []WorkloadSession {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
 	return w.Sessions
 }
 
 // Get the type of workload (TRACE, PRESET, or TEMPLATE).
 func (w *workloadImpl) GetWorkloadType() WorkloadType {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
 	return w.WorkloadType
 }
 
 // Return true if this workload was created using a preset.
 func (w *workloadImpl) IsPresetWorkload() bool {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
 	return w.WorkloadType == PresetWorkload
 }
 
 // Return true if this workload was created using a template.
 func (w *workloadImpl) IsTemplateWorkload() bool {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
 	return w.WorkloadType == TemplateWorkload
 }
 
 // Return true if this workload was created using the trace data.
 func (w *workloadImpl) IsTraceWorkload() bool {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
 	return w.WorkloadType == TraceWorkload
 }
 
@@ -470,28 +485,32 @@ func (w *workloadImpl) IsTraceWorkload() bool {
 // If this is a trace workload, return the trace information.
 // If this is a template workload, return the template information.
 func (w *workloadImpl) GetWorkloadSource() interface{} {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
 	return w.workload.GetWorkloadSource()
 }
 
 // Return the events processed during this workload (so far).
 func (w *workloadImpl) GetProcessedEvents() []*WorkloadEvent {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
 	return w.EventsProcessed
 }
 
 // Stop the workload.
-func (w *workloadImpl) TerminateWorkloadPrematurely(simulationTimestamp time.Time) error {
+func (w *workloadImpl) TerminateWorkloadPrematurely(simulationTimestamp time.Time) (time.Time, error) {
+	if !w.IsRunning() {
+		w.logger.Error("Cannot stop as I am not running.", zap.String("workload-id", w.Id), zap.String("workload-state", string(w.WorkloadState)))
+		return time.Now(), ErrWorkloadNotRunning
+	}
+
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	if !w.IsRunning() {
-		return ErrWorkloadNotRunning
-	}
-
 	now := time.Now()
+
 	w.EndTime = now
-
 	w.WorkloadState = WorkloadTerminated
-
 	w.NumEventsProcessed += 1
 
 	// workloadEvent := NewWorkloadEvent(len(w.EventsProcessed), uuid.NewString(), "workload-terminated", "N/A", simulationTimestamp.String(), now.String(), true, nil)
@@ -506,6 +525,7 @@ func (w *workloadImpl) TerminateWorkloadPrematurely(simulationTimestamp time.Tim
 		WithProcessedStatus(true)
 
 	w.EventsProcessed = append(w.EventsProcessed, workloadEvent)
+
 	// w.EventsProcessed = append(w.EventsProcessed, &WorkloadEvent{
 	// 	Index:                 len(w.EventsProcessed),
 	// 	Id:                    uuid.NewString(),
@@ -516,7 +536,8 @@ func (w *workloadImpl) TerminateWorkloadPrematurely(simulationTimestamp time.Tim
 	// 	ProcessedSuccessfully: true,
 	// })
 
-	return nil
+	w.logger.Debug("Stopped.", zap.String("workload-id", w.Id))
+	return w.EndTime, nil
 }
 
 // Start the Workload.
@@ -538,6 +559,9 @@ func (w *workloadImpl) StartWorkload() error {
 }
 
 func (w *workloadImpl) GetTimescaleAdjustmentFactor() float64 {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
 	return w.TimescaleAdjustmentFactor
 }
 
@@ -555,6 +579,9 @@ func (w *workloadImpl) SetWorkloadCompleted() {
 // If the workload is not in an ERROR state, then this returns the empty string and false.
 // If the workload is in an ERROR state, then the boolean returned will be true.
 func (w *workloadImpl) GetErrorMessage() (string, bool) {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
 	if w.WorkloadState == WorkloadErred {
 		return w.ErrorMessage, true
 	}
@@ -603,6 +630,9 @@ func (w *workloadImpl) GetSeed() int64 {
 
 // Return the current state of the workload.
 func (w *workloadImpl) GetWorkloadState() WorkloadState {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	return w.WorkloadState
 }
 
@@ -616,6 +646,9 @@ func (w *workloadImpl) SetWorkloadState(state WorkloadState) {
 
 // Return the time that the workload was started.
 func (w *workloadImpl) GetStartTime() time.Time {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	return w.StartTime
 }
 
@@ -623,6 +656,9 @@ func (w *workloadImpl) GetStartTime() time.Time {
 // If the workload hasn't finished yet, the returned boolean will be false.
 // If the workload has finished, then the returned boolean will be true.
 func (w *workloadImpl) GetEndTime() (time.Time, bool) {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
 	if w.IsFinished() {
 		return w.EndTime, true
 	}
@@ -668,12 +704,16 @@ func (w *workloadImpl) UpdateTimeElapsed() {
 
 // Return the number of events processed by the workload.
 func (w *workloadImpl) GetNumEventsProcessed() int64 {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
 	return w.NumEventsProcessed
 }
 
 // Return the name of the workload.
 // The name is not necessarily unique and is meant to be descriptive, whereas the ID is unique.
 func (w *workloadImpl) WorkloadName() string {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
 	return w.Name
 }
 
@@ -694,10 +734,9 @@ func (w *workloadImpl) ProcessedEvent(evt *WorkloadEvent) {
 // Just updates some internal metrics.
 func (w *workloadImpl) SessionCreated(sessionId string) {
 	w.mu.Lock()
-	defer w.mu.Unlock()
-
 	w.NumActiveSessions += 1
 	w.NumSessionsCreated += 1
+	w.mu.Unlock()
 
 	w.workload.SessionCreated(sessionId)
 }
@@ -706,9 +745,8 @@ func (w *workloadImpl) SessionCreated(sessionId string) {
 // Just updates some internal metrics.
 func (w *workloadImpl) SessionStopped(sessionId string) {
 	w.mu.Lock()
-	defer w.mu.Unlock()
-
 	w.NumActiveSessions -= 1
+	w.mu.Unlock()
 
 	w.workload.SessionStopped(sessionId)
 }
@@ -716,55 +754,69 @@ func (w *workloadImpl) SessionStopped(sessionId string) {
 // Called when a training starts during/in the workload.
 // Just updates some internal metrics.
 func (w *workloadImpl) TrainingStarted(sessionId string) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
 	w.workload.TrainingStarted(sessionId)
 }
 
 // Called when a training stops during/in the workload.
 // Just updates some internal metrics.
 func (w *workloadImpl) TrainingStopped(sessionId string) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
 	w.workload.TrainingStopped(sessionId)
 }
 
 // Return the unique ID of the workload.
 func (w *workloadImpl) GetId() string {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
 	return w.Id
 }
 
 // Return true if the workload stopped because it was explicitly terminated early/premature.
 func (w *workloadImpl) IsTerminated() bool {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
 	return w.WorkloadState == WorkloadTerminated
 }
 
 // Return true if the workload is registered and ready to be started.
 func (w *workloadImpl) IsReady() bool {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
 	return w.WorkloadState == WorkloadReady
 }
 
 // Return true if the workload stopped due to an error.
 func (w *workloadImpl) IsErred() bool {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
 	return w.WorkloadState == WorkloadErred
 }
 
 // Return true if the workload is actively running/in-progress.
 func (w *workloadImpl) IsRunning() bool {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
 	return w.WorkloadState == WorkloadRunning
 }
 
 // Return true if the workload stopped naturally/successfully after processing all events.
 func (w *workloadImpl) IsFinished() bool {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
 	return w.IsErred() || w.DidCompleteSuccessfully()
 }
 
 // Return true if the workload stopped naturally/successfully after processing all events.
 func (w *workloadImpl) DidCompleteSuccessfully() bool {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
 	return w.WorkloadState == WorkloadFinished
 }
 
 func (w *workloadImpl) String() string {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
 	out, err := json.Marshal(w)
 	if err != nil {
 		panic(err)

@@ -11,20 +11,6 @@ import (
 type WorkloadDriver interface {
 	EventConsumer
 
-	// Acquire the Driver's mutex externally.
-	//
-	// IMPORTANT: This will prevent the Driver's workload from progressing until the lock is released!
-	LockDriver()
-
-	// Attempt to acquire the Driver's mutex externally.
-	// Returns true on successful acquiring of the lock. If lock was not acquired, return false.
-	//
-	// IMPORTANT: This will prevent the Driver's workload from progressing until the lock is released!
-	TryLockDriver() bool
-
-	// Release the Driver's mutex externally.
-	UnlockDriver()
-
 	// Signal that the workload is done (being parsed) by the generator/synthesizer.
 	DoneChan() chan interface{}
 

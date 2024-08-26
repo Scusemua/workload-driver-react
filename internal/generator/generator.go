@@ -19,7 +19,7 @@ const (
 	OneSessionOneTraining string = "1 Session with 1 Training Event"
 )
 
-type workloadGeneratorImpl struct {
+type BasicWorkloadGenerator struct {
 	ctx            context.Context
 	cancelFunction context.CancelFunc
 
@@ -35,8 +35,8 @@ type workloadGeneratorImpl struct {
 	opts *domain.Configuration
 }
 
-func NewWorkloadGenerator(opts *domain.Configuration, atom *zap.AtomicLevel, driver domain.WorkloadDriver) domain.WorkloadGenerator {
-	generator := &workloadGeneratorImpl{
+func NewWorkloadGenerator(opts *domain.Configuration, atom *zap.AtomicLevel, driver domain.WorkloadDriver) *BasicWorkloadGenerator {
+	generator := &BasicWorkloadGenerator{
 		opts:   opts,
 		atom:   atom,
 		driver: driver,
@@ -52,7 +52,7 @@ func NewWorkloadGenerator(opts *domain.Configuration, atom *zap.AtomicLevel, dri
 	return generator
 }
 
-func (g *workloadGeneratorImpl) startCpuDriverForXml(ctx context.Context, synth *Synthesizer, records []Record, doneChan chan struct{}) TraceDriver {
+func (g *BasicWorkloadGenerator) startCpuDriverForXml(ctx context.Context, synth *Synthesizer, records []Record, doneChan chan struct{}) TraceDriver {
 	cpuDriver := synth.AddDriverEventSource(NewCPUDriver, func(d TraceDriver) {
 		drv := d.(*CPUDriver)
 		drv.ReadingInterval = time.Second * time.Duration(60)
@@ -65,7 +65,7 @@ func (g *workloadGeneratorImpl) startCpuDriverForXml(ctx context.Context, synth 
 	return cpuDriver
 }
 
-func (g *workloadGeneratorImpl) startGpuDriverForXml(ctx context.Context, synth *Synthesizer, records []Record, doneChan chan struct{}) TraceDriver {
+func (g *BasicWorkloadGenerator) startGpuDriverForXml(ctx context.Context, synth *Synthesizer, records []Record, doneChan chan struct{}) TraceDriver {
 	gpuDriver := synth.AddDriverEventSource(NewGPUDriver, func(d TraceDriver) {
 		drv := d.(*GPUDriver)
 		drv.ReadingInterval = time.Second * time.Duration(60)
@@ -78,7 +78,7 @@ func (g *workloadGeneratorImpl) startGpuDriverForXml(ctx context.Context, synth 
 	return gpuDriver
 }
 
-func (g *workloadGeneratorImpl) startMemoryDriver(ctx context.Context, synth *Synthesizer, records []Record, doneChan chan struct{}) TraceDriver {
+func (g *BasicWorkloadGenerator) startMemoryDriver(ctx context.Context, synth *Synthesizer, records []Record, doneChan chan struct{}) TraceDriver {
 	memDriver := synth.AddDriverEventSource(NewMemoryDriver, func(d TraceDriver) {
 		drv := d.(*MemoryDriver)
 		drv.ReadingInterval = time.Second * time.Duration(60)
@@ -91,7 +91,7 @@ func (g *workloadGeneratorImpl) startMemoryDriver(ctx context.Context, synth *Sy
 	return memDriver
 }
 
-func (g *workloadGeneratorImpl) StopGeneratingWorkload() {
+func (g *BasicWorkloadGenerator) StopGeneratingWorkload() {
 	g.logger.Debug("Stopping workload generation now.")
 
 	if g.cancelFunction != nil {
@@ -99,7 +99,7 @@ func (g *workloadGeneratorImpl) StopGeneratingWorkload() {
 	}
 }
 
-func (g *workloadGeneratorImpl) generateWorkloadWithCsvPreset(consumer domain.EventConsumer, workload domain.Workload, workloadPreset *domain.CsvWorkloadPreset, workloadRegistrationRequest *domain.WorkloadRegistrationRequest) error {
+func (g *BasicWorkloadGenerator) generateWorkloadWithCsvPreset(consumer domain.EventConsumer, workload domain.Workload, workloadPreset *domain.CsvWorkloadPreset, workloadRegistrationRequest *domain.WorkloadRegistrationRequest) error {
 	var cpuSessionMap, memSessionMap map[string]float64 = nil, nil
 	var gpuSessionMap map[string]int = nil
 	var cpuTaskMap, memTaskMap map[string][]float64 = nil, nil
@@ -234,7 +234,7 @@ func (g *workloadGeneratorImpl) generateWorkloadWithCsvPreset(consumer domain.Ev
 	return nil
 }
 
-func (g *workloadGeneratorImpl) generateWorkloadWithXmlPreset(consumer domain.EventConsumer, workload domain.Workload, workloadPreset *domain.XmlWorkloadPreset) error {
+func (g *BasicWorkloadGenerator) generateWorkloadWithXmlPreset(consumer domain.EventConsumer, workload domain.Workload, workloadPreset *domain.XmlWorkloadPreset) error {
 	g.ctx, g.cancelFunction = context.WithCancel(context.Background())
 	defer g.cancelFunction()
 
@@ -259,7 +259,7 @@ func (g *workloadGeneratorImpl) generateWorkloadWithXmlPreset(consumer domain.Ev
 }
 
 // Wait for just the CPU and GPU drivers to finish generating events.
-func (g *workloadGeneratorImpl) waitForCpuGpuDriversToFinish(gpuDoneChan chan struct{}, cpuDoneChan chan struct{}) {
+func (g *BasicWorkloadGenerator) waitForCpuGpuDriversToFinish(gpuDoneChan chan struct{}, cpuDoneChan chan struct{}) {
 	gpuDone := false
 	cpuDone := false
 
@@ -275,7 +275,7 @@ func (g *workloadGeneratorImpl) waitForCpuGpuDriversToFinish(gpuDoneChan chan st
 	}
 }
 
-func (g *workloadGeneratorImpl) GeneratePresetWorkload(consumer domain.EventConsumer, workload domain.Workload, workloadPreset *domain.WorkloadPreset, workloadRegistrationRequest *domain.WorkloadRegistrationRequest) error {
+func (g *BasicWorkloadGenerator) GeneratePresetWorkload(consumer domain.EventConsumer, workload domain.Workload, workloadPreset *domain.WorkloadPreset, workloadRegistrationRequest *domain.WorkloadRegistrationRequest) error {
 	if workload == nil {
 		panic("Workload cannot be nil when the workload generator is running.")
 	}
@@ -295,7 +295,7 @@ func (g *workloadGeneratorImpl) GeneratePresetWorkload(consumer domain.EventCons
 	}
 }
 
-func (g *workloadGeneratorImpl) GenerateTemplateWorkload(consumer domain.EventConsumer, workload domain.Workload, workloadTemplate *domain.WorkloadTemplate, workloadRegistrationRequest *domain.WorkloadRegistrationRequest) error {
+func (g *BasicWorkloadGenerator) GenerateTemplateWorkload(consumer domain.EventConsumer, workload domain.Workload, workloadTemplate *domain.WorkloadTemplate, workloadRegistrationRequest *domain.WorkloadRegistrationRequest) error {
 	if workload == nil {
 		panic("Workload cannot be nil when the workload generator is running.")
 	}
@@ -379,7 +379,7 @@ func (g *workloadGeneratorImpl) GenerateTemplateWorkload(consumer domain.EventCo
 	return nil
 }
 
-func (g *workloadGeneratorImpl) getSessionGpuMap(filePath string, adjustGpuReservations bool) (map[string]int, error) {
+func (g *BasicWorkloadGenerator) getSessionGpuMap(filePath string, adjustGpuReservations bool) (map[string]int, error) {
 	gpuSessionMap := make(map[string]int)
 
 	g.sugaredLogger.Debugf("Parsing `MaxSessionGpuFile` \"%v\"\n.", filePath)
@@ -430,7 +430,7 @@ func (g *workloadGeneratorImpl) getSessionGpuMap(filePath string, adjustGpuReser
 	return gpuSessionMap, nil
 }
 
-func (g *workloadGeneratorImpl) getSessionMemMap(filePath string) map[string]float64 {
+func (g *BasicWorkloadGenerator) getSessionMemMap(filePath string) map[string]float64 {
 	memorySessionMap := make(map[string]float64)
 	g.sugaredLogger.Debugf("Parsing `MaxSessionMemFile` \"%v\"\n.", filePath)
 	memSessionFile, err := os.Open(filePath)
@@ -457,7 +457,7 @@ func (g *workloadGeneratorImpl) getSessionMemMap(filePath string) map[string]flo
 	return memorySessionMap
 }
 
-func (g *workloadGeneratorImpl) getSessionCpuMap(filePath string) map[string]float64 {
+func (g *BasicWorkloadGenerator) getSessionCpuMap(filePath string) map[string]float64 {
 	cpuSessionMap := make(map[string]float64)
 	g.sugaredLogger.Debugf("Parsing `MaxSessionCpuFile` \"%v\"\n.", filePath)
 	MaxSessionCpuFile, err := os.Open(filePath)
@@ -490,7 +490,7 @@ func (g *workloadGeneratorImpl) getSessionCpuMap(filePath string) map[string]flo
 	return cpuSessionMap
 }
 
-func (g *workloadGeneratorImpl) getTrainingTaskCpuMap(filePath string) map[string][]float64 {
+func (g *BasicWorkloadGenerator) getTrainingTaskCpuMap(filePath string) map[string][]float64 {
 	cpuTrainingTaskMap := make(map[string][]float64)
 	g.sugaredLogger.Debugf("Parsing `MaxTrainingTaskCpuFile` \"%v\"\n.", filePath)
 	MaxTrainingTaskCpuFile, err := os.Open(filePath)
@@ -530,7 +530,7 @@ func (g *workloadGeneratorImpl) getTrainingTaskCpuMap(filePath string) map[strin
 	return cpuTrainingTaskMap
 }
 
-func (g *workloadGeneratorImpl) getTrainingTaskGpuMap(filePath string, adjustGpuReservations bool) map[string][]int {
+func (g *BasicWorkloadGenerator) getTrainingTaskGpuMap(filePath string, adjustGpuReservations bool) map[string][]int {
 	gpuTrainingTaskMap := make(map[string][]int)
 
 	g.sugaredLogger.Debugf("Parsing `MaxTrainingTaskGpuFile` \"%v\"\n.", filePath)
@@ -587,7 +587,7 @@ func (g *workloadGeneratorImpl) getTrainingTaskGpuMap(filePath string, adjustGpu
 	return gpuTrainingTaskMap
 }
 
-func (g *workloadGeneratorImpl) getTrainingTaskMemMap(filePath string) map[string][]float64 {
+func (g *BasicWorkloadGenerator) getTrainingTaskMemMap(filePath string) map[string][]float64 {
 	memTrainingTaskMap := make(map[string][]float64)
 	g.sugaredLogger.Debugf("Parsing `MaxTrainingTaskMemFile` \"%v\"\n.", filePath)
 	MaxTrainingTaskMemFile, err := os.Open(filePath)

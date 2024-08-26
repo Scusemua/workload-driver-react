@@ -63,7 +63,7 @@ func NewCustomEventSequencer(eventConsumer domain.EventConsumer, eqs domain.Even
 	return customEventSequencer
 }
 
-func (s *CustomEventSequencer) SubmitEvents() {
+func (s *CustomEventSequencer) SubmitEvents(doneChan chan interface{}) {
 	s.sugarLog.Debugf("Submitting events (in a separate goroutine) now.")
 	go func() {
 		for s.eventHeap.Len() > 0 {
@@ -71,6 +71,8 @@ func (s *CustomEventSequencer) SubmitEvents() {
 			s.eventConsumer.SubmitEvent(e.Event)
 			s.sugarLog.Debugf("Submitted event '%s' targeting session '%s' [%v]", e.Event.Name(), e.Event.Data().(*SessionMeta).Pod, e.Event.Timestamp())
 		}
+
+		doneChan <- struct{}{}
 	}()
 }
 
@@ -317,7 +319,7 @@ func (s *CustomEventSequencer) submitWaitingEvent(sessionMeta *SessionMeta) {
 	dataForWaitingEvent := sessionMeta.Snapshot()
 	s.waitingEvents[sessionId].data = dataForWaitingEvent
 	heap.Push(&s.eventHeap, &internalEventHeapElement{s.waitingEvents[sessionId], -1, globalCustomEventIndex.Add(1)})
-	s.sugarLog.Debugf("Added '%s' event for Session %s with timestamp %v.", s.waitingEvents[sessionId].Name, sessionId, s.waitingEvents[sessionId].Timestamp)
+	s.sugarLog.Debugf("Added '%s' event for Session %s with timestamp %v.", s.waitingEvents[sessionId].Name(), sessionId, s.waitingEvents[sessionId].Timestamp())
 	delete(s.waitingEvents, sessionId)
 }
 

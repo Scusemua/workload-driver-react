@@ -27,6 +27,8 @@ import (
 	"github.com/scusemua/workload-driver-react/m/v2/internal/server/workload"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+
+	"github.com/gin-contrib/pprof"
 )
 
 var upgrader = websocket.Upgrader{
@@ -55,8 +57,6 @@ type serverImpl struct {
 	expectedOriginPort int
 
 	logResponseBodyMutex sync.RWMutex
-	driversMutex         sync.RWMutex
-	workloadsMutex       sync.RWMutex
 }
 
 func NewServer(opts *domain.Configuration) domain.Server {
@@ -81,14 +81,6 @@ func NewServer(opts *domain.Configuration) domain.Server {
 
 	s.logger = logger
 	s.sugaredLogger = logger.Sugar()
-
-	// logger, err := zap.NewDevelopment()
-	// if err != nil {
-	// 	panic(err)
-	// }
-
-	// s.logger = logger
-	// s.sugaredLogger = logger.Sugar()
 
 	s.setupRoutes()
 
@@ -133,6 +125,8 @@ func (s *serverImpl) setupRoutes() error {
 	s.gatewayRpcClient = handlers.NewClusterDashboardHandler(s.opts, true, s.notifyFrontend)
 
 	s.sugaredLogger.Debugf("Creating route groups now. (gatewayRpcClient == nil: %v)", s.gatewayRpcClient == nil)
+
+	pprof.Register(s.app, "dev/pprof")
 
 	///////////////////////////////
 	// Standard/Primary Handlers //

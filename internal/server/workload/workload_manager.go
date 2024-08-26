@@ -71,45 +71,19 @@ func (m *workloadManagerImpl) GetWorkloadWebsocketHandler() gin.HandlerFunc {
 	return m.workloadWebsocketHandler.serveWorkloadWebsocket
 }
 
-// Lock all workload drivers.
-// This locks each individual driver as well as the top-level workloads mutex.
-// It does not release any locks.
-func (m *workloadManagerImpl) lockWorkloadDrivers() {
-	m.mu.Lock()
-
-	for el := m.workloadDrivers.Front(); el != nil; el = el.Next() {
-		el.Value.LockDriver()
-	}
-}
-
-// Unlock all workload drivers in the reverse order that they were locked.
-//
-// If the 'releaseMainLock' parameter is true, then this will also unlock the workloadManagerImpl::mu.
-//
-// IMPORTANT: This must be called while the workloadManagerImpl::mu is held.
-func (m *workloadManagerImpl) unlockWorkloadDrivers(releaseMainLock bool) {
-	if releaseMainLock {
-		defer m.mu.Unlock()
-	}
-
-	for el := m.workloadDrivers.Back(); el != nil; el = el.Prev() {
-		el.Value.UnlockDriver()
-	}
-}
-
 // Return a slice containing all currently-registered workloads (at the time that the method is called).
 // The workloads within this slice should not be modified by the caller.
 func (m *workloadManagerImpl) GetWorkloads() []domain.Workload {
-	m.lockWorkloadDrivers()
-	defer m.unlockWorkloadDrivers(true)
+	m.mu.Lock()
+	defer m.mu.Unlock()
 
 	return m.workloads
 }
 
 // Return a map from Workload ID to Workload struct containing workloads that are active when the method is called.
 func (m *workloadManagerImpl) GetActiveWorkloads() map[string]domain.Workload {
-	m.lockWorkloadDrivers()
-	defer m.unlockWorkloadDrivers(true)
+	m.mu.Lock()
+	defer m.mu.Unlock()
 
 	activeWorkloads := make(map[string]domain.Workload)
 
@@ -141,9 +115,6 @@ func (m *workloadManagerImpl) ToggleDebugLogging(workloadId string, enabled bool
 		return nil, fmt.Errorf("%w: \"%s\"", domain.ErrWorkloadNotFound, workloadId)
 	}
 
-	workloadDriver.LockDriver()
-	defer workloadDriver.UnlockDriver()
-
 	updatedWorkload := workloadDriver.ToggleDebugLogging(enabled)
 	return updatedWorkload, nil
 }
@@ -160,9 +131,6 @@ func (m *workloadManagerImpl) StartWorkload(workloadId string) (domain.Workload,
 		m.sugaredLogger.Errorf("Cannot start workload \"%s\" as it has not yet been reigstered with the Workload Manager.", workloadId)
 		return nil, fmt.Errorf("%w: \"%s\"", domain.ErrWorkloadNotFound, workloadId)
 	}
-
-	workloadDriver.LockDriver()
-	defer workloadDriver.UnlockDriver()
 
 	// Start the workload.
 	// This sets the "start time" and transitions the workload to the "running" state.
@@ -193,9 +161,6 @@ func (m *workloadManagerImpl) StopWorkload(workloadId string) (domain.Workload, 
 		m.logger.Error("Could not find workload driver with specified workload ID.", zap.String("workload-id", workloadId))
 		return nil, fmt.Errorf("%w: \"%s\"", domain.ErrWorkloadNotFound, workloadId)
 	}
-
-	workloadDriver.LockDriver()
-	defer workloadDriver.UnlockDriver()
 
 	// Stop the workload.
 	err := workloadDriver.StopWorkload()
@@ -303,10 +268,6 @@ func (m *workloadManagerImpl) serverPushRoutine( /* doneChan chan struct{} */ ) 
 					noLongerActivelyRunning = append(noLongerActivelyRunning, workload.GetId())
 				}
 
-				// Lock the workloads' drivers while we marshal the workloads to JSON.
-				associatedDriver, _ := m.workloadDrivers.Get(workload.GetId())
-				associatedDriver.LockDriver()
-
 				// Update this field.
 				workload.UpdateTimeElapsed()
 			}
@@ -328,14 +289,6 @@ func (m *workloadManagerImpl) serverPushRoutine( /* doneChan chan struct{} */ ) 
 				m.logger.Error("Error while marshalling message payload.", zap.Error(err))
 				panic(err)
 			}
-
-			// Unlock all of the workload drivers.
-			m.mu.Lock()
-			for _, workload := range activeWorkloads {
-				associatedDriver, _ := m.workloadDrivers.Get(workload.GetId())
-				associatedDriver.UnlockDriver()
-			}
-			m.mu.Unlock()
 
 			// Send an update to the frontend.
 			// TODO: Only push updates if something meaningful has changed.
