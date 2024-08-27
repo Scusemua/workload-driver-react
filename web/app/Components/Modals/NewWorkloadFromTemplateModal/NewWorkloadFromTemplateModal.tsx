@@ -95,7 +95,7 @@ function assertAreNumbers(values: number[] | ''): asserts values is number[] {
 }
 
 export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFromTemplateModalProps> = (props) => {
-    const { register, setValue, getValues, handleSubmit, clearErrors, control } = useForm();
+    const form = useForm();
 
     const defaultWorkloadTitle = React.useRef(uuidv4());
     const defaultSessionId = React.useRef(uuidv4());
@@ -538,273 +538,274 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
     // }
 
     return (
-        <Modal
-            variant={ModalVariant.medium}
-            titleIconVariant={'info'}
-            aria-label="Modal to create a new workload from a template"
-            title={'Create New Workload from Template'}
-            isOpen={props.isOpen}
-            onClose={props.onClose}
-            help={
-                <Popover
-                    headerContent={<div>Creating New Workloads from Templates</div>}
-                    bodyContent={
-                        <div>
-                            You can create and register a new workload using a "template". This allows for a creater degree of dynamicity in the workload's execution.
-                            <br />
-                            <br />
-                            Specifically, templates enable you to customize various properties of the workload, such as the number of sessions, the resource utilization of these sessions,
-                            when the sessions start and stop, and the training events processed by the workload's sessions.
-                        </div>
-                    }
-                >
-                    <Button variant="plain" aria-label="Create New Workload From Template Helper">
-                        <HelpIcon />
-                    </Button>
-                </Popover>
-            }
-            actions={[
-                <Button key="submit-workload-from-template-button" variant="primary" onClick={handleSubmit(onSubmit)}>
-                    Submit
-                </Button>,
-                <Button key="cancel-submission-of-workload-from-template-button" variant="link" onClick={props.onClose}>
-                    Cancel
-                </Button>,
-            ]}
-        >
-            <FormSection title="Generic Workload Parameters" titleElement='h1'>
-                <Form onSubmit={
-                    () => {
-                        clearErrors()
-                        handleSubmit(onSubmit)
-                    }
-                }>
-                    <Grid hasGutter md={12}>
-                        <GridItem span={12}>
-                            <FormGroup
-                                label="Workload name:"
-                                labelIcon={
-                                    <Popover
-                                        aria-label="workload-title-popover"
-                                        headerContent={<div>Workload Title</div>}
-                                        bodyContent={
-                                            <div>
-                                                This is an identifier (that is not necessarily unique, but probably should
-                                                be) to help you identify the specific workload. Please note that the title
-                                                must be between 1 and 36 characters in length.
-                                            </div>
-                                        }
-                                    >
-                                        <button
-                                            type="button"
-                                            aria-label="This is an identifier (that is not necessarily unique, but probably should be) to help you identify the specific workload."
-                                            onClick={(e) => e.preventDefault()}
-                                            aria-describedby="simple-form-workload-name-01"
-                                            className={styles.formGroupLabelHelp}
+        <FormProvider {...form}>
+            <Modal
+                variant={ModalVariant.medium}
+                titleIconVariant={'info'}
+                aria-label="Modal to create a new workload from a template"
+                title={'Create New Workload from Template'}
+                isOpen={props.isOpen}
+                onClose={props.onClose}
+                help={
+                    <Popover
+                        headerContent={<div>Creating New Workloads from Templates</div>}
+                        bodyContent={
+                            <div>
+                                You can create and register a new workload using a "template". This allows for a creater degree of dynamicity in the workload's execution.
+                                <br />
+                                <br />
+                                Specifically, templates enable you to customize various properties of the workload, such as the number of sessions, the resource utilization of these sessions,
+                                when the sessions start and stop, and the training events processed by the workload's sessions.
+                            </div>
+                        }
+                    >
+                        <Button variant="plain" aria-label="Create New Workload From Template Helper">
+                            <HelpIcon />
+                        </Button>
+                    </Popover>
+                }
+                actions={[
+                    <Button key="submit-workload-from-template-button" variant="primary" onClick={form.handleSubmit(onSubmit)}>
+                        Submit
+                    </Button>,
+                    <Button key="cancel-submission-of-workload-from-template-button" variant="link" onClick={props.onClose}>
+                        Cancel
+                    </Button>,
+                ]}
+            >
+                <FormSection title="Generic Workload Parameters" titleElement='h1'>
+                    <Form onSubmit={
+                        () => {
+                            form.clearErrors()
+                            form.handleSubmit(onSubmit)
+                        }
+                    }>
+                        <Grid hasGutter md={12}>
+                            <GridItem span={12}>
+                                <FormGroup
+                                    label="Workload name:"
+                                    labelIcon={
+                                        <Popover
+                                            aria-label="workload-title-popover"
+                                            headerContent={<div>Workload Title</div>}
+                                            bodyContent={
+                                                <div>
+                                                    This is an identifier (that is not necessarily unique, but probably should
+                                                    be) to help you identify the specific workload. Please note that the title
+                                                    must be between 1 and 36 characters in length.
+                                                </div>
+                                            }
                                         >
-                                            <HelpIcon />
-                                        </button>
-                                    </Popover>
-                                }
-                            >
-                                <Controller
-                                    name="workloadTitle"
-                                    control={control}
-                                    rules={{minLength: 1, maxLength: 36, required: true}}
-                                    defaultValue={defaultWorkloadTitle.current}
-                                    render={({ field }) => <TextInput
-                                        isRequired
-                                        onChange={field.onChange}
-                                        onBlur={field.onBlur}
-                                        value={field.value}
-                                        label="workload-title-text-input"
-                                        aria-label="workload-title-text-input"
-                                        type="text"
-                                        id="workload-title-text-input"
-                                        aria-describedby="workload-title-text-input-helper"
-                                        placeholder={defaultWorkloadTitle.current}
-                                        validated={getValues("workloadTitle").length >= 1 && getValues("workloadTitle").length <= 36 ? 'success' : 'error'}
-                                    />} />
-                                <FormHelperText
-                                    label="workload-title-text-input-helper"
-                                    aria-label="workload-title-text-input-helper"
+                                            <button
+                                                type="button"
+                                                aria-label="This is an identifier (that is not necessarily unique, but probably should be) to help you identify the specific workload."
+                                                onClick={(e) => e.preventDefault()}
+                                                aria-describedby="simple-form-workload-name-01"
+                                                className={styles.formGroupLabelHelp}
+                                            >
+                                                <HelpIcon />
+                                            </button>
+                                        </Popover>
+                                    }
                                 >
-                                    <HelperText
+                                    <Controller
+                                        name="workloadTitle"
+                                        control={form.control}
+                                        rules={{ minLength: 1, maxLength: 36, required: true }}
+                                        defaultValue={defaultWorkloadTitle.current}
+                                        render={({ field }) => <TextInput
+                                            isRequired
+                                            onChange={field.onChange}
+                                            onBlur={field.onBlur}
+                                            value={field.value}
+                                            label="workload-title-text-input"
+                                            aria-label="workload-title-text-input"
+                                            type="text"
+                                            id="workload-title-text-input"
+                                            aria-describedby="workload-title-text-input-helper"
+                                            placeholder={defaultWorkloadTitle.current}
+                                            validated={form.getValues("workloadTitle").length >= 1 && form.getValues("workloadTitle").length <= 36 ? 'success' : 'error'}
+                                        />} />
+                                    <FormHelperText
                                         label="workload-title-text-input-helper"
                                         aria-label="workload-title-text-input-helper"
                                     >
-                                        <HelperTextItem
-                                            aria-label="workload-title-text-input-helper"
+                                        <HelperText
                                             label="workload-title-text-input-helper"
+                                            aria-label="workload-title-text-input-helper"
                                         >
-                                            Provide a title to help you identify the workload. The title must be between 1
-                                            and 36 characters in length.
-                                        </HelperTextItem>
-                                    </HelperText>
-                                </FormHelperText>
-                            </FormGroup>
-                        </GridItem>
-                        <GridItem span={4}>
-                            <FormGroup
-                                label="Workload Seed:"
-                                labelIcon={
-                                    <Popover
-                                        aria-label="workload-seed-popover"
-                                        headerContent={<div>Workload Title</div>}
-                                        bodyContent={
-                                            <div>
-                                                This is an integer seed for the random number generator used by the workload
-                                                generator. Pass a value of 0 to refrain from seeding the random generator.
-                                                Please note that if you do specify a seed, then the value must be between 0 and 2,147,483,647.
-                                            </div>
-                                        }
-                                    >
-                                        <button
-                                            type="button"
-                                            aria-label="This is an integer seed (between 0 and 2,147,483,647) for the random number generator used by the workload generator. Pass a value of 0 to refrain from seeding the random generator."
-                                            onClick={(e) => e.preventDefault()}
-                                            aria-describedby="simple-form-workload-seed-01"
-                                            className={styles.formGroupLabelHelp}
-                                        >
-                                            <HelpIcon />
-                                        </button>
-                                    </Popover>
-                                }
-                            >
-                                <Controller
-                                    name="workloadSeed"
-                                    control={control}
-                                    defaultValue={WorkloadSeedDefault}
-                                    rules={{ max: WorkloadSeedMax, min: WorkloadSeedMin }}
-                                    render={({ field }) => <NumberInput
-                                        inputName='workload-seed-number-input'
-                                        id="workload-seed-number-input"
-                                        type="number"
-                                        inputProps={{ innerRef: field.ref }}
-                                        min={WorkloadSeedMin}
-                                        max={WorkloadSeedMax}
-                                        onBlur={field.onBlur}
-                                        onChange={field.onChange}
-                                        name={field.name}
-                                        value={field.value}
-                                        widthChars={10}
-                                        aria-label="Text input for the 'timescale adjustment factor'"
-                                        onPlus={() => {
-                                            const curr: number = getValues("workloadSeed") as number;
-                                            let next: number = curr + WorkloadSeedDelta;
-                                            next = clamp(next, WorkloadSeedMin, WorkloadSeedMax);
-                                            next = roundToThreeDecimalPlaces(next);
-
-                                            setValue("workloadSeed", next);
-                                        }}
-                                        onMinus={() => {
-                                            const curr: number = getValues("workloadSeed") as number;
-                                            let next: number = curr - WorkloadSeedDelta;
-                                            next = clamp(next, WorkloadSeedMin, WorkloadSeedMax);
-                                            next = roundToThreeDecimalPlaces(next);
-
-                                            setValue("workloadSeed", next);
-                                        }}
-                                    />}
-                                />
-                            </FormGroup>
-                        </GridItem>
-                        <GridItem span={4}>
-                            <FormGroup
-                                label={'Timescale Adjustment Factor'}
-                                labelIcon={
-                                    <Popover
-                                        aria-label="timescale-adjustment-factor-header"
-                                        headerContent={<div>Timescale Adjustment Factor</div>}
-                                        bodyContent={
-                                            <div>
-                                                This quantity adjusts the timescale at which the trace data is replayed.
-                                                For example, if each tick is 60 seconds, then setting this value to 1.0 will instruct
-                                                the Workload Driver to simulate each tick for the full 60 seconds.
-                                                Alternatively, setting this quantity to 2.0 will instruct the Workload Driver to spend 120 seconds on each tick.
-                                                Setting the quantity to 0.5 will instruct the Workload Driver to spend 30 seconds on each tick.
-                                            </div>
-                                        }
-                                    >
-                                        <button
-                                            type="button"
-                                            aria-label="Set the Timescale Adjustment Factor."
-                                            onClick={(e) => e.preventDefault()}
-                                            className={styles.formGroupLabelHelp}
-                                        >
-                                            <HelpIcon />
-                                        </button>
-                                    </Popover>
-                                }
-                            >
-                                <Controller
-                                    name="timescaleAdjustmentFactor"
-                                    control={control}
-                                    defaultValue={TimeAdjustmentFactorDefault}
-                                    rules={{ max: TimescaleAdjustmentFactorMax, min: TimescaleAdjustmentFactorMin }}
-                                    render={({ field }) => <NumberInput
-                                        inputName='timescale-adjustment-factor-number-input'
-                                        id="timescale-adjustment-factor-number-input"
-                                        type="number"
-                                        inputProps={{ innerRef: field.ref }}
-                                        aria-label="Text input for the 'timescale adjustment factor'"
-                                        onBlur={field.onBlur}
-                                        onChange={field.onChange}
-                                        name={field.name}
-                                        value={field.value}
-                                        min={TimescaleAdjustmentFactorMin}
-                                        max={TimescaleAdjustmentFactorMax}
-                                        onPlus={() => {
-                                            const curr: number = getValues("timescaleAdjustmentFactor") as number;
-                                            let next: number = curr + TimescaleAdjustmentFactorDelta;
-
-                                            next = roundToThreeDecimalPlaces(next);
-
-                                            setValue("timescaleAdjustmentFactor", clamp(next, TimescaleAdjustmentFactorMin, TimescaleAdjustmentFactorMax));
-                                        }}
-                                        onMinus={() => {
-                                            const curr: number = getValues("timescaleAdjustmentFactor") as number;
-                                            let next: number = curr - TimescaleAdjustmentFactorDelta;
-
-                                            // For the timescale adjustment factor, we don't want to decrement it to 0.
-                                            if (next == 0) {
-                                                next = TimescaleAdjustmentFactorMin;
+                                            <HelperTextItem
+                                                aria-label="workload-title-text-input-helper"
+                                                label="workload-title-text-input-helper"
+                                            >
+                                                Provide a title to help you identify the workload. The title must be between 1
+                                                and 36 characters in length.
+                                            </HelperTextItem>
+                                        </HelperText>
+                                    </FormHelperText>
+                                </FormGroup>
+                            </GridItem>
+                            <GridItem span={4}>
+                                <FormGroup
+                                    label="Workload Seed:"
+                                    labelIcon={
+                                        <Popover
+                                            aria-label="workload-seed-popover"
+                                            headerContent={<div>Workload Title</div>}
+                                            bodyContent={
+                                                <div>
+                                                    This is an integer seed for the random number generator used by the workload
+                                                    generator. Pass a value of 0 to refrain from seeding the random generator.
+                                                    Please note that if you do specify a seed, then the value must be between 0 and 2,147,483,647.
+                                                </div>
                                             }
-
-                                            next = roundToThreeDecimalPlaces(next);
-
-                                            setValue("timescaleAdjustmentFactor", clamp(next, TimescaleAdjustmentFactorMin, TimescaleAdjustmentFactorMax));
-                                        }}
-                                    />}
-                                />
-                            </FormGroup>
-                        </GridItem>
-                        <GridItem span={4}>
-                            <FormGroup
-                                label={'Verbose Server-Side Log Output'}
-                                labelIcon={
-                                    <Popover
-                                        aria-label="workload-debug-logging-header"
-                                        headerContent={<div>Verbose Server-Side Log Output</div>}
-                                        bodyContent={
-                                            <div>
-                                                Enable or disable server-side debug (i.e., verbose) log output from the
-                                                workload generator and workload driver.
-                                            </div>
-                                        }
-                                    >
-                                        <button
-                                            type="button"
-                                            aria-label="Select the preprocessed data to use for driving the workload. This largely determines which subset of trace data will be used to generate the workload."
-                                            onClick={(e) => e.preventDefault()}
-                                            className={styles.formGroupLabelHelp}
                                         >
-                                            <HelpIcon />
-                                        </button>
-                                    </Popover>
-                                }
-                            >
-                                {/* <Switch
+                                            <button
+                                                type="button"
+                                                aria-label="This is an integer seed (between 0 and 2,147,483,647) for the random number generator used by the workload generator. Pass a value of 0 to refrain from seeding the random generator."
+                                                onClick={(e) => e.preventDefault()}
+                                                aria-describedby="simple-form-workload-seed-01"
+                                                className={styles.formGroupLabelHelp}
+                                            >
+                                                <HelpIcon />
+                                            </button>
+                                        </Popover>
+                                    }
+                                >
+                                    <Controller
+                                        name="workloadSeed"
+                                        control={form.control}
+                                        defaultValue={WorkloadSeedDefault}
+                                        rules={{ max: WorkloadSeedMax, min: WorkloadSeedMin }}
+                                        render={({ field }) => <NumberInput
+                                            inputName='workload-seed-number-input'
+                                            id="workload-seed-number-input"
+                                            type="number"
+                                            inputProps={{ innerRef: field.ref }}
+                                            min={WorkloadSeedMin}
+                                            max={WorkloadSeedMax}
+                                            onBlur={field.onBlur}
+                                            onChange={field.onChange}
+                                            name={field.name}
+                                            value={field.value}
+                                            widthChars={10}
+                                            aria-label="Text input for the 'timescale adjustment factor'"
+                                            onPlus={() => {
+                                                const curr: number = form.getValues("workloadSeed") as number;
+                                                let next: number = curr + WorkloadSeedDelta;
+                                                next = clamp(next, WorkloadSeedMin, WorkloadSeedMax);
+                                                next = roundToThreeDecimalPlaces(next);
+
+                                                form.setValue("workloadSeed", next);
+                                            }}
+                                            onMinus={() => {
+                                                const curr: number = form.getValues("workloadSeed") as number;
+                                                let next: number = curr - WorkloadSeedDelta;
+                                                next = clamp(next, WorkloadSeedMin, WorkloadSeedMax);
+                                                next = roundToThreeDecimalPlaces(next);
+
+                                                form.setValue("workloadSeed", next);
+                                            }}
+                                        />}
+                                    />
+                                </FormGroup>
+                            </GridItem>
+                            <GridItem span={4}>
+                                <FormGroup
+                                    label={'Timescale Adjustment Factor'}
+                                    labelIcon={
+                                        <Popover
+                                            aria-label="timescale-adjustment-factor-header"
+                                            headerContent={<div>Timescale Adjustment Factor</div>}
+                                            bodyContent={
+                                                <div>
+                                                    This quantity adjusts the timescale at which the trace data is replayed.
+                                                    For example, if each tick is 60 seconds, then setting this value to 1.0 will instruct
+                                                    the Workload Driver to simulate each tick for the full 60 seconds.
+                                                    Alternatively, setting this quantity to 2.0 will instruct the Workload Driver to spend 120 seconds on each tick.
+                                                    Setting the quantity to 0.5 will instruct the Workload Driver to spend 30 seconds on each tick.
+                                                </div>
+                                            }
+                                        >
+                                            <button
+                                                type="button"
+                                                aria-label="Set the Timescale Adjustment Factor."
+                                                onClick={(e) => e.preventDefault()}
+                                                className={styles.formGroupLabelHelp}
+                                            >
+                                                <HelpIcon />
+                                            </button>
+                                        </Popover>
+                                    }
+                                >
+                                    <Controller
+                                        name="timescaleAdjustmentFactor"
+                                        control={form.control}
+                                        defaultValue={TimeAdjustmentFactorDefault}
+                                        rules={{ max: TimescaleAdjustmentFactorMax, min: TimescaleAdjustmentFactorMin }}
+                                        render={({ field }) => <NumberInput
+                                            inputName='timescale-adjustment-factor-number-input'
+                                            id="timescale-adjustment-factor-number-input"
+                                            type="number"
+                                            inputProps={{ innerRef: field.ref }}
+                                            aria-label="Text input for the 'timescale adjustment factor'"
+                                            onBlur={field.onBlur}
+                                            onChange={field.onChange}
+                                            name={field.name}
+                                            value={field.value}
+                                            min={TimescaleAdjustmentFactorMin}
+                                            max={TimescaleAdjustmentFactorMax}
+                                            onPlus={() => {
+                                                const curr: number = form.getValues("timescaleAdjustmentFactor") as number;
+                                                let next: number = curr + TimescaleAdjustmentFactorDelta;
+
+                                                next = roundToThreeDecimalPlaces(next);
+
+                                                form.setValue("timescaleAdjustmentFactor", clamp(next, TimescaleAdjustmentFactorMin, TimescaleAdjustmentFactorMax));
+                                            }}
+                                            onMinus={() => {
+                                                const curr: number = form.getValues("timescaleAdjustmentFactor") as number;
+                                                let next: number = curr - TimescaleAdjustmentFactorDelta;
+
+                                                // For the timescale adjustment factor, we don't want to decrement it to 0.
+                                                if (next == 0) {
+                                                    next = TimescaleAdjustmentFactorMin;
+                                                }
+
+                                                next = roundToThreeDecimalPlaces(next);
+
+                                                form.setValue("timescaleAdjustmentFactor", clamp(next, TimescaleAdjustmentFactorMin, TimescaleAdjustmentFactorMax));
+                                            }}
+                                        />}
+                                    />
+                                </FormGroup>
+                            </GridItem>
+                            <GridItem span={4}>
+                                <FormGroup
+                                    label={'Verbose Server-Side Log Output'}
+                                    labelIcon={
+                                        <Popover
+                                            aria-label="workload-debug-logging-header"
+                                            headerContent={<div>Verbose Server-Side Log Output</div>}
+                                            bodyContent={
+                                                <div>
+                                                    Enable or disable server-side debug (i.e., verbose) log output from the
+                                                    workload generator and workload driver.
+                                                </div>
+                                            }
+                                        >
+                                            <button
+                                                type="button"
+                                                aria-label="Select the preprocessed data to use for driving the workload. This largely determines which subset of trace data will be used to generate the workload."
+                                                onClick={(e) => e.preventDefault()}
+                                                className={styles.formGroupLabelHelp}
+                                            >
+                                                <HelpIcon />
+                                            </button>
+                                        </Popover>
+                                    }
+                                >
+                                    {/* <Switch
                                     id="debug-logging-switch-template"
                                     label="Debug logging enabled"
                                     labelOff="Debug logging disabled"
@@ -816,43 +817,44 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                                         setDebugLoggingEnabled(checked);
                                     }}
                                 /> */}
-                            </FormGroup>
-                        </GridItem>
-                    </Grid>
-                    <Divider />
-                </Form>
-            </FormSection>
-            <FormSection title={`Workload Sessions (${sessionTabs.length})`} titleElement='h1' >
-                <Tabs
-                    isFilled
-                    activeKey={activeSessionTab}
-                    onSelect={(event: React.MouseEvent<HTMLElement, MouseEvent>, eventKey: number | string) => { onSessionTabSelect(eventKey as number) }}
-                    isBox={true}
-                    onClose={onCloseSessionTab}
-                    onAdd={onAddSessionTab}
-                    addButtonAriaLabel='Add Additional Session to Workload'
-                    role='region'
-                    ref={sessionTabComponentRef}
-                    aria-label="Session Configuration Tabs"
-                >
-                    {sessionTabs.map((tabName: string, tabIndex: number) => (
-                        <Tab
-                            key={tabIndex}
-                            eventKey={tabIndex}
-                            aria-label={`${tabName} Tab`}
-                            title={<TabTitleText>{tabName}</TabTitleText>}
-                            closeButtonAriaLabel={`Close ${tabName} Tab`}
-                            isCloseDisabled={sessionTabs.length == 1} // Can't close the last session.
-                        >
-                            <Card isCompact isRounded isFlat>
-                                <CardBody>
-                                    {/* <SessionConfigurationForm /> */}
-                                </CardBody>
-                            </Card>
-                        </Tab>
-                    ))}
-                </Tabs>
-            </FormSection>
-        </Modal >
+                                </FormGroup>
+                            </GridItem>
+                        </Grid>
+                        <Divider />
+                    </Form>
+                </FormSection>
+                <FormSection title={`Workload Sessions (${sessionTabs.length})`} titleElement='h1' >
+                    <Tabs
+                        isFilled
+                        activeKey={activeSessionTab}
+                        onSelect={(event: React.MouseEvent<HTMLElement, MouseEvent>, eventKey: number | string) => { onSessionTabSelect(eventKey as number) }}
+                        isBox={true}
+                        onClose={onCloseSessionTab}
+                        onAdd={onAddSessionTab}
+                        addButtonAriaLabel='Add Additional Session to Workload'
+                        role='region'
+                        ref={sessionTabComponentRef}
+                        aria-label="Session Configuration Tabs"
+                    >
+                        {sessionTabs.map((tabName: string, tabIndex: number) => (
+                            <Tab
+                                key={tabIndex}
+                                eventKey={tabIndex}
+                                aria-label={`${tabName} Tab`}
+                                title={<TabTitleText>{tabName}</TabTitleText>}
+                                closeButtonAriaLabel={`Close ${tabName} Tab`}
+                                isCloseDisabled={sessionTabs.length == 1} // Can't close the last session.
+                            >
+                                <Card isCompact isRounded isFlat>
+                                    <CardBody>
+                                        <SessionConfigurationForm sessionIdentifier={tabName} />
+                                    </CardBody>
+                                </Card>
+                            </Tab>
+                        ))}
+                    </Tabs>
+                </FormSection>
+            </Modal >
+        </FormProvider>
     );
 };
