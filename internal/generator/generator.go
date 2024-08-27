@@ -227,7 +227,7 @@ func (g *BasicWorkloadGenerator) generateWorkloadWithCsvPreset(consumer domain.E
 
 	g.logger.Debug("Beginning to generate workload now.")
 
-	g.synthesizer.Synthesize(g.ctx, g.opts, consumer.DoneChan())
+	g.synthesizer.Synthesize(g.ctx, g.opts, consumer.WorkloadEventGeneratorCompleteChan())
 
 	g.logger.Debug("Finished generating CSV workload.", zap.String("workload-id", workload.GetId()))
 
@@ -249,7 +249,7 @@ func (g *BasicWorkloadGenerator) generateWorkloadWithXmlPreset(consumer domain.E
 	g.startCpuDriverForXml(g.ctx, g.synthesizer, cpuRecords, cpuDoneChan)
 	g.startGpuDriverForXml(g.ctx, g.synthesizer, gpuRecords, gpuDoneChan)
 
-	go g.synthesizer.Synthesize(g.ctx, g.opts, g.driver.DoneChan())
+	go g.synthesizer.Synthesize(g.ctx, g.opts, g.driver.WorkloadEventGeneratorCompleteChan())
 
 	g.waitForCpuGpuDriversToFinish(gpuDoneChan, cpuDoneChan)
 
@@ -350,7 +350,7 @@ func (g *BasicWorkloadGenerator) GenerateTemplateWorkload(consumer domain.EventC
 		gpuTaskMap[session.GetId()] = numGpusPerTrainingTask
 	}
 
-	sequencer := NewCustomEventSequencer(consumer, consumer.GetEventQueue(), 0, 60, g.atom)
+	sequencer := NewCustomEventSequencer(consumer, 0, 60, g.atom)
 
 	var (
 		generatorFunc SequencerFunction

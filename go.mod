@@ -31,6 +31,7 @@ require (
 require (
 	github.com/charmbracelet/lipgloss v0.12.1
 	github.com/enriquebris/goconcurrentqueue v0.7.0
+	github.com/gin-contrib/pprof v1.5.0
 	github.com/hashicorp/yamux v0.1.1
 	github.com/muesli/termenv v0.15.2
 )
@@ -42,7 +43,6 @@ require (
 	github.com/cloudwego/base64x v0.1.4 // indirect
 	github.com/cloudwego/iasm v0.2.0 // indirect
 	github.com/dchest/siphash v1.1.0 // indirect
-	github.com/gin-contrib/pprof v1.5.0 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/mattn/go-runewidth v0.0.15 // indirect
 	github.com/rivo/uniseg v0.4.7 // indirect
@@ -51,7 +51,6 @@ require (
 require (
 	dario.cat/mergo v1.0.0 // indirect
 	github.com/bytedance/sonic v1.11.6 // indirect
-	github.com/chenzhuoyu/base64x v0.0.0-20221115062448-fe3a3abad311 // indirect
 	github.com/davecgh/go-spew v1.1.1 // indirect
 	github.com/emicklei/go-restful/v3 v3.11.0 // indirect
 	github.com/fatih/color v1.16.0 // indirect

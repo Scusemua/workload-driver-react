@@ -260,7 +260,7 @@ func SingleSessionSingleTraining(sessions []*domain.WorkloadTemplateSession) (Se
 		sequencer.AddTrainingEvent(session.GetId(), trainingEvent.StartTick, trainingEvent.DurationInTicks, trainingEvent.CpuUtil, trainingEvent.MemUsageGB, trainingEvent.GpuUtil) // TODO: Fix GPU util/num GPU specified here.
 		sequencer.AddSessionTerminatedEvent(session.GetId(), session.GetStopTick())
 
-		sequencer.SubmitEvents(sequencer.eventConsumer.DoneChan())
+		sequencer.SubmitEvents(sequencer.eventConsumer.WorkloadEventGeneratorCompleteChan())
 
 		return nil
 	}, nil

@@ -49,10 +49,18 @@ type EventSource interface {
 }
 
 type EventConsumer interface {
-	SubmitEvent(Event) // Give an event to the EventConsumer so that it may be processed.
-	GetEventQueue() EventQueueService
+	// Give an event to the EventConsumer so that it may be processed.
+	SubmitEvent(Event)
+
+	// Get the channel used to tell the EventConsumer that an error has occurred
+	// in the generator portion of the workload simulator/driver.
 	GetErrorChan() chan<- error
-	DoneChan() chan interface{}
+
+	// Get the channel used by the EventConsumer to signal that a workload has completed.
+	WorkloadExecutionCompleteChan() chan interface{}
+
+	// Get the channel used to notify the EventConsumer that the generator(s) have finished generating events.
+	WorkloadEventGeneratorCompleteChan() chan interface{}
 }
 
 type Event interface {

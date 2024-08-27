@@ -288,7 +288,7 @@ func (s *Synthesizer) transitionAndSubmitEvent(evt domain.Event) {
 	}
 }
 
-func (s *Synthesizer) Synthesize(ctx context.Context, opts *domain.Configuration, workloadSimulatorDoneChan chan interface{}) { // , clusterDoneChan chan struct{}
+func (s *Synthesizer) Synthesize(ctx context.Context, opts *domain.Configuration, workloadGenerationCompleteChan chan interface{}) { // , clusterDoneChan chan struct{}
 	simulation_start := time.Now()
 
 	s.Tick = opts.TraceStep
@@ -374,7 +374,7 @@ func (s *Synthesizer) Synthesize(ctx context.Context, opts *domain.Configuration
 	s.sugarLog.Infof("Finished consuming events from drivers. Workload generation is done. Time elapsed: %v.\n\n", time.Since(simulation_start))
 
 	if s.executionMode == 1 {
-		workloadSimulatorDoneChan <- struct{}{}
-		s.log.Info("Informed the Simulation TraceDriver that the simulation has ended.")
+		workloadGenerationCompleteChan <- struct{}{}
+		s.log.Info("Informed the Workload Driver that the generator has finished generating events.")
 	}
 }

@@ -12,7 +12,7 @@ type WorkloadDriver interface {
 	EventConsumer
 
 	// Signal that the workload is done (being parsed) by the generator/synthesizer.
-	DoneChan() chan interface{}
+	WorkloadExecutionCompleteChan() chan interface{}
 
 	// Toggle debug logging on/off (depending on the value of the 'enabled' parameter)
 	// for the workload that is associated with/managed by this workload driver.

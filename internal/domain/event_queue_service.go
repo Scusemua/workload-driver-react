@@ -2,9 +2,16 @@ package domain
 
 import "time"
 
+// This is an interface that is wrapped by the EventQueueService interface.
+// Entities that only need to be able to deposit events into the queue receive/use values of this type.
+// This is because they have no reason to access the rest of the EventQueueService API.
+type EventQueueReceiver interface {
+	EnqueueEvent(Event)
+}
+
 // EventQueueService ...
 type EventQueueService interface {
-	EnqueueEvent(Event)
+	EventQueueReceiver
 
 	// Return true if there is at least 1 event in the event queue for the specified pod/Session.
 	// Otherwise, return false. Returns an error (and false) if no queue exists for the specified pod/Session.
@@ -36,7 +43,4 @@ type EventQueueService interface {
 	// This will remove the event from the main EventQueueServiceImpl::eventHeap, but it will NOT remove the
 	// event from the EventQueueServiceImpl::eventsPerSession. To do that, you must call EventQueueServiceImpl::UnregisterEvent().
 	GetNextEvent(threshold time.Time) (EventHeapElement, bool)
-
-	// Create and return a new *EventHeapElementImpl.
-	NewEventHeapElement(evt Event, enqueued bool) EventHeapElement
 }

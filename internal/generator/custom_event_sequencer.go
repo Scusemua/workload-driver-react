@@ -27,7 +27,6 @@ type CustomEventSequencer struct {
 	sessions      map[string]*sessionMetaWrapper
 	eventHeap     internalEventHeap
 	eventConsumer domain.EventConsumer
-	eqs           domain.EventQueueService
 
 	log      *zap.Logger
 	sugarLog *zap.SugaredLogger
@@ -38,14 +37,13 @@ type CustomEventSequencer struct {
 	waitingEvents       map[string]*eventImpl // The event that will be submitted/enqueued once the next commit happens.
 }
 
-func NewCustomEventSequencer(eventConsumer domain.EventConsumer, eqs domain.EventQueueService, startingSeconds int64, tickDurationSeconds int64, atom *zap.AtomicLevel) *CustomEventSequencer {
+func NewCustomEventSequencer(eventConsumer domain.EventConsumer, startingSeconds int64, tickDurationSeconds int64, atom *zap.AtomicLevel) *CustomEventSequencer {
 	customEventSequencer := &CustomEventSequencer{
 		sessions:            make(map[string]*sessionMetaWrapper),
 		waitingEvents:       make(map[string]*eventImpl),
 		eventHeap:           internalEventHeap(make([]*internalEventHeapElement, 0, 100)),
 		podMap:              make(map[string]int),
 		eventConsumer:       eventConsumer,
-		eqs:                 eqs,
 		startingSeconds:     startingSeconds,
 		tickDurationSeconds: tickDurationSeconds,
 	}
@@ -63,7 +61,7 @@ func NewCustomEventSequencer(eventConsumer domain.EventConsumer, eqs domain.Even
 	return customEventSequencer
 }
 
-func (s *CustomEventSequencer) SubmitEvents(doneChan chan interface{}) {
+func (s *CustomEventSequencer) SubmitEvents(workloadGenerationCompleteChan chan interface{}) {
 	s.sugarLog.Debugf("Submitting events (in a separate goroutine) now.")
 	go func() {
 		for s.eventHeap.Len() > 0 {
@@ -72,7 +70,7 @@ func (s *CustomEventSequencer) SubmitEvents(doneChan chan interface{}) {
 			s.sugarLog.Debugf("Submitted event '%s' targeting session '%s' [%v]", e.Event.Name(), e.Event.Data().(*SessionMeta).Pod, e.Event.Timestamp())
 		}
 
-		doneChan <- struct{}{}
+		workloadGenerationCompleteChan <- struct{}{}
 	}()
 }
 

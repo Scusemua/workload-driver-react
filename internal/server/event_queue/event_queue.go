@@ -57,7 +57,7 @@ func NewEventQueue(atom *zap.AtomicLevel) domain.EventQueueService {
 	return queue
 }
 
-func (q *eventQueue) DoneChan() chan interface{} {
+func (q *eventQueue) WorkloadExecutionCompleteChan() chan interface{} {
 	return q.doneChan
 }
 
@@ -149,7 +149,7 @@ func (q *eventQueue) EnqueueEvent(evt domain.Event) {
 			return
 		}
 
-		eventHeapElement := q.NewEventHeapElement(evt, true)
+		eventHeapElement := q.newEventHeapElement(evt, true)
 
 		heap.Push(&q.eventHeap, eventHeapElement)
 
@@ -251,8 +251,7 @@ func (q *eventQueue) GetNextEvent(threshold time.Time) (domain.EventHeapElement,
 }
 
 // Create and return a new *eventHeapElementImpl.
-// TODO(Ben): Move this to WorkloadDriver.
-func (q *eventQueue) NewEventHeapElement(evt domain.Event, enqueued bool) domain.EventHeapElement {
+func (q *eventQueue) newEventHeapElement(evt domain.Event, enqueued bool) domain.EventHeapElement {
 	adjustedTimestamp := evt.Timestamp()
 
 	var totalDelay time.Duration = time.Duration(0)
