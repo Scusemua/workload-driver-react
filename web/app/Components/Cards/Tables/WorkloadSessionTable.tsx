@@ -44,11 +44,11 @@ export const WorkloadSessionTable: React.FunctionComponent<WorkloadSessionTableP
             case "training":
                 return (<Tooltip position='right' content="This session is actively training."><Label icon={<RunningIcon />} color='green'>{status}</Label></Tooltip>);
             case "terminated":
-                return (<Tooltip position='right' content="This session has been stopped permanently (without error)."><Label icon={<OffIcon />} color='gold'>{status}</Label></Tooltip>);
+                return (<Tooltip position='right' content="This session has been stopped permanently (without error)."><Label icon={<OffIcon />} color='orange'>{status}</Label></Tooltip>);
             case "erred":
                 return (<Tooltip position='right' content={`This session has been terminated due to an unexpected error: ${session.error_message}`}><Label icon={<ErrorCircleOIcon />} color='red'> {status}</Label></Tooltip>);
             default:
-                return (<Tooltip position='right' content="This session is in an unknown or unexpected state."><Label icon={<UnknownIcon />} color='orange'> unknown: {status}</Label></Tooltip>);
+                return (<Tooltip position='right' content="This session is in an unknown or unexpected state."><Label icon={<UnknownIcon />} color='red'> unknown: {status}</Label></Tooltip>);
         }
     }
 

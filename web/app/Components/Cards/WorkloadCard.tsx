@@ -133,7 +133,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
         // toast('Registering template-based workload "' + workloadName + '" now.', {
         //     icon: '🛈',
         // });
-        toast('Registering template-based workload "' + workloadName + '" now.', {style: { maxWidth: 675 }});
+        toast('Registering template-based workload "' + workloadName + '" now.', {style: { maxWidth: 700 }});
 
         console.log("New workload '%s' registered by user with template:\n%s", workloadName, workloadTemplate.name);
         setIsRegisterWorkloadModalOpen(false);

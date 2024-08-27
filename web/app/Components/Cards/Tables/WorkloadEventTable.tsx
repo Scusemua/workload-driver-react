@@ -99,15 +99,15 @@ export const WorkloadEventTable: React.FunctionComponent<WorkloadEventTableProps
     const getEventLabel = (event_name: string) => {
         switch (event_name) {
             case "started":
-                return (<Label color='blue' icon={<MigrationIcon />}>{event_name}</Label>)
+                return (<Label color='cyan' icon={<MigrationIcon />}>{event_name}</Label>)
             case "ready":
                 return (<Label color='grey' icon={<PendingIcon />}>{event_name}</Label>)
             case "training-started":
                 return (<Label color='green' icon={<MonitoringIcon />}>{event_name}</Label>)
             case "training-ended":
-                return (<Label color='gold' icon={<CheckCircleIcon />}>{event_name}</Label>)
+                return (<Label color='blue' icon={<CheckCircleIcon />}>{event_name}</Label>)
             case "stopped":
-                return (<Label color='gold' icon={<OffIcon />}>{event_name}</Label>)
+                return (<Label color='orange' icon={<OffIcon />}>{event_name}</Label>)
             case "update-gpu-util":
                 return (<Label color='grey'>{event_name}</Label>)
             case "workload-terminated":
