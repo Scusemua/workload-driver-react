@@ -1,10 +1,6 @@
 import React from 'react';
 import {
-    Button,
     Divider,
-    Dropdown,
-    DropdownItem,
-    DropdownList,
     Form,
     FormGroup,
     FormSection,
@@ -13,27 +9,13 @@ import {
     GridItem,
     HelperText,
     HelperTextItem,
-    MenuToggle,
-    MenuToggleElement,
-    Modal,
-    ModalVariant,
     NumberInput,
-    Popover,
-    Switch,
     TextInput,
     ValidatedOptions,
-    Tabs,
-    Tab,
-    TabTitleText,
-    CardBody,
-    Card,
 } from '@patternfly/react-core';
 
 import { v4 as uuidv4 } from 'uuid';
-import HelpIcon from '@patternfly/react-icons/dist/esm/icons/help-icon';
-import styles from '@patternfly/react-styles/css/components/Form/form';
 
-import { ResourceRequest, Session, TrainingEvent, WorkloadTemplate } from '@app/Data';
 import { Controller, useFormContext } from 'react-hook-form';
 
 const SessionStartTickDefault: number = 1;
@@ -41,8 +23,8 @@ const SessionStopTickDefault: number = 6;
 const TrainingStartTickDefault: number = 2;
 const TrainingDurationInTicksDefault: number = 2;
 const TrainingCpuPercentUtilDefault: number = 10;
+const TrainingGpuPercentUtilDefault: number = 50;
 const TrainingMemUsageGbDefault: number = 0.25;
-const TimeAdjustmentFactorDefault = 0.1;
 const NumberOfGpusDefault: number = 1;
 
 export interface SessionConfigurationFormProps {
@@ -52,7 +34,7 @@ export interface SessionConfigurationFormProps {
 
 export const SessionConfigurationForm: React.FunctionComponent<SessionConfigurationFormProps> = (props) => {
     const defaultSessionId = React.useRef(uuidv4());
-    const { register, control, setValue, getValues, getFieldState } = useFormContext() // retrieve all hook methods
+    const { control, setValue, getValues, getFieldState, watch, formState, formState: { errors } } = useFormContext() // retrieve all hook methods
 
     const trainingStartTickFieldId: string = `${props.sessionIdentifier}-training-start-tick`;
     const sessionIdFieldId: string = `${props.sessionIdentifier}-session-id`;
@@ -67,6 +49,12 @@ export const SessionConfigurationForm: React.FunctionComponent<SessionConfigurat
         return `${props.sessionIdentifier}-gpu-${idx}-training-util-percent`;
     }
 
+    React.useEffect(() => {
+        console.log(formState.errors);
+    }, [formState]);
+
+    console.log(`Form state: ${JSON.stringify(formState)}`)
+
     return (
         <React.Fragment>
             <FormSection title={`General Session Parameters`} titleElement='h1'>
@@ -76,9 +64,10 @@ export const SessionConfigurationForm: React.FunctionComponent<SessionConfigurat
                             <FormGroup
                                 label="Session ID:">
                                 <Controller
+                                    control={control}
                                     name={sessionIdFieldId}
                                     defaultValue={defaultSessionId.current}
-                                    rules={{ minLength: 1, maxLength: 36 }}
+                                    rules={{ minLength: 1, maxLength: 36, required: true }}
                                     render={({ field }) =>
                                         <TextInput
                                             isRequired
@@ -89,7 +78,7 @@ export const SessionConfigurationForm: React.FunctionComponent<SessionConfigurat
                                             name={field.name}
                                             value={field.value}
                                             placeholder={defaultSessionId.current}
-                                            validated={(getValues(sessionIdFieldId).length >= 0 && getValues(sessionIdFieldId).length <= 36) ? ValidatedOptions.success : ValidatedOptions.error}
+                                            validated={(watch(sessionIdFieldId).length >= 1 && watch(sessionIdFieldId).length <= 36) ? ValidatedOptions.success : ValidatedOptions.error}
                                             onChange={field.onChange}
                                             onBlur={field.onBlur}
                                         />}
@@ -115,8 +104,10 @@ export const SessionConfigurationForm: React.FunctionComponent<SessionConfigurat
                         <GridItem span={3}>
                             <FormGroup label="Session Start Tick">
                                 <Controller
+                                    control={control}
                                     name={sessionStartTickFieldId}
-                                    rules={{ min: 0, max: getValues(sessionStopTickFieldId) }}
+                                    defaultValue={SessionStartTickDefault}
+                                    rules={{ min: 1, max: watch(sessionStopTickFieldId) as number, required: true }}
                                     render={({ field }) =>
                                         <NumberInput
                                             value={field.value}
@@ -124,18 +115,16 @@ export const SessionConfigurationForm: React.FunctionComponent<SessionConfigurat
                                             onBlur={field.onBlur}
                                             name={field.name}
                                             onMinus={() => {
-                                                const id: string = sessionStartTickFieldId;
-                                                const curr: number = getValues(id);
+                                                const curr: number = getValues(sessionStartTickFieldId) as number;
                                                 const next: number = curr - 1;
 
-                                                setValue(id, next);
+                                                setValue(sessionStartTickFieldId, next);
                                             }}
                                             onPlus={() => {
-                                                const id: string = sessionStartTickFieldId;
-                                                const curr: number = getValues(id);
+                                                const curr: number = getValues(sessionStartTickFieldId) as number;
                                                 const next: number = curr + 1;
 
-                                                setValue(id, next);
+                                                setValue(sessionStartTickFieldId, next);
                                             }}
                                             inputName={`${props.sessionIdentifier}-session-start-tick-input`}
                                             inputAriaLabel={`${props.sessionIdentifier}-session-start-tick-input`}
@@ -143,7 +132,7 @@ export const SessionConfigurationForm: React.FunctionComponent<SessionConfigurat
                                             plusBtnAriaLabel="plus"
                                             validated={getFieldState(sessionStartTickFieldId).invalid ? 'error' : 'success'}
                                             widthChars={4}
-                                            min={0}
+                                            min={1}
                                         />}
                                 />
                             </FormGroup>
@@ -151,8 +140,10 @@ export const SessionConfigurationForm: React.FunctionComponent<SessionConfigurat
                         <GridItem span={3}>
                             <FormGroup label="Training Start Tick">
                                 <Controller
+                                    control={control}
                                     name={trainingStartTickFieldId}
-                                    rules={{ min: getValues(sessionStartTickFieldId) + 1, max: getValues(sessionStopTickFieldId) - getValues(trainingDurationTicksFieldId) }}
+                                    defaultValue={TrainingStartTickDefault}
+                                    rules={{ min: (watch(sessionStartTickFieldId) as number) + 1, max: (watch(sessionStopTickFieldId) as number) - (watch(trainingDurationTicksFieldId) as number), required: true }}
                                     render={({ field }) =>
                                         <NumberInput
                                             value={field.value}
@@ -160,14 +151,14 @@ export const SessionConfigurationForm: React.FunctionComponent<SessionConfigurat
                                             onBlur={field.onBlur}
                                             onMinus={() => {
                                                 const id: string = trainingStartTickFieldId;
-                                                const curr: number = getValues(id);
+                                                const curr: number = getValues(id) as number;
                                                 const next: number = curr - 1;
 
                                                 setValue(id, next);
                                             }}
                                             onPlus={() => {
                                                 const id: string = trainingStartTickFieldId;
-                                                const curr: number = getValues(id);
+                                                const curr: number = getValues(id) as number;
                                                 const next: number = curr + 1;
 
                                                 setValue(id, next);
@@ -179,7 +170,7 @@ export const SessionConfigurationForm: React.FunctionComponent<SessionConfigurat
                                             plusBtnAriaLabel="plus"
                                             validated={getFieldState(trainingStartTickFieldId).invalid ? 'error' : 'success'}
                                             widthChars={4}
-                                            min={0}
+                                            min={(watch(sessionStartTickFieldId) as number) + 1}
                                         />}
                                 />
                             </FormGroup>
@@ -187,8 +178,10 @@ export const SessionConfigurationForm: React.FunctionComponent<SessionConfigurat
                         <GridItem span={3}>
                             <FormGroup label="Training Duration (Ticks)">
                                 <Controller
+                                    control={control}
                                     name={trainingDurationTicksFieldId}
-                                    rules={{ min: 1, max: getValues(sessionStopTickFieldId) - getValues(trainingStartTickFieldId) + 1 }}
+                                    defaultValue={TrainingDurationInTicksDefault}
+                                    rules={{ min: 1, max: (watch(sessionStopTickFieldId) as number) - (watch(trainingStartTickFieldId) as number) + 1, required: true }}
                                     render={({ field }) =>
                                         <NumberInput
                                             value={field.value}
@@ -196,14 +189,14 @@ export const SessionConfigurationForm: React.FunctionComponent<SessionConfigurat
                                             onBlur={field.onBlur}
                                             onMinus={() => {
                                                 const id: string = trainingDurationTicksFieldId;
-                                                const curr: number = getValues(id);
+                                                const curr: number = getValues(id) as number;
                                                 const next: number = curr - 1;
 
                                                 setValue(id, next);
                                             }}
                                             onPlus={() => {
                                                 const id: string = trainingDurationTicksFieldId;
-                                                const curr: number = getValues(id);
+                                                const curr: number = getValues(id) as number;
                                                 const next: number = curr + 1;
 
                                                 setValue(id, next);
@@ -223,8 +216,10 @@ export const SessionConfigurationForm: React.FunctionComponent<SessionConfigurat
                         <GridItem span={3}>
                             <FormGroup label="Session Stop Tick">
                                 <Controller
+                                    control={control}
                                     name={sessionStopTickFieldId}
-                                    rules={{ min: getValues(sessionStartTickFieldId) }}
+                                    defaultValue={SessionStopTickDefault}
+                                    rules={{ min: watch(sessionStartTickFieldId) as number, required: true }}
                                     render={({ field }) =>
                                         <NumberInput
                                             value={field.value}
@@ -232,14 +227,14 @@ export const SessionConfigurationForm: React.FunctionComponent<SessionConfigurat
                                             onBlur={field.onBlur}
                                             onMinus={() => {
                                                 const id: string = sessionStopTickFieldId;
-                                                const curr: number = getValues(id);
+                                                const curr: number = getValues(id) as number;
                                                 const next: number = curr - 1;
 
                                                 setValue(id, next);
                                             }}
                                             onPlus={() => {
                                                 const id: string = sessionStopTickFieldId;
-                                                const curr: number = getValues(id);
+                                                const curr: number = getValues(id) as number;
                                                 const next: number = curr + 1;
 
                                                 setValue(id, next);
@@ -266,9 +261,10 @@ export const SessionConfigurationForm: React.FunctionComponent<SessionConfigurat
                         <GridItem span={3}>
                             <FormGroup label="CPU % Utilization">
                                 <Controller
+                                    control={control}
                                     name={trainingCpuPercentUtilFieldId}
                                     defaultValue={TrainingCpuPercentUtilDefault}
-                                    rules={{ min: 0, max: 100 }}
+                                    rules={{ min: 0, max: 100, required: true }}
                                     render={({ field }) =>
                                         <NumberInput
                                             required
@@ -277,14 +273,14 @@ export const SessionConfigurationForm: React.FunctionComponent<SessionConfigurat
                                             value={field.value}
                                             onMinus={() => {
                                                 const id: string = trainingCpuPercentUtilFieldId;
-                                                const curr: number = getValues(id);
+                                                const curr: number = getValues(id) as number;
                                                 const next: number = curr - 1;
 
                                                 setValue(id, next);
                                             }}
                                             onPlus={() => {
                                                 const id: string = trainingCpuPercentUtilFieldId;
-                                                const curr: number = getValues(id);
+                                                const curr: number = getValues(id) as number;
                                                 const next: number = curr + 1;
 
                                                 setValue(id, next);
@@ -304,8 +300,10 @@ export const SessionConfigurationForm: React.FunctionComponent<SessionConfigurat
                         <GridItem span={3}>
                             <FormGroup label="RAM Usage (GB)">
                                 <Controller
+                                    control={control}
                                     name={trainingMemUsageGbFieldId}
-                                    rules={{ min: 0, max: 128_000 }}
+                                    rules={{ min: 0, max: 128_000, required: true }}
+                                    defaultValue={TrainingMemUsageGbDefault}
                                     render={({ field }) =>
                                         <NumberInput
                                             value={field.value}
@@ -313,14 +311,14 @@ export const SessionConfigurationForm: React.FunctionComponent<SessionConfigurat
                                             onBlur={field.onBlur}
                                             onMinus={() => {
                                                 const id: string = trainingMemUsageGbFieldId;
-                                                const curr: number = getValues(id);
+                                                const curr: number = getValues(id) as number;
                                                 const next: number = curr - 0.25;
 
                                                 setValue(id, next);
                                             }}
                                             onPlus={() => {
                                                 const id: string = trainingMemUsageGbFieldId;
-                                                const curr: number = getValues(id);
+                                                const curr: number = getValues(id) as number;
                                                 const next: number = curr + 0.25;
 
                                                 setValue(id, next);
@@ -342,26 +340,26 @@ export const SessionConfigurationForm: React.FunctionComponent<SessionConfigurat
                                 <Grid hasGutter>
                                     <GridItem span={12}>
                                         <Controller
+                                            control={control}
                                             name={numGpusFieldId}
-                                            rules={{ min: 0, max: 8 }}
+                                            rules={{ min: 0, max: 8, required: true }}
+                                            defaultValue={NumberOfGpusDefault}
                                             render={({ field }) =>
                                                 <NumberInput
                                                     value={field.value}
                                                     onChange={field.onChange}
                                                     onBlur={field.onBlur}
                                                     onMinus={() => {
-                                                        const id: string = numGpusFieldId;
-                                                        const curr: number = getValues(id);
-                                                        const next: number = curr - 0.25;
+                                                        const curr: number = getValues(numGpusFieldId) as number;
+                                                        const next: number = curr - 1;
 
-                                                        setValue(id, next);
+                                                        setValue(numGpusFieldId, next);
                                                     }}
                                                     onPlus={() => {
-                                                        const id: string = numGpusFieldId;
-                                                        const curr: number = getValues(id);
-                                                        const next: number = curr + 0.25;
+                                                        const curr: number = getValues(numGpusFieldId) as number;
+                                                        const next: number = curr + 1;
 
-                                                        setValue(id, next);
+                                                        setValue(numGpusFieldId, next);
                                                     }}
                                                     name={field.name}
                                                     inputName={`${props.sessionIdentifier}-num-gpus-input`}
@@ -378,13 +376,15 @@ export const SessionConfigurationForm: React.FunctionComponent<SessionConfigurat
                                 </Grid>
                             </FormGroup>
                         </GridItem>
-                        {Array.from({ length: Math.max(Math.min((getValues(numGpusFieldId) || 1), 8), 1) }).map((_, idx: number) => {
+                        {Array.from({ length: Math.max(Math.min((watch(numGpusFieldId) as number), 8), 1) }).map((_, idx: number) => {
                             return (
-                                <GridItem key={`${props.sessionIdentifier}-gpu-${idx}-util-input-grditem`} span={3} rowSpan={1} hidden={(getValues(numGpusFieldId) || 1) < idx}>
+                                <GridItem key={`${props.sessionIdentifier}-gpu-${idx}-util-input-grditem`} span={3} rowSpan={1} hidden={(getValues(numGpusFieldId) as number || 1) < idx}>
                                     <FormGroup label={`GPU #${idx} % Utilization`}>
-                                    <Controller
+                                        <Controller
+                                            control={control}
                                             name={getGpuInputFieldId(idx)}
-                                            rules={{ min: 0, max: 8 }}
+                                            defaultValue={TrainingGpuPercentUtilDefault}
+                                            rules={{ min: 0, max: 100, required: true }}
                                             render={({ field }) =>
                                                 <NumberInput
                                                     value={field.value}
@@ -392,14 +392,14 @@ export const SessionConfigurationForm: React.FunctionComponent<SessionConfigurat
                                                     onBlur={field.onBlur}
                                                     onMinus={() => {
                                                         const id: string = getGpuInputFieldId(idx);
-                                                        const curr: number = getValues(id);
+                                                        const curr: number = getValues(id) as number;
                                                         const next: number = curr - 0.25;
 
                                                         setValue(id, next);
                                                     }}
                                                     onPlus={() => {
                                                         const id: string = getGpuInputFieldId(idx);
-                                                        const curr: number = getValues(id);
+                                                        const curr: number = getValues(id) as number;
                                                         const next: number = curr + 0.25;
 
                                                         setValue(id, next);
