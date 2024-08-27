@@ -22,6 +22,11 @@ interface WorkloadPreset {
     svg_content: string[]; // For XML presets, their events can be rendered/displayed as an SVG.
 }
 
+// Return true if the workload is in the 'finished', 'erred', or 'terminated' states.
+function IsWorkloadFinished(workload: Workload) {
+    return (workload.workload_state == WORKLOAD_STATE_FINISHED || workload.workload_state == WORKLOAD_STATE_ERRED || workload.workload_state == WORKLOAD_STATE_TERMINATED)
+}
+
 interface Workload {
     id: string;
     name: string;
@@ -132,6 +137,8 @@ export { WORKLOAD_STATE_RUNNING as WORKLOAD_STATE_RUNNING };
 export { WORKLOAD_STATE_FINISHED as WORKLOAD_STATE_FINISHED };
 export { WORKLOAD_STATE_ERRED as WORKLOAD_STATE_ERRED };
 export { WORKLOAD_STATE_TERMINATED as WORKLOAD_STATE_TERMINATED };
+
+export { IsWorkloadFinished as IsWorkloadFinished };
 
 export { GetWorkloadStatusTooltip as GetWorkloadStatusTooltip };
 

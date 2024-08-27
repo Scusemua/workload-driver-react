@@ -59,6 +59,7 @@ import {
     WorkloadPreset,
     WorkloadTemplate,
     GetWorkloadStatusTooltip,
+    IsWorkloadFinished,
 } from '@app/Data/Workload';
 import { useWorkloads } from '@providers/WorkloadProvider';
 import { HeightFactorContext, WorkloadsHeightFactorContext } from '@app/Dashboard/Dashboard';
@@ -776,6 +777,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                                                                                     workload.id +
                                                                                     '-debug-logging-switch'
                                                                                 }
+                                                                                isDisabled={IsWorkloadFinished(workload)}
                                                                                 label={'Debug logging'}
                                                                                 aria-label="debug-logging-switch"
                                                                                 isChecked={workload.debug_logging_enabled}
