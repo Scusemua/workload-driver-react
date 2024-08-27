@@ -46,34 +46,17 @@ const NumberOfGpusDefault: number = 1;
 
 export interface SessionConfigurationFormProps {
     children?: React.ReactNode;
+    session: Session;
+    updateFormData: (session: Session) => void;
 }
 
 export const SessionConfigurationForm: React.FunctionComponent<SessionConfigurationFormProps> = (props) => {
-    const [sessionIdIsValid, setSessionIdIsValid] = React.useState(true);
-    const [sessionId, setSessionId] = React.useState('');
-    const [sessionStartTick, setSessionStartTick] = React.useState<number | ''>(SessionStartTickDefault);
-    const [sessionStopTick, setSessionStopTick] = React.useState<number | ''>(SessionStopTickDefault);
-    const [trainingStartTick, setTrainingStartTick] = React.useState<number | ''>(TrainingStartTickDefault);
-    const [trainingDurationInTicks, setTrainingDurationInTicks] = React.useState<number | ''>(TrainingDurationInTicksDefault);
-    const [trainingCpuPercentUtil, setTrainingCpuPercentUtil] = React.useState<number | ''>(TrainingCpuPercentUtilDefault);
-    const [trainingMemUsageGb, setTrainingMemUsageGb] = React.useState<number | ''>(TrainingMemUsageGbDefault);
-    const [gpuUtilizations, setGpuUtilizations] = React.useState<(number | '')[]>([100.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
-    const [numberOfGPUs, setNumberOfGPUs] = React.useState<number | ''>(NumberOfGpusDefault);
-
     const defaultSessionId = React.useRef(uuidv4());
 
     const setGpuUtil = (idx: number, val: number | '') => {
-        const nextGpuUtilizations = gpuUtilizations.map((v, i) => {
-            if (i === idx) {
-                // Update the value at the specified index.
-                return val;
-            } else {
-                // The other values do not change.
-                return v;
-            }
-        });
-        // gpuUtilizations.current = nextGpuUtilizations;
-        setGpuUtilizations(nextGpuUtilizations)
+        updateSessionsCallback((sessions: Session[]) => {
+            sessions[props.index].
+        })
     }
 
     const handleSessionIdChanged = (_event, id: string) => {

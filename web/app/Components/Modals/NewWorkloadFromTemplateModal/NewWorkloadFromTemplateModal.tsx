@@ -33,6 +33,8 @@ import { v4 as uuidv4 } from 'uuid';
 import HelpIcon from '@patternfly/react-icons/dist/esm/icons/help-icon';
 import styles from '@patternfly/react-styles/css/components/Form/form';
 
+import { useForm, FormProvider, useFormContext, Controller } from "react-hook-form"
+
 import { ResourceRequest, Session, TrainingEvent, WorkloadTemplate } from '@app/Data';
 import { SessionConfigurationForm } from './SessionConfigurationForm';
 
@@ -49,6 +51,37 @@ export interface NewWorkloadFromTemplateModalProps {
     ) => void;
 }
 
+const SessionStartTickDefault: number = 1;
+const SessionStopTickDefault: number = 6;
+const TrainingStartTickDefault: number = 2;
+const TrainingDurationInTicksDefault: number = 2;
+const TrainingCpuPercentUtilDefault: number = 10;
+const TrainingMemUsageGbDefault: number = 0.25;
+const NumberOfGpusDefault: number = 1;
+
+// How much to adjust the timescale adjustment factor when using the 'plus' and 'minus' buttons to adjust the field's value.
+const TimescaleAdjustmentFactorDelta: number = 0.1;
+const TimescaleAdjustmentFactorMax: number = 10;
+const TimescaleAdjustmentFactorMin: number = 1.0e-3;
+const TimeAdjustmentFactorDefault: number = 0.1;
+
+// How much to adjust the workload seed when using the 'plus' and 'minus' buttons to adjust the field's value.
+const WorkloadSeedDelta: number = 1.0;
+const WorkloadSeedMax: number = 2147483647.0;
+const WorkloadSeedMin: number = 0.0;
+const WorkloadSeedDefault: number = 0.0;
+
+const DefaultGpuUtilizations: number[][] = [[100.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]];
+
+// Clamp a value between two extremes.
+function clamp(value: number, min: number, max: number) {
+    return Math.max(Math.min(value, max), min)
+}
+
+function roundToThreeDecimalPlaces(num: number) {
+    return +(Math.round(num + 'e+3') + 'e-3');
+}
+
 function assertIsNumber(value: number | ''): asserts value is number {
     if (value === '') {
         throw new Error("value is not number");
@@ -61,50 +94,43 @@ function assertAreNumbers(values: number[] | ''): asserts values is number[] {
     }
 }
 
-const SessionStartTickDefault: number[] = [1];
-const SessionStopTickDefault: number[] = [6];
-const TrainingStartTickDefault: number[] = [2];
-const TrainingDurationInTicksDefault: number[] = [2];
-const TrainingCpuPercentUtilDefault: number[] = [10];
-const TrainingMemUsageGbDefault: number[] = [0.25];
-const NumberOfGpusDefault: number[] = [1];
-const DefaultGpuUtilizations: number[][] = [[100.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]];
-
-const TimeAdjustmentFactorDefault: number = 0.1;
-
 export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFromTemplateModalProps> = (props) => {
-    const [workloadTitle, setWorkloadTitle] = React.useState('');
-    const [workloadTitleIsValid, setWorkloadTitleIsValid] = React.useState(true);
-    const [sessionIdIsValid, setSessionIdIsValid] = React.useState(true);
-    const [workloadSeed, setWorkloadSeed] = React.useState('');
-    const [workloadSeedIsValid, setWorkloadSeedIsValid] = React.useState(true);
-    const [isWorkloadDataDropdownOpen, setIsWorkloadDataDropdownOpen] = React.useState(false);
-    const [selectedWorkloadTemplate, setSelectedWorkloadTemplate] = React.useState<string>("1 Session with 1 Training Event");
-    const [debugLoggingEnabled, setDebugLoggingEnabled] = React.useState(true);
+    const { register, setValue, getValues, handleSubmit, clearErrors, control } = useForm();
 
-    const [sessionId, setSessionId] = React.useState('');
-    const [sessionStartTick, setSessionStartTick] = React.useState<number[] | ''>(SessionStartTickDefault);
-    const [sessionStopTick, setSessionStopTick] = React.useState<number[] | ''>(SessionStopTickDefault);
-    const [trainingStartTick, setTrainingStartTick] = React.useState<number[] | ''>(TrainingStartTickDefault);
-    const [trainingDurationInTicks, setTrainingDurationInTicks] = React.useState<number[] | ''>(TrainingDurationInTicksDefault);
-    const [trainingCpuPercentUtil, setTrainingCpuPercentUtil] = React.useState<number[] | ''>(TrainingCpuPercentUtilDefault);
-    const [trainingMemUsageGb, setTrainingMemUsageGb] = React.useState<number[] | ''>(TrainingMemUsageGbDefault);
-    const [timescaleAdjustmentFactor, setTimescaleAdjustmentFactor] = React.useState<number | ''>(TimeAdjustmentFactorDefault);
+    const defaultWorkloadTitle = React.useRef(uuidv4());
+    const defaultSessionId = React.useRef(uuidv4());
 
-    const [gpuUtilizations, setGpuUtilizations] = React.useState<(number[][])>(DefaultGpuUtilizations);
+    const onSubmit = (data) => console.log(data);
 
-    const [numberOfGPUs, setNumberOfGPUs] = React.useState<number[] | ''>(NumberOfGpusDefault);
+    // const [sessions, setSessions] = React.useState<Session[]>([{
+    //     id: defaultSessionId.current,
+    //     resource_request: {
+    //         cpus: TrainingCpuPercentUtilDefault,
+    //         mem_gb: TrainingMemUsageGbDefault,
+    //         gpu_type: "ANY_GPU",
+    //         gpus: NumberOfGpusDefault,
+    //     },
+    //     start_tick: SessionStartTickDefault,
+    //     stop_tick: SessionStopTickDefault,
+    //     trainings: [{
+    //         sessionId: defaultSessionId.current,
+    //         trainingId: uuidv4(),
+    //         cpuUtil: TrainingCpuPercentUtilDefault,
+    //         memUsageGb: TrainingMemUsageGbDefault,
+    //         gpuUtil: [75],
+    //         startTick: TrainingStartTickDefault,
+    //         durationInTicks: TrainingDurationInTicksDefault,
+    //     }],
+    //     trainings_completed: 0,
+    //     state: "awaiting start",
+    //     error_message: "",
+    // }]);
 
     const [activeSessionTab, setActiveSessionTab] = React.useState<number>(0);
     const [sessionTabs, setSessionTabs] = React.useState<string[]>(['Session 1']);
     const [newSessionTabNumber, setNewSessionTabNumber] = React.useState<number>(2);
     const sessionTabComponentRef = React.useRef<any>();
     const firstSessionTabMount = React.useRef<boolean>(true);
-
-    const defaultWorkloadTitle = React.useRef(uuidv4());
-    const defaultSessionId = React.useRef(uuidv4());
-
-    const workloadTemplates: string[] = ["1 Session with 1 Training Event"];
 
     const onSessionTabSelect = (
         tabIndex: number
@@ -142,387 +168,374 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
         }
     }, [sessionTabs]);
 
-    const setGpuUtil = (sessionIndex: number, gpuIndex: number, utilization: number) => {
-        // gpuUtilizations.current = nextGpuUtilizations;
-        setGpuUtilizations((currentGpuUtilizations: number[][]) => {
-            currentGpuUtilizations[sessionIndex][gpuIndex] = utilization;
-            return currentGpuUtilizations;
-        })
-    }
+    // const handleWorkloadTitleChanged = (_event, title: string) => {
+    //     setWorkloadTitle(title);
+    //     setWorkloadTitleIsValid(title.length >= 0 && title.length <= 36);
+    // };
 
-    const handleWorkloadTitleChanged = (_event, title: string) => {
-        setWorkloadTitle(title);
-        setWorkloadTitleIsValid(title.length >= 0 && title.length <= 36);
-    };
+    // const handleWorkloadSeedChanged = (_event, seed: string) => {
+    //     const validSeed: boolean = /[0-9]/.test(seed) || seed == '';
 
-    const handleSessionIdChanged = (_event, id: string) => {
-        setSessionId(id);
-        setSessionIdIsValid(id.length >= 0 && id.length <= 36);
-    };
+    //     // If it's either the empty string, or we can't even convert the value to a number,
+    //     // then update the state accordingly.
+    //     if (!validSeed || seed == '') {
+    //         setWorkloadSeedIsValid(validSeed);
+    //         setWorkloadSeed('');
+    //         return;
+    //     }
 
-    const handleWorkloadSeedChanged = (_event, seed: string) => {
-        const validSeed: boolean = /[0-9]/.test(seed) || seed == '';
+    //     // Convert to a number.
+    //     const parsed: number = parseInt(seed, 10);
 
-        // If it's either the empty string, or we can't even convert the value to a number,
-        // then update the state accordingly.
-        if (!validSeed || seed == '') {
-            setWorkloadSeedIsValid(validSeed);
-            setWorkloadSeed('');
-            return;
-        }
+    //     // If it's a float or something, then just default to no seed.
+    //     if (Number.isNaN(parsed)) {
+    //         setWorkloadSeed('');
+    //         return;
+    //     }
 
-        // Convert to a number.
-        const parsed: number = parseInt(seed, 10);
+    //     // If it's greater than the max value, then it is invalid.
+    //     if (parsed > 2147483647 || parsed < 0) {
+    //         setWorkloadSeedIsValid(false);
+    //         setWorkloadSeed(seed);
+    //         return;
+    //     }
 
-        // If it's a float or something, then just default to no seed.
-        if (Number.isNaN(parsed)) {
-            setWorkloadSeed('');
-            return;
-        }
+    //     setWorkloadSeed(parsed.toString());
+    //     setWorkloadSeedIsValid(true);
+    // };
 
-        // If it's greater than the max value, then it is invalid.
-        if (parsed > 2147483647 || parsed < 0) {
-            setWorkloadSeedIsValid(false);
-            setWorkloadSeed(seed);
-            return;
-        }
+    // const onWorkloadDataDropdownToggleClick = () => {
+    //     setIsWorkloadDataDropdownOpen(!isWorkloadDataDropdownOpen);
+    // };
 
-        setWorkloadSeed(parsed.toString());
-        setWorkloadSeedIsValid(true);
-    };
+    // const onWorkloadDataDropdownSelect = (
+    //     _event: React.MouseEvent<Element, MouseEvent> | undefined,
+    //     value: string | number | undefined,
+    // ) => {
+    //     // eslint-disable-next-line no-console
+    //     console.log('selected', value);
 
-    const onWorkloadDataDropdownToggleClick = () => {
-        setIsWorkloadDataDropdownOpen(!isWorkloadDataDropdownOpen);
-    };
+    //     console.log(`Value: ${value}`)
+    //     if (value != undefined) {
+    //         setSelectedWorkloadTemplate(workloadTemplates[value]);
+    //     } else {
+    //         setSelectedWorkloadTemplate("");
+    //     }
+    //     setIsWorkloadDataDropdownOpen(false);
+    // };
 
-    const onWorkloadDataDropdownSelect = (
-        _event: React.MouseEvent<Element, MouseEvent> | undefined,
-        value: string | number | undefined,
-    ) => {
-        // eslint-disable-next-line no-console
-        console.log('selected', value);
+    // const validateTimescaleAdjustmentFactor = () => {
+    //     if (timescaleAdjustmentFactor === '' || Number.isNaN(timescaleAdjustmentFactor)) {
+    //         return 'error';
+    //     }
 
-        console.log(`Value: ${value}`)
-        if (value != undefined) {
-            setSelectedWorkloadTemplate(workloadTemplates[value]);
-        } else {
-            setSelectedWorkloadTemplate("");
-        }
-        setIsWorkloadDataDropdownOpen(false);
-    };
+    //     return (timescaleAdjustmentFactor <= 0 || timescaleAdjustmentFactor > 10) ? 'error' : 'success';
+    // };
 
-    const validateTimescaleAdjustmentFactor = () => {
-        if (timescaleAdjustmentFactor === '' || Number.isNaN(timescaleAdjustmentFactor)) {
-            return 'error';
-        }
+    // const getWorkloadSeedValidatedState = () => {
+    //     if (!workloadSeedIsValid) {
+    //         return ValidatedOptions.error;
+    //     }
 
-        return (timescaleAdjustmentFactor <= 0 || timescaleAdjustmentFactor > 10) ? 'error' : 'success';
-    };
+    //     if (workloadSeed == '') {
+    //         return ValidatedOptions.default;
+    //     }
 
-    const getWorkloadSeedValidatedState = () => {
-        if (!workloadSeedIsValid) {
-            return ValidatedOptions.error;
-        }
+    //     return ValidatedOptions.success;
+    // };
 
-        if (workloadSeed == '') {
-            return ValidatedOptions.default;
-        }
+    // const isSubmitButtonDisabled = () => {
+    //     if (!workloadTitleIsValid) {
+    //         return true;
+    //     }
 
-        return ValidatedOptions.success;
-    };
+    //     // if (setSelectedWorkloadTemplate.length == 0) {
+    //     //     return true;
+    //     // }
 
-    const isSubmitButtonDisabled = () => {
-        if (!workloadTitleIsValid) {
-            return true;
-        }
+    //     if (!workloadSeedIsValid) {
+    //         return true;
+    //     }
 
-        if (setSelectedWorkloadTemplate.length == 0) {
-            return true;
-        }
+    //     if (sessionStartTick === '' || trainingStartTick === '' || sessionStopTick === '' || trainingDurationInTicks === '' || trainingMemUsageGb === '' || trainingCpuPercentUtil === '') {
+    //         return true;
+    //     }
 
-        if (!workloadSeedIsValid) {
-            return true;
-        }
+    //     // The following are all the conditions from the `validated` fields of the text inputs.
+    //     if (validateNumberOfGpusInput() !== 'success' || validateTrainingMemoryUsageInput() !== 'success' || validateTrainingCpuInput() !== 'success' || validateTrainingDurationInTicksInput() !== 'success' || validateTrainingStartTickInput() !== 'success' || validateSessionStartStopInput() !== 'success' || validateSessionStartTickInput() !== 'success') {
+    //         return true;
+    //     }
 
-        if (sessionStartTick === '' || trainingStartTick === '' || sessionStopTick === '' || trainingDurationInTicks === '' || trainingMemUsageGb === '' || trainingCpuPercentUtil === '') {
-            return true;
-        }
+    //     for (let i: number = 0; i < sessionTabs.length; i++) {
+    //         // This one might be redundant. 
+    //         if (numberOfGPUs === '' || numberOfGPUs[i] < 0 || numberOfGPUs[i] > 8) {
+    //             return true;
+    //         }
 
-        // The following are all the conditions from the `validated` fields of the text inputs.
-        if (validateNumberOfGpusInput() !== 'success' || validateTrainingMemoryUsageInput() !== 'success' || validateTrainingCpuInput() !== 'success' || validateTrainingDurationInTicksInput() !== 'success' || validateTrainingStartTickInput() !== 'success' || validateSessionStartStopInput() !== 'success' || validateSessionStartTickInput() !== 'success') {
-            return true;
-        }
+    //         const numGPUs: number = (numberOfGPUs[i] || 1);
+    //         for (let j = 0; j < numGPUs; j++) {
+    //             if (validateGpuUtilInput(i, j) !== 'success') {
+    //                 return true;
+    //             }
+    //         }
+    //     }
 
-        for (let i: number = 0; i < sessionTabs.length; i++) {
-            // This one might be redundant. 
-            if (numberOfGPUs === '' || numberOfGPUs[i] < 0 || numberOfGPUs[i] > 8) {
-                return true;
-            }
+    //     if (validateTimescaleAdjustmentFactor() == 'error') {
+    //         return true;
+    //     }
 
-            const numGPUs: number = (numberOfGPUs[i] || 1);
-            for (let j = 0; j < numGPUs; j++) {
-                if (validateGpuUtilInput(i, j) !== 'success') {
-                    return true;
-                }
-            }
-        }
+    //     return false;
+    // };
 
-        if (validateTimescaleAdjustmentFactor() == 'error') {
-            return true;
-        }
+    // // We pass 'numGPUs' in directly instead of referencing the state variable so that we don't have to validate its type.
+    // function assertGpuUtilizationsAreAllNumbers(gpuUtils: (number[][] | ''), numGPUs: number[]): asserts gpuUtils is number[][] {
+    //     if (gpuUtils === '') {
+    //         throw new Error("GPU utilizations are invalid.");
+    //     }
 
-        return false;
-    };
-
-    // We pass 'numGPUs' in directly instead of referencing the state variable so that we don't have to validate its type.
-    function assertGpuUtilizationsAreAllNumbers(gpuUtils: (number[][] | ''), numGPUs: number[]): asserts gpuUtils is number[][] {
-        if (gpuUtils === '') {
-            throw new Error("GPU utilizations are invalid.");
-        }
-
-        for (let sessionIdx: number = 0; sessionIdx < sessionTabs.length; sessionIdx++) {
-            for (let gpuIdx: number = 0; gpuIdx < numGPUs[sessionIdx]; gpuIdx++) {
-                if (validateGpuUtilInput(sessionIdx, gpuIdx) === 'error') {
-                    console.error(`gpuUtilization[${sessionIdx}][${gpuIdx}] is not a valid value during submission.`)
-                    throw new Error(`gpuUtilization[${sessionIdx}][${gpuIdx}] is not a valid value during submission.`)
-                }
-            }
-        }
-    }
+    //     for (let sessionIdx: number = 0; sessionIdx < sessionTabs.length; sessionIdx++) {
+    //         for (let gpuIdx: number = 0; gpuIdx < numGPUs[sessionIdx]; gpuIdx++) {
+    //             if (validateGpuUtilInput(sessionIdx, gpuIdx) === 'error') {
+    //                 console.error(`gpuUtilization[${sessionIdx}][${gpuIdx}] is not a valid value during submission.`)
+    //                 throw new Error(`gpuUtilization[${sessionIdx}][${gpuIdx}] is not a valid value during submission.`)
+    //             }
+    //         }
+    //     }
+    // }
 
     // Called when the 'submit' button is clicked.
-    const onSubmitWorkload = () => {
-        // If the user left the workload title blank, then use the default workload title, which is a randomly-generated UUID.
-        let workloadTitleToSubmit: string = workloadTitle;
-        if (workloadTitleToSubmit.length == 0) {
-            workloadTitleToSubmit = defaultWorkloadTitle.current;
-        }
+    //     const onSubmitWorkload = () => {
+    //         // If the user left the workload title blank, then use the default workload title, which is a randomly-generated UUID.
+    //         let workloadTitleToSubmit: string = workloadTitle;
+    //         if (workloadTitleToSubmit.length == 0) {
+    //             workloadTitleToSubmit = defaultWorkloadTitle.current;
+    //         }
 
-        assertAreNumbers(trainingCpuPercentUtil);
-        assertAreNumbers(trainingMemUsageGb);
-        assertAreNumbers(numberOfGPUs);
-        assertAreNumbers(sessionStartTick);
-        assertAreNumbers(sessionStopTick);
-        assertAreNumbers(trainingStartTick);
-        assertAreNumbers(trainingDurationInTicks);
-        assertIsNumber(timescaleAdjustmentFactor);
-        assertGpuUtilizationsAreAllNumbers(gpuUtilizations, numberOfGPUs);
+    //         assertAreNumbers(trainingCpuPercentUtil);
+    //         assertAreNumbers(trainingMemUsageGb);
+    //         assertAreNumbers(numberOfGPUs);
+    //         assertAreNumbers(sessionStartTick);
+    //         assertAreNumbers(sessionStopTick);
+    //         assertAreNumbers(trainingStartTick);
+    //         assertAreNumbers(trainingDurationInTicks);
+    //         assertIsNumber(timescaleAdjustmentFactor);
+    //         assertGpuUtilizationsAreAllNumbers(gpuUtilizations, numberOfGPUs);
 
-        console.debug(`Registering new template-based workload "${workloadTitleToSubmit}" using template "${selectedWorkloadTemplate}":
-- Training CPU % Util: ${trainingCpuPercentUtil}
-- Training Memory Usage in GB: : ${trainingMemUsageGb}
-- Number of GPUs: ${numberOfGPUs}
-- Session Start Tick: ${sessionStartTick}
-- Session Stop Tick: ${sessionStopTick}
-- Training Start Tick: ${trainingStartTick}
-- Training Duration in Ticks: ${trainingDurationInTicks}
-- Timescale Adjustment Factor: ${timescaleAdjustmentFactor}
-            `);
+    //         console.debug(`Registering new template-based workload "${workloadTitleToSubmit}":
+    // - Training CPU % Util: ${trainingCpuPercentUtil}
+    // - Training Memory Usage in GB: : ${trainingMemUsageGb}
+    // - Number of GPUs: ${numberOfGPUs}
+    // - Session Start Tick: ${sessionStartTick}
+    // - Session Stop Tick: ${sessionStopTick}
+    // - Training Start Tick: ${trainingStartTick}
+    // - Training Duration in Ticks: ${trainingDurationInTicks}
+    // - Timescale Adjustment Factor: ${timescaleAdjustmentFactor}
+    //             `);
 
-        const sessionIdentifier: string = (sessionId.length == 0) ? defaultSessionId.current : sessionId;
+    //         const sessionIdentifier: string = (sessionId.length == 0) ? defaultSessionId.current : sessionId;
 
-        // TOOD: 
-        // When we have multiplate templates, we'll add template-specific submission logic
-        // to aggregate the information from that template and convert it to a valid
-        // workload registration request.
+    //         // TOOD: 
+    //         // When we have multiplate templates, we'll add template-specific submission logic
+    //         // to aggregate the information from that template and convert it to a valid
+    //         // workload registration request.
 
-        let gpuUtilizationsToSubmit: number[] = []
-        for (let i: number = 0; i < numberOfGPUs; i++) {
-            // Add only the GPU utilizations for the number of GPUs that the user has configured for the workload.
-            // If we just passed `gpuUtilizations` directly, then we'd pass all 8 GPU utilizations, which would be wrong.
-            gpuUtilizationsToSubmit.push(gpuUtilizations[i]);
+    //         let gpuUtilizationsToSubmit: number[] = []
+    //         for (let i: number = 0; i < numberOfGPUs; i++) {
+    //             // Add only the GPU utilizations for the number of GPUs that the user has configured for the workload.
+    //             // If we just passed `gpuUtilizations` directly, then we'd pass all 8 GPU utilizations, which would be wrong.
+    //             gpuUtilizationsToSubmit.push(gpuUtilizations[i]);
 
-            console.debug(`GPU Utilization of GPU#${i}: ${gpuUtilizations[i]}`)
-        }
+    //             console.debug(`GPU Utilization of GPU#${i}: ${gpuUtilizations[i]}`)
+    //         }
 
-        const trainingEvent: TrainingEvent = {
-            sessionId: sessionIdentifier,
-            trainingId: uuidv4(),
-            cpuUtil: trainingCpuPercentUtil,
-            memUsageGb: trainingMemUsageGb,
-            gpuUtil: gpuUtilizationsToSubmit,
-            startTick: trainingStartTick,
-            durationInTicks: trainingDurationInTicks,
-        }
+    //         const trainingEvent: TrainingEvent = {
+    //             sessionId: sessionIdentifier,
+    //             trainingId: uuidv4(),
+    //             cpuUtil: trainingCpuPercentUtil,
+    //             memUsageGb: trainingMemUsageGb,
+    //             gpuUtil: gpuUtilizationsToSubmit,
+    //             startTick: trainingStartTick,
+    //             durationInTicks: trainingDurationInTicks,
+    //         }
 
-        const resource_request: ResourceRequest = {
-            cpus: trainingCpuPercentUtil,
-            mem_gb: trainingMemUsageGb,
-            gpus: numberOfGPUs,
-            gpu_type: "",
-        }
+    //         const resource_request: ResourceRequest = {
+    //             cpus: trainingCpuPercentUtil,
+    //             mem_gb: trainingMemUsageGb,
+    //             gpus: numberOfGPUs,
+    //             gpu_type: "",
+    //         }
 
-        const session: Session = {
-            id: sessionIdentifier,
-            resource_request: resource_request,
-            start_tick: sessionStartTick,
-            stop_tick: sessionStopTick,
-            trainings: [trainingEvent],
-            trainings_completed: 0,
-            state: "awaiting start",
-            error_message: "",
-        }
+    //         const session: Session = {
+    //             id: sessionIdentifier,
+    //             resource_request: resource_request,
+    //             start_tick: sessionStartTick,
+    //             stop_tick: sessionStopTick,
+    //             trainings: [trainingEvent],
+    //             trainings_completed: 0,
+    //             state: "awaiting start",
+    //             error_message: "",
+    //         }
 
-        const sessions: Session[] = [session]
+    //         const sessions: Session[] = [session]
 
-        const workloadTemplate: WorkloadTemplate = {
-            name: selectedWorkloadTemplate,
-            sessions: sessions,
-        }
+    //         const workloadTemplate: WorkloadTemplate = {
+    //             // name: selectedWorkloadTemplate,
+    //             sessions: sessions,
+    //         }
 
-        console.log(`Submitting workload template: ${JSON.stringify(workloadTemplate)}`)
+    //         console.log(`Submitting workload template: ${JSON.stringify(workloadTemplate)}`)
 
-        props.onConfirm(workloadTitleToSubmit, workloadSeed, debugLoggingEnabled, workloadTemplate, timescaleAdjustmentFactor);
+    //         props.onConfirm(workloadTitleToSubmit, workloadSeed, debugLoggingEnabled, workloadTemplate, timescaleAdjustmentFactor);
 
-        // Reset all of the fields.
-        resetSubmissionForm();
-    };
+    //         // Reset all of the fields.
+    //         resetSubmissionForm();
+    //     };
 
-    const validateSessionStartTickInput = () => {
-        if (sessionStartTick === '') {
-            return 'error';
-        }
+    //     const validateSessionStartTickInput = () => {
+    //         if (sessionStartTick === '') {
+    //             return 'error';
+    //         }
 
-        if (trainingStartTick === '' || sessionStopTick === '') {
-            return 'warning';
-        }
+    //         if (trainingStartTick === '' || sessionStopTick === '') {
+    //             return 'warning';
+    //         }
 
-        for (let sessionIdx: number = 0; sessionIdx < sessionTabs.length; sessionIdx++) {
-            if ((sessionStartTick[sessionIdx] < 0 || sessionStartTick[sessionIdx] >= trainingStartTick[sessionIdx] || sessionStartTick[sessionIdx] >= sessionStopTick[sessionIdx])) {
-                return 'error';
-            }
-        }
+    //         for (let sessionIdx: number = 0; sessionIdx < sessionTabs.length; sessionIdx++) {
+    //             if ((sessionStartTick[sessionIdx] < 0 || sessionStartTick[sessionIdx] >= trainingStartTick[sessionIdx] || sessionStartTick[sessionIdx] >= sessionStopTick[sessionIdx])) {
+    //                 return 'error';
+    //             }
+    //         }
 
-        return 'success';
-    }
+    //         return 'success';
+    //     }
 
-    const validateSessionStartStopInput = () => {
-        if (sessionStopTick === '') {
-            return 'error';
-        }
+    //     const validateSessionStartStopInput = () => {
+    //         if (sessionStopTick === '') {
+    //             return 'error';
+    //         }
 
-        if (sessionStartTick === '' || trainingStartTick === '' || trainingDurationInTicks === '') {
-            return 'warning';
-        }
+    //         if (sessionStartTick === '' || trainingStartTick === '' || trainingDurationInTicks === '') {
+    //             return 'warning';
+    //         }
 
-        for (let sessionIdx: number = 0; sessionIdx < sessionTabs.length; sessionIdx++) {
-            if ((sessionStopTick[sessionIdx] < 0 || trainingStartTick[sessionIdx] >= sessionStopTick[sessionIdx] || sessionStartTick[sessionIdx] >= sessionStopTick[sessionIdx] || trainingStartTick[sessionIdx] + trainingDurationInTicks[sessionIdx] >= sessionStopTick[sessionIdx])) {
-                return 'error';
-            }
-        }
+    //         for (let sessionIdx: number = 0; sessionIdx < sessionTabs.length; sessionIdx++) {
+    //             if ((sessionStopTick[sessionIdx] < 0 || trainingStartTick[sessionIdx] >= sessionStopTick[sessionIdx] || sessionStartTick[sessionIdx] >= sessionStopTick[sessionIdx] || trainingStartTick[sessionIdx] + trainingDurationInTicks[sessionIdx] >= sessionStopTick[sessionIdx])) {
+    //                 return 'error';
+    //             }
+    //         }
 
-        return 'success'
-    }
+    //         return 'success'
+    //     }
 
-    const validateTrainingStartTickInput = () => {
-        if (trainingStartTick === '') {
-            return 'error';
-        }
+    //     const validateTrainingStartTickInput = () => {
+    //         if (trainingStartTick === '') {
+    //             return 'error';
+    //         }
 
-        if (sessionStartTick === '' || sessionStopTick === '' || trainingDurationInTicks === '') {
-            return 'warning';
-        }
+    //         if (sessionStartTick === '' || sessionStopTick === '' || trainingDurationInTicks === '') {
+    //             return 'warning';
+    //         }
 
-        for (let sessionIdx: number = 0; sessionIdx < sessionTabs.length; sessionIdx++) {
-            if ((trainingStartTick[sessionIdx] < 0 || sessionStartTick[sessionIdx] >= trainingStartTick[sessionIdx] || trainingStartTick[sessionIdx] >= sessionStopTick[sessionIdx] || trainingStartTick[sessionIdx] + trainingDurationInTicks[sessionIdx] >= sessionStopTick[sessionIdx])) {
-                return 'success';
-            }
-        }
+    //         for (let sessionIdx: number = 0; sessionIdx < sessionTabs.length; sessionIdx++) {
+    //             if ((trainingStartTick[sessionIdx] < 0 || sessionStartTick[sessionIdx] >= trainingStartTick[sessionIdx] || trainingStartTick[sessionIdx] >= sessionStopTick[sessionIdx] || trainingStartTick[sessionIdx] + trainingDurationInTicks[sessionIdx] >= sessionStopTick[sessionIdx])) {
+    //                 return 'success';
+    //             }
+    //         }
 
-        return 'success';
-    }
+    //         return 'success';
+    //     }
 
-    const validateTrainingDurationInTicksInput = () => {
-        if (trainingDurationInTicks === '') {
-            return 'error';
-        }
+    //     const validateTrainingDurationInTicksInput = () => {
+    //         if (trainingDurationInTicks === '') {
+    //             return 'error';
+    //         }
 
-        if (sessionStartTick === '' || sessionStopTick === '' || trainingStartTick === '') {
-            return 'warning';
-        }
+    //         if (sessionStartTick === '' || sessionStopTick === '' || trainingStartTick === '') {
+    //             return 'warning';
+    //         }
 
-        for (let sessionIdx: number = 0; sessionIdx < sessionTabs.length; sessionIdx++) {
-            if ((trainingDurationInTicks[sessionIdx] < 0 || trainingStartTick[sessionIdx] + trainingDurationInTicks[sessionIdx] >= sessionStopTick[sessionIdx])) {
-                return 'error';
-            }
-        }
+    //         for (let sessionIdx: number = 0; sessionIdx < sessionTabs.length; sessionIdx++) {
+    //             if ((trainingDurationInTicks[sessionIdx] < 0 || trainingStartTick[sessionIdx] + trainingDurationInTicks[sessionIdx] >= sessionStopTick[sessionIdx])) {
+    //                 return 'error';
+    //             }
+    //         }
 
-        return 'success';
-    }
+    //         return 'success';
+    //     }
 
-    const validateTrainingCpuInput = () => {
-        if (trainingCpuPercentUtil === '') {
-            return 'error';
-        }
+    //     const validateTrainingCpuInput = () => {
+    //         if (trainingCpuPercentUtil === '') {
+    //             return 'error';
+    //         }
 
-        for (let sessionIdx: number = 0; sessionIdx < sessionTabs.length; sessionIdx++) {
-            if ((trainingCpuPercentUtil[sessionIdx] < 0 || trainingCpuPercentUtil[sessionIdx] > 100)) {
-                return 'error';
-            }
-        }
+    //         for (let sessionIdx: number = 0; sessionIdx < sessionTabs.length; sessionIdx++) {
+    //             if ((trainingCpuPercentUtil[sessionIdx] < 0 || trainingCpuPercentUtil[sessionIdx] > 100)) {
+    //                 return 'error';
+    //             }
+    //         }
 
-        return 'success';
-    }
+    //         return 'success';
+    //     }
 
-    const validateTrainingMemoryUsageInput = () => {
-        if (trainingMemUsageGb === '') {
-            return 'error';
-        }
+    //     const validateTrainingMemoryUsageInput = () => {
+    //         if (trainingMemUsageGb === '') {
+    //             return 'error';
+    //         }
 
-        for (let sessionIdx: number = 0; sessionIdx < sessionTabs.length; sessionIdx++) {
-            if ((trainingMemUsageGb[sessionIdx] < 0 || trainingMemUsageGb[sessionIdx] > 128_000)) {
-                return 'error';
-            }
-        }
+    //         for (let sessionIdx: number = 0; sessionIdx < sessionTabs.length; sessionIdx++) {
+    //             if ((trainingMemUsageGb[sessionIdx] < 0 || trainingMemUsageGb[sessionIdx] > 128_000)) {
+    //                 return 'error';
+    //             }
+    //         }
 
-        return 'success';
-    }
+    //         return 'success';
+    //     }
 
-    const validateNumberOfGpusInput = () => {
-        if (numberOfGPUs === '') {
-            return 'error';
-        }
+    //     const validateNumberOfGpusInput = () => {
+    //         if (numberOfGPUs === '') {
+    //             return 'error';
+    //         }
 
-        if (numberOfGPUs === undefined) return 'warning';
+    //         if (numberOfGPUs === undefined) return 'warning';
 
-        for (let i: number = 0; i < sessionTabs.length; i++) {
-            if (numberOfGPUs[i] < 0 || numberOfGPUs[i] > 8) return 'warning';
-        }
+    //         for (let i: number = 0; i < sessionTabs.length; i++) {
+    //             if (numberOfGPUs[i] < 0 || numberOfGPUs[i] > 8) return 'warning';
+    //         }
 
-        return 'success';
-    }
+    //         return 'success';
+    //     }
 
-    const validateGpuUtilInput = (outerIndex: number, innerIndex: number) => {
-        return (gpuUtilizations[outerIndex][innerIndex] >= 0 && gpuUtilizations[outerIndex][innerIndex] <= 100) ? 'success' : 'error'
-    }
+    //     const validateGpuUtilInput = (outerIndex: number, innerIndex: number) => {
+    //         return (gpuUtilizations[outerIndex][innerIndex] >= 0 && gpuUtilizations[outerIndex][innerIndex] <= 100) ? 'success' : 'error'
+    //     }
 
-    const resetSubmissionForm = () => {
-        setWorkloadTitle('');
-        setWorkloadSeed('');
-        setWorkloadSeedIsValid(true);
-        setIsWorkloadDataDropdownOpen(false);
-        setSelectedWorkloadTemplate("");
-        setDebugLoggingEnabled(true);
+    // const resetSubmissionForm = () => {
+    //     setWorkloadTitle('');
+    //     setWorkloadSeed('');
+    //     setWorkloadSeedIsValid(true);
+    //     // setIsWorkloadDataDropdownOpen(false);
+    //     // setSelectedWorkloadTemplate("");
+    //     setDebugLoggingEnabled(true);
 
-        setSessionId('');
-        setSessionStartTick(SessionStartTickDefault);
-        setSessionStopTick(SessionStopTickDefault);
-        setTrainingStartTick(TrainingStartTickDefault);
-        setTrainingDurationInTicks(TrainingDurationInTicksDefault);
-        setTrainingCpuPercentUtil(TrainingCpuPercentUtilDefault);
-        setTrainingMemUsageGb(TrainingMemUsageGbDefault);
-        setTimescaleAdjustmentFactor(TimeAdjustmentFactorDefault);
+    //     setSessionId('');
+    //     setSessionStartTick(SessionStartTickDefault);
+    //     setSessionStopTick(SessionStopTickDefault);
+    //     setTrainingStartTick(TrainingStartTickDefault);
+    //     setTrainingDurationInTicks(TrainingDurationInTicksDefault);
+    //     setTrainingCpuPercentUtil(TrainingCpuPercentUtilDefault);
+    //     setTrainingMemUsageGb(TrainingMemUsageGbDefault);
+    //     setTimescaleAdjustmentFactor(TimeAdjustmentFactorDefault);
 
-        setGpuUtilizations(DefaultGpuUtilizations);
+    //     setGpuUtilizations(DefaultGpuUtilizations);
 
-        setNumberOfGPUs(NumberOfGpusDefault);
-        // setNumberOfGPUsString("1");
+    //     setNumberOfGPUs(NumberOfGpusDefault);
+    //     // setNumberOfGPUsString("1");
 
-        defaultWorkloadTitle.current = uuidv4();
-        defaultSessionId.current = uuidv4();
-        setWorkloadTitleIsValid(true);
-        setSessionIdIsValid(true);
-    }
+    //     defaultWorkloadTitle.current = uuidv4();
+    //     defaultSessionId.current = uuidv4();
+    //     setWorkloadTitleIsValid(true);
+    //     setSessionIdIsValid(true);
+    // }
 
     return (
         <Modal
@@ -551,7 +564,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                 </Popover>
             }
             actions={[
-                <Button key="submit-workload-from-template-button" variant="primary" onClick={onSubmitWorkload} isDisabled={isSubmitButtonDisabled()}>
+                <Button key="submit-workload-from-template-button" variant="primary" onClick={handleSubmit(onSubmit)}>
                     Submit
                 </Button>,
                 <Button key="cancel-submission-of-workload-from-template-button" variant="link" onClick={props.onClose}>
@@ -559,83 +572,13 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                 </Button>,
             ]}
         >
-            <FormSection title="Select Workload Template" titleElement='h1'>
-                <Form>
-                    <FormGroup
-                        label="Workload template:"
-                        labelIcon={
-                            <Popover
-                                aria-label="workload-template-text-header"
-                                headerContent={<div>Workload Preset</div>}
-                                bodyContent={
-                                    <div>
-                                        Select the preprocessed data to use for driving the workload. This largely
-                                        determines which subset of trace data will be used to generate the workload.
-                                    </div>
-                                }
-                            >
-                                <button
-                                    type="button"
-                                    aria-label="Select the preprocessed data to use for driving the workload. This largely determines which subset of trace data will be used to generate the workload."
-                                    onClick={(e) => e.preventDefault()}
-                                    className={styles.formGroupLabelHelp}
-                                >
-                                    <HelpIcon />
-                                </button>
-                            </Popover>
-                        }
-                    >
-                        <Dropdown
-                            aria-label="workload-presetset-dropdown-menu"
-                            isScrollable
-                            isOpen={isWorkloadDataDropdownOpen}
-                            onSelect={onWorkloadDataDropdownSelect}
-                            onOpenChange={(isOpen: boolean) => setIsWorkloadDataDropdownOpen(isOpen)}
-                            toggle={(toggleRef: React.Ref<MenuToggleElement>) => (
-                                <MenuToggle
-                                    ref={toggleRef}
-                                    isFullWidth
-                                    onClick={onWorkloadDataDropdownToggleClick}
-                                    isExpanded={isWorkloadDataDropdownOpen}
-                                >
-                                    {selectedWorkloadTemplate}
-                                </MenuToggle>
-                            )}
-                            shouldFocusToggleOnSelect
-                        >
-                            <DropdownList aria-label="workload-presetset-dropdown-list">
-                                <DropdownItem
-                                    aria-label={'workload-template-single-session-single-training'}
-                                    value={0}
-                                    key={"1 Session with 1 Training Event"}
-                                    description={"1 Session with 1 Training Event"}
-                                >
-                                    {"1 Session with 1 Training Event"}
-                                </DropdownItem>
-                            </DropdownList>
-                        </Dropdown>
-                        <FormHelperText
-                            label="workload-template-dropdown-input-helper"
-                            aria-label="workload-template-dropdown-input-helper"
-                        >
-                            <HelperText
-                                label="workload-template-dropdown-input-helper"
-                                aria-label="workload-template-dropdown-input-helper"
-                            >
-                                <HelperTextItem
-                                    aria-label="workload-template-dropdown-input-helper"
-                                    label="workload-template-dropdown-input-helper"
-                                >
-                                    Select a template for the workload.
-                                </HelperTextItem>
-                            </HelperText>
-                        </FormHelperText>
-                    </FormGroup>
-                    <Divider />
-                </Form>
-            </FormSection>
-            <FormSection title="Generic Workload Parameters" titleElement='h1' hidden={selectedWorkloadTemplate == ""}>
-                <Form>
+            <FormSection title="Generic Workload Parameters" titleElement='h1'>
+                <Form onSubmit={
+                    () => {
+                        clearErrors()
+                        handleSubmit(onSubmit)
+                    }
+                }>
                     <Grid hasGutter md={12}>
                         <GridItem span={12}>
                             <FormGroup
@@ -664,19 +607,24 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                                     </Popover>
                                 }
                             >
-                                <TextInput
-                                    isRequired
-                                    label="workload-title-text-input"
-                                    aria-label="workload-title-text-input"
-                                    type="text"
-                                    id="workload-title-text-input"
-                                    name="workload-title-text-input"
-                                    aria-describedby="workload-title-text-input-helper"
-                                    value={workloadTitle}
-                                    placeholder={defaultWorkloadTitle.current}
-                                    validated={(workloadTitleIsValid && ValidatedOptions.success) || ValidatedOptions.error}
-                                    onChange={handleWorkloadTitleChanged}
-                                />
+                                <Controller
+                                    name="workloadTitle"
+                                    control={control}
+                                    rules={{minLength: 1, maxLength: 36, required: true}}
+                                    defaultValue={defaultWorkloadTitle.current}
+                                    render={({ field }) => <TextInput
+                                        isRequired
+                                        onChange={field.onChange}
+                                        onBlur={field.onBlur}
+                                        value={field.value}
+                                        label="workload-title-text-input"
+                                        aria-label="workload-title-text-input"
+                                        type="text"
+                                        id="workload-title-text-input"
+                                        aria-describedby="workload-title-text-input-helper"
+                                        placeholder={defaultWorkloadTitle.current}
+                                        validated={getValues("workloadTitle").length >= 1 && getValues("workloadTitle").length <= 36 ? 'success' : 'error'}
+                                    />} />
                                 <FormHelperText
                                     label="workload-title-text-input-helper"
                                     aria-label="workload-title-text-input-helper"
@@ -706,15 +654,14 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                                         bodyContent={
                                             <div>
                                                 This is an integer seed for the random number generator used by the workload
-                                                generator. You may leave this blank to refrain from seeding the random
-                                                number generator. Please note that if you do specify a seed, then the value
-                                                must be between 0 and 2,147,483,647.
+                                                generator. Pass a value of 0 to refrain from seeding the random generator.
+                                                Please note that if you do specify a seed, then the value must be between 0 and 2,147,483,647.
                                             </div>
                                         }
                                     >
                                         <button
                                             type="button"
-                                            aria-label="This is an integer seed (between 0 and 2,147,483,647) for the random number generator used by the workload generator. You may leave this blank to refrain from seeding the random number generator."
+                                            aria-label="This is an integer seed (between 0 and 2,147,483,647) for the random number generator used by the workload generator. Pass a value of 0 to refrain from seeding the random generator."
                                             onClick={(e) => e.preventDefault()}
                                             aria-describedby="simple-form-workload-seed-01"
                                             className={styles.formGroupLabelHelp}
@@ -724,35 +671,42 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                                     </Popover>
                                 }
                             >
-                                <TextInput
-                                    isRequired
-                                    label="workload-seed-text-input"
-                                    aria-label="workload-seed-text-input"
-                                    type="number"
-                                    id="workload-seed-text-input"
-                                    name="workload-seed-text-input"
-                                    placeholder="No seed"
-                                    value={workloadSeed}
-                                    aria-describedby="workload-seed-text-input-helper"
-                                    validated={getWorkloadSeedValidatedState()}
-                                    onChange={handleWorkloadSeedChanged}
+                                <Controller
+                                    name="workloadSeed"
+                                    control={control}
+                                    defaultValue={WorkloadSeedDefault}
+                                    rules={{ max: WorkloadSeedMax, min: WorkloadSeedMin }}
+                                    render={({ field }) => <NumberInput
+                                        inputName='workload-seed-number-input'
+                                        id="workload-seed-number-input"
+                                        type="number"
+                                        inputProps={{ innerRef: field.ref }}
+                                        min={WorkloadSeedMin}
+                                        max={WorkloadSeedMax}
+                                        onBlur={field.onBlur}
+                                        onChange={field.onChange}
+                                        name={field.name}
+                                        value={field.value}
+                                        widthChars={10}
+                                        aria-label="Text input for the 'timescale adjustment factor'"
+                                        onPlus={() => {
+                                            const curr: number = getValues("workloadSeed") as number;
+                                            let next: number = curr + WorkloadSeedDelta;
+                                            next = clamp(next, WorkloadSeedMin, WorkloadSeedMax);
+                                            next = roundToThreeDecimalPlaces(next);
+
+                                            setValue("workloadSeed", next);
+                                        }}
+                                        onMinus={() => {
+                                            const curr: number = getValues("workloadSeed") as number;
+                                            let next: number = curr - WorkloadSeedDelta;
+                                            next = clamp(next, WorkloadSeedMin, WorkloadSeedMax);
+                                            next = roundToThreeDecimalPlaces(next);
+
+                                            setValue("workloadSeed", next);
+                                        }}
+                                    />}
                                 />
-                                {/* <FormHelperText
-                                    label="workload-seed-text-input-helper"
-                                    aria-label="workload-seed-text-input-helper"
-                                >
-                                    <HelperText
-                                        label="workload-seed-text-input-helper"
-                                        aria-label="workload-seed-text-input-helper"
-                                    >
-                                        <HelperTextItem
-                                            aria-label="workload-seed-text-input-helper"
-                                            label="workload-seed-text-input-helper"
-                                        >
-                                            Provide an optional integer seed for the workload&apos;s random number generator.
-                                        </HelperTextItem>
-                                    </HelperText>
-                                </FormHelperText> */}
                             </FormGroup>
                         </GridItem>
                         <GridItem span={4}>
@@ -783,22 +737,45 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                                     </Popover>
                                 }
                             >
-                                <NumberInput
-                                    value={timescaleAdjustmentFactor}
-                                    onMinus={() => setTimescaleAdjustmentFactor((timescaleAdjustmentFactor || 0) - 0.25)}
-                                    onChange={(event: React.FormEvent<HTMLInputElement>) => {
-                                        const value = (event.target as HTMLInputElement).value;
-                                        setTimescaleAdjustmentFactor(value === '' ? value : +value);
-                                    }}
-                                    onPlus={() => setTimescaleAdjustmentFactor((timescaleAdjustmentFactor || 0) + 0.25)}
-                                    inputName="training-start-tick-input"
-                                    inputAriaLabel="training-start-tick-input"
-                                    minusBtnAriaLabel="minus"
-                                    plusBtnAriaLabel="plus"
-                                    validated={validateTimescaleAdjustmentFactor()}
-                                    widthChars={4}
-                                    min={0}
-                                    max={10}
+                                <Controller
+                                    name="timescaleAdjustmentFactor"
+                                    control={control}
+                                    defaultValue={TimeAdjustmentFactorDefault}
+                                    rules={{ max: TimescaleAdjustmentFactorMax, min: TimescaleAdjustmentFactorMin }}
+                                    render={({ field }) => <NumberInput
+                                        inputName='timescale-adjustment-factor-number-input'
+                                        id="timescale-adjustment-factor-number-input"
+                                        type="number"
+                                        inputProps={{ innerRef: field.ref }}
+                                        aria-label="Text input for the 'timescale adjustment factor'"
+                                        onBlur={field.onBlur}
+                                        onChange={field.onChange}
+                                        name={field.name}
+                                        value={field.value}
+                                        min={TimescaleAdjustmentFactorMin}
+                                        max={TimescaleAdjustmentFactorMax}
+                                        onPlus={() => {
+                                            const curr: number = getValues("timescaleAdjustmentFactor") as number;
+                                            let next: number = curr + TimescaleAdjustmentFactorDelta;
+
+                                            next = roundToThreeDecimalPlaces(next);
+
+                                            setValue("timescaleAdjustmentFactor", clamp(next, TimescaleAdjustmentFactorMin, TimescaleAdjustmentFactorMax));
+                                        }}
+                                        onMinus={() => {
+                                            const curr: number = getValues("timescaleAdjustmentFactor") as number;
+                                            let next: number = curr - TimescaleAdjustmentFactorDelta;
+
+                                            // For the timescale adjustment factor, we don't want to decrement it to 0.
+                                            if (next == 0) {
+                                                next = TimescaleAdjustmentFactorMin;
+                                            }
+
+                                            next = roundToThreeDecimalPlaces(next);
+
+                                            setValue("timescaleAdjustmentFactor", clamp(next, TimescaleAdjustmentFactorMin, TimescaleAdjustmentFactorMax));
+                                        }}
+                                    />}
                                 />
                             </FormGroup>
                         </GridItem>
@@ -827,7 +804,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                                     </Popover>
                                 }
                             >
-                                <Switch
+                                {/* <Switch
                                     id="debug-logging-switch-template"
                                     label="Debug logging enabled"
                                     labelOff="Debug logging disabled"
@@ -838,7 +815,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                                         console.log(`Setting debug logging to ${checked}`)
                                         setDebugLoggingEnabled(checked);
                                     }}
-                                />
+                                /> */}
                             </FormGroup>
                         </GridItem>
                     </Grid>
@@ -869,7 +846,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                         >
                             <Card isCompact isRounded isFlat>
                                 <CardBody>
-                                    <SessionConfigurationForm />
+                                    {/* <SessionConfigurationForm /> */}
                                 </CardBody>
                             </Card>
                         </Tab>

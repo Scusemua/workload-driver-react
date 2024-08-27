@@ -73,6 +73,7 @@ interface ResourceRequest {
 }
 
 interface Session {
+    form_id: string;
     id: string;
     resource_request: ResourceRequest;
     start_tick: number;
@@ -104,7 +105,7 @@ interface WorkloadResponse {
 
 // Wraps a workload created using a template.
 interface WorkloadTemplate {
-    name: string;
+    // name: string;
     sessions: Session[];
 }
 
