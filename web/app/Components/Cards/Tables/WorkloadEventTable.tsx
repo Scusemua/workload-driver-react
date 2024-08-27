@@ -15,7 +15,7 @@ export interface WorkloadEventTableProps {
 
 export const WorkloadEventTable: React.FunctionComponent<WorkloadEventTableProps> = (props) => {
     const [page, setPage] = React.useState(1);
-    const [perPage, setPerPage] = React.useState(4);
+    const [perPage, setPerPage] = React.useState(10);
 
     // Index of the currently sorted column
     const [activeSortIndex, setActiveSortIndex] = React.useState<number | null>(null);
@@ -130,6 +130,8 @@ export const WorkloadEventTable: React.FunctionComponent<WorkloadEventTableProps
         }
     }
 
+    const filteredEvents: WorkloadEvent[] | undefined = sortedEvents?.slice(perPage * (page - 1), perPage * (page - 1) + perPage);
+
     return (
         <Card isCompact>
             <CardBody>
@@ -142,7 +144,7 @@ export const WorkloadEventTable: React.FunctionComponent<WorkloadEventTableProps
                         </Tr>
                     </Thead>
                     <Tbody>
-                        {sortedEvents?.map((evt: WorkloadEvent) => {
+                        {filteredEvents?.map((evt: WorkloadEvent) => {
                             return (
                                 <Tr key={`workload-${props.workload?.id}-event-${evt?.idx}`}>
                                     <Td dataLabel={events_table_columns[0]}>{evt?.idx}</Td>
@@ -158,10 +160,10 @@ export const WorkloadEventTable: React.FunctionComponent<WorkloadEventTableProps
                 </Table>
                 <Pagination
                     itemCount={sortedEvents?.length}
+                    isDisabled={sortedEvents?.length == 0}
                     perPage={perPage}
                     page={page}
-                    isCompact
-                    perPageOptions={[{ title: "1 event", value: 1 }, { title: "2 events", value: 2 }, { title: "3 events", value: 3 }, { title: "4 events", value: 4 }, { title: "5 events", value: 5 }]}
+                    perPageOptions={[{ title: "1 event", value: 1 }, { title: "2 events", value: 2 }, { title: "3 events", value: 3 }, { title: "4 events", value: 4 }, { title: "5 events", value: 5 }, { title: "10 events", value: 10 }, { title: "25 events", value: 25 }, { title: "50 events", value: 50 }, { title: "100 events", value: 100 }]}
                     onSetPage={onSetPage}
                     onPerPageSelect={onPerPageSelect}
                     ouiaId="WorkloadEventsPagination"

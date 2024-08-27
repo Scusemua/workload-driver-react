@@ -17,7 +17,7 @@ export interface WorkloadSessionTableProps {
 // Displays the Sessions from a workload in a table.
 export const WorkloadSessionTable: React.FunctionComponent<WorkloadSessionTableProps> = (props) => {
     const [page, setPage] = React.useState(1);
-    const [perPage, setPerPage] = React.useState(4);
+    const [perPage, setPerPage] = React.useState(5);
 
     const onSetPage = (_event: React.MouseEvent | React.KeyboardEvent | MouseEvent, newPage: number) => {
         setPage(newPage);
@@ -52,6 +52,8 @@ export const WorkloadSessionTable: React.FunctionComponent<WorkloadSessionTableP
         }
     }
 
+    const filteredSessions: Session[] | undefined = props.workload?.sessions?.slice(perPage * (page - 1), perPage * (page - 1) + perPage);
+
     return (
         <Card isCompact>
             <CardBody>
@@ -64,7 +66,7 @@ export const WorkloadSessionTable: React.FunctionComponent<WorkloadSessionTableP
                         </Tr>
                     </Thead>
                     <Tbody>
-                        {props.workload?.sessions?.map((session: Session, idx: number) => {
+                        {filteredSessions?.map((session: Session, idx: number) => {
                             return (
                                 <Tr key={props.workload?.events_processed[0]?.id} >
                                     <Td dataLabel={sessions_table_columns[0]}>{idx}</Td>
@@ -83,8 +85,7 @@ export const WorkloadSessionTable: React.FunctionComponent<WorkloadSessionTableP
                     itemCount={props.workload?.sessions.length}
                     perPage={perPage}
                     page={page}
-                    isCompact
-                    perPageOptions={[{ title: "1 session", value: 1 }, { title: "2 sessions", value: 2 }, { title: "3 sessions", value: 3 }, { title: "4 sessions", value: 4 }, { title: "5 sessions", value: 5 }]}
+                    perPageOptions={[{ title: "1 session", value: 1 }, { title: "2 sessions", value: 2 }, { title: "3 sessions", value: 3 }, { title: "4 sessions", value: 4 }, { title: "5 sessions", value: 5 }, { title: "10 sessions", value: 10 }, { title: "25 sessions", value: 25 }, { title: "50 sessions", value: 50 }]}
                     onSetPage={onSetPage}
                     onPerPageSelect={onPerPageSelect}
                     ouiaId="WorkloadSessionsPagination"
