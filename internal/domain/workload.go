@@ -50,6 +50,11 @@ type WorkloadGenerator interface {
 	StopGeneratingWorkload()                                                                                 // Stop generating the workload prematurely.
 }
 
+// Intended to cover SessionEvents and WorkloadEvents
+type NamedEvent interface {
+	String() string
+}
+
 type Workload interface {
 	// Return true if the workload stopped because it was explicitly terminated early/premature.
 	IsTerminated() bool
@@ -209,8 +214,15 @@ type WorkloadEvent struct {
 // Return an "empty" workload event -- with none of its fields populated.
 // This is intended to be used with the WorkloadEvent::WithX functions, as
 // another means of constructing WorkloadEvent structs.
+//
+// Note: WorkloadEvent::ProcessedSuccessfully field is initialized to true.
+// It can be set to false explicitly via WorkloadEvent::WithProcessedStatus,
+// by passing a non-nil error to WorkloadEvent::WithError,
+// or by passing a non-empty string to WorkloadEvent::WithErrorMessage.
 func NewEmptyWorkloadEvent() *WorkloadEvent {
-	return &WorkloadEvent{}
+	return &WorkloadEvent{
+		ProcessedSuccessfully: true,
+	}
 }
 
 func NewWorkloadEvent(idx int, id string, name string, session string, timestamp string, processedAt string, simulationProcessedAt string, processedSuccessfully bool, err error) *WorkloadEvent {
@@ -248,7 +260,7 @@ func (evt *WorkloadEvent) WithSessionId(sessionId string) *WorkloadEvent {
 	return evt
 }
 
-func (evt *WorkloadEvent) WithEventName(name EventName) *WorkloadEvent {
+func (evt *WorkloadEvent) WithEventName(name NamedEvent) *WorkloadEvent {
 	evt.Name = name.String()
 	return evt
 }
@@ -294,15 +306,29 @@ func (evt *WorkloadEvent) WithProcessedStatus(success bool) *WorkloadEvent {
 }
 
 // Conditionally set the 'ErrorMessage' field of the WorkloadEvent struct if the error argument is non-nil.
+//
+// Note: If the event is non-nil, then this also updates the WorkloadEvent::ProcessedSuccessfully field, setting it to false.
+// You can manually flip it back to true, if desired, by calling the WorkloadEvent::WithProcessedStatus method and passing true.
 func (evt *WorkloadEvent) WithError(err error) *WorkloadEvent {
 	if err != nil {
 		evt.ErrorMessage = err.Error()
+		evt.ProcessedSuccessfully = false
 	}
+
 	return evt
 }
 
+// Set the error message of the WorkloadEvent.
+//
+// Note: If the error message is non-empty (i.e., has length >= 1), then the ProcessedSuccessfully field is automatically set to false.
+// You can manually flip it back to true, if desired, by calling the WorkloadEvent::WithProcessedStatus method and passing true.
 func (evt *WorkloadEvent) WithErrorMessage(errorMessage string) *WorkloadEvent {
 	evt.ErrorMessage = errorMessage
+
+	if len(errorMessage) >= 1 {
+		evt.ProcessedSuccessfully = false
+	}
+
 	return evt
 }
 

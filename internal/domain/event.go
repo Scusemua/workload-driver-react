@@ -6,18 +6,27 @@ import (
 
 const (
 	// EventSessionStarted triggered when the session is first seen.
-	EventSessionStarted SessionEvent = "started"
+	EventSessionStarted SessionEventName = "session-started"
 	// EventSessionReady triggered when we have had sufficient info on resource specification and the session is ready to launch.
-	EventSessionReady           SessionEvent = "ready"
-	EventSessionTrainingStarted SessionEvent = "training-started"
-	EventSessionTrainingEnded   SessionEvent = "training-ended"
-	EventSessionStopped         SessionEvent = "stopped"
-	EventSessionUpdateGpuUtil   SessionEvent = "update-gpu-util"
+	EventSessionReady           SessionEventName = "session-ready"
+	EventSessionTrainingStarted SessionEventName = "training-started"
+	EventSessionTrainingEnded   SessionEventName = "training-ended"
+	EventSessionStopped         SessionEventName = "session-stopped"
+	EventSessionUpdateGpuUtil   SessionEventName = "update-gpu-util"
+
+	EventWorkloadStarted  WorkloadEventName = "workload-started"
+	EventWorkloadComplete WorkloadEventName = "workload-complete"
 )
 
-type SessionEvent string
+type WorkloadEventName string
 
-func (evt SessionEvent) String() string {
+func (evt WorkloadEventName) String() string {
+	return string(evt)
+}
+
+type SessionEventName string
+
+func (evt SessionEventName) String() string {
 	return string(evt)
 }
 

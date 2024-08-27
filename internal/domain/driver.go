@@ -67,7 +67,10 @@ type WorkloadDriver interface {
 	// This should be called from its own goroutine.
 	// Accepts a waitgroup that is used to notify the caller when the workload has entered the 'WorkloadRunning' state.
 	// This processes events in response to clock ticks.
-	ProcessWorkload(wg *sync.WaitGroup)
+	//
+	// If there is a critical error that causes the workload to be terminated prematurely/aborted, then that error is returned.
+	// If the workload is able to complete successfully, then nil is returned.
+	ProcessWorkload(wg *sync.WaitGroup) error
 
 	// The event queue for this workload.
 	EventQueue() EventQueueService

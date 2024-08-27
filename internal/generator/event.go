@@ -18,10 +18,10 @@ var (
 	ErrUnexpectedSessionState   = errors.New("unexpected session state")
 	ErrUnexpectedSessionStTrans = errors.New("unexpected session state transition")
 
-	NoSessionEvent      []domain.SessionEvent = nil
-	SessionReadyExpects                       = SessionCPUReady | SessionGPUReady
-	SessionStopExpects                        = SessionCPUReady | SessionGPUReady
-	ErrEventPending     error                 = errors.New("event pending")
+	NoSessionEvent      []domain.SessionEventName = nil
+	SessionReadyExpects                           = SessionCPUReady | SessionGPUReady
+	SessionStopExpects                            = SessionCPUReady | SessionGPUReady
+	ErrEventPending     error                     = errors.New("event pending")
 
 	NilTimestamp = time.Time{}
 )
