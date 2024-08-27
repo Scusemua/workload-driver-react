@@ -22,6 +22,9 @@ import {
     Switch,
     TextInput,
     ValidatedOptions,
+    Tabs,
+    Tab,
+    TabTitleText,
 } from '@patternfly/react-core';
 
 import { v4 as uuidv4 } from 'uuid';
@@ -77,6 +80,8 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
     const [trainingMemUsageGb, setTrainingMemUsageGb] = React.useState<number | ''>(TrainingMemUsageGbDefault);
     const [timescaleAdjustmentFactor, setTimescaleAdjustmentFactor] = React.useState<number | ''>(TimeAdjustmentFactorDefault);
 
+    const [activeSessionTab, setActiveSessionTab] = React.useState<string | number>(0);
+
     // const gpuUtilizations = React.useRef<string[]>(["0.0", "0.0", "0.0", "0.0", "0.0", "0.0", "0.0", "0.0"]);
     const [gpuUtilizations, setGpuUtilizations] = React.useState<(number | '')[]>([100.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
 
@@ -89,6 +94,13 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
     // const { workloadPresets } = useWorkloadPresets();
 
     const workloadTemplates: string[] = ["1 Session with 1 Training Event"];
+
+    const onSessionTabSelect = (
+        event: React.MouseEvent<any> | React.KeyboardEvent | MouseEvent,
+        tabIndex: string | number
+    ) => {
+        setActiveSessionTab(tabIndex);
+    };
 
     const setGpuUtil = (idx: number, val: number | '') => {
         const nextGpuUtilizations = gpuUtilizations.map((v, i) => {
@@ -752,6 +764,22 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                     <Divider inset={{ 'default': 'insetXl' }} />
                 </Form>
             </FormSection>
+            <Tabs
+                activeKey={activeSessionTab}
+                onSelect={onSessionTabSelect}
+                isBox={true}
+                aria-label="Session Configuration Tabs"
+            >
+                <Tab eventKey={0} title={<TabTitleText>Session 1</TabTitleText>} aria-label='Session 1 Configuration Tab'>
+
+                </Tab>
+                <Tab eventKey={1} title={<TabTitleText>Session 2</TabTitleText>} aria-label='Session 2 Configuration Tab'>
+                
+                </Tab>
+                <Tab eventKey={2} title={<TabTitleText>Session 3</TabTitleText>} aria-label='Session 3 Configuration Tab'>
+                
+                </Tab>
+            </Tabs>
             <FormSection title={`General Session Parameters`} titleElement='h1' hidden={selectedWorkloadTemplate != workloadTemplates[0]}>
                 <Form>
                     <Grid hasGutter md={12}>

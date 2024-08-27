@@ -1,7 +1,7 @@
 import React from 'react';
 import { Card, CardBody, Label, Pagination, Tooltip } from '@patternfly/react-core';
 import { Table, Tbody, Td, Th, Thead, ThProps, Tr } from '@patternfly/react-table';
-import { CheckCircleIcon, ErrorCircleOIcon, ExclamationCircleIcon, MigrationIcon, MonitoringIcon, OffIcon, PendingIcon, StopIcon } from '@patternfly/react-icons';
+import { CheckCircleIcon, CheckDoubleIcon, CheckIcon, ErrorCircleOIcon, ExclamationCircleIcon, MigrationIcon, MonitoringIcon, OffIcon, PendingIcon, StarIcon, StopIcon } from '@patternfly/react-icons';
 
 import {
     Workload,
@@ -34,7 +34,7 @@ export const WorkloadEventTable: React.FunctionComponent<WorkloadEventTableProps
         console.log(`Timestamp Adjusted: ${timestamp_adjusted}, Processed-At Adjusted: ${processed_at_adjusted}`)
 
         // Note: We're omitting the event's "id" and "error_message" fields here.
-        return [idx, name, session, Date.parse(timestamp_adjusted), Date.parse(processed_at_adjusted), processed_successfully === true ? 1 : 0 ];
+        return [idx, name, session, Date.parse(timestamp_adjusted), Date.parse(processed_at_adjusted), processed_successfully === true ? 1 : 0];
     };
 
     // Note that we perform the sort as part of the component's render logic and not in onSort.
@@ -98,20 +98,24 @@ export const WorkloadEventTable: React.FunctionComponent<WorkloadEventTableProps
 
     const getEventLabel = (event_name: string) => {
         switch (event_name) {
-            case "started":
+            case "workload-started":
+                return (<Label color='gold' icon={<StarIcon />}>{event_name}</Label>)
+            case "workload-complete":
+                return (<Label color='purple' icon={<CheckCircleIcon />}>{event_name}</Label>)
+            case "session-started":
                 return (<Label color='cyan' icon={<MigrationIcon />}>{event_name}</Label>)
-            case "ready":
+            case "session-ready":
                 return (<Label color='grey' icon={<PendingIcon />}>{event_name}</Label>)
             case "training-started":
                 return (<Label color='green' icon={<MonitoringIcon />}>{event_name}</Label>)
             case "training-ended":
-                return (<Label color='blue' icon={<CheckCircleIcon />}>{event_name}</Label>)
-            case "stopped":
+                return (<Label color='blue' icon={<CheckIcon />}>{event_name}</Label>)
+            case "session-stopped":
                 return (<Label color='orange' icon={<OffIcon />}>{event_name}</Label>)
             case "update-gpu-util":
                 return (<Label color='grey'>{event_name}</Label>)
             case "workload-terminated":
-                return (<Label color='orange' icon={<ExclamationCircleIcon/>}>{event_name}</Label>)
+                return (<Label color='orange' icon={<ExclamationCircleIcon />}>{event_name}</Label>)
             default:
                 console.error(`Unexpected event name: \"${event_name}\"`);
                 return (<Label color='red' icon={<ErrorCircleOIcon />}>{event_name}</Label>)
@@ -120,9 +124,9 @@ export const WorkloadEventTable: React.FunctionComponent<WorkloadEventTableProps
 
     const getStatusLabel = (evt: WorkloadEvent) => {
         if (evt.processed_successfully) {
-            return (<Tooltip position='left-start' content={"The event was processed successfully."}><Label color="green" icon={<CheckCircleIcon/>}>Processed</Label></Tooltip>)
+            return (<Tooltip position='left-start' content={"The event was processed successfully."}><Label color="green" icon={<CheckCircleIcon />}>Processed</Label></Tooltip>)
         } else {
-            return (<Tooltip position='left-start' content={`The event was NOT processed successfully. Reason: ${evt.error_message !== undefined ? evt.error_message : "N/A"}`}><Label color="red" icon={<ErrorCircleOIcon/>}>Error</Label></Tooltip>)
+            return (<Tooltip position='left-start' content={`The event was NOT processed successfully. Reason: ${evt.error_message !== undefined ? evt.error_message : "N/A"}`}><Label color="red" icon={<ErrorCircleOIcon />}>Error</Label></Tooltip>)
         }
     }
 
