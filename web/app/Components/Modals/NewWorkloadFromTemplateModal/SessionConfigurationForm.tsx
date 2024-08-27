@@ -89,7 +89,7 @@ export const SessionConfigurationForm: React.FunctionComponent<SessionConfigurat
                                             name={field.name}
                                             value={field.value}
                                             placeholder={defaultSessionId.current}
-                                            validated={(getValues(sessionIdFieldId).length >= 0 && getValues(sessionIdFieldId).length <= 0) ? ValidatedOptions.success : ValidatedOptions.error}
+                                            validated={(getValues(sessionIdFieldId).length >= 0 && getValues(sessionIdFieldId).length <= 36) ? ValidatedOptions.success : ValidatedOptions.error}
                                             onChange={field.onChange}
                                             onBlur={field.onBlur}
                                         />}
