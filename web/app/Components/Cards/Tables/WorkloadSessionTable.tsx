@@ -55,7 +55,7 @@ export const WorkloadSessionTable: React.FunctionComponent<WorkloadSessionTableP
     const filteredSessions: Session[] | undefined = props.workload?.sessions?.slice(perPage * (page - 1), perPage * (page - 1) + perPage);
 
     return (
-        <Card isCompact>
+        <Card isCompact isRounded isFlat>
             <CardBody>
                 <Table variant="compact" borders={true} isStriped>
                     <Thead noWrap>

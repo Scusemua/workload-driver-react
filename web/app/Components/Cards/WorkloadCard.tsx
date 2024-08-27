@@ -65,8 +65,9 @@ import { useWorkloads } from '@providers/WorkloadProvider';
 import { HeightFactorContext, WorkloadsHeightFactorContext } from '@app/Dashboard/Dashboard';
 import { toast } from 'react-hot-toast';
 import { v4 as uuidv4 } from 'uuid';
-import { VisualizeWorkloadModal, NewWorkloadFromTemplateModal, RegisterWorkloadModal, InspectWorkloadModal } from '@app/Components/Modals';
+import { VisualizeWorkloadModal, RegisterWorkloadModal, InspectWorkloadModal } from '@app/Components/Modals';
 import { CsvFileIcon, TemplateIcon, XmlFileIcon } from '@app/Icons';
+import { NewWorkloadFromTemplateModal } from '../Modals/NewWorkloadFromTemplateModal';
 
 export interface WorkloadCardProps {
     workloadsPerPage: number;

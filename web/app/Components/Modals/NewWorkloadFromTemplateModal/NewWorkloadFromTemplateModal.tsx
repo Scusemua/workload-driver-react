@@ -25,6 +25,8 @@ import {
     Tabs,
     Tab,
     TabTitleText,
+    CardBody,
+    Card,
 } from '@patternfly/react-core';
 
 import { v4 as uuidv4 } from 'uuid';
@@ -32,6 +34,7 @@ import HelpIcon from '@patternfly/react-icons/dist/esm/icons/help-icon';
 import styles from '@patternfly/react-styles/css/components/Form/form';
 
 import { ResourceRequest, Session, TrainingEvent, WorkloadTemplate } from '@app/Data';
+import { SessionConfigurationForm } from './SessionConfigurationForm';
 
 export interface NewWorkloadFromTemplateModalProps {
     children?: React.ReactNode;
@@ -52,14 +55,22 @@ function assertIsNumber(value: number | ''): asserts value is number {
     }
 }
 
-const SessionStartTickDefault: number = 1;
-const SessionStopTickDefault: number = 6;
-const TrainingStartTickDefault: number = 2;
-const TrainingDurationInTicksDefault: number = 2;
-const TrainingCpuPercentUtilDefault: number = 10;
-const TrainingMemUsageGbDefault: number = 0.25;
-const TimeAdjustmentFactorDefault = 0.1;
-const NumberOfGpusDefault: number = 1;
+function assertAreNumbers(values: number[] | ''): asserts values is number[] {
+    if (values === '') {
+        throw new Error("value is not number");
+    }
+}
+
+const SessionStartTickDefault: number[] = [1];
+const SessionStopTickDefault: number[] = [6];
+const TrainingStartTickDefault: number[] = [2];
+const TrainingDurationInTicksDefault: number[] = [2];
+const TrainingCpuPercentUtilDefault: number[] = [10];
+const TrainingMemUsageGbDefault: number[] = [0.25];
+const NumberOfGpusDefault: number[] = [1];
+const DefaultGpuUtilizations: number[][] = [[100.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]];
+
+const TimeAdjustmentFactorDefault: number = 0.1;
 
 export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFromTemplateModalProps> = (props) => {
     const [workloadTitle, setWorkloadTitle] = React.useState('');
@@ -72,48 +83,71 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
     const [debugLoggingEnabled, setDebugLoggingEnabled] = React.useState(true);
 
     const [sessionId, setSessionId] = React.useState('');
-    const [sessionStartTick, setSessionStartTick] = React.useState<number | ''>(SessionStartTickDefault);
-    const [sessionStopTick, setSessionStopTick] = React.useState<number | ''>(SessionStopTickDefault);
-    const [trainingStartTick, setTrainingStartTick] = React.useState<number | ''>(TrainingStartTickDefault);
-    const [trainingDurationInTicks, setTrainingDurationInTicks] = React.useState<number | ''>(TrainingDurationInTicksDefault);
-    const [trainingCpuPercentUtil, setTrainingCpuPercentUtil] = React.useState<number | ''>(TrainingCpuPercentUtilDefault);
-    const [trainingMemUsageGb, setTrainingMemUsageGb] = React.useState<number | ''>(TrainingMemUsageGbDefault);
+    const [sessionStartTick, setSessionStartTick] = React.useState<number[] | ''>(SessionStartTickDefault);
+    const [sessionStopTick, setSessionStopTick] = React.useState<number[] | ''>(SessionStopTickDefault);
+    const [trainingStartTick, setTrainingStartTick] = React.useState<number[] | ''>(TrainingStartTickDefault);
+    const [trainingDurationInTicks, setTrainingDurationInTicks] = React.useState<number[] | ''>(TrainingDurationInTicksDefault);
+    const [trainingCpuPercentUtil, setTrainingCpuPercentUtil] = React.useState<number[] | ''>(TrainingCpuPercentUtilDefault);
+    const [trainingMemUsageGb, setTrainingMemUsageGb] = React.useState<number[] | ''>(TrainingMemUsageGbDefault);
     const [timescaleAdjustmentFactor, setTimescaleAdjustmentFactor] = React.useState<number | ''>(TimeAdjustmentFactorDefault);
 
-    const [activeSessionTab, setActiveSessionTab] = React.useState<string | number>(0);
+    const [gpuUtilizations, setGpuUtilizations] = React.useState<(number[][])>(DefaultGpuUtilizations);
 
-    // const gpuUtilizations = React.useRef<string[]>(["0.0", "0.0", "0.0", "0.0", "0.0", "0.0", "0.0", "0.0"]);
-    const [gpuUtilizations, setGpuUtilizations] = React.useState<(number | '')[]>([100.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
+    const [numberOfGPUs, setNumberOfGPUs] = React.useState<number[] | ''>(NumberOfGpusDefault);
 
-    const [numberOfGPUs, setNumberOfGPUs] = React.useState<number | ''>(NumberOfGpusDefault);
-    // const [numberOfGPUsString, setNumberOfGPUsString] = React.useState<string>("1");
+    const [activeSessionTab, setActiveSessionTab] = React.useState<number>(0);
+    const [sessionTabs, setSessionTabs] = React.useState<string[]>(['Session 1']);
+    const [newSessionTabNumber, setNewSessionTabNumber] = React.useState<number>(2);
+    const sessionTabComponentRef = React.useRef<any>();
+    const firstSessionTabMount = React.useRef<boolean>(true);
 
     const defaultWorkloadTitle = React.useRef(uuidv4());
     const defaultSessionId = React.useRef(uuidv4());
 
-    // const { workloadPresets } = useWorkloadPresets();
-
     const workloadTemplates: string[] = ["1 Session with 1 Training Event"];
 
     const onSessionTabSelect = (
-        event: React.MouseEvent<any> | React.KeyboardEvent | MouseEvent,
-        tabIndex: string | number
+        tabIndex: number
     ) => {
         setActiveSessionTab(tabIndex);
     };
 
-    const setGpuUtil = (idx: number, val: number | '') => {
-        const nextGpuUtilizations = gpuUtilizations.map((v, i) => {
-            if (i === idx) {
-                // Update the value at the specified index.
-                return val;
-            } else {
-                // The other values do not change.
-                return v;
-            }
-        });
+    const onCloseSessionTab = (event: any, tabIndex: string | number) => {
+        const tabIndexNum = tabIndex as number;
+        let nextTabIndex = activeSessionTab;
+        if (tabIndexNum < activeSessionTab) {
+            // if a preceding tab is closing, keep focus on the new index of the current tab
+            nextTabIndex = activeSessionTab - 1 > 0 ? activeSessionTab - 1 : 0;
+        } else if (activeSessionTab === sessionTabs.length - 1) {
+            // if the closing tab is the last tab, focus the preceding tab
+            nextTabIndex = sessionTabs.length - 2 > 0 ? sessionTabs.length - 2 : 0;
+        }
+        setActiveSessionTab(nextTabIndex);
+        setSessionTabs(sessionTabs.filter((tab, index) => index !== tabIndex));
+    };
+
+    const onAddSessionTab = () => {
+        setSessionTabs([...sessionTabs, `Session ${newSessionTabNumber}`]);
+        setActiveSessionTab(sessionTabs.length);
+        setNewSessionTabNumber(newSessionTabNumber + 1);
+    };
+
+    React.useEffect(() => {
+        if (firstSessionTabMount.current) {
+            firstSessionTabMount.current = false;
+            return;
+        } else {
+            const first = sessionTabComponentRef.current?.tabList.current.childNodes[activeSessionTab];
+            first && first.firstChild.focus();
+        }
+    }, [sessionTabs]);
+
+    const setGpuUtil = (sessionIndex: number, gpuIndex: number, utilization: number) => {
         // gpuUtilizations.current = nextGpuUtilizations;
-        setGpuUtilizations(nextGpuUtilizations)
+        setGpuUtilizations((currentGpuUtilizations: number[][]) => {
+            currentGpuUtilizations[sessionIndex][gpuIndex] = utilization;
+            return currentGpuUtilizations;
+        })
     }
 
     const handleWorkloadTitleChanged = (_event, title: string) => {
@@ -219,15 +253,17 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
             return true;
         }
 
-        // This one might be redundant. 
-        if (numberOfGPUs === '' || numberOfGPUs < 0 || numberOfGPUs > 8) {
-            return true;
-        }
-
-        const numGPUs: number = (numberOfGPUs || 1);
-        for (let i = 0; i < numGPUs; i++) {
-            if (validateGpuUtilInput(i) !== 'success') {
+        for (let i: number = 0; i < sessionTabs.length; i++) {
+            // This one might be redundant. 
+            if (numberOfGPUs === '' || numberOfGPUs[i] < 0 || numberOfGPUs[i] > 8) {
                 return true;
+            }
+
+            const numGPUs: number = (numberOfGPUs[i] || 1);
+            for (let j = 0; j < numGPUs; j++) {
+                if (validateGpuUtilInput(i, j) !== 'success') {
+                    return true;
+                }
             }
         }
 
@@ -238,11 +274,18 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
         return false;
     };
 
-    function assertGpuUtilizationsAreAllNumbers(value: (number | '')[], numGPUs: number): asserts value is number[] {
-        for (let i = 0; i < numGPUs; i++) {
-            if (validateGpuUtilInput[i] === 'error') {
-                console.error(`gpuUtilization[${i}] is not a valid value during submission.`)
-                throw new Error(`gpuUtilization[${i}] is not a valid value during submission.`)
+    // We pass 'numGPUs' in directly instead of referencing the state variable so that we don't have to validate its type.
+    function assertGpuUtilizationsAreAllNumbers(gpuUtils: (number[][] | ''), numGPUs: number[]): asserts gpuUtils is number[][] {
+        if (gpuUtils === '') {
+            throw new Error("GPU utilizations are invalid.");
+        }
+
+        for (let sessionIdx: number = 0; sessionIdx < sessionTabs.length; sessionIdx++) {
+            for (let gpuIdx: number = 0; gpuIdx < numGPUs[sessionIdx]; gpuIdx++) {
+                if (validateGpuUtilInput(sessionIdx, gpuIdx) === 'error') {
+                    console.error(`gpuUtilization[${sessionIdx}][${gpuIdx}] is not a valid value during submission.`)
+                    throw new Error(`gpuUtilization[${sessionIdx}][${gpuIdx}] is not a valid value during submission.`)
+                }
             }
         }
     }
@@ -255,13 +298,13 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
             workloadTitleToSubmit = defaultWorkloadTitle.current;
         }
 
-        assertIsNumber(trainingCpuPercentUtil);
-        assertIsNumber(trainingMemUsageGb);
-        assertIsNumber(numberOfGPUs);
-        assertIsNumber(sessionStartTick);
-        assertIsNumber(sessionStopTick);
-        assertIsNumber(trainingStartTick);
-        assertIsNumber(trainingDurationInTicks);
+        assertAreNumbers(trainingCpuPercentUtil);
+        assertAreNumbers(trainingMemUsageGb);
+        assertAreNumbers(numberOfGPUs);
+        assertAreNumbers(sessionStartTick);
+        assertAreNumbers(sessionStopTick);
+        assertAreNumbers(trainingStartTick);
+        assertAreNumbers(trainingDurationInTicks);
         assertIsNumber(timescaleAdjustmentFactor);
         assertGpuUtilizationsAreAllNumbers(gpuUtilizations, numberOfGPUs);
 
@@ -344,11 +387,13 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
             return 'warning';
         }
 
-        if ((sessionStartTick >= 0 && sessionStartTick < trainingStartTick && sessionStartTick < sessionStopTick)) {
-            return 'success';
+        for (let sessionIdx: number = 0; sessionIdx < sessionTabs.length; sessionIdx++) {
+            if ((sessionStartTick[sessionIdx] < 0 || sessionStartTick[sessionIdx] >= trainingStartTick[sessionIdx] || sessionStartTick[sessionIdx] >= sessionStopTick[sessionIdx])) {
+                return 'error';
+            }
         }
 
-        return 'error';
+        return 'success';
     }
 
     const validateSessionStartStopInput = () => {
@@ -360,7 +405,13 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
             return 'warning';
         }
 
-        return (sessionStopTick >= 0 && trainingStartTick < sessionStopTick && sessionStartTick < sessionStopTick && trainingStartTick + trainingDurationInTicks < sessionStopTick) ? 'success' : 'error'
+        for (let sessionIdx: number = 0; sessionIdx < sessionTabs.length; sessionIdx++) {
+            if ((sessionStopTick[sessionIdx] < 0 || trainingStartTick[sessionIdx] >= sessionStopTick[sessionIdx] || sessionStartTick[sessionIdx] >= sessionStopTick[sessionIdx] || trainingStartTick[sessionIdx] + trainingDurationInTicks[sessionIdx] >= sessionStopTick[sessionIdx])) {
+                return 'error';
+            }
+        }
+
+        return 'success'
     }
 
     const validateTrainingStartTickInput = () => {
@@ -372,7 +423,13 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
             return 'warning';
         }
 
-        return (trainingStartTick >= 0 && sessionStartTick < trainingStartTick && trainingStartTick < sessionStopTick && trainingStartTick + trainingDurationInTicks < sessionStopTick) ? 'success' : 'error';
+        for (let sessionIdx: number = 0; sessionIdx < sessionTabs.length; sessionIdx++) {
+            if ((trainingStartTick[sessionIdx] < 0 || sessionStartTick[sessionIdx] >= trainingStartTick[sessionIdx] || trainingStartTick[sessionIdx] >= sessionStopTick[sessionIdx] || trainingStartTick[sessionIdx] + trainingDurationInTicks[sessionIdx] >= sessionStopTick[sessionIdx])) {
+                return 'success';
+            }
+        }
+
+        return 'success';
     }
 
     const validateTrainingDurationInTicksInput = () => {
@@ -384,7 +441,13 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
             return 'warning';
         }
 
-        return (trainingDurationInTicks >= 0 && trainingStartTick + trainingDurationInTicks < sessionStopTick) ? 'success' : 'error'
+        for (let sessionIdx: number = 0; sessionIdx < sessionTabs.length; sessionIdx++) {
+            if ((trainingDurationInTicks[sessionIdx] < 0 || trainingStartTick[sessionIdx] + trainingDurationInTicks[sessionIdx] >= sessionStopTick[sessionIdx])) {
+                return 'error';
+            }
+        }
+
+        return 'success';
     }
 
     const validateTrainingCpuInput = () => {
@@ -392,7 +455,13 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
             return 'error';
         }
 
-        return (trainingCpuPercentUtil >= 0 && trainingCpuPercentUtil <= 100) ? 'success' : 'error'
+        for (let sessionIdx: number = 0; sessionIdx < sessionTabs.length; sessionIdx++) {
+            if ((trainingCpuPercentUtil[sessionIdx] < 0 || trainingCpuPercentUtil[sessionIdx] > 100)) {
+                return 'error';
+            }
+        }
+
+        return 'success';
     }
 
     const validateTrainingMemoryUsageInput = () => {
@@ -400,7 +469,13 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
             return 'error';
         }
 
-        return (trainingMemUsageGb >= 0 && trainingMemUsageGb <= 128_000) ? 'success' : 'error';
+        for (let sessionIdx: number = 0; sessionIdx < sessionTabs.length; sessionIdx++) {
+            if ((trainingMemUsageGb[sessionIdx] < 0 || trainingMemUsageGb[sessionIdx] > 128_000)) {
+                return 'error';
+            }
+        }
+
+        return 'success';
     }
 
     const validateNumberOfGpusInput = () => {
@@ -408,11 +483,17 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
             return 'error';
         }
 
-        return (numberOfGPUs !== undefined && numberOfGPUs >= 0 && numberOfGPUs <= 8 && numberOfGPUs >= 0 && numberOfGPUs <= 8) ? 'success' : 'warning';
+        if (numberOfGPUs === undefined) return 'warning';
+
+        for (let i: number = 0; i < sessionTabs.length; i++) {
+            if (numberOfGPUs[i] < 0 || numberOfGPUs[i] > 8) return 'warning';
+        }
+
+        return 'success';
     }
 
-    const validateGpuUtilInput = (idx: number) => {
-        return (gpuUtilizations[idx] !== '' && gpuUtilizations[idx] >= 0 && gpuUtilizations[idx] <= 100) ? 'success' : 'error'
+    const validateGpuUtilInput = (outerIndex: number, innerIndex: number) => {
+        return (gpuUtilizations[outerIndex][innerIndex] >= 0 && gpuUtilizations[outerIndex][innerIndex] <= 100) ? 'success' : 'error'
     }
 
     const resetSubmissionForm = () => {
@@ -432,7 +513,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
         setTrainingMemUsageGb(TrainingMemUsageGbDefault);
         setTimescaleAdjustmentFactor(TimeAdjustmentFactorDefault);
 
-        setGpuUtilizations([100.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]);
+        setGpuUtilizations(DefaultGpuUtilizations);
 
         setNumberOfGPUs(NumberOfGpusDefault);
         // setNumberOfGPUsString("1");
@@ -550,7 +631,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                             </HelperText>
                         </FormHelperText>
                     </FormGroup>
-                    <Divider inset={{ 'default': 'insetXl' }} />
+                    <Divider />
                 </Form>
             </FormSection>
             <FormSection title="Generic Workload Parameters" titleElement='h1' hidden={selectedWorkloadTemplate == ""}>
@@ -761,244 +842,39 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                             </FormGroup>
                         </GridItem>
                     </Grid>
-                    <Divider inset={{ 'default': 'insetXl' }} />
+                    <Divider />
                 </Form>
             </FormSection>
-            <Tabs
-                activeKey={activeSessionTab}
-                onSelect={onSessionTabSelect}
-                isBox={true}
-                aria-label="Session Configuration Tabs"
-            >
-                <Tab eventKey={0} title={<TabTitleText>Session 1</TabTitleText>} aria-label='Session 1 Configuration Tab'>
-
-                </Tab>
-                <Tab eventKey={1} title={<TabTitleText>Session 2</TabTitleText>} aria-label='Session 2 Configuration Tab'>
-                
-                </Tab>
-                <Tab eventKey={2} title={<TabTitleText>Session 3</TabTitleText>} aria-label='Session 3 Configuration Tab'>
-                
-                </Tab>
-            </Tabs>
-            <FormSection title={`General Session Parameters`} titleElement='h1' hidden={selectedWorkloadTemplate != workloadTemplates[0]}>
-                <Form>
-                    <Grid hasGutter md={12}>
-                        <GridItem span={12}>
-                            <FormGroup
-                                label="Session ID:">
-                                <TextInput
-                                    isRequired
-                                    label="session-id-text-input"
-                                    aria-label="session-id-text-input"
-                                    type="text"
-                                    id="session-id-text-input"
-                                    name="session-id-text-input"
-                                    aria-describedby="session-id-text-input-helper"
-                                    value={sessionId}
-                                    placeholder={defaultSessionId.current}
-                                    validated={(sessionIdIsValid && ValidatedOptions.success) || ValidatedOptions.error}
-                                    onChange={handleSessionIdChanged}
-                                />
-                                <FormHelperText
-                                    label="session-id-text-input-helper"
-                                    aria-label="session-id-text-input-helper"
-                                >
-                                    <HelperText
-                                        label="session-id-text-input-helper"
-                                        aria-label="session-id-text-input-helper"
-                                    >
-                                        <HelperTextItem
-                                            aria-label="session-id-text-input-helper"
-                                            label="session-id-text-input-helper"
-                                        >
-                                            Provide an ID for the session. The session ID must be between 1 and 36 characters (inclusive).
-                                        </HelperTextItem>
-                                    </HelperText>
-                                </FormHelperText>
-                            </FormGroup>
-                        </GridItem>
-                        <GridItem span={3}>
-                            <FormGroup label="Session Start Tick">
-                                <NumberInput
-                                    value={sessionStartTick}
-                                    onMinus={() => setSessionStartTick((sessionStartTick || 0) - 1)}
-                                    onChange={(event: React.FormEvent<HTMLInputElement>) => {
-                                        const value = (event.target as HTMLInputElement).value;
-                                        setSessionStartTick(value === '' ? value : +value);
-                                    }}
-                                    onPlus={() => setSessionStartTick((sessionStartTick || 0) + 1)}
-                                    inputName="session-start-tick-input"
-                                    inputAriaLabel="session-start-tick-input"
-                                    minusBtnAriaLabel="minus"
-                                    plusBtnAriaLabel="plus"
-                                    validated={validateSessionStartTickInput()}
-                                    widthChars={4}
-                                    min={0}
-                                />
-                            </FormGroup>
-                        </GridItem>
-                        <GridItem span={3}>
-                            <FormGroup label="Training Start Tick">
-                                <NumberInput
-                                    value={trainingStartTick}
-                                    onMinus={() => setTrainingStartTick((trainingStartTick || 0) - 1)}
-                                    onChange={(event: React.FormEvent<HTMLInputElement>) => {
-                                        const value = (event.target as HTMLInputElement).value;
-                                        setTrainingStartTick(value === '' ? value : +value);
-                                    }}
-                                    onPlus={() => setTrainingStartTick((trainingStartTick || 0) + 1)}
-                                    inputName="training-start-tick-input"
-                                    inputAriaLabel="training-start-tick-input"
-                                    minusBtnAriaLabel="minus"
-                                    plusBtnAriaLabel="plus"
-                                    validated={validateTrainingStartTickInput()}
-                                    widthChars={4}
-                                    min={0}
-                                />
-                            </FormGroup>
-                        </GridItem>
-                        <GridItem span={3}>
-                            <FormGroup label="Training Duration (Ticks)">
-                                <NumberInput
-                                    value={trainingDurationInTicks}
-                                    onMinus={() => setTrainingDurationInTicks((trainingDurationInTicks || 0) - 1)}
-                                    onChange={(event: React.FormEvent<HTMLInputElement>) => {
-                                        const value = (event.target as HTMLInputElement).value;
-                                        setTrainingDurationInTicks(value === '' ? value : +value);
-                                    }}
-                                    onPlus={() => setTrainingDurationInTicks((trainingDurationInTicks || 0) + 1)}
-                                    inputName="training-duration-ticks-input"
-                                    inputAriaLabel="training-duration-ticks-input"
-                                    minusBtnAriaLabel="minus"
-                                    plusBtnAriaLabel="plus"
-                                    validated={validateTrainingDurationInTicksInput()}
-                                    widthChars={4}
-                                    min={1}
-                                />
-                            </FormGroup>
-                        </GridItem>
-                        <GridItem span={3}>
-                            <FormGroup label="Session Stop Tick">
-                                <NumberInput
-                                    value={sessionStopTick}
-                                    onMinus={() => setSessionStopTick((sessionStopTick || 0) - 1)}
-                                    onChange={(event: React.FormEvent<HTMLInputElement>) => {
-                                        const value = (event.target as HTMLInputElement).value;
-                                        setSessionStopTick(value === '' ? value : +value);
-                                    }}
-                                    onPlus={() => setSessionStopTick((sessionStopTick || 0) + 1)}
-                                    inputName="session-stop-tick-input"
-                                    inputAriaLabel="session-stop-tick-input"
-                                    minusBtnAriaLabel="minus"
-                                    plusBtnAriaLabel="plus"
-                                    validated={validateSessionStartStopInput()}
-                                    widthChars={4}
-                                    min={0}
-                                />
-                            </FormGroup>
-                        </GridItem>
-                    </Grid>
-                    <Divider inset={{ 'default': 'inset3xl' }} />
-                </Form>
-            </FormSection>
-            <FormSection title={`Configure Session Resource Utilization`} titleElement='h1' hidden={selectedWorkloadTemplate != workloadTemplates[0]}>
-                <Form>
-                    <Grid hasGutter>
-                        <GridItem span={3}>
-                            <FormGroup label="CPU % Utilization">
-                                <NumberInput
-                                    value={trainingCpuPercentUtil}
-                                    onMinus={() => setTrainingCpuPercentUtil((trainingCpuPercentUtil || 0) - 1)}
-                                    onChange={(event: React.FormEvent<HTMLInputElement>) => {
-                                        const value = (event.target as HTMLInputElement).value;
-                                        setTrainingCpuPercentUtil(value === '' ? value : +value);
-                                    }}
-                                    onPlus={() => setTrainingCpuPercentUtil((trainingCpuPercentUtil || 0) + 1)}
-                                    inputName="training-cpu-percent-util-input"
-                                    inputAriaLabel="training-cpu-percent-util-input"
-                                    minusBtnAriaLabel="minus"
-                                    plusBtnAriaLabel="plus"
-                                    validated={validateTrainingCpuInput()}
-                                    widthChars={4}
-                                    min={0}
-                                    max={100}
-                                />
-                            </FormGroup>
-                        </GridItem>
-                        <GridItem span={3}>
-                            <FormGroup label="RAM Usage (GB)">
-                                <NumberInput
-                                    value={trainingMemUsageGb}
-                                    onMinus={() => setTrainingMemUsageGb((trainingMemUsageGb || 0) - 0.25)}
-                                    onChange={(event: React.FormEvent<HTMLInputElement>) => {
-                                        const value = (event.target as HTMLInputElement).value;
-                                        setTrainingMemUsageGb(value === '' ? value : +value);
-                                    }}
-                                    onPlus={() => setTrainingMemUsageGb((trainingMemUsageGb || 0) + 0.25)}
-                                    inputName="training-mem-usage-gb-input"
-                                    inputAriaLabel="training-mem-usage-gb-input"
-                                    minusBtnAriaLabel="minus"
-                                    plusBtnAriaLabel="plus"
-                                    validated={validateTrainingMemoryUsageInput()}
-                                    widthChars={4}
-                                    min={0}
-                                    max={128_000}
-                                />
-                            </FormGroup>
-                        </GridItem>
-                        <GridItem span={6}>
-                            <FormGroup label={`Number of GPUs`}>
-                                <Grid hasGutter>
-                                    <GridItem span={12}>
-                                        <NumberInput
-                                            value={numberOfGPUs}
-                                            onMinus={() => setNumberOfGPUs((numberOfGPUs || 0) - 1)}
-                                            onChange={(event: React.FormEvent<HTMLInputElement>) => {
-                                                const value = (event.target as HTMLInputElement).value;
-                                                setNumberOfGPUs(value === '' ? value : +value);
-                                            }}
-                                            onPlus={() => setNumberOfGPUs((numberOfGPUs || 0) + 1)}
-                                            inputName="num-gpus-input"
-                                            key="num-gpus-input"
-                                            inputAriaLabel="num-gpus-input"
-                                            minusBtnAriaLabel="minus"
-                                            plusBtnAriaLabel="plus"
-                                            validated={validateNumberOfGpusInput()}
-                                            widthChars={1}
-                                            min={1}
-                                            max={8}
-                                        />
-                                    </GridItem>
-                                </Grid>
-                            </FormGroup>
-                        </GridItem>
-                        {Array.from({ length: Math.max(Math.min((numberOfGPUs || 1), 8), 1) }).map((_, idx: number) => {
-                            return (
-                                <GridItem key={`gpu-${idx}-util-input-grditem`} span={3} rowSpan={1} hidden={(numberOfGPUs || 1) < idx}>
-                                    <FormGroup label={`GPU #${idx} % Utilization`}>
-                                        <NumberInput
-                                            value={gpuUtilizations[idx]}
-                                            onMinus={() => setGpuUtil(idx, (gpuUtilizations[idx] || 0) - 1)}
-                                            onChange={(event: React.FormEvent<HTMLInputElement>) => {
-                                                const value = (event.target as HTMLInputElement).value;
-
-                                                setGpuUtil(idx, value === '' ? value : +value);
-                                            }}
-                                            onPlus={() => setGpuUtil(idx, (gpuUtilizations[idx] || 0) + 1)}
-                                            inputName={`gpu${idx}-percent-util-input`}
-                                            inputAriaLabel={`gpu${idx}-percent-util-input`}
-                                            minusBtnAriaLabel="minus"
-                                            plusBtnAriaLabel="plus"
-                                            validated={validateGpuUtilInput(idx)}
-                                            min={0}
-                                            max={100}
-                                        />
-                                    </FormGroup>
-                                </GridItem>
-                            )
-                        })}
-                    </Grid>
-                </Form>
+            <FormSection title={`Workload Sessions (${sessionTabs.length})`} titleElement='h1' >
+                <Tabs
+                    isFilled
+                    activeKey={activeSessionTab}
+                    onSelect={(event: React.MouseEvent<HTMLElement, MouseEvent>, eventKey: number | string) => { onSessionTabSelect(eventKey as number) }}
+                    isBox={true}
+                    onClose={onCloseSessionTab}
+                    onAdd={onAddSessionTab}
+                    addButtonAriaLabel='Add Additional Session to Workload'
+                    role='region'
+                    ref={sessionTabComponentRef}
+                    aria-label="Session Configuration Tabs"
+                >
+                    {sessionTabs.map((tabName: string, tabIndex: number) => (
+                        <Tab
+                            key={tabIndex}
+                            eventKey={tabIndex}
+                            aria-label={`${tabName} Tab`}
+                            title={<TabTitleText>{tabName}</TabTitleText>}
+                            closeButtonAriaLabel={`Close ${tabName} Tab`}
+                            isCloseDisabled={sessionTabs.length == 1} // Can't close the last session.
+                        >
+                            <Card isCompact isRounded isFlat>
+                                <CardBody>
+                                    <SessionConfigurationForm />
+                                </CardBody>
+                            </Card>
+                        </Tab>
+                    ))}
+                </Tabs>
             </FormSection>
         </Modal >
     );

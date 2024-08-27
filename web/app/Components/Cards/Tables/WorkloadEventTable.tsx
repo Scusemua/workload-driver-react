@@ -133,7 +133,7 @@ export const WorkloadEventTable: React.FunctionComponent<WorkloadEventTableProps
     const filteredEvents: WorkloadEvent[] | undefined = sortedEvents?.slice(perPage * (page - 1), perPage * (page - 1) + perPage);
 
     return (
-        <Card isCompact>
+        <Card isCompact isRounded isFlat>
             <CardBody>
                 <Table variant="compact" isStriped>
                     <Thead noWrap>
