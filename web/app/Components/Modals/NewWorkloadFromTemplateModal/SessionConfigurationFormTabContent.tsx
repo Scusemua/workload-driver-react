@@ -45,17 +45,17 @@ export const SessionConfigurationFormTabContent: React.FunctionComponent<Session
     const numTrainingEventsFieldId: string = `sessions.${sessionIndex}.num_training_events`;
 
     const selectedTrainingEventIndex: number = Number.parseInt(useWatch({ control, name: selectedTrainingEventFieldId }));
-    const trainingStartTickFieldId: string = `sessions.${sessionIndex}.training_events.${selectedTrainingEventIndex}.training_start_tick`;
-    const trainingDurationTicksFieldId: string = `sessions.${sessionIndex}.training_events.${selectedTrainingEventIndex}.training_duration_ticks`;
-    const trainingCpuPercentUtilFieldId: string = `sessions.${sessionIndex}.training_events.${selectedTrainingEventIndex}.cpu_percent_util`;
-    const trainingMemUsageGbFieldId: string = `sessions.${sessionIndex}.training_events.${selectedTrainingEventIndex}.mem_usage_gb_util`;
-    const numGpusFieldId: string = `sessions.${sessionIndex}.training_events.${selectedTrainingEventIndex}.num_gpus`;
+    const trainingStartTickFieldId: string = `sessions.${sessionIndex}.trainings.${selectedTrainingEventIndex}.start_tick`;
+    const trainingDurationTicksFieldId: string = `sessions.${sessionIndex}.trainings.${selectedTrainingEventIndex}.duration_in_ticks`;
+    const trainingCpuPercentUtilFieldId: string = `sessions.${sessionIndex}.trainings.${selectedTrainingEventIndex}.cpu_util`;
+    const trainingMemUsageGbFieldId: string = `sessions.${sessionIndex}.trainings.${selectedTrainingEventIndex}.mem_usage_gb`;
+    const numGpusFieldId: string = `sessions.${sessionIndex}.trainings.${selectedTrainingEventIndex}.num_gpus`;
 
-    const { fields: trainingEventFields, append: appendTrainingEvent, remove: removeTrainingEvent } = useFieldArray({ name: `sessions.${sessionIndex}.training_events`, control });
-    const { fields: gpuUtilizationFields, append: appendGpuUtilization, remove: removeGpuUtilization } = useFieldArray({ name: `sessions.${sessionIndex}.training_events.${selectedTrainingEventIndex}.gpu_utilizations`, control });
+    const { fields: trainingEventFields, append: appendTrainingEvent, remove: removeTrainingEvent } = useFieldArray({ name: `sessions.${sessionIndex}.trainings`, control });
+    const { fields: gpuUtilizationFields, append: appendGpuUtilization, remove: removeGpuUtilization } = useFieldArray({ name: `sessions.${sessionIndex}.trainings.${selectedTrainingEventIndex}.gpu_utilizations`, control });
 
     const getGpuInputFieldId = (gpuIndex: number) => {
-        return `sessions.${sessionIndex}.training_events.${selectedTrainingEventIndex}.gpu_utilizations.${gpuIndex}.utilization`;
+        return `sessions.${sessionIndex}.trainings.${selectedTrainingEventIndex}.gpu_utilizations.${gpuIndex}.utilization`;
     };
 
     const getSessionIdValidationState = () => {

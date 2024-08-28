@@ -85,13 +85,13 @@ interface Session {
 }
 
 interface TrainingEvent {
-    sessionId: string;
-    trainingId: string;
-    cpuUtil: number;
-    memUsageGb: number;
-    gpuUtil: number[];
-    startTick: number;
-    durationInTicks: number;
+    session_id: string;
+    training_id: string;
+    cpu_util: number;
+    mem_usage_gb: number;
+    gpu_util: number[];
+    start_tick: number;
+    duration_in_ticks: number;
 }
 
 // Response for a 'get workloads' request.

@@ -142,7 +142,7 @@ func (s *CustomEventSequencer) stepCpu(sessionId string, timestamp time.Time, cp
 	wrappedSession.session.CPU = committed
 }
 
-func (s *CustomEventSequencer) stepGpu(sessionId string, timestamp time.Time, gpuUtil []float64) {
+func (s *CustomEventSequencer) stepGpu(sessionId string, timestamp time.Time, gpuUtil []domain.GpuUtilization) {
 	wrappedSession := s.getWrappedSession(sessionId)
 
 	gpu := wrappedSession.gpu
@@ -157,7 +157,7 @@ func (s *CustomEventSequencer) stepGpu(sessionId string, timestamp time.Time, gp
 			Timestamp: UnixTime(timestamp),
 			Pod:       sessionId,
 			PodIdx:    podIdx,
-			Value:     gpuUtil,
+			Value:     gpuUtil.Utilization,
 			GPUIdx:    fmt.Sprintf("%d", gpuIdx),
 		}
 
@@ -288,14 +288,14 @@ func (s *CustomEventSequencer) AddSessionTerminatedEvent(sessionId string, tickN
 	sessionMeta := s.getSessionMeta(sessionId)
 
 	s.stepCpu(sessionId, timestamp, 0)
-	s.stepGpu(sessionId, timestamp, []float64{0})
+	s.stepGpu(sessionId, timestamp, []domain.GpuUtilization{domain.GpuUtilization{Utilization: 0}})
 	s.stepMemory(sessionId, timestamp, 0)
 
 	s.submitWaitingEvent(sessionMeta)
 
 	// Step again just to commit the 0 util entries that were initialized above.
 	s.stepCpu(sessionId, timestamp, 0)
-	s.stepGpu(sessionId, timestamp, []float64{0})
+	s.stepGpu(sessionId, timestamp, []domain.GpuUtilization{domain.GpuUtilization{Utilization: 0}})
 	s.stepMemory(sessionId, timestamp, 0)
 
 	data := sessionMeta.Snapshot()
@@ -326,7 +326,7 @@ func (s *CustomEventSequencer) submitWaitingEvent(sessionMeta *SessionMeta) {
 // Parameters:
 // - sessionId: The target Session's ID
 // - duration: The duration that the training should last.
-func (s *CustomEventSequencer) AddTrainingEvent(sessionId string, tickNumber int, durationInTicks int, cpuUtil float64, memUtil float64, gpuUtil []float64) {
+func (s *CustomEventSequencer) AddTrainingEvent(sessionId string, tickNumber int, durationInTicks int, cpuUtil float64, memUtil float64, gpuUtil []domain.GpuUtilization) {
 	startSec := s.startingSeconds + (int64(tickNumber) * s.tickDurationSeconds)
 	startTime := time.Unix(startSec, 0)
 	sessionMeta := s.getSessionMeta(sessionId)

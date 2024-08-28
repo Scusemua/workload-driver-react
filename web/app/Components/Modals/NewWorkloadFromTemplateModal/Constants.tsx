@@ -24,10 +24,10 @@ const DefaultNumTrainingEvents: number = 1;
 const DefaultSelectedTrainingEvent: number = 0;
 
 const DefaultTrainingEventField = {
-    training_start_tick: TrainingStartTickDefault,
-    training_duration_ticks: TrainingDurationInTicksDefault,
-    cpu_percent_util: TrainingCpuPercentUtilDefault,
-    mem_usage_gb_util: TrainingMemUsageGbDefault,
+    start_tick: TrainingStartTickDefault,
+    duration_in_ticks: TrainingDurationInTicksDefault,
+    cpu_util: TrainingCpuPercentUtilDefault,
+    mem_usage_gb: TrainingMemUsageGbDefault,
     num_gpus: NumberOfGpusDefault,
     gpu_utilizations: [{
         utilization: TrainingGpuPercentUtilDefault
@@ -40,7 +40,7 @@ const DefaultSessionFieldValue = {
     stop_tick: SessionStopTickDefault,
     num_training_events: DefaultNumTrainingEvents,
     selected_training_event: DefaultSelectedTrainingEvent,
-    training_events: [{
+    trainings: [{
         ...DefaultTrainingEventField,
     }],
 }
