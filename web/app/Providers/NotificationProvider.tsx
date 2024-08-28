@@ -77,9 +77,9 @@ const NotificationProvider = (props) => {
             ...prevNotifications,
         ]);
 
-        console.log(
-            `Adding new notification: ${title}: ${description} (key=${key}, timestamp=${timestamp}, variant=${variant})`,
-        );
+        // console.log(
+        //     `Adding new notification: ${title}: ${description} (key=${key}, timestamp=${timestamp}, variant=${variant})`,
+        // );
 
         if (!expanded) {
             setAlerts((prevAlerts) => [
