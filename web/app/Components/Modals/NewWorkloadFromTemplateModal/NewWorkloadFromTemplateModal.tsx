@@ -51,14 +51,6 @@ export interface NewWorkloadFromTemplateModalProps {
     ) => void;
 }
 
-const SessionStartTickDefault: number = 1;
-const SessionStopTickDefault: number = 6;
-const TrainingStartTickDefault: number = 2;
-const TrainingDurationInTicksDefault: number = 2;
-const TrainingCpuPercentUtilDefault: number = 10;
-const TrainingMemUsageGbDefault: number = 0.25;
-const NumberOfGpusDefault: number = 1;
-
 // How much to adjust the timescale adjustment factor when using the 'plus' and 'minus' buttons to adjust the field's value.
 const TimescaleAdjustmentFactorDelta: number = 0.1;
 const TimescaleAdjustmentFactorMax: number = 10;
@@ -71,7 +63,21 @@ const WorkloadSeedMax: number = 2147483647.0;
 const WorkloadSeedMin: number = 0.0;
 const WorkloadSeedDefault: number = 0.0;
 
-const DefaultGpuUtilizations: number[][] = [[100.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]];
+const DefaultSessionFormValue = {
+    id: uuidv4(),
+    start_tick: 1,
+    stop_tick: 6,
+    num_training_events: 1,
+    selected_training_event: 0,
+    training_start_tick: 2,
+    training_duration_ticks: 2,
+    cpu_percent_util: 10,
+    mem_usage_gb_util: 0.25,
+    num_gpus: 1,
+    gpu_utilizations: [{
+        utilization: 100,
+    }]
+}
 
 // Clamp a value between two extremes.
 function clamp(value: number, min: number, max: number) {
@@ -97,12 +103,21 @@ function assertAreNumbers(values: number[] | ''): asserts values is number[] {
 // TODO: Responsive validation not quite working yet.
 // TODO: Re-implement onSubmit.
 export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFromTemplateModalProps> = (props) => {
+    const defaultWorkloadTitle = React.useRef(uuidv4());
     const form = useForm({
         mode: 'all',
         reValidateMode: 'onChange',
+        defaultValues: {
+            "workloadTitle": defaultWorkloadTitle.current,
+            "workloadSeed": WorkloadSeedDefault,
+            "timescaleAdjustmentFactor": TimeAdjustmentFactorDefault,
+            "debugLoggingEnabled": true,
+            "sessions": [
+                DefaultSessionFormValue
+            ]
+        }
     });
 
-    const defaultWorkloadTitle = React.useRef(uuidv4());
     const onSubmit = (data) => {
         console.log(data);
         form.reset();
@@ -132,10 +147,39 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
     //     error_message: "",
     // }]);
 
+    const getWorkloadNameValidationState = () => {
+        const workloadId: string = form.watch("workloadTitle"); 
+
+        if (workloadId == undefined || workloadId == null) {
+            return 'default';
+        }
+
+        if (workloadId.length >= 1 && workloadId.length <= 36) {
+            return 'success';
+        }
+
+        return 'error';
+    }
+
+    const isWorkloadNameValid = () => {
+        const workloadId: string = form.watch("workloadTitle"); 
+
+        if (workloadId == undefined || workloadId == null) {
+            // Form hasn't loaded yet.
+            return true;
+        }
+
+        if (workloadId.length >= 1 && workloadId.length <= 36) {
+            return true;
+        }
+
+        return false;
+    }
+
     return (
         <FormProvider {...form}>
             <Modal
-                variant={ModalVariant.medium}
+                variant={ModalVariant.large}
                 titleIconVariant={'info'}
                 aria-label="Modal to create a new workload from a template"
                 title={'Create New Workload from Template'}
@@ -179,6 +223,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                             <GridItem span={12}>
                                 <FormGroup
                                     label="Workload name:"
+                                    labelInfo="Required length: 1-36 characters"
                                     labelIcon={
                                         <Popover
                                             aria-label="workload-title-popover"
@@ -219,7 +264,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                                             id="workload-title-text-input"
                                             aria-describedby="workload-title-text-input-helper"
                                             placeholder={defaultWorkloadTitle.current}
-                                            validated={form.getValues("workloadTitle").length >= 1 && form.getValues("workloadTitle").length <= 36 ? 'success' : 'error'}
+                                            validated={getWorkloadNameValidationState()}
                                         />} />
                                     <FormHelperText
                                         label="workload-title-text-input-helper"
@@ -232,9 +277,9 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                                             <HelperTextItem
                                                 aria-label="workload-title-text-input-helper"
                                                 label="workload-title-text-input-helper"
+                                                variant={getWorkloadNameValidationState()}
                                             >
-                                                Provide a title to help you identify the workload. The title must be between 1
-                                                and 36 characters in length.
+                                                {isWorkloadNameValid() ? "" : "Session ID must be between 1 and 36 characters in length (inclusive)."}
                                             </HelperTextItem>
                                         </HelperText>
                                     </FormHelperText>
@@ -285,16 +330,16 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                                             widthChars={10}
                                             aria-label="Text input for the 'timescale adjustment factor'"
                                             onPlus={() => {
-                                                const curr: number = Number.parseInt(form.getValues("workloadSeed")) || 0;
+                                                const curr: number = form.getValues("workloadSeed") || 0;
                                                 let next: number = curr + WorkloadSeedDelta;
                                                 next = clamp(next, WorkloadSeedMin, WorkloadSeedMax);
-                                                form.setValue("workloadSeed", next.toString());
+                                                form.setValue("workloadSeed", next);
                                             }}
                                             onMinus={() => {
-                                                const curr: number = Number.parseInt(form.getValues("workloadSeed")) || 0;
+                                                const curr: number = form.getValues("workloadSeed") || 0;
                                                 let next: number = curr - WorkloadSeedDelta;
                                                 next = clamp(next, WorkloadSeedMin, WorkloadSeedMax);
-                                                form.setValue("workloadSeed", next.toString());
+                                                form.setValue("workloadSeed", next);
                                             }}
                                         />}
                                     />

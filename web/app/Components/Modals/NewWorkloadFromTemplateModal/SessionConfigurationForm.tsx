@@ -17,6 +17,22 @@ export interface SessionConfigurationFormProps {
     children?: React.ReactNode;
 }
 
+const DefaultSessionFormValue = {
+    id: uuidv4(),
+    start_tick: 1,
+    stop_tick: 6,
+    num_training_events: 1,
+    selected_training_event: 0,
+    training_start_tick: 2,
+    training_duration_ticks: 2,
+    cpu_percent_util: 10,
+    mem_usage_gb_util: 0.25,
+    num_gpus: 1,
+    gpu_utilizations: [{
+        utilization: 100,
+    }]
+}
+
 // TODO: Responsive validation not quite working yet.
 export const SessionConfigurationForm: React.FunctionComponent<SessionConfigurationFormProps> = (props) => {
     const { control, formState: { errors } } = useFormContext() // retrieve all hook methods
@@ -59,19 +75,7 @@ export const SessionConfigurationForm: React.FunctionComponent<SessionConfigurat
         setActiveSessionTab(sessionTabs.length);
         setNewSessionTabNumber(newSessionTabNumber + 1);
 
-        append({
-            id: uuidv4(),
-            start_tick: 1,
-            stop_tick: 6,
-            training_start_tick: 2,
-            training_duration_ticks: 2,
-            cpu_percent_util: 10,
-            mem_usage_gb_util: 0.25,
-            num_gpus: 1,
-            gpu_utilizations: [{
-                utilization: 100,
-            }]
-        })
+        append(DefaultSessionFormValue)
     };
 
     React.useEffect(() => {
