@@ -32,6 +32,7 @@ export interface SessionConfigurationFormProps {
     sessionIdentifier: string; // This is not necessarily the session ID field.
 }
 
+// TODO: Responsive validation not quite working yet.
 export const SessionConfigurationForm: React.FunctionComponent<SessionConfigurationFormProps> = (props) => {
     const defaultSessionId = React.useRef(uuidv4());
     const { control, setValue, getValues, getFieldState, watch, formState, formState: { errors } } = useFormContext() // retrieve all hook methods
@@ -53,7 +54,7 @@ export const SessionConfigurationForm: React.FunctionComponent<SessionConfigurat
         console.log(formState.errors);
     }, [formState]);
 
-    console.log(`Form state: ${JSON.stringify(formState)}`)
+    // console.log(`Form state: ${JSON.stringify(formState)}`)
 
     return (
         <React.Fragment>

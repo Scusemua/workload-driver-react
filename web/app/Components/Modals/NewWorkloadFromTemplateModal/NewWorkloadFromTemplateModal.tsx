@@ -94,8 +94,12 @@ function assertAreNumbers(values: number[] | ''): asserts values is number[] {
     }
 }
 
+// TODO: Responsive validation not quite working yet.
+// TODO: Re-implement onSubmit.
 export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFromTemplateModalProps> = (props) => {
-    const form = useForm();
+    const form = useForm({
+        mode: 'all',
+    });
 
     const defaultWorkloadTitle = React.useRef(uuidv4());
     const defaultSessionId = React.useRef(uuidv4());
