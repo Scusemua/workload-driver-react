@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"io"
 	"log"
@@ -82,7 +83,9 @@ func NewServer(opts *domain.Configuration) domain.Server {
 	s.logger = logger
 	s.sugaredLogger = logger.Sugar()
 
-	s.setupRoutes()
+	if err := s.setupRoutes(); err != nil {
+		panic(err)
+	}
 
 	return s
 }
@@ -90,12 +93,12 @@ func NewServer(opts *domain.Configuration) domain.Server {
 func (s *serverImpl) ErrorHandlerMiddleware(c *gin.Context) {
 	c.Next()
 
-	errors := make([]*gin.Error, 0, len(c.Errors))
+	errs := make([]*gin.Error, 0, len(c.Errors))
 	for _, err := range c.Errors {
-		errors = append(errors, err)
+		errs = append(errs, err)
 	}
 
-	c.JSON(-1, errors)
+	c.JSON(-1, errs)
 }
 
 func (s *serverImpl) setupRoutes() error {
@@ -108,7 +111,9 @@ func (s *serverImpl) setupRoutes() error {
 	}
 
 	s.app.ForwardedByClientIP = true
-	s.app.SetTrustedProxies([]string{"127.0.0.1"})
+	if err := s.app.SetTrustedProxies([]string{"127.0.0.1"}); err != nil {
+		panic(err)
+	}
 
 	// Serve frontend static files
 	s.app.Use(static.Serve("/", static.LocalFile("./dist", true)))
@@ -140,7 +145,7 @@ func (s *serverImpl) setupRoutes() error {
 		// Enable/disable Kubernetes nodes.
 		apiGroup.PATCH(domain.KUBERNETES_NODES_ENDPOINT, nodeHandler.HandlePatchRequest)
 
-		// Adjust vGPUs availabe on a particular Kubernetes node.
+		// Adjust vGPUs available on a particular Kubernetes node.
 		apiGroup.PATCH(domain.ADJUST_VGPUS_ENDPOINT, handlers.NewAdjustVirtualGpusHandler(s.opts, s.gatewayRpcClient).HandlePatchRequest)
 
 		// Used internally (by the frontend) to get the system config from the backend  (i.e., the backend).
@@ -202,33 +207,32 @@ func (s *serverImpl) notifyFrontend(notification *gateway.Notification) {
 
 	toRemove := make([]string, 0)
 
-	for remote_ip, conn := range s.generalWebsockets {
-		s.logger.Debug("Writing message to general WebSocket.", zap.String("remote-addr", remote_ip))
+	for remoteIp, conn := range s.generalWebsockets {
+		s.logger.Debug("Writing message to general WebSocket.", zap.String("remote-addr", remoteIp))
 		err := conn.WriteJSON(message)
 		if err != nil {
-			s.logger.Debug("Failed to write spoofed error to WebSocket.", zap.String("remote-addr", remote_ip), zap.Error(err))
+			s.logger.Debug("Failed to write spoofed error to WebSocket.", zap.String("remote-addr", remoteIp), zap.Error(err))
 
-			if _, ok := err.(*websocket.CloseError); ok || err == websocket.ErrCloseSent {
-				s.logger.Debug("Will remove general WebSocket.", zap.String("remote-addr", remote_ip))
-				toRemove = append(toRemove, remote_ip)
-			} else {
-				s.logger.Debug("Cannot remove general WebSocket. Error is not a CloseError...", zap.String("remote-addr", remote_ip))
+			var closeError *websocket.CloseError
+			if errors.As(err, &closeError) || errors.Is(err, websocket.ErrCloseSent) {
+				s.logger.Debug("Will remove general WebSocket.", zap.String("remote-addr", remoteIp))
+				toRemove = append(toRemove, remoteIp)
 			}
 		} else {
-			s.logger.Debug("Successfully wrote message to general WebSocket.", zap.String("remote-addr", remote_ip))
+			s.logger.Debug("Successfully wrote message to general WebSocket.", zap.String("remote-addr", remoteIp))
 		}
 	}
 
-	for _, remote_ip := range toRemove {
-		s.logger.Warn("Removing general WebSocket connection.", zap.String("remote_ip", remote_ip))
+	for _, remoteIp := range toRemove {
+		s.logger.Warn("Removing general WebSocket connection.", zap.String("remote_ip", remoteIp))
 
-		ws := s.generalWebsockets[remote_ip]
+		ws := s.generalWebsockets[remoteIp]
 		err := ws.Close()
 		if err != nil {
-			s.logger.Error("Error closing websocket.", zap.String("remote_ip", remote_ip), zap.Error(err))
+			s.logger.Error("Error closing websocket.", zap.String("remote_ip", remoteIp), zap.Error(err))
 		}
 
-		delete(s.generalWebsockets, remote_ip)
+		delete(s.generalWebsockets, remoteIp)
 	}
 }
 
@@ -246,7 +250,7 @@ func (s *serverImpl) handleSpoofedNotifications(ctx *gin.Context) {
 		}
 
 		s.notifyFrontend(notification) // Might be redundant given we're responding with an erroneous status code.
-		ctx.AbortWithError(http.StatusInternalServerError, err)
+		_ = ctx.AbortWithError(http.StatusInternalServerError, err)
 	}
 
 	ctx.Status(http.StatusOK)
@@ -285,17 +289,22 @@ func (s *serverImpl) serveGeneralWebsocket(c *gin.Context) {
 		log.Print("upgrade:", err)
 		return
 	}
-	defer conn.Close()
+	defer func(conn *websocket.Conn) {
+		err := conn.Close()
+		if err != nil {
+			s.logger.Error("Failed to close WebSocket connection.", zap.Error(err))
+		}
+	}(conn)
 
 	var concurrentConn domain.ConcurrentWebSocket = concurrent_websocket.NewConcurrentWebSocket(conn)
-	remote_ip := concurrentConn.RemoteAddr().String()
-	s.generalWebsockets[remote_ip] = concurrentConn
+	remoteIp := concurrentConn.RemoteAddr().String()
+	s.generalWebsockets[remoteIp] = concurrentConn
 
 	for {
 		_, message, err := concurrentConn.ReadMessage()
 		if err != nil {
 			s.logger.Error("Error while reading message from general websocket.", zap.Error(err))
-			delete(s.generalWebsockets, remote_ip)
+			delete(s.generalWebsockets, remoteIp)
 			break
 		}
 
@@ -309,10 +318,10 @@ func (s *serverImpl) serveGeneralWebsocket(c *gin.Context) {
 
 		s.sugaredLogger.Debugf("Received general WebSocket message: %v", request)
 
-		var op_val interface{}
+		var opVal interface{}
 		var msgIdVal interface{}
 		var ok bool
-		if op_val, ok = request["op"]; !ok {
+		if opVal, ok = request["op"]; !ok {
 			s.logger.Error("Received unexpected message on websocket. It did not contain an 'op' field.", zap.Binary("message", message))
 			time.Sleep(time.Millisecond * 100)
 			continue
@@ -324,7 +333,7 @@ func (s *serverImpl) serveGeneralWebsocket(c *gin.Context) {
 			continue
 		}
 
-		s.logger.Debug("Received general WebSocket message.", zap.Any("op", op_val), zap.Any("message-id", msgIdVal))
+		s.logger.Debug("Received general WebSocket message.", zap.Any("op", opVal), zap.Any("message-id", msgIdVal))
 
 		// var resp map[string]string = make(map[string]string)
 		// resp["message"] = fmt.Sprintf("Hello there, WebSocket %s.", remote_ip)
@@ -352,9 +361,14 @@ func (s *serverImpl) serveLogWebsocket(c *gin.Context) {
 		log.Print("upgrade:", err)
 		return
 	}
-	defer conn.Close()
+	defer func(conn *websocket.Conn) {
+		err := conn.Close()
+		if err != nil {
+			s.logger.Error("Failed to close WebSocket connection.", zap.Error(err))
+		}
+	}(conn)
 
-	var connectionId string = uuid.NewString()
+	var connectionId = uuid.NewString()
 	for {
 		_, message, err := conn.ReadMessage()
 		if err != nil {
@@ -365,7 +379,9 @@ func (s *serverImpl) serveLogWebsocket(c *gin.Context) {
 			s.logResponseBodyMutex.RUnlock()
 			// If we're already processing a get_logs request for this websocket, then terminate that request.
 			if ok {
-				responseBody.Close()
+				if err := responseBody.Close(); err != nil {
+					s.logger.Error("Failed to close logs response body.", zap.Error(err))
+				}
 			}
 			break
 		}
@@ -378,7 +394,9 @@ func (s *serverImpl) serveLogWebsocket(c *gin.Context) {
 			s.logResponseBodyMutex.RLock()
 			// If we're already processing a get_logs request for this websocket, then terminate that request.
 			if responseBody, ok := s.getLogsResponseBodies[connectionId]; ok {
-				responseBody.Close()
+				if err := responseBody.Close(); err != nil {
+					s.logger.Error("Failed to close logs response body.", zap.Error(err))
+				}
 			}
 			s.logResponseBodyMutex.RUnlock()
 
@@ -388,15 +406,17 @@ func (s *serverImpl) serveLogWebsocket(c *gin.Context) {
 
 		s.sugaredLogger.Debugf("Received log-related WebSocket message: %v", request)
 
-		var op_val interface{}
+		var opVal interface{}
 		var ok bool
-		if op_val, ok = request["op"]; !ok {
+		if opVal, ok = request["op"]; !ok {
 			s.logger.Error("Received unexpected message on websocket. It did not contain an 'op' field.", zap.Binary("message", message), zap.String("connection-id", connectionId))
 
 			s.logResponseBodyMutex.RLock()
 			// If we're already processing a get_logs request for this websocket, then terminate that request.
 			if responseBody, ok := s.getLogsResponseBodies[connectionId]; ok {
-				responseBody.Close()
+				if err := responseBody.Close(); err != nil {
+					s.logger.Error("Failed to close logs response body.", zap.Error(err))
+				}
 			}
 			s.logResponseBodyMutex.RUnlock()
 
@@ -410,7 +430,9 @@ func (s *serverImpl) serveLogWebsocket(c *gin.Context) {
 			s.logResponseBodyMutex.RLock()
 			// If we're already processing a get_logs request for this websocket, then terminate that request.
 			if responseBody, ok := s.getLogsResponseBodies[connectionId]; ok {
-				responseBody.Close()
+				if err := responseBody.Close(); err != nil {
+					s.logger.Error("Failed to close logs response body.", zap.Error(err))
+				}
 			}
 			s.logResponseBodyMutex.RUnlock()
 
@@ -418,7 +440,7 @@ func (s *serverImpl) serveLogWebsocket(c *gin.Context) {
 			continue
 		}
 
-		if op_val == "get_logs" {
+		if opVal == "get_logs" {
 			var req *domain.GetLogsRequest
 			err = json.Unmarshal(message, &req)
 
@@ -433,15 +455,15 @@ func (s *serverImpl) serveLogWebsocket(c *gin.Context) {
 }
 
 func (s *serverImpl) getLogsWebsocket(req *domain.GetLogsRequest, conn *websocket.Conn, connectionId string) {
-	s.logger.Debug("Retrieiving logs.", zap.Any("request", req), zap.String("connection-id", connectionId))
+	s.logger.Debug("Retrieving logs.", zap.Any("request", req), zap.String("connection-id", connectionId))
 
 	pod := req.Pod
 	container := req.Container
 	doFollow := req.Follow
 
-	url := fmt.Sprintf("http://localhost:8889/api/v1/namespaces/default/pods/%s/log?container=%s&follow=%v&sinceSeconds=3600", pod, container, doFollow)
-	s.logger.Debug("Retrieving logs now.", zap.String("pod", pod), zap.String("container", container), zap.String("url", url), zap.String("connection-id", connectionId))
-	resp, err := http.Get(url)
+	endpoint := fmt.Sprintf("http://localhost:8889/api/v1/namespaces/default/pods/%s/log?container=%s&follow=%v&sinceSeconds=3600", pod, container, doFollow)
+	s.logger.Debug("Retrieving logs now.", zap.String("pod", pod), zap.String("container", container), zap.String("endpoint", endpoint), zap.String("connection-id", connectionId))
+	resp, err := http.Get(endpoint)
 	if err != nil {
 		s.logger.Error("Failed to get logs.", zap.String("pod", pod), zap.String("container", container), zap.Error(err), zap.String("connection-id", connectionId))
 		return
@@ -460,7 +482,9 @@ func (s *serverImpl) getLogsWebsocket(req *domain.GetLogsRequest, conn *websocke
 	s.logResponseBodyMutex.RLock()
 	// If we're already processing a get_logs request for this websocket, then terminate that request.
 	if responseBody, ok := s.getLogsResponseBodies[connectionId]; ok {
-		responseBody.Close()
+		if err := responseBody.Close(); err != nil {
+			s.logger.Error("Failed to close logs response body.", zap.Error(err))
+		}
 	}
 	s.logResponseBodyMutex.RUnlock()
 
@@ -510,13 +534,13 @@ func (s *serverImpl) getLogsWebsocket(req *domain.GetLogsRequest, conn *websocke
 	}
 }
 
-// Blocking call.
+// Serve is a blocking call that launches additional goroutines to serve the HTTP server and the Jupyter WebSocket proxy.
 func (s *serverImpl) Serve() error {
 	var wg sync.WaitGroup
 	wg.Add(3)
 
 	s.serveHttp(&wg)
-	s.serveJupyterWebsocketProxy(&wg)
+	s.serveJupyterWebSocketProxy(&wg)
 
 	wg.Wait()
 	return nil
@@ -535,7 +559,7 @@ func (s *serverImpl) serveHttp(wg *sync.WaitGroup) {
 	}()
 }
 
-func (s *serverImpl) serveJupyterWebsocketProxy(wg *sync.WaitGroup) {
+func (s *serverImpl) serveJupyterWebSocketProxy(wg *sync.WaitGroup) {
 	wsUrlString := fmt.Sprintf("ws://%s", s.opts.JupyterServerAddress)
 	wsUrl, err := url.Parse(wsUrlString)
 	if err != nil {

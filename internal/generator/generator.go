@@ -15,9 +15,9 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-const (
-	OneSessionOneTraining string = "1 Session with 1 Training Event"
-)
+//const (
+//	OneSessionOneTraining string = "1 Session with 1 Training Event"
+//)
 
 type BasicWorkloadGenerator struct {
 	ctx            context.Context

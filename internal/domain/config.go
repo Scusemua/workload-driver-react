@@ -17,9 +17,9 @@ import (
 )
 
 const (
-	OptionName    = "name"
-	OptionDefault = "default"
-	OptionDesc    = "description"
+	OptionName = "name"
+	//OptionDefault = "default"
+	OptionDesc = "description"
 )
 
 var (

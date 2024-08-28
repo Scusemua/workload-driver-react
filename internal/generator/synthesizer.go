@@ -21,9 +21,9 @@ func (evt SynthesizerEvent) String() string {
 // Because traces are sampling in different intervals, so the Synthesizer needs to "normalize"
 // the intervals/time series so that all of the eventsHeap are processed in the correct order.
 // This event gives a chance to get the correct timestamp.
-const (
-	EventSynthesizerTick SynthesizerEvent = "tick"
-)
+//const (
+//	EventSynthesizerTick SynthesizerEvent = "tick"
+//)
 
 type Synthesizer struct {
 	Sources        []domain.EventSource

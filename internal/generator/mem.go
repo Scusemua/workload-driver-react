@@ -144,6 +144,9 @@ func (ed *MemoryUtilBuffer) init(rec *Memory) *MemoryUtil {
 	nextUtil.Pod = rec.Pod
 	nextUtil.Value = rec.Value
 	nextUtil.Max = rec.Value
+
+	// For now, this always evaluates to 'false'; however, this could change if we
+	// change the value of the 'MemoryActivationThreshold' constant.
 	if MemoryActivationThreshold > 0 && nextUtil.Value > MemoryActivationThreshold {
 		nextUtil.Status = MemoryBusy
 	} else {

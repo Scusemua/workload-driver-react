@@ -342,9 +342,9 @@ func (evt *WorkloadEvent) String() string {
 }
 
 type workloadImpl struct {
-	logger        *zap.Logger        `json:"-"`
-	sugaredLogger *zap.SugaredLogger `json:"-"`
-	atom          *zap.AtomicLevel   `json:"-"`
+	logger        *zap.Logger
+	sugaredLogger *zap.SugaredLogger
+	atom          *zap.AtomicLevel
 
 	Id                        string            `json:"id"`
 	Name                      string            `json:"name"`
@@ -375,12 +375,12 @@ type workloadImpl struct {
 	// This is basically the child struct.
 	// So, if this is a preset workload, then this is the WorkloadFromPreset struct.
 	// We use this so we can delegate certain method calls to the child/derived struct.
-	workload       Workload         `json:"-"`
-	workloadSource interface{}      `json:"-"`
-	mu             sync.RWMutex     `json:"-"`
-	sessionsMap    *hashmap.HashMap `json:"-"` // Internal mapping of session ID to session.
-	seedSet        bool             `json:"-"` // Flag keeping track of whether we've already set the seed for this workload.
-	sessionsSet    bool             `json:"-"` // Flag keeping track of whether we've already set the sessions for this workload.
+	workload       Workload
+	workloadSource interface{}
+	mu             sync.RWMutex
+	sessionsMap    *hashmap.HashMap // Internal mapping of session ID to session.
+	seedSet        bool             // Flag keeping track of whether we've already set the seed for this workload.
+	sessionsSet    bool             // Flag keeping track of whether we've already set the sessions for this workload.
 }
 
 func NewWorkload(id string, workloadName string, seed int64, debugLoggingEnabled bool, timescaleAdjustmentFactor float64, atom *zap.AtomicLevel) Workload {

@@ -25,19 +25,19 @@ const (
 	JavascriptISOString = "2006-01-02T15:04:05.999Z07:00"
 	kernelServiceApi    = "api/kernels"
 
-	KernelConnectionInit KernelConnectionStatus = "initializing" // When the kernelConnectionImpl struct is first created.
+	KernelConnectionInit KernelConnectionStatus = "initializing" // When the BasicKernelConnection struct is first created.
 	KernelConnecting     KernelConnectionStatus = "connecting"   // When we are creating the kernel websocket.
 	KernelConnected      KernelConnectionStatus = "connected"    // Once we've connected.
 	KernelDisconnected   KernelConnectionStatus = "disconnected" // We're not connected to the kernel, but we're unsure if it is dead or not.
 	KernelDead           KernelConnectionStatus = "dead"         // Kernel is dead. We're not connected.
 
-	ExecuteRequest                    MessageType = "execute_request"
-	KernelInfoRequest                 MessageType = "kernel_info_request"
-	GolangFrontendRegistrationRequest MessageType = "golang_frontend_registration_request"
-	StopRunningTrainingCode           MessageType = "stop_running_training_code_request"
-	DummyMessage                      MessageType = "dummy_message_request"
-	AckMessage                        MessageType = "ACK"
-	CommCloseMessage                  MessageType = "comm_close"
+	ExecuteRequest    MessageType = "execute_request"
+	KernelInfoRequest MessageType = "kernel_info_request"
+	// GolangFrontendRegistrationRequest MessageType = "golang_frontend_registration_request"
+	StopRunningTrainingCode MessageType = "stop_running_training_code_request"
+	DummyMessage            MessageType = "dummy_message_request"
+	AckMessage              MessageType = "ACK"
+	CommCloseMessage        MessageType = "comm_close"
 )
 
 var (
@@ -70,7 +70,7 @@ func (t MessageType) getBaseMessageType() string {
 
 type KernelConnectionStatus string
 
-type kernelConnectionImpl struct {
+type BasicKernelConnection struct {
 	logger        *zap.Logger
 	sugaredLogger *zap.SugaredLogger
 	atom          *zap.AtomicLevel
@@ -112,12 +112,12 @@ type kernelConnectionImpl struct {
 
 }
 
-func NewKernelConnection(kernelId string, clientId string, username string, jupyterServerAddress string, atom *zap.AtomicLevel) (*kernelConnectionImpl, error) {
+func NewKernelConnection(kernelId string, clientId string, username string, jupyterServerAddress string, atom *zap.AtomicLevel) (*BasicKernelConnection, error) {
 	if len(clientId) == 0 {
 		clientId = uuid.NewString()
 	}
 
-	conn := &kernelConnectionImpl{
+	conn := &BasicKernelConnection{
 		clientId:             clientId,
 		kernelId:             kernelId,
 		username:             username,
@@ -156,7 +156,7 @@ func NewKernelConnection(kernelId string, clientId string, username string, jupy
 	return conn, nil
 }
 
-func (conn *kernelConnectionImpl) waitForResponseWithTimeout(responseChan chan KernelMessage, timeoutInterval time.Duration, messageType MessageType) (KernelMessage, error) {
+func (conn *BasicKernelConnection) waitForResponseWithTimeout(responseChan chan KernelMessage, timeoutInterval time.Duration, messageType MessageType) (KernelMessage, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeoutInterval)
 	defer cancel()
 
@@ -176,7 +176,7 @@ func (conn *kernelConnectionImpl) waitForResponseWithTimeout(responseChan chan K
 	}
 }
 
-func (conn *kernelConnectionImpl) SendDummyMessage(channel KernelSocketChannel, content interface{}, waitForResponse bool) (KernelMessage, error) {
+func (conn *BasicKernelConnection) SendDummyMessage(channel KernelSocketChannel, content interface{}, waitForResponse bool) (KernelMessage, error) {
 	message, responseChan := conn.createKernelMessage(DummyMessage, channel, content)
 	err := conn.sendMessage(message)
 	if err != nil {
@@ -192,7 +192,7 @@ func (conn *kernelConnectionImpl) SendDummyMessage(channel KernelSocketChannel, 
 }
 
 // Send a 'stop_running_training_code_request' message.
-func (conn *kernelConnectionImpl) StopRunningTrainingCode(waitForResponse bool) error {
+func (conn *BasicKernelConnection) StopRunningTrainingCode(waitForResponse bool) error {
 	message, responseChan := conn.createKernelMessage(StopRunningTrainingCode, ControlChannel, nil)
 
 	err := conn.sendMessage(message)
@@ -225,7 +225,7 @@ func (conn *kernelConnectionImpl) StopRunningTrainingCode(waitForResponse bool) 
 }
 
 // Return the address of the Jupyter Server associated with this kernel.
-func (conn *kernelConnectionImpl) sendAck(msg KernelMessage, channel KernelSocketChannel) error {
+func (conn *BasicKernelConnection) sendAck(msg KernelMessage, channel KernelSocketChannel) error {
 	conn.logger.Debug("Attempting to ACK message.", zap.String("message-id", msg.GetHeader().MessageId), zap.String("channel", string(msg.GetChannel())), zap.String("kernel-id", conn.kernelId))
 
 	if channel != ShellChannel && channel != ControlChannel {
@@ -258,22 +258,22 @@ func (conn *kernelConnectionImpl) sendAck(msg KernelMessage, channel KernelSocke
 }
 
 // Return the address of the Jupyter Server associated with this kernel.
-func (conn *kernelConnectionImpl) JupyterServerAddress() string {
+func (conn *BasicKernelConnection) JupyterServerAddress() string {
 	return conn.jupyterServerAddress
 }
 
 // Return true if the connection is currently active.
-func (conn *kernelConnectionImpl) Connected() bool {
+func (conn *BasicKernelConnection) Connected() bool {
 	return conn.connectionStatus == KernelConnected
 }
 
 // Get the connection status of the kernel.
-func (conn *kernelConnectionImpl) ConnectionStatus() KernelConnectionStatus {
+func (conn *BasicKernelConnection) ConnectionStatus() KernelConnectionStatus {
 	return conn.connectionStatus
 }
 
 // Return the ID of the kernel itself.
-func (conn *kernelConnectionImpl) KernelId() string {
+func (conn *BasicKernelConnection) KernelId() string {
 	return conn.kernelId
 }
 
@@ -293,7 +293,7 @@ func (conn *kernelConnectionImpl) KernelId() string {
 // - allowStdin (bool): Whether to allow stdin requests. The default is `true`.
 // - stopOnError (bool): Whether to the abort execution queue on an error. The default is `false`.
 // - waitForResponse (bool): Whether to wait for a response from the kernel, or just return immediately.
-func (conn *kernelConnectionImpl) RequestExecute(code string, silent bool, storeHistory bool, userExpressions map[string]interface{}, allowStdin bool, stopOnError bool, waitForResponse bool) error {
+func (conn *BasicKernelConnection) RequestExecute(code string, silent bool, storeHistory bool, userExpressions map[string]interface{}, allowStdin bool, stopOnError bool, waitForResponse bool) error {
 	content := &executeRequestKernelMessageContent{
 		Code:            code,
 		Silent:          silent,
@@ -321,7 +321,7 @@ func (conn *kernelConnectionImpl) RequestExecute(code string, silent bool, store
 	return nil
 }
 
-func (conn *kernelConnectionImpl) RequestKernelInfo() (KernelMessage, error) {
+func (conn *BasicKernelConnection) RequestKernelInfo() (KernelMessage, error) {
 	content := make(map[string]interface{}, 0)
 	content["sender-id"] = fmt.Sprintf("GoJupyter-%s", conn.kernelId)
 
@@ -360,7 +360,7 @@ func (conn *kernelConnectionImpl) RequestKernelInfo() (KernelMessage, error) {
 //
 // The promise will be rejected if the kernel status is `Dead` or if the
 // request fails or the response is invalid.
-func (conn *kernelConnectionImpl) InterruptKernel() error {
+func (conn *BasicKernelConnection) InterruptKernel() error {
 	if conn.connectionStatus == KernelDead {
 		// Cannot interrupt a dead kernel.
 		return ErrKernelIsDead
@@ -377,18 +377,18 @@ func (conn *kernelConnectionImpl) InterruptKernel() error {
 		return err
 	}
 
-	url := fmt.Sprintf("%s/api/kernels/%s/interrupt", conn.jupyterServerAddress, conn.kernelId)
-	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(requestBodyEncoded))
+	endpoint := fmt.Sprintf("%s/api/kernels/%s/interrupt", conn.jupyterServerAddress, conn.kernelId)
+	req, err := http.NewRequest(http.MethodPost, endpoint, bytes.NewBuffer(requestBodyEncoded))
 
 	if err != nil {
-		conn.logger.Error("Failed to create HTTP request for kernel interruption.", zap.String("url", url), zap.Error(err))
+		conn.logger.Error("Failed to create HTTP request for kernel interruption.", zap.String("url", endpoint), zap.Error(err))
 		return err
 	}
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		conn.logger.Error("Error while issuing HTTP request to interrupt kernel.", zap.String("url", url), zap.Error(err))
+		conn.logger.Error("Error while issuing HTTP request to interrupt kernel.", zap.String("url", endpoint), zap.Error(err))
 		return err
 	}
 
@@ -403,7 +403,7 @@ func (conn *kernelConnectionImpl) InterruptKernel() error {
 }
 
 // Close the connection to the kernel.
-func (conn *kernelConnectionImpl) Close() error {
+func (conn *BasicKernelConnection) Close() error {
 	message, _ := conn.createKernelMessage(CommCloseMessage, ShellChannel, nil)
 	err := conn.sendMessage(message)
 
@@ -421,16 +421,16 @@ func (conn *kernelConnectionImpl) Close() error {
 	return err // Will be nil on success.
 }
 
-func (conn *kernelConnectionImpl) ClientId() string {
+func (conn *BasicKernelConnection) ClientId() string {
 	return conn.clientId
 }
 
-func (conn *kernelConnectionImpl) Username() string {
+func (conn *BasicKernelConnection) Username() string {
 	return conn.username
 }
 
 // Listen for messages from the kernel.
-func (conn *kernelConnectionImpl) serveMessages() {
+func (conn *BasicKernelConnection) serveMessages() {
 	for {
 		var kernelMessage *baseKernelMessage
 		conn.rlock.Lock()
@@ -490,7 +490,7 @@ func (conn *kernelConnectionImpl) serveMessages() {
 	}
 }
 
-func (conn *kernelConnectionImpl) handleIOPubMessage(kernelMessage KernelMessage) error {
+func (conn *BasicKernelConnection) handleIOPubMessage(kernelMessage KernelMessage) error {
 	// We just want to extract the output from 'stream' IOPub messages.
 	// We don't care about non-stream-type IOPub messages here, so we'll just return.
 	if kernelMessage.GetHeader().MessageType != "stream" {
@@ -533,7 +533,7 @@ func (conn *kernelConnectionImpl) handleIOPubMessage(kernelMessage KernelMessage
 	return nil
 }
 
-func (conn *kernelConnectionImpl) createKernelMessage(messageType MessageType, channel KernelSocketChannel, content interface{}) (KernelMessage, chan KernelMessage) {
+func (conn *BasicKernelConnection) createKernelMessage(messageType MessageType, channel KernelSocketChannel, content interface{}) (KernelMessage, chan KernelMessage) {
 	messageId := conn.getNextMessageId()
 	header := &KernelMessageHeader{
 		Date:        time.Now().UTC().Format(JavascriptISOString),
@@ -574,13 +574,13 @@ func (conn *kernelConnectionImpl) createKernelMessage(messageType MessageType, c
 	return message, responseChannel /* Will be nil for messages that are not either Shell or Control */
 }
 
-func (conn *kernelConnectionImpl) getNextMessageId() string {
+func (conn *BasicKernelConnection) getNextMessageId() string {
 	messageId := fmt.Sprintf("%s_%d_%d", conn.clientId, os.Getpid(), conn.messageCount)
 	conn.messageCount += 1
 	return messageId
 }
 
-func (conn *kernelConnectionImpl) updateConnectionStatus(status KernelConnectionStatus) {
+func (conn *BasicKernelConnection) updateConnectionStatus(status KernelConnectionStatus) {
 	if conn.connectionStatus == status {
 		return
 	}
@@ -626,8 +626,8 @@ func (conn *kernelConnectionImpl) updateConnectionStatus(status KernelConnection
 	conn.sugaredLogger.Debugf("Kernel %s connection status set to '%s'", conn.kernelId, conn.connectionStatus)
 }
 
-// Side-effect: updates the kernelConnectionImpl's `webSocket` field.
-func (conn *kernelConnectionImpl) setupWebsocket(jupyterServerAddress string) error {
+// Side-effect: updates the BasicKernelConnection's `webSocket` field.
+func (conn *BasicKernelConnection) setupWebsocket(jupyterServerAddress string) error {
 	if conn.webSocket != nil {
 		return ErrWebsocketAlreadySetup
 	}
@@ -644,15 +644,15 @@ func (conn *kernelConnectionImpl) setupWebsocket(jupyterServerAddress string) er
 	}
 
 	conn.sugaredLogger.Debugf("Created partial kernel websocket URL: '%s'", partialUrl)
-	url := partialUrl + "/" + fmt.Sprintf("channels?session_id=%s", url.PathEscape(conn.clientId))
+	endpoint := partialUrl + "/" + fmt.Sprintf("channels?session_id=%s", url.PathEscape(conn.clientId))
 
-	conn.sugaredLogger.Debugf("Created full kernel websocket URL: '%s'", url)
+	conn.sugaredLogger.Debugf("Created full kernel websocket URL: '%s'", endpoint)
 
 	st := time.Now()
 
 	ws, _, err := websocket.DefaultDialer.Dial(url, nil)
 	if err != nil {
-		conn.logger.Error("Failed to dial kernel websocket.", zap.String("url", url), zap.String("kernel-id", conn.kernelId), zap.Error(err))
+		conn.logger.Error("Failed to dial kernel websocket.", zap.String("endpoint", endpoint), zap.String("kernel-id", conn.kernelId), zap.Error(err))
 		return fmt.Errorf("ErrWebsocketCreationFailed %w : %s", ErrWebsocketCreationFailed, err.Error())
 	}
 
@@ -680,7 +680,7 @@ func (conn *kernelConnectionImpl) setupWebsocket(jupyterServerAddress string) er
 // Register with the Cluster Gateway, informing it that we're a Golang frontend and that it should expect us to ACK messages.
 // This is noteworthy insofar as Jupyter frontends typically do not ACK messages.
 // We don't want to lose any messages, though, so we tell the Cluster Gateway that we WILL be ACKing messages.
-// func (conn *kernelConnectionImpl) registerAsGolangFrontend() error {
+// func (conn *BasicKernelConnection) registerAsGolangFrontend() error {
 // 	content := make(map[string]interface{}, 0)
 // 	content["sender-id"] = fmt.Sprintf("GoJupyter-%s", conn.kernelId)
 
@@ -727,7 +727,7 @@ func (conn *kernelConnectionImpl) setupWebsocket(jupyterServerAddress string) er
 // 	return nil
 // }
 
-func (conn *kernelConnectionImpl) websocketClosed(code int, text string) error {
+func (conn *BasicKernelConnection) websocketClosed(code int, text string) error {
 	if conn.originalWebsocketCloseHandler == nil {
 		panic("Original websocket close-handler is not set.")
 	}
@@ -766,7 +766,7 @@ func (conn *kernelConnectionImpl) websocketClosed(code int, text string) error {
 	}
 }
 
-func (conn *kernelConnectionImpl) reconnect() bool {
+func (conn *BasicKernelConnection) reconnect() bool {
 	num_tries := 0
 	max_num_tries := 5
 
@@ -793,20 +793,20 @@ func (conn *kernelConnectionImpl) reconnect() bool {
 	return false
 }
 
-func (conn *kernelConnectionImpl) getKernelModel() (*jupyterKernel, error) {
+func (conn *BasicKernelConnection) getKernelModel() (*jupyterKernel, error) {
 	conn.logger.Debug("Retrieving kernel model via HTTP Rest API.", zap.String("kernel-id", conn.kernelId))
 
-	url := fmt.Sprintf("http://%s/api/kernels/%s", conn.jupyterServerAddress, conn.kernelId)
-	req, err := http.NewRequest(http.MethodGet, url, nil)
+	endpoint := fmt.Sprintf("http://%s/api/kernels/%s", conn.jupyterServerAddress, conn.kernelId)
+	req, err := http.NewRequest(http.MethodGet, endpoint, nil)
 	if err != nil {
-		conn.logger.Error("Error encountered while creating HTTP request to get model for kernel.", zap.String("kernel-id", conn.kernelId), zap.String("url", url), zap.Error(err))
+		conn.logger.Error("Error encountered while creating HTTP request to get model for kernel.", zap.String("kernel-id", conn.kernelId), zap.String("endpoint", endpoint), zap.Error(err))
 		return nil, err
 	}
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		conn.logger.Error("Received error while requesting model for kernel.", zap.String("kernel-id", conn.kernelId), zap.String("url", url), zap.Error(err))
+		conn.logger.Error("Received error while requesting model for kernel.", zap.String("kernel-id", conn.kernelId), zap.String("endpoint", endpoint), zap.Error(err))
 		return nil, err
 	}
 
@@ -830,7 +830,7 @@ func (conn *kernelConnectionImpl) getKernelModel() (*jupyterKernel, error) {
 
 	err = json.Unmarshal(body, &model)
 	if err != nil {
-		conn.logger.Error("Failed to unmarshal JSON response when requesting model for new kernel.", zap.String("kernel-id", conn.kernelId), zap.String("url", url), zap.Error(err))
+		conn.logger.Error("Failed to unmarshal JSON response when requesting model for new kernel.", zap.String("kernel-id", conn.kernelId), zap.String("endpoint", endpoint), zap.Error(err))
 		return nil, err
 	}
 
@@ -838,7 +838,7 @@ func (conn *kernelConnectionImpl) getKernelModel() (*jupyterKernel, error) {
 	return model, nil
 }
 
-func (conn *kernelConnectionImpl) sendMessage(message KernelMessage) error {
+func (conn *BasicKernelConnection) sendMessage(message KernelMessage) error {
 	if conn.connectionStatus == KernelDead {
 		conn.logger.Error("Cannot send message. Kernel is dead.", zap.String("kernel_id", conn.kernelId))
 		return ErrKernelIsDead

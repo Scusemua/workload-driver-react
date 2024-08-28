@@ -16,27 +16,27 @@ var (
 	ErrInvalidClockOperation = errors.New("illegal clock operation attempted")
 )
 
-type simulationClockImpl struct {
+type BasicSimulationClock struct {
 	clockTime  time.Time
 	clockMutex sync.RWMutex
 }
 
-func NewSimulationClock() *simulationClockImpl {
-	return &simulationClockImpl{
+func NewSimulationClock() *BasicSimulationClock {
+	return &BasicSimulationClock{
 		clockTime: time.Unix(0, 0),
 	}
 }
 
-// Return the current clock time.
-func (sc *simulationClockImpl) GetClockTime() time.Time {
+// GetClockTime returns the current clock time.
+func (sc *BasicSimulationClock) GetClockTime() time.Time {
 	sc.clockMutex.RLock()
 	defer sc.clockMutex.RUnlock()
 
 	return sc.clockTime
 }
 
-// Set the clock to the given timestamp. Return the updated value.
-func (sc *simulationClockImpl) SetClockTime(t time.Time) time.Time {
+// SetClockTime sets the clock to the given timestamp. Return the updated value.
+func (sc *BasicSimulationClock) SetClockTime(t time.Time) time.Time {
 	sc.clockMutex.Lock()
 	defer sc.clockMutex.Unlock()
 
@@ -44,9 +44,9 @@ func (sc *simulationClockImpl) SetClockTime(t time.Time) time.Time {
 	return sc.clockTime
 }
 
-// Set the clock to the given timestamp, verifying that the new timestamp is either equal to or occurs after the old one.
+// IncreaseClockTimeTo sets the clock to the given timestamp, verifying that the new timestamp is either equal to or occurs after the old one.
 // Return a tuple where the first element is the new time, and the second element is the difference between the new time and the old time.
-func (sc *simulationClockImpl) IncreaseClockTimeTo(t time.Time) (time.Time, time.Duration, error) {
+func (sc *BasicSimulationClock) IncreaseClockTimeTo(t time.Time) (time.Time, time.Duration, error) {
 	sc.clockMutex.Lock()
 	defer sc.clockMutex.Unlock()
 
@@ -61,8 +61,8 @@ func (sc *simulationClockImpl) IncreaseClockTimeTo(t time.Time) (time.Time, time
 	return sc.clockTime, difference, nil // sc.clockTime
 }
 
-// Increment the clock by the given amount. Return the updated value.
-func (sc *simulationClockImpl) IncrementClockBy(amount time.Duration) (time.Time, error) {
+// IncrementClockBy increments the clock by the given amount. Return the updated value.
+func (sc *BasicSimulationClock) IncrementClockBy(amount time.Duration) (time.Time, error) {
 	sc.clockMutex.Lock()
 	defer sc.clockMutex.Unlock()
 

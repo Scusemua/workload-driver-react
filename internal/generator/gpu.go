@@ -10,11 +10,11 @@ import (
 )
 
 const (
-	GPUDeactivationDelay   = 2 // Deactivate after continous 3 idles
-	GPUStopDelay           = 2 // Stop after continous 3 no reading.
+	GPUDeactivationDelay   = 2 // Deactivate after continuous 3 idles
+	GPUStopDelay           = 2 // Stop after continuous 3 no reading.
 	GPUActivationThreshold = 0 // 2%
 
-	NoGpu  = "NO_GPU"
+	//NoGpu  = "NO_GPU"
 	AnyGPU = "ANY_GPU"
 )
 
@@ -49,7 +49,7 @@ const (
 // GPUUtil is used as a buffer to track overall GPU utilizations with the number of GPU cores used.
 // After updated GPU readings of the same timestamp, buffered summary are committed to the "LastUtil".
 type GPUUtil struct {
-	// prototype keeps track of the orginal object provisioned by the workload_generator.
+	// prototype keeps track of the original object provisioned by the workload_generator.
 	prototype *GPUUtil
 
 	Timestamp time.Time // Time of the event triggered
@@ -85,7 +85,7 @@ func (ed *GPUUtil) Committed() *GPUUtil {
 	return ed.prototype.LastUtil
 }
 
-func (ed *GPUUtil) Debug_Initialize(rec *GPURecord) *GPUUtil {
+func (ed *GPUUtil) DebugInitialize(rec *GPURecord) *GPUUtil {
 	return ed.init(rec)
 }
 
@@ -105,7 +105,7 @@ func (ed *GPUUtil) init(rec *GPURecord) *GPUUtil {
 	return ed
 }
 
-func (ed *GPUUtil) Debug_Update(rec *GPURecord) *GPUUtil {
+func (ed *GPUUtil) DebugUpdate(rec *GPURecord) *GPUUtil {
 	return ed.update(rec)
 }
 
@@ -114,7 +114,7 @@ func (ed *GPUUtil) update(rec *GPURecord) *GPUUtil {
 
 	ed.GPUs++
 	ed.Value += rec.Value
-	// Status will be promote to GPUBusy only, and keep GPUIdle intact.
+	// Status will be promoted to GPUBusy only, and keep GPUIdle intact.
 	if ed.Value > 0 {
 		ed.Status = GPUBusy
 	}
@@ -145,7 +145,7 @@ func (ed *GPUUtil) commit() *GPUUtil {
 	committed := ed.archive()    // Leverage "archive" for committing.
 	committed.LastUtil = history // Recover the history of the committed utilization.
 	if history != nil {
-		// Set field "Repeat", GPUIdleDelay is equivalent to GPUIdel
+		// Set field "Repeat", GPUIdleDelay is equivalent to GPUIdle
 		eqStatus := history.Status
 		if eqStatus == GPUIdleDelay {
 			eqStatus = GPUIdle
@@ -194,7 +194,7 @@ func (ed *GPUUtil) snapshot() *GPUUtil {
 	return &ss
 }
 
-func (ed *GPUUtil) Debug_CommitAndInit(rec *GPURecord) (committed *GPUUtil) {
+func (ed *GPUUtil) DebugCommitAndInit(rec *GPURecord) (committed *GPUUtil) {
 	return ed.commitAndInit(rec)
 }
 
@@ -250,7 +250,7 @@ func (ed *GPUUtil) transit(evtBuff []GPUEvent, force bool) ([]GPUEvent, error) {
 			}
 			return evtBuff, ErrUnexpectedGPUStTrans
 		case GPUBusy:
-			// We defer deactvate event by GPUDeactivationDelay
+			// We defer deactivate event by GPUDeactivationDelay
 			if (ed.Status == GPUIdle && ed.Repeat == GPUDeactivationDelay) || ed.Status == GPUStopped {
 				lastStatus = GPUIdle
 				evtBuff = append(evtBuff, EventGPUDeactivated)
@@ -374,13 +374,19 @@ func (d *GPUDriver) Teardown(ctx context.Context) {
 		return
 	}
 
-	sugarLog.Debugf("%v tearing down, last read %v", d, d.lastRead)
+	d.sugarLog.Debugf("%v tearing down, last read %v", d, d.lastRead)
 	if d.lastRead != 0 {
-		d.gc(ctx, time.Unix(d.lastRead, 0), false)
+		if err := d.gc(ctx, time.Unix(d.lastRead, 0), false); err != nil {
+			d.sugarLog.Warnf("Error while garbage collecting in GPU driver: %v", err)
+		}
+
 		if d.interval == time.Duration(0) {
 			d.interval = time.Second
 		}
-		d.gc(ctx, time.Unix(d.lastRead, int64(d.interval)), true)
+
+		if err := d.gc(ctx, time.Unix(d.lastRead, int64(d.interval)), true); err != nil {
+			d.sugarLog.Warnf("Error while garbage collecting in GPU driver: %v", err)
+		}
 	}
 	d.pods = nil
 	d.podMap = nil
@@ -481,7 +487,10 @@ func (d *GPUDriver) HandleRecord(ctx context.Context, r Record) {
 	// }
 
 	// d.sugarLog.Debugf("GPUDriver. Processed record: %v. Committed Status: %v. Triggering %d event(s).", rec, committed.Status, len(events))
-	d.triggerMulti(ctx, events, committed)
+	err = d.triggerMulti(ctx, events, committed)
+	if err != nil {
+		sugarLog.Warnf("Error on triggering events: %v", err)
+	}
 }
 
 // When executing in the "pre-run" mode, we record the maximum GPU utilization for each session.
@@ -492,7 +501,7 @@ func (d *GPUDriver) updateMaxUtilization(committed *GPUUtil) {
 	// log.Info("[%s] Updating max utilization. Acquiring MaxesMutex lock.", d.DriverType)
 	d.MaxesMutex.Lock()
 	defer d.MaxesMutex.Unlock()
-	current_session_max, ok := d.SessionMaxes[committed.Pod]
+	currentSessionMax, ok := d.SessionMaxes[committed.Pod]
 
 	if !ok {
 		// d.MaxesMutex.RUnlock()
@@ -501,7 +510,7 @@ func (d *GPUDriver) updateMaxUtilization(committed *GPUUtil) {
 		d.SessionNumGPUs[committed.Pod] = committed.GPUs
 		// d.MaxesMutex.Unlock()
 		// d.MaxesMutex.RLock()
-	} else if committed.Value > current_session_max {
+	} else if committed.Value > currentSessionMax {
 		// d.MaxesMutex.RUnlock()
 		// d.MaxesMutex.Lock()
 		d.SessionMaxes[committed.Pod] = committed.Value
@@ -510,8 +519,8 @@ func (d *GPUDriver) updateMaxUtilization(committed *GPUUtil) {
 		// d.MaxesMutex.RLock()
 	}
 
-	current_training_maxes, ok2 := d.TrainingMaxes[committed.Pod]
-	current_training_gpus, ok3 := d.TrainingNumGPUs[committed.Pod]
+	currentTrainingMaxes, ok2 := d.TrainingMaxes[committed.Pod]
+	currentTrainingGpus, ok3 := d.TrainingNumGPUs[committed.Pod]
 
 	if !ok2 {
 		panic(fmt.Sprintf("Expected to find list of training maxes for session \"%s\".", committed.Pod))
@@ -521,8 +530,8 @@ func (d *GPUDriver) updateMaxUtilization(committed *GPUUtil) {
 		panic(fmt.Sprintf("Expected to find list of number of GPUs for each training event for session \"%s\".", committed.Pod))
 	}
 
-	n1 := len(current_training_maxes)
-	n2 := len(current_training_gpus)
+	n1 := len(currentTrainingMaxes)
+	n2 := len(currentTrainingGpus)
 
 	if n1 != n2 {
 		panic(fmt.Sprintf("The number of training maxes (%d) and the number of training NumGPU values (%d) differ for session \"%s\".", n1, n2, committed.Pod))
@@ -532,12 +541,12 @@ func (d *GPUDriver) updateMaxUtilization(committed *GPUUtil) {
 
 	// It's set (in the base TraceDriver) to -1 when training ends so that we stop recording.
 	// It's set (in the base TraceDriver) to 0 when training begins so that we start recording.
-	if d.SessionIsCurrentlyTraining[committed.Pod] && committed.Value > current_training_maxes[n-1] {
-		current_training_maxes[n-1] = committed.Value
-		current_training_gpus[n-1] = committed.GPUs
+	if d.SessionIsCurrentlyTraining[committed.Pod] && committed.Value > currentTrainingMaxes[n-1] {
+		currentTrainingMaxes[n-1] = committed.Value
+		currentTrainingGpus[n-1] = committed.GPUs
 
-		d.TrainingMaxes[committed.Pod] = current_training_maxes
-		d.TrainingNumGPUs[committed.Pod] = current_training_gpus
+		d.TrainingMaxes[committed.Pod] = currentTrainingMaxes
+		d.TrainingNumGPUs[committed.Pod] = currentTrainingGpus
 	}
 }
 

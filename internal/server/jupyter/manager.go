@@ -61,7 +61,7 @@ func (m *kernelManagerMetricsImpl) SessionTerminated() {
 	m.NumSessionsTerminated += 1
 }
 
-type kernelSessionManagerImpl struct {
+type BasicKernelSessionManager struct {
 	logger        *zap.Logger
 	sugaredLogger *zap.SugaredLogger
 	atom          *zap.AtomicLevel
@@ -76,8 +76,8 @@ type kernelSessionManagerImpl struct {
 	adjustSessionNames               bool                          // If true, ensure all session names are 36 characters in length. For now, this should be true. Setting it to false causes problems for some reason...
 }
 
-func NewKernelSessionManager(jupyterServerAddress string, adjustSessionNames bool, atom *zap.AtomicLevel) *kernelSessionManagerImpl {
-	manager := &kernelSessionManagerImpl{
+func NewKernelSessionManager(jupyterServerAddress string, adjustSessionNames bool, atom *zap.AtomicLevel) *BasicKernelSessionManager {
+	manager := &BasicKernelSessionManager{
 		jupyterServerAddress:             jupyterServerAddress,
 		metrics:                          &kernelManagerMetricsImpl{},
 		localSessionIdToKernelId:         make(map[string]string),
@@ -97,12 +97,12 @@ func NewKernelSessionManager(jupyterServerAddress string, adjustSessionNames boo
 }
 
 // Start a new kernel.
-func (m *kernelSessionManagerImpl) StartNewKernel(kernelSpec string) error {
+func (m *BasicKernelSessionManager) StartNewKernel(kernelSpec string) error {
 	return nil
 }
 
 // Create a new session.
-func (m *kernelSessionManagerImpl) CreateSession(sessionId string, path string, sessionType string, kernelSpecName string) (*SessionConnection, error) {
+func (m *BasicKernelSessionManager) CreateSession(sessionId string, path string, sessionType string, kernelSpecName string) (*SessionConnection, error) {
 	if m.adjustSessionNames {
 		if len(sessionId) < 36 {
 			generated_uuid := uuid.NewString()
@@ -200,7 +200,7 @@ func (m *kernelSessionManagerImpl) CreateSession(sessionId string, path string, 
 //
 // The promise will be rejected if the kernel status is `Dead` or if the
 // request fails or the response is invalid.
-func (m *kernelSessionManagerImpl) InterruptKernel(sessionId string) error {
+func (m *BasicKernelSessionManager) InterruptKernel(sessionId string) error {
 	sess, ok := m.sessionMap[sessionId]
 	if !ok {
 		m.logger.Error("Cannot interrupt kernel. Associated kernel/session not found.", zap.String("session_id", sessionId))
@@ -252,7 +252,7 @@ func (m *kernelSessionManagerImpl) InterruptKernel(sessionId string) error {
 	return nil
 }
 
-func (m *kernelSessionManagerImpl) CreateFile(path string) error {
+func (m *BasicKernelSessionManager) CreateFile(path string) error {
 	url := fmt.Sprintf("http://%s/api/contents/%s", m.jupyterServerAddress, path)
 
 	createFileRequest := newCreateFileRequest(path)
@@ -305,7 +305,7 @@ func (m *kernelSessionManagerImpl) CreateFile(path string) error {
 	return nil
 }
 
-func (m *kernelSessionManagerImpl) StopKernel(id string) error {
+func (m *BasicKernelSessionManager) StopKernel(id string) error {
 	url := fmt.Sprintf("http://%s/api/sessions/%s", m.jupyterServerAddress, id)
 	req, err := http.NewRequest(http.MethodDelete, url, nil)
 	if err != nil {
@@ -342,7 +342,7 @@ func (m *kernelSessionManagerImpl) StopKernel(id string) error {
 	return nil
 }
 
-func (m *kernelSessionManagerImpl) GetMetrics() KernelManagerMetrics {
+func (m *BasicKernelSessionManager) GetMetrics() KernelManagerMetrics {
 	return m.metrics
 }
 
@@ -354,7 +354,7 @@ func (m *kernelSessionManagerImpl) GetMetrics() KernelManagerMetrics {
  *
  * @returns A promise that resolves with the new kernel instance.
  */
-func (m *kernelSessionManagerImpl) ConnectTo(kernelId string, sessionId string, username string) (KernelConnection, error) {
+func (m *BasicKernelSessionManager) ConnectTo(kernelId string, sessionId string, username string) (KernelConnection, error) {
 	m.logger.Debug("Connecting to kernel now.", zap.String("kernel_id", kernelId), zap.String("session_id", sessionId))
 	conn, err := NewKernelConnection(kernelId, sessionId, username, m.jupyterServerAddress, m.atom)
 	if err != nil {

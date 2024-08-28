@@ -162,9 +162,9 @@ func (s *CustomEventSequencer) stepGpu(sessionId string, timestamp time.Time, gp
 		}
 
 		if gpuIdx == 0 {
-			committed = gpu.Debug_CommitAndInit(record)
+			committed = gpu.DebugCommitAndInit(record)
 		} else {
-			gpu.Debug_Update(record)
+			gpu.DebugUpdate(record)
 		}
 	}
 
@@ -242,7 +242,7 @@ func (s *CustomEventSequencer) AddSessionStartedEvent(sessionId string, tickNumb
 		Pod:       sessionId,
 		PodIdx:    podIdx,
 	}
-	gpu.Debug_Initialize(gpuRecord)
+	gpu.DebugInitialize(gpuRecord)
 
 	for i := 1; i < numGPUs; i++ {
 		nextGpuRecord := &GPURecord{
@@ -252,11 +252,11 @@ func (s *CustomEventSequencer) AddSessionStartedEvent(sessionId string, tickNumb
 			Pod:       sessionId,
 			PodIdx:    podIdx,
 		}
-		gpu.Debug_Update(nextGpuRecord)
+		gpu.DebugUpdate(nextGpuRecord)
 	}
 	// Just commit and init with the same record we used before.
 	// We'll overwrite the values later.
-	session.gpu = gpu.Debug_CommitAndInit(gpuRecord)
+	session.gpu = gpu.DebugCommitAndInit(gpuRecord)
 	session.session.GPU = session.gpu
 
 	session.memBuffer = &MemoryUtilBuffer{}

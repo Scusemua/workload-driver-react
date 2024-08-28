@@ -6,6 +6,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"log"
 	"math/rand"
 	"os"
 	"sort"
@@ -20,8 +21,6 @@ import (
 )
 
 var (
-	ErrClosed          = errors.New("closed")
-	ErrDriverClosed    = errors.New("driver closed")
 	ErrNoPathSpecified = errors.New("no path specified")
 )
 
@@ -45,7 +44,7 @@ type TraceDriver interface {
 	domain.EventSource
 	Id() int
 	Drive(context.Context, ...string)
-	// Similar to BaseDriver::DriveSync, except Record structs are consumed from the given channel.
+	// DriveWithSlice is similar to BaseDriver::DriveSync, except Record structs are consumed from the given channel.
 	// This is primarily used for testing. We can feed specific records to the `recordChannel` argument,
 	// prompting the TraceDriver to generate particular events, which we can then use for testing.
 	//
@@ -56,7 +55,6 @@ type TraceDriver interface {
 	// OnEvent() <-chan *Event
 	// EventSource() chan<- *Event
 
-	// For overwriten
 	String() string
 	Setup(context.Context) error
 	GetRecord() Record
@@ -95,7 +93,7 @@ type BaseDriver struct {
 
 	TrainingIndices map[string]int
 
-	// Map from Session ID to a bool indicating whether or not the Session is currently training.
+	// Map from Session ID to a bool indicating whether the Session is currently training.
 	SessionIsCurrentlyTraining map[string]bool
 
 	MaxSessionOutputPath  string
@@ -135,7 +133,7 @@ func NewBaseDriver(id int) *BaseDriver {
 	return driver
 }
 
-// Called in pre-run mode when the Synthesizer encounters a training-started event.
+// TrainingStarted is called in pre-run mode when the Synthesizer encounters a training-started event.
 // Sets the value in the latest training max slot to 0.
 func (d *BaseDriver) TrainingStarted(podId string) {
 	d.MaxesMutex.Lock()
@@ -182,7 +180,7 @@ func (d *BaseDriver) TrainingStarted(podId string) {
 	// d.TrainingMaxes[podId] = podTrainingMaxes
 }
 
-// Called in pre-run mode when the Synthesizer encounters a training-stopped event.
+// TrainingEnded is called in pre-run mode when the Synthesizer encounters a training-stopped event.
 // Prepares the next slot in the training maxes by appending to the list a new value of -1.
 func (d *BaseDriver) TrainingEnded(podId string) {
 	d.MaxesMutex.Lock()
@@ -248,12 +246,15 @@ func (d *BaseDriver) DriveWithSlice(ctx context.Context, records []Record, doneC
 	}
 
 	d.sugarLog.Debugf("Finished processing all %d record(s).", len(records))
-	d.TriggerEvent(ctx, &eventImpl{
+	err := d.TriggerEvent(ctx, &eventImpl{
 		eventSource:         d,
 		originalEventSource: d,
 		name:                EventNoMore,
 		id:                  uuid.New().String(),
 	})
+	if err != nil {
+		d.sugarLog.Warnf("Error while triggering events: %v", err)
+	}
 
 	doneChan <- struct{}{}
 
@@ -274,7 +275,12 @@ func (d *BaseDriver) DriveSync(ctx context.Context, mfPaths ...string) error {
 	if err != nil {
 		return err
 	}
-	defer manifest.Close()
+	defer func(manifest *os.File) {
+		err := manifest.Close()
+		if err != nil {
+			log.Printf("[ERROR] Failed to close manifest: %v\n", err)
+		}
+	}(manifest)
 
 	defaultTime := time.Time{}
 
@@ -324,7 +330,10 @@ func (d *BaseDriver) DriveSync(ctx context.Context, mfPaths ...string) error {
 		if openErr != nil {
 			return openErr
 		}
-		manifest.Close()
+		err = manifest.Close()
+		if err != nil {
+			d.sugarLog.Warnf("Error while closing manifest: %v", err)
+		}
 		manifest = nextManifest
 	}
 
@@ -345,13 +354,18 @@ func (d *BaseDriver) Drive(ctx context.Context, mfPaths ...string) {
 		return
 	}
 
-	d.TriggerEvent(ctx, &eventImpl{
+	if err := d.TriggerEvent(ctx, &eventImpl{
 		eventSource:         d,
 		originalEventSource: d,
 		name:                EventNoMore,
 		id:                  uuid.New().String(),
-	})
-	d.flushEvents()
+	}); err != nil {
+		d.sugarLog.Warnf("Error while triggering events: %v", err)
+	}
+
+	if err := d.flushEvents(); err != nil {
+		d.sugarLog.Warnf("Error while triggering events: %v", err)
+	}
 }
 
 func (d *BaseDriver) Trigger(ctx context.Context, name domain.EventName, rec Record) error {
@@ -383,7 +397,7 @@ func (d *BaseDriver) TriggerError(ctx context.Context, e error) error {
 // TriggerEvent buffers events of same timestamp and call FlushEvent if the timestamp changes.
 // The buffer and flush design allows objects' status being updated to the timetick before any event
 // of the timetick being triggered.
-func (d *BaseDriver) TriggerEvent(ctx context.Context, evt domain.Event) error {
+func (d *BaseDriver) TriggerEvent(_ context.Context, evt domain.Event) error {
 	if len(d.eventBuff) > 0 && evt.Timestamp() != d.eventBuff[len(d.eventBuff)-1].Timestamp() {
 		err := d.flushEvents()
 		if err != nil {
@@ -412,13 +426,18 @@ func (d *BaseDriver) SetId(id int) {
 
 func (d *BaseDriver) FlushEvents(ctx context.Context, timestamp time.Time) error {
 	if len(d.eventBuff) == 0 && (d.lastEvent == nil || timestamp != d.lastEvent.Timestamp()) {
-		d.TriggerEvent(ctx, &eventImpl{
+		err := d.TriggerEvent(ctx, &eventImpl{
 			eventSource:         d.TraceDriver,
 			originalEventSource: d.TraceDriver,
 			name:                EventTickHolder,
 			timestamp:           timestamp,
 			id:                  uuid.New().String(),
 		})
+
+		if err != nil {
+			d.sugarLog.Errorf("Error while triggering events: %v", err)
+			return err
+		}
 	}
 
 	return d.flushEvents()

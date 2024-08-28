@@ -461,7 +461,7 @@ func (h *WorkloadWebsocketHandler) handleRegisterWorkload(msgId string, message 
 
 // Send a binary websocket message to all workload websockets (contained in the 'subscribers' field of the serverImpl struct).
 func (h *WorkloadWebsocketHandler) broadcastToWorkloadWebsockets(payload []byte) []error {
-	errors := make([]error, 0)
+	errs := make([]error, 0)
 
 	toRemove := make([]domain.ConcurrentWebSocket, 0)
 
@@ -469,9 +469,10 @@ func (h *WorkloadWebsocketHandler) broadcastToWorkloadWebsockets(payload []byte)
 		err := ws.WriteMessage(websocket.BinaryMessage, payload)
 		if err != nil {
 			h.logger.Error("Error while broadcasting websocket message.", zap.Error(err))
-			errors = append(errors, err)
+			errs = append(errs, err)
 
-			if _, ok := err.(*websocket.CloseError); ok || err == websocket.ErrCloseSent {
+			var closeError *websocket.CloseError
+			if errors.As(err, &closeError) || errors.Is(err, websocket.ErrCloseSent) {
 				toRemove = append(toRemove, ws)
 			}
 		}
@@ -481,5 +482,5 @@ func (h *WorkloadWebsocketHandler) broadcastToWorkloadWebsockets(payload []byte)
 		h.removeSubscription(ws)
 	}
 
-	return errors
+	return errs
 }
