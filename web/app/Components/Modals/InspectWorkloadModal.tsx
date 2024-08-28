@@ -198,10 +198,10 @@ export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalP
                             <DescriptionListTerm>Workload Preset <BlueprintIcon /> </DescriptionListTerm>
                             <DescriptionListDescription>&quot;{props.workload?.workload_preset_name}&quot;</DescriptionListDescription>
                         </DescriptionListGroup>}
-                        {props.workload?.workload_template && <DescriptionListGroup>
+                        {/* {props.workload?.workload_template && <DescriptionListGroup>
                             <DescriptionListTerm>Workload Template <BlueprintIcon /></DescriptionListTerm>
                             <DescriptionListDescription>&quot;{props.workload?.workload_template.name}&quot;</DescriptionListDescription>
-                        </DescriptionListGroup>}
+                        </DescriptionListGroup>} */}
                         <DescriptionListGroup>
                             <DescriptionListTerm>Seed <DiceIcon /> </DescriptionListTerm>
                             <DescriptionListDescription>{props.workload?.seed}</DescriptionListDescription>

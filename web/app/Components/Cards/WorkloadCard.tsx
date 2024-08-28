@@ -137,7 +137,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
         // });
         toast('Registering template-based workload "' + workloadName + '" now.', {style: { maxWidth: 700 }});
 
-        console.log("New workload '%s' registered by user with template:\n%s", workloadName, workloadTemplate.name);
+        console.log("New workload '%s' registered by user with template.", workloadName);
         setIsRegisterWorkloadModalOpen(false);
         setIsRegisterNewWorkloadFromTemplateModalOpen(false);
 
@@ -154,7 +154,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                 adjust_gpu_reservations: false,
                 seed: workloadSeed,
                 timescale_adjustment_factor: timescaleAdjustmentFactor,
-                key: workloadTemplate.name,
+                key: "workload_template_key",
                 name: workloadName,
                 debug_logging: debugLoggingEnabled,
                 type: "template",
@@ -720,7 +720,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                                                                                 {/* <Label icon={<BlueprintIcon />}>&quot;{workload.workload_template.name}&quot;</Label> */}
                                                                                 <React.Fragment>
                                                                                     <BlueprintIcon /> &quot;
-                                                                                    {workload.workload_template.name}&quot;
+                                                                                    {"Workload Template"}&quot;
                                                                                 </React.Fragment>
                                                                             </Tooltip>
                                                                         </FlexItem>}

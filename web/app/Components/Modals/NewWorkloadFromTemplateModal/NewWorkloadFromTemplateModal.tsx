@@ -79,7 +79,7 @@ function clamp(value: number, min: number, max: number) {
 }
 
 function roundToThreeDecimalPlaces(num: number) {
-    return +(Math.round(num + Number.parseFloat('e+3')) + Number.parseFloat('e+3'));
+    return +(Math.round(Number.parseFloat(num.toString() + 'e+3')).toString() + 'e-3');
 }
 
 function assertIsNumber(value: number | ''): asserts value is number {
@@ -102,12 +102,11 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
         reValidateMode: 'onChange',
     });
 
-    const control = form.control;
-
     const defaultWorkloadTitle = React.useRef(uuidv4());
-    const defaultSessionId = React.useRef(uuidv4());
-
-    const onSubmit = (data) => console.log(data);
+    const onSubmit = (data) => {
+        console.log(data);
+        form.reset();
+    };
 
     // const [sessions, setSessions] = React.useState<Session[]>([{
     //     id: defaultSessionId.current,
@@ -277,7 +276,6 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                                             inputName='workload-seed-number-input'
                                             id="workload-seed-number-input"
                                             type="number"
-                                            inputProps={{ innerRef: field.ref }}
                                             min={WorkloadSeedMin}
                                             max={WorkloadSeedMax}
                                             onBlur={field.onBlur}
@@ -287,20 +285,16 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                                             widthChars={10}
                                             aria-label="Text input for the 'timescale adjustment factor'"
                                             onPlus={() => {
-                                                const curr: number = form.getValues("workloadSeed") as number;
+                                                const curr: number = Number.parseInt(form.getValues("workloadSeed")) || 0;
                                                 let next: number = curr + WorkloadSeedDelta;
                                                 next = clamp(next, WorkloadSeedMin, WorkloadSeedMax);
-                                                next = roundToThreeDecimalPlaces(next);
-
-                                                form.setValue("workloadSeed", next);
+                                                form.setValue("workloadSeed", next.toString());
                                             }}
                                             onMinus={() => {
-                                                const curr: number = form.getValues("workloadSeed") as number;
+                                                const curr: number = Number.parseInt(form.getValues("workloadSeed")) || 0;
                                                 let next: number = curr - WorkloadSeedDelta;
                                                 next = clamp(next, WorkloadSeedMin, WorkloadSeedMax);
-                                                next = roundToThreeDecimalPlaces(next);
-
-                                                form.setValue("workloadSeed", next);
+                                                form.setValue("workloadSeed", next.toString());
                                             }}
                                         />}
                                     />
@@ -343,7 +337,6 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                                             inputName='timescale-adjustment-factor-number-input'
                                             id="timescale-adjustment-factor-number-input"
                                             type="number"
-                                            inputProps={{ innerRef: field.ref }}
                                             aria-label="Text input for the 'timescale adjustment factor'"
                                             onBlur={field.onBlur}
                                             onChange={field.onChange}

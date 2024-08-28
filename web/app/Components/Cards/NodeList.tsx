@@ -65,7 +65,7 @@ export interface NodeListProps {
 }
 
 function roundToTwo(num: number) {
-    return +(Math.round(num + 'e+2') + 'e-2');
+    return+(Math.round(Number.parseFloat(num.toString() + 'e+2')).toString() + 'e-2');
 }
 
 export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props: NodeListProps) => {
