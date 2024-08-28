@@ -12,31 +12,16 @@ import { v4 as uuidv4 } from 'uuid';
 import { useFieldArray, useFormContext } from 'react-hook-form';
 import { SessionConfigurationFormTabContent } from './SessionConfigurationFormTabContent';
 import { TimesIcon } from '@patternfly/react-icons';
+import { DefaultSessionFieldValue } from './Constants';
 
 export interface SessionConfigurationFormProps {
     children?: React.ReactNode;
 }
 
-const DefaultSessionFormValue = {
-    id: uuidv4(),
-    start_tick: 1,
-    stop_tick: 6,
-    num_training_events: 1,
-    selected_training_event: 0,
-    training_start_tick: 2,
-    training_duration_ticks: 2,
-    cpu_percent_util: 10,
-    mem_usage_gb_util: 0.25,
-    num_gpus: 1,
-    gpu_utilizations: [{
-        utilization: 100,
-    }]
-}
-
 // TODO: Responsive validation not quite working yet.
-export const SessionConfigurationForm: React.FunctionComponent<SessionConfigurationFormProps> = (props) => {
+export const SessionConfigurationForm: React.FunctionComponent<SessionConfigurationFormProps> = () => {
     const { control, formState: { errors } } = useFormContext() // retrieve all hook methods
-    const { fields, append, remove } = useFieldArray({ name: "sessions", control });
+    const { append: appendSession, remove: removeSession } = useFieldArray({ name: "sessions", control });
 
     const [activeSessionTab, setActiveSessionTab] = React.useState<number>(0);
     const [sessionTabs, setSessionTabs] = React.useState<string[]>(['Session 1']);
@@ -67,7 +52,7 @@ export const SessionConfigurationForm: React.FunctionComponent<SessionConfigurat
         setActiveSessionTab(nextTabIndex);
         setSessionTabs(sessionTabs.filter((_, index) => index !== tabIndex));
 
-        remove(tabIndex as number);
+        removeSession(tabIndex as number);
     };
 
     const onAddSessionTab = () => {
@@ -75,7 +60,7 @@ export const SessionConfigurationForm: React.FunctionComponent<SessionConfigurat
         setActiveSessionTab(sessionTabs.length);
         setNewSessionTabNumber(newSessionTabNumber + 1);
 
-        append(DefaultSessionFormValue)
+        appendSession(DefaultSessionFieldValue)
     };
 
     React.useEffect(() => {
@@ -94,14 +79,14 @@ export const SessionConfigurationForm: React.FunctionComponent<SessionConfigurat
         //     // Append sessions to field array
         //     for (let i = oldVal; i < newVal; i++) {
         //         console.log(`Adding new session field. fields.length pre-add: ${fields.length}. i: ${i}, oldVal: ${oldVal}, newVal: ${newVal}.`)
-        //         append({});
+        //         appendSession({});
         //         console.log(`Added new session field. fields.length post-add: ${fields.length}. i: ${i}, oldVal: ${oldVal}, newVal: ${newVal}.`)
         //     }
         // } else {
         //     // Remove sessions from field array
         //     for (let i = oldVal; i > newVal; i--) {
         //         console.log(`Removing session field. fields.length pre-removal: ${fields.length}`)
-        //         remove(i - 1);
+        //         removeSession(i - 1);
         //         console.log(`Removed session field. fields.length post-removal: ${fields.length}`)
         //     }
         // }
@@ -122,18 +107,19 @@ export const SessionConfigurationForm: React.FunctionComponent<SessionConfigurat
                 ref={sessionTabComponentRef}
                 aria-label="Session Configuration Tabs"
             >
-                {sessionTabs.map((tabName: string, tabIndex: number) => {
-                    const tabRef = React.createRef<HTMLElement>();
-                    
+                {sessionTabs.map((tabName: string, sessionTabIndex: number) => {
                     return (<Tab
-                        key={tabIndex}
-                        eventKey={tabIndex}
+                        id={`session${sessionTabIndex}-tab-id`}
+                        key={`session${sessionTabIndex}-tab-key`}
+                        eventKey={sessionTabIndex}
                         aria-label={`${tabName} Tab`}
                         title={<TabTitleText>{tabName}</TabTitleText>}
                         closeButtonAriaLabel={`Close ${tabName} Tab`}
                         isCloseDisabled={sessionTabs.length == 1}
                     >
-                        <SessionConfigurationFormTabContent tabIndex={tabIndex} defaultSessionId={uuidv4()}/>
+                        <SessionConfigurationFormTabContent 
+                        sessionIndex={sessionTabIndex} 
+                        defaultSessionId={uuidv4()}/>
                     </Tab>)
                 })}
             </Tabs>

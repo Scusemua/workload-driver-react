@@ -2,9 +2,6 @@ import React from 'react';
 import {
     Button,
     Divider,
-    Dropdown,
-    DropdownItem,
-    DropdownList,
     Form,
     FormGroup,
     FormSection,
@@ -13,30 +10,23 @@ import {
     GridItem,
     HelperText,
     HelperTextItem,
-    MenuToggle,
-    MenuToggleElement,
     Modal,
     ModalVariant,
     NumberInput,
     Popover,
     Switch,
     TextInput,
-    ValidatedOptions,
-    Tabs,
-    Tab,
-    TabTitleText,
-    CardBody,
-    Card,
 } from '@patternfly/react-core';
 
 import { v4 as uuidv4 } from 'uuid';
 import HelpIcon from '@patternfly/react-icons/dist/esm/icons/help-icon';
 import styles from '@patternfly/react-styles/css/components/Form/form';
 
-import { useForm, FormProvider, useFormContext, Controller, useFieldArray } from "react-hook-form"
+import { useForm, FormProvider, Controller } from "react-hook-form"
 
-import { ResourceRequest, Session, TrainingEvent, WorkloadTemplate } from '@app/Data';
+import { WorkloadTemplate } from '@app/Data';
 import { SessionConfigurationForm } from './SessionConfigurationForm';
+import { DefaultSessionFieldValue, TimeAdjustmentFactorDefault, TimescaleAdjustmentFactorDelta, TimescaleAdjustmentFactorMax, TimescaleAdjustmentFactorMin, WorkloadSeedDefault, WorkloadSeedDelta, WorkloadSeedMax, WorkloadSeedMin } from './Constants';
 
 export interface NewWorkloadFromTemplateModalProps {
     children?: React.ReactNode;
@@ -49,34 +39,6 @@ export interface NewWorkloadFromTemplateModalProps {
         workloadTemplate: WorkloadTemplate,
         timescaleAdjustmentFactor: number,
     ) => void;
-}
-
-// How much to adjust the timescale adjustment factor when using the 'plus' and 'minus' buttons to adjust the field's value.
-const TimescaleAdjustmentFactorDelta: number = 0.1;
-const TimescaleAdjustmentFactorMax: number = 10;
-const TimescaleAdjustmentFactorMin: number = 1.0e-3;
-const TimeAdjustmentFactorDefault: number = 0.1;
-
-// How much to adjust the workload seed when using the 'plus' and 'minus' buttons to adjust the field's value.
-const WorkloadSeedDelta: number = 1.0;
-const WorkloadSeedMax: number = 2147483647.0;
-const WorkloadSeedMin: number = 0.0;
-const WorkloadSeedDefault: number = 0.0;
-
-const DefaultSessionFormValue = {
-    id: uuidv4(),
-    start_tick: 1,
-    stop_tick: 6,
-    num_training_events: 1,
-    selected_training_event: 0,
-    training_start_tick: 2,
-    training_duration_ticks: 2,
-    cpu_percent_util: 10,
-    mem_usage_gb_util: 0.25,
-    num_gpus: 1,
-    gpu_utilizations: [{
-        utilization: 100,
-    }]
 }
 
 // Clamp a value between two extremes.
@@ -106,14 +68,13 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
     const defaultWorkloadTitle = React.useRef(uuidv4());
     const form = useForm({
         mode: 'all',
-        reValidateMode: 'onChange',
         defaultValues: {
             "workloadTitle": defaultWorkloadTitle.current,
             "workloadSeed": WorkloadSeedDefault,
             "timescaleAdjustmentFactor": TimeAdjustmentFactorDefault,
             "debugLoggingEnabled": true,
             "sessions": [
-                DefaultSessionFormValue
+                DefaultSessionFieldValue
             ]
         }
     });
