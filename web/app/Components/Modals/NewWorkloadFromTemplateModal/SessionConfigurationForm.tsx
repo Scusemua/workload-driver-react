@@ -96,10 +96,8 @@ export const SessionConfigurationForm: React.FunctionComponent<SessionConfigurat
     return (
         <FormSection title={`Workload Sessions (${sessionTabs.length})`} titleElement='h1' >
             <Tabs
-                isFilled
                 activeKey={activeSessionTab}
                 onSelect={(_: React.MouseEvent<HTMLElement, MouseEvent>, eventKey: number | string) => { onSessionTabSelect(eventKey as number) }}
-                isBox={true}
                 onClose={onCloseSessionTab}
                 onAdd={onAddSessionTab}
                 addButtonAriaLabel='Add Additional Session to Workload'
