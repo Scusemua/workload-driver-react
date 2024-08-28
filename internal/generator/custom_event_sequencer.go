@@ -288,14 +288,14 @@ func (s *CustomEventSequencer) AddSessionTerminatedEvent(sessionId string, tickN
 	sessionMeta := s.getSessionMeta(sessionId)
 
 	s.stepCpu(sessionId, timestamp, 0)
-	s.stepGpu(sessionId, timestamp, []domain.GpuUtilization{domain.GpuUtilization{Utilization: 0}})
+	s.stepGpu(sessionId, timestamp, []domain.GpuUtilization{{Utilization: 0}})
 	s.stepMemory(sessionId, timestamp, 0)
 
 	s.submitWaitingEvent(sessionMeta)
 
 	// Step again just to commit the 0 util entries that were initialized above.
 	s.stepCpu(sessionId, timestamp, 0)
-	s.stepGpu(sessionId, timestamp, []domain.GpuUtilization{domain.GpuUtilization{Utilization: 0}})
+	s.stepGpu(sessionId, timestamp, []domain.GpuUtilization{{Utilization: 0}})
 	s.stepMemory(sessionId, timestamp, 0)
 
 	data := sessionMeta.Snapshot()

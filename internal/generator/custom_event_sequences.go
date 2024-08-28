@@ -14,7 +14,7 @@ import (
  */
 
 var (
-	ErrInvalidConfiguration error = errors.New("Invalid configuration specified")
+	ErrInvalidConfiguration error = errors.New("invalid configuration specified")
 )
 
 // Defines a function that, when called and passed a pointer to a CustomEventSequencer,
@@ -262,6 +262,50 @@ func SingleSessionSingleTraining(sessions []*domain.WorkloadTemplateSession) (Se
 
 		sequencer.SubmitEvents(sequencer.eventConsumer.WorkloadEventGeneratorCompleteChan())
 
+		return nil
+	}, nil
+}
+
+func ManySessionsManyTrainingEvents(sessions []*domain.WorkloadTemplateSession) (SequencerFunction, error) {
+	if sessions == nil {
+		panic("Session arguments cannot be nil.")
+	}
+
+	if len(sessions) == 0 {
+		panic(fmt.Sprintf("Sessions has unexpected length: %d", len(sessions)))
+	}
+
+	for _, session := range sessions {
+		if err := validateSession(session); err != nil {
+			return nil, err
+		}
+
+		if err := validateSessionArgumentsAgainstTrainingArguments(session); err != nil {
+			return nil, err
+		}
+
+		if len(session.GetTrainings()) != 1 {
+			return nil, fmt.Errorf("%w: session has illegal number of training events for this particular template (%d, expected 1)", ErrInvalidConfiguration, len(session.GetTrainings()))
+		}
+
+		trainingEvent := session.GetTrainings()[0]
+		if trainingEvent.DurationInTicks <= 0 {
+			return nil, fmt.Errorf("%w: invalid training duration specified: %d ticks. Must be strictly greater than 0", ErrInvalidConfiguration, trainingEvent.DurationInTicks)
+		}
+	}
+
+	return func(sequencer *CustomEventSequencer) error {
+		for _, session := range sessions {
+			sequencer.RegisterSession(session.GetId(), session.GetResourceRequest().Cpus, session.GetResourceRequest().MemoryGB, session.GetResourceRequest().Gpus, 0)
+
+			for _, trainingEvent := range session.GetTrainings() {
+				sequencer.AddSessionStartedEvent(session.GetId(), session.GetStartTick(), 0, 0, 0, 1)
+				sequencer.AddTrainingEvent(session.GetId(), trainingEvent.StartTick, trainingEvent.DurationInTicks, trainingEvent.CpuUtil, trainingEvent.MemUsageGB, trainingEvent.GpuUtil) // TODO: Fix GPU util/num GPU specified here.
+				sequencer.AddSessionTerminatedEvent(session.GetId(), session.GetStopTick())
+			}
+		}
+
+		sequencer.SubmitEvents(sequencer.eventConsumer.WorkloadEventGeneratorCompleteChan())
 		return nil
 	}, nil
 }

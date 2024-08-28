@@ -135,7 +135,7 @@ type BasicWorkloadDriver struct {
 	workloadPreset                     *domain.WorkloadPreset                // The preset used by the associated workload. Will only be non-nil if the associated workload is a preset-based workload, rather than a template-based workload.
 	workloadPresets                    map[string]*domain.WorkloadPreset     // All of the available workload presets.
 	workloadRegistrationRequest        *domain.WorkloadRegistrationRequest   // The request that registered the workload that is being driven by this driver.
-	workloadTemplate                   *domain.WorkloadTemplate              // The template used by the associated workload. Will only be non-nil if the associated workload is a template-based workload, rather than a preset-based workload.
+	workloadSessions                   []*domain.WorkloadTemplateSession     // The template used by the associated workload. Will only be non-nil if the associated workload is a template-based workload, rather than a preset-based workload.
 }
 
 func NewWorkloadDriver(opts *domain.Configuration, performClockTicks bool, timescaleAdjustmentFactor float64, websocket domain.ConcurrentWebSocket, atom *zap.AtomicLevel) *BasicWorkloadDriver {
@@ -293,19 +293,19 @@ func (d *BasicWorkloadDriver) createWorkloadFromTemplate(workloadRegistrationReq
 	// The workload request needs to have a workload template in it.
 	// If the registration request does not contain a workload template,
 	// then the request is invalid, and we'll return an error.
-	if workloadRegistrationRequest.Template == nil {
-		d.logger.Error("Workload Registration Request for template-based workload is missing the template!")
+	if workloadRegistrationRequest.Sessions == nil {
+		d.logger.Error("Workload Registration Request for template-based workload is missing the sessions!")
 		return nil, ErrWorkloadRegistrationMissingTemplate
 	}
 
-	d.workloadTemplate = workloadRegistrationRequest.Template
-	d.logger.Debug("Creating new workload from template.", zap.String("workload-name", workloadRegistrationRequest.WorkloadName), zap.String("workload-preset-name", d.workloadTemplate.Name))
+	d.workloadSessions = workloadRegistrationRequest.Sessions
+	d.logger.Debug("Creating new workload from template.", zap.String("workload-name", workloadRegistrationRequest.WorkloadName))
 	workload := domain.NewWorkloadFromTemplate(
 		domain.NewWorkload(d.id, workloadRegistrationRequest.WorkloadName,
-			d.workloadRegistrationRequest.Seed, workloadRegistrationRequest.DebugLogging, workloadRegistrationRequest.TimescaleAdjustmentFactor, d.atom), d.workloadRegistrationRequest.Template,
+			d.workloadRegistrationRequest.Seed, workloadRegistrationRequest.DebugLogging, workloadRegistrationRequest.TimescaleAdjustmentFactor, d.atom), d.workloadRegistrationRequest.Sessions,
 	)
 
-	workload.SetSource(workloadRegistrationRequest.Template)
+	workload.SetSource(workloadRegistrationRequest.Sessions)
 
 	return workload, nil
 }
@@ -658,9 +658,9 @@ func (d *BasicWorkloadDriver) ProcessWorkload(wg *sync.WaitGroup) error {
 		WithProcessedAtTime(d.workloadStartTime))
 
 	if d.workloadPreset != nil {
-		d.logger.Info("Starting workload.", zap.String("workload-name", d.workload.WorkloadName()), zap.String("workload-preset-name", d.workloadPreset.GetName()), zap.String("workload-preset-key", d.workloadPreset.GetKey()))
-	} else if d.workloadTemplate != nil {
-		d.logger.Info("Starting workload.", zap.String("workload-name", d.workload.WorkloadName()), zap.String("workload-template-name", d.workloadTemplate.Name))
+		d.logger.Info("Starting preset-based workload.", zap.String("workload-name", d.workload.WorkloadName()), zap.String("workload-preset-name", d.workloadPreset.GetName()), zap.String("workload-preset-key", d.workloadPreset.GetKey()))
+	} else if d.workloadSessions != nil {
+		d.logger.Info("Starting template-based workload.", zap.String("workload-name", d.workload.WorkloadName()))
 	} else {
 		d.logger.Info("Starting workload.", zap.String("workload-name", d.workload.WorkloadName()))
 	}
@@ -671,7 +671,7 @@ func (d *BasicWorkloadDriver) ProcessWorkload(wg *sync.WaitGroup) error {
 	if d.workload.IsPresetWorkload() {
 		go d.workloadGenerator.GeneratePresetWorkload(d, d.workload, d.workload.(*domain.WorkloadFromPreset).WorkloadPreset, d.workloadRegistrationRequest)
 	} else if d.workload.IsTemplateWorkload() {
-		go d.workloadGenerator.GenerateTemplateWorkload(d, d.workload, d.workloadTemplate, d.workloadRegistrationRequest)
+		go d.workloadGenerator.GenerateTemplateWorkload(d, d.workload, d.workloadSessions, d.workloadRegistrationRequest)
 	} else {
 		panic(fmt.Sprintf("Workload is of presently-unsuporrted type: \"%s\" -- cannot generate workload.", d.workload.GetWorkloadType()))
 	}

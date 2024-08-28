@@ -24,7 +24,7 @@ import styles from '@patternfly/react-styles/css/components/Form/form';
 
 import { useForm, FormProvider, Controller } from "react-hook-form"
 
-import { WorkloadTemplate } from '@app/Data';
+import { ResourceRequest, Session, TrainingEvent, WorkloadTemplate } from '@app/Data';
 import { SessionConfigurationForm } from './SessionConfigurationForm';
 import { DefaultSessionFieldValue, TimeAdjustmentFactorDefault, TimescaleAdjustmentFactorDelta, TimescaleAdjustmentFactorMax, TimescaleAdjustmentFactorMin, WorkloadSeedDefault, WorkloadSeedDelta, WorkloadSeedMax, WorkloadSeedMin } from './Constants';
 
@@ -80,33 +80,57 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
     });
 
     const onSubmit = (data) => {
-        console.log(data);
+        const workloadTitle: string = data.workloadTitle;
+        const workloadSeed: string = data.workloadSeed;
+        const debugLoggingEnabled: boolean = data.debugLoggingEnabled;
+        const timescaleAdjustmentFactor: number = data.timescaleAdjustmentFactor;
+
+        const sessions: Session[] = data.sessions;
+
+        for (let i: number = 0; i < sessions.length; i++) {
+            const session: Session = sessions[i];
+            const trainings: TrainingEvent[] = session.trainings;
+
+            let max_cpu: number = -1;
+            let max_mem: number = -1;
+            let max_num_gpus: number = -1;
+            for (let j: number = 0; j < trainings.length; j++) {
+                const training: TrainingEvent = trainings[j];
+                training.training_index = j; // Set the training index field.
+
+                if (training.cpu_util > max_cpu) {
+                    max_cpu = training.cpu_util;
+                }
+
+                if (training.mem_usage_gb > max_mem) {
+                    max_mem = training.mem_usage_gb;
+                }
+
+                if (training.gpu_utilizations.length > max_num_gpus) {
+                    max_num_gpus = training.gpu_utilizations.length;
+                }
+            }
+
+            // Construct the resource request.
+            const resource_request: ResourceRequest = {
+                cpus: max_cpu,
+                gpus: max_num_gpus,
+                mem_gb: max_mem,
+                gpu_type: "Any_GPU"
+            }
+
+            // Update the session object.
+            session.resource_request = resource_request;
+        }
+
+        const workloadTemplate: WorkloadTemplate = {
+            sessions: data.sessions
+        }
+        
+        console.log(`User submitted workload template data: ${JSON.stringify(data)}`);
+        props.onConfirm(workloadTitle, workloadSeed, debugLoggingEnabled, workloadTemplate, timescaleAdjustmentFactor);
         form.reset();
     };
-
-    // const [sessions, setSessions] = React.useState<Session[]>([{
-    //     id: defaultSessionId.current,
-    //     resource_request: {
-    //         cpus: TrainingCpuPercentUtilDefault,
-    //         mem_gb: TrainingMemUsageGbDefault,
-    //         gpu_type: "ANY_GPU",
-    //         gpus: NumberOfGpusDefault,
-    //     },
-    //     start_tick: SessionStartTickDefault,
-    //     stop_tick: SessionStopTickDefault,
-    //     trainings: [{
-    //         sessionId: defaultSessionId.current,
-    //         trainingId: uuidv4(),
-    //         cpuUtil: TrainingCpuPercentUtilDefault,
-    //         memUsageGb: TrainingMemUsageGbDefault,
-    //         gpuUtil: [75],
-    //         startTick: TrainingStartTickDefault,
-    //         durationInTicks: TrainingDurationInTicksDefault,
-    //     }],
-    //     trainings_completed: 0,
-    //     state: "awaiting start",
-    //     error_message: "",
-    // }]);
 
     const getWorkloadNameValidationState = () => {
         const workloadId: string = form.watch("workloadTitle"); 

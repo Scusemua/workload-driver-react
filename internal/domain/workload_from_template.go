@@ -5,11 +5,11 @@ import "go.uber.org/zap"
 type WorkloadFromTemplate struct {
 	*workloadImpl
 
-	Template *WorkloadTemplate `json:"workload_template"`
+	Sessions []*WorkloadTemplateSession `json:"workload_template"`
 }
 
 func (w *WorkloadFromTemplate) GetWorkloadSource() interface{} {
-	return w.Template
+	return w.Sessions
 }
 
 func (w *WorkloadFromTemplate) SetSource(source interface{}) {
@@ -18,17 +18,17 @@ func (w *WorkloadFromTemplate) SetSource(source interface{}) {
 	}
 
 	var (
-		template *WorkloadTemplate
-		ok       bool
+		sourceSessions []*WorkloadTemplateSession
+		ok             bool
 	)
-	if template, ok = source.(*WorkloadTemplate); !ok {
+	if sourceSessions, ok = source.([]*WorkloadTemplateSession); !ok {
 		panic("Workload source is not correct type for WorkloadFromTemplate.")
 	}
 
-	w.workloadSource = template.GetSessions()
+	w.workloadSource = sourceSessions
 
-	workloadTemplateSessions := template.GetSessions()
-	sessions := make([]WorkloadSession, 0, len(workloadTemplateSessions))
+	workloadTemplateSessions := sourceSessions
+	sessions := make([]WorkloadSession, 0, len(sourceSessions))
 
 	for _, workloadTemplateSession := range workloadTemplateSessions {
 		sessions = append(sessions, workloadTemplateSession)
@@ -100,9 +100,9 @@ func (w *WorkloadFromTemplate) TrainingStopped(sessionId string) {
 	session.GetAndIncrementTrainingsCompleted()
 }
 
-func NewWorkloadFromTemplate(baseWorkload Workload, workloadTemplate *WorkloadTemplate) *WorkloadFromTemplate {
-	if workloadTemplate == nil {
-		panic("Workload template cannot be nil when creating a new workload from a template.")
+func NewWorkloadFromTemplate(baseWorkload Workload, sourceSessions []*WorkloadTemplateSession) *WorkloadFromTemplate {
+	if sourceSessions == nil {
+		panic("WorkloadSessions slice cannot be nil when creating a new workload from a template.")
 	}
 
 	if baseWorkload == nil {
@@ -119,7 +119,7 @@ func NewWorkloadFromTemplate(baseWorkload Workload, workloadTemplate *WorkloadTe
 
 	workload_from_template := &WorkloadFromTemplate{
 		workloadImpl: baseWorkloadImpl,
-		Template:     workloadTemplate,
+		Sessions:     sourceSessions,
 	}
 
 	baseWorkloadImpl.WorkloadType = TemplateWorkload

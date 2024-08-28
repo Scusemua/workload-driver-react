@@ -45,9 +45,9 @@ type WorkloadState string
 type WorkloadType string
 
 type WorkloadGenerator interface {
-	GeneratePresetWorkload(EventConsumer, Workload, *WorkloadPreset, *WorkloadRegistrationRequest) error     // Start generating the workload.
-	GenerateTemplateWorkload(EventConsumer, Workload, *WorkloadTemplate, *WorkloadRegistrationRequest) error // Start generating the workload.
-	StopGeneratingWorkload()                                                                                 // Stop generating the workload prematurely.
+	GeneratePresetWorkload(EventConsumer, Workload, *WorkloadPreset, *WorkloadRegistrationRequest) error              // Start generating the workload.
+	GenerateTemplateWorkload(EventConsumer, Workload, []*WorkloadTemplateSession, *WorkloadRegistrationRequest) error // Start generating the workload.
+	StopGeneratingWorkload()                                                                                          // Stop generating the workload prematurely.
 }
 
 // Intended to cover SessionEvents and WorkloadEvents

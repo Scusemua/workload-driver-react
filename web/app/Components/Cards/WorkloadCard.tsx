@@ -132,9 +132,6 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
         workloadTemplate: WorkloadTemplate,
         timescaleAdjustmentFactor: number,
     ) => {
-        // toast('Registering template-based workload "' + workloadName + '" now.', {
-        //     icon: '🛈',
-        // });
         toast('Registering template-based workload "' + workloadName + '" now.', {style: { maxWidth: 700 }});
 
         console.log("New workload '%s' registered by user with template.", workloadName);
@@ -158,7 +155,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                 name: workloadName,
                 debug_logging: debugLoggingEnabled,
                 type: "template",
-                workload_template: workloadTemplate,
+                sessions: workloadTemplate.sessions
             },
         });
         console.log(`Sending WorkloadRegistrationRequest: ${workloadRegistrationRequest}`)

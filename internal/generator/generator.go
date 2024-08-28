@@ -295,13 +295,13 @@ func (g *BasicWorkloadGenerator) GeneratePresetWorkload(consumer domain.EventCon
 	}
 }
 
-func (g *BasicWorkloadGenerator) GenerateTemplateWorkload(consumer domain.EventConsumer, workload domain.Workload, workloadTemplate *domain.WorkloadTemplate, workloadRegistrationRequest *domain.WorkloadRegistrationRequest) error {
+func (g *BasicWorkloadGenerator) GenerateTemplateWorkload(consumer domain.EventConsumer, workload domain.Workload, workloadSessions []*domain.WorkloadTemplateSession, workloadRegistrationRequest *domain.WorkloadRegistrationRequest) error {
 	if workload == nil {
 		panic("Workload cannot be nil when the workload generator is running.")
 	}
 
-	if workloadTemplate == nil {
-		panic("Workload template cannot be nil when the workload generator is running for a template-based workload.")
+	if workloadSessions == nil {
+		panic("Workload sessions cannot be nil when the workload generator is running for a template-based workload.")
 	}
 
 	if workloadRegistrationRequest == nil {
@@ -315,13 +315,8 @@ func (g *BasicWorkloadGenerator) GenerateTemplateWorkload(consumer domain.EventC
 	g.ctx, g.cancelFunction = context.WithCancel(context.Background())
 	defer g.cancelFunction()
 
-	sessions := workloadTemplate.Sessions
-	if sessions == nil {
-		panic("Workload template did not contain any sessions.")
-	}
-
 	// Populate all of the above mappings using the data from the template.
-	for _, session := range sessions {
+	for _, session := range workloadSessions {
 		cpuSessionMap[session.GetId()] = session.GetResourceRequest().Cpus
 		memSessionMap[session.GetId()] = session.GetResourceRequest().MemoryGB
 		gpuSessionMap[session.GetId()] = session.GetResourceRequest().Gpus
@@ -357,11 +352,12 @@ func (g *BasicWorkloadGenerator) GenerateTemplateWorkload(consumer domain.EventC
 		err           error
 	)
 
-	if workloadTemplate.Name == OneSessionOneTraining {
-		generatorFunc, err = SingleSessionSingleTraining(workloadTemplate.GetSessions())
-	} else {
-		panic(fmt.Sprintf("Unsupported workload template specified: \"%s\"", workloadTemplate.Name))
-	}
+	// if workloadTemplate.Name == OneSessionOneTraining {
+	// 	generatorFunc, err = SingleSessionSingleTraining(workloadTemplate.GetSessions())
+	// } else {
+	// 	panic(fmt.Sprintf("Unsupported workload template specified: \"%s\"", workloadTemplate.Name))
+	// }
+	generatorFunc, err = ManySessionsManyTrainingEvents(workloadSessions)
 
 	if err != nil {
 		g.logger.Error("Failed to apply template.", zap.Error(err))
@@ -371,7 +367,7 @@ func (g *BasicWorkloadGenerator) GenerateTemplateWorkload(consumer domain.EventC
 
 	err = generatorFunc(sequencer)
 	if err != nil {
-		g.logger.Error("Error occurred while executing generator function for template-based workload.", zap.String("workload-template-name", workloadTemplate.Name), zap.Error(err))
+		g.logger.Error("Error occurred while executing generator function for template-based workload.", zap.Error(err))
 		consumer.GetErrorChan() <- err
 		return err
 	}

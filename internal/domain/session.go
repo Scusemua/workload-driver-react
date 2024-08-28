@@ -33,6 +33,7 @@ type WorkloadSession interface {
 	GetTrainingsCompleted() int
 	GetState() SessionState
 	GetCreatedAt() time.Time
+	GetTrainings() []*TrainingEvent
 
 	SetState(SessionState)
 	GetAndIncrementTrainingsCompleted() int
@@ -47,6 +48,7 @@ type BasicWorkloadSession struct {
 	State              SessionState     `json:"state"`
 	CreatedAt          time.Time        `json:"-"`
 	Meta               SessionMetadata  `json:"-"`
+	TrainingEvents     []*TrainingEvent `json:"trainings"`
 }
 
 func (s *BasicWorkloadSession) GetAndIncrementTrainingsCompleted() int {
@@ -78,6 +80,10 @@ func (s *BasicWorkloadSession) GetCreatedAt() time.Time {
 	return s.CreatedAt
 }
 
+func (s *BasicWorkloadSession) GetTrainings() []*TrainingEvent {
+	return s.TrainingEvents
+}
+
 func newWorkloadSession(id string, meta SessionMetadata, resourceRequest *ResourceRequest, createdAtTime time.Time) *BasicWorkloadSession {
 	return &BasicWorkloadSession{
 		Id:                 id,
@@ -86,19 +92,20 @@ func newWorkloadSession(id string, meta SessionMetadata, resourceRequest *Resour
 		State:              SessionAwaitingStart,
 		CreatedAt:          createdAtTime,
 		Meta:               meta,
+		TrainingEvents:     make([]*TrainingEvent, 0),
 	}
 }
 
-func NewWorkloadSession(id string, meta SessionMetadata, resourceRequest *ResourceRequest, createdAtTime time.Time) WorkloadSession {
+func NewWorkloadSession(id string, meta SessionMetadata, resourceRequest *ResourceRequest, createdAtTime time.Time) *BasicWorkloadSession {
 	return newWorkloadSession(id, meta, resourceRequest, createdAtTime)
 }
 
 type WorkloadTemplateSession struct {
 	*BasicWorkloadSession
 
-	StartTick int             `json:"start_tick"`
-	StopTick  int             `json:"stop_tick"`
-	Trainings []TrainingEvent `json:"trainings"`
+	StartTick int              `json:"start_tick"`
+	StopTick  int              `json:"stop_tick"`
+	Trainings []*TrainingEvent `json:"trainings"`
 }
 
 func NewWorkloadTemplateSession(id string, meta SessionMetadata, resourceRequest *ResourceRequest, createdAtTime time.Time, startTick int, stopTick int) WorkloadTemplateSession {
@@ -108,7 +115,7 @@ func NewWorkloadTemplateSession(id string, meta SessionMetadata, resourceRequest
 		BasicWorkloadSession: workload_session,
 		StartTick:            startTick,
 		StopTick:             stopTick,
-		Trainings:            make([]TrainingEvent, 0),
+		Trainings:            make([]*TrainingEvent, 0),
 	}
 }
 
@@ -120,15 +127,14 @@ func (t WorkloadTemplateSession) GetStopTick() int {
 	return t.StopTick
 }
 
-func (t WorkloadTemplateSession) GetTrainings() []TrainingEvent {
+func (t WorkloadTemplateSession) GetTrainings() []*TrainingEvent {
 	return t.Trainings
 }
 
 // Corresponds to the `TrainingEvent` struct defined in `web/app/Data/workloadImpl.tsx`.
 // Used by the frontend when submitting workloads created from templates (as opposed to presets).
 type TrainingEvent struct {
-	SessionId       string           `json:"session_id"`
-	TrainingId      string           `json:"training_id"`
+	TrainingIndex   int              `json:"training_index"`
 	CpuUtil         float64          `json:"cpu_util"`
 	MemUsageGB      float64          `json:"mem_usage_gb"`
 	GpuUtil         []GpuUtilization `json:"gpu_utilizations"`
