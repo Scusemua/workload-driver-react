@@ -102,6 +102,7 @@ export const AppHeader: React.FunctionComponent = () => {
                     notificationType: 1,
                     panicked: false,
                 });
+                break;
             case ReadyState.OPEN:
                 addNewNotification({
                     title: 'Connection Established',
@@ -109,6 +110,7 @@ export const AppHeader: React.FunctionComponent = () => {
                     notificationType: 3,
                     panicked: false,
                 });
+              break;
         }
     }, [readyState]);
 
