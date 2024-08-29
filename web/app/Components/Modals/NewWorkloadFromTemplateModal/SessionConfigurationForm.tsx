@@ -1,12 +1,12 @@
 import {SessionTabsDataContext} from "@app/Providers";
-import {FormSection, Tab, Tabs, TabTitleText,} from '@patternfly/react-core';
+import {FormSection, Tab, TabTitleText, Tabs,} from '@patternfly/react-core';
 import React from 'react';
 
 import {useFieldArray, useFormContext} from 'react-hook-form';
 
 import {v4 as uuidv4} from 'uuid';
 import {GetDefaultSessionFieldValue} from './Constants';
-import {SessionConfigurationFormTabContent} from './SessionConfigurationFormTabContent';
+import {SessionConfigurationFormTabContent} from '@components/Modals';
 
 export interface SessionConfigurationFormProps {
   children?: React.ReactNode;
@@ -29,7 +29,7 @@ export const SessionConfigurationForm: React.FunctionComponent<SessionConfigurat
     removeSessionTabs
   } = React.useContext(SessionTabsDataContext);
 
-  const sessionTabComponentRef = React.useRef<any>();
+  const sessionTabComponentRef = React.useRef();
   const firstSessionTabMount = React.useRef<boolean>(true);
 
   React.useEffect(() => {
@@ -54,7 +54,7 @@ export const SessionConfigurationForm: React.FunctionComponent<SessionConfigurat
     // }
     // setActiveSessionTab(nextTabIndex);
     // setSessionTabs(sessionTabs.filter((_, index) => index !== tabIndex));
-    removeSessionTabs([tabIndex]);
+    removeSessionTabs([tabIndex as number]);
 
     removeSession(tabIndex as number);
   };
@@ -101,7 +101,7 @@ export const SessionConfigurationForm: React.FunctionComponent<SessionConfigurat
       const first = sessionTabComponentRef.current?.tabList.current.childNodes[activeSessionTab];
       first && first.firstChild.focus();
     }
-  }, [sessionTabs]);
+  }, [sessionTabs, activeSessionTab, setValue]);
 
   return (
     <FormSection title={`Workload Sessions`} titleElement='h1'>

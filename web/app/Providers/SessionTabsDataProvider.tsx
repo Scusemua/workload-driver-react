@@ -29,6 +29,10 @@ const initialState: SessionTabsDataContextType = {
 
 const SessionTabsDataContext = React.createContext<SessionTabsDataContextType>(initialState);
 
+// This exists so we can modify the session tabs within the NewWorkloadFromTemplateModal from any of the components.
+// When we load a template from JSON, we need to update the tabs to match the number of sessions from the JSON.
+// We do this from the NewWorkloadFromTemplate component. But we modify tabs one-at-a-time when adding or removing
+// them from the SessionConfigurationForm component.
 const SessionTabsDataProvider = ({children}) => {
   const [activeSessionTab, setActiveSessionTab] = React.useState<number>(0);
   const [sessionTabs, setSessionTabs] = React.useState<string[]>(['Session 1']);
