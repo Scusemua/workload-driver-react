@@ -37,7 +37,7 @@ const initialState: NotificationContext = {
     toggleExpansion: () => {},
 };
 
-const NotificationContext = React.createContext(initialState);
+const NotificationContext = React.createContext<NotificationContext>(initialState);
 
 const getTimeCreated = () => {
     const dateCreated = new Date();

@@ -6,6 +6,12 @@ const TimescaleAdjustmentFactorMax: number = 10;
 const TimescaleAdjustmentFactorMin: number = 1.0e-3;
 const TimeAdjustmentFactorDefault: number = 0.1;
 
+// The number of Sessions in the workload.
+const NumberOfSessionsDefault: number = 1;
+const NumberOfSessionsMin: number = 0;
+const NumberOfSessionsMax: number = Number.MAX_SAFE_INTEGER;
+const NumberOfSessionsDelta: number = 1;
+
 // How much to adjust the workload seed when using the 'plus' and 'minus' buttons to adjust the field's value.
 const WorkloadSeedDelta: number = 1.0;
 const WorkloadSeedMax: number = 2147483647.0;
@@ -34,15 +40,17 @@ const DefaultTrainingEventField = {
     }]
 }
 
-const DefaultSessionFieldValue = {
+const GetDefaultSessionFieldValue = () => {
+  return {
     id: uuidv4(),
     start_tick: SessionStartTickDefault,
     stop_tick: SessionStopTickDefault,
     num_training_events: DefaultNumTrainingEvents,
     selected_training_event: DefaultSelectedTrainingEvent,
-    trainings: [{
-        ...DefaultTrainingEventField,
-    }],
+    trainings: [
+      DefaultTrainingEventField
+    ],
+  }
 }
 
 const GetDefaultFormValues = () => {
@@ -52,9 +60,10 @@ const GetDefaultFormValues = () => {
     "workloadTitle": title,
     "workloadSeed": WorkloadSeedDefault,
     "timescaleAdjustmentFactor": TimeAdjustmentFactorDefault,
+    "numberOfSessions": 1,
     "debugLoggingEnabled": true,
     "sessions": [
-      DefaultSessionFieldValue
+      GetDefaultSessionFieldValue()
     ]
   }
 }
@@ -77,6 +86,11 @@ export {WorkloadSeedMax as WorkloadSeedMax};
 export {WorkloadSeedMin as WorkloadSeedMin};
 export {WorkloadSeedDefault as WorkloadSeedDefault};
 
+export {NumberOfSessionsDefault as NumberOfSessionsDefault};
+export {NumberOfSessionsMin as NumberOfSessionsMin};
+export {NumberOfSessionsMax as NumberOfSessionsMax};
+export {NumberOfSessionsDelta as NumberOfSessionsDelta};
+
 export {SessionStartTickDefault as SessionStartTickDefault};
 export {SessionStopTickDefault as SessionStopTickDefault};
 export {TrainingStartTickDefault as TrainingStartTickDefault};
@@ -89,7 +103,7 @@ export {DefaultNumTrainingEvents as DefaultNumTrainingEvents};
 export {DefaultSelectedTrainingEvent as DefaultSelectedTrainingEvent};
 
 export {DefaultTrainingEventField as DefaultTrainingEventField};
-export {DefaultSessionFieldValue as DefaultSessionFieldValue};
+export {GetDefaultSessionFieldValue as GetDefaultSessionFieldValue};
 
 export {GetDefaultFormValues as GetDefaultFormValues};
 

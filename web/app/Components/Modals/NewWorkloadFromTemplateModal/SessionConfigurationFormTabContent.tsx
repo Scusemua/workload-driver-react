@@ -23,7 +23,8 @@ import React from 'react';
 import {Controller, useFieldArray, useFormContext, useWatch} from 'react-hook-form';
 import {
   DefaultTrainingEventField,
-  NumberOfGpusDefault, RoundToThreeDecimalPlaces,
+  NumberOfGpusDefault,
+  RoundToThreeDecimalPlaces,
   SessionStartTickDefault,
   SessionStopTickDefault,
   TrainingCpuPercentUtilDefault,
@@ -68,6 +69,9 @@ export const SessionConfigurationFormTabContent: React.FunctionComponent<Session
   const trainingCpuPercentUtilFieldId: string = `sessions.${sessionIndex}.trainings.${selectedTrainingEventIndex}.cpu_util`;
   const trainingMemUsageGbFieldId: string = `sessions.${sessionIndex}.trainings.${selectedTrainingEventIndex}.mem_usage_gb`;
   const numGpusFieldId: string = `sessions.${sessionIndex}.trainings.${selectedTrainingEventIndex}.num_gpus`;
+
+  // const defaultSessionId = React.useRef<string>(props.defaultSessionId);
+  // console.log(`Default session ID for tab ${props.sessionIndex} is "${defaultSessionId.current}"`);
 
   const {
     fields: trainingEventFields,
@@ -151,8 +155,7 @@ export const SessionConfigurationFormTabContent: React.FunctionComponent<Session
                   <Controller
                     control={control}
                     name={sessionIdFieldId}
-                    defaultValue={props.defaultSessionId}
-                    rules={{minLength: 1, maxLength: 36, required: true}}
+                    rules={{minLength: 0, maxLength: 36, required: true}}
                     render={({field}) =>
                       <TextInput
                         isRequired
@@ -162,7 +165,7 @@ export const SessionConfigurationFormTabContent: React.FunctionComponent<Session
                         id={`session-${sessionIndex}-session-id-text-input`}
                         name={field.name}
                         value={field.value}
-                        placeholder={props.defaultSessionId}
+                        placeholder={"Session ID"}
                         validated={getSessionIdValidationState()}
                         onChange={field.onChange}
                         onBlur={field.onBlur}
@@ -288,7 +291,7 @@ export const SessionConfigurationFormTabContent: React.FunctionComponent<Session
                             // Append GPUs to field array
                             for (let i: number = numTrainingEventFields; i < newNumTrainingEvents; i++) {
                               appendTrainingEvent({
-                                ...DefaultTrainingEventField
+                                DefaultTrainingEventField
                               });
                             }
                           } else {
