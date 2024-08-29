@@ -17,13 +17,13 @@ import {
   NumberInput,
   TextInput,
 } from '@patternfly/react-core';
-import {DiceD6Icon} from "@patternfly/react-icons";
+import {DiceD20Icon} from "@patternfly/react-icons";
 import React from 'react';
 
 import {Controller, useFieldArray, useFormContext, useWatch} from 'react-hook-form';
 import {
   DefaultTrainingEventField,
-  NumberOfGpusDefault,
+  NumberOfGpusDefault, RoundToThreeDecimalPlaces,
   SessionStartTickDefault,
   SessionStopTickDefault,
   TrainingCpuPercentUtilDefault,
@@ -38,6 +38,18 @@ export interface SessionConfigurationFormTabContentProps {
   sessionIndex: number;
   defaultSessionId: string;
 }
+
+function getRandomArbitrary(min: number, max: number): number {
+  return Math.random() * (max - min) + min;
+}
+
+function getRandomInt(min: number, max: number): number {
+  const minCeiled = Math.ceil(min);
+  const maxFloored = Math.floor(max);
+  return Math.floor(Math.random() * (maxFloored - minCeiled) + minCeiled); // The maximum is exclusive and the minimum is inclusive
+}
+
+const ResourceNumberInputWidthChars: number = 6;
 
 // TODO: Responsive validation not quite working yet.
 export const SessionConfigurationFormTabContent: React.FunctionComponent<SessionConfigurationFormTabContentProps> = (props) => {
@@ -107,6 +119,18 @@ export const SessionConfigurationFormTabContent: React.FunctionComponent<Session
 
     return 'success';
   }
+
+  const onRandomizeResourceConfigurationClicked = () => {
+    setValue(trainingCpuPercentUtilFieldId, RoundToThreeDecimalPlaces(getRandomArbitrary(0, 100)));
+    setValue(trainingMemUsageGbFieldId, RoundToThreeDecimalPlaces(getRandomArbitrary(0, 128)));
+
+    const newNumGPUs: number = getRandomInt(1, 8);
+    setValue(numGpusFieldId, newNumGPUs);
+
+    for (let i: number = 0; i < newNumGPUs; i++) {
+      setValue(getGpuInputFieldId(i), RoundToThreeDecimalPlaces(getRandomArbitrary(0, 100)));
+    }
+  };
 
   return (
     <Card isCompact isRounded isFlat>
@@ -419,6 +443,7 @@ export const SessionConfigurationFormTabContent: React.FunctionComponent<Session
                         render={({field}) =>
                           <NumberInput
                             required
+                            widthChars={ResourceNumberInputWidthChars}
                             onChange={(event) => field.onChange(+(event.target as HTMLInputElement).value)}
                             onBlur={field.onBlur}
                             value={field.value}
@@ -443,7 +468,6 @@ export const SessionConfigurationFormTabContent: React.FunctionComponent<Session
                             minusBtnAriaLabel="minus"
                             plusBtnAriaLabel="plus"
                             validated={getFieldState(trainingCpuPercentUtilFieldId).invalid ? 'error' : 'success'}
-                            widthChars={4}
                             min={0}
                             max={100}
                           />}/>
@@ -459,6 +483,7 @@ export const SessionConfigurationFormTabContent: React.FunctionComponent<Session
                         defaultValue={TrainingMemUsageGbDefault}
                         render={({field}) =>
                           <NumberInput
+                            widthChars={ResourceNumberInputWidthChars}
                             value={field.value}
                             onChange={(event) => field.onChange(+(event.target as HTMLInputElement).value)}
                             onBlur={field.onBlur}
@@ -483,7 +508,6 @@ export const SessionConfigurationFormTabContent: React.FunctionComponent<Session
                             minusBtnAriaLabel="minus"
                             plusBtnAriaLabel="plus"
                             validated={getFieldState(trainingMemUsageGbFieldId).invalid ? 'error' : 'success'}
-                            widthChars={4}
                             min={0}
                           />}
                       />
@@ -520,6 +544,7 @@ export const SessionConfigurationFormTabContent: React.FunctionComponent<Session
                               field.onChange(+(event.target as HTMLInputElement).value);
                             }}
                             onBlur={field.onBlur}
+                            widthChars={ResourceNumberInputWidthChars}
                             onMinus={() => {
                               const curr: number = getValues(numGpusFieldId) as number;
                               let next: number = curr - 1;
@@ -550,16 +575,22 @@ export const SessionConfigurationFormTabContent: React.FunctionComponent<Session
                             minusBtnAriaLabel="minus"
                             plusBtnAriaLabel="plus"
                             validated={getFieldState(numGpusFieldId).invalid ? 'error' : 'success'}
-                            widthChars={4}
                             min={0}
                             max={8}
                           />}
                       />
                     </FormGroup>
                   </GridItem>
-                  <GridItem span={3} key={`session-${sessionIndex}-training${selectedTrainingEventIndex}-randomize-resources-grid-item`}>
+                  <GridItem span={3}
+                            key={`session-${sessionIndex}-training${selectedTrainingEventIndex}-randomize-resources-grid-item`}>
                     <FormGroup label={`Randomize Resources`}>
-                      <Button id={`session-${sessionIndex}-training${selectedTrainingEventIndex}-randomize-resources-button`} name={`session-${sessionIndex}-training${selectedTrainingEventIndex}-randomize-resources-button`} icon={<DiceD6Icon/>}/>
+                      <Button
+                        id={`session-${sessionIndex}-training${selectedTrainingEventIndex}-randomize-resources-button`}
+                        name={`session-${sessionIndex}-training${selectedTrainingEventIndex}-randomize-resources-button`}
+                        icon={<DiceD20Icon/>}
+                        onClick={onRandomizeResourceConfigurationClicked}>
+                        Randomize
+                      </Button>
                     </FormGroup>
                   </GridItem>
                   {Array.from({length: watch(numGpusFieldId) as number}).map((_, idx: number) => {
@@ -575,6 +606,7 @@ export const SessionConfigurationFormTabContent: React.FunctionComponent<Session
                             rules={{min: 0, max: 100, required: true}}
                             render={({field}) =>
                               <NumberInput
+                                widthChars={ResourceNumberInputWidthChars}
                                 value={field.value}
                                 onChange={(event) => field.onChange(+(event.target as HTMLInputElement).value)}
                                 onBlur={field.onBlur}
@@ -600,7 +632,6 @@ export const SessionConfigurationFormTabContent: React.FunctionComponent<Session
                                 minusBtnAriaLabel="minus"
                                 plusBtnAriaLabel="plus"
                                 validated={getFieldState(getGpuInputFieldId(idx)).invalid ? 'error' : 'success'}
-                                widthChars={4}
                                 min={0}
                               />}
                           />

@@ -97,9 +97,12 @@ export const CodeEditorComponent: React.FunctionComponent<CodeEditorComponentPro
   const fileNameField = (
     <TextInput
       customIcon={<FileIcon/>}
+      key={"template-filename-text-input"}
       // If the user hasn't specified a filename, then don't add the file extension automatically.
       // We'll use the placeholder text instead.
       value={filename}
+      label={"Filename"}
+      aria-label={"Filename"}
       type="text"
       onChange={(_event, value) => setFilename(value)}
       placeholder={defaultFilename}
@@ -108,8 +111,9 @@ export const CodeEditorComponent: React.FunctionComponent<CodeEditorComponentPro
   );
 
   const darkLightThemeSwitch = (
-    <div>
+    <div key={"dark-light-theme-switch-container"}>
       <Button
+        key={"dark-light-theme-switch-button-wrapper"}
         variant="link"
         onClick={(event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
           event.stopPropagation();
@@ -119,6 +123,7 @@ export const CodeEditorComponent: React.FunctionComponent<CodeEditorComponentPro
         }}
       >
         <Switch
+          key="code-editor-darkmode-switch"
           id="code-editor-darkmode-switch"
           aria-label="darkmode-switch"
           label="Switch to Light Theme"
@@ -246,6 +251,7 @@ print(f"i = {i}")
       onChange={(value: string, _: editor.IModelContentChangedEvent) => {
         setCode(value);
       }}
+      onCodeChange={(value: string) => {setCode(value)}}
       language={props.language}
       onEditorDidMount={onEditorDidMount}
       height={`${props.height}px`}

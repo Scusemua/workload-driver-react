@@ -59,6 +59,14 @@ const GetDefaultFormValues = () => {
   }
 }
 
+function RoundToTwoDecimalPlaces(num: number) {
+  return +(Math.round(Number.parseFloat(num.toString() + 'e+2')).toString() + 'e-2');
+}
+
+function RoundToThreeDecimalPlaces(num: number) {
+  return +(Math.round(Number.parseFloat(num.toString() + 'e+3')).toString() + 'e-3');
+}
+
 export {TimescaleAdjustmentFactorDelta as TimescaleAdjustmentFactorDelta};
 export {TimescaleAdjustmentFactorMax as TimescaleAdjustmentFactorMax};
 export {TimescaleAdjustmentFactorMin as TimescaleAdjustmentFactorMin};
@@ -84,3 +92,6 @@ export {DefaultTrainingEventField as DefaultTrainingEventField};
 export {DefaultSessionFieldValue as DefaultSessionFieldValue};
 
 export {GetDefaultFormValues as GetDefaultFormValues};
+
+export {RoundToTwoDecimalPlaces as RoundToTwoDecimalPlaces};
+export {RoundToThreeDecimalPlaces as RoundToThreeDecimalPlaces};

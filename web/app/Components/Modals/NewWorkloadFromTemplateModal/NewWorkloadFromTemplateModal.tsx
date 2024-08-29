@@ -1,7 +1,12 @@
 import {CodeEditorComponent} from "@app/Components";
 import {Session, TrainingEvent, WorkloadTemplate} from '@app/Data';
 import {TemplateIcon} from "@app/Icons";
-import {CodeContext, GetDefaultFormValues, SessionConfigurationForm} from "@components/Modals";
+import {
+  CodeContext,
+  GetDefaultFormValues,
+  RoundToThreeDecimalPlaces,
+  SessionConfigurationForm
+} from "@components/Modals";
 import {Language} from "@patternfly/react-code-editor";
 import {
   Button,
@@ -24,7 +29,7 @@ import {
   TextInput,
   Tooltip,
 } from '@patternfly/react-core';
-import {CodeIcon, DownloadIcon, PencilAltIcon, SaveAltIcon, SaveIcon, UploadIcon} from "@patternfly/react-icons";
+import {CodeIcon, DownloadIcon, PencilAltIcon, SaveAltIcon, TrashAltIcon, TrashIcon} from "@patternfly/react-icons";
 import HelpIcon from '@patternfly/react-icons/dist/esm/icons/help-icon';
 import styles from '@patternfly/react-styles/css/components/Form/form';
 import React from 'react';
@@ -63,10 +68,6 @@ export interface NewWorkloadFromTemplateModalProps {
 // Clamp a value between two extremes.
 function clamp(value: number, min: number, max: number) {
   return Math.max(Math.min(value, max), min)
-}
-
-function roundToThreeDecimalPlaces(num: number) {
-  return +(Math.round(Number.parseFloat(num.toString() + 'e+3')).toString() + 'e-3');
 }
 
 // function assertIsNumber(value: number | ''): asserts value is number {
@@ -217,29 +218,14 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
   }
 
   const enableJsonEditorMode = () => {
-    console.log(`Setting JSON mode to ${!jsonModeActive}`);
+    const formData = form.getValues();
+    // const requestJson: string = parseData(formData, 4);
+    const formJson: string = JSON.stringify(formData, null, 4);
+    setFormAsJson(formJson);
+    setFormAsJsonBackup(formJson);
 
-    if (jsonModeActive) { // Going from JSON -> form.
-      // TODO: Attempt to apply changes from JSON to form.
-      // If there are errors, tell the user, and give them a chance to fix everything or revert to the backup.
-    } else { // Going from form -> JSON.
-      const formData = form.getValues();
-      // const requestJson: string = parseData(formData, 4);
-      const formJson: string = JSON.stringify(formData, null, 4);
-      setFormAsJson(formJson);
-      setFormAsJsonBackup(formJson);
-    }
-
-    setJsonModeActive(jsonModeActive => !jsonModeActive);
+    setJsonModeActive(true);
   };
-
-  const getToggleJsonButton = () => {
-    if (jsonModeActive) {
-      return (<TemplateIcon scale={1.65}/>);
-    } else {
-      return (<CodeIcon/>);
-    }
-  }
 
   const downloadTemplateAsJson = () => {
     const formData = form.getValues();
@@ -298,6 +284,11 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
     }
   }
 
+  const onResetFormButtonClicked = () => {
+    console.log("Resetting form to default values.");
+    form.reset(GetDefaultFormValues());
+  }
+
   const getActions = () => {
     if (jsonModeActive) {
       return [
@@ -307,8 +298,11 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
     } else {
       return [
         getSubmitButton(),
-        <Button key={"switch-to-json-button"} id={"switch-to-json-button"} icon={<CodeIcon/>} variant={'secondary'} onClick={enableJsonEditorMode}>
+        <Button key={"switch-to-json-button"} id={"switch-to-json-button"} icon={<CodeIcon/>} variant={'primary'} onClick={enableJsonEditorMode}>
           Switch to JSON Editor
+        </Button>,
+        <Button key={"reset-workload-template-form-button"} id={"reset-workload-template-form-button"} icon={<TrashAltIcon/>} variant={'warning'} onClick={onResetFormButtonClicked}>
+          Reset Form to Default Values
         </Button>,
         getCancelButton()
       ]
@@ -546,7 +540,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                             const curr: number = form.getValues("timescaleAdjustmentFactor") as number;
                             let next: number = curr + TimescaleAdjustmentFactorDelta;
 
-                            next = roundToThreeDecimalPlaces(next);
+                            next = RoundToThreeDecimalPlaces(next);
 
                             form.setValue("timescaleAdjustmentFactor", clamp(next, TimescaleAdjustmentFactorMin, TimescaleAdjustmentFactorMax));
                           }}
@@ -559,7 +553,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                               next = TimescaleAdjustmentFactorMin;
                             }
 
-                            next = roundToThreeDecimalPlaces(next);
+                            next = RoundToThreeDecimalPlaces(next);
 
                             form.setValue("timescaleAdjustmentFactor", clamp(next, TimescaleAdjustmentFactorMin, TimescaleAdjustmentFactorMax));
                           }}
