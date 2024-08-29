@@ -7,11 +7,13 @@ import { Monaco } from '@monaco-editor/react';
 import { DarkModeContext } from '@app/Providers';
 import { CodeContext } from './Modals';
 
-// export interface CodeEditorComponent {
-//     children?: React.ReactNode;
-// }
+export interface CodeEditorComponentProps {
+    children?: React.ReactNode;
+    showCodeTemplates: boolean;
+    height: number;
+}
 
-export const CodeEditorComponent: React.FunctionComponent = () => {
+export const CodeEditorComponent: React.FunctionComponent<CodeEditorComponentProps> = (props: CodeEditorComponentProps) => {
     const { darkMode } = React.useContext(DarkModeContext);
     const [isEditorDarkMode, setIsEditorDarkMode] = React.useState(darkMode);
 
@@ -166,11 +168,19 @@ print(f"i = {i}")
         />
     );
 
+    const getCustomControls = () => {
+      if (props.showCodeTemplates) {
+        return [defaultCodeTemplate0, defaultCodeTemplate1, defaultCodeTemplate2, defaultCodeTemplate3, defaultCodeTemplate4, darkLightThemeSwitch];
+      } else {
+        return [darkLightThemeSwitch];
+      }
+    }
+
     return (
         <CodeEditor
             isDarkTheme={isEditorDarkMode}
             shortcutsPopoverProps={shortcutsPopoverProps}
-            customControls={[defaultCodeTemplate0, defaultCodeTemplate1, defaultCodeTemplate2, defaultCodeTemplate3, defaultCodeTemplate4, darkLightThemeSwitch]}
+            customControls={getCustomControls()}
             isLanguageLabelVisible
             isUploadEnabled
             isDownloadEnabled
@@ -182,7 +192,7 @@ print(f"i = {i}")
             }}
             language={Language.python}
             onEditorDidMount={onEditorDidMount}
-            height="400px"
+            height={`${props.height}px`}
         />
     );
 };

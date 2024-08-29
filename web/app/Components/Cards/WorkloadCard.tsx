@@ -94,7 +94,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
         if (workloadBeingInspected !== null && inspectWorkloadModalOpen) {
             const updatedWorkload: Workload | undefined = workloadsMap.get(workloadBeingInspected.id);
 
-            // Ensure the workload is updated in the inspection panel. 
+            // Ensure the workload is updated in the inspection panel.
             if (updatedWorkload) {
                 setWorkloadBeingInspected(updatedWorkload);
             }
@@ -125,39 +125,42 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
         );
     };
 
-    const onConfirmRegisterWorkloadFromTemplate = (
-        workloadName: string,
-        workloadSeedString: string,
-        debugLoggingEnabled: boolean,
-        workloadTemplate: WorkloadTemplate,
-        timescaleAdjustmentFactor: number,
-    ) => {
-        toast('Registering template-based workload "' + workloadName + '" now.', {style: { maxWidth: 700 }});
+    // const onConfirmRegisterWorkloadFromTemplate = (
+    //     workloadName: string,
+    //     workloadSeedString: string,
+    //     debugLoggingEnabled: boolean,
+    //     workloadTemplate: WorkloadTemplate,
+    //     timescaleAdjustmentFactor: number,
+    // ) => {
+  const onConfirmRegisterWorkloadFromTemplate = (
+    workloadRegistrationRequest: string
+  ) => {
+        // toast('Registering template-based workload "' + workloadName + '" now.', {style: { maxWidth: 700 }});
 
-        console.log("New workload '%s' registered by user with template.", workloadName);
+        // console.log("New workload '%s' registered by user with template.", workloadName);
         setIsRegisterWorkloadModalOpen(false);
         setIsRegisterNewWorkloadFromTemplateModalOpen(false);
 
-        let workloadSeed = -1;
-        if (workloadSeedString != '') {
-            workloadSeed = parseInt(workloadSeedString);
-        }
+        // let workloadSeed = -1;
+        // if (workloadSeedString != '') {
+        //     workloadSeed = parseInt(workloadSeedString);
+        // }
 
-        const messageId: string = uuidv4();
-        const workloadRegistrationRequest: string = JSON.stringify({
-            op: 'register_workload',
-            msg_id: messageId,
-            workloadRegistrationRequest: {
-                adjust_gpu_reservations: false,
-                seed: workloadSeed,
-                timescale_adjustment_factor: timescaleAdjustmentFactor,
-                key: "workload_template_key",
-                name: workloadName,
-                debug_logging: debugLoggingEnabled,
-                type: "template",
-                sessions: workloadTemplate.sessions
-            },
-        });
+        // const messageId: string = uuidv4();
+        // const workloadRegistrationRequest: string = JSON.stringify({
+        //     op: 'register_workload',
+        //     msg_id: messageId,
+        //     workloadRegistrationRequest: {
+        //         adjust_gpu_reservations: false,
+        //         seed: workloadSeed,
+        //         timescale_adjustment_factor: timescaleAdjustmentFactor,
+        //         key: "workload_template_key",
+        //         name: workloadName,
+        //         debug_logging: debugLoggingEnabled,
+        //         type: "template",
+        //         sessions: workloadTemplate.sessions
+        //     },
+        // });
         console.log(`Sending WorkloadRegistrationRequest: ${workloadRegistrationRequest}`)
         sendJsonMessage(workloadRegistrationRequest);
     }
@@ -824,7 +827,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                                                                                             </React.Fragment>
                                                                                         </Tooltip>
                                                                                     </FlexItem>
-                                                                                    {/* We only show the 'time elapsed' icon and field if the time elapsed 
+                                                                                    {/* We only show the 'time elapsed' icon and field if the time elapsed
                                                                         string is non-empty, which indicates that the workload has started. */}
                                                                                     {workload.time_elapsed_str !== '' && <FlexItem>
                                                                                         <Tooltip

@@ -374,7 +374,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                 </FlexItem>
                 <FlexItem>
                     <CodeContext.Provider value={{ code: code, setCode: setCode }}>
-                        <CodeEditorComponent />
+                        <CodeEditorComponent showCodeTemplates={true} height={400}/>
                     </CodeContext.Provider>
                 </FlexItem>
                 <FlexItem>
