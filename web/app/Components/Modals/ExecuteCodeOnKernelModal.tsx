@@ -1,37 +1,34 @@
-import React from 'react';
+import {CodeEditorComponent} from '@app/Components/CodeEditor';
+import {DistributedJupyterKernel, JupyterKernelReplica} from '@app/Data';
+import {DarkModeContext} from '@app/Providers/DarkModeProvider';
+import {KernelManager, ServerConnection} from '@jupyterlab/services';
+import {IKernelConnection} from '@jupyterlab/services/lib/kernel/kernel';
+import {Language} from "@patternfly/react-code-editor";
 import {
-    Button,
-    Checkbox,
-    ClipboardCopyButton,
-    CodeBlock,
-    CodeBlockAction,
-    CodeBlockCode,
-    Flex,
-    FlexItem,
-    FormSelect,
-    FormSelectOption,
-    Grid,
-    GridItem,
-    Modal,
-    ModalVariant,
-    Text,
-    TextVariants,
-    Title,
-    Toolbar,
-    ToolbarContent,
-    ToolbarGroup,
-    ToolbarItem,
-    ToolbarToggleGroup,
-    Tooltip,
+  Button,
+  Checkbox,
+  ClipboardCopyButton,
+  CodeBlockAction,
+  Flex,
+  FlexItem,
+  FormSelect,
+  FormSelectOption,
+  Grid,
+  GridItem,
+  Modal,
+  Text,
+  TextVariants,
+  Title,
+  Toolbar,
+  ToolbarContent,
+  ToolbarGroup,
+  ToolbarItem,
+  ToolbarToggleGroup,
+  Tooltip,
 } from '@patternfly/react-core';
-
-import { CodeEditorComponent } from '@app/Components/CodeEditor';
-import { CheckCircleIcon, DownloadIcon, EllipsisVIcon, ExpandIcon } from '@patternfly/react-icons';
-import { DistributedJupyterKernel, JupyterKernelReplica } from '@app/Data';
-import { KernelManager, ServerConnection } from '@jupyterlab/services';
-import { IKernelConnection } from '@jupyterlab/services/lib/kernel/kernel';
-import { DarkModeContext } from '@app/Providers/DarkModeProvider';
-import { LogViewer, LogViewerSearch } from '@patternfly/react-log-viewer';
+import {CheckCircleIcon, DownloadIcon, EllipsisVIcon} from '@patternfly/react-icons';
+import {LogViewer, LogViewerSearch} from '@patternfly/react-log-viewer';
+import React from 'react';
 
 export interface ExecuteCodeOnKernelProps {
     children?: React.ReactNode;
@@ -374,7 +371,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                 </FlexItem>
                 <FlexItem>
                     <CodeContext.Provider value={{ code: code, setCode: setCode }}>
-                        <CodeEditorComponent showCodeTemplates={true} height={400}/>
+                        <CodeEditorComponent showCodeTemplates={true} height={400} language={Language.python}/>
                     </CodeContext.Provider>
                 </FlexItem>
                 <FlexItem>

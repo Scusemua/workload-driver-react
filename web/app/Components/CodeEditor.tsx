@@ -11,6 +11,7 @@ export interface CodeEditorComponentProps {
     children?: React.ReactNode;
     showCodeTemplates: boolean;
     height: number;
+    language: Language;
 }
 
 export const CodeEditorComponent: React.FunctionComponent<CodeEditorComponentProps> = (props: CodeEditorComponentProps) => {
@@ -190,7 +191,7 @@ print(f"i = {i}")
             onChange={(value: string, event: editor.IModelContentChangedEvent) => {
                 setCode(value);
             }}
-            language={Language.python}
+            language={props.language}
             onEditorDidMount={onEditorDidMount}
             height={`${props.height}px`}
         />

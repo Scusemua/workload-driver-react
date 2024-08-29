@@ -2,6 +2,7 @@ import {CodeEditorComponent} from "@app/Components";
 import {ResourceRequest, Session, TrainingEvent, WorkloadTemplate} from '@app/Data';
 import {TemplateIcon} from "@app/Icons";
 import {CodeContext} from "@components/Modals";
+import {Language} from "@patternfly/react-code-editor";
 import {
   Button,
   Divider,
@@ -328,7 +329,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
       >
         {jsonModeActive &&
           <CodeContext.Provider value={{code: formAsJson, setCode: setFormAsJson}}>
-            <CodeEditorComponent showCodeTemplates={false} height={650}/>
+            <CodeEditorComponent showCodeTemplates={false} height={650} language={Language.json}/>
           </CodeContext.Provider>}
         {!jsonModeActive &&
           <React.Fragment>
