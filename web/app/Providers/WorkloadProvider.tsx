@@ -98,7 +98,7 @@ export const useWorkloads = () => {
             });
 
             subscriberSocket.current.addEventListener('error', (event: Event) => {
-                console.log(`Workloads Subscriber WebSocket encountered error: ${event}`);
+                console.log(`Workloads Subscriber WebSocket encountered error: ${JSON.stringify(event)}`);
             });
         }
     };

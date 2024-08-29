@@ -71,25 +71,6 @@ export const SessionConfigurationForm: React.FunctionComponent<SessionConfigurat
             const first = sessionTabComponentRef.current?.tabList.current.childNodes[activeSessionTab];
             first && first.firstChild.focus();
         }
-
-        // const newVal: number = sessionTabs.length;
-        // const oldVal: number = fields.length;
-        // console.log(`Old (fields.length): ${oldVal}, New (sessionTabs.length): ${newVal}`);
-        // if (newVal > oldVal) {
-        //     // Append sessions to field array
-        //     for (let i = oldVal; i < newVal; i++) {
-        //         console.log(`Adding new session field. fields.length pre-add: ${fields.length}. i: ${i}, oldVal: ${oldVal}, newVal: ${newVal}.`)
-        //         appendSession({});
-        //         console.log(`Added new session field. fields.length post-add: ${fields.length}. i: ${i}, oldVal: ${oldVal}, newVal: ${newVal}.`)
-        //     }
-        // } else {
-        //     // Remove sessions from field array
-        //     for (let i = oldVal; i > newVal; i--) {
-        //         console.log(`Removing session field. fields.length pre-removal: ${fields.length}`)
-        //         removeSession(i - 1);
-        //         console.log(`Removed session field. fields.length post-removal: ${fields.length}`)
-        //     }
-        // }
     }, [sessionTabs]);
 
 
@@ -115,8 +96,8 @@ export const SessionConfigurationForm: React.FunctionComponent<SessionConfigurat
                         closeButtonAriaLabel={`Close ${tabName} Tab`}
                         isCloseDisabled={sessionTabs.length == 1}
                     >
-                        <SessionConfigurationFormTabContent 
-                        sessionIndex={sessionTabIndex} 
+                        <SessionConfigurationFormTabContent
+                        sessionIndex={sessionTabIndex}
                         defaultSessionId={uuidv4()}/>
                     </Tab>)
                 })}

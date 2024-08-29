@@ -45,6 +45,20 @@ const DefaultSessionFieldValue = {
     }],
 }
 
+const GetDefaultFormValues = () => {
+  const title: string = uuidv4();
+
+  return {
+    "workloadTitle": title,
+    "workloadSeed": WorkloadSeedDefault,
+    "timescaleAdjustmentFactor": TimeAdjustmentFactorDefault,
+    "debugLoggingEnabled": true,
+    "sessions": [
+      DefaultSessionFieldValue
+    ]
+  }
+}
+
 export {TimescaleAdjustmentFactorDelta as TimescaleAdjustmentFactorDelta};
 export {TimescaleAdjustmentFactorMax as TimescaleAdjustmentFactorMax};
 export {TimescaleAdjustmentFactorMin as TimescaleAdjustmentFactorMin};
@@ -68,3 +82,5 @@ export {DefaultSelectedTrainingEvent as DefaultSelectedTrainingEvent};
 
 export {DefaultTrainingEventField as DefaultTrainingEventField};
 export {DefaultSessionFieldValue as DefaultSessionFieldValue};
+
+export {GetDefaultFormValues as GetDefaultFormValues};

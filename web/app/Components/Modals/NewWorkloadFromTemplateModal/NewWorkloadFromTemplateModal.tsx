@@ -1,7 +1,7 @@
 import {CodeEditorComponent} from "@app/Components";
-import {ResourceRequest, Session, TrainingEvent, WorkloadTemplate} from '@app/Data';
+import {Session, TrainingEvent, WorkloadTemplate} from '@app/Data';
 import {TemplateIcon} from "@app/Icons";
-import {CodeContext} from "@components/Modals";
+import {CodeContext, GetDefaultFormValues, SessionConfigurationForm} from "@components/Modals";
 import {Language} from "@patternfly/react-code-editor";
 import {
   Button,
@@ -24,7 +24,7 @@ import {
   TextInput,
   Tooltip,
 } from '@patternfly/react-core';
-import {CodeIcon, DownloadIcon, PencilAltIcon, UploadIcon} from "@patternfly/react-icons";
+import {CodeIcon, DownloadIcon, PencilAltIcon, SaveAltIcon, SaveIcon, UploadIcon} from "@patternfly/react-icons";
 import HelpIcon from '@patternfly/react-icons/dist/esm/icons/help-icon';
 import styles from '@patternfly/react-styles/css/components/Form/form';
 import React from 'react';
@@ -34,7 +34,6 @@ import toast from "react-hot-toast";
 
 import {v4 as uuidv4} from 'uuid';
 import {
-  DefaultSessionFieldValue,
   TimeAdjustmentFactorDefault,
   TimescaleAdjustmentFactorDelta,
   TimescaleAdjustmentFactorMax,
@@ -44,7 +43,6 @@ import {
   WorkloadSeedMax,
   WorkloadSeedMin
 } from './Constants';
-import {SessionConfigurationForm} from './SessionConfigurationForm';
 
 export interface NewWorkloadFromTemplateModalProps {
   children?: React.ReactNode;
@@ -71,17 +69,17 @@ function roundToThreeDecimalPlaces(num: number) {
   return +(Math.round(Number.parseFloat(num.toString() + 'e+3')).toString() + 'e-3');
 }
 
-function assertIsNumber(value: number | ''): asserts value is number {
-  if (value === '') {
-    throw new Error("value is not number");
-  }
-}
-
-function assertAreNumbers(values: number[] | ''): asserts values is number[] {
-  if (values === '') {
-    throw new Error("value is not number");
-  }
-}
+// function assertIsNumber(value: number | ''): asserts value is number {
+//   if (value === '') {
+//     throw new Error("value is not number");
+//   }
+// }
+//
+// function assertAreNumbers(values: number[] | ''): asserts values is number[] {
+//   if (values === '') {
+//     throw new Error("value is not number");
+//   }
+// }
 
 // TODO: Responsive validation not quite working yet.
 // TODO: Re-implement onSubmit.
@@ -99,16 +97,17 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
 
   const form = useForm({
     mode: 'all',
-    defaultValues: {
-      "workloadTitle": defaultWorkloadTitle.current,
-      "workloadSeed": WorkloadSeedDefault,
-      "timescaleAdjustmentFactor": TimeAdjustmentFactorDefault,
-      "debugLoggingEnabled": true,
-      "sessions": [
-        DefaultSessionFieldValue
-      ]
-    }
+    defaultValues: GetDefaultFormValues(),
   });
+
+  const {formState: { isSubmitSuccessful}} = form;
+
+  React.useEffect(() => {
+    if (isSubmitSuccessful) {
+      console.log("Submission was successful. Resetting form to default values.");
+      form.reset(GetDefaultFormValues());
+    }
+  }, [form, isSubmitSuccessful])
 
   const parseData = (data, space: string | number | undefined = undefined) => {
     const workloadTitle: string = data.workloadTitle;
@@ -142,16 +141,13 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
         }
       }
 
-      // Construct the resource request.
-      const resource_request: ResourceRequest = {
+      // Construct the resource request and update the session object.
+      session.resource_request = {
         cpus: max_cpu,
         gpus: max_num_gpus,
         mem_gb: max_mem,
         gpu_type: "Any_GPU"
-      }
-
-      // Update the session object.
-      session.resource_request = resource_request;
+      };
     }
 
     const workloadTemplate: WorkloadTemplate = {
@@ -164,7 +160,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
     }
 
     const messageId: string = uuidv4();
-    const workloadRegistrationRequest: string = JSON.stringify({
+    return JSON.stringify({
       op: 'register_workload',
       msg_id: messageId,
       workloadRegistrationRequest: {
@@ -178,8 +174,6 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
         sessions: workloadTemplate.sessions
       },
     }, null, space);
-
-    return workloadRegistrationRequest;
   }
 
   const onSubmit = (data) => {
@@ -195,13 +189,12 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
 
     toast('Registering template-based workload "' + workloadTitle + '" now.', {style: {maxWidth: 700}});
     props.onConfirm(workloadRegistrationRequest);
-    form.reset();
   };
 
   const getWorkloadNameValidationState = () => {
     const workloadId: string = form.watch("workloadTitle");
 
-    if (workloadId == undefined || workloadId == null) {
+    if (workloadId == undefined) {
       return 'default';
     }
 
@@ -215,19 +208,15 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
   const isWorkloadNameValid = () => {
     const workloadId: string = form.watch("workloadTitle");
 
-    if (workloadId == undefined || workloadId == null) {
+    if (workloadId == undefined) {
       // Form hasn't loaded yet.
       return true;
     }
 
-    if (workloadId.length >= 1 && workloadId.length <= 36) {
-      return true;
-    }
-
-    return false;
+    return workloadId.length >= 1 && workloadId.length <= 36;
   }
 
-  const toggleJsonMode = () => {
+  const enableJsonEditorMode = () => {
     console.log(`Setting JSON mode to ${!jsonModeActive}`);
 
     if (jsonModeActive) { // Going from JSON -> form.
@@ -235,9 +224,10 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
       // If there are errors, tell the user, and give them a chance to fix everything or revert to the backup.
     } else { // Going from form -> JSON.
       const formData = form.getValues();
-      const requestJson: string = parseData(formData, 4);
-      setFormAsJson(requestJson);
-      setFormAsJsonBackup(requestJson);
+      // const requestJson: string = parseData(formData, 4);
+      const formJson: string = JSON.stringify(formData, null, 4);
+      setFormAsJson(formJson);
+      setFormAsJsonBackup(formJson);
     }
 
     setJsonModeActive(jsonModeActive => !jsonModeActive);
@@ -245,7 +235,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
 
   const getToggleJsonButton = () => {
     if (jsonModeActive) {
-      return (<TemplateIcon scale={1.5}/>);
+      return (<TemplateIcon scale={1.65}/>);
     } else {
       return (<CodeIcon/>);
     }
@@ -253,16 +243,76 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
 
   const downloadTemplateAsJson = () => {
     const formData = form.getValues();
-    const requestJson: string = parseData(formData, 4);
+    // const formJson: string = parseData(formData, 4);
+    const formJson: string = JSON.stringify(formData, null, 4);
 
-    console.log(`Retrieved form data: ${requestJson}`);
+    console.log(`Retrieved form data: ${formJson}`);
 
     const element = document.createElement('a');
-    const file = new Blob([requestJson], {type: 'text'});
+    const file = new Blob([formJson], {type: 'text'});
     element.href = URL.createObjectURL(file);
     element.download = `template-${Date.now().toString()}.json`;
     document.body.appendChild(element); // Required for this to work in FireFox
     element.click();
+  }
+
+  const applyJsonToForm = () => {
+    console.log("Attempting to apply JSON directly to form.");
+    console.log(formAsJson);
+
+    const data = JSON.parse(formAsJson);
+    console.log(data);
+    console.log(JSON.stringify(data));
+
+    setJsonModeActive(false);
+    form.reset(data);
+  }
+
+  const onDiscardJsonChangesButtonClicked = () => {
+    setJsonModeActive(false);
+  }
+
+  const getSubmitButton = () => {
+    if (jsonModeActive) {
+      return (
+        <Button key="apply-json-to-template-button" variant="primary" onClick={applyJsonToForm} icon={<SaveAltIcon/>}>
+          Apply Changes to Template
+        </Button>);
+    } else {
+      return (
+        <Button key="submit-workload-from-template-button" variant="primary" onClick={form.handleSubmit(onSubmit)}>
+          Submit Workload
+        </Button>);
+    }
+  }
+
+  const getCancelButton = () => {
+    if (jsonModeActive) {
+      return (<Button key="cancel-application-of-json-to-workload-from-template-button" isDanger variant="secondary" onClick={onDiscardJsonChangesButtonClicked}>
+        Discard Changes
+      </Button>)
+    } else {
+      return (<Button key="cancel-submission-of-workload-from-template-button" isDanger variant="secondary" onClick={props.onClose}>
+        Cancel
+      </Button>)
+    }
+  }
+
+  const getActions = () => {
+    if (jsonModeActive) {
+      return [
+        getSubmitButton(),
+        getCancelButton()
+      ]
+    } else {
+      return [
+        getSubmitButton(),
+        <Button key={"switch-to-json-button"} id={"switch-to-json-button"} icon={<CodeIcon/>} variant={'secondary'} onClick={enableJsonEditorMode}>
+          Switch to JSON Editor
+        </Button>,
+        getCancelButton()
+      ]
+    }
   }
 
   return (
@@ -296,40 +346,19 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                 </Button>
               </Popover>
             </FlexItem>
-            <FlexItem>
-              <Tooltip
-                content={"Upload a workload template encoded in JSON. You may continue to edit the template after uploading it before submission."}
-                position={"bottom"}>
-                <Button icon={<UploadIcon/>} variant="plain" aria-label="Upload Workload Template (JSON)"/>
-              </Tooltip>
-            </FlexItem>
-            <FlexItem>
+            {!jsonModeActive && <FlexItem>
               <Tooltip content={"Download the current version of the template to a JSON file."} position={"bottom"}>
                 <Button icon={<DownloadIcon/>} variant="plain" aria-label="Download Workload Template (JSON)"
                         onClick={() => downloadTemplateAsJson()}/>
               </Tooltip>
-            </FlexItem>
-            <FlexItem>
-              <Tooltip content={"Toggle between the raw JSON editor and the form-based editor."} position={"bottom"}>
-                <Button icon={getToggleJsonButton()} variant="plain"
-                        aria-label="Toggle between the raw JSON editor and the form-based editor."
-                        onClick={() => toggleJsonMode()}/>
-              </Tooltip>
-            </FlexItem>
+            </FlexItem>}
           </Flex>
         }
-        actions={[
-          <Button key="submit-workload-from-template-button" variant="primary" onClick={form.handleSubmit(onSubmit)}>
-            Submit
-          </Button>,
-          <Button key="cancel-submission-of-workload-from-template-button" variant="link" onClick={props.onClose}>
-            Cancel
-          </Button>,
-        ]}
+        actions={getActions()}
       >
         {jsonModeActive &&
           <CodeContext.Provider value={{code: formAsJson, setCode: setFormAsJson}}>
-            <CodeEditorComponent showCodeTemplates={false} height={650} language={Language.json}/>
+            <CodeEditorComponent showCodeTemplates={false} height={650} language={Language.json} defaultFilename={"template"}/>
           </CodeContext.Provider>}
         {!jsonModeActive &&
           <React.Fragment>
