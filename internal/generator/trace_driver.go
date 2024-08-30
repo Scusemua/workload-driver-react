@@ -51,7 +51,10 @@ type TraceDriver interface {
 	// The `stopChan` is used to tell the goroutine executing this function to return/exit.
 	// DriveWithChannel(context.Context, chan Record, chan struct{}) error
 	// Given a pre-populated slice of records, process them one after another. The chan is used to indicate that the TraceDriver is done processing the slice.
-	DriveWithSlice(context.Context, []Record, chan struct{}) error
+	//
+	// The error chan is used to report errors back to the main goroutine, as this is generally called in its own goroutine,
+	// so the returned error will not make it to the main goroutine.
+	DriveWithSlice(context.Context, []Record, chan struct{}, chan<- error) error
 	// OnEvent() <-chan *Event
 	// EventSource() chan<- *Event
 
@@ -232,8 +235,10 @@ func (d *BaseDriver) IsLastShouldContinue() bool {
 	return true
 }
 
-func (d *BaseDriver) DriveWithSlice(ctx context.Context, records []Record, doneChan chan struct{}) error {
+func (d *BaseDriver) DriveWithSlice(ctx context.Context, records []Record, doneChan chan struct{}, errorChan chan<- error) error {
 	if err := d.Setup(ctx); err != nil {
+		d.log.Error("Failed to setup driver.", zap.Error(err))
+		errorChan <- err
 		return err
 	}
 	defer d.Teardown(ctx)

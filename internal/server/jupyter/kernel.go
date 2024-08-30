@@ -31,9 +31,8 @@ const (
 	KernelDisconnected   KernelConnectionStatus = "disconnected" // We're not connected to the kernel, but we're unsure if it is dead or not.
 	KernelDead           KernelConnectionStatus = "dead"         // Kernel is dead. We're not connected.
 
-	ExecuteRequest    MessageType = "execute_request"
-	KernelInfoRequest MessageType = "kernel_info_request"
-	// GolangFrontendRegistrationRequest MessageType = "golang_frontend_registration_request"
+	ExecuteRequest          MessageType = "execute_request"
+	KernelInfoRequest       MessageType = "kernel_info_request"
 	StopRunningTrainingCode MessageType = "stop_running_training_code_request"
 	DummyMessage            MessageType = "dummy_message_request"
 	AckMessage              MessageType = "ACK"
@@ -156,6 +155,16 @@ func NewKernelConnection(kernelId string, clientId string, username string, jupy
 	return conn, nil
 }
 
+// Stdout returns the slice of stdout messages received by the BasicKernelConnection.
+func (conn *BasicKernelConnection) Stdout() []string {
+	return conn.kernelStdout
+}
+
+// Stderr returns the slice of stderr messages received by the BasicKernelConnection.
+func (conn *BasicKernelConnection) Stderr() []string {
+	return conn.kernelStderr
+}
+
 func (conn *BasicKernelConnection) waitForResponseWithTimeout(responseChan chan KernelMessage, timeoutInterval time.Duration, messageType MessageType) (KernelMessage, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), timeoutInterval)
 	defer cancel()
@@ -191,7 +200,7 @@ func (conn *BasicKernelConnection) SendDummyMessage(channel KernelSocketChannel,
 	}
 }
 
-// Send a 'stop_running_training_code_request' message.
+// StopRunningTrainingCode sends a 'stop_running_training_code_request' message.
 func (conn *BasicKernelConnection) StopRunningTrainingCode(waitForResponse bool) error {
 	message, responseChan := conn.createKernelMessage(StopRunningTrainingCode, ControlChannel, nil)
 
@@ -224,7 +233,8 @@ func (conn *BasicKernelConnection) StopRunningTrainingCode(waitForResponse bool)
 	return nil
 }
 
-// Return the address of the Jupyter Server associated with this kernel.
+// sendAck sends an ACK to the Jupyter Server (and subsequently the Cluster Gateway).
+// It returns the address of the Jupyter Server associated with this kernel.
 func (conn *BasicKernelConnection) sendAck(msg KernelMessage, channel KernelSocketChannel) error {
 	conn.logger.Debug("Attempting to ACK message.", zap.String("message-id", msg.GetHeader().MessageId), zap.String("channel", string(msg.GetChannel())), zap.String("kernel-id", conn.kernelId))
 
@@ -237,18 +247,18 @@ func (conn *BasicKernelConnection) sendAck(msg KernelMessage, channel KernelSock
 		return fmt.Errorf("%w: %s", ErrCantAckNotRegistered, channel)
 	}
 
-	var content map[string]interface{} = make(map[string]interface{})
+	var content = make(map[string]interface{})
 	content["sender-identity"] = fmt.Sprintf("GoJupyter-%s", conn.kernelId)
 
-	ack_message, _ := conn.createKernelMessage(AckMessage, channel, content)
-	ack_message.(*baseKernelMessage).ParentHeader = msg.GetParentHeader()
+	ackMessage, _ := conn.createKernelMessage(AckMessage, channel, content)
+	ackMessage.(*baseKernelMessage).ParentHeader = msg.GetParentHeader()
 
 	firstPart := fmt.Sprintf(LightBlueStyle.Render("Sending ACK for %v \"%v\""), channel, msg.GetParentHeader().MessageType)
 	secondPart := fmt.Sprintf("(MsgId=%v)", LightPurpleStyle.Render(msg.GetParentHeader().MessageId))
-	thirdPart := fmt.Sprintf(LightBlueStyle.Render("message: %v"), ack_message)
+	thirdPart := fmt.Sprintf(LightBlueStyle.Render("message: %v"), ackMessage)
 	conn.sugaredLogger.Debugf("%s %s %s", firstPart, secondPart, thirdPart)
 
-	err := conn.sendMessage(ack_message)
+	err := conn.sendMessage(ackMessage)
 	if err != nil {
 		conn.logger.Error("Error while writing 'ACK' message.", zap.String("kernel-id", conn.kernelId), zap.Error(err))
 		return err
@@ -257,27 +267,27 @@ func (conn *BasicKernelConnection) sendAck(msg KernelMessage, channel KernelSock
 	return nil
 }
 
-// Return the address of the Jupyter Server associated with this kernel.
+// JupyterServerAddress returns the address of the Jupyter Server associated with this kernel.
 func (conn *BasicKernelConnection) JupyterServerAddress() string {
 	return conn.jupyterServerAddress
 }
 
-// Return true if the connection is currently active.
+// Connected returns true if the connection is currently active.
 func (conn *BasicKernelConnection) Connected() bool {
 	return conn.connectionStatus == KernelConnected
 }
 
-// Get the connection status of the kernel.
+// ConnectionStatus returns the connection status of the kernel.
 func (conn *BasicKernelConnection) ConnectionStatus() KernelConnectionStatus {
 	return conn.connectionStatus
 }
 
-// Return the ID of the kernel itself.
+// KernelId returns the ID of the kernel itself.
 func (conn *BasicKernelConnection) KernelId() string {
 	return conn.kernelId
 }
 
-// Send an `execute_request` message.
+// RequestExecute sends an `execute_request` message.
 //
 // #### Notes
 // See [Messaging in Jupyter](https://jupyter-client.readthedocs.io/en/latest/messaging.html#execute).
@@ -322,7 +332,7 @@ func (conn *BasicKernelConnection) RequestExecute(code string, silent bool, stor
 }
 
 func (conn *BasicKernelConnection) RequestKernelInfo() (KernelMessage, error) {
-	content := make(map[string]interface{}, 0)
+	content := make(map[string]interface{})
 	content["sender-id"] = fmt.Sprintf("GoJupyter-%s", conn.kernelId)
 
 	message, responseChan := conn.createKernelMessage(KernelInfoRequest, ShellChannel, content)
@@ -349,7 +359,7 @@ func (conn *BasicKernelConnection) RequestKernelInfo() (KernelMessage, error) {
 	}
 }
 
-// Interrupt a kernel.
+// InterruptKernel interrupts a kernel.
 //
 // #### Notes
 // Uses the [Jupyter Server API](https://petstore.swagger.io/?url=https://raw.githubusercontent.com/jupyter-server/jupyter_server/main/jupyter_server/services/api/api.yaml#!/kernels).
@@ -368,7 +378,7 @@ func (conn *BasicKernelConnection) InterruptKernel() error {
 
 	conn.logger.Debug("Attempting to Interrupt kernel.", zap.String("kernel_id", conn.kernelId))
 
-	var requestBody map[string]interface{} = make(map[string]interface{})
+	var requestBody = make(map[string]interface{})
 	requestBody["kernel_id"] = conn.kernelId
 
 	requestBodyEncoded, err := json.Marshal(requestBody)
@@ -490,11 +500,11 @@ func (conn *BasicKernelConnection) serveMessages() {
 	}
 }
 
-func (conn *BasicKernelConnection) handleIOPubMessage(kernelMessage KernelMessage) error {
+func (conn *BasicKernelConnection) handleIOPubMessage(kernelMessage KernelMessage) {
 	// We just want to extract the output from 'stream' IOPub messages.
 	// We don't care about non-stream-type IOPub messages here, so we'll just return.
 	if kernelMessage.GetHeader().MessageType != "stream" {
-		return nil
+		return
 	}
 
 	content := kernelMessage.GetContent().(map[string]interface{})
@@ -508,13 +518,13 @@ func (conn *BasicKernelConnection) handleIOPubMessage(kernelMessage KernelMessag
 	stream, ok = content["name"].(string)
 	if !ok {
 		conn.logger.Warn("Content of IOPub message did not contain an entry with key \"name\" and value of type string.", zap.Any("content", content), zap.Any("message", kernelMessage), zap.String("kernel-id", conn.kernelId))
-		return nil
+		return
 	}
 
 	text, ok = content["text"].(string)
 	if !ok {
 		conn.logger.Warn("Content of IOPub message did not contain an entry with key \"text\" and value of type string.", zap.Any("content", content), zap.Any("message", kernelMessage), zap.String("kernel-id", conn.kernelId))
-		return nil
+		return
 	}
 
 	switch stream {
@@ -530,7 +540,7 @@ func (conn *BasicKernelConnection) handleIOPubMessage(kernelMessage KernelMessag
 		conn.logger.Error("Unknown or unsupported stream found in IOPub message.", zap.String("stream", stream), zap.String("kernel-id", conn.kernelId), zap.Any("message", kernelMessage))
 	}
 
-	return nil
+	return
 }
 
 func (conn *BasicKernelConnection) createKernelMessage(messageType MessageType, channel KernelSocketChannel, content interface{}) (KernelMessage, chan KernelMessage) {
@@ -593,22 +603,22 @@ func (conn *BasicKernelConnection) updateConnectionStatus(status KernelConnectio
 	// established. If we are restarting, this message will skip the queue
 	// and be sent immediately.
 	success := false
-	max_num_tries := 5
+	maxNumTries := 5
 	if conn.connectionStatus == KernelConnected {
 		conn.logger.Debug("Connection status is being updated to 'connected'. Attempting to retrieve kernel info.", zap.String("kernel_id", conn.kernelId))
 		st := time.Now()
 
-		num_tries := 0
+		numTries := 0
 
 		var statusMessage KernelMessage
 		var err error
 
-		for num_tries <= max_num_tries {
+		for numTries <= maxNumTries {
 			statusMessage, err = conn.RequestKernelInfo()
 			if err != nil {
-				num_tries += 1
-				conn.sugaredLogger.Errorf("Attempt %d/%d to request-info from kernel %s FAILED. Error: %s", num_tries, max_num_tries, conn.kernelId, err)
-				time.Sleep(time.Duration(1.5*float64(num_tries)) * time.Second)
+				numTries += 1
+				conn.sugaredLogger.Errorf("Attempt %d/%d to request-info from kernel %s FAILED. Error: %s", numTries, maxNumTries, conn.kernelId, err)
+				time.Sleep(time.Duration(1.5*float64(numTries)) * time.Second)
 				continue
 			} else {
 				success = true
@@ -618,7 +628,7 @@ func (conn *BasicKernelConnection) updateConnectionStatus(status KernelConnectio
 		}
 
 		if !success {
-			conn.sugaredLogger.Errorf("Failed to successfully 'request-info' from kernel %s after %d attempts.", conn.kernelId, max_num_tries)
+			conn.sugaredLogger.Errorf("Failed to successfully 'request-info' from kernel %s after %d attempts.", conn.kernelId, maxNumTries)
 			conn.connectionStatus = KernelDisconnected
 		}
 	}
@@ -626,6 +636,7 @@ func (conn *BasicKernelConnection) updateConnectionStatus(status KernelConnectio
 	conn.sugaredLogger.Debugf("Kernel %s connection status set to '%s'", conn.kernelId, conn.connectionStatus)
 }
 
+// setupWebsocket sets up the WebSocket connection to the Jupyter Server.
 // Side-effect: updates the BasicKernelConnection's `webSocket` field.
 func (conn *BasicKernelConnection) setupWebsocket(jupyterServerAddress string) error {
 	if conn.webSocket != nil {
@@ -650,7 +661,7 @@ func (conn *BasicKernelConnection) setupWebsocket(jupyterServerAddress string) e
 
 	st := time.Now()
 
-	ws, _, err := websocket.DefaultDialer.Dial(url, nil)
+	ws, _, err := websocket.DefaultDialer.Dial(endpoint, nil)
 	if err != nil {
 		conn.logger.Error("Failed to dial kernel websocket.", zap.String("endpoint", endpoint), zap.String("kernel-id", conn.kernelId), zap.Error(err))
 		return fmt.Errorf("ErrWebsocketCreationFailed %w : %s", ErrWebsocketCreationFailed, err.Error())
@@ -661,7 +672,7 @@ func (conn *BasicKernelConnection) setupWebsocket(jupyterServerAddress string) e
 
 	go conn.serveMessages()
 
-	// Setup the close handler, which automatically tries to reconnect.
+	// Set up the close handler, which automatically tries to reconnect.
 	if conn.originalWebsocketCloseHandler == nil {
 		handler := conn.webSocket.CloseHandler()
 		conn.originalWebsocketCloseHandler = handler
@@ -738,7 +749,7 @@ func (conn *BasicKernelConnection) websocketClosed(code int, text string) error 
 	model, err := conn.getKernelModel()
 	if err != nil {
 		if errors.Is(err, ErrNetworkIssue) && conn.reconnect() {
-			// If it was a network error and we were able to reconnect, then exit the 'websocket closed' handler.
+			// If it was a network error, and we were able to reconnect, then exit the 'websocket closed' handler.
 			return nil
 		}
 
@@ -767,15 +778,15 @@ func (conn *BasicKernelConnection) websocketClosed(code int, text string) error 
 }
 
 func (conn *BasicKernelConnection) reconnect() bool {
-	num_tries := 0
-	max_num_tries := 5
+	numTries := 0
+	maxNumTries := 5
 
-	for num_tries < max_num_tries {
+	for numTries < maxNumTries {
 		err := conn.setupWebsocket(conn.jupyterServerAddress)
 		if err != nil {
-			if errors.Is(err, ErrNetworkIssue) && (num_tries+1) <= max_num_tries {
-				num_tries += 1
-				sleepInterval := time.Second * time.Duration(2*num_tries)
+			if errors.Is(err, ErrNetworkIssue) && (numTries+1) <= maxNumTries {
+				numTries += 1
+				sleepInterval := time.Second * time.Duration(2*numTries)
 				conn.logger.Error("Network error encountered while trying to reconnect to kernel.", zap.String("kernel-id", conn.kernelId), zap.Error(err), zap.Duration("next-sleep-interval", sleepInterval))
 				conn.updateConnectionStatus(KernelDisconnected)
 				time.Sleep(sleepInterval)

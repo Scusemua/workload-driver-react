@@ -85,6 +85,7 @@ func NewKernelSessionManager(jupyterServerAddress string, adjustSessionNames boo
 		kernelIdToJupyterSessionId:       make(map[string]string),
 		kernelIdToLocalSessionId:         make(map[string]string),
 		sessionMap:                       make(map[string]*SessionConnection),
+		adjustSessionNames:               adjustSessionNames,
 		atom:                             atom,
 	}
 
@@ -96,17 +97,12 @@ func NewKernelSessionManager(jupyterServerAddress string, adjustSessionNames boo
 	return manager
 }
 
-// Start a new kernel.
-func (m *BasicKernelSessionManager) StartNewKernel(kernelSpec string) error {
-	return nil
-}
-
-// Create a new session.
+// CreateSession creates a new session.
 func (m *BasicKernelSessionManager) CreateSession(sessionId string, path string, sessionType string, kernelSpecName string) (*SessionConnection, error) {
 	if m.adjustSessionNames {
 		if len(sessionId) < 36 {
-			generated_uuid := uuid.NewString()
-			sessionId = strings.ToLower(sessionId) + "-" + generated_uuid[0:36-(len(sessionId)+1)]
+			generatedUuid := uuid.NewString()
+			sessionId = strings.ToLower(sessionId) + "-" + generatedUuid[0:36-(len(sessionId)+1)]
 		} else if len(sessionId) > 36 {
 			return nil, fmt.Errorf("%w: specified session ID \"%s\" is too long (max length is 36 characters when the KernelSessionManager has been configured to adjust names)", ErrInvalidSessionName, sessionId)
 		}
@@ -144,11 +140,15 @@ func (m *BasicKernelSessionManager) CreateSession(sessionId string, path string,
 	case http.StatusCreated:
 		{
 			var jupyterSession *jupyterSession
-			json.Unmarshal(body, &jupyterSession)
+			if err := json.Unmarshal(body, &jupyterSession); err != nil {
+				m.logger.Error("Failed to decode Jupyter Session from JSON.", zap.Error(err))
+				return nil, err
+			}
+
 			m.logger.Debug("Received 'Created' when creating session", zap.Int("status-code", resp.StatusCode), zap.String("status", resp.Status), zap.String(ZapSessionIDKey, sessionId))
 
-			var kernelId string = jupyterSession.JupyterKernel.Id
-			var jupyterSessionId string = jupyterSession.JupyterSessionId
+			var kernelId = jupyterSession.JupyterKernel.Id
+			var jupyterSessionId = jupyterSession.JupyterSessionId
 
 			// Update all of our many mappings...
 			m.localSessionIdToKernelId[sessionId] = kernelId
@@ -171,16 +171,16 @@ func (m *BasicKernelSessionManager) CreateSession(sessionId string, path string,
 		}
 	case http.StatusBadRequest:
 		{
-			var responseJson map[string]interface{}
-			json.Unmarshal(body, &responseJson)
 			m.logger.Error("Received HTTP 400 'Bad Request' when creating session", zap.String("status", resp.Status), zap.Any("headers", resp.Header), zap.Any("body", body))
 			return nil, fmt.Errorf("ErrCreateSessionBadRequest %w : %s", ErrCreateSessionBadRequest, string(body))
 		}
 	default:
 		var responseJson map[string]interface{}
-		json.Unmarshal(body, &responseJson)
-		m.logger.Warn("Unexpected respone status code when creating a new session.", zap.Int("status-code", resp.StatusCode), zap.String("status", resp.Status), zap.Any("headers", resp.Header), zap.Any("body", body), zap.String("request-args", requestBody.String()))
+		if err := json.Unmarshal(body, &responseJson); err != nil {
+			m.logger.Error("Failed to decode JSON response with unexpected HTTP status code.", zap.Int("http-status-code", http.StatusBadRequest), zap.Error(err))
+		}
 
+		m.logger.Warn("Unexpected response status code when creating a new session.", zap.Int("status-code", resp.StatusCode), zap.String("status", resp.Status), zap.Any("headers", resp.Header), zap.Any("body", body), zap.String("request-args", requestBody.String()))
 		return nil, fmt.Errorf("ErrCreateSessionUnknownFailure %w: %s", ErrCreateSessionUnknownFailure, string(body))
 	}
 
@@ -189,7 +189,7 @@ func (m *BasicKernelSessionManager) CreateSession(sessionId string, path string,
 	return sessionConnection, nil
 }
 
-// Interrupt a kernel.
+// InterruptKernel interrupts a kernel.
 //
 // #### Notes
 // Uses the [Jupyter Server API](https://petstore.swagger.io/?url=https://raw.githubusercontent.com/jupyter-server/jupyter_server/main/jupyter_server/services/api/api.yaml#!/kernels).
@@ -218,7 +218,7 @@ func (m *BasicKernelSessionManager) InterruptKernel(sessionId string) error {
 		return ErrKernelIsDead
 	}
 
-	var requestBody map[string]interface{} = make(map[string]interface{})
+	var requestBody = make(map[string]interface{})
 	requestBody["kernel_id"] = conn.KernelId()
 
 	requestBodyEncoded, err := json.Marshal(requestBody)
@@ -346,14 +346,13 @@ func (m *BasicKernelSessionManager) GetMetrics() KernelManagerMetrics {
 	return m.metrics
 }
 
-/**
- * Connect to an existing kernel.
- *
- * @param kernelId - The ID of the target kernel.
- * @param sessionId - The ID of the session associated with the target kernel.
- *
- * @returns A promise that resolves with the new kernel instance.
- */
+// ConnectTo connects to an existing kernel.
+//
+// @param kernelId - The ID of the target kernel.
+//
+// @param sessionId - The ID of the session associated with the target kernel.
+//
+// @returns a WebSocket-backed connection to the kernel.
 func (m *BasicKernelSessionManager) ConnectTo(kernelId string, sessionId string, username string) (KernelConnection, error) {
 	m.logger.Debug("Connecting to kernel now.", zap.String("kernel_id", kernelId), zap.String("session_id", sessionId))
 	conn, err := NewKernelConnection(kernelId, sessionId, username, m.jupyterServerAddress, m.atom)

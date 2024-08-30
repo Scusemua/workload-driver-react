@@ -127,7 +127,7 @@ type SessionConnection struct {
 	atom          *zap.AtomicLevel
 }
 
-// Create a new SessionConnection.
+// NewSessionConnection creates a new SessionConnection.
 //
 // We do not return until we've successfully connected to the kernel.
 func NewSessionConnection(model *jupyterSession, username string, jupyterServerAddress string, atom *zap.AtomicLevel) (*SessionConnection, error) {
@@ -143,7 +143,7 @@ func NewSessionConnection(model *jupyterSession, username string, jupyterServerA
 	conn.sugaredLogger = conn.logger.Sugar()
 
 	err := conn.connectToKernel(username)
-	if err != nil && err != ErrAlreadyConnectedToKernel {
+	if err != nil && !errors.Is(err, ErrAlreadyConnectedToKernel) {
 		return nil, err
 	}
 
@@ -152,6 +152,7 @@ func NewSessionConnection(model *jupyterSession, username string, jupyterServerA
 	return conn, err
 }
 
+// connectToKernel creates a new WebSocket-backed connection to the kernel associated with this session.
 // Side-effect: set the `kernel` field of the SessionConnection.
 func (conn *SessionConnection) connectToKernel(username string) error {
 	if conn.kernel != nil {

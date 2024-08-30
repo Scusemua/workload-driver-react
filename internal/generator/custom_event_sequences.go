@@ -14,7 +14,7 @@ import (
  */
 
 var (
-	ErrInvalidConfiguration error = errors.New("invalid configuration specified")
+	ErrInvalidConfiguration = errors.New("invalid configuration specified")
 )
 
 // Defines a function that, when called and passed a pointer to a CustomEventSequencer,

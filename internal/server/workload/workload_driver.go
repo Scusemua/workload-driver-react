@@ -39,9 +39,10 @@ const (
 	letterIdxMask = 1<<letterIdxBits - 1 // All 1-bits, as many as letterIdxBits
 	letterIdxMax  = 63 / letterIdxBits   // # of letter indices fitting in 63 bits
 
-	// Used by ResourceRequest structs when they do not require/request a specific GPU.
+	// AnyGPU is used by ResourceRequest structs when they do not require/request a specific GPU.
 	AnyGPU = "ANY_GPU"
 
+	// TrainingCode is the code executed by kernels to simulate GPU training.
 	// TODO: Figure out a good way to do this, such as via a library like:
 	// https://github.com/GaetanoCarlucci/CPULoadGenerator/tree/Python3
 	// which could enable us to simulate an actual CPU load based on trace data.
@@ -55,7 +56,7 @@ sock.connect(("127.0.0.1", 5555))
 print(f'Connected to local TCP server. Local addr: {sock.getsockname()}')
 
 # Blocking call.
-# When training ends, the kernel will be sent a notification. 
+# When training ends, the kernel will be sent a notification.
 # It will then send us a message, unblocking us here and allowing to finish the cell execution.
 sock.recv(1024)
 
@@ -96,7 +97,7 @@ func GenerateWorkloadID(n int) string {
 	return *(*string)(unsafe.Pointer(&b))
 }
 
-// The Workload Driver consumes events from the Workload Generator and takes action accordingly.
+// BasicWorkloadDriver consumes events from the Workload Generator and takes action accordingly.
 type BasicWorkloadDriver struct {
 	logger        *zap.Logger
 	sugaredLogger *zap.SugaredLogger
@@ -119,7 +120,7 @@ type BasicWorkloadDriver struct {
 	seenSessions                       map[string]struct{}                   // All sessions that we've ever seen before.
 	servingTicks                       atomic.Bool                           // The WorkloadDriver::ServeTicks() method will continue looping as long as this flag is set to true.
 	sessionConnections                 map[string]*jupyter.SessionConnection // Map from internal session ID to session connection.
-	sessions                           *hashmap.HashMap                      // Responsible for creating sessions and maintaining a collection of all of the sessions active within the simulation.
+	sessions                           *hashmap.HashMap                      // Responsible for creating sessions and maintaining a collection of all the sessions active within the simulation.
 	stats                              *WorkloadStats                        // Metrics related to the workload's execution.
 	stopChan                           chan interface{}                      // Used to stop the workload early/prematurely (i.e., before all events have been processed).
 	tickDuration                       time.Duration                         // How long each tick is supposed to last. This is the tick interval/step rate of the simulation.
@@ -133,7 +134,7 @@ type BasicWorkloadDriver struct {
 	workloadEndTime                    time.Time                             // The time at which the workload completed.
 	workloadGenerator                  domain.WorkloadGenerator              // The entity generating the workload (from trace data, a preset, or a template).
 	workloadPreset                     *domain.WorkloadPreset                // The preset used by the associated workload. Will only be non-nil if the associated workload is a preset-based workload, rather than a template-based workload.
-	workloadPresets                    map[string]*domain.WorkloadPreset     // All of the available workload presets.
+	workloadPresets                    map[string]*domain.WorkloadPreset     // All the available workload presets.
 	workloadRegistrationRequest        *domain.WorkloadRegistrationRequest   // The request that registered the workload that is being driven by this driver.
 	workloadSessions                   []*domain.WorkloadTemplateSession     // The template used by the associated workload. Will only be non-nil if the associated workload is a template-based workload, rather than a preset-based workload.
 }
@@ -199,7 +200,7 @@ func NewWorkloadDriver(opts *domain.Configuration, performClockTicks bool, times
 	return driver
 }
 
-// Start the Workload that is associated with/managed by this workload driver.
+// StartWorkload starts the Workload that is associated with/managed by this workload driver.
 //
 // If the workload is already running, then an error is returned.
 // Likewise, if the workload was previously running but has already stopped, then an error is returned.
@@ -208,27 +209,27 @@ func (d *BasicWorkloadDriver) StartWorkload() error {
 	return d.workload.StartWorkload()
 }
 
-// Return the channel used to report critical errors encountered while executing the workload.
+// GetErrorChan returns the channel used to report critical errors encountered while executing the workload.
 func (d *BasicWorkloadDriver) GetErrorChan() chan<- error {
 	return d.errorChan
 }
 
-// Return the current tick of the workload.
+// CurrentTick returns the current tick of the workload.
 func (d *BasicWorkloadDriver) CurrentTick() domain.SimulationClock {
 	return d.currentTick
 }
 
-// Return the current clock time of the workload, which will be sometime between currentTick and currentTick + tick_duration.
+// ClockTime returns the current clock time of the workload, which will be sometime between currentTick and currentTick + tick_duration.
 func (d *BasicWorkloadDriver) ClockTime() domain.SimulationClock {
 	return d.clockTime
 }
 
-// Return the WebSocket connection on which this workload was registered by a remote client and on/through which updates about the workload are reported.
+// WebSocket returns the WebSocket connection on which this workload was registered by a remote client and on/through which updates about the workload are reported.
 func (d *BasicWorkloadDriver) WebSocket() domain.ConcurrentWebSocket {
 	return d.websocket
 }
 
-// Return the stats of the workload.
+// Stats returns the stats of the workload.
 func (d *BasicWorkloadDriver) Stats() *WorkloadStats {
 	return d.stats
 }
@@ -310,6 +311,7 @@ func (d *BasicWorkloadDriver) createWorkloadFromTemplate(workloadRegistrationReq
 	return workload, nil
 }
 
+// RegisterWorkload registers a workload with the driver.
 // Returns nil if the workload could not be registered.
 func (d *BasicWorkloadDriver) RegisterWorkload(workloadRegistrationRequest *domain.WorkloadRegistrationRequest) (domain.Workload, error) {
 	d.mu.Lock()
@@ -359,6 +361,10 @@ func (d *BasicWorkloadDriver) RegisterWorkload(workloadRegistrationRequest *doma
 		}
 	}
 
+	if workload == nil {
+		panic("Workload should not be nil at this point.")
+	}
+
 	// If the workload seed is negative, then assign it a random value.
 	if workloadRegistrationRequest.Seed < 0 {
 		workload.SetSeed(rand.Int63n(2147483647)) // We restrict the user to the range 0-2,147,483,647 when they specify a seed.
@@ -376,7 +382,7 @@ func (d *BasicWorkloadDriver) RegisterWorkload(workloadRegistrationRequest *doma
 	return d.workload, nil
 }
 
-// Write an error back to the client.
+// WriteError writes an error back to the client.
 func (d *BasicWorkloadDriver) WriteError(ctx *gin.Context, errorMessage string) {
 	// Write error back to front-end.
 	msg := &domain.ErrorMessage{
@@ -386,18 +392,18 @@ func (d *BasicWorkloadDriver) WriteError(ctx *gin.Context, errorMessage string) 
 	ctx.JSON(http.StatusInternalServerError, msg)
 }
 
-// Return true if the workload has completed; otherwise, return false.
+// IsWorkloadComplete returns true if the workload has completed; otherwise, return false.
 func (d *BasicWorkloadDriver) IsWorkloadComplete() bool {
 	return d.workload.GetWorkloadState() == domain.WorkloadFinished
 }
 
-// Return the unique ID of this workload driver.
+// ID returns the unique ID of this workload driver.
 // This is not necessarily the same as the workload's unique ID (TODO: or is it?).
 func (d *BasicWorkloadDriver) ID() string {
 	return d.id
 }
 
-// Stop a workload that's already running/in-progress.
+// StopWorkload stops a workload that's already running/in-progress.
 // Returns nil on success, or an error if one occurred.
 func (d *BasicWorkloadDriver) StopWorkload() error {
 	d.mu.Lock()
@@ -424,24 +430,27 @@ func (d *BasicWorkloadDriver) StopWorkload() error {
 	return nil
 }
 
-// Return the channel used to tell the workload to stop.
+// StopChan returns the channel used to tell the workload to stop.
 func (d *BasicWorkloadDriver) StopChan() chan<- interface{} {
 	return d.stopChan
 }
 
+// handleCriticalError is used to abort the workload due to an error from which recovery is not possible.
 func (d *BasicWorkloadDriver) handleCriticalError(err error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
 	d.logger.Error("Workload encountered a critical error and must abort.", zap.String("workload-id", d.id), zap.Error(err))
-	d.abortWorkload()
+	if abortErr := d.abortWorkload(); abortErr != nil {
+		d.logger.Error("Failed to abort workload.", zap.String("workload-id", d.workload.GetId()), zap.Error(abortErr))
+	}
 
 	d.workload.UpdateTimeElapsed()
 	d.workload.SetWorkloadState(domain.WorkloadErred)
 	d.workload.SetErrorMessage(err.Error())
 }
 
-// Manually abort the workload.
+// abortWorkload manually aborts the workload.
 // Clean up any sessions/kernels that were created.
 func (d *BasicWorkloadDriver) abortWorkload() error {
 	d.logger.Warn("Aborting workload.", zap.String("workload-id", d.id))
@@ -501,9 +510,10 @@ func (d *BasicWorkloadDriver) bootstrapSimulation() error {
 	return nil
 }
 
-// This should be called from its own goroutine.
-// Accepts a waitgroup that is used to notify the caller when the workload has completed.
+// DriveWorkload accepts a *sync.WaitGroup that is used to notify the caller when the workload has completed.
 // This issues clock ticks as events are submitted.
+//
+// DriveWorkload should be called from its own goroutine.
 func (d *BasicWorkloadDriver) DriveWorkload(wg *sync.WaitGroup) {
 	d.logger.Info("Workload Simulator has started running. Bootstrapping simulation now.")
 	err := d.bootstrapSimulation()
@@ -571,7 +581,7 @@ OUTER:
 	}
 }
 
-// Issue clock ticks until the d.currentTick clock has caught up to the given timestamp.
+// IssueClockTicks issues clock ticks until the d.currentTick clock has caught up to the given timestamp.
 // The given timestamp should correspond to the timestamp of the next event generated by the Workload Generator.
 // The Workload Simulation will simulate everything up until this next event is ready to process.
 // Then we will continue consuming all events for the current tick in the SimulationDriver::DriveSimulation function.
@@ -618,7 +628,7 @@ func (d *BasicWorkloadDriver) IssueClockTicks(timestamp time.Time) error {
 		currentTick = d.currentTick.GetClockTime()
 
 		tickElapsed := time.Since(tickStart)
-		tickRemaining := time.Duration(d.timescaleAdjustmentFactor * float64((d.tickDuration - tickElapsed)))
+		tickRemaining := time.Duration(d.timescaleAdjustmentFactor * float64(d.tickDuration-tickElapsed))
 
 		// Verify that the issuing of the tick did not exceed the specified real-clock-time that a tick should last.
 		// TODO: Handle this more elegantly, such as by decreasing the length of subsequent ticks or something?
@@ -639,12 +649,13 @@ func (d *BasicWorkloadDriver) IssueClockTicks(timestamp time.Time) error {
 	return nil
 }
 
-// This should be called from its own goroutine.
-// Accepts a waitgroup that is used to notify the caller when the workload has completed.
+// ProcessWorkload accepts a *sync.WaitGroup that is used to notify the caller when the workload has completed.
 // This processes events in response to clock ticks.
 //
 // If there is a critical error that causes the workload to be terminated prematurely/aborted, then that error is returned.
 // If the workload is able to complete successfully, then nil is returned.
+//
+// ProcessWorkload should be called from its own goroutine.
 func (d *BasicWorkloadDriver) ProcessWorkload(wg *sync.WaitGroup) error {
 	d.mu.Lock()
 
@@ -684,7 +695,7 @@ func (d *BasicWorkloadDriver) ProcessWorkload(wg *sync.WaitGroup) error {
 		select {
 		case tick := <-d.ticker.TickDelivery:
 			{
-				d.logger.Debug("Recevied tick.", zap.String("workload-id", d.workload.GetId()), zap.Time("tick", tick))
+				d.logger.Debug("Received tick.", zap.String("workload-id", d.workload.GetId()), zap.Time("tick", tick))
 
 				// Handle the tick.
 				if err := d.handleTick(tick); err != nil {
@@ -708,7 +719,7 @@ func (d *BasicWorkloadDriver) ProcessWorkload(wg *sync.WaitGroup) error {
 			}
 		case err := <-d.errorChan:
 			{
-				d.logger.Error("Recevied error.", zap.String("workload-id", d.workload.GetId()), zap.Error(err))
+				d.logger.Error("Received error.", zap.String("workload-id", d.workload.GetId()), zap.Error(err))
 				d.handleCriticalError(err)
 				if wg != nil {
 					wg.Done()
@@ -718,44 +729,77 @@ func (d *BasicWorkloadDriver) ProcessWorkload(wg *sync.WaitGroup) error {
 		case <-d.stopChan:
 			{
 				d.logger.Info("Workload has been instructed to terminate early.", zap.String("workload-id", d.workload.GetId()))
-				d.abortWorkload()
+
+				abortError := d.abortWorkload()
+				if abortError != nil {
+					d.logger.Error("Error while aborting workload.", zap.String("workload-id", d.workload.GetId()), zap.Error(abortError))
+				}
+
 				if wg != nil {
 					wg.Done()
 				}
-				return nil // We're done, so we can return.
+
+				return abortError // We're done, so we can return.
 			}
 		case <-d.workloadExecutionCompleteChan: // This is placed after eventChan so that all events are processed first.
 			{
-				d.workload.SetWorkloadCompleted()
-
-				var ok bool
-				d.workloadEndTime, ok = d.workload.GetEndTime() // time.Now()
-				if !ok {
-					panic("`ok` should have been `true`")
-				}
-
-				// Add an event for the workload stopping.
-				d.workload.ProcessedEvent(domain.NewEmptyWorkloadEvent().
-					WithEventId(uuid.NewString()).
-					WithSessionId("-").
-					WithEventName(domain.EventWorkloadComplete).
-					WithEventTimestamp(d.clockTime.GetClockTime()).
-					WithProcessedAtTime(d.workloadEndTime))
-
-				d.logger.Info("The Workload Generator has finished generating events.", zap.String("workload-id", d.workload.GetId()))
-				d.logger.Info("The Workload has ended.", zap.Any("workload-duration", time.Since(d.workload.GetStartTime())), zap.Any("workload-start-time", d.workload.GetStartTime()), zap.Any("workload-end-time", d.workloadEndTime))
-
-				// d.workload.WorkloadState = domain.WorkloadFinished
-				if wg != nil {
-					wg.Done()
-				}
-
-				return nil // We're done, so we can return.
+				d.workloadComplete(wg)
+				return nil
 			}
 		}
 	}
 
 	return nil
+}
+
+// workloadComplete is called when the BasicWorkloadDriver receives a signal on its workloadExecutionCompleteChan
+// field informing it that the workload has completed successfully.
+//
+// workloadComplete accepts a *sync.WaitGroup that is used to notify the caller when the workload has completed.
+func (d *BasicWorkloadDriver) workloadComplete(wg *sync.WaitGroup) {
+	d.workload.SetWorkloadCompleted()
+
+	var ok bool
+	d.workloadEndTime, ok = d.workload.GetEndTime() // time.Now()
+	if !ok {
+		panic("`ok` should have been `true`")
+	}
+
+	// Add an event for the workload stopping.
+	d.workload.ProcessedEvent(domain.NewEmptyWorkloadEvent().
+		WithEventId(uuid.NewString()).
+		WithSessionId("-").
+		WithEventName(domain.EventWorkloadComplete).
+		WithEventTimestamp(d.clockTime.GetClockTime()).
+		WithProcessedAtTime(d.workloadEndTime))
+
+	d.logger.Info("The Workload Generator has finished generating events.", zap.String("workload-id", d.workload.GetId()))
+	d.logger.Info("The Workload has ended.", zap.Any("workload-duration", time.Since(d.workload.GetStartTime())), zap.Any("workload-start-time", d.workload.GetStartTime()), zap.Any("workload-end-time", d.workloadEndTime))
+
+	for sessionId, sessionConnection := range d.sessionConnections {
+		kernel := sessionConnection.Kernel()
+		if kernel == nil {
+			continue
+		}
+
+		stdout := kernel.Stdout()
+		stderr := kernel.Stderr()
+
+		d.sugaredLogger.Debugf("Stdout IOPub messages received by Session %s (%d):", sessionId, len(stdout))
+		for _, stdoutMessage := range stdout {
+			d.sugaredLogger.Debugf(stdoutMessage)
+		}
+
+		d.sugaredLogger.Debugf("Stderr IOPub messages received by Session %s (%d):", sessionId, len(stderr))
+		for _, stderrMessage := range stderr {
+			d.sugaredLogger.Debugf(stderrMessage)
+		}
+	}
+
+	// d.workload.WorkloadState = domain.WorkloadFinished
+	if wg != nil {
+		wg.Done()
+	}
 }
 
 // Handle a tick during the execution of a workload.
@@ -775,7 +819,7 @@ func (d *BasicWorkloadDriver) handleTick(tick time.Time) error {
 	d.logger.Debug(coloredOutput)
 	d.ticksHandled.Add(1)
 
-	// If there are no events processed this tick, then we still need to increment the clocktime so we're in-line with the simulation.
+	// If there are no events processed this tick, then we still need to increment the clock time so we're in-line with the simulation.
 	// Check if the current clock time is earlier than the start of the previous tick. If so, increment the clock time to the beginning of the tick.
 	prevTickStart := tick.Add(-d.tickDuration)
 	if d.clockTime.GetClockTime().Before(prevTickStart) {
@@ -806,23 +850,24 @@ func (d *BasicWorkloadDriver) doneServingTick() {
 	d.ticker.Done()
 }
 
-// Used to signal that the workload has successfully processed all events and is complete.
+// WorkloadExecutionCompleteChan returns the channel that is used to signal
+// that the workload has successfully processed all events and is complete.
 func (d *BasicWorkloadDriver) WorkloadExecutionCompleteChan() chan interface{} {
 	return d.workloadExecutionCompleteChan
 }
 
-// Used to signal that the generators have submitted all events.
+// WorkloadEventGeneratorCompleteChan returns the channel used to signal that the generators have submitted all events.
 // Once all remaining, already-enqueued events have been processed, the workload will be complete.
 func (d *BasicWorkloadDriver) WorkloadEventGeneratorCompleteChan() chan interface{} {
 	return d.workloadEventGeneratorCompleteChan
 }
 
-// Return the event queue for this workload.
+// EventQueue returns the event queue for this workload.
 func (d *BasicWorkloadDriver) EventQueue() domain.EventQueueService {
 	return d.eventQueue
 }
 
-// Process events in chronological/simulation order.
+// processEventsForTick processes events in chronological/simulation order.
 // This accepts the "current tick" as an argument. The current tick is basically an upper-bound on the times for
 // which we'll process an event. For example, if `tick` is 19:05:00, then we will process all cluster and session
 // events with timestamps that are (a) equal to 19:05:00 or (b) come before 19:05:00. Any events with timestamps
@@ -835,7 +880,7 @@ func (d *BasicWorkloadDriver) processEventsForTick(tick time.Time) {
 		waitGroup sync.WaitGroup
 	)
 
-	// Extract all of the events for this tick.
+	// Extract all the events for this tick.
 	for d.eventQueue.HasEventsForTick(tick) {
 		evt, ok := d.eventQueue.GetNextEvent(tick)
 
@@ -874,19 +919,19 @@ func (d *BasicWorkloadDriver) processEventsForTick(tick time.Time) {
 	for sessionId, events := range sessionEventMap {
 		d.sugaredLogger.Debugf("Number of events for Session %s: %d", sessionId, len(events))
 
-		// Create a go routine to process all of the events for the particular session.
+		// Create a go routine to process all the events for the particular session.
 		// This enables us to process events targeting multiple sessions in-parallel.
 		go d.processEventsForSession(sessionId, events, len(sessionEventMap), &waitGroup, tick)
 	}
 
-	// Wait for all of the goroutines to complete before returning.
+	// Wait for all the goroutines to complete before returning.
 	waitGroup.Wait()
 	d.workload.UpdateTimeElapsed()
 }
 
 // Process the given events for the specified session during the specified tick.
 // This is intended to be called within its own goroutine so that events for multiple sessions within the same tick can be processed concurrently by the driver.
-func (d *BasicWorkloadDriver) processEventsForSession(sessionId string, events []domain.Event, numSessionsWithEventsToProcess int, waitGroup *sync.WaitGroup, tick time.Time) error {
+func (d *BasicWorkloadDriver) processEventsForSession(sessionId string, events []domain.Event, numSessionsWithEventsToProcess int, waitGroup *sync.WaitGroup, tick time.Time) {
 	for idx, event := range events {
 		d.sugaredLogger.Debugf("Handling event %d/%d \"%s\" for session %s now...", idx+1, numSessionsWithEventsToProcess, sessionId, event.Name())
 		err := d.handleEvent(event)
@@ -903,7 +948,7 @@ func (d *BasicWorkloadDriver) processEventsForSession(sessionId string, events [
 		if err != nil {
 			d.sugaredLogger.Errorf("Failed to handle event %d/%d \"%s\" for session %s: %v", idx+1, numSessionsWithEventsToProcess, sessionId, event.Name(), err)
 			d.errorChan <- err
-			return err // We just return immediately, as the workload is going to be aborted due to the error.
+			return // We just return immediately, as the workload is going to be aborted due to the error.
 		}
 
 		d.sugaredLogger.Debugf("Successfully handled event %d/%d: \"%s\"", idx+1, numSessionsWithEventsToProcess, event.Name())
@@ -911,8 +956,6 @@ func (d *BasicWorkloadDriver) processEventsForSession(sessionId string, events [
 
 	d.sugaredLogger.Debugf("Finished processing %d event(s) for session \"%s\" in tick %v.", len(events), sessionId, tick)
 	waitGroup.Done()
-
-	return nil
 }
 
 // Given a session ID, such as from the trace data, return the ID used internally.
@@ -928,7 +971,7 @@ func (d *BasicWorkloadDriver) getOriginalSessionIdFromInternalSessionId(internal
 	return internalSessionId[0:rightIndex]
 }
 
-// Create and return a new Session with the given ID.
+// NewSession create and return a new Session with the given ID.
 func (d *BasicWorkloadDriver) NewSession(id string, meta domain.SessionMetadata, createdAtTime time.Time) domain.WorkloadSession {
 	d.sugaredLogger.Debugf("Creating new Session %v. MaxSessionCPUs: %.2f; MaxSessionMemory: %.2f. MaxSessionGPUs: %d. TotalNumSessions: %d", id, meta.GetMaxSessionCPUs(), meta.GetMaxSessionMemory(), meta.GetMaxSessionGPUs(), d.sessions.Len())
 
@@ -955,7 +998,7 @@ func (d *BasicWorkloadDriver) NewSession(id string, meta domain.SessionMetadata,
 	return session
 }
 
-// Get and return the Session identified by the given ID, if one exists. Otherwise, return nil.
+// GetSession gets and returns the Session identified by the given ID, if one exists. Otherwise, return nil.
 // If the caller is attempting to retrieve a Session that once existed but has since been terminated, then this will return nil.
 func (d *BasicWorkloadDriver) GetSession(id string) domain.WorkloadSession {
 	session, ok := d.sessions.Get(id)
@@ -984,7 +1027,7 @@ func (d *BasicWorkloadDriver) handleSessionReadyEvents(latestTick time.Time) {
 			d.sugaredLogger.Debugf("Handling EventSessionReady %d targeting Session %s [ts: %v].", numProcessed+1, sessionId, sessionReadyEvent.Timestamp())
 		}
 
-		provision_start := time.Now()
+		provisionStart := time.Now()
 		_, err := d.provisionSession(sessionId, sessionMeta, sessionReadyEvent.Timestamp())
 
 		// The event index will be populated automatically by the ProcessedEvent method.
@@ -995,7 +1038,7 @@ func (d *BasicWorkloadDriver) handleSessionReadyEvents(latestTick time.Time) {
 			WithSessionId(sessionReadyEvent.SessionID()).
 			WithEventTimestamp(sessionReadyEvent.Timestamp()).
 			WithProcessedAtTime(time.Now()).
-			WithProcessedStatus((err == nil)).
+			WithProcessedStatus(err == nil).
 			WithSimProcessedAtTime(d.clockTime.GetClockTime()).
 			WithError(err)
 		d.workload.ProcessedEvent(workloadEvent)
@@ -1010,17 +1053,21 @@ func (d *BasicWorkloadDriver) handleSessionReadyEvents(latestTick time.Time) {
 		// })
 
 		if err != nil {
-			d.logger.Error("Failed to provision new Jupyter session.", zap.String(ZapInternalSessionIDKey, sessionId), zap.Duration("real-time-elapsed", time.Since(provision_start)), zap.Error(err))
+			d.logger.Error("Failed to provision new Jupyter session.", zap.String(ZapInternalSessionIDKey, sessionId), zap.Duration("real-time-elapsed", time.Since(provisionStart)), zap.Error(err))
 			payload, _ := json.Marshal(domain.ErrorMessage{
 				Description:  reflect.TypeOf(err).Name(),
 				ErrorMessage: err.Error(),
 				Valid:        true,
 			})
-			d.websocket.WriteMessage(websocket.BinaryMessage, payload)
+
+			if writeError := d.websocket.WriteMessage(websocket.BinaryMessage, payload); writeError != nil {
+				d.logger.Error("Failed to write error message via WebSocket.", zap.Error(writeError))
+			}
+
 			d.errorChan <- err
 			return // Just return; the workload is about to end anyway (since there was an error).
 		} else {
-			d.logger.Debug("Successfully handled SessionStarted event.", zap.String(ZapInternalSessionIDKey, sessionId), zap.Duration("real-time-elapsed", time.Since(provision_start)))
+			d.logger.Debug("Successfully handled SessionStarted event.", zap.String(ZapInternalSessionIDKey, sessionId), zap.Duration("real-time-elapsed", time.Since(provisionStart)))
 		}
 
 		numProcessed += 1

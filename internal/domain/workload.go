@@ -56,122 +56,122 @@ type NamedEvent interface {
 }
 
 type Workload interface {
-	// Return true if the workload stopped because it was explicitly terminated early/premature.
+	// IsTerminated Returns true if the workload stopped because it was explicitly terminated early/premature.
 	IsTerminated() bool
-	// Return true if the workload is registered and ready to be started.
+	// IsReady Returns true if the workload is registered and ready to be started.
 	IsReady() bool
-	// Return true if the workload stopped due to an error.
+	// IsErred Returns true if the workload stopped due to an error.
 	IsErred() bool
-	// Return true if the workload is actively running/in-progress.
+	// IsRunning Returns true if the workload is actively running/in-progress.
 	IsRunning() bool
-	// Return true if the workload finished in any capacity (i.e., either successfully or due to an error).
+	// IsFinished Returns true if the workload finished in any capacity (i.e., either successfully or due to an error).
 	IsFinished() bool
-	// Return true if the workload stopped naturally/successfully after processing all events.
+	// DidCompleteSuccessfully Returns true if the workload stopped naturally/successfully after processing all events.
 	DidCompleteSuccessfully() bool
-	// To String.
+	// String returns a String representation of the Workload suitable for logging.
 	String() string
-	// Return the unique ID of the workload.
+	// GetId Returns the unique ID of the workload.
 	GetId() string
-	// Return the name of the workload.
+	// WorkloadName Returns the name of the workload.
 	// The name is not necessarily unique and is meant to be descriptive, whereas the ID is unique.
 	WorkloadName() string
-	// Return the current state of the workload.
+	// GetWorkloadState Returns the current state of the workload.
 	GetWorkloadState() WorkloadState
-	// Return the time elapsed, which is computed at the time that data is requested by the user.
+	// GetTimeElasped Returns the time elapsed, which is computed at the time that data is requested by the user.
 	GetTimeElasped() time.Duration
-	// Return the time elapsed as a string, which is computed at the time that data is requested by the user.
+	// GetTimeElaspedAsString Returns the time elapsed as a string, which is computed at the time that data is requested by the user.
 	GetTimeElaspedAsString() string
-	// Update the time elapsed.
+	// SetTimeElasped Updates the time elapsed.
 	SetTimeElasped(time.Duration)
-	// Instruct the Workload to recompute its 'time elapsed' field.
+	// UpdateTimeElapsed Instructs the Workload to recompute its 'time elapsed' field.
 	UpdateTimeElapsed()
-	// Return the number of events processed by the workload.
+	// GetNumEventsProcessed Returns the number of events processed by the workload.
 	GetNumEventsProcessed() int64
-	// Return the time that the workload was started.
+	// GetStartTime Returns the time that the workload was started.
 	GetStartTime() time.Time
-	// Get the time at which the workload finished.
+	// GetEndTime Gets the time at which the workload finished.
 	// If the workload hasn't finished yet, the returned boolean will be false.
 	// If the workload has finished, then the returned boolean will be true.
 	GetEndTime() (time.Time, bool)
-	// Return the time that the workload was registered.
+	// GetRegisteredTime Returns the time that the workload was registered.
 	GetRegisteredTime() time.Time
-	// Return the workload's seed.
+	// GetSeed Returns the workload's seed.
 	GetSeed() int64
-	// Set the workload's seed. Can only be performed once. If attempted again, this will panic.
+	// SetSeed Sets the workload's seed. Can only be performed once. If attempted again, this will panic.
 	SetSeed(seed int64)
-	// Get the error message associated with the workload.
+	// GetErrorMessage Gets the error message associated with the workload.
 	// If the workload is not in an ERROR state, then this returns the empty string and false.
 	// If the workload is in an ERROR state, then the boolean returned will be true.
 	GetErrorMessage() (string, bool)
-	// Set the error message for the workload.
+	// SetErrorMessage Sets the error message for the workload.
 	SetErrorMessage(string)
-	// Return a flag indicating whether debug logging is enabled.
+	// IsDebugLoggingEnabled Returns a flag indicating whether debug logging is enabled.
 	IsDebugLoggingEnabled() bool
-	// Enable or disable debug logging for the workload.
+	// SetDebugLoggingEnabled Enables or disables debug logging for the workload.
 	SetDebugLoggingEnabled(enabled bool)
-	// Set the state of the workload.
+	// SetWorkloadState Sets the state of the workload.
 	SetWorkloadState(state WorkloadState)
-	// Start the Workload.
+	// StartWorkload Starts the Workload.
 	//
 	// If the workload is already running, then an error is returned.
 	// Likewise, if the workload was previously running but has already stopped, then an error is returned.
 	StartWorkload() error
-	// Explicitly/manually stop the workload early.
+	// TerminateWorkloadPrematurely Explicitly/manually stops the workload early.
 	// Return the time at which the workload terminated and an error if one occurred.
 	TerminateWorkloadPrematurely(time.Time) (time.Time, error)
-	// Mark the workload as having completed successfully.
+	// SetWorkloadCompleted Marks the workload as having completed successfully.
 	SetWorkloadCompleted()
-	// Called after an event is processed for the Workload.
+	// ProcessedEvent is Called after an event is processed for the Workload.
 	// Updates some internal metrics.
 	// Automatically sets the WorkloadEvent's index field.
 	ProcessedEvent(*WorkloadEvent)
-	// Called when a Session is created for/in the Workload.
+	// SessionCreated is Called when a Session is created for/in the Workload.
 	// Just updates some internal metrics.
 	SessionCreated(string)
-	// Called when a Session is stopped for/in the Workload.
+	// SessionStopped is Called when a Session is stopped for/in the Workload.
 	// Just updates some internal metrics.
 	SessionStopped(string)
-	// Called when a training starts during/in the workload.
+	// TrainingStarted is Called when a training starts during/in the workload.
 	// Just updates some internal metrics.
 	TrainingStarted(string)
-	// Called when a training stops during/in the workload.
+	// TrainingStopped is Called when a training stops during/in the workload.
 	// Just updates some internal metrics.
 	TrainingStopped(string)
-	// Get the type of workload (TRACE, PRESET, or TEMPLATE).
+	// GetWorkloadType returns the type of workload (TRACE, PRESET, or TEMPLATE).
 	GetWorkloadType() WorkloadType
-	// Return true if this workload was created using a preset.
+	// IsPresetWorkload Returns true if this workload was created using a preset.
 	IsPresetWorkload() bool
-	// Return true if this workload was created using a template.
+	// IsTemplateWorkload Returns true if this workload was created using a template.
 	IsTemplateWorkload() bool
-	// Return true if this workload was created using the trace data.
+	// IsTraceWorkload Returns true if this workload was created using the trace data.
 	IsTraceWorkload() bool
-	// If this is a preset workload, return the name of the preset.
+	// GetWorkloadSource: If this is a preset workload, return the name of the preset.
 	// If this is a trace workload, return the trace information.
 	// If this is a template workload, return the template information.
 	GetWorkloadSource() interface{}
-	// Get the workload's Timescale Adjustment Factor, which effects the
+	// GetTimescaleAdjustmentFactor returns the workload's Timescale Adjustment Factor, which effects the
 	// timescale at which tickets are replayed/"simulated".
 	GetTimescaleAdjustmentFactor() float64
-	// Return the events processed during this workload (so far).
+	// GetProcessedEvents Returns the events processed during this workload (so far).
 	GetProcessedEvents() []*WorkloadEvent
-	// Return the sessions involved in this workload.
+	// GetSessions Returns the sessions involved in this workload.
 	GetSessions() []WorkloadSession
-	// Set the sessions that will be involved in this workload.
+	// SetSessions Sets the sessions that will be involved in this workload.
 	//
 	// IMPORTANT: This can only be set once per workload. If it is called more than once, it will panic.
 	SetSessions([]WorkloadSession)
-	// Set the source of the workload, namely a template or a preset.
+	// SetSource Sets the source of the workload, namely a template or a preset.
 	SetSource(interface{})
-	// Return the current tick.
+	// GetCurrentTick Returns the current tick.
 	GetCurrentTick() int64
-	// Return the simulation clock time.
+	// GetSimulationClockTimeStr Returns the simulation clock time.
 	GetSimulationClockTimeStr() string
-	// Called by the driver after each tick.
+	// TickCompleted is Called by the driver after each tick.
 	// Updates the time elapsed, current tick, and simulation clock time.
 	TickCompleted(int64, time.Time)
 }
 
-// This will panic if an invalid workload state is specified.
+// GetWorkloadStateAsString will panic if an invalid workload state is specified.
 func GetWorkloadStateAsString(state WorkloadState) string {
 	switch state {
 	case WorkloadReady:
