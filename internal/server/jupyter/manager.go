@@ -324,7 +324,7 @@ func (m *BasicKernelSessionManager) StopKernel(id string) error {
 
 	body, _ := io.ReadAll(resp.Body)
 	switch resp.StatusCode {
-	case http.StatusOK:
+	case http.StatusNoContent: // https://jupyter-server.readthedocs.io/en/latest/developers/rest-api.html#delete--api-kernels-kernel_id
 		{
 			m.logger.Debug("Received 'OK'", zap.String("status", resp.Status), zap.Any("headers", resp.Header), zap.Any("body", string(body)))
 		}
@@ -334,7 +334,7 @@ func (m *BasicKernelSessionManager) StopKernel(id string) error {
 			return fmt.Errorf("ErrStopKernelBadRequest %w : %s", ErrStopKernelBadRequest, string(body))
 		}
 	default:
-		m.logger.Warn("Unexpected respone status code when stopping session.", zap.Int("status-code", resp.StatusCode), zap.String("status", resp.Status), zap.Any("headers", resp.Header), zap.Any("body", string(body)))
+		m.logger.Warn("Unexpected response status code when stopping session.", zap.Int("status-code", resp.StatusCode), zap.String("status", resp.Status), zap.Any("headers", resp.Header), zap.Any("body", string(body)))
 	}
 
 	m.metrics.SessionTerminated()

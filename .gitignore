@@ -13,3 +13,4 @@ config-files/
 config-files/*
 output.txt
 *.exe
+./server

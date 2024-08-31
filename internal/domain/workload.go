@@ -145,7 +145,8 @@ type Workload interface {
 	IsTemplateWorkload() bool
 	// IsTraceWorkload Returns true if this workload was created using the trace data.
 	IsTraceWorkload() bool
-	// GetWorkloadSource: If this is a preset workload, return the name of the preset.
+	// GetWorkloadSource returns the "source" of the workload, be it a preset, a template, or some trace data.
+	// If this is a preset workload, return the name of the preset.
 	// If this is a trace workload, return the trace information.
 	// If this is a template workload, return the template information.
 	GetWorkloadSource() interface{}

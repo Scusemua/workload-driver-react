@@ -776,6 +776,7 @@ func (d *BasicWorkloadDriver) workloadComplete(wg *sync.WaitGroup) {
 	d.logger.Info("The Workload Generator has finished generating events.", zap.String("workload-id", d.workload.GetId()))
 	d.logger.Info("The Workload has ended.", zap.Any("workload-duration", time.Since(d.workload.GetStartTime())), zap.Any("workload-start-time", d.workload.GetStartTime()), zap.Any("workload-end-time", d.workloadEndTime))
 
+	d.sugaredLogger.Debugf("There are %d sessions.", len(d.sessionConnections))
 	for sessionId, sessionConnection := range d.sessionConnections {
 		kernel := sessionConnection.Kernel()
 		if kernel == nil {
@@ -1162,9 +1163,9 @@ func (d *BasicWorkloadDriver) handleEvent(evt domain.Event) error {
 			d.logger.Debug("Successfully stopped session.", zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
 		}
 
-		d.mu.Lock()
-		delete(d.seenSessions, internalSessionId)
-		d.mu.Unlock()
+		//d.mu.Lock()
+		//delete(d.seenSessions, internalSessionId)
+		//d.mu.Unlock()
 
 		d.workload.SessionStopped(traceSessionId)
 		d.logger.Debug("Handled SessionStopped event.", zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
