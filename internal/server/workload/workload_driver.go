@@ -1207,6 +1207,8 @@ func (d *BasicWorkloadDriver) provisionSession(sessionId string, meta domain.Ses
 	//
 	// The return value is not really used.
 	ioPubHandler := func(conn jupyter.KernelConnection, kernelMessage jupyter.KernelMessage) interface{} {
+		d.sugaredLogger.Debugf("Handling IOPub message targeting session \"%s\", kernel \"%s\".", sessionId, conn.KernelId())
+
 		// Parse the IOPub message.
 		// If it is a stream message, this will return a *parsedIoPubMessage variable.
 		parsedIoPubMsgVal := d.handleIOPubMessage(conn, kernelMessage)

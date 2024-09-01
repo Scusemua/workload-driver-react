@@ -1,8 +1,8 @@
-const WORKLOAD_STATE_READY: string = "WorkloadReady"   ; // Workload is registered and ready to be started.
-const WORKLOAD_STATE_RUNNING: string = "WorkloadRunning"; // Workload is actively running/in-progress.
-const WORKLOAD_STATE_FINISHED: string = "WorkloadFinished"; // Workload stopped naturally/successfully after processing all events.
-const WORKLOAD_STATE_ERRED: string = "WorkloadErred"; // Workload stopped due to an error.
-const WORKLOAD_STATE_TERMINATED: string = "WorkloadTerminated"; // Workload stopped because it was explicitly terminated early/premature.
+const WORKLOAD_STATE_READY: string = 'WorkloadReady'; // Workload is registered and ready to be started.
+const WORKLOAD_STATE_RUNNING: string = 'WorkloadRunning'; // Workload is actively running/in-progress.
+const WORKLOAD_STATE_FINISHED: string = 'WorkloadFinished'; // Workload stopped naturally/successfully after processing all events.
+const WORKLOAD_STATE_ERRED: string = 'WorkloadErred'; // Workload stopped due to an error.
+const WORKLOAD_STATE_TERMINATED: string = 'WorkloadTerminated'; // Workload stopped because it was explicitly terminated early/premature.
 
 interface WorkloadPreset {
     name: string; // Human-readable name for this particular workload preset.
@@ -24,7 +24,11 @@ interface WorkloadPreset {
 
 // Return true if the workload is in the 'finished', 'erred', or 'terminated' states.
 function IsWorkloadFinished(workload: Workload) {
-    return (workload.workload_state == WORKLOAD_STATE_FINISHED || workload.workload_state == WORKLOAD_STATE_ERRED || workload.workload_state == WORKLOAD_STATE_TERMINATED)
+    return (
+        workload.workload_state == WORKLOAD_STATE_FINISHED ||
+        workload.workload_state == WORKLOAD_STATE_ERRED ||
+        workload.workload_state == WORKLOAD_STATE_TERMINATED
+    );
 }
 
 interface Workload {
@@ -50,12 +54,12 @@ interface Workload {
     timescale_adjustment_factor: number;
     events_processed: WorkloadEvent[];
     sessions: Session[];
-    simulation_clock_time: string; 
+    simulation_clock_time: string;
     current_tick: number;
 }
 
 interface WorkloadEvent {
-    idx: number; 
+    idx: number;
     id: string;
     name: string;
     session: string;
@@ -80,8 +84,10 @@ interface Session {
     stop_tick: number;
     trainings: TrainingEvent[];
     trainings_completed: number;
-    state: string; 
+    state: string;
     error_message: string; // If the session encountered an error message, then we can store it here.
+    stderr_io_pub_messages: string[];
+    stdout_io_pub_messages: string[];
 }
 
 interface TrainingEvent {
@@ -134,7 +140,7 @@ function GetWorkloadStatusTooltip(workload: Workload | null) {
         `Workload ${workload.name} (ID=${workload.id}) is in an unsupported/unknown state: ${workload.workload_state}`,
     );
     return 'The workload is currently in an unknown/unsupported state.';
-};
+}
 
 export { WORKLOAD_STATE_READY as WORKLOAD_STATE_READY };
 export { WORKLOAD_STATE_RUNNING as WORKLOAD_STATE_RUNNING };

@@ -194,7 +194,7 @@ func (conn *BasicKernelConnection) RegisterIoPubHandler(id string, handler IOPub
 	conn.iopubHandlerMutex.Lock()
 	defer conn.iopubHandlerMutex.Unlock()
 
-	if _, ok := conn.iopubMessageHandlers[id]; !ok {
+	if _, ok := conn.iopubMessageHandlers[id]; ok {
 		conn.logger.Error("Could not register IOPub message handler.", zap.String("id", id), zap.Error(ErrHandlerAlreadyExists))
 		return ErrHandlerAlreadyExists
 	}

@@ -83,82 +83,6 @@ export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalP
         </React.Fragment>
     )
 
-    // const getSessionStatusLabel = (session: Session) => {
-    //     const status: string = session.state;
-    //     switch (status) {
-    //         case "awaiting start":
-    //             return (<Tooltip content="This session has not yet been created or started yet."><Label icon={<PendingIcon />} color='grey'>{status}</Label></Tooltip>);
-    //         case "idle":
-    //             return (<Tooltip content="This session is actively-running, but it is not currently training."><Label icon={<ResourcesEmptyIcon />} color='grey'>{status}</Label></Tooltip>);
-    //         case "training":
-    //             return (<Tooltip content="This session is actively training."><Label icon={<RunningIcon />} color='green'>{status}</Label></Tooltip>);
-    //         case "terminated":
-    //             return (<Tooltip content="This session has been stopped permanently (without error)."><Label icon={<OffIcon />} color='gold'>{status}</Label></Tooltip>);
-    //         case "erred":
-    //             return (<Tooltip content={`This session has been terminated due to an unexpected error: ${session.error_message}`}><Label icon={<ErrorCircleOIcon />} color='red'> {status}</Label></Tooltip>);
-    //         default:
-    //             return (<Tooltip content="This session is in an unknown or unexpected state."><Label icon={<UnknownIcon />} color='orange'> unknown: {status}</Label></Tooltip>);
-    //     }
-    // }
-
-    // TODO: Add pagination to this table.
-    // TODO: Define this table in its own file (probably).
-    // const events_table_columns: string[] = ["Index", "Event Name", "Target Session ID", "Event Timestamp", "IRL Timestamp"];
-    // const eventsTable = (
-    //     <Table variant="compact">
-    //         <Thead>
-    //             <Tr>
-    //                 {events_table_columns.map((column, columnIndex) => (
-    //                     <Th key={columnIndex}>{column}</Th>
-    //                 ))}
-    //             </Tr>
-    //         </Thead>
-    //         <Tbody>
-    //             {props.workload?.events_processed?.map((evt: WorkloadEvent, idx: number) => {
-    //                 return (
-    //                     <Tr key={props.workload?.events_processed[0]?.id}>
-    //                         <Td dataLabel={events_table_columns[0]}>{idx}</Td>
-    //                         <Td dataLabel={events_table_columns[1]}>{getEventLabel(evt?.name)}</Td>
-    //                         <Td dataLabel={events_table_columns[2]}>{evt?.session}</Td>
-    //                         <Td dataLabel={events_table_columns[3]}>{evt?.timestamp}</Td>
-    //                         <Td dataLabel={events_table_columns[4]}>{evt?.processed_at}</Td>
-    //                     </Tr>
-    //                 )
-    //             })}
-    //         </Tbody>
-    //     </Table>
-    // );
-
-    // TODO: Add pagination to this table.
-    // TODO: Define this table in its own file (probably).
-    // const sessions_table_columns: string[] = ["Index", "ID", "Status", "Trainings Completed", "Max vCPUs", "Max Memory (GB)", "Max vGPUs"]
-    // const sessionTable = (
-    //     <Table variant="compact">
-    //         <Thead>
-    //             <Tr>
-    //                 {sessions_table_columns.map((column, columnIndex) => (
-    //                     <Th key={columnIndex}>{column}</Th>
-    //                 ))}
-    //             </Tr>
-    //         </Thead>
-    //         <Tbody>
-    //             {props.workload?.sessions?.map((session: Session, idx: number) => {
-    //                 return (
-    //                     <Tr key={props.workload?.events_processed[0]?.id}>
-    //                         <Td dataLabel={sessions_table_columns[0]}>{idx}</Td>
-    //                         <Td dataLabel={sessions_table_columns[1]}>{session.id}</Td>
-    //                         <Td dataLabel={sessions_table_columns[2]}>{getSessionStatusLabel(session)}</Td>
-    //                         <Td dataLabel={sessions_table_columns[3]}>{session.trainings_completed || '0'}</Td>
-    //                         <Td dataLabel={sessions_table_columns[4]}><CpuIcon /> {session?.max_cpus}</Td>
-    //                         <Td dataLabel={sessions_table_columns[5]}><GpuIcon /> {session?.max_num_gpus}</Td>
-    //                         <Td dataLabel={sessions_table_columns[6]}><MemoryIcon /> {session?.max_memory_gb}</Td>
-    //                     </Tr>
-    //                 )
-    //             })}
-    //         </Tbody>
-    //     </Table>
-    // )
-
     const getTimeElapsedString = () => {
         if (props.workload?.workload_state === undefined || props.workload?.workload_state === "") {
             return "N/A"
@@ -223,7 +147,7 @@ export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalP
                             <DescriptionListDescription>{getTimeElapsedString()}</DescriptionListDescription>
                         </DescriptionListGroup>
                         <DescriptionListGroup>
-                            <DescriptionListTerm>Workload Clocktime <UserClockIcon /></DescriptionListTerm>
+                            <DescriptionListTerm>Workload Clock Time <UserClockIcon /></DescriptionListTerm>
                             <DescriptionListDescription>{props.workload?.simulation_clock_time == '' ? 'N/A' : props.workload?.simulation_clock_time}</DescriptionListDescription>
                         </DescriptionListGroup>
                         <DescriptionListGroup>

@@ -139,7 +139,7 @@ export const WorkloadEventTable: React.FunctionComponent<WorkloadEventTableProps
                     <Thead noWrap>
                         <Tr>
                             {events_table_columns.map((column, columnIndex) => (
-                                <Th sort={getSortParams(columnIndex)} aria-label={`${column}-column`}>{column}</Th>
+                                <Th key={`workload-${props.workload?.id}-column-${columnIndex}`} sort={getSortParams(columnIndex)} aria-label={`${column}-column`}>{column}</Th>
                             ))}
                         </Tr>
                     </Thead>
