@@ -776,7 +776,7 @@ func (d *BasicWorkloadDriver) workloadComplete(wg *sync.WaitGroup) {
 	d.logger.Info("The Workload Generator has finished generating events.", zap.String("workload-id", d.workload.GetId()))
 	d.logger.Info("The Workload has ended.", zap.Any("workload-duration", time.Since(d.workload.GetStartTime())), zap.Any("workload-start-time", d.workload.GetStartTime()), zap.Any("workload-end-time", d.workloadEndTime))
 
-	d.sugaredLogger.Debugf("There are %d sessions.", len(d.sessionConnections))
+	d.sugaredLogger.Debugf("There is/are %d sessions.", len(d.sessionConnections))
 	for sessionId, sessionConnection := range d.sessionConnections {
 		kernel := sessionConnection.Kernel()
 		if kernel == nil {
@@ -1174,6 +1174,11 @@ func (d *BasicWorkloadDriver) handleEvent(evt domain.Event) error {
 	return nil
 }
 
+func (d *BasicWorkloadDriver) stopSession(sessionId string) error {
+	d.logger.Debug("Stopping session.", zap.String("kernel-id", sessionId))
+	return d.kernelManager.StopKernel(sessionId)
+}
+
 func (d *BasicWorkloadDriver) provisionSession(sessionId string, meta domain.SessionMetadata, createdAtTime time.Time) (*jupyter.SessionConnection, error) {
 	d.logger.Debug("Creating new kernel.", zap.String("kernel-id", sessionId))
 	st := time.Now()
@@ -1188,18 +1193,90 @@ func (d *BasicWorkloadDriver) provisionSession(sessionId string, meta domain.Ses
 	internalSessionId := d.getInternalSessionId(sessionId)
 
 	d.mu.Lock()
-	d.sessionConnections[sessionId] = sessionConnection
+	// d.sessionConnections[sessionId] = sessionConnection
 	d.sessionConnections[internalSessionId] = sessionConnection
 	d.mu.Unlock()
 
 	d.logger.Debug("Successfully created new kernel.", zap.String("kernel-id", sessionId), zap.Duration("time-elapsed", timeElapsed), zap.String(ZapInternalSessionIDKey, internalSessionId))
 
-	d.NewSession(sessionId, meta, createdAtTime)
+	workloadSession := d.NewSession(sessionId, meta, createdAtTime)
+
+	// ioPubHandler is a session-specific wrapper around the standard BasicWorkloadDriver::handleIOPubMessage method.
+	// This returns true if the received IOPub message is a "stream" message and is parsed successfully.
+	// Otherwise, this returns false.
+	//
+	// The return value is not really used.
+	ioPubHandler := func(conn jupyter.KernelConnection, kernelMessage jupyter.KernelMessage) interface{} {
+		// Parse the IOPub message.
+		// If it is a stream message, this will return a *parsedIoPubMessage variable.
+		parsedIoPubMsgVal := d.handleIOPubMessage(conn, kernelMessage)
+
+		if parsedIoPubMsg, ok := parsedIoPubMsgVal.(*parsedIoPubMessage); ok {
+			switch parsedIoPubMsg.Stream {
+			case "stdout":
+				{
+					workloadSession.AddStdoutIoPubMessage(parsedIoPubMsg.Text)
+				}
+			case "stderr":
+				{
+					workloadSession.AddStderrIoPubMessage(parsedIoPubMsg.Text)
+				}
+			default:
+				d.logger.Error("Unexpected stream specified by IOPub message.", zap.String("stream", parsedIoPubMsg.Stream))
+				return false
+			}
+			return true
+		}
+
+		return false
+	}
+
+	if err := sessionConnection.RegisterIoPubHandler(d.id, ioPubHandler); err != nil {
+		d.logger.Warn("Failed to register IOPub message handler.", zap.String("id", d.id), zap.Error(err))
+	}
 
 	return sessionConnection, nil
 }
 
-func (d *BasicWorkloadDriver) stopSession(sessionId string) error {
-	d.logger.Debug("Stopping session.", zap.String("kernel-id", sessionId))
-	return d.kernelManager.StopKernel(sessionId)
+type parsedIoPubMessage struct {
+	Stream string
+	Text   string
+}
+
+// handleIOPubMessage returns the extracted text.
+// This is expected to be called within a session-specific wrapper.
+//
+// If the IOPub message is a "stream" message, then this returns a *parsedIoPubMessage
+// wrapping the name of the stream and the message text.
+func (d *BasicWorkloadDriver) handleIOPubMessage(conn jupyter.KernelConnection, kernelMessage jupyter.KernelMessage) interface{} {
+	// We just want to extract the output from 'stream' IOPub messages.
+	// We don't care about non-stream-type IOPub messages here, so we'll just return.
+	if kernelMessage.GetHeader().MessageType != "stream" {
+		return nil
+	}
+
+	content := kernelMessage.GetContent().(map[string]interface{})
+
+	var (
+		stream string
+		text   string
+		ok     bool
+	)
+
+	stream, ok = content["name"].(string)
+	if !ok {
+		d.logger.Warn("Content of IOPub message did not contain an entry with key \"name\" and value of type string.", zap.Any("content", content), zap.Any("message", kernelMessage), zap.String("kernel-id", conn.KernelId()))
+		return nil
+	}
+
+	text, ok = content["text"].(string)
+	if !ok {
+		d.logger.Warn("Content of IOPub message did not contain an entry with key \"text\" and value of type string.", zap.Any("content", content), zap.Any("message", kernelMessage), zap.String("kernel-id", conn.KernelId()))
+		return nil
+	}
+
+	return &parsedIoPubMessage{
+		Stream: stream,
+		Text:   text,
+	}
 }

@@ -164,6 +164,15 @@ func (conn *SessionConnection) connectToKernel(username string) error {
 	return err // Will be nil if everything went OK.
 }
 
+func (conn *SessionConnection) RegisterIoPubHandler(id string, handler IOPubMessageHandler) error {
+	return conn.kernel.RegisterIoPubHandler(id, handler)
+}
+
+// UnregisterIoPubHandler unregisters a handler/consumer of IOPub messages that was registered under the specified ID.
+func (conn *SessionConnection) UnregisterIoPubHandler(id string) error {
+	return conn.kernel.UnregisterIoPubHandler(id)
+}
+
 func (conn *SessionConnection) Kernel() KernelConnection {
 	return conn.kernel
 }

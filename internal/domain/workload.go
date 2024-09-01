@@ -37,6 +37,8 @@ var (
 
 type WorkloadState string
 
+// WorkloadType defines a type that a workload can have/be.
+//
 // Workloads can be of several different types, namely 'preset' and 'template' and possibly 'trace'.
 // Have not fully committed to making 'trace' a separate type from 'preset'.
 //
@@ -50,7 +52,7 @@ type WorkloadGenerator interface {
 	StopGeneratingWorkload()                                                                                          // Stop generating the workload prematurely.
 }
 
-// Intended to cover SessionEvents and WorkloadEvents
+// NamedEvent is intended to cover SessionEvents and WorkloadEvents
 type NamedEvent interface {
 	String() string
 }
@@ -212,7 +214,7 @@ type WorkloadEvent struct {
 	ErrorMessage          string `json:"error_message,omitempty"` // Error message from the error that caused the event to not be processed successfully.
 }
 
-// Return an "empty" workload event -- with none of its fields populated.
+// NewEmptyWorkloadEvent returns an "empty" workload event -- with none of its fields populated.
 // This is intended to be used with the WorkloadEvent::WithX functions, as
 // another means of constructing WorkloadEvent structs.
 //
@@ -245,7 +247,7 @@ func NewWorkloadEvent(idx int, id string, name string, session string, timestamp
 	return event
 }
 
-// Should be used with caution; the workload implementation should be the only entity that uses this function.
+// WithIndex should be used with caution; the workload implementation should be the only entity that uses this function.
 func (evt *WorkloadEvent) WithIndex(eventIndex int) *WorkloadEvent {
 	evt.Index = eventIndex
 	return evt
@@ -306,7 +308,7 @@ func (evt *WorkloadEvent) WithProcessedStatus(success bool) *WorkloadEvent {
 	return evt
 }
 
-// Conditionally set the 'ErrorMessage' field of the WorkloadEvent struct if the error argument is non-nil.
+// WithError conditionally sets the 'ErrorMessage' field of the WorkloadEvent struct if the error argument is non-nil.
 //
 // Note: If the event is non-nil, then this also updates the WorkloadEvent::ProcessedSuccessfully field, setting it to false.
 // You can manually flip it back to true, if desired, by calling the WorkloadEvent::WithProcessedStatus method and passing true.
@@ -319,7 +321,7 @@ func (evt *WorkloadEvent) WithError(err error) *WorkloadEvent {
 	return evt
 }
 
-// Set the error message of the WorkloadEvent.
+// WithErrorMessage sets the error message of the WorkloadEvent.
 //
 // Note: If the error message is non-empty (i.e., has length >= 1), then the ProcessedSuccessfully field is automatically set to false.
 // You can manually flip it back to true, if desired, by calling the WorkloadEvent::WithProcessedStatus method and passing true.
@@ -360,8 +362,8 @@ type workloadImpl struct {
 	StartTime                 time.Time         `json:"start_time"`
 	EndTime                   time.Time         `json:"end_time"`
 	WorkloadDuration          time.Duration     `json:"workload_duration"` // The total time that the workload executed for. This is only set once the workload has completed.
-	TimeElasped               time.Duration     `json:"time_elapsed"`      // Computed at the time that the data is requested by the user. This is the time elapsed SO far.
-	TimeElaspedStr            string            `json:"time_elapsed_str"`
+	TimeElapsed               time.Duration     `json:"time_elapsed"`      // Computed at the time that the data is requested by the user. This is the time elapsed SO far.
+	TimeElapsedStr            string            `json:"time_elapsed_str"`
 	NumTasksExecuted          int64             `json:"num_tasks_executed"`
 	NumEventsProcessed        int64             `json:"num_events_processed"`
 	NumSessionsCreated        int64             `json:"num_sessions_created"`
@@ -389,7 +391,7 @@ func NewWorkload(id string, workloadName string, seed int64, debugLoggingEnabled
 		Id:                        id, // Same ID as the driver.
 		Name:                      workloadName,
 		WorkloadState:             WorkloadReady,
-		TimeElasped:               time.Duration(0),
+		TimeElapsed:               time.Duration(0),
 		Seed:                      seed,
 		RegisteredTime:            time.Now(),
 		NumTasksExecuted:          0,
@@ -421,7 +423,7 @@ func NewWorkload(id string, workloadName string, seed int64, debugLoggingEnabled
 	return workload
 }
 
-// Called by the driver after each tick.
+// TickCompleted is called by the driver after each tick.
 // Updates the time elapsed, current tick, and simulation clock time.
 func (w *workloadImpl) TickCompleted(tick int64, simClock time.Time) {
 	w.mu.Lock()
@@ -700,15 +702,15 @@ func (w *workloadImpl) GetRegisteredTime() time.Time {
 
 // Return the time elapsed, which is computed at the time that data is requested by the user.
 func (w *workloadImpl) GetTimeElasped() time.Duration {
-	return w.TimeElasped
+	return w.TimeElapsed
 }
 
 // Return the time elapsed as a string, which is computed at the time that data is requested by the user.
 //
-// IMPORTANT: This updates the w.TimeElaspedStr field (setting it to w.TimeElapsed.String()) before returning it.
+// IMPORTANT: This updates the w.TimeElapsedStr field (setting it to w.TimeElapsed.String()) before returning it.
 func (w *workloadImpl) GetTimeElaspedAsString() string {
-	w.TimeElaspedStr = w.TimeElasped.String()
-	return w.TimeElasped.String()
+	w.TimeElapsedStr = w.TimeElapsed.String()
+	return w.TimeElapsed.String()
 }
 
 // Update the time elapsed.
@@ -716,8 +718,8 @@ func (w *workloadImpl) SetTimeElasped(timeElapsed time.Duration) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	w.TimeElasped = timeElapsed
-	w.TimeElaspedStr = w.TimeElasped.String()
+	w.TimeElapsed = timeElapsed
+	w.TimeElapsedStr = w.TimeElapsed.String()
 }
 
 // Instruct the Workload to recompute its 'time elapsed' field.
@@ -725,8 +727,8 @@ func (w *workloadImpl) UpdateTimeElapsed() {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	w.TimeElasped = time.Since(w.StartTime)
-	w.TimeElaspedStr = w.TimeElasped.String()
+	w.TimeElapsed = time.Since(w.StartTime)
+	w.TimeElapsedStr = w.TimeElapsed.String()
 }
 
 // Return the number of events processed by the workload.

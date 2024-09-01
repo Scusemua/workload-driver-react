@@ -32,7 +32,7 @@ run-server:
 
 run-server-prebuilt:
 	@echo Running pre-built server now.
-	.\main.exe --yaml ./config-files/config.yaml
+	.\server --yaml ./config-files/config.yaml
 
 # NOTE: MUST update version number here prior to running 'make release' and edit this file!
 VERS=v0.0.1

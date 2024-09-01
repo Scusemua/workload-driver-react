@@ -13,14 +13,15 @@ const (
 )
 
 type SessionMetadata interface {
+	// GetPod returns the pod/session ID of the session.
 	GetPod() string
-	// The maximum number of CPUs that this SessionMeta will ever use.
+	// GetMaxSessionCPUs returns the maximum number of CPUs that this SessionMeta will ever use.
 	// This is obtained by performing a "pre-run".
 	GetMaxSessionCPUs() float64
-	// The maximum amount of memory (in GB) that this SessionMeta will ever use.
+	// GetMaxSessionMemory returns t maximum amount of memory (in GB) that this SessionMeta will ever use.
 	// This is obtained by performing a "pre-run".
 	GetMaxSessionMemory() float64
-	// The maximum number of GPUs that this SessionMeta will ever use.
+	// GetMaxSessionGPUs returns the maximum number of GPUs that this SessionMeta will ever use.
 	// This is obtained by performing a "pre-run".
 	GetMaxSessionGPUs() int
 }
@@ -34,26 +35,48 @@ type WorkloadSession interface {
 	GetState() SessionState
 	GetCreatedAt() time.Time
 	GetTrainings() []*TrainingEvent
+	GetStderrIoPubMessages() []string
+	GetStdoutIoPubMessages() []string
+	AddStderrIoPubMessage(message string)
+	AddStdoutIoPubMessage(message string)
 
 	SetState(SessionState)
 	GetAndIncrementTrainingsCompleted() int
 }
 
-// Corresponds to the `Session` struct defined in `web/app/Data/workloadImpl.tsx`.
+// BasicWorkloadSession corresponds to the `Session` struct defined in `web/app/Data/workloadImpl.tsx`.
 // Used by the frontend when submitting workloads created from templates (as opposed to presets).
 type BasicWorkloadSession struct {
-	Id                 string           `json:"id"`
-	ResourceRequest    *ResourceRequest `json:"resource_request"`
-	TrainingsCompleted int              `json:"trainings_completed"`
-	State              SessionState     `json:"state"`
-	CreatedAt          time.Time        `json:"-"`
-	Meta               SessionMetadata  `json:"-"`
-	TrainingEvents     []*TrainingEvent `json:"trainings"`
+	Id                  string           `json:"id"`
+	ResourceRequest     *ResourceRequest `json:"resource_request"`
+	TrainingsCompleted  int              `json:"trainings_completed"`
+	State               SessionState     `json:"state"`
+	CreatedAt           time.Time        `json:"-"`
+	Meta                SessionMetadata  `json:"-"`
+	TrainingEvents      []*TrainingEvent `json:"trainings"`
+	StderrIoPubMessages []string         `json:"stderr_io_pub_messages"`
+	StdoutIoPubMessages []string         `json:"stdout_io_pub_messages"`
 }
 
 func (s *BasicWorkloadSession) GetAndIncrementTrainingsCompleted() int {
 	s.TrainingsCompleted += 1
 	return s.TrainingsCompleted
+}
+
+func (s *BasicWorkloadSession) GetStderrIoPubMessages() []string {
+	return s.StderrIoPubMessages
+}
+
+func (s *BasicWorkloadSession) GetStdoutIoPubMessages() []string {
+	return s.StdoutIoPubMessages
+}
+
+func (s *BasicWorkloadSession) AddStderrIoPubMessage(message string) {
+	s.StderrIoPubMessages = append(s.StderrIoPubMessages, message)
+}
+
+func (s *BasicWorkloadSession) AddStdoutIoPubMessage(message string) {
+	s.StdoutIoPubMessages = append(s.StdoutIoPubMessages, message)
 }
 
 func (s *BasicWorkloadSession) GetId() string {
@@ -86,13 +109,15 @@ func (s *BasicWorkloadSession) GetTrainings() []*TrainingEvent {
 
 func newWorkloadSession(id string, meta SessionMetadata, resourceRequest *ResourceRequest, createdAtTime time.Time) *BasicWorkloadSession {
 	return &BasicWorkloadSession{
-		Id:                 id,
-		ResourceRequest:    resourceRequest,
-		TrainingsCompleted: 0,
-		State:              SessionAwaitingStart,
-		CreatedAt:          createdAtTime,
-		Meta:               meta,
-		TrainingEvents:     make([]*TrainingEvent, 0),
+		Id:                  id,
+		ResourceRequest:     resourceRequest,
+		TrainingsCompleted:  0,
+		State:               SessionAwaitingStart,
+		CreatedAt:           createdAtTime,
+		Meta:                meta,
+		TrainingEvents:      make([]*TrainingEvent, 0),
+		StderrIoPubMessages: make([]string, 0),
+		StdoutIoPubMessages: make([]string, 0),
 	}
 }
 

@@ -1,5 +1,18 @@
 package jupyter
 
+import "errors"
+
+var (
+	ErrNoHandlerFound       = errors.New("no handler found registered under the specified ID")
+	ErrHandlerAlreadyExists = errors.New("there is already a handler registered under the specified ID")
+)
+
+// IOPubMessageHandler defines a message handler for IOPub messages sent by a Jupyter kernel to us.
+// Important: an IOPubMessageHandler must be thread-safe insofar as it will be called from its own goroutine.
+//
+// It can return an arbitrary value.
+type IOPubMessageHandler func(conn KernelConnection, kernelMessage KernelMessage) interface{}
+
 type KernelConnection interface {
 	// ConnectionStatus returns the connection status of the kernel.
 	ConnectionStatus() KernelConnectionStatus
@@ -29,7 +42,7 @@ type KernelConnection interface {
 	// See [Messaging in Jupyter](https://jupyter-client.readthedocs.io/en/latest/messaging.html#execute).
 	//
 	// Future `onReply` is called with the `execute_reply` content when the shell reply is received and validated.
-	// The future will resolve when this message is received and the `idle` iopub status is received.
+	// The future will resolve when this message is received and the `idle` IOPub status is received.
 	//
 	// Arguments:
 	// - code (string): The code to execute.
@@ -59,6 +72,12 @@ type KernelConnection interface {
 
 	// Close the connection to the kernel.
 	Close() error
+
+	// RegisterIoPubHandler registers a handler/consumer of IOPub messages under a specific ID.
+	RegisterIoPubHandler(id string, handler IOPubMessageHandler) error
+
+	// UnregisterIoPubHandler unregisters a handler/consumer of IOPub messages that was registered under the specified ID.
+	UnregisterIoPubHandler(id string) error
 }
 
 type KernelSessionManager interface {

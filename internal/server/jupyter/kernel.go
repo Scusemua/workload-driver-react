@@ -87,6 +87,9 @@ type BasicKernelConnection struct {
 	// See the documentation of those functions for additional details.
 	responseChannels map[string]chan KernelMessage
 
+	// IOPub message handlers.
+	iopubMessageHandlers map[string]IOPubMessageHandler
+
 	messageCount                  int                     // How many messages we've sent. Used when creating message IDs.
 	connectionStatus              KernelConnectionStatus  // Connection status with the remote kernel.
 	kernelId                      string                  // ID of the associated kernel
@@ -106,9 +109,9 @@ type BasicKernelConnection struct {
 	// However, we cannot have > 1 goroutines reading at the same time, nor can we have > 1 goroutines write at the same time.
 	// So, we have two locks: one for reading, and one for writing.
 
-	rlock sync.Mutex // Synchronizes read operations on the websocket.
-	wlock sync.Mutex // Synchronizes write operations on the websocket.
-
+	rlock             sync.Mutex // Synchronizes read operations on the websocket.
+	wlock             sync.Mutex // Synchronizes write operations on the websocket.
+	iopubHandlerMutex sync.Mutex // Synchronizes access to state related to the IOPub message handlers.
 }
 
 func NewKernelConnection(kernelId string, clientId string, username string, jupyterServerAddress string, atom *zap.AtomicLevel) (*BasicKernelConnection, error) {
@@ -129,6 +132,7 @@ func NewKernelConnection(kernelId string, clientId string, username string, jupy
 		registeredControl:    false,
 		kernelStdout:         make([]string, 0),
 		kernelStderr:         make([]string, 0),
+		iopubMessageHandlers: make(map[string]IOPubMessageHandler),
 	}
 
 	zapConfig := zap.NewDevelopmentEncoderConfig()
@@ -183,6 +187,36 @@ func (conn *BasicKernelConnection) waitForResponseWithTimeout(responseChan chan 
 			return resp, nil
 		}
 	}
+}
+
+// RegisterIoPubHandler registers a handler/consumer of IOPub messages under a specific ID.
+func (conn *BasicKernelConnection) RegisterIoPubHandler(id string, handler IOPubMessageHandler) error {
+	conn.iopubHandlerMutex.Lock()
+	defer conn.iopubHandlerMutex.Unlock()
+
+	if _, ok := conn.iopubMessageHandlers[id]; !ok {
+		conn.logger.Error("Could not register IOPub message handler.", zap.String("id", id), zap.Error(ErrHandlerAlreadyExists))
+		return ErrHandlerAlreadyExists
+	}
+
+	conn.iopubMessageHandlers[id] = handler
+	conn.logger.Debug("Registered IOPub message handler.", zap.String("id", id))
+	return nil
+}
+
+// UnregisterIoPubHandler unregisters a handler/consumer of IOPub messages that was registered under the specified ID.
+func (conn *BasicKernelConnection) UnregisterIoPubHandler(id string) error {
+	conn.iopubHandlerMutex.Lock()
+	defer conn.iopubHandlerMutex.Unlock()
+
+	if _, ok := conn.iopubMessageHandlers[id]; !ok {
+		conn.logger.Error("Could not unregister IOPub message handler.", zap.String("id", id), zap.Error(ErrNoHandlerFound))
+		return ErrNoHandlerFound
+	}
+
+	delete(conn.iopubMessageHandlers, id)
+	conn.logger.Debug("Unregistered IOPub message handler.", zap.String("id", id))
+	return nil
 }
 
 func (conn *BasicKernelConnection) SendDummyMessage(channel KernelSocketChannel, content interface{}, waitForResponse bool) (KernelMessage, error) {
@@ -476,7 +510,7 @@ func (conn *BasicKernelConnection) serveMessages() {
 		if kernelMessage.Channel == ShellChannel || kernelMessage.Channel == ControlChannel {
 			conn.sugaredLogger.Debugf("Received %s \"%s\" message '%s' from kernel %s: %v", kernelMessage.Channel, kernelMessage.Header.MessageType, kernelMessage.Header.MessageId, conn.kernelId, kernelMessage)
 
-			// Commented-out; for now, we're not ACKING anything.
+			// Commented-out; for now, we're not ACK-ing anything.
 			// We do this in another goroutine so as not to block this message-receiver goroutine.
 			// go conn.sendAck(kernelMessage, kernelMessage.Channel)
 
@@ -501,6 +535,28 @@ func (conn *BasicKernelConnection) serveMessages() {
 }
 
 func (conn *BasicKernelConnection) handleIOPubMessage(kernelMessage KernelMessage) {
+	conn.iopubHandlerMutex.Lock()
+	defer conn.iopubHandlerMutex.Unlock()
+
+	// If there are no handlers registered, then just invoke the default IOPub message handler.
+	if len(conn.iopubMessageHandlers) == 0 {
+		go conn.defaultHandleIOPubMessage(kernelMessage)
+		return
+	}
+
+	// Otherwise, invoke the message handlers.
+	for _, handler := range conn.iopubMessageHandlers {
+		go handler(conn, kernelMessage)
+	}
+}
+
+// defaultHandleIOPubMessage provides a default handler for IOPub messages.
+// This extracts stream IOPub messages and stores them within the kernel connection struct.
+//
+// Important: this will be called in its own goroutine.
+//
+// Also, this function does not match the definition of the 'IOPubMessageHandler' type.
+func (conn *BasicKernelConnection) defaultHandleIOPubMessage(kernelMessage KernelMessage) {
 	// We just want to extract the output from 'stream' IOPub messages.
 	// We don't care about non-stream-type IOPub messages here, so we'll just return.
 	if kernelMessage.GetHeader().MessageType != "stream" {
