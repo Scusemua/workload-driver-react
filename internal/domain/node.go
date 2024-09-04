@@ -22,6 +22,10 @@ type NodeType string
 // a Docker swarm node are "Docker containers".
 type ContainerType string
 
+// ContainerList defines a slice of Container instances (specifically, instances of some concrete implementation of
+// the Container interface).
+type ContainerList []Container
+
 type Container interface {
 	// GetContainerType returns the ContainerType of the ClusterNode.
 	GetContainerType() ContainerType
@@ -29,6 +33,25 @@ type Container interface {
 	// GetValidNodeType returns the NodeType of the ClusterNode instances onto which
 	// the Container is permitted to be scheduled.
 	GetValidNodeType() NodeType
+
+	// GetName returns the name of the Container.
+	GetName() string
+
+	// GetState returns the lifecycle state of the Container.
+	GetState() string
+
+	// GetAge returns the age of the Container.
+	// The value is created by converting a time.Duration to a string.
+	GetAge() string
+
+	// GetIp returns the IP or network address of the Container.
+	GetIp() string
+
+	// IsValid returns a flag that used to determine if the Container struct was sent/received correctly over the network.
+	IsValid() bool
+
+	// String returns a string representation of the Container suitable for logging.
+	String() string
 }
 
 // ClusterNode defines an abstract node within the distributed cluster.
@@ -41,4 +64,37 @@ type ClusterNode interface {
 	// GetValidContainerType returns the ContainerType of Container instances that may be
 	// scheduled onto the ClusterNode.
 	GetValidContainerType() ContainerType
+
+	// GetContainers returns a slice of Container instances that represents the Container instances
+	// currently scheduled on the ClusterNode.
+	GetContainers() ContainerList
+
+	// GetNodeId returns the unique ID of the node.
+	GetNodeId() string
+
+	// GetAge returns a string created from a time.Duration.
+	// The string represents/indicates the length of time that the ClusterNode has existed.
+	GetAge() string
+
+	// GetIp returns the network address of the ClusterNode.
+	GetIp() string
+
+	// GetAllocatedResources returns a map from resource name to a float64 representing the quantity of that resource
+	// that is presently allocated to Container instances on the ClusterNode.
+	GetAllocatedResources() map[string]float64
+
+	// GetResourceCapacities returns is a map from resource name to a float64 representing the quantity of that resource
+	// that is allocatable on the ClusterNode.
+	//
+	// Quantities stored in the CapacityResources do not change based on active resource allocations.
+	// They simply refer to the total amount of resources with which the ClusterNode is configured.
+	GetResourceCapacities() map[string]float64
+
+	// IsEnabled returns a bool indicating whether the ClusterNode is currently enabled.
+	// When a ClusterNode is enabled, it is permitted to host Container instances.
+	// When a ClusterNode is disabled, it is not permitted to host Container instances.
+	IsEnabled() bool
+
+	// String returns a string representation of the ClusterNode suitable for logging.
+	String() string
 }

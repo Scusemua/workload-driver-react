@@ -111,7 +111,7 @@ func (h *KubeNodeHttpHandler) parseKubernetesNode(node *corev1.Node, actualGpuIn
 	capacityCpuAsQuantity := node.Status.Allocatable[corev1.ResourceCPU]
 	capacityMemoryAsQuantity := node.Status.Allocatable[corev1.ResourceMemory]
 
-	var capacityVirtualGPUs float64 = 0.0
+	var capacityVirtualGPUs = 0.0
 	capacityVirtualGPUsAsQuantity, ok := node.Status.Allocatable["ds2-lab.github.io/deflated-gpu"]
 	if !ok {
 		capacityVirtualGPUs = 0
@@ -119,7 +119,7 @@ func (h *KubeNodeHttpHandler) parseKubernetesNode(node *corev1.Node, actualGpuIn
 		capacityVirtualGPUs = float64(capacityVirtualGPUsAsQuantity.Value())
 	}
 
-	capacityCPUs := float64(capacityCpuAsQuantity.MilliValue()) / 1000.0 // Convert fro mCPU to CPU.
+	capacityCPUs := float64(capacityCpuAsQuantity.MilliValue()) / 1000.0 // Convert from mCPU to CPU.
 	capacityMemory := float64(capacityMemoryAsQuantity.Value() / (1024 * 1024))
 
 	// h.logger.Info("Memory as inf.Dec.", zap.String("node-id", node.Name), zap.Any("mem inf.Dec", capacityMemory.AsDec().String()))
@@ -139,8 +139,8 @@ func (h *KubeNodeHttpHandler) parseKubernetesNode(node *corev1.Node, actualGpuIn
 		h.sugaredLogger.Debugf("Retrieved Pods running on node %s in %v.", node.Name, time.Since(st))
 	}
 
-	var schedulingDisabled bool = false
-	var executionDisabled bool = false
+	var schedulingDisabled = false
+	var executionDisabled = false
 	if len(node.Spec.Taints) > 0 {
 		h.sugaredLogger.Debugf("Discovered %d taint(s) on node %s.", len(node.Spec.Taints), node.Name)
 
@@ -155,9 +155,9 @@ func (h *KubeNodeHttpHandler) parseKubernetesNode(node *corev1.Node, actualGpuIn
 		}
 	}
 
-	var kubePods []*domain.KubernetesPod
+	var kubePods domain.ContainerList
 	if pods != nil {
-		kubePods = make([]*domain.KubernetesPod, 0, len(pods.Items))
+		kubePods = make(domain.ContainerList, 0, len(pods.Items))
 
 		for _, pod := range pods.Items {
 			kubePod := &domain.KubernetesPod{
@@ -173,7 +173,7 @@ func (h *KubeNodeHttpHandler) parseKubernetesNode(node *corev1.Node, actualGpuIn
 	}
 
 	sort.Slice(kubePods, func(i, j int) bool {
-		return kubePods[i].PodName < kubePods[j].PodName
+		return kubePods[i].GetName() < kubePods[j].GetName()
 	})
 
 	podsOnNode, err := clientset.CoreV1().Pods("default").List(context.TODO(), metav1.ListOptions{
@@ -324,7 +324,7 @@ func (h *KubeNodeHttpHandler) HandleRequest(c *gin.Context) {
 	c.JSON(http.StatusOK, resp)
 }
 
-// Handle enabling/disabling a particular kubernetes node, which amounts to adding/removing taints from the node.
+// HandlePatchRequest handles enabling/disabling a particular kubernetes node, which amounts to adding/removing taints from the node.
 func (h *KubeNodeHttpHandler) HandlePatchRequest(c *gin.Context) {
 	var req *domain.EnableDisableNodeRequest
 	err := c.BindJSON(&req)
@@ -333,7 +333,7 @@ func (h *KubeNodeHttpHandler) HandlePatchRequest(c *gin.Context) {
 		return
 	}
 
-	var nodeName string = req.NodeName
+	var nodeName = req.NodeName
 
 	h.logger.Debug("Received HTTP PATCH request to enable/disable kubernetes node.", zap.String("node-name", nodeName), zap.String("request", req.String()))
 
@@ -389,20 +389,20 @@ func (h *KubeNodeHttpHandler) spoofNodes(c *gin.Context) {
 	c.JSON(http.StatusOK, []*domain.KubernetesNode{
 		{
 			NodeId: "spoofed-kubernetes-node-0",
-			Pods: []*domain.KubernetesPod{
-				{
+			Pods: domain.ContainerList{
+				&domain.KubernetesPod{
 					PodName:  "spoofed-kubernetes-pod-0",
 					PodAge:   "121hr24m18sec",
 					PodPhase: "running",
 					PodIP:    "148.122.32.1",
 				},
-				{
+				&domain.KubernetesPod{
 					PodName:  "spoofed-kubernetes-pod-1",
 					PodAge:   "121hr25m43sec",
 					PodPhase: "running",
 					PodIP:    "148.122.32.2",
 				},
-				{
+				&domain.KubernetesPod{
 					PodName:  "spoofed-kubernetes-pod-2",
 					PodAge:   "121hr12m59sec",
 					PodPhase: "running",
@@ -414,20 +414,20 @@ func (h *KubeNodeHttpHandler) spoofNodes(c *gin.Context) {
 		},
 		{
 			NodeId: "spoofed-kubernetes-node-1",
-			Pods: []*domain.KubernetesPod{
-				{
+			Pods: domain.ContainerList{
+				&domain.KubernetesPod{
 					PodName:  "spoofed-kubernetes-pod-3",
 					PodAge:   "121hr44m28sec",
 					PodPhase: "running",
 					PodIP:    "157.137.61.1",
 				},
-				{
+				&domain.KubernetesPod{
 					PodName:  "spoofed-kubernetes-pod-4",
 					PodAge:   "121hr22m42sec",
 					PodPhase: "running",
 					PodIP:    "157.137.61.2",
 				},
-				{
+				&domain.KubernetesPod{
 					PodName:  "spoofed-kubernetes-pod-5",
 					PodAge:   "121hr13m49sec",
 					PodPhase: "running",
