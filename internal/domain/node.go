@@ -26,6 +26,8 @@ type ContainerType string
 // the Container interface).
 type ContainerList []Container
 
+// Container defines the generic, platform-agnostic interface for Container instances
+// (which are either Docker containers or Kubernetes pods).
 type Container interface {
 	// GetContainerType returns the ContainerType of the ClusterNode.
 	GetContainerType() ContainerType

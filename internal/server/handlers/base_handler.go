@@ -41,7 +41,7 @@ func (h *BaseHandler) PrimaryHttpHandler() domain.BackendHttpGetHandler {
 	return h.BackendHttpGetHandler
 }
 
-// Write an error back to the client.
+// WriteError writes an error back to the client.
 func (h *BaseHandler) WriteError(c *gin.Context, errorMessage string) {
 	// Write error back to front-end.
 	c.AbortWithError(http.StatusInternalServerError, fmt.Errorf("could not handle request: %s", errorMessage))

@@ -22,6 +22,21 @@ import (
 	"google.golang.org/grpc/keepalive"
 )
 
+// RegistrationCompleteCallback is a callback for the handlers.ClusterDashboardHandler of the serverImpl to execute
+// once it establishes its two-way, bidirectional gRPC connection with the Cluster Gateway.
+//
+// This callback is primarily used to instruct the serverImpl's
+// nodeHandler to create its internal node handler, depending on the domain.NodeType received during the gRPC
+// registration process.
+//
+// It is important that this callback can be executed multiple times, in case the node type changes for whatever reason.
+// For example, a gRPC connection with the cluster may be established at one point, and the cluster will be in Docker
+// mode at that point. Later on, the connection may be lost, and the cluster is restarted in Kubernetes mode, while
+// the Dashboard backend server is not restarted. This will prompt a reconfiguration of the NodeHttpHandler's
+// domain.NodeType and thus its internal node handler. Once that reconfiguration is completed, the specified
+// RegistrationCompleteCallback will be re-triggered.
+type RegistrationCompleteCallback func(nodeType domain.NodeType)
+
 var (
 	ErrFailedToConnect           = errors.New("a connection to the Gateway could not be established within the configured timeout")
 	ErrProvisionerNotInitialized = errors.New("provisioner is not initialized")
@@ -41,6 +56,16 @@ type ClusterDashboardHandler struct {
 	gateway.DistributedClusterClient // gRPC client to the Cluster Gateway.
 	gateway.UnimplementedClusterDashboardServer
 
+	// deploymentMode indicates whether the Cluster is running in Kubernetes mode or Docker mode.
+	// Valid options include "local", "docker", and "kubernetes".
+	deploymentMode string
+
+	// schedulingPolicy indicates the scheduling policy that the Cluster Gateway has been configured to use.
+	schedulingPolicy string
+
+	// numReplicas refers to the number of replicas that each Jupyter kernel is configured to have.
+	numReplicas int32
+
 	logger        *zap.Logger
 	sugaredLogger *zap.SugaredLogger
 
@@ -52,14 +77,47 @@ type ClusterDashboardHandler struct {
 	srv *grpc.Server
 
 	gatewayAddress string // Address that the Cluster Gateway's gRPC server is listening on.
+
+	// postRegistrationCallback is a callback for the handlers.ClusterDashboardHandler of the serverImpl to execute
+	// once it establishes its two-way, bidirectional gRPC connection with the Cluster Gateway.
+	//
+	// This callback is primarily used to instruct the serverImpl's
+	// nodeHandler to create its internal node handler, depending on the domain.NodeType received during the gRPC
+	// registration process.
+	//
+	// It is important that this callback can be executed multiple times, in case the node type changes for whatever reason.
+	// For example, a gRPC connection with the cluster may be established at one point, and the cluster will be in Docker
+	// mode at that point. Later on, the connection may be lost, and the cluster is restarted in Kubernetes mode, while
+	// the Dashboard backend server is not restarted. This will prompt a reconfiguration of the NodeHttpHandler's
+	// domain.NodeType and thus its internal node handler. Once that reconfiguration is completed, the specified
+	// RegistrationCompleteCallback will be re-triggered.
+	postRegistrationCallback RegistrationCompleteCallback
 }
 
-func NewClusterDashboardHandler(opts *domain.Configuration, shouldConnect bool, notificationCallback notificationCallback) *ClusterDashboardHandler {
+func NewClusterDashboardHandler(
+	opts *domain.Configuration,
+	shouldConnect bool,
+	notificationCallback notificationCallback,
+	postRegistrationCallback RegistrationCompleteCallback) *ClusterDashboardHandler {
+
+	if opts == nil {
+		panic("opts cannot be nil.")
+	}
+
+	if notificationCallback == nil {
+		panic("notificationCallback cannot be nil.")
+	}
+
+	if postRegistrationCallback == nil {
+		panic("postRegistrationCallback cannot be nil.")
+	}
+
 	handler := &ClusterDashboardHandler{
 		clusterDashboardHandlerPort: opts.ClusterDashboardHandlerPort,
 		gatewayAddress:              opts.GatewayAddress,
 		setupInProgress:             0,
 		notificationCallback:        notificationCallback,
+		postRegistrationCallback:    postRegistrationCallback,
 	}
 
 	var err error
@@ -79,6 +137,22 @@ func NewClusterDashboardHandler(opts *domain.Configuration, shouldConnect bool, 
 	}
 
 	return handler
+}
+
+// NumReplicas returns
+func (h *ClusterDashboardHandler) NumReplicas() int32 {
+	return h.numReplicas
+}
+
+// SchedulingPolicy returns the scheduling policy that the Cluster Gateway has been configured to use.
+func (h *ClusterDashboardHandler) SchedulingPolicy() string {
+	return h.schedulingPolicy
+}
+
+// DeploymentMode returns the deployment mode configured for the distributed notebook cluster.
+// Valid options include "local", "docker", and "kubernetes".
+func (h *ClusterDashboardHandler) DeploymentMode() string {
+	return h.deploymentMode
 }
 
 // HandleConnectionError should be called by another handler if a gRPC error is encountered.
@@ -110,7 +184,10 @@ func (h *ClusterDashboardHandler) SendNotification(_ context.Context, notificati
 	return &gateway.Void{}, nil
 }
 
-// setupRpcResources sets up the gRPC resources (client and server).
+// setupRpcResources establishes the two-way, bidirectional gRPC connection between the Cluster Dashboard backend
+// server (us) and the Cluster Gateway component.
+//
+// This involves creating both a gRPC client and a gRPC server (I think?)
 func (h *ClusterDashboardHandler) setupRpcResources(gatewayAddress string) error {
 	swapped := atomic.CompareAndSwapInt32(&h.setupInProgress, 0, 1)
 	if !swapped {
@@ -246,13 +323,19 @@ func (h *ClusterDashboardHandler) setupRpcResources(gatewayAddress string) error
 		}
 	}
 
-	if err := provisioner.Validate(); err != nil {
+	registrationResponse, err := provisioner.Validate()
+	if err != nil {
 		log.Fatalf("Failed to validate reverse provisioner connection: %v", zap.Error(err))
 		h.exitSetup()
 		return err
 	}
 
 	h.DistributedClusterClient = provisioner
+
+	h.numReplicas = registrationResponse.NumReplicas
+	h.deploymentMode = registrationResponse.DeploymentMode
+	h.schedulingPolicy = registrationResponse.SchedulingPolicy
+
 	h.logger.Info("Connected to Cluster Gateway.", zap.Any("remote-address", gatewayConn.RemoteAddr()))
 
 	// Start gRPC server
@@ -262,6 +345,17 @@ func (h *ClusterDashboardHandler) setupRpcResources(gatewayAddress string) error
 			log.Fatalf("Failed to serve regular connection: %v", err)
 		}
 	}()
+
+	var nodeType domain.NodeType
+	if h.deploymentMode == "docker" {
+		nodeType = domain.DockerSwarmNodeType
+	} else if h.deploymentMode == "kubernetes" {
+		nodeType = domain.KubernetesNodeType
+	} else {
+		panic(fmt.Sprintf("Unsupported deployment mode received during gRPC registration procedure: \"%s\"", h.deploymentMode))
+	}
+
+	h.postRegistrationCallback(nodeType)
 
 	h.exitSetup()
 
@@ -294,6 +388,8 @@ func (h *ClusterDashboardHandler) finalize(fix bool) {
 	sig <- syscall.SIGINT
 }
 
+// connectionProvisioner is used to establish a 2-way (bidirectional) gRPC connection between
+// the Cluster Dashboard backend server and the Cluster Gateway component.
 type connectionProvisioner struct {
 	net.Listener
 	gateway.DistributedClusterClient
@@ -304,6 +400,7 @@ type connectionProvisioner struct {
 	sugaredLogger   *zap.SugaredLogger
 }
 
+// newConnectionProvisioner creates a new connectionProvisioner struct and returns a pointer to it.
 func newConnectionProvisioner(conn net.Conn) (*connectionProvisioner, error) {
 	// Initialize yamux session for bidirectional gRPC calls
 	// At host scheduler side, a connection replacement first made, then we wait for reverse connection by implementing net.Listener
@@ -393,63 +490,21 @@ func (p *connectionProvisioner) InitClient(session *yamux.Session) error {
 }
 
 // Validate validates the provisioner client.
-func (p *connectionProvisioner) Validate() error {
+func (p *connectionProvisioner) Validate() (*gateway.DashboardRegistrationResponse, error) {
 	if p.DistributedClusterClient == nil {
 		p.logger.Error("Cannot validate connection with Distributed Cluster Gateway. gRPC client is not initialized.")
-		return ErrProvisionerNotInitialized
+		return nil, ErrProvisionerNotInitialized
 	}
 
 	p.logger.Debug("Validating connection to Gateway now...")
 
 	// Test the connection
-	resp, err := p.DistributedClusterClient.Ping(context.Background(), &gateway.Void{})
+	resp, err := p.DistributedClusterClient.RegisterDashboard(context.Background(), &gateway.Void{})
 	if err != nil {
 		p.logger.Error("Failed to validate connection with Distributed Cluster Gateway.", zap.Error(err))
 	} else {
-		p.sugaredLogger.Debugf("Successfully validated connection to Gateway: %s", resp.Id)
+		p.sugaredLogger.Debugf("Successfully validated connection to Gateway: %v", resp)
 	}
 
-	return err
+	return resp, err
 }
-
-// Attempt to connect to the Cluster Gateway's gRPC server using the provided address. Returns an error if connection failed, or nil on success. This should NOT be called from the UI goroutine.
-// func (h *ClusterDashboardHandler) setupRpcResources(gatewayAddress string) error {
-// 	if gatewayAddress == "" {
-// 		return domain.ErrEmptyGatewayAddr
-// 	}
-
-// 	h.logger.Debug("Attempting to dial Gateway gRPC server now.", zap.String("gateway-address", gatewayAddress))
-
-// 	var numTries int = 0
-// 	var maxNumTries int = 5
-
-// 	var conn *grpc.ClientConn
-// 	var err error
-// 	for numTries < maxNumTries {
-// 		webSocketProxyClient := proxy.NewWebSocketProxyClient(time.Second * 10)
-// 		conn, err = grpc.Dial("ws://"+gatewayAddress, grpc.WithContextDialer(webSocketProxyClient.Dialer), grpc.WithTransportCredentials(insecure.NewCredentials()), grpc.WithBlock())
-
-// 		if err == nil { // Connection successful?
-// 			break
-// 		}
-
-// 		h.logger.Error("Failed to dial Gateway gRPC server.", zap.String("gateway-address", gatewayAddress), zap.Error(err))
-// 		numTries += 1
-
-// 		// Don't sleep if we're just gonna stop trying afterwards.
-// 		// Only sleep if we're going to try again!
-// 		if numTries < maxNumTries {
-// 			time.Sleep(time.Second * (time.Duration(numTries)))
-// 			continue
-// 		} else {
-// 			return err
-// 		}
-// 	}
-
-// 	h.logger.Debug("Successfully dialed Cluster Gateway.", zap.String("gateway-address", gatewayAddress))
-// 	h.DistributedClusterClient = gateway.NewDistributedClusterClient(conn)
-// 	h.gatewayAddress = gatewayAddress
-// 	h.connectedToGateway = true
-
-// 	return nil
-// }

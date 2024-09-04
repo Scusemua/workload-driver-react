@@ -46,7 +46,21 @@ type serverImpl struct {
 	engine           *gin.Engine
 	gatewayRpcClient *handlers.ClusterDashboardHandler
 
+	// workloadManager is responsible for managing workloads submitted to the server for execution/orchestration.
 	workloadManager domain.WorkloadManager
+
+	// nodeHandler is responsible for handling HTTP GET and HTTP PATCH requests for the nodes within the cluster.
+	//
+	// Initially, nodeHandler returns HTTP 503 "Service Unavailable" for all requests.
+	// This changes after the backend server has registered with the Cluster Gateway (via gRPC).
+	//
+	// The registration procedure ends with the backend server receiving config info from the Cluster Gateway.
+	// This info includes the domain.NodeType of the domain.ClusterNode instances within the Cluster.
+	//
+	// Based on that information, the nodeHandler creates an internal node handler of type either
+	// handlers.KubeNodeHttpHandler or handlers.DockerSwarmNodeHttpHandler. From that point forward, all requests are
+	// forwarded to the internal node handler, which knows how to handle the requests for the particular domain.NodeType.
+	nodeHandler *handlers.NodeHttpHandler
 
 	// These are websockets from frontends that are not tied to a particular workload, nor are they used for logs.
 	generalWebsockets map[string]domain.ConcurrentWebSocket
@@ -90,6 +104,27 @@ func NewServer(opts *domain.Configuration) domain.Server {
 	return s
 }
 
+// handleRpcRegistrationComplete is a callback for the handlers.ClusterDashboardHandler of the serverImpl to execute
+// once it establishes its two-way, bidirectional gRPC connection with the Cluster Gateway.
+//
+// This callback is primarily used to instruct the serverImpl's
+// nodeHandler to create its internal node handler, depending on the domain.NodeType received during the gRPC
+// registration process.
+//
+// It is important that this callback can be executed multiple times, in case the node type changes for whatever reason.
+// For example, a gRPC connection with the cluster may be established at one point, and the cluster will be in Docker
+// mode at that point. Later on, the connection may be lost, and the cluster is restarted in Kubernetes mode, while
+// the Dashboard backend server is not restarted. This will prompt a reconfiguration of the NodeHttpHandler's
+// domain.NodeType and thus its internal node handler. Once that reconfiguration is completed, the specified
+// handleRpcRegistrationComplete will be re-triggered.
+func (s *serverImpl) handleRpcRegistrationComplete(nodeType domain.NodeType) {
+	if s.nodeHandler == nil {
+		panic("The server's node handler is nil during the execution of the RegistrationCompleteCallback")
+	}
+
+	s.nodeHandler.AssignNodeType(nodeType)
+}
+
 func (s *serverImpl) ErrorHandlerMiddleware(c *gin.Context) {
 	c.Next()
 
@@ -127,7 +162,7 @@ func (s *serverImpl) setupRoutes() error {
 	s.app.GET(domain.LOGS_ENDPOINT, s.serveLogWebsocket)
 	s.app.GET(domain.GENERAL_WEBSOCKET_ENDPOINT, s.serveGeneralWebsocket)
 
-	s.gatewayRpcClient = handlers.NewClusterDashboardHandler(s.opts, true, s.notifyFrontend)
+	s.gatewayRpcClient = handlers.NewClusterDashboardHandler(s.opts, true, s.notifyFrontend, s.handleRpcRegistrationComplete)
 
 	s.sugaredLogger.Debugf("Creating route groups now. (gatewayRpcClient == nil: %v)", s.gatewayRpcClient == nil)
 
@@ -138,7 +173,8 @@ func (s *serverImpl) setupRoutes() error {
 	///////////////////////////////
 	apiGroup := s.app.Group(domain.BASE_API_GROUP_ENDPOINT)
 	{
-		nodeHandler := handlers.NewKubeNodeHttpHandler(s.opts, s.gatewayRpcClient)
+		nodeHandler := handlers.NewNodeHttpHandler(s.opts, s.gatewayRpcClient)
+
 		// Used internally (by the frontend) to get the current kubernetes nodes from the backend  (i.e., the backend).
 		apiGroup.GET(domain.KUBERNETES_NODES_ENDPOINT, nodeHandler.HandleRequest)
 
