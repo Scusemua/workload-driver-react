@@ -32,7 +32,7 @@ var (
 
 type notificationCallback func(notification *gateway.Notification)
 
-// This type of handler issues HTTP requests to the backend.
+// ClusterDashboardHandler is a type of handler that issues HTTP requests to the backend.
 type ClusterDashboardHandler struct {
 	// If this is equal to 1, then the gRPC resources are in the process of being setup.
 	// In this case, additional attempts to reconnect should not be performed.
@@ -81,7 +81,7 @@ func NewClusterDashboardHandler(opts *domain.Configuration, shouldConnect bool, 
 	return handler
 }
 
-// This function should be called by another handler if a gRPC error is encountered.
+// HandleConnectionError should be called by another handler if a gRPC error is encountered.
 // This will attempt to restart/recreate the gRPC server + client encapsulated by ClusterDashboardHandler.
 //
 // This does not need to be called in its own goroutine; this function spawns a goroutine itself.
@@ -96,7 +96,9 @@ func (h *ClusterDashboardHandler) HandleConnectionError() {
 	go h.setupRpcResources(h.gatewayAddress)
 }
 
-func (h *ClusterDashboardHandler) SendNotification(ctx context.Context, notification *gateway.Notification) (*gateway.Void, error) {
+// SendNotification is called by the Cluster Gateway targeting us. It is used to publish notifications that should
+// ultimately be pushed to the frontend to be displayed to the user.
+func (h *ClusterDashboardHandler) SendNotification(_ context.Context, notification *gateway.Notification) (*gateway.Void, error) {
 	if notification.NotificationType == int32(domain.ErrorNotification) {
 		h.logger.Warn("Notified of error that occurred within Cluster.", zap.String("error-name", notification.Title), zap.String("error-message", notification.Message))
 	} else {
@@ -108,7 +110,7 @@ func (h *ClusterDashboardHandler) SendNotification(ctx context.Context, notifica
 	return &gateway.Void{}, nil
 }
 
-// Setup the gRPC resources (client and server).
+// setupRpcResources sets up the gRPC resources (client and server).
 func (h *ClusterDashboardHandler) setupRpcResources(gatewayAddress string) error {
 	swapped := atomic.CompareAndSwapInt32(&h.setupInProgress, 0, 1)
 	if !swapped {
@@ -210,24 +212,25 @@ func (h *ClusterDashboardHandler) setupRpcResources(gatewayAddress string) error
 	// Wait for reverse connection
 	go func() {
 		defer h.finalize(true)
-		num_tries := 0
-		max_num_attempts := 5
-		for num_tries < max_num_attempts {
-			provisioner.logger.Debug("Trying to connect.", zap.Int("attempt-number", num_tries+1))
+		numTries := 0
+		maxNumAttempts := 5
+		for numTries < maxNumAttempts {
+			provisioner.logger.Debug("Trying to connect.", zap.Int("attempt-number", numTries+1))
 			if err := h.srv.Serve(provisioner); err != nil {
-				provisioner.logger.Error("Failed to serve reverse connection.", zap.Int("attempt-number", num_tries+1), zap.Error(err))
-				num_tries += 1
+				provisioner.logger.Error("Failed to serve reverse connection.", zap.Int("attempt-number", numTries+1), zap.Error(err))
+				numTries += 1
 
-				if num_tries < 3 {
-					time.Sleep((time.Millisecond * 1000) * time.Duration(num_tries))
+				if numTries < 3 {
+					time.Sleep((time.Millisecond * 1000) * time.Duration(numTries))
 					continue
 				} else {
-					provisioner.sugaredLogger.Errorf("Failed to serve reverse connection after %d attempts. Aborting.", max_num_attempts)
+					provisioner.sugaredLogger.Errorf("Failed to serve reverse connection after %d attempts. Aborting.", maxNumAttempts)
 					provisioner.failedToConnect <- err
 					return
 				}
 			}
 		}
+
 	}()
 
 	select {
@@ -273,7 +276,7 @@ func (h *ClusterDashboardHandler) exitSetup() {
 	}
 }
 
-// Write an error back to the client.
+// WriteError writes an error back to the client. This is called by the Cluster Gateway.
 func (h *ClusterDashboardHandler) WriteError(c *gin.Context, errorMessage string) {
 	// Write error back to front-end.
 	c.AbortWithError(http.StatusInternalServerError, fmt.Errorf("could not handle request: %s", errorMessage))
@@ -302,7 +305,7 @@ type connectionProvisioner struct {
 }
 
 func newConnectionProvisioner(conn net.Conn) (*connectionProvisioner, error) {
-	// Initialize yamux session for bi-directional gRPC calls
+	// Initialize yamux session for bidirectional gRPC calls
 	// At host scheduler side, a connection replacement first made, then we wait for reverse connection by implementing net.Listener
 	srvSession, err := yamux.Server(conn, yamux.DefaultConfig())
 	if err != nil {
@@ -335,7 +338,7 @@ func (p *connectionProvisioner) Ready() <-chan struct{} {
 	return p.ready
 }
 
-// Ready returns a channel that is used to communicate that the Provisioner could not connect successfully.
+// FailedToConnect returns a channel that is used to communicate that the Provisioner could not connect successfully.
 func (p *connectionProvisioner) FailedToConnect() <-chan error {
 	return p.failedToConnect
 }

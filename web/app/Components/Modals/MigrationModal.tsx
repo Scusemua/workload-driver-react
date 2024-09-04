@@ -1,5 +1,5 @@
 import React from 'react';
-import { KubernetesNodeList } from '@app/Components/Cards/NodeList';
+import { NodeList } from '@app/Components/Cards/NodeList';
 import { Button, Modal, ModalVariant, Text, TextContent, TextVariants } from '@patternfly/react-core';
 import { DistributedJupyterKernel, JupyterKernelReplica } from '@data/Kernel';
 
@@ -43,7 +43,7 @@ export const MigrationModal: React.FunctionComponent<MigrationModalProps> = (pro
                 </Text>
             </TextContent>
             <br />
-            {/* <KubernetesNodeList
+            {/* <NodeList
                 isDashboardList={false}
                 hideAdjustVirtualGPUsButton={true}
                 displayNodeToggleSwitch={false}

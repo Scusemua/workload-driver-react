@@ -6,7 +6,7 @@ import { Grid, GridItem, PageSection, gridSpans } from '@patternfly/react-core';
 import {
     KernelList,
     KernelSpecList,
-    KubernetesNodeList,
+    NodeList,
     LogViewCard,
     UtilizationCard,
     WorkloadCard,
@@ -28,7 +28,7 @@ export const KernelHeightFactorContext = createContext<HeightFactorContext>({
     heightFactor: 1,
     setHeightFactor: () => {},
 });
-export const KubernetesNodeHeightFactorContext = createContext<HeightFactorContext>({
+export const NodeHeightFactorContext = createContext<HeightFactorContext>({
     heightFactor: 3,
     setHeightFactor: () => {},
 });
@@ -151,23 +151,23 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
                 <GridItem span={6} rowSpan={1}>
                     <KernelSpecList />
                 </GridItem>
-                {/* <GridItem span={6} rowSpan={getKubeNodeCardRowspan()}>
-                    <KubernetesNodeHeightFactorContext.Provider
-                        value={{
-                            heightFactor: kubeNodeHeightFactor,
-                            setHeightFactor: (value: number) => setKubeNodeHeightFactor(value),
-                        }}
-                    >
-                        <KubernetesNodeList
-                            isDashboardList={true}
-                            hideAdjustVirtualGPUsButton={false}
-                            hideControlPlaneNode={true}
-                            nodesPerPage={4}
-                            selectableViaCheckboxes={false}
-                            displayNodeToggleSwitch={true}
-                        />
-                    </KubernetesNodeHeightFactorContext.Provider>
-                </GridItem> */}
+                {/*<GridItem span={6} rowSpan={getKubeNodeCardRowspan()}>*/}
+                {/*    <NodeHeightFactorContext.Provider*/}
+                {/*        value={{*/}
+                {/*            heightFactor: kubeNodeHeightFactor,*/}
+                {/*            setHeightFactor: (value: number) => setKubeNodeHeightFactor(value),*/}
+                {/*        }}*/}
+                {/*    >*/}
+                {/*        <NodeList*/}
+                {/*            isDashboardList={true}*/}
+                {/*            hideAdjustVirtualGPUsButton={false}*/}
+                {/*            hideControlPlaneNode={true}*/}
+                {/*            nodesPerPage={4}*/}
+                {/*            selectableViaCheckboxes={false}*/}
+                {/*            displayNodeToggleSwitch={true}*/}
+                {/*        />*/}
+                {/*    </NodeHeightFactorContext.Provider>*/}
+                {/*</GridItem>*/}
                 {/* <GridItem span={6} rowSpan={1}>
                     <UtilizationCard chartHeight={320} chartWidth={400} />
                 </GridItem> */}

@@ -26,21 +26,25 @@ type KubeNodeHttpHandler struct {
 	*BaseHandler
 	grpcClient *ClusterDashboardHandler
 
+	// The handler will return 0 nodes until this flag is flipped to true.
+	nodeTypeRegistered bool
+
 	clientsets goconcurrentqueue.Queue
 	clientset  *kubernetes.Clientset
 	spoof      bool
 }
 
-func NewKubeNodeHttpHandler(opts *domain.Configuration, grpcClient *ClusterDashboardHandler) domain.BackendHttpGetPatchHandler {
+func NewKubeNodeHttpHandler(opts *domain.Configuration, grpcClient *ClusterDashboardHandler) *KubeNodeHttpHandler {
 	if grpcClient == nil {
 		panic("gRPC Client cannot be nil.")
 	}
 
 	handler := &KubeNodeHttpHandler{
-		BaseHandler: newBaseHandler(opts),
-		grpcClient:  grpcClient,
-		spoof:       opts.SpoofKubeNodes,
-		clientsets:  goconcurrentqueue.NewFixedFIFO(128),
+		BaseHandler:        newBaseHandler(opts),
+		grpcClient:         grpcClient,
+		spoof:              opts.SpoofKubeNodes,
+		nodeTypeRegistered: false,
+		clientsets:         goconcurrentqueue.NewFixedFIFO(128),
 	}
 	handler.BackendHttpGetHandler = handler
 
@@ -265,7 +269,7 @@ func (h *KubeNodeHttpHandler) HandleRequest(c *gin.Context) {
 	h.sugaredLogger.Debugf("Retrieved 'actual' GPU info from Cluster Gateway in %v. Total time elapsed: %v.", time.Since(st2), time.Since(st))
 	st3 := time.Now()
 
-	var resp []*domain.KubernetesNode = make([]*domain.KubernetesNode, 0, len(nodes.Items)-1)
+	var resp = make([]*domain.KubernetesNode, 0, len(nodes.Items)-1)
 	val := nodes.Items[0].Status.Capacity[corev1.ResourceCPU]
 	val.AsInt64()
 

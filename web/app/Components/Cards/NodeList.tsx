@@ -50,7 +50,7 @@ import {
 import { useNodes } from '@providers/NodeProvider';
 import { GpuIcon } from '@app/Icons';
 import { toast } from 'react-hot-toast';
-import { HeightFactorContext, KubernetesNodeHeightFactorContext } from '@app/Dashboard/Dashboard';
+import { HeightFactorContext, NodeHeightFactorContext } from '@app/Dashboard/Dashboard';
 import { AdjustVirtualGPUsModal } from '../Modals';
 
 export interface NodeListProps {
@@ -68,7 +68,7 @@ function roundToTwo(num: number) {
     return+(Math.round(Number.parseFloat(num.toString() + 'e+2')).toString() + 'e-2');
 }
 
-export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props: NodeListProps) => {
+export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeListProps) => {
     const [searchValue, setSearchValue] = React.useState('');
     const [expandedNodes, setExpandedNodes] = React.useState<string[]>([]);
     const [selectedNode, setSelectedNode] = React.useState('');
@@ -76,7 +76,7 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
     const [perPage, setPerPage] = React.useState(props.nodesPerPage);
     const { nodes, nodesAreLoading, refreshNodes } = useNodes();
     const [, forceUpdate] = useReducer((x) => x + 1, 0);
-    const heightFactorContext: HeightFactorContext = React.useContext(KubernetesNodeHeightFactorContext);
+    const heightFactorContext: HeightFactorContext = React.useContext(NodeHeightFactorContext);
     const [adjustVirtualGPUsNodes, setAdjustVirtualGPUsNodes] = React.useState<KubernetesNode[]>([]);
     const [isAdjustVirtualGPUsModalOpen, setIsAdjustVirtualGPUsModalOpen] = React.useState(false);
 
@@ -224,7 +224,7 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
             <div>
                 <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
                     <FlexItem>
-                        <b>Refreshed Kubernetes nodes.</b>
+                        <b>Refreshed nodes.</b>
                     </FlexItem>
                     <FlexItem>
                         <Text component={TextVariants.small}>Time elapsed: {roundToTwo(et - st)} ms.</Text>
@@ -245,7 +245,7 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
             <div>
                 <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
                     <FlexItem>
-                        <b>Could not refresh Kubernetes nodes.</b>
+                        <b>Could not refresh nodes.</b>
                     </FlexItem>
                     <FlexItem>{explanation}</FlexItem>
                 </Flex>
@@ -315,12 +315,12 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                             variant="plain"
                             isDisabled={nodesAreLoading}
                             onClick={() => {
-                                console.log('Refreshing Kubernetes nodes now.');
+                                console.log('Refreshing nodes now.');
                                 const st: number = performance.now();
                                 toast.promise(
                                     refreshNodes(),
                                     {
-                                        loading: <b>Refreshing Kubernetes nodes...</b>,
+                                        loading: <b>Refreshing nodes...</b>,
                                         success: () => successfulRefreshMessage(st),
                                         error: (reason: Error) => failedRefreshMessage(reason),
                                     },
@@ -652,7 +652,7 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
             >
                 <CardTitle>
                     <Title headingLevel="h1" size="xl">
-                        Kubernetes Nodes
+                        Nodes
                     </Title>
                 </CardTitle>
             </CardHeader>
@@ -672,12 +672,12 @@ export const KubernetesNodeList: React.FunctionComponent<NodeListProps> = (props
                                             spaceItems={{ default: 'spaceItemsXs' }}
                                         >
                                             <FlexItem>
-                                                <Skeleton screenreaderText="Loading Kubernetes nodes" width="10%" />
+                                                <Skeleton screenreaderText="Loading nodes" width="10%" />
                                             </FlexItem>
                                             <FlexItem>
                                                 <div style={{ height: '90px' }}>
                                                     <Skeleton
-                                                        screenreaderText="Loading Kubernetes nodes"
+                                                        screenreaderText="Loading nodes"
                                                         width="100%"
                                                         height="85%"
                                                     />
