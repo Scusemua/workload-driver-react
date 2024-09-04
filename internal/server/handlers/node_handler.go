@@ -26,19 +26,13 @@ type NodeHttpHandler struct {
 }
 
 func NewNodeHttpHandler(
-	opts *domain.Configuration,
-	grpcClient *ClusterDashboardHandler) *NodeHttpHandler {
+	opts *domain.Configuration) *NodeHttpHandler {
 	if opts == nil {
 		panic("opts cannot be nil.")
 	}
 
-	if grpcClient == nil {
-		panic("gRPC Client cannot be nil.")
-	}
-
 	handler := &NodeHttpHandler{
 		BaseHandler:        newBaseHandler(opts),
-		grpcClient:         grpcClient,
 		nodeTypeRegistered: false,
 	}
 	handler.BackendHttpGetHandler = handler
@@ -97,7 +91,7 @@ func (h *NodeHttpHandler) HandlePatchRequest(c *gin.Context) {
 // (i) If the existing node handler is of the specified type, then nothing happens, and false is returned.
 // (ii) If the existing node handler is NOT of the specified type, then it is replaced with a new node handler of the
 // correct type, and true is returned.
-func (h *NodeHttpHandler) AssignNodeType(nodeType domain.NodeType) bool {
+func (h *NodeHttpHandler) AssignNodeType(nodeType domain.NodeType, grpcClient *ClusterDashboardHandler) bool {
 	var overwroteExistingHandlerOfDifferentType = false
 
 	// Check if we've already registered an internal node handler.
@@ -115,6 +109,7 @@ func (h *NodeHttpHandler) AssignNodeType(nodeType domain.NodeType) bool {
 	// Record that we've now registered the node type.
 	h.nodeTypeRegistered = true
 	h.nodeType = nodeType
+	h.grpcClient = grpcClient
 
 	// Create and assign the correct type of node handler for our internal node handler.
 	switch nodeType {

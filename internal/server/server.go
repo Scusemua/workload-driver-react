@@ -122,7 +122,8 @@ func (s *serverImpl) handleRpcRegistrationComplete(nodeType domain.NodeType) {
 		panic("The server's node handler is nil during the execution of the RegistrationCompleteCallback")
 	}
 
-	s.nodeHandler.AssignNodeType(nodeType)
+	s.logger.Debug("'Registration Complete' callback triggered.", zap.String("node-type", string(nodeType)))
+	s.nodeHandler.AssignNodeType(nodeType, s.gatewayRpcClient)
 }
 
 func (s *serverImpl) ErrorHandlerMiddleware(c *gin.Context) {
@@ -145,6 +146,8 @@ func (s *serverImpl) setupRoutes() error {
 		Engine:       s.engine,
 	}
 
+	s.nodeHandler = handlers.NewNodeHttpHandler(s.opts)
+
 	s.app.ForwardedByClientIP = true
 	if err := s.app.SetTrustedProxies([]string{"127.0.0.1"}); err != nil {
 		panic(err)
@@ -162,6 +165,7 @@ func (s *serverImpl) setupRoutes() error {
 	s.app.GET(domain.LOGS_ENDPOINT, s.serveLogWebsocket)
 	s.app.GET(domain.GENERAL_WEBSOCKET_ENDPOINT, s.serveGeneralWebsocket)
 
+	// TODO: Getting nil pointer exception because the callback occurs in the constructor, so s.gatewayRpcClient is still nil.
 	s.gatewayRpcClient = handlers.NewClusterDashboardHandler(s.opts, true, s.notifyFrontend, s.handleRpcRegistrationComplete)
 
 	s.sugaredLogger.Debugf("Creating route groups now. (gatewayRpcClient == nil: %v)", s.gatewayRpcClient == nil)
@@ -173,13 +177,11 @@ func (s *serverImpl) setupRoutes() error {
 	///////////////////////////////
 	apiGroup := s.app.Group(domain.BASE_API_GROUP_ENDPOINT)
 	{
-		nodeHandler := handlers.NewNodeHttpHandler(s.opts, s.gatewayRpcClient)
-
 		// Used internally (by the frontend) to get the current kubernetes nodes from the backend  (i.e., the backend).
-		apiGroup.GET(domain.KUBERNETES_NODES_ENDPOINT, nodeHandler.HandleRequest)
+		apiGroup.GET(domain.KUBERNETES_NODES_ENDPOINT, s.nodeHandler.HandleRequest)
 
 		// Enable/disable Kubernetes nodes.
-		apiGroup.PATCH(domain.KUBERNETES_NODES_ENDPOINT, nodeHandler.HandlePatchRequest)
+		apiGroup.PATCH(domain.KUBERNETES_NODES_ENDPOINT, s.nodeHandler.HandlePatchRequest)
 
 		// Adjust vGPUs available on a particular Kubernetes node.
 		apiGroup.PATCH(domain.ADJUST_VGPUS_ENDPOINT, handlers.NewAdjustVirtualGpusHandler(s.opts, s.gatewayRpcClient).HandlePatchRequest)
