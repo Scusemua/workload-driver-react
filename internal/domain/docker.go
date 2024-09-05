@@ -2,31 +2,37 @@ package domain
 
 import (
 	"encoding/json"
+	"github.com/scusemua/workload-driver-react/m/v2/internal/server/api/proto"
 	"time"
 )
 
 // DockerContainer represents a Container within the distributed cluster that will be running on a ClusterNode.
 type DockerContainer struct {
 	// ContainerName refers to the name of the DockerContainer.
-	ContainerName string `json:"ContainerName"`
+	ContainerName string `json:"Name"`
 
 	// ContainerPhase returns to the lifestyle phase of the DockerContainer.
-	ContainerPhase string `json:"ContainerPhase"`
+	ContainerPhase string `json:"Phase"`
 
 	// ContainerAge refers to the age of the DockerContainer.
 	// The value is created by converting a time.Duration to a string.
-	ContainerAge string `json:"ContainerAge"`
+	ContainerAge string `json:"Age"`
 
 	// ContainerIP refers to the IP or network address of the DockerContainer.
-	ContainerIP string `json:"ContainerIP"`
+	ContainerIP string `json:"IP"`
 
 	// Valid is a flag used to determine if the DockerContainer struct was sent/received correctly over the network.
 	Valid bool `json:"Valid"`
+
+	// Type encodes the ContainerType, which for DockerContainer structs will always be ContainerTypeDockerContainer.
+	Type ContainerType `json:"Type"`
 }
 
 // NewDockerContainer constructs and returns a pointer to a DockerContainer struct.
 func NewDockerContainer() *DockerContainer {
-	container := &DockerContainer{}
+	container := &DockerContainer{
+		Type: ContainerTypeDockerContainer,
+	}
 
 	return container
 }
@@ -36,7 +42,7 @@ func (dc *DockerContainer) GetContainerType() ContainerType {
 }
 
 func (dc *DockerContainer) GetValidNodeType() NodeType {
-	return DockerSwarmNodeType
+	return VirtualDockerNodeType
 }
 
 func (dc *DockerContainer) GetName() string {
@@ -68,82 +74,130 @@ func (dc *DockerContainer) String() string {
 	return string(out)
 }
 
-// DockerSwarmNode represents a node within a Docker Swarm cluster.
-type DockerSwarmNode struct {
-	// Type is the NodeType of the DockerSwarmNode, which will necessarily be DockerSwarmNodeType.
-	Type NodeType `json:"type"`
+// VirtualDockerNode represents a node within a Docker Swarm cluster.
+type VirtualDockerNode struct {
+	// Type is the NodeType of the VirtualDockerNode, which will necessarily be VirtualDockerNodeType.
+	Type NodeType `json:"NodeType"`
 
 	// NodeID is the unique ID of the node.
-	NodeId string `json:"nodeId"`
+	NodeId string `json:"NodeId"`
 
-	// Containers is a slice of DockerContainer instances that are currently scheduled on this DockerSwarmNode.
-	Containers ContainerList `json:"Containers"`
+	// Containers is a slice of DockerContainer instances that are currently scheduled on this VirtualDockerNode.
+	Containers ContainerList `json:"PodsOrContainers"`
 
-	// Age refers to the length of time that the DockerSwarmNode has existed.
+	// Age refers to the length of time that the VirtualDockerNode has existed.
 	Age time.Duration `json:"Age"`
 
-	// IP is the network address of the DockerSwarmNode.
+	// IP is the network address of the VirtualDockerNode.
 	IP string `json:"IP"`
 
 	// AllocatedResources is a map from resource name to a float64 representing the quantity of that resource
-	// that is presently allocated to Container instances on the DockerSwarmNode.
-	AllocatedResources map[string]float64 `json:"AllocatedResources"`
+	// that is presently allocated to Container instances on the VirtualDockerNode.
+	AllocatedResources map[ResourceName]float64 `json:"AllocatedResources"`
 
 	// CapacityResources is a map from resource name to a float64 representing the quantity of that resource
-	// that is allocatable on the DockerSwarmNode.
+	// that is allocatable on the VirtualDockerNode.
 	//
 	// Quantities stored in the CapacityResources do not change based on active resource allocations.
-	// They simply refer to the total amount of resources with which the DockerSwarmNode is configured.
-	CapacityResources map[string]float64 `json:"CapacityResources"`
+	// They simply refer to the total amount of resources with which the VirtualDockerNode is configured.
+	CapacityResources map[ResourceName]float64 `json:"CapacityResources"`
 
-	// Enabled is a flag indicating whether the DockerSwarmNode is currently enabled/allowed to host Container instances.
+	// Enabled is a flag indicating whether the VirtualDockerNode is currently enabled/allowed to host Container instances.
 	Enabled bool `json:"Enabled"`
 }
 
-// NewDockerSwarmNode constructs and returns a pointer to a DockerSwarmNode struct.
-func NewDockerSwarmNode() *DockerSwarmNode {
-	node := &DockerSwarmNode{}
+// DockerContainerFromProtoDockerContainer constructs a new DockerContainer struct from the data
+// encoded in a proto.DockerContainer struct and returns a pointer to the new DockerContainer struct.
+func DockerContainerFromProtoDockerContainer(protoContainer *proto.DockerContainer) *DockerContainer {
+	return &DockerContainer{
+		ContainerName:  protoContainer.GetContainerName(),
+		ContainerPhase: protoContainer.GetContainerStatus(),
+		ContainerAge:   protoContainer.GetContainerAge(),
+		ContainerIP:    protoContainer.GetContainerIp(),
+		Valid:          protoContainer.GetValid(),
+		Type:           ContainerTypeDockerContainer,
+	}
+}
+
+// VirtualDockerNodeFromProtoVirtualDockerNode constructs a new VirtualDockerNode struct from the data
+// encoded in a proto.VirtualDockerNode struct and returns a pointer to the new VirtualDockerNode struct.
+func VirtualDockerNodeFromProtoVirtualDockerNode(protoNode *proto.VirtualDockerNode) *VirtualDockerNode {
+	containers := make(ContainerList, 0, len(protoNode.Containers))
+	for _, protoContainer := range protoNode.Containers {
+		containers = append(containers, DockerContainerFromProtoDockerContainer(protoContainer))
+	}
+
+	allocatedResources := make(map[ResourceName]float64)
+	capacityResources := make(map[ResourceName]float64)
+
+	allocatedResources[CpuResource] = float64(protoNode.AllocatedCpu)
+	capacityResources[CpuResource] = float64(protoNode.SpecCpu)
+
+	allocatedResources[MemoryResource] = float64(protoNode.AllocatedMemory)
+	capacityResources[MemoryResource] = float64(protoNode.SpecMemory)
+
+	allocatedResources[GpuResource] = float64(protoNode.AllocatedGpu)
+	capacityResources[GpuResource] = float64(protoNode.SpecGpu)
+
+	allocatedResources[VirtualGpuResource] = float64(protoNode.AllocatedGpu)
+	capacityResources[VirtualGpuResource] = float64(protoNode.SpecGpu)
+
+	return &VirtualDockerNode{
+		NodeId:             protoNode.NodeId,
+		Type:               VirtualDockerNodeType,
+		IP:                 protoNode.Address,
+		Age:                time.Now().Sub(protoNode.CreatedAt.AsTime()),
+		Enabled:            true,
+		Containers:         containers,
+		AllocatedResources: allocatedResources,
+		CapacityResources:  capacityResources,
+	}
+}
+
+// NewVirtualDockerNode constructs and returns a pointer to a VirtualDockerNode struct.
+func NewVirtualDockerNode() *VirtualDockerNode {
+	node := &VirtualDockerNode{}
 
 	return node
 }
 
-func (d DockerSwarmNode) GetNodeType() NodeType {
-	return DockerSwarmNodeType
+func (d VirtualDockerNode) GetNodeType() NodeType {
+	return VirtualDockerNodeType
 }
 
-func (d DockerSwarmNode) GetValidContainerType() ContainerType {
+func (d VirtualDockerNode) GetValidContainerType() ContainerType {
 	return ContainerTypeDockerContainer
 }
 
-func (d DockerSwarmNode) GetContainers() ContainerList {
+func (d VirtualDockerNode) GetContainers() ContainerList {
 	return d.Containers
 }
 
-func (d DockerSwarmNode) GetNodeId() string {
+func (d VirtualDockerNode) GetNodeId() string {
 	return d.NodeId
 }
 
-func (d DockerSwarmNode) GetAge() string {
+func (d VirtualDockerNode) GetAge() string {
 	return d.Age.String()
 }
 
-func (d DockerSwarmNode) GetIp() string {
+func (d VirtualDockerNode) GetIp() string {
 	return d.IP
 }
 
-func (d DockerSwarmNode) GetAllocatedResources() map[string]float64 {
+func (d VirtualDockerNode) GetAllocatedResources() map[ResourceName]float64 {
 	return d.AllocatedResources
 }
 
-func (d DockerSwarmNode) GetResourceCapacities() map[string]float64 {
+func (d VirtualDockerNode) GetResourceCapacities() map[ResourceName]float64 {
 	return d.CapacityResources
 }
 
-func (d DockerSwarmNode) IsEnabled() bool {
+func (d VirtualDockerNode) IsEnabled() bool {
 	return d.Enabled
 }
 
-func (d DockerSwarmNode) String() string {
+func (d VirtualDockerNode) String() string {
 	out, err := json.Marshal(d)
 	if err != nil {
 		panic(err)

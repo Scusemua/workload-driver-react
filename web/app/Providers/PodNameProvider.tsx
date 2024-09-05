@@ -29,9 +29,9 @@ const fetcher = async (input: RequestInfo | URL) => {
         let gatewayPod: string = '';
         let jupyterPod: string = '';
         /* eslint-disable @typescript-eslint/no-explicit-any */
-        podsJson.map((pod: Record<string, any>) => {
-            const podName: string = pod['metadata']['name'];
-            const containerName: string = pod['spec']['containers'][0]['name'];
+        podsJson.map((container: Record<string, any>) => {
+            const podName: string = container['metadata']['name'];
+            const containerName: string = container['spec']['containers'][0]['name'];
             console.log(`Discovered Pod ${podName} with Container ${containerName}`);
 
             if (podName.includes('gateway')) {
@@ -49,7 +49,7 @@ const fetcher = async (input: RequestInfo | URL) => {
         };
     } catch (e) {
         if (signal.aborted) {
-            console.error('refresh-pod-names request timed out.');
+            console.error('refresh-container-names request timed out.');
             throw new Error(`The request timed out.`); // Different error.
         } else {
             console.error(`Failed to fetch Pod Names because: ${e}`);

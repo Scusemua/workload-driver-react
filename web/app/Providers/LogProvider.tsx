@@ -8,10 +8,10 @@ import React from 'react';
 
 const api_endpoint: string = 'ws://localhost:8000/logs';
 
-export const useLogs = (pod: string, container: string) => {
+export const useLogs = (container: string, container: string) => {
     // const [ logs, setLogs ] = React.useState<string[]>([]);
 
-    const { data, error } = useSWRSubscription(api_endpoint + '/' + pod + '/' + container, (key, { next }) => {
+    const { data, error } = useSWRSubscription(api_endpoint + '/' + container + '/' + container, (key, { next }) => {
         const socket: WebSocket = new WebSocket(api_endpoint);
 
         socket.addEventListener('open', () => {
@@ -19,7 +19,7 @@ export const useLogs = (pod: string, container: string) => {
                 JSON.stringify({
                     op: 'get_logs',
                     msg_id: uuidv4(),
-                    pod: pod,
+                    container: container,
                     container: container,
                     follow: true,
                 }),

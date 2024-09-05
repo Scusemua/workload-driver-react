@@ -197,8 +197,8 @@ func (h *KubeNodeHttpHandler) parseKubernetesNode(node *corev1.Node, actualGpuIn
 	allocatedVirtualGPUs := 0.0
 	allocatedGPUs := 0.0
 	capacityGPUs := 0.0
-	allocatedResources := make(map[string]float64)
-	capacityResources := make(map[string]float64)
+	allocatedResources := make(map[domain.ResourceName]float64)
+	capacityResources := make(map[domain.ResourceName]float64)
 
 	for _, pod := range podsOnNode.Items {
 		for _, container := range pod.Spec.Containers {
@@ -224,14 +224,14 @@ func (h *KubeNodeHttpHandler) parseKubernetesNode(node *corev1.Node, actualGpuIn
 		}
 	}
 
-	allocatedResources["CPU"] = allocatedCPUs
-	capacityResources["CPU"] = capacityCPUs
-	allocatedResources["Memory"] = allocatedMemory
-	capacityResources["Memory"] = capacityMemory
-	allocatedResources["GPU"] = allocatedGPUs
-	capacityResources["GPU"] = capacityGPUs
-	allocatedResources["vGPU"] = allocatedVirtualGPUs
-	capacityResources["vGPU"] = capacityVirtualGPUs
+	allocatedResources[domain.CpuResource] = allocatedCPUs
+	capacityResources[domain.CpuResource] = capacityCPUs
+	allocatedResources[domain.MemoryResource] = allocatedMemory
+	capacityResources[domain.MemoryResource] = capacityMemory
+	allocatedResources[domain.GpuResource] = allocatedGPUs
+	capacityResources[domain.GpuResource] = capacityGPUs
+	allocatedResources[domain.VirtualGpuResource] = allocatedVirtualGPUs
+	capacityResources[domain.VirtualGpuResource] = capacityVirtualGPUs
 
 	parsedNode := &domain.KubernetesNode{
 		NodeId:             node.Name,

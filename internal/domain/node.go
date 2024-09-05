@@ -4,15 +4,28 @@ const (
 	// KubernetesNodeType is a NodeType that refers to a node within a Kubernetes cluster.
 	KubernetesNodeType NodeType = "KubernetesNode"
 
-	// DockerSwarmNodeType is a NodeType that refers to a node within a Kubernetes cluster.
+	// VirtualDockerNodeType is a NodeType that refers to a virtual node within a Docker Swarm cluster.
+	// Each local daemon corresponds to a virtual node. If there are multiple local daemon containers scheduled on
+	// the same Docker Swarm node, then there are two virtual nodes within that single Docker Swarm node.
+	VirtualDockerNodeType NodeType = "VirtualDockerNode"
+
+	// DockerSwarmNodeType is a NodeType that refers to a Docker Swarm node within a Docker Swarm cluster.
 	DockerSwarmNodeType NodeType = "DockerSwarmNode"
 
 	// ContainerTypePod instances are Container instances deployed atop a ClusterNode with NodeType equal to KubernetesNodeType .
 	ContainerTypePod ContainerType = "Pod"
 
-	// ContainerTypeDockerContainer instances are Container instances deployed atop a ClusterNode with NodeType equal to DockerSwarmNodeType .
+	// ContainerTypeDockerContainer instances are Container instances deployed atop a
+	// ClusterNode with NodeType equal to VirtualDockerNodeType.
 	ContainerTypeDockerContainer ContainerType = "DockerContainer"
+
+	CpuResource        ResourceName = "CPU"
+	GpuResource        ResourceName = "GPU"
+	VirtualGpuResource ResourceName = "vGPU"
+	MemoryResource     ResourceName = "Memory"
 )
+
+type ResourceName string
 
 // NodeType defines the "type" of a node. Nodes may either belong to a Kubernetes cluster or a Docker swarm.
 type NodeType string
@@ -60,7 +73,7 @@ type Container interface {
 // A ClusterNode may be a Kubernetes node or a Docker Swarm node.
 type ClusterNode interface {
 	// GetNodeType returns the NodeType of the ClusterNode.
-	// The NodeType of the ClusterNode must be either KubernetesNodeType or DockerSwarmNodeType.
+	// The NodeType of the ClusterNode must be either KubernetesNodeType or VirtualDockerNodeType.
 	GetNodeType() NodeType
 
 	// GetValidContainerType returns the ContainerType of Container instances that may be
@@ -83,14 +96,14 @@ type ClusterNode interface {
 
 	// GetAllocatedResources returns a map from resource name to a float64 representing the quantity of that resource
 	// that is presently allocated to Container instances on the ClusterNode.
-	GetAllocatedResources() map[string]float64
+	GetAllocatedResources() map[ResourceName]float64
 
 	// GetResourceCapacities returns is a map from resource name to a float64 representing the quantity of that resource
 	// that is allocatable on the ClusterNode.
 	//
 	// Quantities stored in the CapacityResources do not change based on active resource allocations.
 	// They simply refer to the total amount of resources with which the ClusterNode is configured.
-	GetResourceCapacities() map[string]float64
+	GetResourceCapacities() map[ResourceName]float64
 
 	// IsEnabled returns a bool indicating whether the ClusterNode is currently enabled.
 	// When a ClusterNode is enabled, it is permitted to host Container instances.

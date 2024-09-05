@@ -51,7 +51,7 @@ export const KubernetesPodLogView: React.FunctionComponent<KubernetesPodLogViewP
     //         sendJsonMessage({
     //             op: 'get_logs',
     //             msg_id: uuidv4(),
-    //             pod: props.podName,
+    //             container: props.podName,
     //             container: props.containerName,
     //             follow: true,
     //         });
@@ -177,7 +177,7 @@ export const KubernetesPodLogView: React.FunctionComponent<KubernetesPodLogViewP
                     websocketOptions={{
                         onOpen: (_e: Event, socket: WebSocket) => {
                             console.log(
-                                `Sending 'get-logs' message for container ${props.containerName} of pod ${props.podName}`,
+                                `Sending 'get-logs' message for container ${props.containerName} of container ${props.podName}`,
                             );
                             socket.binaryType = 'arraybuffer';
                             socket.send(
@@ -195,7 +195,7 @@ export const KubernetesPodLogView: React.FunctionComponent<KubernetesPodLogViewP
                         },
                         onClose: () => {
                             console.debug(
-                                `Websocket Log connection closed for container ${props.containerName} of pod ${props.podName}`,
+                                `Websocket Log connection closed for container ${props.containerName} of container ${props.podName}`,
                             );
                         },
                     }}

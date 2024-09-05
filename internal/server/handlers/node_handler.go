@@ -56,6 +56,7 @@ func (h *NodeHttpHandler) HandleRequest(c *gin.Context) {
 		return
 	}
 
+	h.logger.Debug("Handing off HTTP GET request for Cluster Nodes to internal handler.")
 	// Forward the request to the internal node handler.
 	h.internalNodeHandler.HandleRequest(c)
 }
@@ -75,6 +76,7 @@ func (h *NodeHttpHandler) HandlePatchRequest(c *gin.Context) {
 		return
 	}
 
+	h.logger.Debug("Handing off HTTP PATCH request for Cluster Nodes to internal handler.")
 	// Forward the request to the internal node handler.
 	h.internalNodeHandler.HandlePatchRequest(c)
 }

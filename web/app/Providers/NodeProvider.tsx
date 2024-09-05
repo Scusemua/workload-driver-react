@@ -1,5 +1,5 @@
 import useSWR from 'swr';
-import { KubernetesNode } from '@app/Data';
+import { ClusterNode } from '@app/Data';
 import useSWRMutation from 'swr/mutation';
 
 const api_endpoint: string = 'api/nodes';
@@ -48,7 +48,7 @@ export function useNodes() {
     const { data, error, isLoading, isValidating } = useSWR(api_endpoint, fetcher, { refreshInterval: 600000 });
     const { trigger, isMutating } = useSWRMutation(api_endpoint, fetcher);
 
-    const nodes: KubernetesNode[] = data || [];
+    const nodes: ClusterNode[] = data || [];
 
     // console.log(
     //     `Returning ${nodes.length} Kubernetes node(s). isLoading: ${isLoading}, isValidating: ${isValidating}, isMutating: ${isMutating}.`,

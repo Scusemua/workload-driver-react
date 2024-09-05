@@ -58,8 +58,16 @@ func (h *DockerSwarmNodeHttpHandler) HandleRequest(c *gin.Context) {
 		return
 	}
 
-	nodes := resp.GetNodes()
-	h.logger.Debug("Retrieved virtual Docker nodes.", zap.Int("num-nodes", len(nodes)))
+	protoNodes := resp.GetNodes()
+	h.logger.Debug("Retrieved virtual Docker nodes.", zap.Int("num-nodes", len(protoNodes)))
+
+	var nodes = make([]*domain.VirtualDockerNode, 0, len(protoNodes))
+	for _, protoNode := range protoNodes {
+		virtualDockerNode := domain.VirtualDockerNodeFromProtoVirtualDockerNode(protoNode)
+		nodes = append(nodes, virtualDockerNode)
+	}
+
+	h.sugaredLogger.Debugf("Returning %d virtual Docker node(s): %v", len(nodes), nodes)
 
 	c.JSON(http.StatusOK, nodes)
 }

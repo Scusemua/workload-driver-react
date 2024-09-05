@@ -1,4 +1,4 @@
-import { KubernetesNode } from '@app/Data';
+import { ClusterNode } from '@app/Data';
 import { DarkModeContext, useNodes } from '@app/Providers';
 import {
     ChartDonutThreshold,
@@ -39,7 +39,7 @@ export const UtilizationDonutChart: React.FunctionComponent<UtilizationDonutChar
         let sumAllocated: number = 0.0;
         let sumCapacity: number = 0.0;
 
-        nodes.forEach((node: KubernetesNode) => {
+        nodes.forEach((node: ClusterNode) => {
             if (node.NodeId.includes('control-plane')) {
                 return;
             }
@@ -81,7 +81,7 @@ export const UtilizationDonutChart: React.FunctionComponent<UtilizationDonutChar
     }, [nodes, props]);
 
     // TODO: Convert this to a HoC where we pass the name of the target resource as a string in the props.
-    // TODO: Update the KubernetesNode interface to contain a map of resource name to amount for both capacity and allocated.
+    // TODO: Update the ClusterNode interface to contain a map of resource name to amount for both capacity and allocated.
 
     const getTitleComponent = () => {
         if (darkMode) {

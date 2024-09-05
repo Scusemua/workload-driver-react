@@ -36,7 +36,7 @@ import {
     Tooltip,
 } from '@patternfly/react-core';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
-import { KubernetesNode, KubernetesPod } from '@data/Kubernetes';
+import { ClusterNode, PodOrContainer } from '@data/Cluster';
 import {
     CpuIcon,
     CubeIcon,
@@ -77,7 +77,7 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
     const { nodes, nodesAreLoading, refreshNodes } = useNodes();
     const [, forceUpdate] = useReducer((x) => x + 1, 0);
     const heightFactorContext: HeightFactorContext = React.useContext(NodeHeightFactorContext);
-    const [adjustVirtualGPUsNodes, setAdjustVirtualGPUsNodes] = React.useState<KubernetesNode[]>([]);
+    const [adjustVirtualGPUsNodes, setAdjustVirtualGPUsNodes] = React.useState<ClusterNode[]>([]);
     const [isAdjustVirtualGPUsModalOpen, setIsAdjustVirtualGPUsModalOpen] = React.useState(false);
 
     const onSetPage = (_event: React.MouseEvent | React.KeyboardEvent | MouseEvent, newPage: number) => {
@@ -112,7 +112,7 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
         setSearchValue(value);
     };
 
-    const onAdjustVirtualGPUsClicked = (nodes: KubernetesNode[]) => {
+    const onAdjustVirtualGPUsClicked = (nodes: ClusterNode[]) => {
         setAdjustVirtualGPUsNodes(nodes);
         setIsAdjustVirtualGPUsModalOpen(true);
     };
@@ -135,7 +135,7 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
             return;
         }
 
-        adjustVirtualGPUsNodes.forEach((node: KubernetesNode) => {
+        adjustVirtualGPUsNodes.forEach((node: ClusterNode) => {
             if (node.CapacityResources['vGPU'] == value) {
                 console.log('Adjusted vGPUs value is same as current value. Doing nothing.');
                 closeAdjustVirtualGPUsModal();
@@ -196,7 +196,7 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
     }
 
     // Handler for when the user filters by node name.
-    const onFilter = (repo: KubernetesNode) => {
+    const onFilter = (repo: ClusterNode) => {
         if (props.hideControlPlaneNode && repo.NodeId.includes('control-plane')) {
             return false;
         }
@@ -317,7 +317,7 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
                             onClick={() => {
                                 console.log('Refreshing nodes now.');
                                 const st: number = performance.now();
-                                toast.promise(
+                                return toast.promise(
                                     refreshNodes(),
                                     {
                                         loading: <b>Refreshing nodes...</b>,
@@ -344,25 +344,25 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
         </React.Fragment>
     );
 
-    const expandedNodeContent = (kubeNode: KubernetesNode) => (
+    const expandedNodeContent = (clusterNode: ClusterNode) => (
         <Table isStriped aria-label="Pods Table" variant={'compact'} borders={true}>
             <Thead>
                 <Tr>
-                    <Th aria-label={"pod-id"}>Pod ID</Th>
-                    <Th aria-label={"pod-phase"}>Phase</Th>
-                    <Th aria-label={"pod-age"}>Age</Th>
-                    <Th aria-label={"pod-label"}>IP</Th>
+                    <Th aria-label={"container-id"}>ID</Th>
+                    <Th aria-label={"container-status"}>Status</Th>
+                    <Th aria-label={"container-age"}>Age</Th>
+                    <Th aria-label={"container-label"}>IP</Th>
                 </Tr>
             </Thead>
             <Tbody>
-                {kubeNode.Pods.map((pod) => (
-                    <Tr key={pod.PodName}>
-                        <Td dataLabel="Pod ID" modifier={'truncate'}>
-                            {pod.PodName}
+                {clusterNode.PodsOrContainers.map((container) => (
+                    <Tr key={container.Name}>
+                        <Td dataLabel="ID" modifier={'truncate'}>
+                            {container.Name}
                         </Td>
-                        <Td dataLabel="Phase">{pod.PodPhase}</Td>
-                        <Td dataLabel="Age">{pod.PodAge}</Td>
-                        <Td dataLabel="IP">{pod.PodIP}</Td>
+                        <Td dataLabel="Phase">{container.Phase}</Td>
+                        <Td dataLabel="Age">{container.Age}</Td>
+                        <Td dataLabel="IP">{container.IP}</Td>
                     </Tr>
                 ))}
             </Tbody>
@@ -379,15 +379,15 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
     };
 
     // Returns true if the node's radio button should be disabled.
-    const shouldSelectBeDisabledForNode = (kubeNode: KubernetesNode) => {
+    const shouldSelectBeDisabledForNode = (clusterNode: ClusterNode) => {
         if (props.disableRadiosWithKernel == '' || props.disableRadiosWithKernel == undefined) {
             return false;
         }
 
         const kernelId: string = props.disableRadiosWithKernel!;
-        for (let i = 0; i < kubeNode.Pods.length; i++) {
-            const pod: KubernetesPod = kubeNode.Pods[i];
-            if (pod.PodName.includes(kernelId)) return true;
+        for (let i = 0; i < clusterNode.PodsOrContainers.length; i++) {
+            const podOrContainer: PodOrContainer = clusterNode.PodsOrContainers[i];
+            if (podOrContainer.Name.includes(kernelId)) return true;
         }
 
         return false;
@@ -407,9 +407,9 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
         expandedOrCollapseNode(filteredNodeName);
     };
 
-    const enableOrDisableNode = (kubeNode: KubernetesNode, checked: boolean) => {
+    const enableOrDisableNode = (clusterNode: ClusterNode, checked: boolean) => {
         const requestBody = JSON.stringify({
-            node_name: kubeNode.NodeId,
+            node_name: clusterNode.NodeId,
             enable: checked,
         });
 
@@ -423,7 +423,7 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
         };
 
         fetch('api/nodes', requestOptions).then((resp) =>
-            resp.json().then((updatedNode: KubernetesNode) => {
+            resp.json().then((updatedNode: ClusterNode) => {
                 console.log(`Received updated Kubernetes node: ${JSON.stringify(updatedNode)}`);
                 for (let i: number = 0; i < nodes.length; i++) {
                     if (nodes[i].NodeId == updatedNode.NodeId) {
@@ -438,7 +438,7 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
     };
 
     // The general info of the node (name, IP, and age).
-    const nodeDescriptionList = (kubeNode: KubernetesNode) => {
+    const nodeDescriptionList = (clusterNode: ClusterNode) => {
         return (
             <DescriptionList
                 isAutoColumnWidths
@@ -453,22 +453,22 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
             >
                 <DescriptionListGroup>
                     <DescriptionListTerm icon={<VirtualMachineIcon />}>Node</DescriptionListTerm>
-                    <DescriptionListDescription>{kubeNode.NodeId}</DescriptionListDescription>
+                    <DescriptionListDescription>{clusterNode.NodeId}</DescriptionListDescription>
                 </DescriptionListGroup>
                 <DescriptionListGroup className="node-data-list-ip">
                     <DescriptionListTerm icon={<GlobeIcon />}>IP</DescriptionListTerm>
-                    <DescriptionListDescription>{kubeNode.IP}</DescriptionListDescription>
+                    <DescriptionListDescription>{clusterNode.IP}</DescriptionListDescription>
                 </DescriptionListGroup>
                 <DescriptionListGroup className="node-data-list-age">
                     <DescriptionListTerm icon={<OutlinedClockIcon />}>Age</DescriptionListTerm>
-                    <DescriptionListDescription>{kubeNode.Age}</DescriptionListDescription>
+                    <DescriptionListDescription>{clusterNode.Age}</DescriptionListDescription>
                 </DescriptionListGroup>
             </DescriptionList>
         );
     };
 
     // The current resource usage of the node.
-    const nodeResourceAmounts = (kubeNode: KubernetesNode) => {
+    const nodeResourceAmounts = (clusterNode: ClusterNode) => {
         return (
             <Flex
                 spaceItems={{
@@ -484,7 +484,7 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
                             <CubeIcon className="node-pods-icon" />
                         </Tooltip>
                     </FlexItem>
-                    <FlexItem>{kubeNode.Pods.length}</FlexItem>
+                    <FlexItem>{clusterNode.PodsOrContainers.length}</FlexItem>
                 </Flex>
                 <Flex spaceItems={{ default: 'spaceItemsSm' }} alignSelf={{ default: 'alignSelfCenter' }}>
                     <FlexItem>
@@ -493,7 +493,7 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
                         </Tooltip>
                     </FlexItem>
                     <FlexItem>
-                        {kubeNode.AllocatedResources['CPU'].toFixed(2)} / {kubeNode.CapacityResources['CPU']}
+                        {clusterNode.AllocatedResources['CPU'].toFixed(2)} / {clusterNode.CapacityResources['CPU']}
                     </FlexItem>
                 </Flex>
                 <Flex spaceItems={{ default: 'spaceItemsSm' }} alignSelf={{ default: 'alignSelfCenter' }}>
@@ -503,8 +503,8 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
                         </Tooltip>
                     </FlexItem>
                     <FlexItem>
-                        {(kubeNode.AllocatedResources['Memory'] * 0.001048576).toFixed(2)} /
-                        {(kubeNode.CapacityResources['Memory'] * 0.001048576).toFixed(2)}
+                        {(clusterNode.AllocatedResources['Memory'] * 0.001048576).toFixed(2)} /
+                        {(clusterNode.CapacityResources['Memory'] * 0.001048576).toFixed(2)}
                     </FlexItem>
                 </Flex>
                 <Flex spaceItems={{ default: 'spaceItemsSm' }}>
@@ -515,12 +515,12 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
                         <Flex spaceItems={{ default: 'spaceItemsNone' }} direction={{ default: 'column' }}>
                             <FlexItem className="node-allocated-vgpu" align={{ default: 'alignRight' }}>
                                 <Text component={TextVariants.p} className="node-allocated-vgpu">
-                                    {kubeNode.AllocatedResources['vGPU'].toFixed(0)}
+                                    {clusterNode.AllocatedResources['vGPU'].toFixed(0)}
                                 </Text>
                             </FlexItem>
                             <FlexItem className="node-allocated-gpu" align={{ default: 'alignRight' }}>
                                 <Text component={TextVariants.p} className="node-allocated-gpu">
-                                    {kubeNode.AllocatedResources['GPU'].toFixed(0)}
+                                    {clusterNode.AllocatedResources['GPU'].toFixed(0)}
                                 </Text>
                             </FlexItem>
                         </Flex>
@@ -529,8 +529,8 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
                             <FlexItem align={{ default: 'alignRight' }}>/</FlexItem>
                         </Flex>
                         <Flex spaceItems={{ default: 'spaceItemsNone' }} direction={{ default: 'column' }}>
-                            <FlexItem align={{ default: 'alignRight' }}> {kubeNode.CapacityResources['vGPU']}</FlexItem>
-                            <FlexItem align={{ default: 'alignRight' }}>{kubeNode.CapacityResources['GPU']}</FlexItem>
+                            <FlexItem align={{ default: 'alignRight' }}> {clusterNode.CapacityResources['vGPU']}</FlexItem>
+                            <FlexItem align={{ default: 'alignRight' }}>{clusterNode.CapacityResources['GPU']}</FlexItem>
                         </Flex>
                         <Flex spaceItems={{ default: 'spaceItemsNone' }} direction={{ default: 'column' }}>
                             <FlexItem align={{ default: 'alignRight' }}>
@@ -547,7 +547,7 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
     };
 
     // The actions displayed at the right end of a row in the node list.
-    const nodeDataListActions = (kubeNode: KubernetesNode) => {
+    const nodeDataListActions = (clusterNode: ClusterNode) => {
         return (
             <Flex
                 spaceItems={{ default: 'spaceItemsMd', '2xl': 'spaceItemsXs' }}
@@ -560,20 +560,20 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
                         variant="link"
                         onClick={(event: React.MouseEvent) => {
                             event.stopPropagation();
-                            onAdjustVirtualGPUsClicked([kubeNode]);
+                            onAdjustVirtualGPUsClicked([clusterNode]);
                         }}
                     >
                         Adjust vGPUs
                     </Button>
                 </FlexItem>
-                <FlexItem alignSelf={{ default: 'alignSelfCenter' }} hidden={kubeNode.NodeId.includes('control-plane')}>
+                <FlexItem alignSelf={{ default: 'alignSelfCenter' }} hidden={clusterNode.NodeId.includes('control-plane')}>
                     <Tooltip
                         exitDelay={0.125}
                         content="Enable or disable a node, rendering it either available or unavailable, respectively, for hosting Distributed Notebook resources."
                         position={'bottom'}
                     >
                         <Switch
-                            id={'node-' + kubeNode.NodeId + '-scheduling-switch'}
+                            id={'node-' + clusterNode.NodeId + '-scheduling-switch'}
                             label={
                                 <React.Fragment>
                                     <Flex direction={{ default: 'row' }} spaceItems={{ default: 'spaceItemsXs' }}>
@@ -589,10 +589,10 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
                                 </React.Fragment>
                             }
                             aria-label="node-scheduling-switch"
-                            isChecked={kubeNode.Enabled}
+                            isChecked={clusterNode.Enabled}
                             ouiaId="node-scheduling-switch"
                             onChange={(_event: React.FormEvent<HTMLInputElement>, checked: boolean) => {
-                                enableOrDisableNode(kubeNode, checked);
+                                enableOrDisableNode(clusterNode, checked);
                             }}
                         />
                     </Tooltip>
@@ -696,44 +696,44 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
                     aria-label="data list"
                     hidden={nodes.length == 0}
                 >
-                    {filteredNodes.map((kubeNode: KubernetesNode, idx: number) => (
+                    {filteredNodes.map((clusterNode: ClusterNode, idx: number) => (
                         <DataListItem
-                            key={kubeNode.NodeId}
+                            key={clusterNode.NodeId}
                             id={'node-list-item-' + idx}
-                            isExpanded={expandedNodes.includes(kubeNode.NodeId)}
+                            isExpanded={expandedNodes.includes(clusterNode.NodeId)}
                         >
                             <DataListItemRow>
                                 {props.selectableViaCheckboxes && (
                                     <DataListControl>
                                         <Radio
-                                            id={'node-' + kubeNode.NodeId + '-radio'}
-                                            aria-label={'node-' + kubeNode.NodeId + '-radio'}
-                                            aria-labelledby={'node-' + kubeNode.NodeId + '-radio'}
+                                            id={'node-' + clusterNode.NodeId + '-radio'}
+                                            aria-label={'node-' + clusterNode.NodeId + '-radio'}
+                                            aria-labelledby={'node-' + clusterNode.NodeId + '-radio'}
                                             name={'node-list-radio-buttons'}
                                             hidden={!props.selectableViaCheckboxes}
-                                            isDisabled={shouldSelectBeDisabledForNode(kubeNode)}
+                                            isDisabled={shouldSelectBeDisabledForNode(clusterNode)}
                                             onChange={() => {
-                                                console.log('Selected node ' + kubeNode.NodeId);
-                                                setSelectedNode(kubeNode.NodeId);
+                                                console.log('Selected node ' + clusterNode.NodeId);
+                                                setSelectedNode(clusterNode.NodeId);
                                                 if (props.onSelectNode != undefined) {
-                                                    props.onSelectNode(kubeNode.NodeId);
+                                                    props.onSelectNode(clusterNode.NodeId);
                                                 }
                                             }}
-                                            isChecked={kubeNode.NodeId == selectedNode}
+                                            isChecked={clusterNode.NodeId == selectedNode}
                                         />
                                     </DataListControl>
                                 )}
                                 <DataListToggle
                                     className="node-list-toggle-button"
-                                    hidden={kubeNode.NodeId.includes('control-plane')}
-                                    onClick={() => expandedOrCollapseNode(kubeNode.NodeId)}
-                                    isExpanded={expandedNodes.includes(kubeNode.NodeId)}
-                                    id={'expand-node-' + kubeNode.NodeId + '-toggle'}
-                                    aria-controls={'expand-node-' + kubeNode.NodeId + '-toggle'}
+                                    hidden={clusterNode.NodeId.includes('control-plane')}
+                                    onClick={() => expandedOrCollapseNode(clusterNode.NodeId)}
+                                    isExpanded={expandedNodes.includes(clusterNode.NodeId)}
+                                    id={'expand-node-' + clusterNode.NodeId + '-toggle'}
+                                    aria-controls={'expand-node-' + clusterNode.NodeId + '-toggle'}
                                 />
                                 <DataListItemCells
                                     dataListCells={[
-                                        <DataListCell key={`node-${kubeNode.NodeId}-primary-content`}>
+                                        <DataListCell key={`node-${clusterNode.NodeId}-primary-content`}>
                                             <Flex
                                                 direction={{ default: 'column', '2xl': 'row' }}
                                                 spaceItems={{
@@ -752,10 +752,10 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
                                                     }}
                                                     direction={{ default: 'column' }}
                                                 >
-                                                    <FlexItem>{nodeDescriptionList(kubeNode)}</FlexItem>
-                                                    <FlexItem>{nodeResourceAmounts(kubeNode)}</FlexItem>
+                                                    <FlexItem>{nodeDescriptionList(clusterNode)}</FlexItem>
+                                                    <FlexItem>{nodeResourceAmounts(clusterNode)}</FlexItem>
                                                 </Flex>
-                                                {nodeDataListActions(kubeNode)}
+                                                {nodeDataListActions(clusterNode)}
                                             </Flex>
                                         </DataListCell>,
                                     ]}
@@ -763,11 +763,11 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
                             </DataListItemRow>
                             <DataListContent
                                 className="node-list-expandable-content"
-                                aria-label={'node-' + kubeNode.NodeId + '-expandable-content'}
-                                id={'node-' + kubeNode.NodeId + '-expandable-content'}
-                                isHidden={!expandedNodes.includes(kubeNode.NodeId)}
+                                aria-label={'node-' + clusterNode.NodeId + '-expandable-content'}
+                                id={'node-' + clusterNode.NodeId + '-expandable-content'}
+                                isHidden={!expandedNodes.includes(clusterNode.NodeId)}
                             >
-                                {expandedNodeContent(kubeNode)}
+                                {expandedNodeContent(clusterNode)}
                             </DataListContent>
                         </DataListItem>
                     ))}

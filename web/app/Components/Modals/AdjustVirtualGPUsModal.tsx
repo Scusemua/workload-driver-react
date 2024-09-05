@@ -1,6 +1,6 @@
 import React from 'react';
 import { Button, Form, FormGroup, Modal, ModalVariant, TextInput, ValidatedOptions } from '@patternfly/react-core';
-import { KubernetesNode } from '@app/Data';
+import { ClusterNode } from '@app/Data';
 import { CheckCircleIcon } from '@patternfly/react-icons';
 import { useNodes } from '@app/Providers';
 
@@ -9,7 +9,7 @@ export interface AdjustVirtualGPUsModalProps {
     isOpen: boolean;
     onClose: () => void;
     onConfirm: (value: number) => Promise<void>;
-    nodes: KubernetesNode[];
+    nodes: ClusterNode[];
     titleIconVariant?: 'success' | 'danger' | 'warning' | 'info';
 }
 
@@ -21,7 +21,7 @@ export const AdjustVirtualGPUsModal: React.FunctionComponent<AdjustVirtualGPUsMo
     const { refreshNodes } = useNodes();
 
     React.useEffect(() => {
-        props.nodes.forEach((node: KubernetesNode) => {
+        props.nodes.forEach((node: ClusterNode) => {
             if (node.CapacityResources['vGPU'] < minVirtualGPUs) {
                 setMinVirtualGPUs(node.CapacityResources['vGPU']);
             }
@@ -108,7 +108,7 @@ export const AdjustVirtualGPUsModal: React.FunctionComponent<AdjustVirtualGPUsMo
             title={
                 props.nodes.length == 1
                     ? `Adjust vGPUs of Node ${props.nodes[0].NodeId}`
-                    : `Adjust vGPUs of Nodes ${props.nodes.map((node: KubernetesNode) => node.NodeId).join(', ')}`
+                    : `Adjust vGPUs of Nodes ${props.nodes.map((node: ClusterNode) => node.NodeId).join(', ')}`
             }
             isOpen={props.isOpen}
             onClose={props.onClose}

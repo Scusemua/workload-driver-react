@@ -9,13 +9,13 @@ import (
 //
 // The KubernetesNode struct is a concrete implementation of the ClusterNode interface.
 type KubernetesNode struct {
-	NodeId             string             `json:"NodeId"`
-	Pods               ContainerList      `json:"Pods"`
-	Age                string             `json:"Age"` // Convert the time.Duration to a string
-	IP                 string             `json:"IP"`
-	AllocatedResources map[string]float64 `json:"AllocatedResources"`
-	CapacityResources  map[string]float64 `json:"CapacityResources"`
-	Enabled            bool               `json:"Enabled"`
+	NodeId             string                   `json:"NodeId"`
+	Pods               ContainerList            `json:"PodsOrContainers"`
+	Age                string                   `json:"Age"` // Convert the time.Duration to a string
+	IP                 string                   `json:"IP"`
+	AllocatedResources map[ResourceName]float64 `json:"AllocatedResources"`
+	CapacityResources  map[ResourceName]float64 `json:"CapacityResources"`
+	Enabled            bool                     `json:"Enabled"`
 }
 
 func (kn *KubernetesNode) GetNodeType() NodeType {
@@ -42,11 +42,11 @@ func (kn *KubernetesNode) GetIp() string {
 	return kn.IP
 }
 
-func (kn *KubernetesNode) GetAllocatedResources() map[string]float64 {
+func (kn *KubernetesNode) GetAllocatedResources() map[ResourceName]float64 {
 	return kn.AllocatedResources
 }
 
-func (kn *KubernetesNode) GetResourceCapacities() map[string]float64 {
+func (kn *KubernetesNode) GetResourceCapacities() map[ResourceName]float64 {
 	return kn.CapacityResources
 }
 
@@ -69,19 +69,19 @@ func (kn *KubernetesNode) String() string {
 // The KubernetesPod struct is a concrete implementation of the Container interface.
 type KubernetesPod struct {
 	// PodName refers to the name of the KubernetesPod.
-	PodName string `json:"PodName"`
+	PodName string `json:"Name"`
 
 	// PodPhase returns to the [Kubernetes phase] of the KubernetesPod.
 	//
 	// [Kubernetes phase]: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle/#pod-phase
-	PodPhase string `json:"PodPhase"`
+	PodPhase string `json:"Phase"`
 
 	// PodAge refers to the age of the KubernetesPod.
 	// The value is created by converting a time.Duration to a string.
-	PodAge string `json:"PodAge"`
+	PodAge string `json:"Age"`
 
 	// PodIP refers to the IP or network address of the KubernetesPod.
-	PodIP string `json:"PodIP"`
+	PodIP string `json:"IP"`
 
 	// Valid is a flag used to determine if the KubernetesPod struct was sent/received correctly over the network.
 	Valid bool `json:"Valid"`

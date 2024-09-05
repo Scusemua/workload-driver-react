@@ -1,5 +1,5 @@
 export * from './Kernel';
-export * from './Kubernetes';
+export * from './Cluster';
 export * from './Workload';
 export * from './WebSocket';
 export * from './Notification';

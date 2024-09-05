@@ -1,6 +1,6 @@
-interface KubernetesNode {
+interface ClusterNode {
     NodeId: string;
-    Pods: KubernetesPod[];
+    PodsOrContainers: PodOrContainer[];
     Age: string;
     IP: string;
     AllocatedResources: Map<string, number>;
@@ -8,12 +8,13 @@ interface KubernetesNode {
     Enabled: boolean;
 }
 
-interface KubernetesPod {
-    PodName: string;
-    PodPhase: string;
-    PodAge: string;
-    PodIP: string;
+interface PodOrContainer {
+    Name: string;
+    Phase: string;
+    Age: string;
+    IP: string;
     Valid: boolean;
+    Type: string;
 }
 
 interface VirtualGpuInfo {
@@ -22,6 +23,6 @@ interface VirtualGpuInfo {
     freeVirtualGPUs: number; // Free (i.e., idle) vGPUs on the node.
 }
 
-export type { KubernetesPod as KubernetesPod };
-export type { KubernetesNode as KubernetesNode };
+export type { PodOrContainer as PodOrContainer };
+export type { ClusterNode as ClusterNode };
 export type { VirtualGpuInfo as VirtualGpuInfo };

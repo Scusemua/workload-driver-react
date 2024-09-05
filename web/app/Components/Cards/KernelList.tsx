@@ -157,7 +157,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         if (kernel === null || kernel === undefined) {
             return;
         }
-        
+
         if (!kernelIdSet.current.has(kernel.kernelId)) {
             kernelIdSet.current.add(kernel.kernelId);
             numKernelsCreating.current -= 1;
@@ -301,9 +301,9 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                 kernelId: kernelId,
             }),
         };
-        
+
         toast.promise(
-            fetch('api/ping-kernel', req), 
+            fetch('api/ping-kernel', req),
             {
                 loading: <b>Pinging kernel {kernelId} now...</b>,
                 success: (resp: Response) => {
@@ -1063,7 +1063,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             <Thead>
                 <Tr>
                     <Th aria-label={"kernel-ID"}>ID</Th>
-                    <Th aria-label={"kernel-pod"}>
+                    <Th aria-label={"kernel-container"}>
                         <BundleIcon />
                         {' Pod'}
                     </Th>

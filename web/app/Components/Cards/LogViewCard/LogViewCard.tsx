@@ -108,7 +108,7 @@ export const LogViewCard: React.FunctionComponent = () => {
                     </ToolbarGroup>
                     <ToolbarGroup variant="icon-button-group">
                         <ToolbarItem>
-                            <Tooltip exitDelay={75} content={<div>Refresh pod names.</div>}>
+                            <Tooltip exitDelay={75} content={<div>Refresh container names.</div>}>
                                 <Button
                                     label="refresh-kernel-specs-button"
                                     aria-label="refresh-kernel-specs-button"
@@ -124,8 +124,8 @@ export const LogViewCard: React.FunctionComponent = () => {
                                             .promise(
                                                 refreshPodNames(),
                                                 {
-                                                    loading: <b>Refreshing Kubernetes pod names...</b>,
-                                                    success: <b>Refreshed Kubernetes pod names!</b>,
+                                                    loading: <b>Refreshing Kubernetes container names...</b>,
+                                                    success: <b>Refreshed Kubernetes container names!</b>,
                                                     error: (reason: Error) => {
                                                         let reasonUI = <FlexItem>{reason.message}</FlexItem>;
 
@@ -139,7 +139,7 @@ export const LogViewCard: React.FunctionComponent = () => {
                                                                 spaceItems={{ default: 'spaceItemsNone' }}
                                                             >
                                                                 <FlexItem>
-                                                                    <b>Could not refresh Kuberentes pod names.</b>
+                                                                    <b>Could not refresh Kuberentes container names.</b>
                                                                 </FlexItem>
                                                                 {reasonUI}
                                                             </Flex>
@@ -161,7 +161,7 @@ export const LogViewCard: React.FunctionComponent = () => {
                                         }).catch((reason: Error) => { // Explicitly catch the potential error.
                                         toast.error((t) => {
                                             setPodsAreRefreshing(false);
-                                            
+
                                             let reasonUI = <FlexItem>{reason.message}</FlexItem>;
 
                                             if (reason.message.includes("Unexpected token 'E'")) {
@@ -174,7 +174,7 @@ export const LogViewCard: React.FunctionComponent = () => {
                                                     spaceItems={{ default: 'spaceItemsNone' }}
                                                 >
                                                     <FlexItem>
-                                                        <b>Could not refresh Kuberentes pod names.</b>
+                                                        <b>Could not refresh Kuberentes container names.</b>
                                                     </FlexItem>
                                                     {reasonUI}
                                                 </Flex>
@@ -185,7 +185,7 @@ export const LogViewCard: React.FunctionComponent = () => {
                                                 minWidth: '425px',
                                             },
                                             id: "manuallyRefreshPodNames"
-                                        })       
+                                        })
                                     })
                                     }}
                                     icon={<SyncIcon />}

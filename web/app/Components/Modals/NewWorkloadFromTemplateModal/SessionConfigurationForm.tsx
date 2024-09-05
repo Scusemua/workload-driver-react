@@ -98,6 +98,8 @@ export const SessionConfigurationForm: React.FunctionComponent<SessionConfigurat
       firstSessionTabMount.current = false;
       return;
     } else {
+      // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+      // @ts-expect-error
       const first = sessionTabComponentRef.current?.tabList.current.childNodes[activeSessionTab];
       first && first.firstChild.focus();
     }
@@ -115,6 +117,8 @@ export const SessionConfigurationForm: React.FunctionComponent<SessionConfigurat
         onAdd={onAddSessionTab} // addSessionTab
         addButtonAriaLabel='Add Additional Session to Workload'
         role='region'
+        // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+        // @ts-expect-error
         ref={sessionTabComponentRef}
         aria-label="Session Configuration Tabs"
       >

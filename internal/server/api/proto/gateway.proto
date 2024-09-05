@@ -1,5 +1,7 @@
 syntax = "proto3";
 
+import "google/protobuf/timestamp.proto";
+
 option go_package = "github.com/zhangjyr/distributed-notebook/common/proto";
 option java_multiple_files = true;
 option java_package = "com.github.zhangjyr.distributed-notebook.common.proto";
@@ -213,29 +215,44 @@ message GetVirtualDockerNodesResponse {
 message VirtualDockerNode {
   // NodeId is the unique identifier of the node.
   string nodeId = 1;
-  // Containers is a list of names of
-  repeated string containers = 2;
-  // specCpu is the total number of CPUs on the VirtualDockerNode.
+  // Containers is a slice of DockerContainer structs representing the containers running on this VirtualDockerNode.
+  repeated DockerContainer containers = 2;
+  // SpecCpu is the total number of CPUs on the VirtualDockerNode.
   // This quantity is not impacted by active allocations.
   float specCpu = 3;
-  // specMemory is the total amount of RAM on the VirtualDockerNode in megabytes (MB).
+  // SpecMemory is the total amount of RAM on the VirtualDockerNode in megabytes (MB).
   // This quantity is not impacted by active allocations.
   float specMemory = 4;
-  // specGpu is the total number of vGPUs on the VirtualDockerNode.
+  // SpecGpu is the total number of vGPUs on the VirtualDockerNode.
   // This quantity is not impacted by active allocations.
   float specGpu = 5;
-  // allocatedCpu is the number of vCPUs that is actively/currently allocated on the VirtualDockerNode.
+  // AllocatedCpu is the number of vCPUs that is actively/currently allocated on the VirtualDockerNode.
   float allocatedCpu = 6;
-  // allocatedMemory is the amount of memory (in megabytes) that is currently allocated on the VirtualDockerNode.
+  // AllocatedMemory is the amount of memory (in megabytes) that is currently allocated on the VirtualDockerNode.
   float allocatedMemory = 7;
-  // allocatedGpus is the number of vGPUs that is actively/currently allocated on the VirtualDockerNode.
-  float allocatedGpus = 8;
+  // AllocatedGpu is the number of vGPUs that is actively/currently allocated on the VirtualDockerNode.
+  float allocatedGpu = 8;
+  //  // PendingCpu is the number of vCPUs that is subscribed (but not committed) on the VirtualDockerNode.
+  //  float pendingCpu = 9;
+  //  // PendingMemory is the amount of memory (in megabytes) that is subscribed (but not committed) on the VirtualDockerNode.
+  //  float pendingMemory = 10;
+  //  // PendingGpus is the number of vGPUs that is subscribed (but not committed) on the VirtualDockerNode.
+  //  float pendingGpus = 11;
+  // NodeName is the name of the node.
+  string nodeName = 9;
+  // Address is the IP address of the node.
+  string address = 10;
+  // CreatedAt is the time that the node was created.
+  google.protobuf.Timestamp createdAt = 11;
 }
 
 // DockerContainer describes a Docker container.
 message DockerContainer {
   string containerName = 1;
-  string containerPhase = 2;
+  // ContainerStatus describes the [lifecycle state or status] of the Docker container.
+  //
+  // [lifecycle state or status]: https://docs.docker.com/reference/cli/docker/container/ls/#status
+  string containerStatus = 2;
   string containerAge = 3;
   string containerIp = 4;
   bool  valid = 5;
