@@ -2,6 +2,8 @@ package domain
 
 import (
 	"encoding/json"
+	"fmt"
+	"github.com/icza/gox/timex"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/server/api/proto"
 	"time"
 )
@@ -86,7 +88,9 @@ type VirtualDockerNode struct {
 	Containers ContainerList `json:"PodsOrContainers"`
 
 	// Age refers to the length of time that the VirtualDockerNode has existed.
-	Age time.Duration `json:"Age"`
+	Age string `json:"Age"`
+
+	age time.Duration
 
 	// IP is the network address of the VirtualDockerNode.
 	IP string `json:"IP"`
@@ -146,7 +150,8 @@ func VirtualDockerNodeFromProtoVirtualDockerNode(protoNode *proto.VirtualDockerN
 		NodeId:             protoNode.NodeId,
 		Type:               VirtualDockerNodeType,
 		IP:                 protoNode.Address,
-		Age:                time.Now().Sub(protoNode.CreatedAt.AsTime()),
+		Age:                fmt.Sprintf("%v", timex.Round(time.Now().Sub(protoNode.CreatedAt.AsTime()), 3)),
+		age:                time.Now().Sub(protoNode.CreatedAt.AsTime()),
 		Enabled:            true,
 		Containers:         containers,
 		AllocatedResources: allocatedResources,
@@ -178,7 +183,11 @@ func (d VirtualDockerNode) GetNodeId() string {
 }
 
 func (d VirtualDockerNode) GetAge() string {
-	return d.Age.String()
+	return d.Age
+}
+
+func (d VirtualDockerNode) GetAgeAsDuration() time.Duration {
+	return d.age
 }
 
 func (d VirtualDockerNode) GetIp() string {

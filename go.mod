@@ -33,6 +33,7 @@ require (
 	github.com/enriquebris/goconcurrentqueue v0.7.0
 	github.com/gin-contrib/pprof v1.5.0
 	github.com/hashicorp/yamux v0.1.1
+	github.com/icza/gox v0.0.0-20240829094117-5982a7a6cca1
 	github.com/muesli/termenv v0.15.2
 )
 

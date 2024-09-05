@@ -597,7 +597,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
 
         if (!kernelManager.current) {
             console.error('Kernel Manager is not available. Will try to connect...');
-            initializeKernelManagers();
+            await initializeKernelManagers();
             return;
         }
 
