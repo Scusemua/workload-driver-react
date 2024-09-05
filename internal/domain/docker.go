@@ -99,6 +99,10 @@ type VirtualDockerNode struct {
 	// that is presently allocated to Container instances on the VirtualDockerNode.
 	AllocatedResources map[ResourceName]float64 `json:"AllocatedResources"`
 
+	// PendingResources is a map from resource name to a float64 representing the quantity of that resource
+	// that is subscribed by, but not allocated to, a Container instance on the VirtualDockerNode.
+	PendingResources map[ResourceName]float64 `json:"PendingResources"`
+
 	// CapacityResources is a map from resource name to a float64 representing the quantity of that resource
 	// that is allocatable on the VirtualDockerNode.
 	//
@@ -133,17 +137,22 @@ func VirtualDockerNodeFromProtoVirtualDockerNode(protoNode *proto.VirtualDockerN
 
 	allocatedResources := make(map[ResourceName]float64)
 	capacityResources := make(map[ResourceName]float64)
+	pendingResources := make(map[ResourceName]float64)
 
 	allocatedResources[CpuResource] = float64(protoNode.AllocatedCpu)
+	pendingResources[CpuResource] = float64(protoNode.PendingCpu)
 	capacityResources[CpuResource] = float64(protoNode.SpecCpu)
 
 	allocatedResources[MemoryResource] = float64(protoNode.AllocatedMemory)
+	pendingResources[MemoryResource] = float64(protoNode.PendingMemory)
 	capacityResources[MemoryResource] = float64(protoNode.SpecMemory)
 
 	allocatedResources[GpuResource] = float64(protoNode.AllocatedGpu)
+	pendingResources[GpuResource] = float64(protoNode.PendingGpu)
 	capacityResources[GpuResource] = float64(protoNode.SpecGpu)
 
 	allocatedResources[VirtualGpuResource] = float64(protoNode.AllocatedGpu)
+	pendingResources[VirtualGpuResource] = float64(protoNode.PendingGpu)
 	capacityResources[VirtualGpuResource] = float64(protoNode.SpecGpu)
 
 	return &VirtualDockerNode{
@@ -156,6 +165,7 @@ func VirtualDockerNodeFromProtoVirtualDockerNode(protoNode *proto.VirtualDockerN
 		Containers:         containers,
 		AllocatedResources: allocatedResources,
 		CapacityResources:  capacityResources,
+		PendingResources:   pendingResources,
 	}
 }
 

@@ -1,39 +1,39 @@
 import React, { useReducer } from 'react';
 import {
-    Button,
-    Card,
-    CardBody,
-    CardHeader,
-    CardTitle,
-    DataList,
-    DataListCell,
-    DataListContent,
-    DataListControl,
-    DataListItem,
-    DataListItemCells,
-    DataListItemRow,
-    DataListToggle,
-    DescriptionList,
-    DescriptionListDescription,
-    DescriptionListGroup,
-    DescriptionListTerm,
-    Flex,
-    FlexItem,
-    InputGroup,
-    InputGroupItem,
-    Pagination,
-    PaginationVariant,
-    Radio,
-    SearchInput,
-    Skeleton,
-    Switch,
-    Text,
-    TextVariants,
-    Title,
-    ToolbarGroup,
-    ToolbarItem,
-    ToolbarToggleGroup,
-    Tooltip,
+  Button,
+  Card,
+  CardBody,
+  CardHeader,
+  CardTitle,
+  DataList,
+  DataListCell,
+  DataListContent,
+  DataListControl,
+  DataListItem,
+  DataListItemCells,
+  DataListItemRow,
+  DataListToggle,
+  DescriptionList,
+  DescriptionListDescription,
+  DescriptionListGroup,
+  DescriptionListTerm,
+  Flex,
+  FlexItem,
+  InputGroup,
+  InputGroupItem, Label,
+  Pagination,
+  PaginationVariant,
+  Radio,
+  SearchInput,
+  Skeleton,
+  Switch,
+  Text,
+  TextVariants,
+  Title,
+  ToolbarGroup,
+  ToolbarItem,
+  ToolbarToggleGroup,
+  Tooltip
 } from '@patternfly/react-core';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 import { ClusterNode, PodOrContainer } from '@data/Cluster';
@@ -488,9 +488,9 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
                 </Flex>
                 <Flex spaceItems={{ default: 'spaceItemsSm' }} alignSelf={{ default: 'alignSelfCenter' }}>
                     <FlexItem>
-                        <Tooltip content="millicpus (1/1000th of a CPU core)">
+                          <Tooltip content="millicpus (1/1000th of a CPU core)">
                             <CpuIcon className="node-cpu-icon" />
-                        </Tooltip>
+                          </Tooltip>
                     </FlexItem>
                     <FlexItem>
                         {clusterNode.AllocatedResources['CPU'].toFixed(2)} / {clusterNode.CapacityResources['CPU']}
