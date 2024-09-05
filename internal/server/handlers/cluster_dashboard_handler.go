@@ -35,7 +35,7 @@ import (
 // the Dashboard backend server is not restarted. This will prompt a reconfiguration of the NodeHttpHandler's
 // domain.NodeType and thus its internal node handler. Once that reconfiguration is completed, the specified
 // RegistrationCompleteCallback will be re-triggered.
-type RegistrationCompleteCallback func(nodeType domain.NodeType)
+type RegistrationCompleteCallback func(nodeType domain.NodeType, rpcHandler *ClusterDashboardHandler)
 
 var (
 	ErrFailedToConnect           = errors.New("a connection to the Gateway could not be established within the configured timeout")
@@ -355,7 +355,7 @@ func (h *ClusterDashboardHandler) setupRpcResources(gatewayAddress string) error
 		panic(fmt.Sprintf("Unsupported deployment mode received during gRPC registration procedure: \"%s\"", h.deploymentMode))
 	}
 
-	h.postRegistrationCallback(nodeType)
+	h.postRegistrationCallback(nodeType, h)
 
 	h.exitSetup()
 

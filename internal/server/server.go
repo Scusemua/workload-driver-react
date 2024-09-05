@@ -117,13 +117,13 @@ func NewServer(opts *domain.Configuration) domain.Server {
 // the Dashboard backend server is not restarted. This will prompt a reconfiguration of the NodeHttpHandler's
 // domain.NodeType and thus its internal node handler. Once that reconfiguration is completed, the specified
 // handleRpcRegistrationComplete will be re-triggered.
-func (s *serverImpl) handleRpcRegistrationComplete(nodeType domain.NodeType) {
+func (s *serverImpl) handleRpcRegistrationComplete(nodeType domain.NodeType, rpcHandler *handlers.ClusterDashboardHandler) {
 	if s.nodeHandler == nil {
 		panic("The server's node handler is nil during the execution of the RegistrationCompleteCallback")
 	}
 
 	s.logger.Debug("'Registration Complete' callback triggered.", zap.String("node-type", string(nodeType)))
-	s.nodeHandler.AssignNodeType(nodeType, s.gatewayRpcClient)
+	s.nodeHandler.AssignNodeType(nodeType, rpcHandler)
 }
 
 func (s *serverImpl) ErrorHandlerMiddleware(c *gin.Context) {

@@ -49,8 +49,8 @@ func getResponseChannelKeyImpl(messageId string, messageType string, channel Ker
 //
 // For the message type, we convert "{action}_request" message types to "{action}_reply"for use in the key.
 func getResponseChannelKeyFromRequest(originalMessage KernelMessage) string {
-	var messageType MessageType = originalMessage.GetHeader().MessageType
-	var channel KernelSocketChannel = originalMessage.GetChannel()
+	var messageType = originalMessage.GetHeader().MessageType
+	var channel = originalMessage.GetChannel()
 	var messageId = originalMessage.GetHeader().MessageId
 
 	if !strings.HasSuffix(messageType.String(), "request") {
@@ -59,7 +59,7 @@ func getResponseChannelKeyFromRequest(originalMessage KernelMessage) string {
 
 	// Since we're using the request to generate the key, we convert the message type to its reply variant.
 	baseMessageType := messageType.getBaseMessageType()
-	var messageTypeOfReply string = baseMessageType + "reply"
+	var messageTypeOfReply = baseMessageType + "reply"
 
 	return getResponseChannelKeyImpl(messageId, messageTypeOfReply, channel)
 }

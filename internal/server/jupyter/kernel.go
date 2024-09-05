@@ -629,7 +629,7 @@ func (conn *BasicKernelConnection) createKernelMessage(messageType MessageType, 
 	var responseChannel chan KernelMessage
 	if channel == ShellChannel || channel == ControlChannel {
 		// We create a buffered channel so that the 'message-receiver' goroutine cannot get blocked trying to put
-		// a result into a response channelfor which the receiver is not actively listening/waiting for said response.
+		// a result into a response channel for which the receiver is not actively listening/waiting for said response.
 		responseChannel = make(chan KernelMessage, 1)
 		responseChannelKey := getResponseChannelKeyFromRequest(message)
 		conn.responseChannels[responseChannelKey] = responseChannel
