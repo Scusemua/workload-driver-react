@@ -211,6 +211,9 @@ github.com/gorilla/websocket
 # github.com/hashicorp/yamux v0.1.1
 ## explicit; go 1.15
 github.com/hashicorp/yamux
+# github.com/icza/gox v0.0.0-20240829094117-5982a7a6cca1
+## explicit; go 1.13
+github.com/icza/gox/timex
 # github.com/imdario/mergo v0.3.6
 ## explicit
 github.com/imdario/mergo
