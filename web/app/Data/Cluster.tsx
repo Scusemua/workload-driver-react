@@ -9,6 +9,10 @@ interface ClusterNode {
     Enabled: boolean;
 }
 
+function GetNodeIdleResource(node: ClusterNode, resource: "CPU" | "GPU" | "vGPU" | "Memory"): number {
+  return node.CapacityResources[resource] - (node.AllocatedResources[resource] + node.PendingResources[resource]);
+}
+
 interface PodOrContainer {
     Name: string;
     Phase: string;
@@ -27,3 +31,4 @@ interface VirtualGpuInfo {
 export type { PodOrContainer as PodOrContainer };
 export type { ClusterNode as ClusterNode };
 export type { VirtualGpuInfo as VirtualGpuInfo };
+export { GetNodeIdleResource as GetNodeIdleResource };

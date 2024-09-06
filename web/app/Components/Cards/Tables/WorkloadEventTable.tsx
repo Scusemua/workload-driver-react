@@ -117,7 +117,7 @@ export const WorkloadEventTable: React.FunctionComponent<WorkloadEventTableProps
             case "workload-terminated":
                 return (<Label color='orange' icon={<ExclamationCircleIcon />}>{event_name}</Label>)
             default:
-                console.error(`Unexpected event name: \"${event_name}\"`);
+                console.error(`Unexpected event name: "${event_name}"`);
                 return (<Label color='red' icon={<ErrorCircleOIcon />}>{event_name}</Label>)
         }
     }

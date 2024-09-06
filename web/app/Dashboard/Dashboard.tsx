@@ -1,21 +1,13 @@
 import '@patternfly/react-core/dist/styles/base.css';
 
-import React, { createContext } from 'react';
-import { Grid, GridItem, PageSection, gridSpans } from '@patternfly/react-core';
-
-import {
-    KernelList,
-    KernelSpecList,
-    NodeList,
-    LogViewCard,
-    UtilizationCard,
-    WorkloadCard,
-} from '@app/Components/Cards/';
-import { DistributedJupyterKernel, JupyterKernelReplica } from '@app/Data';
+import { KernelList, KernelSpecList, NodeList, UtilizationCard, WorkloadCard } from '@app/Components/Cards/';
 import { MigrationModal } from '@app/Components/Modals';
+import { DistributedJupyterKernel, JupyterKernelReplica } from '@app/Data';
+import { Grid, GridItem, gridSpans, PageSection } from '@patternfly/react-core';
+
+import React, { createContext } from 'react';
 
 import toast from 'react-hot-toast';
-import { DashboardNotificationDrawer } from '@app/Components';
 
 export interface DashboardProps {}
 
@@ -151,26 +143,26 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
                 <GridItem span={6} rowSpan={1}>
                     <KernelSpecList />
                 </GridItem>
-                <GridItem span={6} rowSpan={getKubeNodeCardRowspan()}>
-                    <NodeHeightFactorContext.Provider
-                        value={{
-                            heightFactor: kubeNodeHeightFactor,
-                            setHeightFactor: (value: number) => setKubeNodeHeightFactor(value),
-                        }}
-                    >
-                        <NodeList
-                            isDashboardList={true}
-                            hideAdjustVirtualGPUsButton={false}
-                            hideControlPlaneNode={true}
-                            nodesPerPage={4}
-                            selectableViaCheckboxes={false}
-                            displayNodeToggleSwitch={true}
-                        />
-                    </NodeHeightFactorContext.Provider>
-                </GridItem>
-                {/* <GridItem span={6} rowSpan={1}>
+                <GridItem span={6} rowSpan={1}>
                     <UtilizationCard chartHeight={320} chartWidth={400} />
-                </GridItem> */}
+                </GridItem>
+              <GridItem span={12} rowSpan={getKubeNodeCardRowspan()}>
+                <NodeHeightFactorContext.Provider
+                  value={{
+                    heightFactor: kubeNodeHeightFactor,
+                    setHeightFactor: (value: number) => setKubeNodeHeightFactor(value),
+                  }}
+                >
+                  <NodeList
+                    isDashboardList={true}
+                    hideAdjustVirtualGPUsButton={false}
+                    hideControlPlaneNode={true}
+                    nodesPerPage={4}
+                    selectableViaCheckboxes={false}
+                    displayNodeToggleSwitch={true}
+                  />
+                </NodeHeightFactorContext.Provider>
+              </GridItem>
             </Grid>
             <MigrationModal
                 isOpen={isMigrateModalOpen}
