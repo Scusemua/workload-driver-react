@@ -1,7 +1,7 @@
 import { WorkloadEvent } from '@app/Data';
 import { GpuIcon } from '@app/Icons';
 import { ClusterNode, GetNodeIdleResource } from '@data/Cluster';
-import { Card, CardBody, CardExpandableContent, CardHeader, CardTitle, Grid, Pagination } from '@patternfly/react-core';
+import { Card, CardBody, CardExpandableContent, CardHeader, CardTitle, Grid, GridItem, Pagination } from '@patternfly/react-core';
 import { CpuIcon, MemoryIcon } from '@patternfly/react-icons';
 import { Table, Tbody, Td, Th, Thead, ThProps, Tr } from '@patternfly/react-table';
 import { useNodes } from '@providers/NodeProvider';
@@ -244,7 +244,12 @@ export const NodeResourceView: React.FunctionComponent = () => {
                 <CardExpandableContent>
                     <CardBody>
                         <Grid hasGutter>
+                            <GridItem span={8}>
                             <NodeResourceUsageTable resource={'GPU'} />
+                            </GridItem>
+                            <GridItem span={4}>
+                            <iframe src="http://localhost:3000/d-solo/ddx4dshpy2c5cd/new-dashboard?orgId=1&from=1725639256441&to=1725660856441&panelId=1" width="100%" height="800" frameBorder={0}></iframe>
+                            </GridItem>
                         </Grid>
                     </CardBody>
                 </CardExpandableContent>

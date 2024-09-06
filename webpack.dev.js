@@ -53,6 +53,9 @@ devServer = {
     client: {
         overlay: true,
     },
+    headers: {
+        'X-Frame-Options': 'SAMEORIGIN',
+    },
 };
 
 module.exports = merge(common('development'), {
