@@ -1,7 +1,16 @@
 import { WorkloadEvent } from '@app/Data';
 import { GpuIcon } from '@app/Icons';
 import { ClusterNode, GetNodeIdleResource } from '@data/Cluster';
-import { Card, CardBody, CardExpandableContent, CardHeader, CardTitle, Grid, GridItem, Pagination } from '@patternfly/react-core';
+import {
+    Card,
+    CardBody,
+    CardExpandableContent,
+    CardHeader,
+    CardTitle,
+    Grid,
+    GridItem,
+    Pagination,
+} from '@patternfly/react-core';
 import { CpuIcon, MemoryIcon } from '@patternfly/react-icons';
 import { Table, Tbody, Td, Th, Thead, ThProps, Tr } from '@patternfly/react-table';
 import { useNodes } from '@providers/NodeProvider';
@@ -94,7 +103,10 @@ export const NodeResourceUsageTable: React.FunctionComponent<NodeResourceUsageTa
             }
         });
     }
-  const paginatedNodes: ClusterNode[] | undefined = sortedNodes?.slice(perPage * (page - 1), perPage * (page - 1) + perPage);
+    const paginatedNodes: ClusterNode[] | undefined = sortedNodes?.slice(
+        perPage * (page - 1),
+        perPage * (page - 1) + perPage,
+    );
 
     return (
         <Card isCompact isRounded isFlat>
@@ -223,7 +235,7 @@ export const NodeResourceView: React.FunctionComponent = () => {
                     </CardBody>
                 </CardExpandableContent>
             </Card>
-            <Card isCompact isPlain isExpanded={isGpuSectionExpanded}>
+            <Card isCompact isPlain isFullHeight isExpanded={isGpuSectionExpanded}>
                 <CardHeader
                     onExpand={() => setIsGpuSectionExpanded(!isGpuSectionExpanded)}
                     isToggleRightAligned={false}
@@ -242,13 +254,17 @@ export const NodeResourceView: React.FunctionComponent = () => {
                     </CardTitle>
                 </CardHeader>
                 <CardExpandableContent>
-                    <CardBody>
+                    <CardBody isFilled>
                         <Grid hasGutter>
-                            <GridItem span={8}>
-                            <NodeResourceUsageTable resource={'GPU'} />
+                            <GridItem span={8} rowSpan={1}>
+                                <NodeResourceUsageTable resource={'GPU'} />
                             </GridItem>
-                            <GridItem span={4}>
-                            <iframe src="http://localhost:3000/d-solo/ddx4dshpy2c5cd/new-dashboard?orgId=1&from=1725639256441&to=1725660856441&panelId=1" width="100%" height="800" frameBorder={0}></iframe>
+                            <GridItem span={4} rowSpan={1}>
+                                <iframe
+                                    src="http://localhost:3000/d-solo/ddx4gnyl0cmbka/gpus?orgId=1&from=1725661762432&to=1725662785525&panelId=1"
+                                    height="100%"
+                                    width="100%"
+                                ></iframe>
                             </GridItem>
                         </Grid>
                     </CardBody>

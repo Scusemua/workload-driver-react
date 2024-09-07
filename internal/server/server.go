@@ -178,10 +178,10 @@ func (s *serverImpl) setupRoutes() error {
 	apiGroup := s.app.Group(domain.BASE_API_GROUP_ENDPOINT)
 	{
 		// Used internally (by the frontend) to get the current kubernetes nodes from the backend  (i.e., the backend).
-		apiGroup.GET(domain.KUBERNETES_NODES_ENDPOINT, s.nodeHandler.HandleRequest)
+		apiGroup.GET(domain.NODES_ENDPOINT, s.nodeHandler.HandleRequest)
 
 		// Enable/disable Kubernetes nodes.
-		apiGroup.PATCH(domain.KUBERNETES_NODES_ENDPOINT, s.nodeHandler.HandlePatchRequest)
+		apiGroup.PATCH(domain.NODES_ENDPOINT, s.nodeHandler.HandlePatchRequest)
 
 		// Adjust vGPUs available on a particular Kubernetes node.
 		apiGroup.PATCH(domain.ADJUST_VGPUS_ENDPOINT, handlers.NewAdjustVirtualGpusHandler(s.opts, s.gatewayRpcClient).HandlePatchRequest)

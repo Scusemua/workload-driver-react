@@ -14,7 +14,7 @@ const (
 	TEST_API_GROUP_ENDPOINT = "/testing"
 
 	// Used internally (by the frontend) to get the current kubernetes nodes from the backend.
-	KUBERNETES_NODES_ENDPOINT = "/nodes"
+	NODES_ENDPOINT = "/nodes"
 
 	// Used internally (by the frontend) to adjust the vGPUs offered by a particular kubernetes nodes.
 	ADJUST_VGPUS_ENDPOINT = "/vgpus"

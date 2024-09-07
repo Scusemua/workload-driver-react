@@ -9,3 +9,4 @@ export * from './VisualizeWorkloadModal';
 export * from './PingKernelModal';
 export * from './InspectWorkloadModal';
 export * from './NewWorkloadFromTemplateModal';
+export * from './AdjustNumNodesModal';

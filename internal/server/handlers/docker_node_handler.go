@@ -2,11 +2,15 @@ package handlers
 
 import (
 	"context"
+	"net/http"
+
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
 	gateway "github.com/scusemua/workload-driver-react/m/v2/internal/server/api/proto"
 	"go.uber.org/zap"
-	"net/http"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // DockerSwarmNodeHttpHandler handles HTTP GET and HTTP PATCH requests that respectively retrieve and modify
@@ -81,7 +85,47 @@ func (h *DockerSwarmNodeHttpHandler) HandlePatchRequest(c *gin.Context) {
 		return
 	}
 
-	h.logger.Warn("HTTP PATCH requests are not yet supported by the DockerSwarmNodeHttpHandler")
-	c.Status(http.StatusNotImplemented)
-	return
+	var req map[string]interface{}
+	c.BindJSON(&req)
+
+	targetNumNodesVal, ok := req["target_num_nodes"]
+	if !ok {
+		h.logger.Error("HTTP PATCH request for /nodes endpoint missing \"target_num_nodes\" entry in JSON payload.")
+		c.AbortWithStatus(http.StatusBadRequest)
+		return
+	}
+
+	_, err := h.grpcClient.SetNumVirtualDockerNodes(context.TODO(), &gateway.SetNumVirtualDockerNodesRequest{
+		RequestId:      uuid.NewString(),
+		TargetNumNodes: targetNumNodesVal.(int32),
+	})
+
+	if err != nil {
+		status, ok := status.FromError(err)
+		if ok {
+			switch status.Code() {
+			case codes.Internal:
+				{
+					c.AbortWithError(http.StatusInternalServerError, status.Err())
+				}
+			case codes.FailedPrecondition:
+				{
+					c.AbortWithError(http.StatusBadRequest, status.Err())
+				}
+			case codes.InvalidArgument:
+				{
+					c.AbortWithError(http.StatusBadRequest, status.Err())
+				}
+			default:
+				{
+					c.AbortWithError(http.StatusInternalServerError, status.Err())
+				}
+			}
+		} else {
+			c.AbortWithError(http.StatusInternalServerError, err)
+		}
+		return
+	}
+
+	c.Status(http.StatusOK)
 }

@@ -20,11 +20,13 @@ import {
     ToolbarToggleGroup,
     Tooltip,
 } from '@patternfly/react-core';
-import { FilterIcon, ListIcon, MonitoringIcon, SyncIcon } from '@patternfly/react-icons';
+import { FilterIcon, ListIcon, MonitoringIcon, ReplicatorIcon, SyncIcon } from '@patternfly/react-icons';
 import { useNodes } from '@providers/NodeProvider';
 import React from 'react';
 import { toast } from 'react-hot-toast';
 import { AdjustVirtualGPUsModal } from '../../Modals';
+import { GpuIcon } from '@app/Icons';
+import { AdjustNumNodesModal } from '@app/Components/Modals/AdjustNumNodesModal';
 
 export interface NodeListProps {
     selectableViaCheckboxes: boolean;
@@ -48,6 +50,7 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
     const { nodes, nodesAreLoading, refreshNodes } = useNodes();
     const [adjustVirtualGPUsNodes, setAdjustVirtualGPUsNodes] = React.useState<ClusterNode[]>([]);
     const [isAdjustVirtualGPUsModalOpen, setIsAdjustVirtualGPUsModalOpen] = React.useState(false);
+    const [isAdjustNumNodesModalOpen, setIsAdjustNumNodesModalOpen] = React.useState(false);
 
     // When the user types something into the node name filter, we update the associated state.
     const onSearchChange = (value: string) => {
@@ -59,9 +62,17 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
         setIsAdjustVirtualGPUsModalOpen(true);
     };
 
+    const onAdjustNumNodesClicked = () => {
+        setIsAdjustNumNodesModalOpen(true);
+    };
+
     const closeAdjustVirtualGPUsModal = () => {
         setIsAdjustVirtualGPUsModalOpen(false);
         setAdjustVirtualGPUsNodes([]);
+    };
+
+    const closeAdjustNumNodesModal = () => {
+        setIsAdjustNumNodesModalOpen(false);
     };
 
     async function doAdjustVirtualGPUs(value: number) {
@@ -135,6 +146,69 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
                 },
             );
         });
+    }
+
+    async function doAdjustNumNodes(value: number) {
+        closeAdjustNumNodesModal();
+
+        const requestOptions = {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                // 'Cache-Control': 'no-cache, no-transform, no-store'
+            },
+            body: JSON.stringify({
+                "target_num_nodes": value,
+            }),
+        };
+
+        console.log(`Attempting to set number of nodes in cluster to ${value}`);
+
+        toast.promise(
+            fetch('api/nodes', requestOptions).then((resp) => {
+                if (resp.status >= 300) {
+                    const statusCode: number = resp.status;
+                    const statusText: string = resp.statusText;
+                    
+                    throw new Error(`HTTP ${statusCode} - ${statusText}`)
+                } else {
+                    return resp 
+                }
+            }, (err: Error) => {throw err}).catch((err: Error) => { throw err}),
+            {
+                loading: 'Adjusting GPUs...',
+                success: (
+                    <div>
+                        <Flex>
+                            <FlexItem>
+                                <Text component={TextVariants.p}>
+                                    <b>Successfully scaled number of nodes in cluster to {value} nodes.</b>
+                                </Text>
+                            </FlexItem>
+                            <FlexItem>
+                                <Text component={TextVariants.small}>
+                                    It may take several seconds for the nodes list to update.
+                                </Text>
+                            </FlexItem>
+                        </Flex>
+                    </div>
+                ),
+                error: (reason: Error) => (
+                    <div>
+                        <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
+                            <FlexItem>
+                                <b>Failed to scale the number of nodes in the cluster to {value} nodes.</b>
+                            </FlexItem>
+                            <FlexItem>{reason.message}</FlexItem>
+                        </Flex>
+                    </div>
+                ),
+            },
+            {
+                duration: 6400,
+                style: { maxWidth: 575 },
+            },
+        );
     }
 
     // Handler for when the user filters by node name.
@@ -233,22 +307,31 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
                     </FlexItem>
                 </Flex>
             </ToolbarToggleGroup>
-            <ToolbarGroup variant="button-group">
+            <ToolbarGroup variant="icon-button-group">
                 <ToolbarItem>
                     <Tooltip content="Adjust the number of vGPUs available on ALL nodes.">
                         <Button
-                            variant="link"
+                            variant="plain"
                             onClick={(event: React.MouseEvent) => {
                                 event.stopPropagation();
                                 onAdjustVirtualGPUsClicked(nodes);
                             }}
-                        >
-                            Adjust vGPUs
-                        </Button>
+                            icon={<GpuIcon scale={1.5} />}
+                        />
                     </Tooltip>
                 </ToolbarItem>
-            </ToolbarGroup>
-            <ToolbarGroup variant="icon-button-group">
+                <ToolbarItem>
+                    <Tooltip content="Adjust the number of nodes within the cluster.">
+                        <Button
+                            variant="plain"
+                            onClick={(event: React.MouseEvent) => {
+                                event.stopPropagation();
+                                onAdjustNumNodesClicked();
+                            }}
+                            icon={<ReplicatorIcon />}
+                        />
+                    </Tooltip>
+                </ToolbarItem>
                 <ToolbarItem>
                     <Tooltip
                         exitDelay={75}
@@ -304,42 +387,52 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
     );
 
     return (
-        <Card isFullHeight isRounded id={props.isDashboardList ? 'primary-node-list-card' : 'migration-node-list-card'}>
-            <CardHeader
-                actions={{ actions: toolbar, hasNoOffset: false }}
-                toggleButtonProps={{
-                    id: 'expand-kube-nodes-button',
-                    'aria-label': 'expand-kube-nodes-button',
-                }}
+        <div>
+            <Card
+                isFullHeight
+                isRounded
+                id={props.isDashboardList ? 'primary-node-list-card' : 'migration-node-list-card'}
+                style={{ minHeight: '30em' }}
             >
-                <CardTitle>
-                    <Title headingLevel="h1" size="xl">
-                        {resourceModeToggled ? 'Nodes (Resource View)' : 'Nodes (Detailed View)'}
-                    </Title>
-                </CardTitle>
-            </CardHeader>
-            <CardBody>
-                {!resourceModeToggled && (
-                    <NodeDataList
-                        selectableViaCheckboxes={props.selectableViaCheckboxes}
-                        isDashboardList={props.isDashboardList}
-                        nodesPerPage={props.nodesPerPage}
-                        hideAdjustVirtualGPUsButton={props.hideAdjustVirtualGPUsButton}
-                        displayNodeToggleSwitch={props.displayNodeToggleSwitch}
-                        onFilter={onFilter}
-                        onAdjustVirtualGPUsClicked={onAdjustVirtualGPUsClicked}
+                <CardHeader
+                    actions={{ actions: toolbar, hasNoOffset: false }}
+                    toggleButtonProps={{
+                        id: 'expand-kube-nodes-button',
+                        'aria-label': 'expand-kube-nodes-button',
+                    }}
+                >
+                    <CardTitle>
+                        <Title headingLevel="h1" size="xl">
+                            {resourceModeToggled ? 'Nodes (Resource View)' : 'Nodes (Detailed View)'}
+                        </Title>
+                    </CardTitle>
+                </CardHeader>
+                <CardBody>
+                    {!resourceModeToggled && (
+                        <NodeDataList
+                            selectableViaCheckboxes={props.selectableViaCheckboxes}
+                            isDashboardList={props.isDashboardList}
+                            nodesPerPage={props.nodesPerPage}
+                            hideAdjustVirtualGPUsButton={props.hideAdjustVirtualGPUsButton}
+                            displayNodeToggleSwitch={props.displayNodeToggleSwitch}
+                            onFilter={onFilter}
+                            onAdjustVirtualGPUsClicked={onAdjustVirtualGPUsClicked}
+                        />
+                    )}
+                    {resourceModeToggled && <NodeResourceView />}
+                    <AdjustVirtualGPUsModal
+                        isOpen={isAdjustVirtualGPUsModalOpen}
+                        onClose={closeAdjustVirtualGPUsModal}
+                        onConfirm={doAdjustVirtualGPUs}
+                        nodes={adjustVirtualGPUsNodes}
                     />
-                )}
-                {resourceModeToggled && (
-                    <NodeResourceView/>
-                )}
-                <AdjustVirtualGPUsModal
-                    isOpen={isAdjustVirtualGPUsModalOpen}
-                    onClose={closeAdjustVirtualGPUsModal}
-                    onConfirm={doAdjustVirtualGPUs}
-                    nodes={adjustVirtualGPUsNodes}
-                />
-            </CardBody>
-        </Card>
+                    <AdjustNumNodesModal
+                        isOpen={isAdjustNumNodesModalOpen}
+                        onClose={closeAdjustNumNodesModal}
+                        onConfirm={doAdjustNumNodes}
+                    />
+                </CardBody>
+            </Card>
+        </div>
     );
 };
