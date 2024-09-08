@@ -201,6 +201,10 @@ func (s *serverImpl) setupRoutes() error {
 		// Used to stream logs from Kubernetes.
 		apiGroup.GET(fmt.Sprintf("%s/pods/:pod", domain.LOGS_ENDPOINT), handlers.NewLogHttpHandler(s.opts).HandleRequest)
 
+		// Queried by Grafana to query for values used to create Grafana variables that are then used to
+		// dynamically create a Grafana Dashboard.
+		apiGroup.GET(domain.VariablesEndpoint, handlers.NewVariablesHttpHandler(s.opts, s.gatewayRpcClient).HandleRequest)
+
 		// Used to tell a kernel to stop training.
 		apiGroup.POST(domain.STOP_TRAINING_ENDPOINT, handlers.NewStopTrainingHandler(s.opts, s.atom).HandleRequest)
 	}

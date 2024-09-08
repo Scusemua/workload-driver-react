@@ -21,7 +21,7 @@ service ClusterGateway {
   // MigrateKernelReplica selects a qualified host and adds a kernel replica to the replica set.
   // Unlike StartKernelReplica, a new replica is added to the replica set and a training task may
   // need to start immediately after replica started, e.g., preempting a training task.
-  // 
+  //
   // The function will simply remove the replica from the kernel without stopping it.
   // The caller should stop the replica after confirmed that the new replica is ready.
   rpc MigrateKernelReplica(MigrationRequest) returns (MigrateKernelResponse) {}
@@ -47,11 +47,11 @@ service DistributedCluster {
   rpc SpoofNotifications(Void) returns (Void) {}
 
   // Used to test connectivity.
-  rpc Ping(Void) returns (Pong) {} 
+  rpc Ping(Void) returns (Pong) {}
 
   // Used to test connectivity with kernels.
   rpc PingKernel(PingInstruction) returns (Pong) {}
-  
+
   // Return a list of all of the current kernel IDs.
   rpc ListKernels(Void) returns (ListKernelsResponse) {}
 
@@ -67,7 +67,7 @@ service DistributedCluster {
   // MigrateKernelReplica selects a qualified host and adds a kernel replica to the replica set.
   // Unlike StartKernelReplica, a new replica is added to the replica set and a training task may
   // need to start immediately after replica started, e.g., preempting a training task.
-  // 
+  //
   // The function will simply remove the replica from the kernel without stopping it.
   // The caller should stop the replica after confirmed that the new replica is ready.
   rpc MigrateKernelReplica(MigrationRequest) returns (MigrateKernelResponse) {}
@@ -117,19 +117,29 @@ service DistributedCluster {
 
   // RemoveVirtualDockerNodes removes a parameterized number of existing nodes from the Docker Swarm cluster.
   // rpc RemoveVirtualDockerNodes(RemoveVirtualDockerNodesRequest) returns (RemoveVirtualDockerNodesResponse) {}
-  
+
   // DecreaseNumNodes removes a specific number of existing nodes from the Docker cluster.
   rpc DecreaseNumNodes(DecreaseNumNodesRequest) returns (DecreaseNumNodesResponse) {}
 
   // ModifyVirtualDockerNodes enables the modification of one or more nodes within the Docker Swarm cluster.
   // Modifications include altering the number of GPUs available on the nodes.
   rpc ModifyVirtualDockerNodes(ModifyVirtualDockerNodesRequest) returns (ModifyVirtualDockerNodesResponse) {}
+
+  // GetLocalDaemonNodeIDs returns a string slice containing the host IDs of each local daemon.
+  rpc GetLocalDaemonNodeIDs(Void) returns (GetLocalDaemonNodeIDsResponse) {}
 }
 
 // gRPC service provided by the Dashboard and "used" by the Cluster Gateway
 // (i.e., the Dashboard is the server while the Cluster Gateway is the client).
 service ClusterDashboard {
   rpc SendNotification(Notification) returns (Void) {} // Report to the Dashboard that an error occurred.
+}
+
+// GetLocalDaemonNodeIDsResponse is returned by the GetLocalDaemonNodeIDs gRPC function.
+// GetLocalDaemonNodeIDsResponse encapsulates a string slice containing the host IDs of each local daemon.
+message GetLocalDaemonNodeIDsResponse {
+  // HostIds is a string slice containing the host IDs of each local daemon.
+  repeated string hostIds = 1;
 }
 
 // DashboardRegistrationResponse encapsulates any important configuration information that is desired by the
@@ -239,7 +249,7 @@ message ModifyVirtualDockerNodesResponse {
 // SetNumNodesRequest encodes the target number of nodes.
 message SetNumVirtualDockerNodesRequest {
   string requestId = 1;
-  // TargetNumNodes is the target number of nodes to scale to. 
+  // TargetNumNodes is the target number of nodes to scale to.
   int32 targetNumNodes = 2;
 }
 
@@ -334,7 +344,7 @@ message Pong {
 }
 
 message PingInstruction {
-  string kernelId = 1; // The kernel to target 
+  string kernelId = 1; // The kernel to target
   string socketType = 2; // The type of socket to use to issue the "ping" ("control" or "shell")
 }
 
@@ -448,12 +458,12 @@ service LocalGateway {
   // Set the maximum number of vGPU resources availabe on the node.
   rpc SetTotalVirtualGPUs(SetVirtualGPUsRequest) returns (VirtualGpuInfo) {}
 
-  // Return the current vGPU allocations on this node. 
+  // Return the current vGPU allocations on this node.
   rpc GetVirtualGpuAllocations(Void) returns (VirtualGpuAllocations) {}
 
   // Ensure that the next 'execute_request' for the specified kernel fails.
   // This is to be used exclusively for testing/debugging purposes.
-  rpc YieldNextExecution(KernelId) returns (Void) {} 
+  rpc YieldNextExecution(KernelId) returns (Void) {}
 }
 
 message VirtualGpuAllocations {
@@ -513,22 +523,22 @@ message NumNodesResponse {
   string nodeType = 2;
 }
 
-// Encapsulates the current vGPU (or "deflated GPU") resource usage on a paritcular node. 
+// Encapsulates the current vGPU (or "deflated GPU") resource usage on a paritcular node.
 message VirtualGpuInfo {
   int32 totalVirtualGPUs = 1;
   int32 allocatedVirtualGPUs = 2;
   int32 freeVirtualGPUs = 3;
 }
 
-// Encapsulates the current GPU resource usage on a paritcular node. 
+// Encapsulates the current GPU resource usage on a paritcular node.
 message GpuInfo {
   int32 specGPUs= 1; // The total number of GPUs c onfigured/present on this node.
   int32 idleGPUs= 2; // The number of GPUs that are uncommitted and therefore available on this node. This quantity is equal to specGPUs - committedGPUs.
   int32 committedGPUs= 3; // The number of GPUs that are actively committed and allocated to replicas that are scheduled onto this node.
   int32 pendingGPUs= 4; // The sum of the outstanding GPUs of all replicas scheduled onto this node. Pending GPUs are not allocated or committed to a particular replica yet. The time at which resources are actually committed to a replica depends upon the policy being used. In some cases, they're committed immediately. In other cases, they're committed only when the replica is actively training.
   int32 numPendingAllocations= 5; // Number of individual allocations consisting of GPUs that have NOT been fully committed to a kernel.
-  int32 numAllocations= 6; // Number of individual allocations such that the GPUs have been committed to a container. 
-  string gpuSchedulerID = 7; // Unique ID of the gpu scheduler (which is a component of a local daemon) that is reporting these metrics. 
+  int32 numAllocations= 6; // Number of individual allocations such that the GPUs have been committed to a container.
+  string gpuSchedulerID = 7; // Unique ID of the gpu scheduler (which is a component of a local daemon) that is reporting these metrics.
   string localDaemonID = 8; // Unique ID of the associated local daemon.
 }
 
@@ -603,24 +613,24 @@ message KernelSpec {
   string id = 1;  // The kernel id.
   string session = 2; // The id of session associated with the kernel manager.
   repeated string argv = 3; // Command line arguments to be passed to the kernel Python process upon starting it.
-	string signatureScheme = 4; // The signature scheme to use.
+  string signatureScheme = 4; // The signature scheme to use.
   string key = 5; // The key to use for signing messages.
   ResourceSpec resourceSpec = 6; // Resource requirements of the kernel.
 }
 
 // The connection info for a kernel.
 message KernelConnectionInfo {
-	string ip = 1; // The IP address of the kernel.
+  string ip = 1; // The IP address of the kernel.
   string transport = 2; // The transport protocol to use.
   int32 controlPort = 3; // The port for control messages.
-	int32 shellPort = 4; // The port for shell messages.
-	int32 stdinPort = 5; // The port for stdin messages.
-	int32 hbPort = 6; // The port for heartbeat messages.
-	int32 iopubPort = 7; // The port for iopub messages (for the pub socket).
-	int32 iosubPort = 8; // The port for iopub messages (for the sub socket).
+  int32 shellPort = 4; // The port for shell messages.
+  int32 stdinPort = 5; // The port for stdin messages.
+  int32 hbPort = 6; // The port for heartbeat messages.
+  int32 iopubPort = 7; // The port for iopub messages (for the pub socket).
+  int32 iosubPort = 8; // The port for iopub messages (for the sub socket).
   int32 ackPort = 9;
-	string signatureScheme = 10; // The signature scheme to use.
-	string key = 11;  // The key to use for signing messages.
+  string signatureScheme = 10; // The signature scheme to use.
+  string key = 11;  // The key to use for signing messages.
 }
 
 // Used as an argument to the Cluster Gateway's NotifyKernelRegistered RPC.

@@ -7,20 +7,20 @@ import (
 )
 
 type BackendHttpGetHandler interface {
-	// Write an error back to the client.
+	// WriteError writes an error back to the client.
 	WriteError(*gin.Context, string)
 
-	// Handle a message/request from the front-end.
+	// HandleRequest handles a message/request from the front-end.
 	HandleRequest(*gin.Context)
 
-	// Return the request handler responsible for handling a majority of requests.
+	// PrimaryHttpHandler returns the request handler responsible for handling a majority of requests.
 	PrimaryHttpHandler() BackendHttpGetHandler
 }
 
 type BackendHttpGetPatchHandler interface {
 	BackendHttpGetHandler
 
-	// Handle a message/request from the front-end.
+	// HandlePatchRequest handles a message/request from the front-end.
 	HandlePatchRequest(*gin.Context)
 }
 
@@ -43,12 +43,12 @@ func (r *EnableDisableNodeRequest) String() string {
 }
 
 type JupyterApiHttpHandler interface {
-	// Handle an HTTP GET request to get the jupyter kernel specs.
+	// HandleGetKernelSpecRequest handles an HTTP GET request to get the jupyter kernel specs.
 	HandleGetKernelSpecRequest(*gin.Context)
 
-	// Handle an HTTP POST request to create a new jupyter kernel.
+	// HandleCreateKernelRequest handles an HTTP POST request to create a new jupyter kernel.
 	HandleCreateKernelRequest(*gin.Context)
 
-	// Write an error back to the client.
+	// WriteError writes an error back to the client.
 	WriteError(*gin.Context, string)
 }
