@@ -16,6 +16,10 @@ import (
 type VariablesHttpHandler struct {
 	*BaseHandler
 	grpcClient *ClusterDashboardHandler
+
+	// cachedNodeIds is the last response received from the GetLocalDaemonNodeIDs gRPC function.
+	// We use this to return values to queries if future requests to GetLocalDaemonNodeIDs time-out.
+	cachedNodeIds []string
 }
 
 func NewVariablesHttpHandler(opts *domain.Configuration, grpcClient *ClusterDashboardHandler) *VariablesHttpHandler {
@@ -49,6 +53,8 @@ func (h *VariablesHttpHandler) getLocalDaemonIDs() ([]string, error) {
 		return nil, err
 	}
 
+	// Update the cached response.
+	h.cachedNodeIds = resp.HostIds
 	return resp.HostIds, nil
 }
 
@@ -62,7 +68,18 @@ func (h *VariablesHttpHandler) HandleRequest(c *gin.Context) {
 		{
 			localDaemonIds, err := h.getLocalDaemonIDs()
 			if err != nil {
-				_ = c.AbortWithError(http.StatusInternalServerError, err)
+				// If we have a cached response available, then we'll return that along with an error.
+				// The status code will still indicate that an error occurred, however.
+				if h.cachedNodeIds != nil {
+					// Return the cached response.
+					response["num_nodes"] = len(h.cachedNodeIds)
+					// Include the error in the response.
+					response["error"] = err.Error()
+					c.AbortWithStatusJSON(http.StatusInternalServerError, response)
+				} else {
+					// We don't have an old response cached, so just abort with an error.
+					_ = c.AbortWithError(http.StatusInternalServerError, err)
+				}
 				return
 			}
 			response["num_nodes"] = len(localDaemonIds)
@@ -71,7 +88,18 @@ func (h *VariablesHttpHandler) HandleRequest(c *gin.Context) {
 		{
 			localDaemonIds, err := h.getLocalDaemonIDs()
 			if err != nil {
-				_ = c.AbortWithError(http.StatusInternalServerError, err)
+				// If we have a cached response available, then we'll return that along with an error.
+				// The status code will still indicate that an error occurred, however.
+				if h.cachedNodeIds != nil {
+					// Return the cached response.
+					response["local_daemon_ids"] = h.cachedNodeIds
+					// Include the error in the response.
+					response["error"] = err.Error()
+					c.AbortWithStatusJSON(http.StatusInternalServerError, response)
+				} else {
+					// We don't have an old response cached, so just abort with an error.
+					_ = c.AbortWithError(http.StatusInternalServerError, err)
+				}
 				return
 			}
 			response["local_daemon_ids"] = localDaemonIds
