@@ -10,8 +10,10 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"runtime/debug"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 
 	"github.com/google/uuid"
@@ -48,6 +50,9 @@ var (
 	ErrKernelIsDead            = errors.New("kernel is dead")
 	ErrNotConnected            = errors.New("kernel is not connected")
 	ErrCantAckNotRegistered    = errors.New("cannot ACK message as registration for associated channel has not yet completed")
+
+	errSetupInProgress        = errors.New("cannot perform websocket connection setup as another setup procedure is already underway")
+	errReconnectionInProgress = errors.New("cannot reconnect to kernel as another reconnection attempt is already underway")
 )
 
 type MessageType string
@@ -104,11 +109,15 @@ type BasicKernelConnection struct {
 	registeredShell               bool                    // True if we've successfully registered our shell channel as a Golang frontend.
 	registeredControl             bool                    // True if we've successfully registered our control channel as a Golang frontend.
 
+	setupInProgress        atomic.Int32
+	reconnectionInProgress atomic.Int32
+
 	// Gorilla Websockets support 1 concurrent reader and 1 concurrent writer on the same websocket.
 	// What this means is that we can read from the websocket with one goroutine while we write to the websocket with another goroutine.
 	// However, we cannot have > 1 goroutines reading at the same time, nor can we have > 1 goroutines write at the same time.
 	// So, we have two locks: one for reading, and one for writing.
 
+	mu                sync.Mutex // Internal mutex, not directly related/used for operations on the underlying websocket itself.
 	rlock             sync.Mutex // Synchronizes read operations on the websocket.
 	wlock             sync.Mutex // Synchronizes write operations on the websocket.
 	iopubHandlerMutex sync.Mutex // Synchronizes access to state related to the IOPub message handlers.
@@ -125,11 +134,11 @@ func NewKernelConnection(kernelId string, clientId string, username string, jupy
 		username:             username,
 		atom:                 atom,
 		jupyterServerAddress: jupyterServerAddress,
-		messageCount:         0,
 		connectionStatus:     KernelConnectionInit,
 		responseChannels:     make(map[string]chan KernelMessage),
 		registeredShell:      false,
 		registeredControl:    false,
+		messageCount:         0,
 		kernelStdout:         make([]string, 0),
 		kernelStderr:         make([]string, 0),
 		iopubMessageHandlers: make(map[string]IOPubMessageHandler),
@@ -145,10 +154,6 @@ func NewKernelConnection(kernelId string, clientId string, username string, jupy
 
 	conn.logger = logger
 	conn.sugaredLogger = logger.Sugar()
-
-	// core := zapcore.NewCore(zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()), os.Stdout, atom)
-	// conn.logger = zap.New(core, zap.Development())
-	// conn.sugaredLogger = conn.logger.Sugar()
 
 	err := conn.setupWebsocket(conn.jupyterServerAddress)
 	if err != nil {
@@ -384,7 +389,11 @@ func (conn *BasicKernelConnection) RequestKernelInfo() (KernelMessage, error) {
 
 	select {
 	case <-ctx.Done():
-		return nil, fmt.Errorf("ErrRequestTimedOut %w : %s", ErrRequestTimedOut, ctx.Err())
+		{
+			conn.logger.Error("Request of type \"kernel_info_request\" has timed out.",
+				zap.String("kernel-id", conn.kernelId), zap.String("message-id", message.GetHeader().MessageId))
+			return nil, fmt.Errorf("ErrRequestTimedOut %w : %s", ErrRequestTimedOut, ctx.Err())
+		}
 	case resp := <-responseChan:
 		{
 			conn.logger.Debug("Received response to 'request-info' request.", zap.String("response", resp.String()))
@@ -482,32 +491,35 @@ func (conn *BasicKernelConnection) serveMessages() {
 		conn.rlock.Unlock()
 
 		if err != nil {
-			if errors.Is(err, &websocket.CloseError{}) {
-				conn.logger.Warn("Websocket::CloseError.", zap.Error(err))
-				return
-			}
-
-			conn.logger.Error("Websocket::Read error.", zap.Error(err))
-
-			var rawJsonMap map[string]interface{}
-			conn.rlock.Lock()
-			err = conn.webSocket.ReadJSON(&rawJsonMap)
-			conn.rlock.Unlock()
-			if err != nil {
-				if errors.Is(err, websocket.ErrCloseSent) {
-					conn.sugaredLogger.Warnf("WebSocket connection with kernel %s has been terminated.", conn.kernelId)
-					return
-				} else {
-					conn.logger.Error("Websocket::Read error. Failed to unmarshal JSON message into raw key-value map.", zap.Error(err))
-				}
-			} else {
-				conn.logger.Error("Unmarshalled JSON message into raw key-value map.")
-				for k, v := range rawJsonMap {
-					conn.sugaredLogger.Errorf("%s: %v", k, v)
-				}
-			}
-
-			continue
+			conn.logger.Error("WebSocket connection to kernel has been lost.", zap.String("kernel-id", conn.kernelId), zap.Error(err))
+			conn.updateConnectionStatus(KernelDead)
+			return
+			//if websocket.IsCloseError(err, websocket.CloseNormalClosure) {
+			//	conn.logger.Warn("Websocket::CloseError.", zap.Error(err))
+			//	return
+			//}
+			//
+			//conn.logger.Error("Websocket::Read error.", zap.Error(err))
+			//
+			//var rawJsonMap map[string]interface{}
+			//conn.rlock.Lock()
+			//err = conn.webSocket.ReadJSON(&rawJsonMap)
+			//conn.rlock.Unlock()
+			//if err != nil {
+			//	if errors.Is(err, websocket.ErrCloseSent) {
+			//		conn.sugaredLogger.Warnf("WebSocket connection with kernel %s has been terminated.", conn.kernelId)
+			//		return
+			//	} else {
+			//		conn.logger.Error("Websocket::Read error. Failed to unmarshal JSON message into raw key-value map.", zap.Error(err))
+			//	}
+			//} else {
+			//	conn.logger.Error("Unmarshalled JSON message into raw key-value map.")
+			//	for k, v := range rawJsonMap {
+			//		conn.sugaredLogger.Errorf("%s: %v", k, v)
+			//	}
+			//}
+			//
+			//continue
 		}
 
 		// We send ACKs for Shell and Control messages.
@@ -646,6 +658,9 @@ func (conn *BasicKernelConnection) createKernelMessage(messageType MessageType, 
 }
 
 func (conn *BasicKernelConnection) getNextMessageId() string {
+	conn.mu.Lock()
+	defer conn.mu.Unlock()
+
 	messageId := fmt.Sprintf("%s_%d_%d", conn.clientId, os.Getpid(), conn.messageCount)
 	conn.messageCount += 1
 	return messageId
@@ -666,7 +681,8 @@ func (conn *BasicKernelConnection) updateConnectionStatus(status KernelConnectio
 	success := false
 	maxNumTries := 5
 	if conn.connectionStatus == KernelConnected {
-		conn.logger.Debug("Connection status is being updated to 'connected'. Attempting to retrieve kernel info.", zap.String("kernel_id", conn.kernelId))
+		conn.logger.Debug("Connection status is being updated to 'connected'. Attempting to retrieve kernel info.",
+			zap.String("kernel_id", conn.kernelId))
 		st := time.Now()
 
 		numTries := 0
@@ -700,8 +716,15 @@ func (conn *BasicKernelConnection) updateConnectionStatus(status KernelConnectio
 // setupWebsocket sets up the WebSocket connection to the Jupyter Server.
 // Side-effect: updates the BasicKernelConnection's `webSocket` field.
 func (conn *BasicKernelConnection) setupWebsocket(jupyterServerAddress string) error {
+	if !conn.setupInProgress.CompareAndSwap(0, 1) {
+		conn.logger.Warn("Cannot setup WebSocket. Another setup procedure is already underway.")
+		return errSetupInProgress
+	}
+
 	if conn.webSocket != nil {
-		return ErrWebsocketAlreadySetup
+		conn.logger.Warn("Existing WebSocket found. Recreating anyway.", zap.String("kernel-id", conn.kernelId))
+		conn.webSocket = nil
+		// return ErrWebsocketAlreadySetup
 	}
 
 	conn.updateConnectionStatus(KernelConnecting)
@@ -745,6 +768,10 @@ func (conn *BasicKernelConnection) setupWebsocket(jupyterServerAddress string) e
 	// Skip for now... we may or may not need this.
 	// The registration idea was so we could figure out a way to add support for ACKs between the Cluster Gateway and the Golang Jupyter frontends.
 	// conn.registerAsGolangFrontend()
+
+	if !conn.setupInProgress.CompareAndSwap(1, 0) {
+		panic("CompareAndSwap should have swapped.")
+	}
 
 	return nil
 }
@@ -804,14 +831,27 @@ func (conn *BasicKernelConnection) websocketClosed(code int, text string) error 
 		panic("Original websocket close-handler is not set.")
 	}
 
-	conn.sugaredLogger.Warnf("WebSocket::Closed handler called for kernel %s.", conn.kernelId)
+	conn.logger.Warn("WebSocket::Closed called.", zap.String("kernel-id", conn.kernelId), zap.Int("code", code), zap.String("text", text))
+	debug.PrintStack()
 
 	// Try to get the model.
 	model, err := conn.getKernelModel()
 	if err != nil {
-		if errors.Is(err, ErrNetworkIssue) && conn.reconnect() {
-			// If it was a network error, and we were able to reconnect, then exit the 'websocket closed' handler.
-			return nil
+		conn.logger.Error("Exception encountered while trying to retrieve kernel model.",
+			zap.String("kernel-id", conn.kernelId), zap.Error(err))
+
+		if errors.Is(err, ErrNetworkIssue) {
+			reconnected, reconnectionAttempted := conn.reconnect()
+			if !reconnectionAttempted {
+				// Error is only non-nil if reconnect could not be attempted due to another concurrent reconnection attempt.
+				// So, let the other reconnection attempt handle this. We'll just return nil.
+				return nil
+			}
+
+			if reconnected {
+				// If it was a network error, and we were able to reconnect, then exit the 'websocket closed' handler.
+				return nil
+			}
 		}
 
 		// If it was not a network error, or it was, but we failed to reconnect, then call the original 'websocket closed' handler.
@@ -827,7 +867,12 @@ func (conn *BasicKernelConnection) websocketClosed(code int, text string) error 
 		conn.updateConnectionStatus(KernelDead)
 		return conn.originalWebsocketCloseHandler(code, text)
 	} else {
-		success := conn.reconnect()
+		success, reconnectionAttempted := conn.reconnect()
+		if !reconnectionAttempted {
+			// Error is only non-nil if reconnect could not be attempted due to another concurrent reconnection attempt.
+			// So, let the other reconnection attempt handle this. We'll just return nil.
+			return nil
+		}
 
 		// If we reconnected, then just return. If we failed to reconnect, call the original 'websocket closed' handler.
 		if success {
@@ -838,9 +883,20 @@ func (conn *BasicKernelConnection) websocketClosed(code int, text string) error 
 	}
 }
 
-func (conn *BasicKernelConnection) reconnect() bool {
+// reconnect attempts to reconnect to the kernel.
+// The first boolean returned indicates whether the reconnection was successful.
+// The second boolean returned indicates whether the reconnection was attempted.
+// If there is already another reconnect attempt underway, then this call to reconnect will return immediately.
+func (conn *BasicKernelConnection) reconnect() (bool, bool) {
+	if !conn.reconnectionInProgress.CompareAndSwap(0, 1) {
+		conn.logger.Warn("Cannot attempt to reconnect. Another reconnection attempt is already underway.", zap.String("kernel-id", conn.kernelId))
+		return false /* reconnection failed */, false /* we did not try to reconnect */
+	}
+
 	numTries := 0
 	maxNumTries := 5
+
+	conn.logger.Warn("Attempting to reconnect to kernel.", zap.String("kernel-id", conn.kernelId))
 
 	for numTries < maxNumTries {
 		err := conn.setupWebsocket(conn.jupyterServerAddress)
@@ -854,15 +910,19 @@ func (conn *BasicKernelConnection) reconnect() bool {
 				continue
 			}
 
-			conn.logger.Error("Connection to kernel is dead.", zap.String("kernel-id", conn.kernelId))
+			conn.logger.Error("Connection to kernel is dead.", zap.String("kernel-id", conn.kernelId), zap.Error(err))
 			conn.updateConnectionStatus(KernelDead)
-			return false
+			return false /* reconnection failed */, true /* we did try to reconnect */
 		} else {
-			return true
+			return true /* reconnection succeeded */, true /* we did try to reconnect */
 		}
 	}
 
-	return false
+	if !conn.reconnectionInProgress.CompareAndSwap(1, 0) {
+		panic("CompareAndSwap should've swapped.")
+	}
+
+	return false /* reconnection succeeded */, true /* we did try to reconnect */
 }
 
 func (conn *BasicKernelConnection) getKernelModel() (*jupyterKernel, error) {
@@ -887,6 +947,9 @@ func (conn *BasicKernelConnection) getKernelModel() (*jupyterKernel, error) {
 		return nil, ErrKernelNotFound
 	} else if resp.StatusCode == http.StatusServiceUnavailable /* 503 */ || resp.StatusCode == http.StatusFailedDependency /* 424 */ {
 		// Network errors. We should retry.
+		associatedMessage, _ := io.ReadAll(resp.Body)
+		conn.logger.Warn("Network error encountered while retrieving kernel model.",
+			zap.Int("status-code", resp.StatusCode), zap.String("status", resp.Status), zap.String("message", string(associatedMessage)))
 		return nil, ErrNetworkIssue
 	} else if resp.StatusCode != http.StatusOK {
 		conn.logger.Error("Kernel died unexpectedly.", zap.String("kernel-id", conn.kernelId), zap.Int("http-status-code", resp.StatusCode), zap.String("http-status", resp.Status))

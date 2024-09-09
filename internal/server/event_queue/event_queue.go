@@ -61,7 +61,7 @@ func (q *eventQueue) WorkloadExecutionCompleteChan() chan interface{} {
 	return q.doneChan
 }
 
-// Return true if there are events available for the specified tick; otherwise return false.
+// HasEventsForTick returns true if there are events available for the specified tick; otherwise return false.
 func (q *eventQueue) HasEventsForTick(tick time.Time) bool {
 	if q.Len() == 0 {
 		return false
@@ -76,7 +76,7 @@ func (q *eventQueue) HasEventsForTick(tick time.Time) bool {
 	return false
 }
 
-// Return the next, ready-to-be-processed `EventSessionReady` from the queue.
+// GetNextSessionStartEvent returns the next, ready-to-be-processed `EventSessionReady` from the queue.
 func (q *eventQueue) GetNextSessionStartEvent(currentTime time.Time) domain.Event {
 	q.eventHeapMutex.Lock()
 	defer q.eventHeapMutex.Unlock()
@@ -93,12 +93,14 @@ func (q *eventQueue) GetNextSessionStartEvent(currentTime time.Time) domain.Even
 
 	evt := heap.Pop(&q.sessionReadyEvents).(domain.Event)
 
-	q.sugaredLogger.Debugf("SessionReadyEvent for Session %s with timestamp %v occurs during or before current tick %v.", evt.Data().(domain.SessionMetadata).GetPod(), evt.Timestamp(), currentTime)
+	q.sugaredLogger.Debugf(
+		"SessionReadyEvent '%s' for Session %s with timestamp %v occurs during or before current tick %v.",
+		evt.Id(), evt.Data().(domain.SessionMetadata).GetPod(), evt.Timestamp(), currentTime)
 
 	return evt
 }
 
-// Return true if there is at least one sessionReadyEvent in the `EventQueueService_Old::sessionReadyEvents` queue.
+// HasSessionReadyEvents returns true if there is at least one sessionReadyEvent in the `EventQueueService_Old::sessionReadyEvents` queue.
 func (q *eventQueue) HasSessionReadyEvents() bool {
 	q.eventHeapMutex.Lock()
 	defer q.eventHeapMutex.Unlock()
@@ -107,7 +109,7 @@ func (q *eventQueue) HasSessionReadyEvents() bool {
 	return hasEvents
 }
 
-// Return true if there is at least 1 event in the event queue for the specified pod/Session.
+// HasEventsForSession returns true if there is at least 1 event in the event queue for the specified pod/Session.
 // Otherwise, return false. Returns an error (and false) if no queue exists for the specified pod/Session.
 func (q *eventQueue) HasEventsForSession(podId string) (bool, error) {
 	q.eventHeapMutex.Lock()
@@ -124,7 +126,7 @@ func (q *eventQueue) HasEventsForSession(podId string) (bool, error) {
 	return hasEvents, nil
 }
 
-// Enqueue the given event in the event heap associated with the event's target pod/container/session.
+// EnqueueEvent enqueues the given event in the event heap associated with the event's target pod/container/session.
 // If no such event heap exists already, then first create the event heap.
 func (q *eventQueue) EnqueueEvent(evt domain.Event) {
 	q.eventHeapMutex.Lock()
@@ -168,7 +170,7 @@ func (q *eventQueue) EnqueueEvent(evt domain.Event) {
 	}
 }
 
-// Fix the heap after the `totalDelay` field for a particular session changed.
+// FixEvents fixes the heap after the `totalDelay` field for a particular session changed.
 func (q *eventQueue) FixEvents(sessionId string, updatedDelay time.Duration) {
 	val, ok := q.eventsPerSession.Get(sessionId)
 
@@ -195,13 +197,14 @@ func (q *eventQueue) FixEvents(sessionId string, updatedDelay time.Duration) {
 			heap.Fix(&q.eventHeap, eventHeapElement.GetIndex())
 
 			if q.logger.Level() == zapcore.DebugLevel {
-				q.sugaredLogger.Debugf("Updated timestamp for event \"%s\" [id=%s] from %v to %v. Index changed from %d to %d.", eventHeapElement.Name, eventHeapElement.Id(), oldAdjustedTimestamp, eventHeapElement.AdjustedTimestamp(), oldIndex, eventHeapElement.GetIndex())
+				q.sugaredLogger.Debugf("Updated timestamp for event \"%s\" [id=%s] from %v to %v. Index changed from %d to %d.", eventHeapElement.Name(), eventHeapElement.Id(), oldAdjustedTimestamp, eventHeapElement.AdjustedTimestamp(), oldIndex, eventHeapElement.GetIndex())
 			}
 		}
 	}
 }
 
-// Return the timestamp of the next session event to be processed. The error will be nil if there is at least one session event enqueued.
+// GetTimestampOfNextReadyEvent returns the timestamp of the next session event to be processed.
+// The error will be nil if there is at least one session event enqueued.
 // If there are no session events enqueued, then this will return time.Time{} and an ErrNoMoreEvents error.
 func (q *eventQueue) GetTimestampOfNextReadyEvent() (time.Time, error) {
 	if q.Len() == 0 {
@@ -213,7 +216,7 @@ func (q *eventQueue) GetTimestampOfNextReadyEvent() (time.Time, error) {
 	return nextEvent.AdjustedTimestamp(), nil
 }
 
-// Return the total number of events enqueued.
+// Len returns the total number of events enqueued.
 func (q *eventQueue) Len() int {
 	q.eventHeapMutex.Lock()
 	defer q.eventHeapMutex.Unlock()
@@ -222,12 +225,13 @@ func (q *eventQueue) Len() int {
 	return length
 }
 
-// Get the length without locking. This is used for printing when the information being printed doesn't need to be particularly precise.
+// LenUnsafe returns the length without locking.
+// This is used for printing when the information being printed doesn't need to be particularly precise.
 func (q *eventQueue) LenUnsafe() int {
 	return q.eventHeap.Len()
 }
 
-// Return the next event that occurs at or before the given timestamp, or nil if there are no such events.
+// GetNextEvent return the next event that occurs at or before the given timestamp, or nil if there are no such events.
 // This will remove the event from the main EventQueueServiceImpl::eventHeap, but it will NOT remove the
 // event from the EventQueueServiceImpl::eventsPerSession. To do that, you must call EventQueueServiceImpl::UnregisterEvent().
 func (q *eventQueue) GetNextEvent(threshold time.Time) (domain.EventHeapElement, bool) {
@@ -254,7 +258,7 @@ func (q *eventQueue) GetNextEvent(threshold time.Time) (domain.EventHeapElement,
 func (q *eventQueue) newEventHeapElement(evt domain.Event, enqueued bool) domain.EventHeapElement {
 	adjustedTimestamp := evt.Timestamp()
 
-	var totalDelay time.Duration = time.Duration(0)
+	var totalDelay = time.Duration(0)
 
 	eventHeapElement := &eventHeapElementImpl{
 		Event:             evt,
