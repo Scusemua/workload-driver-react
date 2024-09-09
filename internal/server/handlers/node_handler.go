@@ -115,6 +115,10 @@ func (h *NodeHttpHandler) AssignNodeType(nodeType domain.NodeType, grpcClient *C
 
 	// Create and assign the correct type of node handler for our internal node handler.
 	switch nodeType {
+	case domain.VirtualDockerNodeType:
+		{
+			h.createDockerSwarmNodeHandler()
+		}
 	case domain.DockerSwarmNodeType:
 		{
 			h.createDockerSwarmNodeHandler()
@@ -153,7 +157,7 @@ func (h *NodeHttpHandler) createDockerSwarmNodeHandler() {
 		panic("cannot create Docker Swarm Node Handler until the node type has officially been registered")
 	}
 
-	if h.nodeType != domain.DockerSwarmNodeType {
+	if h.nodeType != domain.DockerSwarmNodeType && h.nodeType != domain.VirtualDockerNodeType {
 		panic(fmt.Sprintf("cannot create Docker Swarm Node Handler; our node type is incompatible: \"%s\"", h.nodeType))
 	}
 

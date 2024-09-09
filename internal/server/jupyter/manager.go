@@ -98,7 +98,7 @@ func NewKernelSessionManager(jupyterServerAddress string, adjustSessionNames boo
 }
 
 // CreateSession creates a new session.
-func (m *BasicKernelSessionManager) CreateSession(sessionId string, path string, sessionType string, kernelSpecName string) (*SessionConnection, error) {
+func (m *BasicKernelSessionManager) CreateSession(sessionId string, path string, sessionType string, kernelSpecName string, resourceSpec *ResourceSpec) (*SessionConnection, error) {
 	if m.adjustSessionNames {
 		if len(sessionId) < 36 {
 			generatedUuid := uuid.NewString()
@@ -108,7 +108,7 @@ func (m *BasicKernelSessionManager) CreateSession(sessionId string, path string,
 		}
 	}
 
-	requestBody := newJupyterSessionForRequest(sessionId, path, sessionType, kernelSpecName)
+	requestBody := newJupyterSessionForRequest(sessionId, path, sessionType, kernelSpecName, resourceSpec)
 
 	requestBodyJson, err := json.Marshal(&requestBody)
 	if err != nil {

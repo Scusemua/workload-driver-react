@@ -23,14 +23,15 @@ type jupyterSessionReq struct {
 	SessionType      string                 `json:"type"`
 	JupyterKernel    *jupyterKernel         `json:"kernel"`
 	JupyterNotebook  map[string]interface{} `json:"notebook"`
+	ResourceSpec     *ResourceSpec          `json:"resource_spec"`
 
 	SessionConnection *SessionConnection `json:"-"`
 }
 
-func newJupyterSessionForRequest(sessionName string, path string, sessionType string, kernelSpecName string) *jupyterSessionReq {
+func newJupyterSessionForRequest(sessionName string, path string, sessionType string, kernelSpecName string, resourceSpec *ResourceSpec) *jupyterSessionReq {
 	jupyterKernel := newJupyterKernel(sessionName, kernelSpecName)
 
-	return &jupyterSessionReq{
+	req := &jupyterSessionReq{
 		JupyterSessionId: sessionName,
 		LocalSessionId:   sessionName,
 		Path:             path,
@@ -39,6 +40,12 @@ func newJupyterSessionForRequest(sessionName string, path string, sessionType st
 		JupyterKernel:    jupyterKernel,
 		JupyterNotebook:  make(map[string]interface{}),
 	}
+
+	if resourceSpec != nil {
+		req.ResourceSpec = resourceSpec
+	}
+
+	return req
 }
 
 func (s *jupyterSessionReq) String() string {

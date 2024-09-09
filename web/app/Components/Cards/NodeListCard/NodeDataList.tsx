@@ -358,7 +358,7 @@ export const NodeDataList: React.FunctionComponent<NodeDataListProps> = (props: 
                 </Flex>
                 <Flex spaceItems={{ default: 'spaceItemsSm' }} alignSelf={{ default: 'alignSelfCenter' }}>
                     <FlexItem>
-                        <Tooltip content="Committed/allocated  millicpus (1/1000th of a CPU core)">
+                        <Tooltip content="Committed/allocated millicpus (1/1000th of a CPU core)">
                             <CpuIcon className="node-cpu-icon" />
                         </Tooltip>
                     </FlexItem>
@@ -487,11 +487,12 @@ export const NodeDataList: React.FunctionComponent<NodeDataListProps> = (props: 
                                 id={'expand-node-' + clusterNode.NodeId + '-toggle'}
                                 aria-controls={'expand-node-' + clusterNode.NodeId + '-toggle'}
                             />
-                            <DataListItemCells id={`node-detail-view-data-list`}
+                            <DataListItemCells
+                                id={`node-detail-view-data-list`}
                                 dataListCells={[
                                     <DataListCell key={`node-${clusterNode.NodeId}-primary-content`}>
                                         <Flex
-                                            direction={{ default: 'column', '2xl': 'row' }}
+                                            direction={{ default: 'row', '2xl': 'row' }}
                                             spaceItems={{
                                                 default: 'spaceItemsNone',
                                                 '2xl': 'spaceItems2xl',

@@ -70,9 +70,9 @@ interface WorkloadEvent {
 }
 
 interface ResourceRequest {
-    cpus: number;
+    cpus: number; // millicpus (1/1000 CPU cores)
     gpus: number;
-    mem_gb: number;
+    mem_mb: number;
     gpu_type: string;
 }
 
@@ -92,8 +92,8 @@ interface Session {
 
 interface TrainingEvent {
     training_index: number;
-    cpu_util: number;
-    mem_usage_gb: number;
+    millicpus: number;
+    mem_usage_mb: number;
     gpu_utilizations: GpuUtilization[];
     start_tick: number;
     duration_in_ticks: number;

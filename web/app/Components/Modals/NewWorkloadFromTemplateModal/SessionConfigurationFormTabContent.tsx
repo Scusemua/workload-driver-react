@@ -27,7 +27,7 @@ import {
   RoundToThreeDecimalPlaces,
   SessionStartTickDefault,
   SessionStopTickDefault,
-  TrainingCpuPercentUtilDefault,
+  TrainingCpuUsageDefault,
   TrainingDurationInTicksDefault,
   TrainingGpuPercentUtilDefault,
   TrainingMemUsageGbDefault,
@@ -66,8 +66,8 @@ export const SessionConfigurationFormTabContent: React.FunctionComponent<Session
   const selectedTrainingEventIndex: number = Number.parseInt(useWatch({control, name: selectedTrainingEventFieldId}));
   const trainingStartTickFieldId: string = `sessions.${sessionIndex}.trainings.${selectedTrainingEventIndex}.start_tick`;
   const trainingDurationTicksFieldId: string = `sessions.${sessionIndex}.trainings.${selectedTrainingEventIndex}.duration_in_ticks`;
-  const trainingCpuPercentUtilFieldId: string = `sessions.${sessionIndex}.trainings.${selectedTrainingEventIndex}.cpu_util`;
-  const trainingMemUsageGbFieldId: string = `sessions.${sessionIndex}.trainings.${selectedTrainingEventIndex}.mem_usage_gb`;
+  const trainingCpuUsageFieldId: string = `sessions.${sessionIndex}.trainings.${selectedTrainingEventIndex}.millicpus`;
+  const trainingMemUsageMbFieldId: string = `sessions.${sessionIndex}.trainings.${selectedTrainingEventIndex}.mem_usage_mb`;
   const numGpusFieldId: string = `sessions.${sessionIndex}.trainings.${selectedTrainingEventIndex}.num_gpus`;
 
   // const defaultSessionId = React.useRef<string>(props.defaultSessionId);
@@ -125,8 +125,8 @@ export const SessionConfigurationFormTabContent: React.FunctionComponent<Session
   }
 
   const onRandomizeResourceConfigurationClicked = () => {
-    setValue(trainingCpuPercentUtilFieldId, RoundToThreeDecimalPlaces(getRandomArbitrary(0, 100)));
-    setValue(trainingMemUsageGbFieldId, RoundToThreeDecimalPlaces(getRandomArbitrary(0, 128)));
+    setValue(trainingCpuUsageFieldId, RoundToThreeDecimalPlaces(getRandomArbitrary(0, 100)));
+    setValue(trainingMemUsageMbFieldId, RoundToThreeDecimalPlaces(getRandomArbitrary(0, 128)));
 
     const newNumGPUs: number = getRandomInt(1, 8);
     setValue(numGpusFieldId, newNumGPUs);
@@ -436,13 +436,13 @@ export const SessionConfigurationFormTabContent: React.FunctionComponent<Session
                 />}>
                 <Grid hasGutter>
                   <GridItem span={3}
-                            key={`session-${sessionIndex}-training${selectedTrainingEventIndex}-cpu-util-grid-item`}>
-                    <FormGroup label="CPU % Utilization">
+                            key={`session-${sessionIndex}-training${selectedTrainingEventIndex}-cpu-usage-grid-item`}>
+                    <FormGroup label="CPU Usage (in millicpus)">
                       <Controller
                         control={control}
-                        name={trainingCpuPercentUtilFieldId}
-                        defaultValue={TrainingCpuPercentUtilDefault}
-                        rules={{min: 0, max: 100, required: true}}
+                        name={trainingCpuUsageFieldId}
+                        defaultValue={TrainingCpuUsageDefault}
+                        rules={{min: 0, max: 1000, required: true}}
                         render={({field}) =>
                           <NumberInput
                             required
@@ -451,14 +451,14 @@ export const SessionConfigurationFormTabContent: React.FunctionComponent<Session
                             onBlur={field.onBlur}
                             value={field.value}
                             onMinus={() => {
-                              const id: string = trainingCpuPercentUtilFieldId;
+                              const id: string = trainingCpuUsageFieldId;
                               const curr: number = getValues(id) as number;
                               const next: number = curr - 1;
 
                               setValue(id, next);
                             }}
                             onPlus={() => {
-                              const id: string = trainingCpuPercentUtilFieldId;
+                              const id: string = trainingCpuUsageFieldId;
                               const curr: number = getValues(id) as number;
                               const next: number = curr + 1;
 
@@ -470,7 +470,7 @@ export const SessionConfigurationFormTabContent: React.FunctionComponent<Session
                             inputAriaLabel={`session-${sessionIndex}-training${selectedTrainingEventIndex}-cpu-percent-util-input`}
                             minusBtnAriaLabel="minus"
                             plusBtnAriaLabel="plus"
-                            validated={getFieldState(trainingCpuPercentUtilFieldId).invalid ? 'error' : 'success'}
+                            validated={getFieldState(trainingCpuUsageFieldId).invalid ? 'error' : 'success'}
                             min={0}
                             max={100}
                           />}/>
@@ -478,10 +478,10 @@ export const SessionConfigurationFormTabContent: React.FunctionComponent<Session
                   </GridItem>
                   <GridItem span={3}
                             key={`session-${sessionIndex}-training${selectedTrainingEventIndex}-ram-usage-grid-item`}>
-                    <FormGroup label="RAM Usage (GB)">
+                    <FormGroup label="RAM Usage (MB)">
                       <Controller
                         control={control}
-                        name={trainingMemUsageGbFieldId}
+                        name={trainingMemUsageMbFieldId}
                         rules={{min: 0, max: 128_000, required: true}}
                         defaultValue={TrainingMemUsageGbDefault}
                         render={({field}) =>
@@ -491,14 +491,14 @@ export const SessionConfigurationFormTabContent: React.FunctionComponent<Session
                             onChange={(event) => field.onChange(+(event.target as HTMLInputElement).value)}
                             onBlur={field.onBlur}
                             onMinus={() => {
-                              const id: string = trainingMemUsageGbFieldId;
+                              const id: string = trainingMemUsageMbFieldId;
                               const curr: number = getValues(id) as number;
                               const next: number = curr - 0.25;
 
                               setValue(id, next);
                             }}
                             onPlus={() => {
-                              const id: string = trainingMemUsageGbFieldId;
+                              const id: string = trainingMemUsageMbFieldId;
                               const curr: number = getValues(id) as number;
                               const next: number = curr + 0.25;
 
@@ -510,7 +510,7 @@ export const SessionConfigurationFormTabContent: React.FunctionComponent<Session
                             inputAriaLabel={`session-${sessionIndex}-training${selectedTrainingEventIndex}-mem-usage-gb-input`}
                             minusBtnAriaLabel="minus"
                             plusBtnAriaLabel="plus"
-                            validated={getFieldState(trainingMemUsageGbFieldId).invalid ? 'error' : 'success'}
+                            validated={getFieldState(trainingMemUsageMbFieldId).invalid ? 'error' : 'success'}
                             min={0}
                           />}
                       />

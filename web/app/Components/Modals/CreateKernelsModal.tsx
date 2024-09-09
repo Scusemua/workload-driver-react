@@ -306,7 +306,7 @@ export const CreateKernelsModal: React.FunctionComponent<CreateKernelsModalProps
                                                 return;
                                             }
 
-                                            // 128,000 milliCPUs is 128 vCPUs.
+                                            // 128,000 millicpu is 128 vCPUs.
                                             if (valueAsNumber > 128000 || valueAsNumber <= 0) {
                                                 setCpusValidated('error');
                                                 return;

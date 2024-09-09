@@ -326,7 +326,7 @@ func (g *BasicWorkloadGenerator) GenerateTemplateWorkload(consumer domain.EventC
 	// Populate all of the above mappings using the data from the template.
 	for _, session := range workloadSessions {
 		cpuSessionMap[session.GetId()] = session.GetResourceRequest().Cpus
-		memSessionMap[session.GetId()] = session.GetResourceRequest().MemoryGB
+		memSessionMap[session.GetId()] = session.GetResourceRequest().MemoryMB
 		gpuSessionMap[session.GetId()] = session.GetResourceRequest().Gpus
 
 		if session.GetTrainings() == nil {
@@ -343,8 +343,8 @@ func (g *BasicWorkloadGenerator) GenerateTemplateWorkload(consumer domain.EventC
 		memPerTrainingTask := make([]float64, len(session.GetTrainings()))
 		numGpusPerTrainingTask := make([]int, len(session.GetTrainings()))
 		for trainingIndex, trainingEvent := range session.GetTrainings() {
-			cpuPerTrainingTask[trainingIndex] = trainingEvent.CpuUtil
-			memPerTrainingTask[trainingIndex] = trainingEvent.MemUsageGB
+			cpuPerTrainingTask[trainingIndex] = trainingEvent.Millicpus
+			memPerTrainingTask[trainingIndex] = trainingEvent.MemUsageMB
 			numGpusPerTrainingTask[trainingIndex] = len(trainingEvent.GpuUtil)
 		}
 

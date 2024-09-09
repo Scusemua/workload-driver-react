@@ -17,11 +17,11 @@ var (
 	ErrInvalidConfiguration = errors.New("invalid configuration specified")
 )
 
-// Defines a function that, when called and passed a pointer to a CustomEventSequencer,
+// SequencerFunctiondefines a function that, when called and passed a pointer to a CustomEventSequencer,
 // will use the CustomEventSequencer API to create an executable workload trace.
 type SequencerFunction func(sequencer *CustomEventSequencer) error
 
-// Utility/helper struct to specify arguments of a Session that should be registered with a CustomEventSequencer.
+// SessionArguments is a utility/helper struct to specify arguments of a Session that should be registered with a CustomEventSequencer.
 type SessionArguments struct {
 	Id               string
 	MaxCPUs          float64
@@ -42,7 +42,7 @@ func NewSessionArguments(sessionId string, maxCPUs float64, maxMemoryGB float64,
 	}
 }
 
-// Utility/helper struct to specify the resource utilization during a training event/task.
+// TrainingResourceUtilizationArgs is a utility/helper struct to specify the resource utilization during a training event/task.
 type TrainingResourceUtilizationArgs struct {
 	CpuUtilization float64   // CPU utilization; to be in the interval [0, 100]
 	MemoryUsageGB  float64   // Memory utilization in gigabytes; must be >= 0
@@ -71,7 +71,7 @@ func (a *TrainingResourceUtilizationArgs) NumGPUs() int {
 	return cap(a.GpuUtilization)
 }
 
-// Set the GPU utilization of the next GPU that has not already been specified via the 'WithGpuUtilization' function.
+// WithGpuUtilization sets the GPU utilization of the next GPU that has not already been specified via the 'WithGpuUtilization' function.
 //
 // The first call to 'WithGpuUtilization' will set the GPU utilization of GPU 0.
 // The second call to 'WithGpuUtilization' will set the GPU utilization of GPU 1.
@@ -95,7 +95,7 @@ func (a *TrainingResourceUtilizationArgs) WithGpuUtilization(gpuUtil float64) *T
 	return a
 }
 
-// Set the GPU utilization of a specific GPU (identified by its index, which should range from 0 to NUM_GPUS - 1).
+// WithGpuUtilizationForSpecificGpu sets the GPU utilization of a specific GPU (identified by its index, which should range from 0 to NUM_GPUS - 1).
 //
 // This modifies the 'TrainingResourceUtilizationArgs' struct on which it was called in-place; it also returns the TrainingResourceUtilizationArgs struct.
 func (a *TrainingResourceUtilizationArgs) WithGpuUtilizationForSpecificGpu(gpuIndex int, gpuUtil float64) *TrainingResourceUtilizationArgs {
@@ -129,8 +129,8 @@ func validateSession(session *domain.WorkloadTemplateSession) error {
 		return fmt.Errorf("%w: invalid maximum number of GPUs specified (%d). Quantity must be greater than or equal to 0", ErrInvalidConfiguration, session.GetResourceRequest().Gpus)
 	}
 
-	if session.GetResourceRequest().MemoryGB < 0 {
-		return fmt.Errorf("%w: invalid maximum memory usage (in GB) specified (%f). Quantity must be greater than or equal to 0", ErrInvalidConfiguration, session.GetResourceRequest().MemoryGB)
+	if session.GetResourceRequest().MemoryMB < 0 {
+		return fmt.Errorf("%w: invalid maximum memory usage (in MB) specified (%f). Quantity must be greater than or equal to 0", ErrInvalidConfiguration, session.GetResourceRequest().MemoryMB)
 	}
 
 	// Validate `session.GetStartTick()`
@@ -198,23 +198,23 @@ func validateSessionArgumentsAgainstTrainingArguments(session *domain.WorkloadTe
 	}
 
 	for _, trainingEvent := range session.GetTrainings() {
-		if session.GetResourceRequest().Cpus < trainingEvent.CpuUtil {
-			return fmt.Errorf("%w: incompatible max CPUs (%f) and training CPU utilization (%f) specified. Training CPU utilization cannot exceed maximum session CPUs", ErrInvalidConfiguration, session.GetResourceRequest().Cpus, trainingEvent.CpuUtil)
+		if session.GetResourceRequest().Cpus < trainingEvent.Millicpus {
+			return fmt.Errorf("%w: incompatible max CPUs (%f) and training CPU utilization (%f) specified. Training CPU utilization cannot exceed maximum session CPUs", ErrInvalidConfiguration, session.GetResourceRequest().Cpus, trainingEvent.Millicpus)
 		}
 
 		if session.GetResourceRequest().Gpus < trainingEvent.NumGPUs() {
 			return fmt.Errorf("%w: incompatible max GPUs (%d) and training GPU utilization (%d) specified. Training GPU utilization cannot exceed maximum session GPUs", ErrInvalidConfiguration, session.GetResourceRequest().Gpus, trainingEvent.NumGPUs())
 		}
 
-		if session.GetResourceRequest().MemoryGB < trainingEvent.MemUsageGB {
-			return fmt.Errorf("%w: incompatible max memory usage (%f GB) and training memory usage (%f GB) specified. Training memory usage cannot exceed maximum session memory usage", ErrInvalidConfiguration, session.GetResourceRequest().MemoryGB, trainingEvent.MemUsageGB)
+		if session.GetResourceRequest().MemoryMB < trainingEvent.MemUsageMB {
+			return fmt.Errorf("%w: incompatible max memory usage (%f MB) and training memory usage (%f GB) specified. Training memory usage cannot exceed maximum session memory usage", ErrInvalidConfiguration, session.GetResourceRequest().MemoryMB, trainingEvent.MemUsageMB)
 		}
 	}
 
 	return nil
 }
 
-// Create a training sequence involving a single Session that trains just once.
+// SingleSessionSingleTraining creates a training sequence involving a single Session that trains just once.
 //
 // The following quantites are configurable and are to be passed as arguments to this function (in this order):
 // - session start time (>= 0)
@@ -252,12 +252,12 @@ func SingleSessionSingleTraining(sessions []*domain.WorkloadTemplateSession) (Se
 	}
 
 	return func(sequencer *CustomEventSequencer) error {
-		sequencer.RegisterSession(session.GetId(), session.GetResourceRequest().Cpus, session.GetResourceRequest().MemoryGB, session.GetResourceRequest().Gpus, 0)
+		sequencer.RegisterSession(session.GetId(), session.GetResourceRequest().Cpus, session.GetResourceRequest().MemoryMB, session.GetResourceRequest().Gpus, 0)
 
 		trainingEvent := session.GetTrainings()[0]
 
 		sequencer.AddSessionStartedEvent(session.GetId(), session.GetStartTick(), 0, 0, 0, 1)
-		sequencer.AddTrainingEvent(session.GetId(), trainingEvent.StartTick, trainingEvent.DurationInTicks, trainingEvent.CpuUtil, trainingEvent.MemUsageGB, trainingEvent.GpuUtil) // TODO: Fix GPU util/num GPU specified here.
+		sequencer.AddTrainingEvent(session.GetId(), trainingEvent.StartTick, trainingEvent.DurationInTicks, trainingEvent.Millicpus, trainingEvent.MemUsageMB, trainingEvent.GpuUtil) // TODO: Fix GPU util/num GPU specified here.
 		sequencer.AddSessionTerminatedEvent(session.GetId(), session.GetStopTick())
 
 		sequencer.SubmitEvents(sequencer.eventConsumer.WorkloadEventGeneratorCompleteChan())
@@ -296,11 +296,11 @@ func ManySessionsManyTrainingEvents(sessions []*domain.WorkloadTemplateSession) 
 
 	return func(sequencer *CustomEventSequencer) error {
 		for _, session := range sessions {
-			sequencer.RegisterSession(session.GetId(), session.GetResourceRequest().Cpus, session.GetResourceRequest().MemoryGB, session.GetResourceRequest().Gpus, 0)
+			sequencer.RegisterSession(session.GetId(), session.GetResourceRequest().Cpus, session.GetResourceRequest().MemoryMB, session.GetResourceRequest().Gpus, 0)
 
 			for _, trainingEvent := range session.GetTrainings() {
 				sequencer.AddSessionStartedEvent(session.GetId(), session.GetStartTick(), 0, 0, 0, 1)
-				sequencer.AddTrainingEvent(session.GetId(), trainingEvent.StartTick, trainingEvent.DurationInTicks, trainingEvent.CpuUtil, trainingEvent.MemUsageGB, trainingEvent.GpuUtil) // TODO: Fix GPU util/num GPU specified here.
+				sequencer.AddTrainingEvent(session.GetId(), trainingEvent.StartTick, trainingEvent.DurationInTicks, trainingEvent.Millicpus, trainingEvent.MemUsageMB, trainingEvent.GpuUtil) // TODO: Fix GPU util/num GPU specified here.
 				sequencer.AddSessionTerminatedEvent(session.GetId(), session.GetStopTick())
 			}
 		}

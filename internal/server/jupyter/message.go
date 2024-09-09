@@ -29,6 +29,13 @@ type KernelMessage interface {
 	String() string
 }
 
+// ResourceSpec can be passed within a jupyterSessionReq when creating a new Session or Kernel.
+type ResourceSpec struct {
+	Cpu float64 `json:"cpu"`    // In millicpus (1/1000th CPU core)
+	Mem float64 `json:"memory"` // In MB
+	Gpu int     `json:"gpu"`
+}
+
 type baseKernelMessage struct {
 	Channel      KernelSocketChannel    `json:"channel"`
 	Header       *KernelMessageHeader   `json:"header"`

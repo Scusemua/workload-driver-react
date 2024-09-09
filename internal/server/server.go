@@ -10,6 +10,7 @@ import (
 	"log"
 	"net/http"
 	"net/url"
+	"path"
 	"sync"
 	"time"
 
@@ -203,7 +204,7 @@ func (s *serverImpl) setupRoutes() error {
 
 		// Queried by Grafana to query for values used to create Grafana variables that are then used to
 		// dynamically create a Grafana Dashboard.
-		apiGroup.GET(domain.VariablesEndpoint, handlers.NewVariablesHttpHandler(s.opts, s.gatewayRpcClient).HandleRequest)
+		apiGroup.GET(path.Join(domain.VariablesEndpoint, ":variable_name"), handlers.NewVariablesHttpHandler(s.opts, s.gatewayRpcClient).HandleRequest)
 
 		// Used to tell a kernel to stop training.
 		apiGroup.POST(domain.STOP_TRAINING_ENDPOINT, handlers.NewStopTrainingHandler(s.opts, s.atom).HandleRequest)

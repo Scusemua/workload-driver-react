@@ -82,7 +82,7 @@ type KernelConnection interface {
 
 type KernelSessionManager interface {
 	// CreateSession creates a new session.
-	CreateSession(sessionId string, path string, sessionType string, kernelSpecName string) (*SessionConnection, error)
+	CreateSession(sessionId string, path string, sessionType string, kernelSpecName string, resourceSpec *ResourceSpec) (*SessionConnection, error)
 
 	// InterruptKernel interrupts a kernel.
 	//

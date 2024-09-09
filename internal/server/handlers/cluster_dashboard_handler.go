@@ -347,7 +347,9 @@ func (h *ClusterDashboardHandler) setupRpcResources(gatewayAddress string) error
 	}()
 
 	var nodeType domain.NodeType
-	if h.deploymentMode == "docker" {
+	if h.deploymentMode == "docker-compose" {
+		nodeType = domain.VirtualDockerNodeType
+	} else if h.deploymentMode == "docker-swarm" {
 		nodeType = domain.DockerSwarmNodeType
 	} else if h.deploymentMode == "kubernetes" {
 		nodeType = domain.KubernetesNodeType

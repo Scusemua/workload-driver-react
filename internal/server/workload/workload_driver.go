@@ -1028,8 +1028,14 @@ func (d *BasicWorkloadDriver) handleSessionReadyEvents(latestTick time.Time) {
 			d.sugaredLogger.Debugf("Handling EventSessionReady %d targeting Session %s [ts: %v].", numProcessed+1, sessionId, sessionReadyEvent.Timestamp())
 		}
 
+		resourceSpec := &jupyter.ResourceSpec{
+			Cpu: sessionMeta.GetMaxSessionCPUs(),
+			Mem: sessionMeta.GetMaxSessionMemory(),
+			Gpu: sessionMeta.GetMaxSessionGPUs(),
+		}
+
 		provisionStart := time.Now()
-		_, err := d.provisionSession(sessionId, sessionMeta, sessionReadyEvent.Timestamp())
+		_, err := d.provisionSession(sessionId, sessionMeta, sessionReadyEvent.Timestamp(), resourceSpec)
 
 		// The event index will be populated automatically by the ProcessedEvent method.
 		// d.workload.ProcessedEvent(domain.NewWorkloadEvent(-1, sessionReadyEvent.Id(), domain.EventSessionStarted.String(), sessionReadyEvent.SessionID(), sessionReadyEvent.Timestamp().String(), time.Now().String(), (err == nil), err))
@@ -1179,10 +1185,14 @@ func (d *BasicWorkloadDriver) stopSession(sessionId string) error {
 	return d.kernelManager.StopKernel(sessionId)
 }
 
-func (d *BasicWorkloadDriver) provisionSession(sessionId string, meta domain.SessionMetadata, createdAtTime time.Time) (*jupyter.SessionConnection, error) {
+func (d *BasicWorkloadDriver) provisionSession(sessionId string, meta domain.SessionMetadata, createdAtTime time.Time, resourceSpec *jupyter.ResourceSpec) (*jupyter.SessionConnection, error) {
 	d.logger.Debug("Creating new kernel.", zap.String("kernel-id", sessionId))
 	st := time.Now()
-	sessionConnection, err := d.kernelManager.CreateSession(sessionId /*strings.ToLower(sessionId) */, fmt.Sprintf("%s.ipynb", sessionId), "notebook", "distributed")
+	sessionConnection, err := d.kernelManager.CreateSession(
+		sessionId, /*strings.ToLower(sessionId) */
+		fmt.Sprintf("%s.ipynb", sessionId),
+		"notebook", "distributed", resourceSpec)
+
 	if err != nil {
 		d.logger.Error("Failed to create session.", zap.String(ZapInternalSessionIDKey, sessionId))
 		return nil, err

@@ -507,7 +507,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             if (response.status != 201) {
                 numKernelsCreating.current -= 1;
                 const responseText: string = await response.text();
-                let err: Error | null = null;
+                let err: Error | null;
                 try {
                     const responseJson = JSON.parse(responseText);
                     console.error(

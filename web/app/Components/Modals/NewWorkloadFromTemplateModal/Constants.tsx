@@ -22,7 +22,7 @@ const SessionStartTickDefault: number = 1;
 const SessionStopTickDefault: number = 6;
 const TrainingStartTickDefault: number = 2;
 const TrainingDurationInTicksDefault: number = 2;
-const TrainingCpuPercentUtilDefault: number = 10;
+const TrainingCpuUsageDefault: number = 100; // in millicpus
 const TrainingGpuPercentUtilDefault: number = 50;
 const TrainingMemUsageGbDefault: number = 0.25;
 const NumberOfGpusDefault: number = 1;
@@ -32,80 +32,78 @@ const DefaultSelectedTrainingEvent: number = 0;
 const DefaultTrainingEventField = {
     start_tick: TrainingStartTickDefault,
     duration_in_ticks: TrainingDurationInTicksDefault,
-    cpu_util: TrainingCpuPercentUtilDefault,
-    mem_usage_gb: TrainingMemUsageGbDefault,
+    millicpus: TrainingCpuUsageDefault,
+  mem_usage_mb: TrainingMemUsageGbDefault,
     num_gpus: NumberOfGpusDefault,
-    gpu_utilizations: [{
-        utilization: TrainingGpuPercentUtilDefault
-    }]
-}
+    gpu_utilizations: [
+        {
+            utilization: TrainingGpuPercentUtilDefault,
+        },
+    ],
+};
 
 const GetDefaultSessionFieldValue = () => {
-  return {
-    id: uuidv4(),
-    start_tick: SessionStartTickDefault,
-    stop_tick: SessionStopTickDefault,
-    num_training_events: DefaultNumTrainingEvents,
-    selected_training_event: DefaultSelectedTrainingEvent,
-    trainings: [
-      DefaultTrainingEventField
-    ],
-  }
-}
+    return {
+        id: uuidv4(),
+        start_tick: SessionStartTickDefault,
+        stop_tick: SessionStopTickDefault,
+        num_training_events: DefaultNumTrainingEvents,
+        selected_training_event: DefaultSelectedTrainingEvent,
+        trainings: [DefaultTrainingEventField],
+    };
+};
 
 const GetDefaultFormValues = () => {
-  const title: string = uuidv4();
+    const title: string = uuidv4();
 
-  return {
-    "workloadTitle": title,
-    "workloadSeed": WorkloadSeedDefault,
-    "timescaleAdjustmentFactor": TimeAdjustmentFactorDefault,
-    "numberOfSessions": 1,
-    "debugLoggingEnabled": true,
-    "sessions": [
-      GetDefaultSessionFieldValue()
-    ]
-  }
-}
+    return {
+        workloadTitle: title,
+        workloadSeed: WorkloadSeedDefault,
+        timescaleAdjustmentFactor: TimeAdjustmentFactorDefault,
+        numberOfSessions: 1,
+        debugLoggingEnabled: true,
+        sessions: [GetDefaultSessionFieldValue()],
+    };
+};
 
 function RoundToTwoDecimalPlaces(num: number) {
-  return +(Math.round(Number.parseFloat(num.toString() + 'e+2')).toString() + 'e-2');
+    return +(Math.round(Number.parseFloat(num.toString() + 'e+2')).toString() + 'e-2');
 }
 
 function RoundToThreeDecimalPlaces(num: number) {
-  return +(Math.round(Number.parseFloat(num.toString() + 'e+3')).toString() + 'e-3');
+    return +(Math.round(Number.parseFloat(num.toString() + 'e+3')).toString() + 'e-3');
 }
 
-export {TimescaleAdjustmentFactorDelta as TimescaleAdjustmentFactorDelta};
-export {TimescaleAdjustmentFactorMax as TimescaleAdjustmentFactorMax};
-export {TimescaleAdjustmentFactorMin as TimescaleAdjustmentFactorMin};
-export {TimeAdjustmentFactorDefault as TimeAdjustmentFactorDefault};
+export { TimescaleAdjustmentFactorDelta as TimescaleAdjustmentFactorDelta };
+export { TimescaleAdjustmentFactorMax as TimescaleAdjustmentFactorMax };
+export { TimescaleAdjustmentFactorMin as TimescaleAdjustmentFactorMin };
+export { TimeAdjustmentFactorDefault as TimeAdjustmentFactorDefault };
 
-export {WorkloadSeedDelta as WorkloadSeedDelta};
-export {WorkloadSeedMax as WorkloadSeedMax};
-export {WorkloadSeedMin as WorkloadSeedMin};
-export {WorkloadSeedDefault as WorkloadSeedDefault};
+export { WorkloadSeedDelta as WorkloadSeedDelta };
+export { WorkloadSeedMax as WorkloadSeedMax };
+export { WorkloadSeedMin as WorkloadSeedMin };
+export { WorkloadSeedDefault as WorkloadSeedDefault };
 
-export {NumberOfSessionsDefault as NumberOfSessionsDefault};
-export {NumberOfSessionsMin as NumberOfSessionsMin};
-export {NumberOfSessionsMax as NumberOfSessionsMax};
-export {NumberOfSessionsDelta as NumberOfSessionsDelta};
+export { NumberOfSessionsDefault as NumberOfSessionsDefault };
+export { NumberOfSessionsMin as NumberOfSessionsMin };
+export { NumberOfSessionsMax as NumberOfSessionsMax };
+export { NumberOfSessionsDelta as NumberOfSessionsDelta };
 
-export {SessionStartTickDefault as SessionStartTickDefault};
-export {SessionStopTickDefault as SessionStopTickDefault};
-export {TrainingStartTickDefault as TrainingStartTickDefault};
-export {TrainingDurationInTicksDefault as TrainingDurationInTicksDefault};
-export {TrainingCpuPercentUtilDefault as TrainingCpuPercentUtilDefault};
-export {TrainingGpuPercentUtilDefault as TrainingGpuPercentUtilDefault};
-export {TrainingMemUsageGbDefault as TrainingMemUsageGbDefault};
-export {NumberOfGpusDefault as NumberOfGpusDefault};
-export {DefaultNumTrainingEvents as DefaultNumTrainingEvents};
-export {DefaultSelectedTrainingEvent as DefaultSelectedTrainingEvent};
+export { SessionStartTickDefault as SessionStartTickDefault };
+export { SessionStopTickDefault as SessionStopTickDefault };
+export { TrainingStartTickDefault as TrainingStartTickDefault };
+export { TrainingDurationInTicksDefault as TrainingDurationInTicksDefault };
+export { TrainingCpuUsageDefault as TrainingCpuUsageDefault };
+export { TrainingGpuPercentUtilDefault as TrainingGpuPercentUtilDefault };
+export { TrainingMemUsageGbDefault as TrainingMemUsageGbDefault };
+export { NumberOfGpusDefault as NumberOfGpusDefault };
+export { DefaultNumTrainingEvents as DefaultNumTrainingEvents };
+export { DefaultSelectedTrainingEvent as DefaultSelectedTrainingEvent };
 
-export {DefaultTrainingEventField as DefaultTrainingEventField};
-export {GetDefaultSessionFieldValue as GetDefaultSessionFieldValue};
+export { DefaultTrainingEventField as DefaultTrainingEventField };
+export { GetDefaultSessionFieldValue as GetDefaultSessionFieldValue };
 
-export {GetDefaultFormValues as GetDefaultFormValues};
+export { GetDefaultFormValues as GetDefaultFormValues };
 
-export {RoundToTwoDecimalPlaces as RoundToTwoDecimalPlaces};
-export {RoundToThreeDecimalPlaces as RoundToThreeDecimalPlaces};
+export { RoundToTwoDecimalPlaces as RoundToTwoDecimalPlaces };
+export { RoundToThreeDecimalPlaces as RoundToThreeDecimalPlaces };

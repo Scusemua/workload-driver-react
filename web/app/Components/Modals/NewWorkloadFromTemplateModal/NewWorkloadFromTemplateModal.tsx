@@ -115,19 +115,19 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
             const session: Session = sessions[i];
             const trainings: TrainingEvent[] = session.trainings;
 
-            let max_cpu: number = -1;
-            let max_mem: number = -1;
+            let max_millicpus: number = -1;
+            let max_mem_mb: number = -1;
             let max_num_gpus: number = -1;
             for (let j: number = 0; j < trainings.length; j++) {
                 const training: TrainingEvent = trainings[j];
                 training.training_index = j; // Set the training index field.
 
-                if (training.cpu_util > max_cpu) {
-                    max_cpu = training.cpu_util;
+                if (training.millicpus > max_millicpus) {
+                  max_millicpus = training.millicpus;
                 }
 
-                if (training.mem_usage_gb > max_mem) {
-                    max_mem = training.mem_usage_gb;
+                if (training.mem_usage_mb > max_mem_mb) {
+                  max_mem_mb = training.mem_usage_mb;
                 }
 
                 if (training.gpu_utilizations.length > max_num_gpus) {
@@ -137,9 +137,9 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
 
             // Construct the resource request and update the session object.
             session.resource_request = {
-                cpus: max_cpu,
+                cpus: max_millicpus,
                 gpus: max_num_gpus,
-                mem_gb: max_mem,
+                mem_mb: max_mem_mb,
                 gpu_type: 'Any_GPU',
             };
         }
