@@ -32,7 +32,7 @@ export const WorkloadSessionTable: React.FunctionComponent<WorkloadSessionTableP
         setPage(newPage);
     };
 
-    const sessions_table_columns: string[] = ["Index", "ID", "Status", "Trainings Completed", "Max vCPUs", "Max Memory (GB)", "Max vGPUs"]
+    const sessions_table_columns: string[] = ["Index", "ID", "Status", "Trainings Completed", "Max vCPUs", "Max Memory (MB)", "Max vGPUs"]
 
     const getSessionStatusLabel = (session: Session) => {
         const status: string = session.state;

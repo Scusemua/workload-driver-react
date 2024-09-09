@@ -554,8 +554,8 @@ message KernelReplicaSpec {
 }
 
 message ResourceSpec {
-  int32 cpu = 1;  // In 1/1000 core (i.e., millicpu).
-  int32 memory = 2; // In MB.
+  int32 cpu = 1;  // In 1/1000 core.
+  float memory = 2; // In MB.
   int32 gpu = 3; // Number of GPUs.
 }
 
@@ -566,7 +566,7 @@ message KernelId {
   optional string persistentId = 3;
 }
 
-// The paramters for migration
+// The parameters for migration
 message ReplicaInfo {
   string kernelId = 1;
   int32 replicaId = 2;

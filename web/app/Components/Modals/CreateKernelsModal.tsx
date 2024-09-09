@@ -144,7 +144,7 @@ export const CreateKernelsModal: React.FunctionComponent<CreateKernelsModalProps
         setCurrentKernelIndex(0);
     };
 
-    // Returns true if confirm button should be disabled.
+    // Returns true if the confirm button should be disabled.
     const isSomeFieldInvalid = () => {
         return (
             cpusValidated == 'error' ||
@@ -319,7 +319,7 @@ export const CreateKernelsModal: React.FunctionComponent<CreateKernelsModalProps
                             </FormGroup>
                         </GridItem>
                         <GridItem span={4} rowSpan={1}>
-                            <FormGroup label="Memory (MiB)">
+                            <FormGroup label="Memory (MB)">
                                 <TextInputGroup>
                                     <TextInput
                                         id="amount-mem-textinput"

@@ -180,8 +180,14 @@ func (m *BasicKernelSessionManager) CreateSession(sessionId string, path string,
 			m.logger.Error("Failed to decode JSON response with unexpected HTTP status code.", zap.Int("http-status-code", http.StatusBadRequest), zap.Error(err))
 		}
 
-		m.logger.Warn("Unexpected response status code when creating a new session.", zap.Int("status-code", resp.StatusCode), zap.String("status", resp.Status), zap.Any("headers", resp.Header), zap.Any("body", body), zap.String("request-args", requestBody.String()))
-		return nil, fmt.Errorf("ErrCreateSessionUnknownFailure %w: %s", ErrCreateSessionUnknownFailure, string(body))
+		m.logger.Warn("Unexpected response status code when creating a new session.", zap.Int("status-code", resp.StatusCode), zap.String("status", resp.Status), zap.Any("headers", resp.Header), zap.Any("body", body), zap.String("request-args", requestBody.String()), zap.String("response-body", string(body)))
+		if message, ok := responseJson["message"]; ok {
+			return nil, fmt.Errorf("ErrCreateSessionUnknownFailure %w: %s", ErrCreateSessionUnknownFailure, message)
+		} else if reason, ok := responseJson["reason"]; ok {
+			return nil, fmt.Errorf("ErrCreateSessionUnknownFailure %w: %s", ErrCreateSessionUnknownFailure, reason)
+		} else {
+			return nil, fmt.Errorf("ErrCreateSessionUnknownFailure %w: %s", ErrCreateSessionUnknownFailure, string(body))
+		}
 	}
 
 	m.metrics.SessionCreated()

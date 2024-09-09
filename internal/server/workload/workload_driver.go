@@ -1029,7 +1029,7 @@ func (d *BasicWorkloadDriver) handleSessionReadyEvents(latestTick time.Time) {
 		}
 
 		resourceSpec := &jupyter.ResourceSpec{
-			Cpu: sessionMeta.GetMaxSessionCPUs(),
+			Cpu: int(sessionMeta.GetMaxSessionCPUs()),
 			Mem: sessionMeta.GetMaxSessionMemory(),
 			Gpu: sessionMeta.GetMaxSessionGPUs(),
 		}
