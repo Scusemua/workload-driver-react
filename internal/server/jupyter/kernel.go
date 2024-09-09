@@ -494,7 +494,12 @@ func (conn *BasicKernelConnection) serveMessages() {
 			err = conn.webSocket.ReadJSON(&rawJsonMap)
 			conn.rlock.Unlock()
 			if err != nil {
-				conn.logger.Error("Websocket::Read error. Failed to unmarshal JSON message into raw key-value map.", zap.Error(err))
+				if errors.Is(err, websocket.ErrCloseSent) {
+					conn.sugaredLogger.Warnf("WebSocket connection with kernel %s has been terminated.", conn.kernelId)
+					return
+				} else {
+					conn.logger.Error("Websocket::Read error. Failed to unmarshal JSON message into raw key-value map.", zap.Error(err))
+				}
 			} else {
 				conn.logger.Error("Unmarshalled JSON message into raw key-value map.")
 				for k, v := range rawJsonMap {

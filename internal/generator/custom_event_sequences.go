@@ -284,10 +284,6 @@ func ManySessionsManyTrainingEvents(sessions []*domain.WorkloadTemplateSession) 
 			return nil, err
 		}
 
-		if len(session.GetTrainings()) != 1 {
-			return nil, fmt.Errorf("%w: session has illegal number of training events for this particular template (%d, expected 1)", ErrInvalidConfiguration, len(session.GetTrainings()))
-		}
-
 		trainingEvent := session.GetTrainings()[0]
 		if trainingEvent.DurationInTicks <= 0 {
 			return nil, fmt.Errorf("%w: invalid training duration specified: %d ticks. Must be strictly greater than 0", ErrInvalidConfiguration, trainingEvent.DurationInTicks)
