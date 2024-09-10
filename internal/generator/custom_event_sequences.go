@@ -233,7 +233,7 @@ func SingleSessionSingleTraining(sessions []*domain.WorkloadTemplateSession) (Se
 		panic(fmt.Sprintf("Sessions has unexpected length: %d", len(sessions)))
 	}
 
-	var session *domain.WorkloadTemplateSession = sessions[0]
+	var session = sessions[0]
 	if err := validateSession(session); err != nil {
 		return nil, err
 	}
@@ -293,9 +293,9 @@ func ManySessionsManyTrainingEvents(sessions []*domain.WorkloadTemplateSession) 
 	return func(sequencer *CustomEventSequencer) error {
 		for _, session := range sessions {
 			sequencer.RegisterSession(session.GetId(), session.GetResourceRequest().Cpus, session.GetResourceRequest().MemoryMB, session.GetResourceRequest().Gpus, 0)
+			sequencer.AddSessionStartedEvent(session.GetId(), session.GetStartTick(), 0, 0, 0, 1)
 
 			for _, trainingEvent := range session.GetTrainings() {
-				sequencer.AddSessionStartedEvent(session.GetId(), session.GetStartTick(), 0, 0, 0, 1)
 				sequencer.AddTrainingEvent(session.GetId(), trainingEvent.StartTick, trainingEvent.DurationInTicks, trainingEvent.Millicpus, trainingEvent.MemUsageMB, trainingEvent.GpuUtil) // TODO: Fix GPU util/num GPU specified here.
 				sequencer.AddSessionTerminatedEvent(session.GetId(), session.GetStopTick())
 			}
