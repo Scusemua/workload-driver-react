@@ -55,7 +55,9 @@ export const NodeResourceUsageTable: React.FunctionComponent<NodeResourceUsageTa
         const { NodeId, AllocatedResources, PendingResources, CapacityResources } = node;
 
         const idleRes: number =
-            CapacityResources[props.resource] - (AllocatedResources[props.resource] + PendingResources[props.resource]);
+            CapacityResources[props.resource] - AllocatedResources[props.resource];
+
+        console.debug(`Node ${node.NodeId} has a capacity of ${CapacityResources[props.resource]} ${props.resource} and has ${AllocatedResources[props.resource]} ${props.resource} allocated.`)
 
         // Note: We're omitting the event's "id" and "error_message" fields here.
         return [
@@ -109,7 +111,7 @@ export const NodeResourceUsageTable: React.FunctionComponent<NodeResourceUsageTa
     );
 
     return (
-        <Card isCompact isRounded isFlat>
+        <Card isCompact isRounded isFlat isFullHeight>
             <CardBody>
                 <Table variant="compact" isStriped>
                     <Thead noWrap>
@@ -256,15 +258,22 @@ export const NodeResourceView: React.FunctionComponent = () => {
                 <CardExpandableContent>
                     <CardBody isFilled>
                         <Grid hasGutter>
-                            <GridItem span={8} rowSpan={1}>
+                            <GridItem span={8} rowSpan={2}>
                                 <NodeResourceUsageTable resource={'GPU'} />
                             </GridItem>
                             <GridItem span={4} rowSpan={1}>
                                 <iframe
-                                    src="http://localhost:3000/d-solo/ddx4gnyl0cmbka/gpus?orgId=1&from=1725661762432&to=1725662785525&panelId=1"
-                                    height="100%"
+                                    src="http://localhost:3000/d-solo/ddx4gnyl0cmbka/distributed-cluster?orgId=1&refresh=5s&from=1726062572761&to=1726062872761&panelId=26"
                                     width="100%"
-                                ></iframe>
+                                    height="50%"
+                                />
+                            </GridItem>
+                            <GridItem span={4} rowSpan={1}>
+                                <iframe
+                                    src="http://localhost:3000/d-solo/ddx4gnyl0cmbka/distributed-cluster?orgId=1&refresh=5s&from=1726062658368&to=1726062958368&panelId=19"
+                                    width="100%"
+                                    height="50%"
+                                    />
                             </GridItem>
                         </Grid>
                     </CardBody>

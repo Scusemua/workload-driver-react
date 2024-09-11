@@ -279,7 +279,7 @@ func (s *CustomEventSequencer) AddSessionStartedEvent(sessionId string, tickNumb
 	}
 	s.waitingEvents[sessionId] = evt
 
-	// s.sugarLog.Debugf("Adding 'Session-Started' event for Session %s with timestamp %v (sec=%d).", sessionId, timestamp, sec)
+	s.sugarLog.Debugf("Adding 'Session-Started' event for Session %s with timestamp %v (sec=%d).", sessionId, timestamp, sec)
 }
 
 func (s *CustomEventSequencer) AddSessionTerminatedEvent(sessionId string, tickNumber int) {
@@ -321,7 +321,7 @@ func (s *CustomEventSequencer) submitWaitingEvent(sessionMeta *SessionMeta) {
 	delete(s.waitingEvents, sessionId)
 }
 
-// Register a training event for a particular session.
+// AddTrainingEvent registers a training event for a particular session.
 //
 // Parameters:
 // - sessionId: The target Session's ID

@@ -355,12 +355,7 @@ func (g *BasicWorkloadGenerator) GenerateTemplateWorkload(consumer domain.EventC
 
 	sequencer := NewCustomEventSequencer(consumer, 0, 60, g.atom)
 
-	var (
-		generatorFunc SequencerFunction
-		err           error
-	)
-
-	generatorFunc, err = ManySessionsManyTrainingEvents(workloadSessions)
+	generatorFunc, err := ManySessionsManyTrainingEvents(workloadSessions)
 
 	if err != nil {
 		g.logger.Error("Failed to apply template.", zap.Error(err))
@@ -368,7 +363,7 @@ func (g *BasicWorkloadGenerator) GenerateTemplateWorkload(consumer domain.EventC
 		return err
 	}
 
-	err = generatorFunc(sequencer)
+	err = generatorFunc(sequencer, g.logger)
 	if err != nil {
 		g.logger.Error("Error occurred while executing generator function for template-based workload.", zap.Error(err))
 		consumer.GetErrorChan() <- err

@@ -10,7 +10,7 @@ interface ClusterNode {
 }
 
 function GetNodeIdleResource(node: ClusterNode, resource: "CPU" | "GPU" | "vGPU" | "Memory"): number {
-  return node.CapacityResources[resource] - (node.AllocatedResources[resource] + node.PendingResources[resource]);
+  return node.CapacityResources[resource] - node.AllocatedResources[resource];
 }
 
 interface PodOrContainer {

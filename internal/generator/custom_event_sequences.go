@@ -3,8 +3,8 @@ package generator
 import (
 	"errors"
 	"fmt"
-
 	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
+	"go.uber.org/zap"
 )
 
 /*
@@ -17,9 +17,9 @@ var (
 	ErrInvalidConfiguration = errors.New("invalid configuration specified")
 )
 
-// SequencerFunctiondefines a function that, when called and passed a pointer to a CustomEventSequencer,
+// SequencerFunction defines a function that, when called and passed a pointer to a CustomEventSequencer,
 // will use the CustomEventSequencer API to create an executable workload trace.
-type SequencerFunction func(sequencer *CustomEventSequencer) error
+type SequencerFunction func(sequencer *CustomEventSequencer, logger *zap.Logger) error
 
 // SessionArguments is a utility/helper struct to specify arguments of a Session that should be registered with a CustomEventSequencer.
 type SessionArguments struct {
@@ -251,7 +251,7 @@ func SingleSessionSingleTraining(sessions []*domain.WorkloadTemplateSession) (Se
 		return nil, fmt.Errorf("%w: invalid training duration specified: %d ticks. Must be strictly greater than 0", ErrInvalidConfiguration, trainingEvent.DurationInTicks)
 	}
 
-	return func(sequencer *CustomEventSequencer) error {
+	return func(sequencer *CustomEventSequencer, log *zap.Logger) error {
 		sequencer.RegisterSession(session.GetId(), session.GetResourceRequest().Cpus, session.GetResourceRequest().MemoryMB, session.GetResourceRequest().Gpus, 0)
 
 		trainingEvent := session.GetTrainings()[0]
@@ -290,15 +290,25 @@ func ManySessionsManyTrainingEvents(sessions []*domain.WorkloadTemplateSession) 
 		}
 	}
 
-	return func(sequencer *CustomEventSequencer) error {
+	return func(sequencer *CustomEventSequencer, log *zap.Logger) error {
+		seenSessions := make(map[string]struct{})
+
 		for _, session := range sessions {
+			log.Debug("Adding events for Session.", zap.String("session-id", session.Id))
+			if _, ok := seenSessions[session.GetId()]; ok {
+				log.Error("We've already added events for Session.", zap.String("session-id", session.Id))
+				panic("Duplicate Session.")
+			}
+			seenSessions[session.GetId()] = struct{}{}
+
 			sequencer.RegisterSession(session.GetId(), session.GetResourceRequest().Cpus, session.GetResourceRequest().MemoryMB, session.GetResourceRequest().Gpus, 0)
 			sequencer.AddSessionStartedEvent(session.GetId(), session.GetStartTick(), 0, 0, 0, 1)
 
 			for _, trainingEvent := range session.GetTrainings() {
 				sequencer.AddTrainingEvent(session.GetId(), trainingEvent.StartTick, trainingEvent.DurationInTicks, trainingEvent.Millicpus, trainingEvent.MemUsageMB, trainingEvent.GpuUtil) // TODO: Fix GPU util/num GPU specified here.
-				sequencer.AddSessionTerminatedEvent(session.GetId(), session.GetStopTick())
 			}
+
+			sequencer.AddSessionTerminatedEvent(session.GetId(), session.GetStopTick())
 		}
 
 		sequencer.SubmitEvents(sequencer.eventConsumer.WorkloadEventGeneratorCompleteChan())
