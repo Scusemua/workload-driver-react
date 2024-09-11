@@ -205,9 +205,25 @@ export const NodeResourceView: React.FunctionComponent = () => {
                 </CardHeader>
                 <CardExpandableContent>
                     <CardBody>
-                        <Grid hasGutter>
-                            <NodeResourceUsageTable resource={'CPU'} />
-                        </Grid>
+                      <Grid hasGutter>
+                        <GridItem span={8} rowSpan={2}>
+                          <NodeResourceUsageTable resource={'CPU'} />
+                        </GridItem>
+                        <GridItem span={4} rowSpan={1}>
+                          <iframe
+                            src="http://localhost:3000/d-solo/ddx4gnyl0cmbka/distributed-cluster?orgId=1&refresh=5s&from=1726089465459&to=1726089765460&panelId=26"
+                            width="100%"
+                            height="50%"
+                          />
+                        </GridItem>
+                        <GridItem span={4} rowSpan={1}>
+                          <iframe
+                            src="http://localhost:3000/d-solo/ddx4gnyl0cmbka/distributed-cluster?orgId=1&refresh=5s&from=1726089479007&to=1726089779007&panelId=33"
+                            width="100%"
+                            height="50%"
+                          />
+                        </GridItem>
+                      </Grid>
                     </CardBody>
                 </CardExpandableContent>
             </Card>
@@ -231,9 +247,25 @@ export const NodeResourceView: React.FunctionComponent = () => {
                 </CardHeader>
                 <CardExpandableContent>
                     <CardBody>
-                        <Grid hasGutter>
-                            <NodeResourceUsageTable resource={'Memory'} />
-                        </Grid>
+                      <Grid hasGutter>
+                        <GridItem span={8} rowSpan={2}>
+                          <NodeResourceUsageTable resource={'Memory'} />
+                        </GridItem>
+                        <GridItem span={4} rowSpan={1}>
+                          <iframe
+                            src="http://localhost:3000/d-solo/ddx4gnyl0cmbka/distributed-cluster?orgId=1&refresh=5s&from=1726089410084&to=1726089710084&panelId=41"
+                            width="100%"
+                            height="50%"
+                          />
+                        </GridItem>
+                        <GridItem span={4} rowSpan={1}>
+                          <iframe
+                            src="http://localhost:3000/d-solo/ddx4gnyl0cmbka/distributed-cluster?orgId=1&refresh=5s&from=1726089442864&to=1726089742864&panelId=42"
+                            width="100%"
+                            height="50%"
+                          />
+                        </GridItem>
+                      </Grid>
                     </CardBody>
                 </CardExpandableContent>
             </Card>
@@ -263,7 +295,7 @@ export const NodeResourceView: React.FunctionComponent = () => {
                             </GridItem>
                             <GridItem span={4} rowSpan={1}>
                                 <iframe
-                                    src="http://localhost:3000/d-solo/ddx4gnyl0cmbka/distributed-cluster?orgId=1&refresh=5s&from=1726062572761&to=1726062872761&panelId=26"
+                                    src="http://localhost:3000/d-solo/ddx4gnyl0cmbka/distributed-cluster?orgId=1&refresh=5s&from=1726089366996&to=1726089666996&panelId=34"
                                     width="100%"
                                     height="50%"
                                 />
