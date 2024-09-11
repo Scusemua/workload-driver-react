@@ -183,6 +183,8 @@ export const NodeResourceView: React.FunctionComponent = () => {
     const [isVirtualGpuSectionExpanded, setIsVirtualGpuSectionExpanded] = React.useState<boolean>(false);
     const [isMemorySectionExpanded, setIsMemorySectionExpanded] = React.useState<boolean>(false);
 
+    const currentTime = React.useRef<number>(Date.now());
+
     return (
         <React.Fragment>
             <Card isCompact isPlain isExpanded={isCpuSectionExpanded}>
@@ -211,14 +213,14 @@ export const NodeResourceView: React.FunctionComponent = () => {
                         </GridItem>
                         <GridItem span={4} rowSpan={1}>
                           <iframe
-                            src="http://localhost:3000/d-solo/ddx4gnyl0cmbka/distributed-cluster?orgId=1&refresh=5s&from=1726089465459&to=1726089765460&panelId=26"
+                            src={`http://localhost:3000/d-solo/ddx4gnyl0cmbka/distributed-cluster?orgId=1&refresh=5s&from=${(currentTime.current ? currentTime.current : Date.now()) - 300000}&to=${(currentTime.current ? currentTime.current : Date.now())}&panelId=26`}
                             width="100%"
                             height="50%"
                           />
                         </GridItem>
                         <GridItem span={4} rowSpan={1}>
                           <iframe
-                            src="http://localhost:3000/d-solo/ddx4gnyl0cmbka/distributed-cluster?orgId=1&refresh=5s&from=1726089479007&to=1726089779007&panelId=33"
+                            src={`http://localhost:3000/d-solo/ddx4gnyl0cmbka/distributed-cluster?orgId=1&refresh=5s&from=${(currentTime.current ? currentTime.current : Date.now()) - 300000}&to=${(currentTime.current ? currentTime.current : Date.now())}&panelId=33`}
                             width="100%"
                             height="50%"
                           />
@@ -253,14 +255,14 @@ export const NodeResourceView: React.FunctionComponent = () => {
                         </GridItem>
                         <GridItem span={4} rowSpan={1}>
                           <iframe
-                            src="http://localhost:3000/d-solo/ddx4gnyl0cmbka/distributed-cluster?orgId=1&refresh=5s&from=1726089410084&to=1726089710084&panelId=41"
+                            src={`http://localhost:3000/d-solo/ddx4gnyl0cmbka/distributed-cluster?orgId=1&refresh=5s&from=${(currentTime.current ? currentTime.current : Date.now()) - 300000}&to=${(currentTime.current ? currentTime.current : Date.now())}&panelId=41`}
                             width="100%"
                             height="50%"
                           />
                         </GridItem>
                         <GridItem span={4} rowSpan={1}>
                           <iframe
-                            src="http://localhost:3000/d-solo/ddx4gnyl0cmbka/distributed-cluster?orgId=1&refresh=5s&from=1726089442864&to=1726089742864&panelId=42"
+                            src={`http://localhost:3000/d-solo/ddx4gnyl0cmbka/distributed-cluster?orgId=1&refresh=5s&from=${(currentTime.current ? currentTime.current : Date.now()) - 300000}&to=${(currentTime.current ? currentTime.current : Date.now())}&panelId=42`}
                             width="100%"
                             height="50%"
                           />
@@ -295,14 +297,14 @@ export const NodeResourceView: React.FunctionComponent = () => {
                             </GridItem>
                             <GridItem span={4} rowSpan={1}>
                                 <iframe
-                                    src="http://localhost:3000/d-solo/ddx4gnyl0cmbka/distributed-cluster?orgId=1&refresh=5s&from=1726089366996&to=1726089666996&panelId=34"
+                                    src={`http://localhost:3000/d-solo/ddx4gnyl0cmbka/distributed-cluster?orgId=1&refresh=5s&from=${(currentTime.current ? currentTime.current : Date.now()) - 300000}&to=${(currentTime.current ? currentTime.current : Date.now())}&panelId=34`}
                                     width="100%"
                                     height="50%"
                                 />
                             </GridItem>
                             <GridItem span={4} rowSpan={1}>
                                 <iframe
-                                    src="http://localhost:3000/d-solo/ddx4gnyl0cmbka/distributed-cluster?orgId=1&refresh=5s&from=1726062658368&to=1726062958368&panelId=19"
+                                    src={`http://localhost:3000/d-solo/ddx4gnyl0cmbka/distributed-cluster?orgId=1&refresh=5s&from=${(currentTime.current ? currentTime.current : Date.now()) - 300000}&to=${(currentTime.current ? currentTime.current : Date.now())}&panelId=19`}
                                     width="100%"
                                     height="50%"
                                     />
