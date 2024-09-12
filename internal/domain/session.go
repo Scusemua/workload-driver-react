@@ -1,6 +1,8 @@
 package domain
 
 import (
+	"errors"
+	"fmt"
 	"time"
 )
 
@@ -10,6 +12,10 @@ const (
 	SessionTraining      SessionState = "training"       // The session is actively training.
 	SessionStopped       SessionState = "terminated"     // The session has been terminated (without an error).
 	SessionErred         SessionState = "erred"          // An error occurred, forcing the session to terminate.
+)
+
+var (
+	ErrIllegalStateTransition = errors.New("illegal state transition")
 )
 
 type SessionMetadata interface {
@@ -34,13 +40,14 @@ type WorkloadSession interface {
 	GetTrainingsCompleted() int
 	GetState() SessionState
 	GetCreatedAt() time.Time
+	GetTrainingStartedAt() time.Time
 	GetTrainings() []*TrainingEvent
 	GetStderrIoPubMessages() []string
 	GetStdoutIoPubMessages() []string
 	AddStderrIoPubMessage(message string)
 	AddStdoutIoPubMessage(message string)
 
-	SetState(SessionState)
+	SetState(SessionState) error
 	GetAndIncrementTrainingsCompleted() int
 }
 
@@ -52,6 +59,7 @@ type BasicWorkloadSession struct {
 	TrainingsCompleted  int              `json:"trainings_completed"`
 	State               SessionState     `json:"state"`
 	CreatedAt           time.Time        `json:"-"`
+	TrainingStartedAt   time.Time        `json:"-"`
 	Meta                SessionMetadata  `json:"-"`
 	TrainingEvents      []*TrainingEvent `json:"trainings"`
 	StderrIoPubMessages []string         `json:"stderr_io_pub_messages"`
@@ -95,8 +103,29 @@ func (s *BasicWorkloadSession) GetState() SessionState {
 	return s.State
 }
 
-func (s *BasicWorkloadSession) SetState(state SessionState) {
-	s.State = state
+func (s *BasicWorkloadSession) SetState(targetState SessionState) error {
+	if s.State == targetState {
+		return fmt.Errorf("%w: attempting to transition targetState to targetState it is already in (\"%s\")",
+			ErrIllegalStateTransition, s.State)
+	}
+
+	if s.State == SessionStopped || s.State == SessionErred {
+		return fmt.Errorf("%w: cannot transition from targetState \"%s\" to targetState \"%s\"; session is no longer running",
+			ErrIllegalStateTransition, s.State, targetState)
+	}
+
+	s.State = targetState
+
+	if targetState == SessionTraining {
+		s.TrainingStartedAt = time.Now()
+	}
+
+	return nil
+}
+
+// GetTrainingStartedAt returns the time.Time at which the Session last started training.
+func (s *BasicWorkloadSession) GetTrainingStartedAt() time.Time {
+	return s.TrainingStartedAt
 }
 
 func (s *BasicWorkloadSession) GetCreatedAt() time.Time {
@@ -134,10 +163,10 @@ type WorkloadTemplateSession struct {
 }
 
 func NewWorkloadTemplateSession(id string, meta SessionMetadata, resourceRequest *ResourceRequest, createdAtTime time.Time, startTick int, stopTick int) WorkloadTemplateSession {
-	workload_session := newWorkloadSession(id, meta, resourceRequest, createdAtTime)
+	workloadSession := newWorkloadSession(id, meta, resourceRequest, createdAtTime)
 
 	return WorkloadTemplateSession{
-		BasicWorkloadSession: workload_session,
+		BasicWorkloadSession: workloadSession,
 		StartTick:            startTick,
 		StopTick:             stopTick,
 		Trainings:            make([]*TrainingEvent, 0),

@@ -1,36 +1,37 @@
 package server
 
 import (
-	"bufio"
-	"context"
-	"encoding/json"
-	"errors"
-	"fmt"
-	"io"
-	"log"
-	"net/http"
-	"net/url"
-	"path"
-	"sync"
-	"time"
+  "bufio"
+  "context"
+  "encoding/json"
+  "errors"
+  "fmt"
+  "io"
+  "log"
+  "net/http"
+  "net/url"
+  "path"
+  "sync"
+  "time"
 
-	"github.com/gin-gonic/contrib/cors"
-	"github.com/gin-gonic/contrib/static"
-	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
-	"github.com/gorilla/websocket"
-	"github.com/koding/websocketproxy"
-	"github.com/mattn/go-colorable"
-	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
-	gateway "github.com/scusemua/workload-driver-react/m/v2/internal/server/api/proto"
-	"github.com/scusemua/workload-driver-react/m/v2/internal/server/concurrent_websocket"
-	"github.com/scusemua/workload-driver-react/m/v2/internal/server/handlers"
-	"github.com/scusemua/workload-driver-react/m/v2/internal/server/proxy"
-	"github.com/scusemua/workload-driver-react/m/v2/internal/server/workload"
-	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
+  "github.com/gin-gonic/contrib/cors"
+  "github.com/gin-gonic/contrib/static"
+  "github.com/gin-gonic/gin"
+  "github.com/google/uuid"
+  "github.com/gorilla/websocket"
+  "github.com/koding/websocketproxy"
+  "github.com/mattn/go-colorable"
+  "github.com/prometheus/client_golang/prometheus/promhttp"
+  "github.com/scusemua/workload-driver-react/m/v2/internal/domain"
+  gateway "github.com/scusemua/workload-driver-react/m/v2/internal/server/api/proto"
+  "github.com/scusemua/workload-driver-react/m/v2/internal/server/concurrent_websocket"
+  "github.com/scusemua/workload-driver-react/m/v2/internal/server/handlers"
+  "github.com/scusemua/workload-driver-react/m/v2/internal/server/proxy"
+  "github.com/scusemua/workload-driver-react/m/v2/internal/server/workload"
+  "go.uber.org/zap"
+  "go.uber.org/zap/zapcore"
 
-	"github.com/gin-contrib/pprof"
+  "github.com/gin-contrib/pprof"
 )
 
 var upgrader = websocket.Upgrader{
@@ -46,6 +47,12 @@ type serverImpl struct {
 	app              *proxy.JupyterProxyRouter
 	engine           *gin.Engine
 	gatewayRpcClient *handlers.ClusterDashboardHandler
+
+	// prometheusMetrics is a wrapper around the Prometheus metrics associated with workloads and the server itself.
+	//prometheusMetrics *metrics.PrometheusMetricsWrapper
+
+	// Handler returned by promhttp.Handler to serve Prometheus metrics.
+	prometheusHandler http.Handler
 
 	// workloadManager is responsible for managing workloads submitted to the server for execution/orchestration.
 	workloadManager domain.WorkloadManager
@@ -85,6 +92,7 @@ func NewServer(opts *domain.Configuration) domain.Server {
 		generalWebsockets:     make(map[string]domain.ConcurrentWebSocket),
 		getLogsResponseBodies: make(map[string]io.ReadCloser),
 		workloadManager:       workload.NewWorkloadManager(opts, &atom),
+		prometheusHandler:     promhttp.Handler(),
 	}
 
 	zapConfig := zap.NewDevelopmentEncoderConfig()
@@ -97,6 +105,12 @@ func NewServer(opts *domain.Configuration) domain.Server {
 
 	s.logger = logger
 	s.sugaredLogger = logger.Sugar()
+
+	//prometheusMetrics, errs := metrics.NewPrometheusMetricsWrapper(&atom)
+	//if errs != nil && len(errs) > 0 {
+	//	s.logger.Error("Failed to register one or more Prometheus metrics.", zap.Errors("errors", errs))
+	//}
+	//s.prometheusMetrics = prometheusMetrics
 
 	if err := s.setupRoutes(); err != nil {
 		panic(err)
@@ -140,8 +154,8 @@ func (s *serverImpl) ErrorHandlerMiddleware(c *gin.Context) {
 
 func (s *serverImpl) setupRoutes() error {
 	s.app = &proxy.JupyterProxyRouter{
-		ContextPath:  domain.JUPYTER_GROUP_ENDPOINT,
-		Start:        len(domain.JUPYTER_GROUP_ENDPOINT),
+		ContextPath:  domain.JupyterGroupEndpoint,
+		Start:        len(domain.JupyterGroupEndpoint),
 		Config:       s.opts,
 		SpoofJupyter: s.opts.SpoofKernelSpecs,
 		Engine:       s.engine,
@@ -162,9 +176,9 @@ func (s *serverImpl) setupRoutes() error {
 	////////////////////////
 	// Websocket Handlers //
 	////////////////////////
-	s.app.GET(domain.WORKLOAD_ENDPOINT, s.workloadManager.GetWorkloadWebsocketHandler())
-	s.app.GET(domain.LOGS_ENDPOINT, s.serveLogWebsocket)
-	s.app.GET(domain.GENERAL_WEBSOCKET_ENDPOINT, s.serveGeneralWebsocket)
+	s.app.GET(domain.WorkloadEndpoint, s.workloadManager.GetWorkloadWebsocketHandler())
+	s.app.GET(domain.LogsEndpoint, s.serveLogWebsocket)
+	s.app.GET(domain.GeneralWebsocketEndpoint, s.serveGeneralWebsocket)
 
 	// TODO: Getting nil pointer exception because the callback occurs in the constructor, so s.gatewayRpcClient is still nil.
 	s.gatewayRpcClient = handlers.NewClusterDashboardHandler(s.opts, true, s.notifyFrontend, s.handleRpcRegistrationComplete)
@@ -176,62 +190,67 @@ func (s *serverImpl) setupRoutes() error {
 	///////////////////////////////
 	// Standard/Primary Handlers //
 	///////////////////////////////
-	apiGroup := s.app.Group(domain.BASE_API_GROUP_ENDPOINT)
+	apiGroup := s.app.Group(domain.BaseApiGroupEndpoint)
 	{
 		// Used internally (by the frontend) to get the current kubernetes nodes from the backend  (i.e., the backend).
-		apiGroup.GET(domain.NODES_ENDPOINT, s.nodeHandler.HandleRequest)
+		apiGroup.GET(domain.NodesEndpoint, s.nodeHandler.HandleRequest)
 
 		// Enable/disable Kubernetes nodes.
-		apiGroup.PATCH(domain.NODES_ENDPOINT, s.nodeHandler.HandlePatchRequest)
+		apiGroup.PATCH(domain.NodesEndpoint, s.nodeHandler.HandlePatchRequest)
 
 		// Adjust vGPUs available on a particular Kubernetes node.
-		apiGroup.PATCH(domain.ADJUST_VGPUS_ENDPOINT, handlers.NewAdjustVirtualGpusHandler(s.opts, s.gatewayRpcClient).HandlePatchRequest)
+		apiGroup.PATCH(domain.AdjustVgpusEndpoint, handlers.NewAdjustVirtualGpusHandler(s.opts, s.gatewayRpcClient).HandlePatchRequest)
 
 		// Used internally (by the frontend) to get the system config from the backend  (i.e., the backend).
-		apiGroup.GET(domain.SYSTEM_CONFIG_ENDPOINT, handlers.NewConfigHttpHandler(s.opts).HandleRequest)
+		apiGroup.GET(domain.SystemConfigEndpoint, handlers.NewConfigHttpHandler(s.opts).HandleRequest)
 
 		// Used internally (by the frontend) to get the current set of Jupyter kernels from us (i.e., the backend).
-		apiGroup.GET(domain.GET_KERNELS_ENDPOINT, handlers.NewKernelHttpHandler(s.opts, s.gatewayRpcClient).HandleRequest)
+		apiGroup.GET(domain.GetKernelsEndpoint, handlers.NewKernelHttpHandler(s.opts, s.gatewayRpcClient).HandleRequest)
 
 		// Used internally (by the frontend) to get the list of available workload presets from the backend.
-		apiGroup.GET(domain.WORKLOAD_PRESET_ENDPOINT, handlers.NewWorkloadPresetHttpHandler(s.opts).HandleRequest)
+		apiGroup.GET(domain.WorkloadPresetEndpoint, handlers.NewWorkloadPresetHttpHandler(s.opts).HandleRequest)
 
 		// Used internally (by the frontend) to trigger kernel replica migrations.
-		apiGroup.POST(domain.MIGRATION_ENDPOINT, handlers.NewMigrationHttpHandler(s.opts, s.gatewayRpcClient).HandleRequest)
+		apiGroup.POST(domain.MigrationEndpoint, handlers.NewMigrationHttpHandler(s.opts, s.gatewayRpcClient).HandleRequest)
 
 		// Used to stream logs from Kubernetes.
-		apiGroup.GET(fmt.Sprintf("%s/pods/:pod", domain.LOGS_ENDPOINT), handlers.NewLogHttpHandler(s.opts).HandleRequest)
+		apiGroup.GET(fmt.Sprintf("%s/pods/:pod", domain.LogsEndpoint), handlers.NewLogHttpHandler(s.opts).HandleRequest)
 
 		// Queried by Grafana to query for values used to create Grafana variables that are then used to
 		// dynamically create a Grafana Dashboard.
 		apiGroup.GET(path.Join(domain.VariablesEndpoint, ":variable_name"), handlers.NewVariablesHttpHandler(s.opts, s.gatewayRpcClient).HandleRequest)
 
 		// Used to tell a kernel to stop training.
-		apiGroup.POST(domain.STOP_TRAINING_ENDPOINT, handlers.NewStopTrainingHandler(s.opts, s.atom).HandleRequest)
+		apiGroup.POST(domain.StopTrainingEndpoint, handlers.NewStopTrainingHandler(s.opts, s.atom).HandleRequest)
 	}
 
 	///////////////////////////
 	// Debugging and Testing //
 	///////////////////////////
 	{
-		apiGroup.POST(domain.YIELD_NEXT_REQUEST_ENDPOINT, handlers.NewYieldNextExecuteHandler(s.opts, s.gatewayRpcClient).HandleRequest)
+		apiGroup.POST(domain.YieldNextRequestEndpoint, handlers.NewYieldNextExecuteHandler(s.opts, s.gatewayRpcClient).HandleRequest)
 
-		apiGroup.POST(domain.PANIC_ENDPOINT, handlers.NewPanicHttpHandler(s.opts, s.gatewayRpcClient).HandleRequest)
+		apiGroup.POST(domain.PanicEndpoint, handlers.NewPanicHttpHandler(s.opts, s.gatewayRpcClient).HandleRequest)
 
-		apiGroup.POST(domain.SPOOF_NOTIFICATIONS_ENDPOINT, s.handleSpoofedNotifications)
+		apiGroup.POST(domain.SpoofNotificationsEndpoint, s.handleSpoofedNotifications)
 
-		apiGroup.POST(domain.SPOOF_ERROR_ENDPOINT, s.handleSpoofedError)
+		apiGroup.POST(domain.SpoofErrorEndpoint, s.handleSpoofedError)
 
-		apiGroup.POST(domain.PING_KERNEL_ENDPOINT, handlers.NewPingKernelHttpHandler(s.opts, s.gatewayRpcClient).HandleRequest)
+		apiGroup.POST(domain.PingKernelEndpoint, handlers.NewPingKernelHttpHandler(s.opts, s.gatewayRpcClient).HandleRequest)
 	}
+
+	////////////////////////
+	// Prometheus metrics //
+	////////////////////////
+	apiGroup.GET(domain.PrometheusEndpoint, s.HandlePrometheusRequest)
 
 	/////////////////////
 	// Jupyter Handler // This isn't really used anymore...
 	/////////////////////
 	if s.opts.SpoofKernelSpecs {
-		jupyterGroup := s.app.Group(domain.JUPYTER_GROUP_ENDPOINT)
+		jupyterGroup := s.app.Group(domain.JupyterGroupEndpoint)
 		{
-			jupyterGroup.GET(domain.BASE_API_GROUP_ENDPOINT+domain.KERNEL_SPEC_ENDPOINT, handlers.NewJupyterAPIHandler(s.opts).HandleGetKernelSpecRequest)
+			jupyterGroup.GET(domain.BaseApiGroupEndpoint+domain.KernelSpecEndpoint, handlers.NewJupyterAPIHandler(s.opts).HandleGetKernelSpecRequest)
 		}
 	}
 
@@ -240,6 +259,11 @@ func (s *serverImpl) setupRoutes() error {
 	s.app.Use(s.ErrorHandlerMiddleware)
 
 	return nil
+}
+
+// HandlePrometheusRequest passes the request directly to the http.Handler returned by promhttp.Handler.
+func (s *serverImpl) HandlePrometheusRequest(c *gin.Context) {
+	s.prometheusHandler.ServeHTTP(c.Writer, c.Request)
 }
 
 func (s *serverImpl) notifyFrontend(notification *gateway.Notification) {

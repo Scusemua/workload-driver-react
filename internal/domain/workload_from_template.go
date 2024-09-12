@@ -37,7 +37,7 @@ func (w *WorkloadFromTemplate) SetSource(source interface{}) {
 	w.SetSessions(sessions)
 }
 
-// Called when a Session is created for/in the Workload.
+// SessionCreated is called when a Session is created for/in the Workload.
 // Just updates some internal metrics.
 func (w *WorkloadFromTemplate) SessionCreated(sessionId string) {
 	w.NumActiveSessions += 1
@@ -45,45 +45,51 @@ func (w *WorkloadFromTemplate) SessionCreated(sessionId string) {
 
 	val, ok := w.sessionsMap.Get(sessionId)
 	if !ok {
-		w.logger.Error("Failed to find newly-created session in session map.", zap.String("session-id", sessionId))
+		w.logger.Error("Failed to find newly-created session in session map.", zap.String("session_id", sessionId))
 		return
 	}
 
 	session := val.(WorkloadSession)
-	session.SetState(SessionIdle)
+	if err := session.SetState(SessionIdle); err != nil {
+		w.logger.Error("Failed to set session state.", zap.String("session_id", sessionId), zap.Error(err))
+	}
 }
 
-// Called when a Session is stopped for/in the Workload.
+// SessionStopped is called when a Session is stopped for/in the Workload.
 // Just updates some internal metrics.
 func (w *WorkloadFromTemplate) SessionStopped(sessionId string) {
 	w.NumActiveSessions -= 1
 
 	val, ok := w.sessionsMap.Get(sessionId)
 	if !ok {
-		w.logger.Error("Failed to find freshly-terminated session in session map.", zap.String("session-id", sessionId))
+		w.logger.Error("Failed to find freshly-terminated session in session map.", zap.String("session_id", sessionId))
 		return
 	}
 
 	session := val.(WorkloadSession)
-	session.SetState(SessionStopped)
+	if err := session.SetState(SessionStopped); err != nil {
+		w.logger.Error("Failed to set session state.", zap.String("session_id", sessionId), zap.Error(err))
+	}
 }
 
-// Called when a training starts during/in the workload.
+// TrainingStarted is called when a training starts during/in the workload.
 // Just updates some internal metrics.
 func (w *WorkloadFromTemplate) TrainingStarted(sessionId string) {
 	w.NumActiveTrainings += 1
 
 	val, ok := w.sessionsMap.Get(sessionId)
 	if !ok {
-		w.logger.Error("Failed to find now-training session in session map.", zap.String("session-id", sessionId))
+		w.logger.Error("Failed to find now-training session in session map.", zap.String("session_id", sessionId))
 		return
 	}
 
 	session := val.(WorkloadSession)
-	session.SetState(SessionTraining)
+	if err := session.SetState(SessionTraining); err != nil {
+		w.logger.Error("Failed to set session state.", zap.String("session_id", sessionId), zap.Error(err))
+	}
 }
 
-// Called when a training stops during/in the workload.
+// TrainingStopped is called when a training stops during/in the workload.
 // Just updates some internal metrics.
 func (w *WorkloadFromTemplate) TrainingStopped(sessionId string) {
 	w.NumTasksExecuted += 1
@@ -91,12 +97,14 @@ func (w *WorkloadFromTemplate) TrainingStopped(sessionId string) {
 
 	val, ok := w.sessionsMap.Get(sessionId)
 	if !ok {
-		w.logger.Error("Failed to find now-idle session in session map.", zap.String("session-id", sessionId))
+		w.logger.Error("Failed to find now-idle session in session map.", zap.String("session_id", sessionId))
 		return
 	}
 
 	session := val.(WorkloadSession)
-	session.SetState(SessionIdle)
+	if err := session.SetState(SessionIdle); err != nil {
+		w.logger.Error("Failed to set session state.", zap.String("session_id", sessionId), zap.Error(err))
+	}
 	session.GetAndIncrementTrainingsCompleted()
 }
 
@@ -117,13 +125,13 @@ func NewWorkloadFromTemplate(baseWorkload Workload, sourceSessions []*WorkloadTe
 		panic("The provided workload is not a base workload, or it is not a pointer type.")
 	}
 
-	workload_from_template := &WorkloadFromTemplate{
+	workloadFromTemplate := &WorkloadFromTemplate{
 		workloadImpl: baseWorkloadImpl,
 		Sessions:     sourceSessions,
 	}
 
 	baseWorkloadImpl.WorkloadType = TemplateWorkload
-	baseWorkloadImpl.workload = workload_from_template
+	baseWorkloadImpl.workload = workloadFromTemplate
 
-	return workload_from_template
+	return workloadFromTemplate
 }

@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/scusemua/workload-driver-react/m/v2/internal/server/metrics"
 	"math/rand"
 	"net/http"
 	"reflect"
@@ -137,10 +139,12 @@ type BasicWorkloadDriver struct {
 	workloadPresets                    map[string]*domain.WorkloadPreset     // All the available workload presets.
 	workloadRegistrationRequest        *domain.WorkloadRegistrationRequest   // The request that registered the workload that is being driven by this driver.
 	workloadSessions                   []*domain.WorkloadTemplateSession     // The template used by the associated workload. Will only be non-nil if the associated workload is a template-based workload, rather than a preset-based workload.
+	metricsWrapper                     *metrics.PrometheusMetricsWrapper     // metricsWrapper is a simple struct that wraps various PrometheusMetrics, many or all of which are related to workloads.
 }
 
-func NewWorkloadDriver(opts *domain.Configuration, performClockTicks bool, timescaleAdjustmentFactor float64, websocket domain.ConcurrentWebSocket, atom *zap.AtomicLevel) *BasicWorkloadDriver {
-	// atom := zap.NewAtomicLevelAt(zapcore.DebugLevel)
+func NewWorkloadDriver(opts *domain.Configuration, performClockTicks bool, timescaleAdjustmentFactor float64,
+	websocket domain.ConcurrentWebSocket, atom *zap.AtomicLevel, metricsWrapper *metrics.PrometheusMetricsWrapper) *BasicWorkloadDriver {
+
 	driver := &BasicWorkloadDriver{
 		id:                                 GenerateWorkloadID(8),
 		eventChan:                          make(chan domain.Event),
@@ -165,6 +169,7 @@ func NewWorkloadDriver(opts *domain.Configuration, performClockTicks bool, times
 		timescaleAdjustmentFactor:          timescaleAdjustmentFactor,
 		currentTick:                        clock.NewSimulationClock(),
 		clockTime:                          clock.NewSimulationClock(),
+		metricsWrapper:                     metricsWrapper,
 	}
 
 	// Create the ticker for the workload.
@@ -1000,7 +1005,10 @@ func (d *BasicWorkloadDriver) NewSession(id string, meta domain.SessionMetadata,
 }
 
 // GetSession gets and returns the Session identified by the given ID, if one exists. Otherwise, return nil.
-// If the caller is attempting to retrieve a Session that once existed but has since been terminated, then this will return nil.
+// If the caller is attempting to retrieve a Session that once existed but has since been terminated, then
+// this will return nil.
+//
+// id should be the internal id of the session.
 func (d *BasicWorkloadDriver) GetSession(id string) domain.WorkloadSession {
 	session, ok := d.sessions.Get(id)
 
@@ -1169,9 +1177,17 @@ func (d *BasicWorkloadDriver) handleEvent(evt domain.Event) error {
 			d.logger.Debug("Successfully stopped session.", zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
 		}
 
-		//d.mu.Lock()
-		//delete(d.seenSessions, internalSessionId)
-		//d.mu.Unlock()
+		// Attempt to update the Prometheus metrics for Session lifetime duration (in seconds).
+		internalSessionId := d.getInternalSessionId(traceSessionId)
+		session := d.GetSession(internalSessionId)
+		if session == nil {
+			d.logger.Error("Could not find WorkloadSession with specified ID.", zap.String("session_id", internalSessionId))
+		} else {
+			sessionLifetimeDuration := time.Since(session.GetCreatedAt())
+			metrics.PrometheusMetricsWrapperInstance.WorkloadSessionLifetimeSeconds.
+				With(prometheus.Labels{"workload_id": d.workload.GetId()}).
+				Observe(sessionLifetimeDuration.Seconds())
+		}
 
 		d.workload.SessionStopped(traceSessionId)
 		d.logger.Debug("Handled SessionStopped event.", zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
@@ -1217,7 +1233,7 @@ func (d *BasicWorkloadDriver) provisionSession(sessionId string, meta domain.Ses
 	//
 	// The return value is not really used.
 	ioPubHandler := func(conn jupyter.KernelConnection, kernelMessage jupyter.KernelMessage) interface{} {
-		d.sugaredLogger.Debugf("Handling IOPub message targeting session \"%s\", kernel \"%s\".", sessionId, conn.KernelId())
+		//d.sugaredLogger.Debugf("Handling IOPub message targeting session \"%s\", kernel \"%s\".", sessionId, conn.KernelId())
 
 		// Parse the IOPub message.
 		// If it is a stream message, this will return a *parsedIoPubMessage variable.

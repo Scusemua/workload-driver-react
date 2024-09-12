@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"time"
 
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -129,6 +130,9 @@ type SessionConnection struct {
 
 	jupyterServerAddress string
 
+	// createdAt is the time at which the SessionConnection was created.
+	createdAt time.Time
+
 	logger        *zap.Logger
 	sugaredLogger *zap.SugaredLogger
 	atom          *zap.AtomicLevel
@@ -142,6 +146,7 @@ func NewSessionConnection(model *jupyterSession, username string, jupyterServerA
 		model:                model,
 		jupyterServerAddress: jupyterServerAddress,
 		atom:                 atom,
+		createdAt:            time.Now(),
 	}
 
 	core := zapcore.NewCore(zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()), os.Stdout, atom)
@@ -154,7 +159,7 @@ func NewSessionConnection(model *jupyterSession, username string, jupyterServerA
 		return nil, err
 	}
 
-	conn.logger.Debug("Successfully connected to kernel (as part of a SessionConnection).", zap.String("kernel-id", model.JupyterKernel.Id), zap.String("session-id", model.JupyterSessionId))
+	conn.logger.Debug("Successfully connected to kernel (as part of a SessionConnection).", zap.String("kernel-id", model.JupyterKernel.Id), zap.String("session_id", model.JupyterSessionId))
 
 	return conn, err
 }

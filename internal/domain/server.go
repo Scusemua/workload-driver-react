@@ -7,62 +7,60 @@ import (
 )
 
 const (
-	// BASE_API_GROUP_ENDPOINT is the Base of the API endpoint.
-	BASE_API_GROUP_ENDPOINT = "/api"
+	// BaseApiGroupEndpoint is the Base of the API endpoint.
+	BaseApiGroupEndpoint = "/api"
 
-	// TEST_API_GROUP_ENDPOINT is used for testing/debugging.
-	TEST_API_GROUP_ENDPOINT = "/testing"
+	// NodesEndpoint is used internally (by the frontend) to get the current kubernetes nodes from the backend.
+	NodesEndpoint = "/nodes"
 
-	// NODES_ENDPOINT is used internally (by the frontend) to get the current kubernetes nodes from the backend.
-	NODES_ENDPOINT = "/nodes"
+	// AdjustVgpusEndpoint is used internally (by the frontend) to adjust the vGPUs offered by a particular kubernetes nodes.
+	AdjustVgpusEndpoint = "/vgpus"
 
-	// ADJUST_VGPUS_ENDPOINT is used internally (by the frontend) to adjust the vGPUs offered by a particular kubernetes nodes.
-	ADJUST_VGPUS_ENDPOINT = "/vgpus"
+	// SystemConfigEndpoint is used internally (by the frontend) to get the system config from the backend.
+	SystemConfigEndpoint = "/config"
 
-	// SYSTEM_CONFIG_ENDPOINT is used internally (by the frontend) to get the system config from the backend.
-	SYSTEM_CONFIG_ENDPOINT = "/config"
+	// MigrationEndpoint is used internally (by the frontend) to trigger kernel replica migrations.
+	MigrationEndpoint = "/migrate"
 
-	// MIGRATION_ENDPOINT is used internally (by the frontend) to trigger kernel replica migrations.
-	MIGRATION_ENDPOINT = "/migrate"
+	// LogsEndpoint is used to stream logs to the frontend from Kubernetes.
+	LogsEndpoint = "/logs"
 
-	// LOGS_ENDPOINT is used to stream logs to the frontend from Kubernetes.
-	LOGS_ENDPOINT = "/logs"
+	// WorkloadEndpoint is used internally (by the frontend) to trigger the start of a new workload or retrieve the list of workloads.
+	WorkloadEndpoint = "/workload"
 
-	// WORKLOAD_ENDPOINT is used internally (by the frontend) to trigger the start of a new workload or retrieve the list of workloads.
-	WORKLOAD_ENDPOINT = "/workload"
+	// GeneralWebsocketEndpoint is used for WebSocket-based communication between the frontend and backend that is unrelated to workloads or logs.
+	GeneralWebsocketEndpoint = "/ws"
 
-	// GENERAL_WEBSOCKET_ENDPOINT is used for WebSocket-based communication between the frontend and backend that is unrelated to workloads or logs.
-	GENERAL_WEBSOCKET_ENDPOINT = "/ws"
+	// KernelSpecEndpoint is used internally (by the frontend) to get the current set of Jupyter kernel specs from the backend.
+	KernelSpecEndpoint = "/kernelspecs"
 
-	// KERNEL_SPEC_ENDPOINT is used internally (by the frontend) to get the current set of Jupyter kernel specs from the backend.
-	KERNEL_SPEC_ENDPOINT = "/kernelspecs"
+	// GetKernelsEndpoint is used internally (by the frontend) to get the current set of Jupyter kernels from the backend.
+	GetKernelsEndpoint = "/get-kernels"
 
-	// GET_KERNELS_ENDPOINT is used internally (by the frontend) to get the current set of Jupyter kernels from the backend.
-	GET_KERNELS_ENDPOINT = "/get-kernels"
+	// PrometheusEndpoint is used by Prometheus to scrape metrics.
+	PrometheusEndpoint = "/prometheus"
 
-	// WORKLOAD_PRESET_ENDPOINT is used internally (by the frontend) to get the list of available workload presets from the backend.
-	WORKLOAD_PRESET_ENDPOINT = "/workload-presets"
+	// WorkloadPresetEndpoint is used internally (by the frontend) to get the list of available workload presets from the backend.
+	WorkloadPresetEndpoint = "/workload-presets"
 
-	// PANIC_ENDPOINT is used to cause the Cluster Gateway to panic. used for debugging/testing.
-	PANIC_ENDPOINT = "/panic"
+	// PanicEndpoint is used to cause the Cluster Gateway to panic. used for debugging/testing.
+	PanicEndpoint = "/panic"
 
-	// STOP_TRAINING_ENDPOINT is used to tell a kernel to stop training.
-	STOP_TRAINING_ENDPOINT = "/stop-training"
+	// StopTrainingEndpoint is used to tell a kernel to stop training.
+	StopTrainingEndpoint = "/stop-training"
 
-	// YIELD_NEXT_REQUEST_ENDPOINT is used to specify that the next execution request served by a particular kernel should be yielded.
-	YIELD_NEXT_REQUEST_ENDPOINT = "/yield-next-execute-request"
+	// YieldNextRequestEndpoint is used to specify that the next execution request served by a particular kernel should be yielded.
+	YieldNextRequestEndpoint = "/yield-next-execute-request"
 
-	JUPYTER_GROUP_ENDPOINT        = "/jupyter"
-	JUPYTER_START_KERNEL_ENDPOINT = "/start"
-	JUPYTER_STOP_KERNEL_ENDPOINT  = "/stop"
+	JupyterGroupEndpoint = "/jupyter"
 
-	// SPOOF_ERROR_ENDPOINT causes the server to broadcast a fake error via websockets for debugging/testing purposes.
-	SPOOF_ERROR_ENDPOINT = "/spoof-error"
+	// SpoofErrorEndpoint causes the server to broadcast a fake error via websockets for debugging/testing purposes.
+	SpoofErrorEndpoint = "/spoof-error"
 
-	// SPOOF_NOTIFICATIONS_ENDPOINT is used for testing notifications sent from the Cluster to the Dashboard
-	SPOOF_NOTIFICATIONS_ENDPOINT = "/spoof-notifications"
+	// SpoofNotificationsEndpoint is used for testing notifications sent from the Cluster to the Dashboard
+	SpoofNotificationsEndpoint = "/spoof-notifications"
 
-	PING_KERNEL_ENDPOINT = "/ping-kernel"
+	PingKernelEndpoint = "/ping-kernel"
 
 	// VariablesEndpoint is queried by Grafana to query for values used to create Grafana variables that are then used to
 	// dynamically create a Grafana Dashboard.

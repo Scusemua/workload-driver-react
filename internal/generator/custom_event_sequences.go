@@ -294,9 +294,9 @@ func ManySessionsManyTrainingEvents(sessions []*domain.WorkloadTemplateSession) 
 		seenSessions := make(map[string]struct{})
 
 		for _, session := range sessions {
-			log.Debug("Adding events for Session.", zap.String("session-id", session.Id))
+			log.Debug("Adding events for Session.", zap.String("session_id", session.Id))
 			if _, ok := seenSessions[session.GetId()]; ok {
-				log.Error("We've already added events for Session.", zap.String("session-id", session.Id))
+				log.Error("We've already added events for Session.", zap.String("session_id", session.Id))
 				panic("Duplicate Session.")
 			}
 			seenSessions[session.GetId()] = struct{}{}

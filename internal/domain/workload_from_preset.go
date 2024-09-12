@@ -28,7 +28,7 @@ func (w *WorkloadFromPreset) SetSource(source interface{}) {
 	w.workloadSource = preset
 }
 
-// Called when a Session is created for/in the Workload.
+// SessionCreated is called when a Session is created for/in the Workload.
 // Just updates some internal metrics.
 func (w *WorkloadFromPreset) SessionCreated(sessionId string) {
 	w.NumActiveSessions += 1
@@ -38,7 +38,7 @@ func (w *WorkloadFromPreset) SessionCreated(sessionId string) {
 	panic("Not yet supported.")
 }
 
-// Called when a Session is stopped for/in the Workload.
+// SessionStopped is called when a Session is stopped for/in the Workload.
 // Just updates some internal metrics.
 func (w *WorkloadFromPreset) SessionStopped(sessionId string) {
 	w.NumActiveSessions -= 1
@@ -47,7 +47,7 @@ func (w *WorkloadFromPreset) SessionStopped(sessionId string) {
 	panic("Not yet supported.")
 }
 
-// Called when a training starts during/in the workload.
+// TrainingStarted is called when a training starts during/in the workload.
 // Just updates some internal metrics.
 func (w *WorkloadFromPreset) TrainingStarted(sessionId string) {
 	w.NumActiveTrainings += 1
@@ -56,7 +56,7 @@ func (w *WorkloadFromPreset) TrainingStarted(sessionId string) {
 	panic("Not yet supported.")
 }
 
-// Called when a training stops during/in the workload.
+// TrainingStopped is called when a training stops during/in the workload.
 // Just updates some internal metrics.
 func (w *WorkloadFromPreset) TrainingStopped(sessionId string) {
 	w.NumTasksExecuted += 1
@@ -83,7 +83,7 @@ func NewWorkloadFromPreset(baseWorkload Workload, workloadPreset *WorkloadPreset
 		panic("The provided workload is not a base workload, or it is not a pointer type.")
 	}
 
-	workload_from_preset := &WorkloadFromPreset{
+	workloadFromPreset := &WorkloadFromPreset{
 		workloadImpl:       baseWorkloadImpl,
 		WorkloadPreset:     workloadPreset,
 		WorkloadPresetName: workloadPreset.GetName(),
@@ -91,7 +91,7 @@ func NewWorkloadFromPreset(baseWorkload Workload, workloadPreset *WorkloadPreset
 	}
 
 	baseWorkloadImpl.WorkloadType = PresetWorkload
-	baseWorkloadImpl.workload = workload_from_preset
+	baseWorkloadImpl.workload = workloadFromPreset
 
-	return workload_from_preset
+	return workloadFromPreset
 }
