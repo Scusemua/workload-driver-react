@@ -6,6 +6,8 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/scusemua/workload-driver-react/m/v2/internal/server/metrics"
 	"io"
 	"net/http"
 	"net/url"
@@ -112,6 +114,10 @@ type BasicKernelConnection struct {
 	setupInProgress        atomic.Int32
 	reconnectionInProgress atomic.Int32
 
+	// metadata is a map containing basic metadata used for labeling metrics.
+	metadata      map[string]string
+	metadataMutex sync.Mutex
+
 	// Gorilla Websockets support 1 concurrent reader and 1 concurrent writer on the same websocket.
 	// What this means is that we can read from the websocket with one goroutine while we write to the websocket with another goroutine.
 	// However, we cannot have > 1 goroutines reading at the same time, nor can we have > 1 goroutines write at the same time.
@@ -142,6 +148,7 @@ func NewKernelConnection(kernelId string, clientId string, username string, jupy
 		kernelStdout:         make([]string, 0),
 		kernelStderr:         make([]string, 0),
 		iopubMessageHandlers: make(map[string]IOPubMessageHandler),
+		metadata:             make(map[string]string),
 	}
 
 	zapConfig := zap.NewDevelopmentEncoderConfig()
@@ -162,6 +169,30 @@ func NewKernelConnection(kernelId string, clientId string, username string, jupy
 	}
 
 	return conn, nil
+}
+
+// AddMetadata attaches some metadata to the BasicKernelConnection.
+//
+// This particular implementation of AddMetadata is thread-safe.
+func (conn *BasicKernelConnection) AddMetadata(key, value string) {
+	conn.metadataMutex.Lock()
+	defer conn.metadataMutex.Unlock()
+
+	conn.metadata[key] = value
+}
+
+// GetMetadata retrieves a piece of metadata that may be attached to the BasicKernelConnection.
+//
+// This particular implementation of GetMetadata is thread-safe.
+func (conn *BasicKernelConnection) GetMetadata(key string) (string, bool) {
+	conn.metadataMutex.Lock()
+	defer conn.metadataMutex.Unlock()
+
+	value, ok := conn.metadata[key]
+	if !ok {
+		conn.logger.Warn("Could not find metadata with specified key attached to BasicKernelConnection.", zap.String("key", key))
+	}
+	return value, ok
 }
 
 // Stdout returns the slice of stdout messages received by the BasicKernelConnection.
@@ -354,6 +385,7 @@ func (conn *BasicKernelConnection) RequestExecute(code string, silent bool, stor
 
 	message, responseChan := conn.createKernelMessage(ExecuteRequest, ShellChannel, content)
 
+	sentAt := time.Now()
 	err := conn.sendMessage(message)
 	if err != nil {
 		conn.logger.Error("Error while writing 'execute_request' message.", zap.String("kernel-id", conn.kernelId), zap.Error(err))
@@ -364,7 +396,13 @@ func (conn *BasicKernelConnection) RequestExecute(code string, silent bool, stor
 		// Wait without a timeout for the response.
 		// Code executions can take an arbitrary amount of time.
 		response := <-responseChan
-		conn.sugaredLogger.Debugf("Received response to `execute_request` message %s: %v", message.GetHeader().MessageId, response)
+		latency := time.Since(sentAt)
+		conn.logger.Debug("Received response to `execute_request` message.", zap.String("message_id", message.GetHeader().MessageId), zap.Duration("latency", latency), zap.Any("response", response))
+
+		workloadId, _ := conn.GetMetadata(WorkloadIdMetadataKey)
+		metrics.PrometheusMetricsWrapperInstance.JupyterExecuteRequestEndToEndLatency.
+			With(prometheus.Labels{"workload_id": workloadId}).
+			Observe(latency.Seconds())
 	}
 
 	return nil
@@ -633,6 +671,7 @@ func (conn *BasicKernelConnection) createKernelMessage(messageType MessageType, 
 
 	metadata := make(map[string]interface{})
 	metadata["kernel-id"] = conn.kernelId
+	metadata["send-timestamp-unix-milli"] = time.Now().UnixMilli()
 
 	message := &baseKernelMessage{
 		Channel:      channel,

@@ -1,6 +1,9 @@
 package jupyter
 
-import "errors"
+import (
+	"errors"
+	"time"
+)
 
 var (
 	ErrNoHandlerFound       = errors.New("no handler found registered under the specified ID")
@@ -78,6 +81,14 @@ type KernelConnection interface {
 
 	// UnregisterIoPubHandler unregisters a handler/consumer of IOPub messages that was registered under the specified ID.
 	UnregisterIoPubHandler(id string) error
+
+	// AddMetadata attaches some metadata to the KernelConnection.
+	// This metadata is primarily used for attaching labels to Prometheus metrics.
+	AddMetadata(key, value string)
+
+	// GetMetadata retrieves a piece of metadata that may be attached to the KernelConnection.
+	// This metadata is primarily used for attaching labels to Prometheus metrics.
+	GetMetadata(key string) (string, bool)
 }
 
 type KernelSessionManager interface {
@@ -113,12 +124,42 @@ type KernelSessionManager interface {
 	//
 	// @returns A promise that resolves with the new kernel instance.
 	ConnectTo(kernelId string, sessionId string, username string) (KernelConnection, error)
+
+	// AddMetadata attaches some metadata to the KernelSessionManager.
+	//
+	// All metadata should be added when the KernelSessionManager is created, as
+	// the KernelSessionManager adds all metadata in its metadata dictionary to the
+	// metadata dictionary of any SessionConnection and KernelConnection instances that it
+	// creates. Metadata added to the KernelSessionManager after a SessionConnection or
+	// KernelConnection is created will not be added to any existing SessionConnection or
+	// KernelConnection instances.
+	AddMetadata(key, value string)
+
+	// GetMetadata retrieves a piece of metadata that may be attached to the KernelSessionManager.
+	//
+	// If there is metadata with the given key attached to the KernelSessionManager, then that metadata
+	// is returned, along with a boolean equal to true.
+	//
+	// If there is no metadata attached to the KernelSessionManager at the given key, then the empty
+	// string is returned, along with a boolean equal to false.
+	GetMetadata(key string) (string, bool)
 }
 
 type KernelManagerMetrics interface {
-	FileCreated()       // Record that a file has been created.
-	KernelCreated()     // Record that a kernel has been created.
-	SessionCreated()    // Record that a session has been created.
-	KernelTerminated()  // Record that a kernel has been terminated.
-	SessionTerminated() // Record that a session has been terminated.
+	// FileCreated records that a file has been created.
+	FileCreated()
+
+	// KernelCreated records that a kernel has been created.
+	KernelCreated()
+
+	// SessionCreated records that a Session was created.
+	// It also updates the Prometheus metric for the latency of session-creation operations.
+	SessionCreated(workloadId string, latency time.Duration)
+
+	// KernelTerminated records that a kernel has been terminated.
+	//KernelTerminated()
+
+	// SessionTerminated records that a session has been terminated.
+	// It also updates the Prometheus metric for the latency of session-terminated operations.
+	SessionTerminated(workloadId string, latency time.Duration)
 }

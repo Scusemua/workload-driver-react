@@ -382,6 +382,7 @@ func (d *BasicWorkloadDriver) RegisterWorkload(workloadRegistrationRequest *doma
 	}
 
 	d.workload = workload
+	d.kernelManager.AddMetadata(jupyter.WorkloadIdMetadataKey, d.workload.GetId())
 	return d.workload, nil
 }
 

@@ -5,10 +5,13 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/prometheus/client_golang/prometheus"
+	"github.com/scusemua/workload-driver-react/m/v2/internal/server/metrics"
 	"io"
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/google/uuid"
@@ -17,7 +20,8 @@ import (
 )
 
 const (
-	ZapSessionIDKey = "session-id"
+	ZapSessionIDKey       = "session_id"
+	WorkloadIdMetadataKey = "workload-id"
 )
 
 var (
@@ -49,16 +53,28 @@ func (m *kernelManagerMetricsImpl) KernelCreated() {
 	m.NumKernelsCreated += 1
 }
 
-func (m *kernelManagerMetricsImpl) SessionCreated() {
+// SessionCreated records that a Session was created.
+// It also updates the Prometheus metric for the latency of session-creation operations.
+func (m *kernelManagerMetricsImpl) SessionCreated(workloadId string, latency time.Duration) {
 	m.NumSessionsCreated += 1
+
+	metrics.PrometheusMetricsWrapperInstance.JupyterSessionCreationLatency.
+		With(prometheus.Labels{"workload_id": workloadId}).
+		Observe(latency.Seconds())
 }
 
-func (m *kernelManagerMetricsImpl) KernelTerminated() {
-	m.NumKernelsTerminated += 1
-}
+//func (m *kernelManagerMetricsImpl) KernelTerminated() {
+//	m.NumKernelsTerminated += 1
+//}
 
-func (m *kernelManagerMetricsImpl) SessionTerminated() {
+// SessionTerminated records that a session has been terminated.
+// It also updates the Prometheus metric for the latency of session-terminated operations.
+func (m *kernelManagerMetricsImpl) SessionTerminated(workloadId string, latency time.Duration) {
 	m.NumSessionsTerminated += 1
+
+	metrics.PrometheusMetricsWrapperInstance.JupyterSessionTerminationLatency.
+		With(prometheus.Labels{"workload_id": workloadId}).
+		Observe(latency.Seconds())
 }
 
 type BasicKernelSessionManager struct {
@@ -73,7 +89,10 @@ type BasicKernelSessionManager struct {
 	localSessionIdToJupyterSessionId map[string]string             // Map from "local" (provided by us) Session IDs to the Jupyter-provided Session IDs.
 	kernelIdToJupyterSessionId       map[string]string             // Map from Kernel IDs to "local" Session IDs. Jupyter provides both the Session IDs and the Kernel IDs.
 	sessionMap                       map[string]*SessionConnection // Map from Session ID to Session. The keys are the Session IDs supplied by us/the trace data.
+	metadata                         map[string]string             // Metadata is miscellaneous metadata attached to the BasicKernelSessionManager that is mostly used for metrics
 	adjustSessionNames               bool                          // If true, ensure all session names are 36 characters in length. For now, this should be true. Setting it to false causes problems for some reason...
+
+	metadataMutex sync.Mutex
 }
 
 func NewKernelSessionManager(jupyterServerAddress string, adjustSessionNames bool, atom *zap.AtomicLevel) *BasicKernelSessionManager {
@@ -85,6 +104,7 @@ func NewKernelSessionManager(jupyterServerAddress string, adjustSessionNames boo
 		kernelIdToJupyterSessionId:       make(map[string]string),
 		kernelIdToLocalSessionId:         make(map[string]string),
 		sessionMap:                       make(map[string]*SessionConnection),
+		metadata:                         make(map[string]string),
 		adjustSessionNames:               adjustSessionNames,
 		atom:                             atom,
 	}
@@ -95,6 +115,43 @@ func NewKernelSessionManager(jupyterServerAddress string, adjustSessionNames boo
 	manager.sugaredLogger = manager.logger.Sugar()
 
 	return manager
+}
+
+// AddMetadata attaches some metadata to the BasicKernelSessionManager.
+//
+// All metadata should be added when the BasicKernelSessionManager is created, as
+// the BasicKernelSessionManager adds all metadata in its metadata dictionary to the
+// metadata dictionary of any SessionConnection and KernelConnection instances that it
+// creates. Metadata added to the BasicKernelSessionManager after a SessionConnection or
+// KernelConnection is created will not be added to any existing SessionConnection or
+// KernelConnection instances.
+//
+// This particular implementation of AddMetadata is thread-safe.
+func (m *BasicKernelSessionManager) AddMetadata(key, value string) {
+	m.metadataMutex.Lock()
+	defer m.metadataMutex.Unlock()
+
+	m.metadata[key] = value
+}
+
+// GetMetadata retrieves a piece of metadata that may be attached to the KernelSessionManager.
+//
+// If there is metadata with the given key attached to the KernelSessionManager, then that metadata
+// is returned, along with a boolean equal to true.
+//
+// If there is no metadata attached to the KernelSessionManager at the given key, then the empty
+// string is returned, along with a boolean equal to false.
+//
+// This particular implementation of GetMetadata is thread-safe.
+func (m *BasicKernelSessionManager) GetMetadata(key string) (string, bool) {
+	m.metadataMutex.Lock()
+	defer m.metadataMutex.Unlock()
+
+	value, ok := m.metadata[key]
+	if !ok {
+		m.logger.Warn("Could not find metadata with specified key attached to BasicKernelSessionManager.", zap.String("key", key))
+	}
+	return value, ok
 }
 
 // CreateSession creates a new session.
@@ -125,6 +182,7 @@ func (m *BasicKernelSessionManager) CreateSession(sessionId string, path string,
 		return nil, err
 	}
 
+	sentAt := time.Now()
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -190,7 +248,8 @@ func (m *BasicKernelSessionManager) CreateSession(sessionId string, path string,
 		}
 	}
 
-	m.metrics.SessionCreated()
+	workloadId, _ := m.GetMetadata(WorkloadIdMetadataKey)
+	m.metrics.SessionCreated(workloadId, time.Since(sentAt))
 	// TODO(Ben): Does this also create a new kernel?
 	return sessionConnection, nil
 }
@@ -320,6 +379,8 @@ func (m *BasicKernelSessionManager) StopKernel(id string) error {
 	}
 
 	client := &http.Client{}
+
+	sentAt := time.Now()
 	resp, err := client.Do(req)
 	if err != nil {
 		m.logger.Error("Received error when stopping session.", zap.String(ZapSessionIDKey, id), zap.String("url", url), zap.Error(err))
@@ -343,7 +404,8 @@ func (m *BasicKernelSessionManager) StopKernel(id string) error {
 		m.logger.Warn("Unexpected response status code when stopping session.", zap.Int("status-code", resp.StatusCode), zap.String("status", resp.Status), zap.Any("headers", resp.Header), zap.Any("body", string(body)))
 	}
 
-	m.metrics.SessionTerminated()
+	workloadId, _ := m.GetMetadata(WorkloadIdMetadataKey)
+	m.metrics.SessionTerminated(workloadId, time.Since(sentAt))
 	// TODO(Ben): Does this also terminate the kernel?
 	return nil
 }
@@ -366,6 +428,13 @@ func (m *BasicKernelSessionManager) ConnectTo(kernelId string, sessionId string,
 		m.logger.Error("Failed to connect to kernel.", zap.String("kernel_id", kernelId), zap.String("session_id", sessionId))
 	} else {
 		m.logger.Debug("Successfully connected to kernel.", zap.String("kernel_id", kernelId), zap.String("session_id", sessionId))
+
+		// Add all the BasicKernelSessionManager's metadata to the new KernelConnection.
+		m.metadataMutex.Lock()
+		defer m.metadataMutex.Unlock()
+		for key, value := range m.metadata {
+			conn.AddMetadata(key, value)
+		}
 	}
 
 	// On success, conn will be non-nil and err will be nil.

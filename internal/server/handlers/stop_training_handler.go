@@ -19,7 +19,6 @@ type StopTrainingHandler struct {
 }
 
 func NewStopTrainingHandler(opts *domain.Configuration, atom *zap.AtomicLevel) domain.BackendHttpGetHandler {
-	// atom := zap.NewAtomicLevelAt(zapcore.DebugLevel)
 	handler := &StopTrainingHandler{
 		BaseHandler:       newBaseHandler(opts),
 		manager:           jupyter.NewKernelSessionManager(opts.JupyterServerAddress, true, atom),

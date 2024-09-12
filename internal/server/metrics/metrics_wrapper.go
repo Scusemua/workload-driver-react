@@ -27,7 +27,27 @@ type PrometheusMetricsWrapper struct {
 	WorkloadTrainingEventDuration  *prometheus.HistogramVec
 	WorkloadSessionLifetimeSeconds *prometheus.HistogramVec
 
+	// JupyterSessionCreationLatency is a metric tracking the latency between when
+	// the network request to create a new Session is first sent and when the response
+	// is received, indicating that the new Session has been created successfully.
+	//
+	// The latency is observed from the Golang-based Jupyter client, and the units
+	// of the metric are seconds.
 	JupyterSessionCreationLatency *prometheus.HistogramVec
+	// JupyterSessionTerminationLatency is a metric tracking the latency between when
+	// the HTTP request to terminate a Session is sent and when the response is received,
+	// indicating that the Session has been successfully terminated.
+	//
+	// The latency is observed from the Golang-based Jupyter client, and the units
+	// of the metric are seconds.
+	JupyterSessionTerminationLatency *prometheus.HistogramVec
+
+	// JupyterExecuteRequestEndToEndLatency is the end-to-end latency observed when sending
+	// "execute_request" messages.
+	//
+	// The latency is observed from the Golang-based Jupyter client, and the units
+	// of the metric are seconds.
+	JupyterExecuteRequestEndToEndLatency *prometheus.HistogramVec
 
 	WorkloadActiveTrainingSessions *prometheus.GaugeVec
 	WorkloadActiveNumSessions      *prometheus.GaugeVec
@@ -70,7 +90,17 @@ func NewPrometheusMetricsWrapper(atom *zap.AtomicLevel) (*PrometheusMetricsWrapp
 		JupyterSessionCreationLatency: prometheus.NewHistogramVec(prometheus.HistogramOpts{
 			Namespace: "distributed_cluster",
 			Subsystem: "jupyter",
-			Name:      "session_creation_latency",
+			Name:      "session_creation_latency_seconds",
+		}, []string{"workload_id"}),
+		JupyterSessionTerminationLatency: prometheus.NewHistogramVec(prometheus.HistogramOpts{
+			Namespace: "distributed_cluster",
+			Subsystem: "jupyter",
+			Name:      "session_termination_latency_seconds",
+		}, []string{"workload_id"}),
+		JupyterExecuteRequestEndToEndLatency: prometheus.NewHistogramVec(prometheus.HistogramOpts{
+			Namespace: "distributed_cluster",
+			Subsystem: "jupyter",
+			Name:      "execute_request_e2e_latency_seconds",
 		}, []string{"workload_id"}),
 
 		// Gauge metrics.
@@ -123,6 +153,11 @@ func NewPrometheusMetricsWrapper(atom *zap.AtomicLevel) (*PrometheusMetricsWrapp
 
 	if err := prometheus.Register(metricsWrapper.JupyterSessionCreationLatency); err != nil {
 		metricsWrapper.logger.Error("Failed to register Prometheus metric.", zap.String("metric", "JupyterSessionCreationLatency"), zap.Error(err))
+		errs = append(errs, err)
+	}
+
+	if err := prometheus.Register(metricsWrapper.JupyterExecuteRequestEndToEndLatency); err != nil {
+		metricsWrapper.logger.Error("Failed to register Prometheus metric.", zap.String("metric", "JupyterExecuteRequestEndToEndLatency"), zap.Error(err))
 		errs = append(errs, err)
 	}
 

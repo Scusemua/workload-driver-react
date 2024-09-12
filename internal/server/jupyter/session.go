@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"errors"
 	"os"
+	"sync"
 	"time"
 
 	"go.uber.org/zap"
@@ -133,6 +134,10 @@ type SessionConnection struct {
 	// createdAt is the time at which the SessionConnection was created.
 	createdAt time.Time
 
+	// metadata is a map containing basic metadata used for labeling metrics.
+	metadata      map[string]string
+	metadataMutex sync.Mutex
+
 	logger        *zap.Logger
 	sugaredLogger *zap.SugaredLogger
 	atom          *zap.AtomicLevel
@@ -147,6 +152,7 @@ func NewSessionConnection(model *jupyterSession, username string, jupyterServerA
 		jupyterServerAddress: jupyterServerAddress,
 		atom:                 atom,
 		createdAt:            time.Now(),
+		metadata:             make(map[string]string),
 	}
 
 	core := zapcore.NewCore(zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()), os.Stdout, atom)
@@ -164,6 +170,38 @@ func NewSessionConnection(model *jupyterSession, username string, jupyterServerA
 	return conn, err
 }
 
+// AddMetadata attaches some metadata to the SessionConnection and optionally to the associated KernelConnection,
+// if one exists and if the 'addToKernelConnection' parameter is passed as true.
+//
+// If the KernelConnection exists and already has an entry in its metadata dictionary for the given key, then
+// that metadata will be overwritten.
+//
+// This particular implementation of AddMetadata is thread-safe.
+func (conn *SessionConnection) AddMetadata(key string, value string, addToKernelConnection bool) {
+	conn.metadataMutex.Lock()
+	defer conn.metadataMutex.Unlock()
+
+	if addToKernelConnection && conn.kernel != nil {
+		conn.kernel.AddMetadata(key, value)
+	}
+
+	conn.metadata[key] = value
+}
+
+// GetMetadata retrieves a piece of metadata that may be attached to the SessionConnection.
+//
+// This particular implementation of GetMetadata is thread-safe.
+func (conn *SessionConnection) GetMetadata(key string) (string, bool) {
+	conn.metadataMutex.Lock()
+	defer conn.metadataMutex.Unlock()
+
+	value, ok := conn.metadata[key]
+	if !ok {
+		conn.logger.Warn("Could not find metadata with specified key attached to BasicKernelConnection.", zap.String("key", key))
+	}
+	return value, ok
+}
+
 // connectToKernel creates a new WebSocket-backed connection to the kernel associated with this session.
 // Side-effect: set the `kernel` field of the SessionConnection.
 func (conn *SessionConnection) connectToKernel(username string) error {
@@ -173,6 +211,14 @@ func (conn *SessionConnection) connectToKernel(username string) error {
 
 	var err error
 	conn.kernel, err = NewKernelConnection(conn.model.JupyterKernel.Id, conn.model.JupyterSessionId, username, conn.jupyterServerAddress, conn.atom)
+
+	// Add all the SessionConnection's metadata to the new KernelConnection.
+	conn.metadataMutex.Lock()
+	defer conn.metadataMutex.Unlock()
+	for key, value := range conn.metadata {
+		conn.kernel.AddMetadata(key, value)
+	}
+
 	return err // Will be nil if everything went OK.
 }
 
