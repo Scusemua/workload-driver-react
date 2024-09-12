@@ -139,11 +139,10 @@ type BasicWorkloadDriver struct {
 	workloadPresets                    map[string]*domain.WorkloadPreset     // All the available workload presets.
 	workloadRegistrationRequest        *domain.WorkloadRegistrationRequest   // The request that registered the workload that is being driven by this driver.
 	workloadSessions                   []*domain.WorkloadTemplateSession     // The template used by the associated workload. Will only be non-nil if the associated workload is a template-based workload, rather than a preset-based workload.
-	metricsWrapper                     *metrics.PrometheusMetricsWrapper     // metricsWrapper is a simple struct that wraps various PrometheusMetrics, many or all of which are related to workloads.
 }
 
 func NewWorkloadDriver(opts *domain.Configuration, performClockTicks bool, timescaleAdjustmentFactor float64,
-	websocket domain.ConcurrentWebSocket, atom *zap.AtomicLevel, metricsWrapper *metrics.PrometheusMetricsWrapper) *BasicWorkloadDriver {
+	websocket domain.ConcurrentWebSocket, atom *zap.AtomicLevel) *BasicWorkloadDriver {
 
 	driver := &BasicWorkloadDriver{
 		id:                                 GenerateWorkloadID(8),
@@ -169,7 +168,6 @@ func NewWorkloadDriver(opts *domain.Configuration, performClockTicks bool, times
 		timescaleAdjustmentFactor:          timescaleAdjustmentFactor,
 		currentTick:                        clock.NewSimulationClock(),
 		clockTime:                          clock.NewSimulationClock(),
-		metricsWrapper:                     metricsWrapper,
 	}
 
 	// Create the ticker for the workload.

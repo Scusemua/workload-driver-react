@@ -60,7 +60,7 @@ func NewWorkloadManager(configuration *domain.Configuration, atom *zap.AtomicLev
 	return manager
 }
 
-// Return a function that can handle WebSocket requests for workload operations.
+// GetWorkloadWebsocketHandler returns a function that can handle WebSocket requests for workload operations.
 //
 // This simply returns the handler function of the WorkloadWebsocketHandler struct of the WorkloadManager.
 func (m *workloadManagerImpl) GetWorkloadWebsocketHandler() gin.HandlerFunc {
@@ -71,7 +71,7 @@ func (m *workloadManagerImpl) GetWorkloadWebsocketHandler() gin.HandlerFunc {
 	return m.workloadWebsocketHandler.serveWorkloadWebsocket
 }
 
-// Return a slice containing all currently-registered workloads (at the time that the method is called).
+// GetWorkloads returns a slice containing all currently-registered workloads (at the time that the method is called).
 // The workloads within this slice should not be modified by the caller.
 func (m *workloadManagerImpl) GetWorkloads() []domain.Workload {
 	m.mu.Lock()
@@ -80,7 +80,7 @@ func (m *workloadManagerImpl) GetWorkloads() []domain.Workload {
 	return m.workloads
 }
 
-// Return a map from Workload ID to Workload struct containing workloads that are active when the method is called.
+// GetActiveWorkloads returns a map from Workload ID to Workload struct containing workloads that are active when the method is called.
 func (m *workloadManagerImpl) GetActiveWorkloads() map[string]domain.Workload {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -96,7 +96,7 @@ func (m *workloadManagerImpl) GetActiveWorkloads() map[string]domain.Workload {
 	return activeWorkloads
 }
 
-// Return the workload driver associated with the given workload ID.
+// GetWorkloadDriver returns the workload driver associated with the given workload ID.
 // If there is no driver associated with the provided workload ID, then nil is returned.
 func (m *workloadManagerImpl) GetWorkloadDriver(workloadId string) domain.WorkloadDriver {
 	m.mu.Lock()
@@ -105,7 +105,7 @@ func (m *workloadManagerImpl) GetWorkloadDriver(workloadId string) domain.Worklo
 	return m.workloadDrivers.GetOrDefault(workloadId, nil)
 }
 
-// Toggle debug logging on or off (depending on the value of the 'enabled' parameter) for the specified workload.
+// ToggleDebugLogging toggles debug logging on or off (depending on the value of the 'enabled' parameter) for the specified workload.
 // If there is no workload with the specified ID, then an error is returned.
 //
 // If successful, then this returns the updated workload.
@@ -119,7 +119,7 @@ func (m *workloadManagerImpl) ToggleDebugLogging(workloadId string, enabled bool
 	return updatedWorkload, nil
 }
 
-// Start the workload with the specified ID.
+// StartWorkload starts the workload with the specified ID.
 // The workload must have already been registered.
 //
 // If successful, then this returns the updated workload.
@@ -150,7 +150,7 @@ func (m *workloadManagerImpl) StartWorkload(workloadId string) (domain.Workload,
 	return workload, nil
 }
 
-// Stop the workload with the specified ID.
+// StopWorkload stops the workload with the specified ID.
 // The workload must have already been registered and should be actively-running.
 //
 // If successful, then this returns the updated workload.
@@ -171,7 +171,7 @@ func (m *workloadManagerImpl) StopWorkload(workloadId string) (domain.Workload, 
 	return workloadDriver.GetWorkload(), nil
 }
 
-// Register a new workload.
+// RegisterWorkload registers a new workload.
 func (m *workloadManagerImpl) RegisterWorkload(request *domain.WorkloadRegistrationRequest, ws domain.ConcurrentWebSocket) (domain.Workload, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
@@ -215,7 +215,7 @@ func (m *workloadManagerImpl) serverPushRoutine( /* doneChan chan struct{} */ ) 
 	// Function that continuously pulls workload IDs out of the 'workloadStartedChan' until there are none left.
 	// This returns the number of new workloads detected.
 	checkForNewActiveWorkloads := func() int {
-		var numNewActiveWorkloads int = 0
+		var numNewActiveWorkloads = 0
 
 		for { // Keep pulling workload IDs out of the 'workloadStartedChan' until there are none left.
 			select {
@@ -274,9 +274,9 @@ func (m *workloadManagerImpl) serverPushRoutine( /* doneChan chan struct{} */ ) 
 			m.mu.Unlock()
 
 			// Create a message to push to the frontend.
-			var msgId string = uuid.NewString()
+			var msgId = uuid.NewString()
 
-			// Get a slice of all of the workloads in the 'activeWorkloads' map.
+			// Get a slice of all the workloads in the 'activeWorkloads' map.
 			activeWorkloadsSlice := getMapValues[string, domain.Workload](activeWorkloads)
 
 			// Build a message containing the slice of workloads as its contents.
