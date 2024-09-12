@@ -673,6 +673,11 @@ func (conn *BasicKernelConnection) createKernelMessage(messageType MessageType, 
 	metadata["kernel-id"] = conn.kernelId
 	metadata["send-timestamp-unix-milli"] = time.Now().UnixMilli()
 
+	workloadId, loaded := conn.GetMetadata(WorkloadIdMetadataKey)
+	if loaded {
+		metadata["workload_id"] = workloadId
+	}
+
 	message := &baseKernelMessage{
 		Channel:      channel,
 		Header:       header,
