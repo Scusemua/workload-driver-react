@@ -107,7 +107,8 @@ func NewPrometheusMetricsWrapper(atom *zap.AtomicLevel) (*PrometheusMetricsWrapp
 		WorkloadActiveNumSessions: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Namespace: "distributed_cluster",
 			Subsystem: "workload_driver",
-			Name:      "active_sessions",
+			Name:      "active_workload_sessions",
+			Help:      "Number of actively-running kernels",
 		}, []string{"workload_id"}),
 		WorkloadActiveTrainingSessions: prometheus.NewGaugeVec(prometheus.GaugeOpts{
 			Namespace: "distributed_cluster",

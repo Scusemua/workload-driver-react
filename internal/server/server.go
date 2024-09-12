@@ -1,37 +1,37 @@
 package server
 
 import (
-  "bufio"
-  "context"
-  "encoding/json"
-  "errors"
-  "fmt"
-  "io"
-  "log"
-  "net/http"
-  "net/url"
-  "path"
-  "sync"
-  "time"
+	"bufio"
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"log"
+	"net/http"
+	"net/url"
+	"path"
+	"sync"
+	"time"
 
-  "github.com/gin-gonic/contrib/cors"
-  "github.com/gin-gonic/contrib/static"
-  "github.com/gin-gonic/gin"
-  "github.com/google/uuid"
-  "github.com/gorilla/websocket"
-  "github.com/koding/websocketproxy"
-  "github.com/mattn/go-colorable"
-  "github.com/prometheus/client_golang/prometheus/promhttp"
-  "github.com/scusemua/workload-driver-react/m/v2/internal/domain"
-  gateway "github.com/scusemua/workload-driver-react/m/v2/internal/server/api/proto"
-  "github.com/scusemua/workload-driver-react/m/v2/internal/server/concurrent_websocket"
-  "github.com/scusemua/workload-driver-react/m/v2/internal/server/handlers"
-  "github.com/scusemua/workload-driver-react/m/v2/internal/server/proxy"
-  "github.com/scusemua/workload-driver-react/m/v2/internal/server/workload"
-  "go.uber.org/zap"
-  "go.uber.org/zap/zapcore"
+	"github.com/gin-gonic/contrib/cors"
+	"github.com/gin-gonic/contrib/static"
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
+	"github.com/koding/websocketproxy"
+	"github.com/mattn/go-colorable"
+	"github.com/prometheus/client_golang/prometheus/promhttp"
+	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
+	gateway "github.com/scusemua/workload-driver-react/m/v2/internal/server/api/proto"
+	"github.com/scusemua/workload-driver-react/m/v2/internal/server/concurrent_websocket"
+	"github.com/scusemua/workload-driver-react/m/v2/internal/server/handlers"
+	"github.com/scusemua/workload-driver-react/m/v2/internal/server/proxy"
+	"github.com/scusemua/workload-driver-react/m/v2/internal/server/workload"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 
-  "github.com/gin-contrib/pprof"
+	"github.com/gin-contrib/pprof"
 )
 
 var upgrader = websocket.Upgrader{
@@ -174,6 +174,11 @@ func (s *serverImpl) setupRoutes() error {
 	s.app.Use(cors.Default())
 
 	////////////////////////
+	// Prometheus metrics //
+	////////////////////////
+	s.app.GET(domain.PrometheusEndpoint, s.HandlePrometheusRequest)
+
+	////////////////////////
 	// Websocket Handlers //
 	////////////////////////
 	s.app.GET(domain.WorkloadEndpoint, s.workloadManager.GetWorkloadWebsocketHandler())
@@ -238,11 +243,6 @@ func (s *serverImpl) setupRoutes() error {
 
 		apiGroup.POST(domain.PingKernelEndpoint, handlers.NewPingKernelHttpHandler(s.opts, s.gatewayRpcClient).HandleRequest)
 	}
-
-	////////////////////////
-	// Prometheus metrics //
-	////////////////////////
-	apiGroup.GET(domain.PrometheusEndpoint, s.HandlePrometheusRequest)
 
 	/////////////////////
 	// Jupyter Handler // This isn't really used anymore...
