@@ -2,15 +2,16 @@ package domain
 
 import "time"
 
-// EventQueueReceiver is an interface that is wrapped by the EventQueueService interface.
+// EventQueueReceiver is an interface that is wrapped by the EventQueue interface.
 // Entities that only need to be able to deposit events into the queue receive/use values of this type.
-// This is because they have no reason to access the rest of the EventQueueService API.
+// This is because they have no reason to access the rest of the EventQueue API.
 type EventQueueReceiver interface {
 	EnqueueEvent(Event)
 }
 
-// EventQueueService ...
-type EventQueueService interface {
+// EventQueue defines the interface of an EventQueue that contains training start/stop Event instances
+// and session start/stop Event instances.
+type EventQueue interface {
 	EventQueueReceiver
 
 	// HasEventsForSession returns true if there is at least 1 event in the event queue for the specified pod/Session.

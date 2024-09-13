@@ -73,7 +73,7 @@ type WorkloadDriver interface {
 	ProcessWorkload(wg *sync.WaitGroup) error
 
 	// The event queue for this workload.
-	EventQueue() EventQueueService
+	EventQueue() EventQueue
 
 	// Return the WebSocket connection on which this workload was registered by a remote client and on/through which updates about the workload are reported.
 	WebSocket() ConcurrentWebSocket

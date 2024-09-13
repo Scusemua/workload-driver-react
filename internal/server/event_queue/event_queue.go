@@ -19,8 +19,8 @@ var (
 	ErrNoMoreEvents = errors.New("there are no more events for the specified Session")
 )
 
-// Maintains a queue of events (sorted by timestamp) for each unique session.
-type eventQueue struct {
+// BasicEventQueue maintains a queue of events (sorted by timestamp) for each unique session.
+type BasicEventQueue struct {
 	logger        *zap.Logger        // Logger for printing purely structured output.
 	sugaredLogger *zap.SugaredLogger // Logger for printing formatted output.
 	atom          *zap.AtomicLevel
@@ -34,8 +34,9 @@ type eventQueue struct {
 	doneChan           chan interface{}
 }
 
-func NewEventQueue(atom *zap.AtomicLevel) domain.EventQueueService {
-	queue := &eventQueue{
+// NewBasicEventQueue creates a new BasicEventQueue struct and returns a pointer to it.
+func NewBasicEventQueue(atom *zap.AtomicLevel) *BasicEventQueue {
+	queue := &BasicEventQueue{
 		atom:               atom,
 		eventsPerSession:   hashmap.New(100),
 		terminatedSessions: hashmap.New(100),
@@ -57,12 +58,12 @@ func NewEventQueue(atom *zap.AtomicLevel) domain.EventQueueService {
 	return queue
 }
 
-func (q *eventQueue) WorkloadExecutionCompleteChan() chan interface{} {
+func (q *BasicEventQueue) WorkloadExecutionCompleteChan() chan interface{} {
 	return q.doneChan
 }
 
 // HasEventsForTick returns true if there are events available for the specified tick; otherwise return false.
-func (q *eventQueue) HasEventsForTick(tick time.Time) bool {
+func (q *BasicEventQueue) HasEventsForTick(tick time.Time) bool {
 	if q.Len() == 0 {
 		return false
 	}
@@ -82,7 +83,7 @@ func (q *eventQueue) HasEventsForTick(tick time.Time) bool {
 // If max is negative, then all events are returned.
 //
 // If max is a positive value, then up to `max` events are returned.
-func (q *eventQueue) GetAllSessionStartEventsForTick(tick time.Time, max int) []domain.Event {
+func (q *BasicEventQueue) GetAllSessionStartEventsForTick(tick time.Time, max int) []domain.Event {
 	q.eventHeapMutex.Lock()
 	defer q.eventHeapMutex.Unlock()
 
@@ -115,7 +116,7 @@ func (q *eventQueue) GetAllSessionStartEventsForTick(tick time.Time, max int) []
 }
 
 // GetNextSessionStartEvent returns the next, ready-to-be-processed `EventSessionReady` from the queue.
-func (q *eventQueue) GetNextSessionStartEvent(currentTime time.Time) domain.Event {
+func (q *BasicEventQueue) GetNextSessionStartEvent(currentTime time.Time) domain.Event {
 	q.eventHeapMutex.Lock()
 	defer q.eventHeapMutex.Unlock()
 
@@ -139,7 +140,7 @@ func (q *eventQueue) GetNextSessionStartEvent(currentTime time.Time) domain.Even
 }
 
 // HasSessionReadyEvents returns true if there is at least one sessionReadyEvent in the `EventQueueService_Old::sessionReadyEvents` queue.
-func (q *eventQueue) HasSessionReadyEvents() bool {
+func (q *BasicEventQueue) HasSessionReadyEvents() bool {
 	q.eventHeapMutex.Lock()
 	defer q.eventHeapMutex.Unlock()
 
@@ -149,7 +150,7 @@ func (q *eventQueue) HasSessionReadyEvents() bool {
 
 // HasEventsForSession returns true if there is at least 1 event in the event queue for the specified pod/Session.
 // Otherwise, return false. Returns an error (and false) if no queue exists for the specified pod/Session.
-func (q *eventQueue) HasEventsForSession(podId string) (bool, error) {
+func (q *BasicEventQueue) HasEventsForSession(podId string) (bool, error) {
 	q.eventHeapMutex.Lock()
 	defer q.eventHeapMutex.Unlock()
 
@@ -166,7 +167,7 @@ func (q *eventQueue) HasEventsForSession(podId string) (bool, error) {
 
 // EnqueueEvent enqueues the given event in the event heap associated with the event's target pod/container/session.
 // If no such event heap exists already, then first create the event heap.
-func (q *eventQueue) EnqueueEvent(evt domain.Event) {
+func (q *BasicEventQueue) EnqueueEvent(evt domain.Event) {
 	q.eventHeapMutex.Lock()
 	defer q.eventHeapMutex.Unlock()
 
@@ -209,7 +210,7 @@ func (q *eventQueue) EnqueueEvent(evt domain.Event) {
 }
 
 // FixEvents fixes the heap after the `totalDelay` field for a particular session changed.
-func (q *eventQueue) FixEvents(sessionId string, updatedDelay time.Duration) {
+func (q *BasicEventQueue) FixEvents(sessionId string, updatedDelay time.Duration) {
 	val, ok := q.eventsPerSession.Get(sessionId)
 
 	if !ok {
@@ -244,7 +245,7 @@ func (q *eventQueue) FixEvents(sessionId string, updatedDelay time.Duration) {
 // GetTimestampOfNextReadyEvent returns the timestamp of the next session event to be processed.
 // The error will be nil if there is at least one session event enqueued.
 // If there are no session events enqueued, then this will return time.Time{} and an ErrNoMoreEvents error.
-func (q *eventQueue) GetTimestampOfNextReadyEvent() (time.Time, error) {
+func (q *BasicEventQueue) GetTimestampOfNextReadyEvent() (time.Time, error) {
 	if q.Len() == 0 {
 		return time.Time{}, ErrNoMoreEvents
 	}
@@ -255,7 +256,7 @@ func (q *eventQueue) GetTimestampOfNextReadyEvent() (time.Time, error) {
 }
 
 // Len returns the total number of events enqueued.
-func (q *eventQueue) Len() int {
+func (q *BasicEventQueue) Len() int {
 	q.eventHeapMutex.Lock()
 	defer q.eventHeapMutex.Unlock()
 	length := q.eventHeap.Len()
@@ -265,14 +266,14 @@ func (q *eventQueue) Len() int {
 
 // LenUnsafe returns the length without locking.
 // This is used for printing when the information being printed doesn't need to be particularly precise.
-func (q *eventQueue) LenUnsafe() int {
+func (q *BasicEventQueue) LenUnsafe() int {
 	return q.eventHeap.Len()
 }
 
 // GetNextEvent return the next event that occurs at or before the given timestamp, or nil if there are no such events.
 // This will remove the event from the main EventQueueServiceImpl::eventHeap, but it will NOT remove the
 // event from the EventQueueServiceImpl::eventsPerSession. To do that, you must call EventQueueServiceImpl::UnregisterEvent().
-func (q *eventQueue) GetNextEvent(threshold time.Time) (domain.EventHeapElement, bool) {
+func (q *BasicEventQueue) GetNextEvent(threshold time.Time) (domain.EventHeapElement, bool) {
 	if q.Len() == 0 {
 		return nil, false
 	}
@@ -293,7 +294,7 @@ func (q *eventQueue) GetNextEvent(threshold time.Time) (domain.EventHeapElement,
 }
 
 // Create and return a new *eventHeapElementImpl.
-func (q *eventQueue) newEventHeapElement(evt domain.Event, enqueued bool) domain.EventHeapElement {
+func (q *BasicEventQueue) newEventHeapElement(evt domain.Event, enqueued bool) domain.EventHeapElement {
 	adjustedTimestamp := evt.Timestamp()
 
 	var totalDelay = time.Duration(0)
