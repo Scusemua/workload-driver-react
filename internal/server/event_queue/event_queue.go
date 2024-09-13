@@ -76,6 +76,49 @@ func (q *eventQueue) HasEventsForTick(tick time.Time) bool {
 	return false
 }
 
+// GetAllSessionStartEventsForTick returns a slice of domain.Event containing all the EventSessionReady domain.Event
+// instances that should be processed within the specified tick.
+//
+// If max is negative, then all events are returned.
+//
+// If max is a positive value, then up to `max` events are returned.
+func (q *eventQueue) GetAllSessionStartEventsForTick(tick time.Time, max int) []domain.Event {
+	q.eventHeapMutex.Lock()
+	defer q.eventHeapMutex.Unlock()
+
+	events := make([]domain.Event, 0)
+
+	// Check if there is at least one event in the heap. If not, then return nil.
+	if q.sessionReadyEvents.Len() == 0 {
+		return events
+	}
+
+	for {
+		// Check if the next event is ready. If not, return nil.
+		if q.sessionReadyEvents.Peek().Timestamp().After(tick) {
+			break
+		}
+
+		evt := heap.Pop(&q.sessionReadyEvents).(domain.Event)
+
+		q.sugaredLogger.Debugf(
+			"SessionReadyEvent '%s' for Session %s with timestamp %v occurs during or before current tick %v.",
+			evt.Id(), evt.Data().(domain.SessionMetadata).GetPod(), evt.Timestamp(), tick)
+
+		events = append(events, evt)
+
+		// If we've collected `max` events, then we'll break and return them.
+		if max >= 0 && len(events) >= max {
+			break
+		}
+	}
+
+	q.sugaredLogger.Debugf("Returning %d (max: %d) SessionReadyEvent(s) with timestamps during or before tick %v",
+		len(events), max, tick)
+
+	return events
+}
+
 // GetNextSessionStartEvent returns the next, ready-to-be-processed `EventSessionReady` from the queue.
 func (q *eventQueue) GetNextSessionStartEvent(currentTime time.Time) domain.Event {
 	q.eventHeapMutex.Lock()

@@ -305,7 +305,7 @@ func (m *workloadManagerImpl) serverPushRoutine( /* doneChan chan struct{} */ ) 
 						m.logger.Error("Failed to create merge patch for workload.", zap.Any("workload", workload), zap.Error(err))
 						responseBuilder.AddModifiedWorkload(workload)
 					} else {
-						m.logger.Debug("Creating patch for workload.", zap.ByteString("patch", patch))
+						//m.logger.Debug("Creating patch for workload.", zap.ByteString("patch", patch))
 						responseBuilder.AddModifiedWorkloadAsPatch(patch, workload.GetId())
 					}
 				} else {

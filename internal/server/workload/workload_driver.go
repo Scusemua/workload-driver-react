@@ -1018,80 +1018,88 @@ func (d *BasicWorkloadDriver) GetSession(id string) domain.WorkloadSession {
 	return nil
 }
 
-// Schedule new Sessions onto Hosts.
-func (d *BasicWorkloadDriver) handleSessionReadyEvents(latestTick time.Time) {
-	sessionReadyEvent := d.eventQueue.GetNextSessionStartEvent(latestTick)
+// handleSessionReadyEvent handles a single EventSessionReady domain.Event.
+// This function is thread-safe and may be called within its own goroutine.
+func (d *BasicWorkloadDriver) handleSessionReadyEvent(sessionReadyEvent domain.Event, eventIndex int, wg *sync.WaitGroup) {
+	sessionMeta := sessionReadyEvent.Data().(domain.SessionMetadata)
+
+	sessionId := sessionMeta.GetPod()
 	if d.sugaredLogger.Level() == zapcore.DebugLevel {
-		d.sugaredLogger.Debugf("[%v] Handling EventSessionReady events now.", d.clockTime.GetClockTime())
+		d.sugaredLogger.Debugf("Handling EventSessionReady %d targeting Session %s [ts: %v].", eventIndex+1, sessionId, sessionReadyEvent.Timestamp())
 	}
 
-	numProcessed := 0
-	st := time.Now()
-	for sessionReadyEvent != nil {
-		sessionMeta := sessionReadyEvent.Data().(domain.SessionMetadata)
-
-		sessionId := sessionMeta.GetPod()
-		if d.sugaredLogger.Level() == zapcore.DebugLevel {
-			d.sugaredLogger.Debugf("Handling EventSessionReady %d targeting Session %s [ts: %v].", numProcessed+1, sessionId, sessionReadyEvent.Timestamp())
-		}
-
-		resourceSpec := &jupyter.ResourceSpec{
-			Cpu: int(sessionMeta.GetMaxSessionCPUs()),
-			Mem: sessionMeta.GetMaxSessionMemory(),
-			Gpu: sessionMeta.GetMaxSessionGPUs(),
-		}
-
-		provisionStart := time.Now()
-		_, err := d.provisionSession(sessionId, sessionMeta, sessionReadyEvent.Timestamp(), resourceSpec)
-
-		// The event index will be populated automatically by the ProcessedEvent method.
-		// d.workload.ProcessedEvent(domain.NewWorkloadEvent(-1, sessionReadyEvent.Id(), domain.EventSessionStarted.String(), sessionReadyEvent.SessionID(), sessionReadyEvent.Timestamp().String(), time.Now().String(), (err == nil), err))
-		workloadEvent := domain.NewEmptyWorkloadEvent().
-			WithEventId(sessionReadyEvent.Id()).
-			WithEventName(domain.EventSessionStarted).
-			WithSessionId(sessionReadyEvent.SessionID()).
-			WithEventTimestamp(sessionReadyEvent.Timestamp()).
-			WithProcessedAtTime(time.Now()).
-			WithProcessedStatus(err == nil).
-			WithSimProcessedAtTime(d.clockTime.GetClockTime()).
-			WithError(err)
-		d.workload.ProcessedEvent(workloadEvent)
-		// &domain.WorkloadEvent{
-		// 	Id:                    sessionReadyEvent.Id(),
-		// 	Session:               sessionReadyEvent.SessionID(),
-		// 	Name:                  domain.EventSessionStarted.String(),
-		// 	Timestamp:             sessionReadyEvent.Timestamp().String(),
-		// 	ProcessedAt:           time.Now().String(),
-		// 	ProcessedSuccessfully: (err == nil),
-		// 	ErrorMessage:          err.Error(), /* Will be nil if no error occurred */
-		// })
-
-		if err != nil {
-			d.logger.Error("Failed to provision new Jupyter session.", zap.String(ZapInternalSessionIDKey, sessionId), zap.Duration("real-time-elapsed", time.Since(provisionStart)), zap.Error(err))
-			payload, _ := json.Marshal(domain.ErrorMessage{
-				Description:  reflect.TypeOf(err).Name(),
-				ErrorMessage: err.Error(),
-				Valid:        true,
-			})
-
-			if writeError := d.websocket.WriteMessage(websocket.BinaryMessage, payload); writeError != nil {
-				d.logger.Error("Failed to write error message via WebSocket.", zap.Error(writeError))
-			}
-
-			d.errorChan <- err
-			return // Just return; the workload is about to end anyway (since there was an error).
-		} else {
-			d.logger.Debug("Successfully handled SessionStarted event.", zap.String(ZapInternalSessionIDKey, sessionId), zap.Duration("real-time-elapsed", time.Since(provisionStart)))
-		}
-
-		numProcessed += 1
-		// Get the next ready-to-process `EventSessionReady` event if there is one. If not, then this will return nil, and we'll exit the for-loop.
-		sessionReadyEvent = d.eventQueue.GetNextSessionStartEvent(latestTick)
+	resourceSpec := &jupyter.ResourceSpec{
+		Cpu: int(sessionMeta.GetMaxSessionCPUs()),
+		Mem: sessionMeta.GetMaxSessionMemory(),
+		Gpu: sessionMeta.GetMaxSessionGPUs(),
 	}
 
-	d.sugaredLogger.Debugf("Finished processing %d events in %v.", numProcessed, time.Since(st))
+	provisionStart := time.Now()
+	_, err := d.provisionSession(sessionId, sessionMeta, sessionReadyEvent.Timestamp(), resourceSpec)
+
+	// The event index will be populated automatically by the ProcessedEvent method.
+	// d.workload.ProcessedEvent(domain.NewWorkloadEvent(-1, sessionReadyEvent.Id(), domain.EventSessionStarted.String(), sessionReadyEvent.SessionID(), sessionReadyEvent.Timestamp().String(), time.Now().String(), (err == nil), err))
+	workloadEvent := domain.NewEmptyWorkloadEvent().
+		WithEventId(sessionReadyEvent.Id()).
+		WithEventName(domain.EventSessionStarted).
+		WithSessionId(sessionReadyEvent.SessionID()).
+		WithEventTimestamp(sessionReadyEvent.Timestamp()).
+		WithProcessedAtTime(time.Now()).
+		WithProcessedStatus(err == nil).
+		WithSimProcessedAtTime(d.clockTime.GetClockTime()).
+		WithError(err)
+	d.workload.ProcessedEvent(workloadEvent)
+
+	if err != nil {
+		d.logger.Error("Failed to provision new Jupyter session.", zap.String(ZapInternalSessionIDKey, sessionId), zap.Duration("real-time-elapsed", time.Since(provisionStart)), zap.Error(err))
+		payload, _ := json.Marshal(domain.ErrorMessage{
+			Description:  reflect.TypeOf(err).Name(),
+			ErrorMessage: err.Error(),
+			Valid:        true,
+		})
+
+		if writeError := d.websocket.WriteMessage(websocket.BinaryMessage, payload); writeError != nil {
+			d.logger.Error("Failed to write error message via WebSocket.", zap.Error(writeError))
+		}
+
+		d.errorChan <- err
+	} else {
+		d.logger.Debug("Successfully handled SessionStarted event.", zap.String(ZapInternalSessionIDKey, sessionId), zap.Duration("real-time-elapsed", time.Since(provisionStart)))
+	}
+
+	if wg != nil {
+		wg.Done()
+	}
+
 }
 
+// Schedule new Sessions onto Hosts.
+func (d *BasicWorkloadDriver) handleSessionReadyEvents(latestTick time.Time) {
+	sessionReadyEvents := d.eventQueue.GetAllSessionStartEventsForTick(latestTick, -1 /* return all ready events */)
+	if len(sessionReadyEvents) == 0 {
+		return // No events to process, so just return immediately.
+	}
+
+	if d.sugaredLogger.Level() == zapcore.DebugLevel {
+		d.sugaredLogger.Debugf("[%v] Handling %d EventSessionReady events now.",
+			d.clockTime.GetClockTime(), len(sessionReadyEvents))
+	}
+
+	var wg sync.WaitGroup
+	wg.Add(len(sessionReadyEvents))
+
+	// We'll process the 'session-ready' events in-parallel.
+	st := time.Now()
+	for idx, sessionReadyEvent := range sessionReadyEvents {
+		go d.handleSessionReadyEvent(sessionReadyEvent, idx, &wg)
+	}
+
+	wg.Wait()
+
+	d.sugaredLogger.Debugf("Finished processing %d events in %v.", len(sessionReadyEvents), time.Since(st))
+}
+
+// handleEvent processes a single domain.Event.
 func (d *BasicWorkloadDriver) handleEvent(evt domain.Event) error {
 	traceSessionId := evt.Data().(domain.SessionMetadata).GetPod()
 	internalSessionId := d.getInternalSessionId(traceSessionId)
