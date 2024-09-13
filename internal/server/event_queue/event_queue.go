@@ -88,13 +88,8 @@ func (q *eventQueue) GetAllSessionStartEventsForTick(tick time.Time, max int) []
 
 	events := make([]domain.Event, 0)
 
-	// Check if there is at least one event in the heap. If not, then return nil.
-	if q.sessionReadyEvents.Len() == 0 {
-		return events
-	}
-
-	for {
-		// Check if the next event is ready. If not, return nil.
+	for q.sessionReadyEvents.Len() > 0 {
+		// If the event isn't ready, we'll return straight away.
 		if q.sessionReadyEvents.Peek().Timestamp().After(tick) {
 			break
 		}
