@@ -90,9 +90,10 @@ type BasicKernelSessionManager struct {
 	kernelIdToJupyterSessionId       map[string]string             // Map from Kernel IDs to "local" Session IDs. Jupyter provides both the Session IDs and the Kernel IDs.
 	sessionMap                       map[string]*SessionConnection // Map from Session ID to Session. The keys are the Session IDs supplied by us/the trace data.
 	metadata                         map[string]string             // Metadata is miscellaneous metadata attached to the BasicKernelSessionManager that is mostly used for metrics
+	metadataMutex                    sync.Mutex                    // Synchronizes access to the metadata map.
 	adjustSessionNames               bool                          // If true, ensure all session names are 36 characters in length. For now, this should be true. Setting it to false causes problems for some reason...
 
-	metadataMutex sync.Mutex
+	mu sync.Mutex
 }
 
 func NewKernelSessionManager(jupyterServerAddress string, adjustSessionNames bool, atom *zap.AtomicLevel) *BasicKernelSessionManager {
@@ -155,6 +156,8 @@ func (m *BasicKernelSessionManager) GetMetadata(key string) (string, bool) {
 }
 
 // CreateSession creates a new session.
+//
+// This is thread-safe.
 func (m *BasicKernelSessionManager) CreateSession(sessionId string, path string, sessionType string, kernelSpecName string, resourceSpec *ResourceSpec) (*SessionConnection, error) {
 	if m.adjustSessionNames {
 		if len(sessionId) < 36 {
@@ -208,11 +211,13 @@ func (m *BasicKernelSessionManager) CreateSession(sessionId string, path string,
 			var kernelId = jupyterSession.JupyterKernel.Id
 			var jupyterSessionId = jupyterSession.JupyterSessionId
 
+			m.mu.Lock()
 			// Update all of our many mappings...
 			m.localSessionIdToKernelId[sessionId] = kernelId
 			m.localSessionIdToJupyterSessionId[sessionId] = jupyterSessionId
 			m.kernelIdToJupyterSessionId[kernelId] = jupyterSessionId
 			m.kernelIdToLocalSessionId[kernelId] = sessionId
+			m.mu.Unlock()
 
 			st := time.Now()
 			// Connect to the Session and to the associated kernel.
@@ -223,7 +228,9 @@ func (m *BasicKernelSessionManager) CreateSession(sessionId string, path string,
 			}
 			creationTime := time.Since(st)
 
+			m.mu.Lock()
 			m.sessionMap[sessionId] = sessionConnection
+			m.mu.Unlock()
 
 			m.logger.Debug("Successfully created and setup session.", zap.Duration("time-to-create", creationTime), zap.String("local-session-id", sessionId), zap.String("jupyter-session-id", jupyterSessionId), zap.String("kernel-id", kernelId))
 		}
@@ -249,7 +256,11 @@ func (m *BasicKernelSessionManager) CreateSession(sessionId string, path string,
 	}
 
 	workloadId, _ := m.GetMetadata(WorkloadIdMetadataKey)
+
+	m.mu.Lock()
 	m.metrics.SessionCreated(workloadId, time.Since(sentAt))
+	m.mu.Unlock()
+
 	// TODO(Ben): Does this also create a new kernel?
 	return sessionConnection, nil
 }

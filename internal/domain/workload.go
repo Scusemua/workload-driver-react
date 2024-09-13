@@ -59,6 +59,10 @@ type NamedEvent interface {
 	String() string
 }
 
+// Workload encapsulates a workload submitted by a user to be orchestrated and executed by the backend server.
+//
+// Most methods of the Workload interface are intended to be thread-safe, even if they aren't explicitly
+// indicated as such in the method's documenation.
 type Workload interface {
 	// IsTerminated Returns true if the workload stopped because it was explicitly terminated early/premature.
 	IsTerminated() bool
@@ -128,6 +132,8 @@ type Workload interface {
 	// ProcessedEvent is Called after an event is processed for the Workload.
 	// Updates some internal metrics.
 	// Automatically sets the WorkloadEvent's index field.
+	//
+	// This method is thread safe.
 	ProcessedEvent(*WorkloadEvent)
 	// SessionCreated is Called when a Session is created for/in the Workload.
 	// Just updates some internal metrics.
@@ -755,6 +761,8 @@ func (w *workloadImpl) WorkloadName() string {
 
 // ProcessedEvent is called after an event is processed for the Workload.
 // Just updates some internal metrics.
+//
+// This method is thread safe.
 func (w *workloadImpl) ProcessedEvent(evt *WorkloadEvent) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
