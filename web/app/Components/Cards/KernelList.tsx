@@ -1,4 +1,17 @@
-import React, { useEffect, useReducer, useRef } from 'react';
+import {
+    ConfirmationModal,
+    CreateKernelsModal,
+    ExecuteCodeOnKernelModal,
+    InformationModal,
+} from '@app/Components/Modals';
+import { HeightFactorContext, KernelHeightFactorContext } from '@app/Dashboard/Dashboard';
+import { GpuIcon } from '@app/Icons';
+import { numberArrayFromRange } from '@app/utils/utils';
+import { DistributedJupyterKernel, JupyterKernelReplica, ResourceSpec } from '@data/Kernel';
+
+import { KernelManager, ServerConnection, SessionManager } from '@jupyterlab/services';
+import { IKernelConnection } from '@jupyterlab/services/lib/kernel/kernel';
+import { ISessionConnection, IModel as ISessionModel } from '@jupyterlab/services/lib/session/session';
 import {
     Button,
     Card,
@@ -39,11 +52,6 @@ import {
     Tooltip,
 } from '@patternfly/react-core';
 
-import toast from 'react-hot-toast';
-
-import { KernelManager, ServerConnection, SessionManager } from '@jupyterlab/services';
-import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
-
 import {
     BundleIcon,
     CheckCircleIcon,
@@ -67,22 +75,12 @@ import {
     TrashIcon,
     VirtualMachineIcon,
 } from '@patternfly/react-icons';
-
-import {
-    ConfirmationModal,
-    CreateKernelsModal,
-    ExecuteCodeOnKernelModal,
-    InformationModal,
-} from '@app/Components/Modals';
-import { DistributedJupyterKernel, JupyterKernelReplica, ResourceSpec } from '@data/Kernel';
+import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 import { useKernels } from '@providers/KernelProvider';
-import { GpuIcon } from '@app/Icons';
-import { HeightFactorContext, KernelHeightFactorContext } from '@app/Dashboard/Dashboard';
-import { IKernelConnection } from '@jupyterlab/services/lib/kernel/kernel';
-import { ISessionConnection } from '@jupyterlab/services/lib/session/session';
-import { IModel as ISessionModel } from '@jupyterlab/services/lib/session/session';
-import { numberArrayFromRange } from '@app/utils/utils';
-import { PingKernelModal } from '../Modals/PingKernelModal';
+import React, { useEffect, useReducer, useRef } from 'react';
+
+import toast from 'react-hot-toast';
+import { PingKernelModal } from '@components/Modals';
 
 // Map from kernel status to the associated icon.
 const kernelStatusIcons = {
@@ -97,7 +95,7 @@ const kernelStatusIcons = {
 };
 
 export interface KernelListProps {
-    openMigrationModal: (DistributedJupyterKernel, JupyterKernelReplica) => void;
+    openMigrationModal: (kernel: DistributedJupyterKernel, replica: JupyterKernelReplica) => void;
     kernelsPerPage: number;
 }
 
@@ -217,11 +215,6 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         }
 
         if (sessionManager.current === null) {
-            if (kernelManager.current === null) {
-                console.error('Cannot create Session Manager as Kernel Mangaer is null.');
-                return;
-            }
-
             sessionManager.current = new SessionManager({
                 kernelManager: kernelManager.current,
                 serverSettings: ServerConnection.makeSettings({
@@ -284,7 +277,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
     const onCancelPingKernelClicked = () => {
         setIsPingKernelModalOpen(false);
         setTargetIdPingKernel('');
-    }
+    };
 
     const onConfirmPingKernelClicked = (kernelId: string, socketType: 'control' | 'shell') => {
         setIsPingKernelModalOpen(false);
@@ -328,16 +321,16 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                             </FlexItem>
                         </Flex>
                     );
-                }
+                },
             },
             {
                 style: {
                     padding: '8px',
                     minWidth: '425px',
                 },
-            }
+            },
         );
-    }
+    };
 
     const onExecuteCodeClicked = (kernel: DistributedJupyterKernel | null, replicaIdx?: number | undefined) => {
         if (kernel == null) {
@@ -361,7 +354,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         setIsExecuteCodeModalOpen(true);
     };
 
-    async function onPingKernelClicked(kernel: DistributedJupyterKernel) {
+    function onPingKernelClicked(kernel: DistributedJupyterKernel) {
         setIsPingKernelModalOpen(true);
         setTargetIdPingKernel(kernel.kernelId);
     }
@@ -461,9 +454,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             `Starting kernel ${kernelId} (sessionId=${sessionId}) now. ResourceSpec: ${JSON.stringify(resourceSpec)}`,
         );
 
-        const username: string = sessionId;
-
-        console.log(`Starting new 'distributed' kernel for user ${username} with clientID=${sessionId}.`);
+      console.log(`Starting new 'distributed' kernel for user ${sessionId} with clientID=${sessionId}.`);
         console.log(`Creating new Jupyter Session ${sessionId} now...`);
 
         if (!sessionManager.current || !sessionManager.current.isReady) {
@@ -579,7 +570,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             console.log(`New Kernel Status Update: ${status}`);
         });
 
-        refreshKernels();
+        await refreshKernels();
     }
 
     async function onConfirmExecuteCodeClicked(
@@ -1062,16 +1053,16 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         <Table isStriped aria-label="Pods Table" variant={'compact'} borders={true}>
             <Thead>
                 <Tr>
-                    <Th aria-label={"kernel-ID"}>ID</Th>
-                    <Th aria-label={"kernel-container"}>
+                    <Th aria-label={'kernel-ID'}>ID</Th>
+                    <Th aria-label={'kernel-container'}>
                         <BundleIcon />
                         {' Pod'}
                     </Th>
-                    <Th aria-label={"kernel-node"}>
+                    <Th aria-label={'kernel-node'}>
                         <VirtualMachineIcon />
                         {' Node'}
                     </Th>
-                    <Th aria-label={"blank"}/>
+                    <Th aria-label={'blank'} />
                 </Tr>
             </Thead>
             <Tbody>
@@ -1109,7 +1100,10 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                                     variant={'link'}
                                                     icon={<CodeIcon />}
                                                     /* Disable the 'Execute' button if we have no replicas, or if we don't have at least 3. */
-                                                    isDisabled={kernel == null || kernel == undefined || kernel?.replicas === null || kernel?.replicas?.length < 3}
+                                                    isDisabled={
+                                                        kernel?.replicas === null ||
+                                                        kernel?.replicas?.length < 3
+                                                    }
                                                     onClick={() => onExecuteCodeClicked(kernel, replicaIdx)}
                                                 >
                                                     Execute
@@ -1169,7 +1163,10 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                                     aria-label="execute-code-replica-dropdown"
                                                     isShared
                                                     /* Disable the 'Execute' button if we have no replicas, or if we don't have at least 3. */
-                                                    isDisabled={kernel == null || kernel == undefined || kernel?.replicas === null || kernel?.replicas?.length < 3}
+                                                    isDisabled={
+                                                        kernel?.replicas === null ||
+                                                        kernel?.replicas?.length < 3
+                                                    }
                                                     icon={<CodeIcon />}
                                                     onClick={() => {
                                                         onExecuteCodeClicked(kernel, replicaIdx);
@@ -1342,9 +1339,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                                             /* Disable the 'Execute' button if we have no replicas, or if we don't have at least 3. */
                                                             isDisabled={
                                                                 kernel?.replicas === undefined ||
-                                                                (kernel !== undefined &&
-                                                                    kernel.replicas !== undefined &&
-                                                                    kernel?.replicas?.length < 3)
+                                                                (kernel !== undefined && true && kernel?.replicas?.length < 3)
                                                             }
                                                             onClick={() => onExecuteCodeClicked(kernel)}
                                                         >
@@ -1363,7 +1358,10 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                                             variant={'link'}
                                                             isDanger
                                                             icon={<PauseIcon />}
-                                                            isDisabled={kernel == null || kernel == undefined || kernel?.replicas === null || kernel?.replicas?.length < 3}
+                                                            isDisabled={
+                                                                kernel == null || false || kernel?.replicas === null ||
+                                                                kernel?.replicas?.length < 3
+                                                            }
                                                             // isDisabled={
                                                             //     kernel == null || kernel?.aggregateBusyStatus === 'idle'
                                                             // }
@@ -1390,7 +1388,10 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                                         <Button
                                                             variant={'link'}
                                                             icon={<InfoAltIcon />}
-                                                            isDisabled={kernel == null || kernel == undefined || kernel?.replicas === null || kernel?.replicas?.length < 3}
+                                                            isDisabled={
+                                                                kernel == null || false || kernel?.replicas === null ||
+                                                                kernel?.replicas?.length < 3
+                                                            }
                                                             onClick={() => onPingKernelClicked(filteredKernels[idx])}
                                                         >
                                                             Ping
@@ -1503,7 +1504,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                         isHidden={!expandedKernels.includes(kernel.kernelId)}
                         hasNoPadding={true}
                     >
-                        {kernel != null && expandedKernelContent(kernel)}
+                        {expandedKernelContent(kernel)}
                     </DataListContent>
                 )}
             </DataListItem>
@@ -1550,49 +1551,49 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                     <Text component={TextVariants.h2}>There are no active kernels.</Text>
                 )}
                 <CreateKernelsModal
-                        isOpen={isConfirmCreateModalOpen}
-                        onConfirm={onConfirmCreateKernelClicked}
-                        onClose={onCancelCreateKernelClicked}
-                    />
+                    isOpen={isConfirmCreateModalOpen}
+                    onConfirm={onConfirmCreateKernelClicked}
+                    onClose={onCancelCreateKernelClicked}
+                />
                 <ConfirmationModal
-                        isOpen={isConfirmDeleteKernelsModalOpen}
-                        onConfirm={() => onConfirmDeleteKernelsClicked(selectedKernels)}
-                        onClose={onCancelDeleteKernelsClicked}
-                        title={'Terminate Selected Kernels'}
-                        message={"Are you sure you'd like to delete the specified kernel(s)?"}
-                    />
+                    isOpen={isConfirmDeleteKernelsModalOpen}
+                    onConfirm={() => onConfirmDeleteKernelsClicked(selectedKernels)}
+                    onClose={onCancelDeleteKernelsClicked}
+                    title={'Terminate Selected Kernels'}
+                    message={"Are you sure you'd like to delete the specified kernel(s)?"}
+                />
                 <ConfirmationModal
-                        isOpen={isConfirmDeleteKernelModalOpen}
-                        onConfirm={() => onConfirmDeleteKernelsClicked([kernelToDelete])}
-                        onClose={onCancelDeleteKernelClicked}
-                        title={'Terminate Kernel'}
-                        message={"Are you sure you'd like to delete the specified kernel?"}
-                    />
+                    isOpen={isConfirmDeleteKernelModalOpen}
+                    onConfirm={() => onConfirmDeleteKernelsClicked([kernelToDelete])}
+                    onClose={onCancelDeleteKernelClicked}
+                    title={'Terminate Kernel'}
+                    message={"Are you sure you'd like to delete the specified kernel?"}
+                />
                 <ExecuteCodeOnKernelModal
-                        kernel={executeCodeKernel}
-                        replicaId={executeCodeKernelReplica?.replicaId}
-                        isOpen={isExecuteCodeModalOpen}
-                        onClose={onCancelExecuteCodeClicked}
-                        onSubmit={onConfirmExecuteCodeClicked}
-                    />
+                    kernel={executeCodeKernel}
+                    replicaId={executeCodeKernelReplica?.replicaId}
+                    isOpen={isExecuteCodeModalOpen}
+                    onClose={onCancelExecuteCodeClicked}
+                    onSubmit={onConfirmExecuteCodeClicked}
+                />
                 <InformationModal
-                        isOpen={isErrorModalOpen}
-                        onClose={() => {
-                            setIsErrorModalOpen(false);
-                            setErrorMessage('');
-                            setErrorMessagePreamble('');
-                        }}
-                        title="An Error has Occurred"
-                        titleIconVariant="danger"
-                        message1={errorMessagePreamble}
-                        message2={errorMessage}
-                    />
+                    isOpen={isErrorModalOpen}
+                    onClose={() => {
+                        setIsErrorModalOpen(false);
+                        setErrorMessage('');
+                        setErrorMessagePreamble('');
+                    }}
+                    title="An Error has Occurred"
+                    titleIconVariant="danger"
+                    message1={errorMessagePreamble}
+                    message2={errorMessage}
+                />
                 <PingKernelModal
-                        isOpen={isPingKernelModalOpen}
-                        onClose={onCancelPingKernelClicked}
-                        onConfirm={onConfirmPingKernelClicked}
-                        kernelId={targetIdPingKernel}
-                    />
+                    isOpen={isPingKernelModalOpen}
+                    onClose={onCancelPingKernelClicked}
+                    onConfirm={onConfirmPingKernelClicked}
+                    kernelId={targetIdPingKernel}
+                />
                 <Pagination
                     hidden={kernels.length == 0}
                     isDisabled={kernels.length == 0}
