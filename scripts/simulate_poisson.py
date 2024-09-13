@@ -5,6 +5,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 from numpy import ndarray
 
+import pandas as pd
 
 #
 # References:
@@ -188,7 +189,8 @@ def poisson_simulation(
   shape: float,
   scale: float,
   show_visualization:bool=True
-)-> tuple[int, ndarray, ndarray, ndarray] | tuple[list[int], list[ndarray], list[ndarray], list[ndarray]]:
+)-> tuple[int, list[ndarray[Any, Any]], ndarray, ndarray] | tuple[
+  list[int], list[list[ndarray[Any, Any]]], list[ndarray], list[ndarray]]:
   if len(rate) == 0:
     assert len(iat) > 0
 
@@ -197,16 +199,16 @@ def poisson_simulation(
     assert len(rate) > 0
 
   print(f"Simulating Poisson Process with rate={rate} and time duration={time_duration}")
-  if isinstance(rate, int):
-    num_events, event_times, inter_arrival_times, event_durations = generate_poisson_events(rate, time_duration, shape, scale)
+  # if isinstance(rate, int):
+  #   num_events, event_times, inter_arrival_times, event_durations = generate_poisson_events(rate, time_duration, shape, scale)
+  #
+  #   if show_visualization:
+  #     plot_non_sequential_poisson(num_events, event_times, inter_arrival_times, event_durations, rate, time_duration)
+  #     return num_events, event_times, inter_arrival_times, event_durations
+  #   else:
+  #     return num_events, event_times, inter_arrival_times, event_durations
 
-    if show_visualization:
-      plot_non_sequential_poisson(num_events, event_times, inter_arrival_times, event_durations, rate, time_duration)
-      return num_events, event_times, inter_arrival_times, event_durations
-    else:
-      return num_events, event_times, inter_arrival_times, event_durations
-
-  elif isinstance(rate, list):
+  if isinstance(rate, list):
     num_events_list = []
     event_times_list = []
     inter_arrival_times_list = []
@@ -233,8 +235,21 @@ def main():
     print("[ERROR] Must specify at least one rate or at least one IAT.")
     exit(1)
 
-  poisson_simulation(rate=args.rate, iat=args.iat, scale=args.scale, shape=args.shape, time_duration=args.time_duration, show_visualization=args.show_visualization)
+  num_events, event_times, iats, durations = poisson_simulation(rate=args.rate, iat=args.iat, scale=args.scale, shape=args.shape, time_duration=args.time_duration, show_visualization=args.show_visualization)
 
+  # data = {
+  #   "timestamp": event_times,
+  #   "inter_arrival_time": iats,
+  #   "duration": durations
+  # }
+
+  _iats = [0] + list(iats[0])
+  print(f"event_times ({len(event_times[0])}): {event_times[0]}")
+  print(f"iats ({len(_iats)}): {_iats}")
+  print(f"durations ({len(durations[0])}): {durations[0]}")
+
+  df = pd.DataFrame(np.column_stack([event_times[0], _iats, durations[0]]), columns=["ts", "iat", "dur"])
+  print(df)
 
 if __name__ == "__main__":
   main()
