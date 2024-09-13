@@ -113,7 +113,7 @@ def plot_non_sequential_poisson(
     f'Histogram of Inter-Arrival Times\nMEAN: {np.mean(inter_arrival_times):.2f} | STD: {np.std(inter_arrival_times):.2f}\n')
   axs[1].grid(True, alpha=0.5)
 
-  axs[2].hist(event_durations, bins=20, color='green', alpha=0.5)
+  axs[2].hist(event_durations, bins=20, color='red', alpha=0.75)
   axs[2].set_xlabel('Duration (seconds)')
   axs[2].set_ylabel('Frequency')
   axs[2].set_title(
@@ -128,7 +128,7 @@ def plot_sequential_poisson(
   num_events_list: list[int],
   event_times_list: list[np.ndarray],
   inter_arrival_times_list: list[np.ndarray],
-  event_durations: list[np.ndarray],
+  event_durations_list: list[np.ndarray],
   rate: list[float],
   time_duration: float
 ):
@@ -138,22 +138,31 @@ def plot_sequential_poisson(
   :param num_events_list: the number of events of each of the poisson processes
   :param event_times_list: the times at which each event occurred within each poisson process
   :param inter_arrival_times_list: the inter-arrival times (IATs) of each poisson process
-  :param event_durations: durations of each event in seconds
+  :param event_durations_list: durations of each event in seconds
   :param rate: the average arrival rate of events in events/second for each poisson process
   :param time_duration: the duration, in seconds, that each poisson process was simulated for
   """
   fig, axs = plt.subplots(nrows=1, ncols=3, figsize=(15, 6))
   fig.suptitle(f'Poisson Process Simulation (Duration = {time_duration} seconds)\n', fontsize=16)
 
+  # Events, step
   axs[0].set_xlabel('Time')
   axs[0].set_ylabel('Event Number')
   axs[0].set_title('Poisson Process Event Times')
   axs[0].grid(True)
 
+  # IATs, histogram
   axs[1].set_xlabel('Inter-Arrival Time')
   axs[1].set_ylabel('Frequency')
   axs[1].set_title('Histogram of Inter-Arrival Times')
   axs[1].grid(True, alpha=0.5)
+
+  # Durations, histogram
+  axs[2].set_ylabel('Frequency')
+  axs[2].set_xlabel('Duration (seconds)')
+  axs[2].set_title(
+    f'Histogram of Event Durations')
+  axs[2].grid(True, alpha=0.5)
 
   color_palette = plt.get_cmap('tab20')
   colors = [color_palette(i) for i in range(len(rate))]
@@ -162,21 +171,18 @@ def plot_sequential_poisson(
     num_events = num_events_list[n]
     event_times = event_times_list[n]
     inter_arrival_times = inter_arrival_times_list[n]
+    event_durations = event_durations_list[n]
 
     axs[0].step(event_times, np.arange(1, num_events + 1), where='post', color=colors[n],
                 label=f'λ = {individual_rate}, Total Events: {num_events}')
     axs[1].hist(inter_arrival_times, bins=20, color=colors[n], alpha=0.5,
-                label=f'λ = {individual_rate}, MEAN: {np.mean(inter_arrival_times):.2f}, STD: {np.std(inter_arrival_times):.2f}')
+                label=f'λ = {individual_rate}, MEAN: {np.mean(inter_arrival_times):.2f} sec, STD: {np.std(inter_arrival_times):.2f} sec')
+    axs[2].hist(event_durations, bins=20, color='red', alpha=0.65,
+                label=f'Mean: {np.mean(event_durations):.2f} sec | STD: {np.std(event_durations):.2f} sec')
 
   axs[0].legend()
   axs[1].legend()
-
-  axs[2].hist(event_durations, bins=20, color='green', alpha=0.5)
-  axs[2].set_xlabel('Duration (seconds)')
-  axs[2].set_ylabel('Frequency')
-  axs[2].set_title(
-    f'Histogram of Event Durations\nMEAN: {np.mean(event_durations):.2f} | STD: {np.std(event_durations):.2f}\n')
-  axs[2].grid(True, alpha=0.5)
+  axs[2].legend()
 
   plt.tight_layout()
   plt.show()
