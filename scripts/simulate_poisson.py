@@ -74,7 +74,7 @@ def plot_non_sequential_poisson(
 
 
 def plot_sequential_poisson(
-  num_events_list: list[np.ndarray],
+  num_events_list: list[int],
   event_times_list: list[np.ndarray],
   inter_arrival_times_list: list[np.ndarray],
   rate: list[float],
@@ -94,12 +94,12 @@ def plot_sequential_poisson(
 
   axs[0].set_xlabel('Time')
   axs[0].set_ylabel('Event Number')
-  axs[0].set_title(f'Poisson Process Event Times')
+  axs[0].set_title('Poisson Process Event Times')
   axs[0].grid(True)
 
   axs[1].set_xlabel('Inter-Arrival Time')
   axs[1].set_ylabel('Frequency')
-  axs[1].set_title(f'Histogram of Inter-Arrival Times')
+  axs[1].set_title('Histogram of Inter-Arrival Times')
   axs[1].grid(True, alpha=0.5)
 
   color_palette = plt.get_cmap('tab20')
