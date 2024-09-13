@@ -1,7 +1,9 @@
 import argparse
+from typing import Tuple, List, Any
 
 import matplotlib.pyplot as plt
 import numpy as np
+from numpy import ndarray
 
 
 #
@@ -9,7 +11,8 @@ import numpy as np
 # - https://medium.com/@abhash-rai/poisson-process-simulation-and-analysis-in-python-e62f69d1fdd0
 #
 
-def generate_poisson_events(rate: float, time_duration: float, shape: float, scale: float) -> tuple[int, np.ndarray, np.ndarray, np.ndarray]:
+def generate_poisson_events(rate: float, time_duration: float, shape: float, scale: float) -> tuple[
+  int, list[ndarray[Any, Any]], ndarray, ndarray]:
   """
   Simulate a Poisson process by generating events with a given average rate (`rate`)
   over a specified time duration (`time_duration`).
@@ -185,7 +188,7 @@ def poisson_simulation(
   shape: float,
   scale: float,
   show_visualization:bool=True
-)->tuple[list[float], list[np.ndarray], list[np.ndarray], list[np.ndarray]]:
+)-> tuple[int, ndarray, ndarray, ndarray] | tuple[list[int], list[ndarray], list[ndarray], list[ndarray]]:
   if len(rate) == 0:
     assert len(iat) > 0
 
@@ -199,6 +202,7 @@ def poisson_simulation(
 
     if show_visualization:
       plot_non_sequential_poisson(num_events, event_times, inter_arrival_times, event_durations, rate, time_duration)
+      return num_events, event_times, inter_arrival_times, event_durations
     else:
       return num_events, event_times, inter_arrival_times, event_durations
 
@@ -217,6 +221,7 @@ def poisson_simulation(
 
     if show_visualization:
       plot_sequential_poisson(num_events_list, event_times_list, inter_arrival_times_list, event_durations_list, rate, time_duration)
+      return num_events_list, event_times_list, inter_arrival_times_list, event_durations_list
     else:
       return num_events_list, event_times_list, inter_arrival_times_list, event_durations_list
 
