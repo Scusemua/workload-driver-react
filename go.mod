@@ -31,6 +31,7 @@ require (
 require (
 	github.com/charmbracelet/lipgloss v0.12.1
 	github.com/enriquebris/goconcurrentqueue v0.7.0
+	github.com/evanphx/json-patch/v5 v5.9.0
 	github.com/gin-contrib/pprof v1.5.0
 	github.com/hashicorp/yamux v0.1.1
 	github.com/icza/gox v0.0.0-20240829094117-5982a7a6cca1
@@ -50,6 +51,7 @@ require (
 	github.com/klauspost/compress v1.17.9 // indirect
 	github.com/lucasb-eyer/go-colorful v1.2.0 // indirect
 	github.com/mattn/go-runewidth v0.0.15 // indirect
+	github.com/pkg/errors v0.9.1 // indirect
 	github.com/prometheus/client_model v0.6.1 // indirect
 	github.com/prometheus/common v0.55.0 // indirect
 	github.com/prometheus/procfs v0.15.1 // indirect

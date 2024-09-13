@@ -24,7 +24,8 @@ type SubscriptionRequest struct {
 	*BaseMessage
 }
 
-// Given a payload that encodes an arbitrary (i.e., of any type) workload-related WebSocket message, unmarshal and return the message.
+// UnmarshalRequestPayload -- given a payload that encodes an arbitrary (i.e., of any type) workload-related WebSocket
+// message, unmarshal and return the message.
 func UnmarshalRequestPayload[WorkloadWebsocketMessageType WorkloadWebsocketMessage](encodedMessage []byte) (WorkloadWebsocketMessageType, error) {
 	var decodedMessage WorkloadWebsocketMessageType
 	err := json.Unmarshal(encodedMessage, &decodedMessage)
@@ -56,12 +57,18 @@ func (r *ToggleDebugLogsRequest) String() string {
 	return string(out)
 }
 
+type PatchedWorkload struct {
+	Patch      string `json:"patch"`
+	WorkloadId string `json:"workloadId"`
+}
+
 type WorkloadResponse struct {
 	// MessageIndex      int32      `json:"message_index"`
-	MessageId         string     `json:"msg_id"`
-	NewWorkloads      []Workload `json:"new_workloads"`
-	ModifiedWorkloads []Workload `json:"modified_workloads"`
-	DeletedWorkloads  []Workload `json:"deleted_workloads"`
+	MessageId         string             `json:"msg_id"`             // Unique ID of the message.
+	NewWorkloads      []Workload         `json:"new_workloads"`      // Workloads that are newly-created.
+	ModifiedWorkloads []Workload         `json:"modified_workloads"` // Modified workloads sent in their entirety.
+	PatchedWorkloads  []*PatchedWorkload `json:"patched_workloads"`  // Modified workloads sent as JSON merge patches.
+	DeletedWorkloads  []Workload         `json:"deleted_workloads"`  // Workloads that are being deleted.
 }
 
 // Encode the response to a JSON format.
@@ -78,7 +85,8 @@ func (r *WorkloadResponse) String() string {
 	return string(out)
 }
 
-// Wrapper around a WorkloadRegistrationRequest; contains the message ID and operation field.
+// WorkloadRegistrationRequestWrapper is a wrapper around a WorkloadRegistrationRequest.
+// WorkloadRegistrationRequestWrapper contains the message ID and operation field.
 type WorkloadRegistrationRequestWrapper struct {
 	*BaseMessage
 	WorkloadRegistrationRequest *WorkloadRegistrationRequest `json:"workloadRegistrationRequest"`
@@ -98,13 +106,15 @@ type StopTrainingRequest struct {
 	SessionId string `json:"session_id"` // The associated session.
 }
 
-// Whether this pauses or unpauses a workload depends on the value of the Operation field.
+// PauseUnpauseWorkloadRequest is a request for pausing and un-pausing a workload.
+// PauseUnpauseWorkloadRequest this pauses or unpauses a workload depends on the value of the Operation field.
 type PauseUnpauseWorkloadRequest struct {
 	*BaseMessage
 	WorkloadId string `json:"workload_id"` // ID of the workload to (un)pause.
 }
 
-// Request for starting/stopping a workload. Whether this starts or stops a workload depends on the value of the Operation field.
+// StartStopWorkloadRequest is a request for starting/stopping a workload. Whether this starts or stops a
+// workload depends on the value of the Operation field.
 type StartStopWorkloadRequest struct {
 	*BaseMessage
 	WorkloadId string `json:"workload_id"`
@@ -119,7 +129,8 @@ func (r *StartStopWorkloadRequest) String() string {
 	return string(out)
 }
 
-// Request for starting/stopping a workload. Whether this starts or stops a workload depends on the value of the Operation field.
+// StartStopWorkloadsRequest is a request for starting/stopping a workload.
+// Whether this starts or stops a workload depends on the value of the Operation field.
 type StartStopWorkloadsRequest struct {
 	*BaseMessage
 	WorkloadIDs []string `json:"workload_ids"`

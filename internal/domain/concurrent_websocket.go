@@ -2,7 +2,7 @@ package domain
 
 import "net"
 
-// WebSocket with synchronized reads and writes so that it may be used by multiple goroutines.
+// ConcurrentWebSocket is a WebSocket with synchronized reads and writes so that it may be used by multiple goroutines.
 type ConcurrentWebSocket interface {
 	WriteJSON(v interface{}) error                       // WriteJSON writes the JSON encoding of v as a message.
 	WriteMessage(messageType int, data []byte) error     // WriteMessage is a helper method for getting a writer using NextWriter, writing the message and closing the writer. The message types are defined in the gorilla websocket module.
@@ -10,6 +10,8 @@ type ConcurrentWebSocket interface {
 	ReadMessage() (messageType int, p []byte, err error) // ReadMessage is a helper method for getting a reader using NextReader and reading from that reader to a buffer.
 	RemoteAddr() net.Addr                                // RemoteAddr returns the remote network address.
 	Close() error                                        // Close the websocket.
+	AddMetadata(key, value string)                       // AddMetadata stores a piece of metadata within the WebSocket.
+	GetMetadata(key string) (string, bool)               // GetMetadata retrieves a piece of metadata from the WebSocket.
 }
 
 type GeneralWebSocketResponse struct {

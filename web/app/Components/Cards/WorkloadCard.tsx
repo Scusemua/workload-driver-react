@@ -369,11 +369,11 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
   );
 
   // console.log(`Workloads (${workloads.length}):`);
-  for (let i = 0; i < workloads.length; i++) {
-    const workload: Workload = workloads[i];
-
-    console.log(`\tWorkload #${i}: ${JSON.stringify(workload)}`);
-  }
+  // for (let i = 0; i < workloads.length; i++) {
+  //   const workload: Workload = workloads[i];
+  //
+  //   console.log(`\tWorkload #${i}: ${JSON.stringify(workload)}`);
+  // }
 
   return (
     <React.Fragment>

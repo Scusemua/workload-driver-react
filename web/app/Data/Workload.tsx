@@ -103,6 +103,11 @@ interface GpuUtilization {
     utilization: number;
 }
 
+interface PatchedWorkload {
+  workloadId: string;
+  patch: string;
+}
+
 // Response for a 'get workloads' request.
 // Sent to the front-end by the back-end.
 interface WorkloadResponse {
@@ -110,6 +115,7 @@ interface WorkloadResponse {
     new_workloads: Workload[];
     modified_workloads: Workload[];
     deleted_workloads: Workload[];
+    patched_workloads: PatchedWorkload[];
 }
 
 // Wraps a workload created using a template.
@@ -160,3 +166,4 @@ export type { Session as Session };
 export type { TrainingEvent as TrainingEvent };
 export type { WorkloadTemplate as WorkloadTemplate };
 export type { ResourceRequest as ResourceRequest };
+export type {PatchedWorkload as PatchedWorkload};

@@ -1,15 +1,17 @@
 package workload
 
 import (
+	"encoding/json"
 	"errors"
 	"fmt"
+	"github.com/google/uuid"
 	"sync"
 	"sync/atomic"
 	"time"
 
 	"github.com/elliotchance/orderedmap/v2"
+	jsonpatch "github.com/evanphx/json-patch/v5"
 	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
 	"github.com/mattn/go-colorable"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
 	"go.uber.org/zap"
@@ -24,12 +26,16 @@ type workloadManagerImpl struct {
 	configuration            *domain.Configuration                                 // Server-wide configuration.
 	pushGoroutineActive      atomic.Int32                                          // Indicates whether there is already a goroutine serving the "push" routine, which pushes updated workload data to the frontend.
 	pushUpdateInterval       time.Duration                                         // The interval at which we push updates to the workloads to the frontend.
-	workloadWebsocketHandler *WorkloadWebsocketHandler                             // Workload WebSocket handler. Accepts and processes WebSocket requests related to workloads.
+	workloadWebsocketHandler *WebsocketHandler                                     // Workload WebSocket handler. Accepts and processes WebSocket requests related to workloads.
 	workloadDrivers          *orderedmap.OrderedMap[string, domain.WorkloadDriver] // Map from workload ID to the associated driver.
 	workloadsMap             *orderedmap.OrderedMap[string, domain.Workload]       // Map from workload ID to workload
 	workloads                []domain.Workload                                     // Slice of workloads. Same contents as the map, but in slice form.
 	mu                       sync.Mutex                                            // Synchronizes access to the workload drivers and the workloads themselves (both the map and the slice).
 	workloadStartedChan      chan string                                           // Channel of workload IDs. When a workload is started, its ID is submitted to this channel.
+}
+
+func init() {
+	jsonpatch.SupportNegativeIndices = false
 }
 
 func NewWorkloadManager(configuration *domain.Configuration, atom *zap.AtomicLevel) domain.WorkloadManager {
@@ -54,7 +60,7 @@ func NewWorkloadManager(configuration *domain.Configuration, atom *zap.AtomicLev
 	manager.logger = logger
 	manager.sugaredLogger = logger.Sugar()
 
-	manager.workloadWebsocketHandler = NewWorkloadWebsocketHandler(configuration, manager, manager.workloadStartedChan, atom)
+	manager.workloadWebsocketHandler = NewWebsocketHandler(configuration, manager, manager.workloadStartedChan, atom)
 	manager.pushGoroutineActive.Store(0)
 
 	return manager
@@ -186,7 +192,7 @@ func (m *workloadManagerImpl) RegisterWorkload(request *domain.WorkloadRegistrat
 		return nil, err
 	}
 
-	// Update our internal state and perform the necessary book-keeping.
+	// Update our internal state and perform the necessary bookkeeping.
 	workloadId := workload.GetId()
 	m.workloads = append(m.workloads, workload)
 	m.workloadsMap.Set(workloadId, workload)
@@ -198,6 +204,7 @@ func (m *workloadManagerImpl) RegisterWorkload(request *domain.WorkloadRegistrat
 }
 
 // Push an update to the frontend.
+// patchPayload is a JSON PATCH, and fullPayload is the full, encoded workload state.
 func (m *workloadManagerImpl) pushWorkloadUpdate(payload []byte) error {
 	errs := m.workloadWebsocketHandler.broadcastToWorkloadWebsockets(payload)
 
@@ -245,6 +252,10 @@ func (m *workloadManagerImpl) serverPushRoutine( /* doneChan chan struct{} */ ) 
 		}
 	}
 
+	// Cache the previous "workload state" so that we can just create a patch from
+	// the current workload state and send the patch, which should be much smaller.
+	previousWorkloadsEncoded := make(map[string][]byte)
+
 	// We'll loop until the underlying WebSocket connection is terminated.
 	for {
 		// Check for any newly-registered workloads before pushing an update.
@@ -256,6 +267,7 @@ func (m *workloadManagerImpl) serverPushRoutine( /* doneChan chan struct{} */ ) 
 			// We'll push one more update for these workloads and then stop pushing updates for them,
 			// as the state/data of non-active workoads does not change.
 			noLongerActivelyRunning := make([]string, 0)
+			activeWorkloadsSlice := make([]domain.Workload, 0)
 
 			m.mu.Lock()
 			// Iterate over all the active workloads.
@@ -270,32 +282,57 @@ func (m *workloadManagerImpl) serverPushRoutine( /* doneChan chan struct{} */ ) 
 
 				// Update this field.
 				workload.UpdateTimeElapsed()
+				activeWorkloadsSlice = append(activeWorkloadsSlice, workload)
 			}
 			m.mu.Unlock()
 
 			// Create a message to push to the frontend.
 			var msgId = uuid.NewString()
-
-			// Get a slice of all the workloads in the 'activeWorkloads' map.
-			activeWorkloadsSlice := getMapValues[string, domain.Workload](activeWorkloads)
-
-			// Build a message containing the slice of workloads as its contents.
 			responseBuilder := newResponseBuilder(msgId)
-			response := responseBuilder.WithModifiedWorkloads(activeWorkloadsSlice).BuildResponse()
 
-			// Encode the message. If we fail to encode the response, then we panic, because that shouldn't happen.
-			payload, err := response.Encode()
+			allWorkloadsEncodedSizeBytes := 0
+			for _, workload := range activeWorkloadsSlice {
+				m.logger.Debug("Processing workload.", zap.String("workload-id", workload.GetId()))
+				workloadEncoded, err := json.Marshal(workload)
+				if err != nil {
+					panic(err)
+				}
+
+				prevEncoding, loaded := previousWorkloadsEncoded[workload.GetId()]
+				if loaded {
+					patch, err := jsonpatch.CreateMergePatch(prevEncoding, workloadEncoded)
+					if err != nil {
+						m.logger.Error("Failed to create merge patch for workload.", zap.Any("workload", workload), zap.Error(err))
+						responseBuilder.AddModifiedWorkload(workload)
+					} else {
+						m.logger.Debug("Creating patch for workload.", zap.ByteString("patch", patch))
+						responseBuilder.AddModifiedWorkloadAsPatch(patch, workload.GetId())
+					}
+				} else {
+					responseBuilder.AddModifiedWorkload(workload)
+				}
+
+				previousWorkloadsEncoded[workload.GetId()] = workloadEncoded
+				allWorkloadsEncodedSizeBytes += len(workloadEncoded)
+			}
+
+			responseEncoded, err := responseBuilder.BuildResponse().Encode()
 			if err != nil {
-				m.logger.Error("Error while marshalling message payload.", zap.Error(err))
 				panic(err)
 			}
 
 			// Send an update to the frontend.
 			// TODO: Only push updates if something meaningful has changed.
-			if err = m.pushWorkloadUpdate(payload); err != nil {
+			// TODO: This is written as if it supports multiple clients, but if a new client comes in after this routine has started, then it won't work.
+			// Specifically, this doesn't consider what the state of the client is, so it's just sending out whatever payload, either a JSON PATCH
+			// or not, regardless of what the client already has.
+			//
+			// New clients need to receive the full workload, so maybe we should pass both to pushWorkloadUpdate, and some logic in there
+			// will determine if the client needs the full workload or just a patch.
+			if err := m.pushWorkloadUpdate(responseEncoded); err != nil {
 				m.logger.Error("Failed to push workload update to frontend.", zap.Error(err))
 			} else {
-				m.logger.Debug("Successfully pushed 'Active Workloads' update to frontend.", zap.String("message-id", msgId))
+				m.logger.Debug("Successfully pushed 'Active Workloads' update to frontend.", zap.Int("response-size-bytes", len(responseEncoded)), zap.Int("all-workloads-encoded-size-bytes", allWorkloadsEncodedSizeBytes), zap.Int("bytes-saved", allWorkloadsEncodedSizeBytes-len(responseEncoded)))
 			}
 
 			// Remove workloads that are now inactive from the map.

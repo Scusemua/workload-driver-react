@@ -5,15 +5,16 @@ import (
 	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
 )
 
-// This struct is not threadsafe.
+// This struct is not thread-safe.
 //
 // There's no reason for this to be attempted, but a responseBuilder
 // struct should only ever be modified/accessed from a single goroutine.
 type responseBuilder struct {
-	messageId         string            // Identifier for the message. Optionally specified when the builder is created, or alternatively the builder will generate the ID automatically.
-	newWorkloads      []domain.Workload // Workloads that are newly-created.
-	modifiedWorkloads []domain.Workload // Workloads that already exist and have been updated.
-	deletedWorkloads  []domain.Workload // Workloads that are being deleted.
+	messageId         string                    // Identifier for the message. Optionally specified when the builder is created, or alternatively the builder will generate the ID automatically.
+	newWorkloads      []domain.Workload         // Workloads that are newly-created.
+	modifiedWorkloads []domain.Workload         // Modified workloads sent in their entirety.
+	patchedWorkloads  []*domain.PatchedWorkload // Modified workloads sent as JSON merge patches.
+	deletedWorkloads  []domain.Workload         // Workloads that are being deleted.
 }
 
 // Pass an empty string for the 'msgId' parameter in order to have the message ID to be automatically generated (as a UUID).
@@ -25,6 +26,19 @@ func newResponseBuilder(msgId string) *responseBuilder {
 	return &responseBuilder{
 		messageId: msgId,
 	}
+}
+
+func (b *responseBuilder) AddModifiedWorkloadAsPatch(patch []byte, workloadId string) {
+	patchedWorkload := &domain.PatchedWorkload{
+		Patch:      string(patch),
+		WorkloadId: workloadId,
+	}
+
+	b.patchedWorkloads = append(b.patchedWorkloads, patchedWorkload)
+}
+
+func (b *responseBuilder) AddModifiedWorkload(workload domain.Workload) {
+	b.modifiedWorkloads = append(b.modifiedWorkloads, workload)
 }
 
 func (b *responseBuilder) WithNewWorkloads(newWorkloads []domain.Workload) *responseBuilder {
@@ -51,7 +65,13 @@ func (b *responseBuilder) WithModifiedWorkload(modifiedWorkload domain.Workload)
 }
 
 func (b *responseBuilder) WithModifiedWorkloads(modifiedWorkloads []domain.Workload) *responseBuilder {
-	b.modifiedWorkloads = modifiedWorkloads
+	if b.modifiedWorkloads == nil {
+		b.modifiedWorkloads = modifiedWorkloads
+	} else {
+		for _, modifiedWorkload := range modifiedWorkloads {
+			b.modifiedWorkloads = append(b.modifiedWorkloads, modifiedWorkload)
+		}
+	}
 	return b
 }
 
@@ -66,6 +86,7 @@ func (b *responseBuilder) BuildResponse() *domain.WorkloadResponse {
 		NewWorkloads:      b.newWorkloads,
 		ModifiedWorkloads: b.modifiedWorkloads,
 		DeletedWorkloads:  b.deletedWorkloads,
+		PatchedWorkloads:  b.patchedWorkloads,
 	}
 
 	if response.NewWorkloads == nil {
@@ -78,6 +99,10 @@ func (b *responseBuilder) BuildResponse() *domain.WorkloadResponse {
 
 	if response.DeletedWorkloads == nil {
 		response.DeletedWorkloads = make([]domain.Workload, 0)
+	}
+
+	if response.PatchedWorkloads == nil {
+		response.PatchedWorkloads = make([]*domain.PatchedWorkload, 0)
 	}
 
 	return response
