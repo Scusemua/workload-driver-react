@@ -49,8 +49,16 @@ type PrometheusMetricsWrapper struct {
 	// of the metric are seconds.
 	JupyterExecuteRequestEndToEndLatency *prometheus.HistogramVec
 
+	// JupyterRequestExecuteTime is a gauge that tracks the time spent actively executing user-code.
+	// This is from the perspective of Jupyter clients.
+	JupyterRequestExecuteTime *prometheus.GaugeVec
+
 	WorkloadActiveTrainingSessions *prometheus.GaugeVec
 	WorkloadActiveNumSessions      *prometheus.GaugeVec
+
+	// JupyterTimeSpentIdle is the amount of time that actively-provisioned Sessions spend not actually executing code.
+	// This is from the perspective of Jupyter clients.
+	//JupyterTimeSpentIdle *prometheus.GaugeVec
 }
 
 // NewPrometheusMetricsWrapper creates a new PrometheusMetricsWrapper struct and returns a pointer to it.
@@ -115,6 +123,17 @@ func NewPrometheusMetricsWrapper(atom *zap.AtomicLevel) (*PrometheusMetricsWrapp
 			Subsystem: "workload_driver",
 			Name:      "active_trainings",
 		}, []string{"workload_id"}),
+		JupyterRequestExecuteTime: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+			Namespace: "distributed_cluster",
+			Subsystem: "jupyter",
+			Name:      "execute_request_active_seconds",
+			Help:      "The time, in seconds, that Jupyter clients spend waiting for an \"execute_reply\" response to their \"execute_request\" requests. Includes total training time and all overheads.",
+		}, []string{"workload_id", "kernel_id"}),
+		//JupyterTimeSpentIdle: prometheus.NewGaugeVec(prometheus.GaugeOpts{
+		//	Namespace: "distributed_cluster",
+		//	Subsystem: "jupyter",
+		//	Name:      "active_trainings",
+		//}, []string{"workload_id", "session_id"}),
 	}
 
 	zapConfig := zap.NewDevelopmentEncoderConfig()
@@ -171,6 +190,16 @@ func NewPrometheusMetricsWrapper(atom *zap.AtomicLevel) (*PrometheusMetricsWrapp
 		metricsWrapper.logger.Error("Failed to register Prometheus metric.", zap.String("metric", "WorkloadActiveTrainingSessions"), zap.Error(err))
 		errs = append(errs, err)
 	}
+
+	if err := prometheus.Register(metricsWrapper.JupyterRequestExecuteTime); err != nil {
+		metricsWrapper.logger.Error("Failed to register Prometheus metric.", zap.String("metric", "JupyterRequestExecuteTime"), zap.Error(err))
+		errs = append(errs, err)
+	}
+
+	//if err := prometheus.Register(metricsWrapper.JupyterTimeSpentIdle); err != nil {
+	//	metricsWrapper.logger.Error("Failed to register Prometheus metric.", zap.String("metric", "JupyterTimeSpentIdle"), zap.Error(err))
+	//	errs = append(errs, err)
+	//}
 
 	if len(errs) > 0 {
 		return metricsWrapper, errs

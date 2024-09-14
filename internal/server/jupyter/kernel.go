@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/scusemua/workload-driver-react/m/v2/internal/server/clock"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/server/metrics"
 	"io"
 	"net/http"
@@ -97,19 +98,21 @@ type BasicKernelConnection struct {
 	// IOPub message handlers.
 	iopubMessageHandlers map[string]IOPubMessageHandler
 
-	messageCount                  int                     // How many messages we've sent. Used when creating message IDs.
-	connectionStatus              KernelConnectionStatus  // Connection status with the remote kernel.
-	kernelId                      string                  // ID of the associated kernel
-	jupyterServerAddress          string                  // Jupyter server IP address
-	clientId                      string                  // Jupyter client ID
-	username                      string                  // Jupyter username
-	webSocket                     *websocket.Conn         // The websocket that is connected to Jupyter
-	originalWebsocketCloseHandler func(int, string) error // The original close handler method of the websocket; we replace this with our own, and we call the original from ours.
-	model                         *jupyterKernel          // Jupyter kernel model.
-	kernelStdout                  []string                // STDOUT history from the kernel, as extracted from IOPub messages.
-	kernelStderr                  []string                // STDERR history from the kernel, as extracted from IOPub messages.
-	registeredShell               bool                    // True if we've successfully registered our shell channel as a Golang frontend.
-	registeredControl             bool                    // True if we've successfully registered our control channel as a Golang frontend.
+	internalClock                 *clock.BasicSimulationClock // Used to post metrics periodically.
+	messageCount                  int                         // How many messages we've sent. Used when creating message IDs.
+	connectionStatus              KernelConnectionStatus      // Connection status with the remote kernel.
+	kernelId                      string                      // ID of the associated kernel
+	jupyterServerAddress          string                      // Jupyter server IP address
+	clientId                      string                      // Jupyter client ID
+	username                      string                      // Jupyter username
+	webSocket                     *websocket.Conn             // The websocket that is connected to Jupyter
+	originalWebsocketCloseHandler func(int, string) error     // The original close handler method of the websocket; we replace this with our own, and we call the original from ours.
+	model                         *jupyterKernel              // Jupyter kernel model.
+	kernelStdout                  []string                    // STDOUT history from the kernel, as extracted from IOPub messages.
+	kernelStderr                  []string                    // STDERR history from the kernel, as extracted from IOPub messages.
+	registeredShell               bool                        // True if we've successfully registered our shell channel as a Golang frontend.
+	registeredControl             bool                        // True if we've successfully registered our control channel as a Golang frontend.
+	waitingForExecuteResponses    atomic.Int32                // waitingForExecuteResponses is the number of active "execute_request" requests that we have active.
 
 	setupInProgress        atomic.Int32
 	reconnectionInProgress atomic.Int32
@@ -149,6 +152,7 @@ func NewKernelConnection(kernelId string, clientId string, username string, jupy
 		kernelStderr:         make([]string, 0),
 		iopubMessageHandlers: make(map[string]IOPubMessageHandler),
 		metadata:             make(map[string]string),
+		internalClock:        clock.NewSimulationClock(),
 	}
 
 	zapConfig := zap.NewDevelopmentEncoderConfig()
@@ -392,19 +396,87 @@ func (conn *BasicKernelConnection) RequestExecute(code string, silent bool, stor
 		return err
 	}
 
+	conn.waitingForExecuteResponses.Add(1)
+
 	if waitForResponse {
-		// Wait without a timeout for the response.
-		// Code executions can take an arbitrary amount of time.
+		// Once a second, we'll increment the Prometheus metric pertaining to how long we've spent actively-training.
+		// clockTrigger := clock.NewTrigger()
+		// ticker := clockTrigger.NewSyncTicker(time.Second, fmt.Sprintf("kernel-connection-%s", conn.kernelId), conn.internalClock)
+
+		// We'll populate this either in the ticker or when we get the response.
+		var (
+			workloadId string
+			// wg         sync.WaitGroup
+		)
+		// wg.Add(1)
+
+		//go func() {
+		//	for {
+		//		select {
+		//		case <-ticker.TickDelivery:
+		//			{
+		//				// If we haven't populated the workloadId variable with a value yet, then attempt to do so.
+		//				if len(workloadId) == 0 {
+		//					workloadId, _ = conn.GetMetadata(WorkloadIdMetadataKey)
+		//				}
+		//
+		//				metrics.PrometheusMetricsWrapperInstance.JupyterRequestExecuteTime.
+		//					With(prometheus.Labels{"workload_id": workloadId, "kernel_id": conn.kernelId}).
+		//					Add(1) // Add another second.
+		//
+		//				ticker.Done()
+		//				continue
+		//			}
+		//		case response := <-responseChan:
+		//			{
+		//				// Wait without a timeout for the response.
+		//				// Code executions can take an arbitrary amount of time.
+		//				latency := time.Since(sentAt)
+		//				conn.logger.Debug("Received response to `execute_request` message.", zap.String("message_id", message.GetHeader().MessageId), zap.Duration("latency", latency), zap.Any("response", response))
+		//
+		//				conn.waitingForExecuteResponses.Add(-1)
+		//
+		//				// If we haven't populated the workloadId variable with a value yet, then attempt to do so.
+		//				if len(workloadId) == 0 {
+		//					workloadId, _ = conn.GetMetadata(WorkloadIdMetadataKey)
+		//				}
+		//
+		//				metrics.PrometheusMetricsWrapperInstance.JupyterExecuteRequestEndToEndLatency.
+		//					With(prometheus.Labels{"workload_id": workloadId}).
+		//					Observe(latency.Seconds())
+		//
+		//				// Notify that we received the response.
+		//				wg.Done()
+		//				ticker.Done()
+		//				return
+		//			}
+		//		}
+		//	}
+		//}()
+
 		response := <-responseChan
 		latency := time.Since(sentAt)
 		conn.logger.Debug("Received response to `execute_request` message.", zap.String("message_id", message.GetHeader().MessageId), zap.Duration("latency", latency), zap.Any("response", response))
 
-		workloadId, _ := conn.GetMetadata(WorkloadIdMetadataKey)
+		conn.waitingForExecuteResponses.Add(-1)
+
+		// If we haven't populated the workloadId variable with a value yet, then attempt to do so.
+		if len(workloadId) == 0 {
+			workloadId, _ = conn.GetMetadata(WorkloadIdMetadataKey)
+		}
+
 		metrics.PrometheusMetricsWrapperInstance.JupyterExecuteRequestEndToEndLatency.
 			With(prometheus.Labels{"workload_id": workloadId}).
 			Observe(latency.Seconds())
-	}
 
+		metrics.PrometheusMetricsWrapperInstance.JupyterRequestExecuteTime.
+			With(prometheus.Labels{"workload_id": workloadId, "kernel_id": conn.kernelId}).
+			Add(latency.Seconds()) // Add another second.
+
+		// Wait until we receive the response.
+		//wg.Wait()
+		//clockTrigger.Stop(ticker) // Stop the ticker.
+	}
 	return nil
 }
 
@@ -676,6 +748,9 @@ func (conn *BasicKernelConnection) createKernelMessage(messageType MessageType, 
 	workloadId, loaded := conn.GetMetadata(WorkloadIdMetadataKey)
 	if loaded {
 		metadata["workload_id"] = workloadId
+	} else {
+		conn.logger.Warn("Could not embed workload ID in kernel message.",
+			zap.String("message_id", messageId), zap.String("message_type", messageType.String()), zap.String("channel", channel.String()))
 	}
 
 	message := &baseKernelMessage{
