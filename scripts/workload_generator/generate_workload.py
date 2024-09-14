@@ -2,11 +2,12 @@ import argparse
 import datetime
 import json
 import os
+import time
+from multiprocessing import Pool
 from typing import Any
 
 import matplotlib.pyplot as plt
 import numpy as np
-import tqdm
 
 from session import Session
 from simulate_poisson import poisson_simulation
@@ -16,6 +17,8 @@ from workload import Workload
 
 def get_args():
   parser = argparse.ArgumentParser()
+
+  parser.add_argument( "--num-procs", type = int, default = 1, help = "Number of processes to use.")
 
   # Workload-specific arguments.
   parser.add_argument("--workload-name", type=str, default='',
@@ -46,8 +49,6 @@ def get_args():
 
   return parser.parse_args()
 
-def plot_num_training_event_histogram(num_events):
-  pass
 
 def plot_resource_histograms(cpu, mem, gpu, output_dir: str, show_visualization: bool):
   num_sessions: int = len(cpu)
@@ -86,8 +87,14 @@ def plot_resource_histograms(cpu, mem, gpu, output_dir: str, show_visualization:
     plt.show()
 
 
+def create_splits(a, n):
+  k, m = divmod(len(a), n)
+  return (a[i * k + min(i, m):(i + 1) * k + min(i + 1, m)] for i in range(n))
+
+
 def main():
   args = get_args()
+  start_time = time.time()
 
   output_directory: str = os.path.join(args.output_directory,
                                        "template-{date:%Y-%m-%d_%H-%M-%S}".format(date=datetime.datetime.now()))
@@ -119,14 +126,87 @@ def main():
   max_mem_vals = max_mem_mb_rv.rvs(args.num_sessions)
   num_gpus_vals = num_gpus_rv.rvs(args.num_sessions)
 
-  sessions: list[Session] = []
-  for i in tqdm.tqdm(range(args.num_sessions)):
-    num_events, event_times, iats, durations = poisson_simulation(rate=args.rate, iat=args.iat, scale=args.scale,
-                                                                  shape=args.shape, time_duration=args.time_duration,
-                                                                  output_directory=output_directory,
-                                                                  show_visualization=args.show_visualization,
-                                                                  session_index=i)
+  if args.num_procs > 1:
+    cpus_to_run_on = args.num_procs
+    indices = list(range(args.num_sessions))
+    splits = create_splits(indices, cpus_to_run_on)
 
+    pool = Pool(processes=cpus_to_run_on)
+
+    results = []
+    for split in splits:
+      print(
+        f"Submitting sessions {split[0]} - {split[len(split) - 1] + 1} ({split[len(split) - 1] - split[0] + 1} in total) for processing.")
+      res = pool.apply_async(generate_session,
+                             (args.rate, args.iat, args.scale, args.shape, args.time_duration, output_directory,
+                              args.show_visualization, split[0], split[len(split) - 1] + 1, max_cpus_vals,
+                              max_mem_vals, num_gpus_vals))
+      results.append(res)
+
+    print("Aggregating sessions now")
+
+    sessions: list = [None for _ in range(0, args.num_sessions)]
+    for res in results:
+      ret = res.get()
+      ses = ret[0]
+      st_idx = ret[1]
+      end_idx = ret[2]
+
+      print(f"Received sessions {st_idx} - {end_idx}.")
+
+      ctr = 0
+      for j in range(st_idx, end_idx, 1):
+        sessions[j] = ses[ctr]
+        ctr += 1
+  else:
+    ret = generate_session(args.rate, args.iat, args.scale, args.shape, args.time_duration,
+                                               output_directory, args.show_visualization, 0, args.num_sessions,
+                                               max_cpus_vals, max_mem_vals, num_gpus_vals)
+    sessions: list[Session] = ret[0]
+
+  # sessions: list[Session] = []
+  # for i in range(args.num_sessions):
+  #   num_events, event_times, iats, durations = poisson_simulation(rate=args.rate, iat=args.iat, scale=args.scale,
+  #                                                                 shape=args.shape, time_duration=args.time_duration,
+  #                                                                 output_directory=output_directory,
+  #                                                                 show_visualization=args.show_visualization,
+  #                                                                 session_index=i)
+  #
+  #   session: Session = Session(
+  #     num_events[0],
+  #     event_times[0],
+  #     iats[0],
+  #     durations[0],
+  #     max_millicpus=max_cpus_vals[i],
+  #     max_mem_mb=max_mem_vals[i],
+  #     num_gpus=int(num_gpus_vals[i]))
+  #   sessions.append(session)
+
+  print("Creating workload object now")
+  workload: Workload = Workload(sessions, workload_name=args.workload_name)
+
+  workload_dict: dict[str, Any] = workload.to_dict()
+
+  plot_resource_histograms(max_cpus_vals, max_mem_vals, num_gpus_vals,
+                           output_dir=output_directory, show_visualization=args.show_visualization)
+
+  with open(os.path.join(output_directory, "template.json"), "w") as f:
+    json.dump(workload_dict, f, indent=2)
+
+  print("Done generating workload. Time elapsed: ", time.time() - start_time)
+
+
+def generate_session(rate, iat, scale, shape, time_duration, output_directory, show_visualization, start_idx, end_idx,
+                     max_cpus_vals, max_mem_vals, num_gpus_vals):
+  print(f"Creating sessions {start_idx}-{end_idx} now (total of {end_idx - start_idx + 1} sessions).")
+  sessions: list[Session] = []
+  st = time.time()
+  for i in range(start_idx, end_idx, 1):
+    num_events, event_times, iats, durations = poisson_simulation(rate=rate, iat=iat, scale=scale,
+                                                                  shape=shape, time_duration=time_duration,
+                                                                  output_directory=output_directory,
+                                                                  show_visualization=show_visualization,
+                                                                  session_index=i)
     session: Session = Session(
       num_events[0],
       event_times[0],
@@ -137,15 +217,10 @@ def main():
       num_gpus=int(num_gpus_vals[i]))
     sessions.append(session)
 
-  workload: Workload = Workload(sessions, workload_name=args.workload_name)
+  print(
+    f"Finished generating sessions {start_idx} -- {end_idx} in {time.time() - st} seconds (total of {end_idx - start_idx + 1} sessions).")
 
-  workload_dict: dict[str, Any] = workload.to_dict()
-
-  plot_resource_histograms(max_cpus_vals, max_mem_vals, num_gpus_vals,
-                           output_dir=output_directory, show_visualization=args.show_visualization)
-
-  with open(os.path.join(output_directory, "template.json"), "w") as f:
-    json.dump(workload_dict, f, indent=2)
+  return [sessions, start_idx, end_idx]
 
 
 if __name__ == '__main__':
