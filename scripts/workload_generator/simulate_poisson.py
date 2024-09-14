@@ -1,11 +1,11 @@
 import argparse
-from typing import Tuple, List, Any
+from typing import Any, Tuple, List
 
 import matplotlib.pyplot as plt
 import numpy as np
+import pandas as pd
 from numpy import ndarray
 
-import pandas as pd
 
 #
 # References:
@@ -13,7 +13,7 @@ import pandas as pd
 #
 
 def generate_poisson_events(rate: float, time_duration: float, shape: float, scale: float) -> tuple[
-  int, list[ndarray[Any, Any]], ndarray, ndarray]:
+  int, list[ndarray[float]], ndarray[float], ndarray[float]]:
   """
   Simulate a Poisson process by generating events with a given average rate (`rate`)
   over a specified time duration (`time_duration`).
@@ -27,13 +27,22 @@ def generate_poisson_events(rate: float, time_duration: float, shape: float, sca
            element is the time of the events, and the third element is the inter-arrival times (IAT) of the events,
            and the fourth element is the durations of each event.
   """
+  print(f"Simulating Poisson process with event arrival rate of {rate} events/sec for {time_duration} seconds.")
+  print(f"Event durations generated using Geometric distribution with shape={shape} and scale={scale}.")
   num_events: int = np.random.poisson(rate * time_duration)
+  print(f"Poisson process will have {num_events} event(s).")
+
+  if num_events == 0:
+    print("Poisson process will have no events.")
+    print("Try adjusting your input parameters (such as the rate or duration).")
+    exit(1)
+
   init_event_times: np.ndarray = np.sort(np.random.uniform(0, time_duration, num_events))
   inter_arrival_times: np.ndarray = np.diff(init_event_times)
-  event_durations: np.ndarray = np.random.gamma(shape, scale = scale, size = num_events)
+  event_durations: np.ndarray = np.random.gamma(shape, scale=scale, size=num_events)
 
   event_times = [init_event_times[0]]
-  duration_sum:float = event_durations[0]
+  duration_sum: float = event_durations[0]
   for i in range(1, num_events):
     event_time = init_event_times[i]
     event_time += duration_sum
@@ -41,6 +50,7 @@ def generate_poisson_events(rate: float, time_duration: float, shape: float, sca
     event_times.append(event_time)
 
   return num_events, event_times, inter_arrival_times, event_durations
+
 
 # def generate_poisson_events(rate: float, time_duration: float) -> tuple[int, np.ndarray, np.ndarray]:
 #   """
@@ -64,17 +74,21 @@ def generate_poisson_iats(rate: float, num_events: int):
   """
   return -np.log(1 - np.random.rand(num_events)) / rate
 
+
 def get_args():
   parser = argparse.ArgumentParser()
 
-  parser.add_argument("-i", "--iat", nargs='+', default = [], type = float, help = "Inter-arrival time or times (in seconds). Rates are computed from this value. If both rate and IAT are specified, then rate is used.")
+  parser.add_argument("-i", "--iat", nargs='+', default=[], type=float,
+                      help="Inter-arrival time or times (in seconds). Rates are computed from this value. If both rate and IAT are specified, then rate is used.")
   parser.add_argument("-r", "--rate", nargs='+', default=[], type=float,
                       help="Average rate or rates of event arrival(s) in events/second.")
   parser.add_argument("-d", "--time-duration", default=1.0, type=float, help="Time duration in seconds")
   parser.add_argument("-v", "--show-visualization", action='store_true')
 
-  parser.add_argument("--shape", type = float, default = 2, help = "Shape parameter of Gamma distribution for training task duration.")
-  parser.add_argument("--scale", type = float, default = 10, help = "Scale parameter of Gamma distribution for training task duration.")
+  parser.add_argument("--shape", type=float, default=2,
+                      help="Shape parameter of Gamma distribution for training task duration.")
+  parser.add_argument("--scale", type=float, default=10,
+                      help="Scale parameter of Gamma distribution for training task duration.")
 
   return parser.parse_args()
 
@@ -189,14 +203,19 @@ def plot_sequential_poisson(
 
 
 def poisson_simulation(
-  rate: list[float],
-  iat: list[float],
+  rate: list[float] | float,
+  iat: list[float] | float,
   time_duration: float,
   shape: float,
   scale: float,
-  show_visualization:bool=True
-)-> tuple[int, list[ndarray[Any, Any]], ndarray, ndarray] | tuple[
-  list[int], list[list[ndarray[Any, Any]]], list[ndarray], list[ndarray]]:
+  show_visualization: bool = True
+) -> tuple[list[int], list[list[ndarray[Any, Any]]], list[ndarray], list[ndarray]]:
+  if not isinstance(rate, list):
+    rate = [rate]
+
+  if not isinstance(iat, list):
+    iat = [iat]
+
   if len(rate) == 0:
     assert len(iat) > 0
 
@@ -221,14 +240,17 @@ def poisson_simulation(
     event_durations_list = []
 
     for individual_rate in rate:
-      num_events, event_times, inter_arrival_times, event_durations = generate_poisson_events(individual_rate, time_duration, shape, scale)
+      num_events, event_times, inter_arrival_times, event_durations = generate_poisson_events(individual_rate,
+                                                                                              time_duration, shape,
+                                                                                              scale)
       num_events_list.append(num_events)
       event_times_list.append(event_times)
       inter_arrival_times_list.append(inter_arrival_times)
       event_durations_list.append(event_durations)
 
     if show_visualization:
-      plot_sequential_poisson(num_events_list, event_times_list, inter_arrival_times_list, event_durations_list, rate, time_duration)
+      plot_sequential_poisson(num_events_list, event_times_list, inter_arrival_times_list, event_durations_list, rate,
+                              time_duration)
       return num_events_list, event_times_list, inter_arrival_times_list, event_durations_list
     else:
       return num_events_list, event_times_list, inter_arrival_times_list, event_durations_list
@@ -241,7 +263,9 @@ def main():
     print("[ERROR] Must specify at least one rate or at least one IAT.")
     exit(1)
 
-  num_events, event_times, iats, durations = poisson_simulation(rate=args.rate, iat=args.iat, scale=args.scale, shape=args.shape, time_duration=args.time_duration, show_visualization=args.show_visualization)
+  num_events, event_times, iats, durations = poisson_simulation(rate=args.rate, iat=args.iat, scale=args.scale,
+                                                                shape=args.shape, time_duration=args.time_duration,
+                                                                show_visualization=args.show_visualization)
 
   # data = {
   #   "timestamp": event_times,
@@ -256,6 +280,7 @@ def main():
 
   df = pd.DataFrame(np.column_stack([event_times[0], _iats, durations[0]]), columns=["ts", "iat", "dur"])
   print(df)
+
 
 if __name__ == "__main__":
   main()
