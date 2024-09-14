@@ -208,7 +208,7 @@ def plot_sequential_poisson(
   if output_directory is not None and len(output_directory) > 0:
     filename: str = "poisson"
     if session_index >= 0:
-      filename += f"session_{session_index}_poisson"
+      filename = f"session_{session_index}_poisson"
 
     directory = os.path.join(output_directory, "poisson_plots")
     os.makedirs(directory, exist_ok=True)

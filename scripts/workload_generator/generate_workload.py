@@ -136,10 +136,10 @@ def main():
     results = []
     for split in splits:
       print(
-        f"Submitting sessions {split[0]} - {split[len(split) - 1] + 1} ({split[len(split) - 1] - split[0] + 1} in total) for processing.")
+        f"Submitting sessions {split[0]} - {split[len(split) - 1]} ({split[len(split) - 1] - split[0] + 1} in total) for processing.")
       res = pool.apply_async(generate_session,
                              (args.rate, args.iat, args.scale, args.shape, args.time_duration, output_directory,
-                              args.show_visualization, split[0], split[len(split) - 1] + 1, max_cpus_vals,
+                              args.show_visualization, split[0], split[len(split) - 1]+1, max_cpus_vals,
                               max_mem_vals, num_gpus_vals))
       results.append(res)
 
