@@ -1,6 +1,6 @@
 import argparse
 from typing import Any, Tuple, List
-
+import os
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -144,11 +144,16 @@ def plot_sequential_poisson(
   inter_arrival_times_list: list[np.ndarray],
   event_durations_list: list[np.ndarray],
   rate: list[float],
-  time_duration: float
+  time_duration: float,
+  show_visualization: bool = False,
+  output_directory: str = "",
+  session_index: int = -1,
 ):
   """
   Plot a sequence of poisson processes.
 
+  :param show_visualization: if true, also display the output plots
+  :param output_directory: directory in which to write the output plots
   :param num_events_list: the number of events of each of the poisson processes
   :param event_times_list: the times at which each event occurred within each poisson process
   :param inter_arrival_times_list: the inter-arrival times (IATs) of each poisson process
@@ -199,7 +204,19 @@ def plot_sequential_poisson(
   axs[2].legend()
 
   plt.tight_layout()
-  plt.show()
+
+  if output_directory is not None and len(output_directory) > 0:
+    filename: str = "poisson"
+    if session_index >= 0:
+      filename += f"session_{session_index}_poisson"
+
+    directory = os.path.join(output_directory, "poisson_plots")
+    os.makedirs(directory, exist_ok=True)
+    plt.savefig(os.path.join(directory, f"{filename}.png"), bbox_inches = 'tight')
+    plt.savefig(os.path.join(directory, f"{filename}.pdf"), bbox_inches = 'tight')
+
+  if show_visualization:
+    plt.show()
 
 
 def poisson_simulation(
@@ -208,7 +225,9 @@ def poisson_simulation(
   time_duration: float,
   shape: float,
   scale: float,
-  show_visualization: bool = True
+  show_visualization: bool = True,
+  output_directory: str = "",
+  session_index: int = -1,
 ) -> tuple[list[int], list[list[ndarray[Any, Any]]], list[ndarray], list[ndarray]]:
   if not isinstance(rate, list):
     rate = [rate]
@@ -248,12 +267,10 @@ def poisson_simulation(
       inter_arrival_times_list.append(inter_arrival_times)
       event_durations_list.append(event_durations)
 
-    if show_visualization:
-      plot_sequential_poisson(num_events_list, event_times_list, inter_arrival_times_list, event_durations_list, rate,
-                              time_duration)
-      return num_events_list, event_times_list, inter_arrival_times_list, event_durations_list
-    else:
-      return num_events_list, event_times_list, inter_arrival_times_list, event_durations_list
+    plot_sequential_poisson(num_events_list, event_times_list, inter_arrival_times_list, event_durations_list, rate,
+                            time_duration, output_directory = output_directory, show_visualization = show_visualization,
+                            session_index = session_index)
+    return num_events_list, event_times_list, inter_arrival_times_list, event_durations_list
 
 
 def main():

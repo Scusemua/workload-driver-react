@@ -1,9 +1,11 @@
 import argparse
 import os
 import json
-from textwrap import indent
+import datetime
 
 from typing import Any
+
+import tqdm
 
 from session import Session
 from simulate_poisson import poisson_simulation
@@ -46,6 +48,9 @@ def get_args():
 def main():
   args = get_args()
 
+  output_directory:str = os.path.join(args.output_directory, "template-{date:%Y-%m-%d_%H-%M-%S}".format(date = datetime.datetime.now()))
+  os.makedirs(output_directory, exist_ok=False)
+
   max_session_millicpus: float = args.max_session_millicpus
   max_session_memory_mb: float = args.max_session_memory_mb
   max_session_num_gpus: int = args.max_session_num_gpus
@@ -73,10 +78,12 @@ def main():
   num_gpus_vals = num_gpus_rv.rvs(args.num_sessions)
 
   sessions: list[Session] = []
-  for i in range(args.num_sessions):
+  for i in tqdm.tqdm(range(args.num_sessions)):
     num_events, event_times, iats, durations = poisson_simulation(rate=args.rate, iat=args.iat, scale=args.scale,
                                                                   shape=args.shape, time_duration=args.time_duration,
-                                                                  show_visualization=args.show_visualization)
+                                                                  output_directory = output_directory,
+                                                                  show_visualization=args.show_visualization,
+                                                                  session_index = i)
 
     session: Session = Session(
       num_events[0],
@@ -90,11 +97,9 @@ def main():
 
   workload: Workload = Workload(sessions, workload_name=args.workload_name)
 
-  os.makedirs(args.output_directory, exist_ok=True)
-
   workload_dict: dict[str, Any] = workload.to_dict()
 
-  with open(os.path.join(args.output_directory, "template.json"), "w") as f:
+  with open(os.path.join(output_directory, "template.json"), "w") as f:
     json.dump(workload_dict, f, indent = 2)
 
 if __name__ == '__main__':
