@@ -1,16 +1,18 @@
 import argparse
-import os
-import json
 import datetime
-
+import json
+import os
 from typing import Any
 
+import matplotlib.pyplot as plt
+import numpy as np
 import tqdm
 
 from session import Session
 from simulate_poisson import poisson_simulation
-from workload import Workload
 from util import get_truncated_normal
+from workload import Workload
+
 
 def get_args():
   parser = argparse.ArgumentParser()
@@ -44,11 +46,51 @@ def get_args():
 
   return parser.parse_args()
 
+def plot_num_training_event_histogram(num_events):
+  pass
+
+def plot_resource_histograms(cpu, mem, gpu, output_dir: str, show_visualization: bool):
+  num_sessions: int = len(cpu)
+
+  fig, axs = plt.subplots(1, 3, figsize=(15, 6))
+  fig.suptitle(f'Workload Resource Distribution (NumSessions = {num_sessions})\n', fontsize=16)
+
+  axs[0].hist(cpu, bins=20, color='red', alpha=0.75)
+  axs[0].set_xlabel("Millicpus (1/1000th core)")
+  axs[0].set_ylabel("Frequency")
+  axs[0].set_title(
+    f'Histogram of Max Millicpus\nMEAN: {np.mean(cpu):.2f} | STD: {np.std(cpu):.2f}\n')
+  axs[0].grid(True, alpha=0.5)
+
+  axs[1].hist(mem, bins=20, color='red', alpha=0.75)
+  axs[1].set_xlabel("Memory (MB)")
+  axs[1].set_ylabel("Frequency")
+  axs[1].set_title(
+    f'Histogram of Max Memory Usage (MB)\nMEAN: {np.mean(mem):.2f} | STD: {np.std(mem):.2f}\n')
+  axs[1].grid(True, alpha=0.5)
+
+  axs[2].hist(gpu, bins=20, color='red', alpha=0.75)
+  axs[2].set_xlabel("GPUs")
+  axs[2].set_ylabel("Frequency")
+  axs[2].set_title(
+    f'Histogram of Number of GPUs\nMEAN: {np.mean(gpu):.2f} | STD: {np.std(gpu):.2f}\n')
+  axs[2].grid(True, alpha=0.5)
+
+  plt.tight_layout()
+
+  if output_dir is not None and len(output_dir) > 0:
+    plt.savefig(os.path.join(output_dir, "workload_resource_histogram.png"), bbox_inches='tight')
+    plt.savefig(os.path.join(output_dir, "workload_resource_histogram.pdf"), bbox_inches='tight')
+
+  if show_visualization:
+    plt.show()
+
 
 def main():
   args = get_args()
 
-  output_directory:str = os.path.join(args.output_directory, "template-{date:%Y-%m-%d_%H-%M-%S}".format(date = datetime.datetime.now()))
+  output_directory: str = os.path.join(args.output_directory,
+                                       "template-{date:%Y-%m-%d_%H-%M-%S}".format(date=datetime.datetime.now()))
   os.makedirs(output_directory, exist_ok=False)
 
   max_session_millicpus: float = args.max_session_millicpus
@@ -69,9 +111,9 @@ def main():
   print(f"Mean MemMB: {mean_mem_mb}, Std. Dev.: {sd_mem_mb}")
   print(f"Mean #GPUs: {mean_num_gpus}, Std. Dev.: {sd_num_gpus}")
 
-  max_cpu_rv = get_truncated_normal(mean = mean_num_cpus, sd = sd_num_cpus, low = 1.0e-3, upp = max_session_millicpus)
-  max_mem_mb_rv = get_truncated_normal(mean = mean_mem_mb, sd = sd_mem_mb, low = 1.0e-3, upp = max_session_memory_mb)
-  num_gpus_rv = get_truncated_normal(mean = mean_num_gpus, sd = sd_num_gpus, low = 1, upp = max_session_num_gpus)
+  max_cpu_rv = get_truncated_normal(mean=mean_num_cpus, sd=sd_num_cpus, low=1.0e-3, upp=max_session_millicpus)
+  max_mem_mb_rv = get_truncated_normal(mean=mean_mem_mb, sd=sd_mem_mb, low=1.0e-3, upp=max_session_memory_mb)
+  num_gpus_rv = get_truncated_normal(mean=mean_num_gpus, sd=sd_num_gpus, low=1, upp=max_session_num_gpus)
 
   max_cpus_vals = max_cpu_rv.rvs(args.num_sessions)
   max_mem_vals = max_mem_mb_rv.rvs(args.num_sessions)
@@ -81,26 +123,30 @@ def main():
   for i in tqdm.tqdm(range(args.num_sessions)):
     num_events, event_times, iats, durations = poisson_simulation(rate=args.rate, iat=args.iat, scale=args.scale,
                                                                   shape=args.shape, time_duration=args.time_duration,
-                                                                  output_directory = output_directory,
+                                                                  output_directory=output_directory,
                                                                   show_visualization=args.show_visualization,
-                                                                  session_index = i)
+                                                                  session_index=i)
 
     session: Session = Session(
       num_events[0],
       event_times[0],
       iats[0],
       durations[0],
-      max_millicpus = max_cpus_vals[i],
-      max_mem_mb = max_mem_vals[i],
-      num_gpus = int(num_gpus_vals[i]))
+      max_millicpus=max_cpus_vals[i],
+      max_mem_mb=max_mem_vals[i],
+      num_gpus=int(num_gpus_vals[i]))
     sessions.append(session)
 
   workload: Workload = Workload(sessions, workload_name=args.workload_name)
 
   workload_dict: dict[str, Any] = workload.to_dict()
 
+  plot_resource_histograms(max_cpus_vals, max_mem_vals, num_gpus_vals,
+                           output_dir=output_directory, show_visualization=args.show_visualization)
+
   with open(os.path.join(output_directory, "template.json"), "w") as f:
-    json.dump(workload_dict, f, indent = 2)
+    json.dump(workload_dict, f, indent=2)
+
 
 if __name__ == '__main__':
   main()
