@@ -259,6 +259,8 @@ func (h *KubeNodeHttpHandler) HandleRequest(c *gin.Context) {
 		return
 	}
 
+	h.logger.Debug("Serving HTTP GET request for Kubernetes nodes.")
+
 	nodes, err := h.clientset.CoreV1().Nodes().List(context.TODO(), metav1.ListOptions{})
 	if err != nil {
 		h.logger.Error("Failed to retrieve nodes from Kubernetes.", zap.Error(err))

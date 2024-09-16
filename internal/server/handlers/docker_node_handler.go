@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
@@ -56,8 +57,14 @@ func (h *DockerSwarmNodeHttpHandler) HandleRequest(c *gin.Context) {
 		return
 	}
 
-	resp, err := h.grpcClient.GetVirtualDockerNodes(context.Background(), &gateway.Void{})
+	h.logger.Debug("Serving HTTP GET request for Docker Swarm nodes.")
+
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
+	defer cancel()
+
+	resp, err := h.grpcClient.GetVirtualDockerNodes(ctx, &gateway.Void{})
 	if err != nil {
+		h.logger.Error("Failed to retrieve virtual Docker nodes from Cluster Gateway.", zap.Error(err))
 		_ = c.AbortWithError(http.StatusInternalServerError, err)
 		return
 	}
@@ -86,7 +93,12 @@ func (h *DockerSwarmNodeHttpHandler) HandlePatchRequest(c *gin.Context) {
 	}
 
 	var req map[string]interface{}
-	c.BindJSON(&req)
+	err := c.BindJSON(&req)
+	if err != nil {
+		h.logger.Error("Failed to parse JSON included with HTTP PATCH request for number of cluster nodes.", zap.Error(err))
+		_ = c.AbortWithError(http.StatusBadRequest, err)
+		return
+	}
 
 	targetNumNodesVal, ok := req["target_num_nodes"]
 	if !ok {
@@ -95,34 +107,39 @@ func (h *DockerSwarmNodeHttpHandler) HandlePatchRequest(c *gin.Context) {
 		return
 	}
 
-	_, err := h.grpcClient.SetNumVirtualDockerNodes(context.TODO(), &gateway.SetNumVirtualDockerNodesRequest{
+	_, err = h.grpcClient.SetNumVirtualDockerNodes(context.TODO(), &gateway.SetNumVirtualDockerNodesRequest{
 		RequestId:      uuid.NewString(),
-		TargetNumNodes: targetNumNodesVal.(int32),
+		TargetNumNodes: int32(targetNumNodesVal.(float64)),
 	})
 
 	if err != nil {
-		status, ok := status.FromError(err)
+		operationStatus, ok := status.FromError(err)
 		if ok {
-			switch status.Code() {
+			switch operationStatus.Code() {
 			case codes.Internal:
 				{
-					c.AbortWithError(http.StatusInternalServerError, status.Err())
+					h.logger.Error("HTTP PATCH request for virtual docker nodes failed due to an internal error.", zap.Error(operationStatus.Err()))
+					_ = c.AbortWithError(http.StatusInternalServerError, operationStatus.Err())
 				}
 			case codes.FailedPrecondition:
 				{
-					c.AbortWithError(http.StatusBadRequest, status.Err())
+					h.logger.Error("HTTP PATCH request for virtual docker nodes failed due to a failed precondition.", zap.Error(operationStatus.Err()))
+					_ = c.AbortWithError(http.StatusBadRequest, operationStatus.Err())
 				}
 			case codes.InvalidArgument:
 				{
-					c.AbortWithError(http.StatusBadRequest, status.Err())
+					h.logger.Error("HTTP PATCH request for virtual docker nodes failed due to an invalid argument.", zap.Error(operationStatus.Err()))
+					_ = c.AbortWithError(http.StatusBadRequest, operationStatus.Err())
 				}
 			default:
 				{
-					c.AbortWithError(http.StatusInternalServerError, status.Err())
+					h.logger.Error("HTTP PATCH request for virtual docker nodes failed due to an unknown/unexpected error.", zap.Error(operationStatus.Err()))
+					_ = c.AbortWithError(http.StatusInternalServerError, operationStatus.Err())
 				}
 			}
 		} else {
-			c.AbortWithError(http.StatusInternalServerError, err)
+			h.logger.Error("HTTP PATCH request for virtual docker nodes failed due to an unknown/unexpected error.", zap.Error(err))
+			_ = c.AbortWithError(http.StatusInternalServerError, err)
 		}
 		return
 	}

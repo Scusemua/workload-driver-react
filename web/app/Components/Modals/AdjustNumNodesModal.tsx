@@ -1,7 +1,19 @@
-import React from 'react';
-import { Button, Form, FormGroup, FormHelperText, HelperText, HelperTextItem, Modal, ModalVariant, TextInput } from '@patternfly/react-core';
 import { useNodes } from '@app/Providers';
-import { ExclamationCircleIcon } from '@patternfly/react-icons';
+import {
+    Button,
+    Form,
+    FormGroup,
+    FormHelperText,
+    Grid,
+    GridItem,
+    HelperText,
+    HelperTextItem,
+    Modal,
+    ModalVariant,
+    TextInput,
+} from '@patternfly/react-core';
+import { ExclamationCircleIcon, MinusIcon, PlusIcon } from '@patternfly/react-icons';
+import React from 'react';
 
 export interface AdjustNumNodesModalProps {
     children?: React.ReactNode;
@@ -15,7 +27,7 @@ export const AdjustNumNodesModal: React.FunctionComponent<AdjustNumNodesModalPro
     type validate = 'success' | 'warning' | 'error' | 'default';
 
     const { nodes } = useNodes();
-    const [targetNumNodes, setTargetNumNodes] = React.useState<string>(nodes.length >= 3 ? `${nodes.length}` : "4");
+    const [targetNumNodes, setTargetNumNodes] = React.useState<string>(nodes.length >= 3 ? `${nodes.length}` : '4');
     const [validated, setValidated] = React.useState<validate>('success');
 
     const handleTargetNumNodesChanged = (_event, target: string) => {
@@ -40,12 +52,10 @@ export const AdjustNumNodesModal: React.FunctionComponent<AdjustNumNodesModalPro
     };
 
     const onConfirmClicked = () => {
-        if (validated !== 'success') 
-            return; 
+        if (validated !== 'success') return;
 
         const target: number = Number.parseInt(targetNumNodes);
-        if (target < 3) 
-            return;
+        if (target < 3) return;
 
         props.onConfirm(target);
     };
@@ -73,24 +83,40 @@ export const AdjustNumNodesModal: React.FunctionComponent<AdjustNumNodesModalPro
         >
             <Form>
                 <FormGroup label={`Desired number of nodes (current: ${nodes.length})`}>
-                    <TextInput
-                        id="desired-num-cluster-nodes"
-                        aria-label="Desired number of nodes within the cluster"
-                        type="number"
-                        value={targetNumNodes}
-                        onChange={handleTargetNumNodesChanged}
-                        validated={validated}
-                        placeholder={nodes.length > 0 ? `${nodes.length}` : ''}
-                    />
-                    {validated !== 'success' && (
-                        <FormHelperText>
-                            <HelperText>
-                                <HelperTextItem icon={<ExclamationCircleIcon />} variant={validated}>
-                                    {validated === 'error' ? 'Must be a number ≥ 3' : 'Please enter your desired number of nodes'}
-                                </HelperTextItem>
-                            </HelperText>
-                        </FormHelperText>
-                    )}
+                    <Grid span={12} hasGutter>
+                        <GridItem span={4}>
+                            <TextInput
+                                id="desired-num-cluster-nodes"
+                                aria-label="Desired number of nodes within the cluster"
+                                type="number"
+                                value={targetNumNodes}
+                                onChange={handleTargetNumNodesChanged}
+                                validated={validated}
+                                placeholder={nodes.length > 0 ? `${nodes.length}` : ''}
+                            />
+                            {validated !== 'success' && (
+                                <FormHelperText>
+                                    <HelperText>
+                                        <HelperTextItem icon={<ExclamationCircleIcon />} variant={validated}>
+                                            {validated === 'error'
+                                                ? 'Must be a number ≥ 3'
+                                                : 'Please enter your desired number of nodes'}
+                                        </HelperTextItem>
+                                    </HelperText>
+                                </FormHelperText>
+                            )}
+                        </GridItem>
+                        {/*<GridItem span={2}>*/}
+                        {/*    <Button icon={<PlusIcon />} variant={'secondary'}>*/}
+                        {/*        Add 1 Node*/}
+                        {/*    </Button>*/}
+                        {/*</GridItem>*/}
+                        {/*<GridItem span={2}>*/}
+                        {/*    <Button icon={<MinusIcon />} variant={'secondary'} isDanger isDisabled={nodes.length <= 3}>*/}
+                        {/*        Remove 1 Node*/}
+                        {/*    </Button>*/}
+                        {/*</GridItem>*/}
+                    </Grid>
                 </FormGroup>
             </Form>
         </Modal>

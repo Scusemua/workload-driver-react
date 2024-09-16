@@ -141,15 +141,22 @@ func (s *serverImpl) handleRpcRegistrationComplete(nodeType domain.NodeType, rpc
 	s.nodeHandler.AssignNodeType(nodeType, rpcHandler)
 }
 
+// ErrorHandlerMiddleware is gin middleware to handle errors that occur while the request handlers
+// are processing/handling a request.
 func (s *serverImpl) ErrorHandlerMiddleware(c *gin.Context) {
-	c.Next()
+	c.Next() // Execute all the handlers.
 
-	errs := make([]*gin.Error, 0, len(c.Errors))
+	errorsEncountered := make([]error, 0)
 	for _, err := range c.Errors {
-		errs = append(errs, err)
+		errorsEncountered = append(errorsEncountered, err.Err)
+		s.logger.Error("Error encountered.", zap.Error(err))
 	}
 
-	c.JSON(-1, errs)
+	if len(errorsEncountered) > 0 {
+		c.JSON(-1, gin.H{
+			"message": errors.Join(errorsEncountered...).Error(),
+		})
+	}
 }
 
 func (s *serverImpl) setupRoutes() error {
@@ -170,8 +177,13 @@ func (s *serverImpl) setupRoutes() error {
 
 	// Serve frontend static files
 	s.app.Use(static.Serve("/", static.LocalFile("./dist", true)))
+	s.logger.Debug("Attached static middleware.")
 	s.app.Use(gin.Logger())
+	s.logger.Debug("Attached logger middleware.")
 	s.app.Use(cors.Default())
+	s.logger.Debug("Attached CORS middleware.")
+	s.app.Use(s.ErrorHandlerMiddleware)
+	s.logger.Debug("Attached error-handler middleware.")
 
 	////////////////////////
 	// Prometheus metrics //
@@ -255,8 +267,6 @@ func (s *serverImpl) setupRoutes() error {
 	}
 
 	gin.SetMode(gin.DebugMode)
-
-	s.app.Use(s.ErrorHandlerMiddleware)
 
 	return nil
 }

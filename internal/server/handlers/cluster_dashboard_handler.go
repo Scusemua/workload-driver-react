@@ -325,8 +325,8 @@ func (h *ClusterDashboardHandler) setupRpcResources(gatewayAddress string) error
 
 	registrationResponse, err := provisioner.Validate()
 	if err != nil {
-		log.Fatalf("Failed to validate reverse provisioner connection: %v", zap.Error(err))
 		h.exitSetup()
+		log.Fatalf("Failed to validate reverse provisioner connection: %v", zap.Error(err))
 		return err
 	}
 
@@ -375,7 +375,7 @@ func (h *ClusterDashboardHandler) exitSetup() {
 // WriteError writes an error back to the client. This is called by the Cluster Gateway.
 func (h *ClusterDashboardHandler) WriteError(c *gin.Context, errorMessage string) {
 	// Write error back to front-end.
-	c.AbortWithError(http.StatusInternalServerError, fmt.Errorf("could not handle request: %s", errorMessage))
+	_ = c.AbortWithError(http.StatusInternalServerError, fmt.Errorf("could not handle request: %s", errorMessage))
 }
 
 func (h *ClusterDashboardHandler) finalize(fix bool) {

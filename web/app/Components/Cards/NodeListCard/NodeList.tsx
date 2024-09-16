@@ -165,15 +165,18 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
         console.log(`Attempting to set number of nodes in cluster to ${value}`);
 
         toast.promise(
-            fetch('api/nodes', requestOptions).then((resp) => {
-                if (resp.status >= 300) {
-                    const statusCode: number = resp.status;
-                    const statusText: string = resp.statusText;
-                    
-                    throw new Error(`HTTP ${statusCode} - ${statusText}`)
-                } else {
-                    return resp 
-                }
+            fetch('api/nodes', requestOptions).then(async (resp) => {
+              if (resp.status >= 300) {
+                const statusCode: number = resp.status;
+                const statusText: string = resp.statusText;
+
+                const response: string = await resp.json();
+                console.error(`Failed to set number of nodes in cluster to ${value} because: ${response['message']}`)
+
+                throw new Error(`HTTP ${statusCode} - ${statusText}: ${response['message']}`)
+              } else {
+                return resp
+              }
             }, (err: Error) => {throw err}).catch((err: Error) => { throw err}),
             {
                 loading: 'Adjusting GPUs...',
