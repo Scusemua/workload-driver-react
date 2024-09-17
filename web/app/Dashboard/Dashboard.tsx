@@ -60,7 +60,12 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
 
         targetReplica.isMigrating = true;
 
-        toast('Migrating kernel replica');
+        console.log(
+            `Migrating replica ${targetReplica.replicaId} of kernel ${targetKernel.kernelId} to node ${targetNodeId}`,
+        );
+        toast(
+            `Migrating replica ${targetReplica.replicaId} of kernel ${targetKernel.kernelId} to node ${targetNodeId}`,
+        );
 
         fetch('/api/migrate', requestOptions).then((response) => {
             console.log(
@@ -146,31 +151,33 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
                 <GridItem span={6} rowSpan={1}>
                     <UtilizationCard chartHeight={320} chartWidth={400} />
                 </GridItem>
-              <GridItem span={12} rowSpan={getKubeNodeCardRowspan()}>
-                <NodeHeightFactorContext.Provider
-                  value={{
-                    heightFactor: kubeNodeHeightFactor,
-                    setHeightFactor: (value: number) => setKubeNodeHeightFactor(value),
-                  }}
-                >
-                  <NodeList
-                    isDashboardList={true}
-                    hideAdjustVirtualGPUsButton={false}
-                    hideControlPlaneNode={true}
-                    nodesPerPage={4}
-                    selectableViaCheckboxes={false}
-                    displayNodeToggleSwitch={true}
-                  />
-                </NodeHeightFactorContext.Provider>
-              </GridItem>
+                <GridItem span={12} rowSpan={getKubeNodeCardRowspan()}>
+                    <NodeHeightFactorContext.Provider
+                        value={{
+                            heightFactor: kubeNodeHeightFactor,
+                            setHeightFactor: (value: number) => setKubeNodeHeightFactor(value),
+                        }}
+                    >
+                        <NodeList
+                            isDashboardList={true}
+                            hideAdjustVirtualGPUsButton={false}
+                            hideControlPlaneNode={true}
+                            nodesPerPage={4}
+                            selectableViaCheckboxes={false}
+                            displayNodeToggleSwitch={true}
+                        />
+                    </NodeHeightFactorContext.Provider>
+                </GridItem>
             </Grid>
-            <MigrationModal
-                isOpen={isMigrateModalOpen}
-                onClose={closeMigrateReplicaModal}
-                onConfirm={onConfirmMigrateReplica}
-                targetKernel={migrateKernel}
-                targetReplica={migrateReplica}
-            />
+            {migrateKernel && migrateReplica && (
+                <MigrationModal
+                    isOpen={isMigrateModalOpen}
+                    onClose={closeMigrateReplicaModal}
+                    onConfirm={onConfirmMigrateReplica}
+                    targetKernel={migrateKernel}
+                    targetReplica={migrateReplica}
+                />
+            )}
         </PageSection>
     );
 };

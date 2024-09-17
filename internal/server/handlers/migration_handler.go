@@ -42,18 +42,18 @@ func (h *MigrationHttpHandler) HandleRequest(c *gin.Context) {
 	if err := c.BindJSON(&migrationRequest); err != nil {
 		h.logger.Error("Failed to extract and/or unmarshal migration request from request body.")
 
-		c.AbortWithError(http.StatusBadRequest, fmt.Errorf("ErrBadRequest %w: %s", err, err.Error()))
+		_ = c.AbortWithError(http.StatusBadRequest, fmt.Errorf("ErrBadRequest %w: %s", err, err.Error()))
 		return
 	}
 
-	h.logger.Info("Received migration request.", zap.Int32("replica-smr-id", migrationRequest.TargetReplica.ReplicaId), zap.String("kernel-id", migrationRequest.TargetReplica.KernelId), zap.String("target-k8s-node-id", migrationRequest.GetTargetNodeId()))
+	h.logger.Info("Received migration request.", zap.Int32("replica-smr-id", migrationRequest.TargetReplica.ReplicaId), zap.String("kernel-id", migrationRequest.TargetReplica.KernelId), zap.String("target-node-id", migrationRequest.GetTargetNodeId()))
 
 	resp, err := h.grpcClient.MigrateKernelReplica(context.TODO(), migrationRequest)
 	if err != nil {
 		h.logger.Error("An error occurred while triggering or performing the kernel replica migration.", zap.String("kernelID", migrationRequest.TargetReplica.KernelId), zap.Int32("replicaID", migrationRequest.TargetReplica.ReplicaId), zap.String("target-node", migrationRequest.GetTargetNodeId()), zap.Error(err))
 		h.grpcClient.HandleConnectionError()
 
-		c.AbortWithError(http.StatusInternalServerError, err)
+		_ = c.AbortWithError(http.StatusInternalServerError, err)
 	} else {
 		h.logger.Info("Successfully triggered kernel replica migration.", zap.String("kernelID", migrationRequest.TargetReplica.KernelId), zap.Int32("replicaID", migrationRequest.TargetReplica.ReplicaId), zap.String("target-node", migrationRequest.GetTargetNodeId()), zap.Any("response", resp))
 	}

@@ -1,13 +1,17 @@
-import React from 'react';
 import { NodeList } from '@cards/NodeListCard/NodeList';
-import { Button, Modal, ModalVariant, Text, TextContent, TextVariants } from '@patternfly/react-core';
 import { DistributedJupyterKernel, JupyterKernelReplica } from '@data/Kernel';
+import { Button, Modal, ModalVariant, Text, TextContent, TextVariants } from '@patternfly/react-core';
+import React from 'react';
 
 export interface MigrationModalProps {
     children?: React.ReactNode;
     isOpen: boolean;
     onClose: () => void;
-    onConfirm: (JupyterKernelReplica, DistributedJupyterKernel, string) => void;
+    onConfirm: (
+        replica: JupyterKernelReplica,
+        kernel: DistributedJupyterKernel,
+        targetNodeId: string,
+    ) => void;
     targetKernel?: DistributedJupyterKernel | null;
     targetReplica?: JupyterKernelReplica | null;
 }
@@ -20,14 +24,14 @@ export const MigrationModal: React.FunctionComponent<MigrationModalProps> = (pro
             variant={ModalVariant.medium}
             titleIconVariant="info"
             aria-label="migration-modal"
-            title={'Migrate replica ' + props.targetReplica?.replicaId + ' of kernel ' + props.targetKernel?.kernelId}
+            title={'Migrate replica ' + props.targetReplica!.replicaId + ' of kernel ' + props.targetKernel!.kernelId}
             isOpen={props.isOpen}
             onClose={props.onClose}
             actions={[
                 <Button
                     key="confirm"
                     variant="primary"
-                    onClick={() => props.onConfirm(props.targetReplica, props.targetKernel, targetNodeID)}
+                    onClick={() => props.onConfirm(props.targetReplica!, props.targetKernel!, targetNodeID)}
                 >
                     Confirm
                 </Button>,
@@ -50,7 +54,7 @@ export const MigrationModal: React.FunctionComponent<MigrationModalProps> = (pro
                 nodesPerPage={4}
                 selectableViaCheckboxes={true}
                 hideControlPlaneNode={true}
-                disableRadiosWithKernel={(props.targetReplica != null) ? props.targetReplica.kernelId : undefined}
+                disableRadiosWithKernel={props.targetReplica != null ? props.targetReplica.kernelId : undefined}
                 onSelectNode={(nodeId: string) => {
                     setTargetNodeID(nodeId);
                 }}

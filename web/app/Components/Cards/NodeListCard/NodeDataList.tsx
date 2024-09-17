@@ -2,38 +2,40 @@ import { HeightFactorContext, NodeHeightFactorContext } from '@app/Dashboard/Das
 import { GpuIcon } from '@app/Icons';
 import { ClusterNode, PodOrContainer } from '@data/Cluster';
 import {
-    Button,
-    DataList,
-    DataListAction,
-    DataListCell,
-    DataListContent,
-    DataListControl,
-    DataListItem,
-    DataListItemCells,
-    DataListItemRow,
-    DataListToggle,
-    DescriptionList,
-    DescriptionListDescription,
-    DescriptionListGroup,
-    DescriptionListTerm,
-    Flex,
-    FlexItem,
-    Pagination,
-    PaginationVariant,
-    Radio,
-    Skeleton,
-    Switch,
-    Text,
-    TextVariants,
-    Tooltip,
+  Button,
+  DataList,
+  DataListAction,
+  DataListCell,
+  DataListContent,
+  DataListControl,
+  DataListItem,
+  DataListItemCells,
+  DataListItemRow,
+  DataListToggle,
+  DescriptionList,
+  DescriptionListDescription,
+  DescriptionListGroup,
+  DescriptionListTerm,
+  Flex,
+  FlexItem, Icon, Label,
+  Pagination,
+  PaginationVariant,
+  Radio,
+  Skeleton,
+  Switch,
+  Text,
+  TextVariants,
+  Tooltip
 } from '@patternfly/react-core';
 import {
-    CpuIcon,
-    CubeIcon,
-    GlobeIcon,
-    MemoryIcon,
-    OutlinedClockIcon,
-    VirtualMachineIcon,
+  CheckCircleIcon,
+  CheckIcon,
+  CpuIcon, CrossIcon,
+  CubeIcon,
+  GlobeIcon,
+  MemoryIcon,
+  OutlinedClockIcon, TimesCircleIcon, TimesIcon,
+  VirtualMachineIcon
 } from '@patternfly/react-icons';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 import { useNodes } from '@providers/NodeProvider';
@@ -175,14 +177,16 @@ export const NodeDataList: React.FunctionComponent<NodeDataListProps> = (props: 
         for (let i = 0; i < clusterNode.PodsOrContainers.length; i++) {
             const podOrContainer: PodOrContainer = clusterNode.PodsOrContainers[i];
             if (podOrContainer.Name.includes(kernelId)) {
-              console.log(`Pod/Container ${podOrContainer.Name} is a replica of kernel ${kernelId}. Disabling node ${clusterNode.NodeId}.`)
-              return true;
+                console.log(
+                    `Pod/Container ${podOrContainer.Name} is a replica of kernel ${kernelId}. Disabling node ${clusterNode.NodeId}.`,
+                );
+                return true;
             } else {
-              console.log(`Pod/Container ${podOrContainer.Name} is not a replica of kernel ${kernelId}...`)
+                console.log(`Pod/Container ${podOrContainer.Name} is not a replica of kernel ${kernelId}...`);
             }
         }
 
-      console.log(`Node ${clusterNode.NodeId} has no replicas of kernel ${kernelId}.`)
+        console.log(`Node ${clusterNode.NodeId} has no replicas of kernel ${kernelId}.`);
         return false;
     };
 
@@ -277,12 +281,26 @@ export const NodeDataList: React.FunctionComponent<NodeDataListProps> = (props: 
                 </FlexItem>
                 <FlexItem
                     alignSelf={{ default: 'alignSelfCenter' }}
-                    hidden={clusterNode.NodeId.includes('control-plane')}
+                    hidden={props.isDashboardList}
+                >
+                  <Tooltip
+                    exitDelay={0.125}
+                    content={shouldSelectBeDisabledForNode(clusterNode) ? "This node is not a a viable migration target." : "This node is a viable migration target."}
+                    position={'right'}
+                  >
+                    <Label icon={shouldSelectBeDisabledForNode(clusterNode) ? <TimesCircleIcon/> : <CheckCircleIcon/> } color={shouldSelectBeDisabledForNode(clusterNode) ? "red" : "green"}>
+                      {shouldSelectBeDisabledForNode(clusterNode) ? "Non-viable" : "Viable"}
+                    </Label>
+                  </Tooltip>
+                </FlexItem>
+                <FlexItem
+                    alignSelf={{ default: 'alignSelfCenter' }}
+                    hidden={clusterNode.NodeId.includes('control-plane') || !props.isDashboardList}
                 >
                     <Tooltip
                         exitDelay={0.125}
                         content="Enable or disable a node, rendering it either available or unavailable, respectively, for hosting Distributed Notebook resources."
-                        position={'bottom'}
+                        position={'right'}
                     >
                         <Switch
                             id={'node-' + clusterNode.NodeId + '-scheduling-switch'}

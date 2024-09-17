@@ -432,6 +432,7 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
                             displayNodeToggleSwitch={props.displayNodeToggleSwitch}
                             disableRadiosWithKernel={props.disableRadiosWithKernel}
                             onFilter={onFilter}
+                            onSelectNode={props.onSelectNode}
                             onAdjustVirtualGPUsClicked={onAdjustVirtualGPUsClicked}
                         />
                     )}
