@@ -13,13 +13,13 @@ import {
     TextInput,
 } from '@patternfly/react-core';
 import { ExclamationCircleIcon, MinusIcon, PlusIcon } from '@patternfly/react-icons';
-import React from 'react';
+import React, { FormEvent } from 'react';
 
 export interface AdjustNumNodesModalProps {
     children?: React.ReactNode;
     isOpen: boolean;
     onClose: () => void;
-    onConfirm: (value: number) => Promise<void>;
+    onConfirm: (value: number, operation: 'set_nodes' | 'add_nodes' | 'remove_nodes') => Promise<void>;
     titleIconVariant?: 'success' | 'danger' | 'warning' | 'info';
 }
 
@@ -30,7 +30,7 @@ export const AdjustNumNodesModal: React.FunctionComponent<AdjustNumNodesModalPro
     const [targetNumNodes, setTargetNumNodes] = React.useState<string>(nodes.length >= 3 ? `${nodes.length}` : '4');
     const [validated, setValidated] = React.useState<validate>('success');
 
-    const handleTargetNumNodesChanged = (_event, target: string) => {
+    const handleTargetNumNodesChanged = (_event: FormEvent<HTMLInputElement>, target: string) => {
         setTargetNumNodes(target);
         if (target === '') {
             setValidated('default');
@@ -51,13 +51,21 @@ export const AdjustNumNodesModal: React.FunctionComponent<AdjustNumNodesModalPro
         props.onClose();
     };
 
-    const onConfirmClicked = () => {
+    const onConfirmSetNodes = () => {
         if (validated !== 'success') return;
 
         const target: number = Number.parseInt(targetNumNodes);
         if (target < 3) return;
 
-        props.onConfirm(target);
+        props.onConfirm(target, 'set_nodes');
+    };
+
+    const onConfirmRemoveNode = () => {
+        props.onConfirm(1, 'add_nodes');
+    };
+
+    const onConfirmAddNode = () => {
+        props.onConfirm(1, 'remove_nodes');
     };
 
     return (
@@ -69,14 +77,27 @@ export const AdjustNumNodesModal: React.FunctionComponent<AdjustNumNodesModalPro
             onClose={props.onClose}
             actions={[
                 <Button
-                    key="confirm-adjust-num-nodes"
+                    key="confirm-set-num-nodes"
                     variant="primary"
-                    onClick={onConfirmClicked}
+                    onClick={onConfirmSetNodes}
                     isDisabled={validated !== 'success'}
                 >
-                    Confirm
+                    Scale {Number.parseInt(targetNumNodes) > nodes.length ? 'Out' : 'In'} to {targetNumNodes || '?'}{' '}
+                    Nodes
                 </Button>,
-                <Button key="cancel-adjust-num-nodes" variant="link" onClick={onCloseClicked}>
+                <Button key="confirm-add-one-node" icon={<PlusIcon />} variant={'primary'} onClick={onConfirmAddNode}>
+                    Add 1 Node
+                </Button>,
+                <Button
+                    key="confirm-remove-one-node"
+                    icon={<MinusIcon />}
+                    variant={'danger'}
+                    onClick={onConfirmRemoveNode}
+                    isDisabled={nodes.length <= 3}
+                >
+                    Remove 1 Node
+                </Button>,
+                <Button key="cancel-adjust-num-nodes" variant="secondary" onClick={onCloseClicked}>
                     Cancel
                 </Button>,
             ]}
@@ -106,16 +127,6 @@ export const AdjustNumNodesModal: React.FunctionComponent<AdjustNumNodesModalPro
                                 </FormHelperText>
                             )}
                         </GridItem>
-                        {/*<GridItem span={2}>*/}
-                        {/*    <Button icon={<PlusIcon />} variant={'secondary'}>*/}
-                        {/*        Add 1 Node*/}
-                        {/*    </Button>*/}
-                        {/*</GridItem>*/}
-                        {/*<GridItem span={2}>*/}
-                        {/*    <Button icon={<MinusIcon />} variant={'secondary'} isDanger isDisabled={nodes.length <= 3}>*/}
-                        {/*        Remove 1 Node*/}
-                        {/*    </Button>*/}
-                        {/*</GridItem>*/}
                     </Grid>
                 </FormGroup>
             </Form>

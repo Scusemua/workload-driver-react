@@ -1088,7 +1088,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                             <Tooltip
                                                 exitDelay={20}
                                                 entryDelay={175}
-                                                position={'right'}
+                                                position={'left'}
                                                 content={
                                                     <div>
                                                         Execute Python code on replica{' '}

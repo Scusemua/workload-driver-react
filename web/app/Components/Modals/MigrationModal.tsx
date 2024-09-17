@@ -43,18 +43,18 @@ export const MigrationModal: React.FunctionComponent<MigrationModalProps> = (pro
                 </Text>
             </TextContent>
             <br />
-            {/* <NodeList
+            <NodeList
                 isDashboardList={false}
                 hideAdjustVirtualGPUsButton={true}
                 displayNodeToggleSwitch={false}
                 nodesPerPage={4}
                 selectableViaCheckboxes={true}
                 hideControlPlaneNode={true}
-                disableRadiosWithKernel={(props.targetReplica != null && props.targetReplica.kernelId) || undefined}
+                disableRadiosWithKernel={(props.targetReplica != null) ? props.targetReplica.kernelId : undefined}
                 onSelectNode={(nodeId: string) => {
                     setTargetNodeID(nodeId);
                 }}
-            /> */}
+            />
             <br />
             <TextContent>
                 <Text component={TextVariants.p} hidden={targetNodeID == ''}>

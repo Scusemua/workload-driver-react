@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"time"
 
@@ -107,10 +108,50 @@ func (h *DockerSwarmNodeHttpHandler) HandlePatchRequest(c *gin.Context) {
 		return
 	}
 
-	_, err = h.grpcClient.SetNumVirtualDockerNodes(context.TODO(), &gateway.SetNumVirtualDockerNodesRequest{
-		RequestId:      uuid.NewString(),
-		TargetNumNodes: int32(targetNumNodesVal.(float64)),
-	})
+	operation, loaded := req["op"]
+	if !loaded {
+		err = fmt.Errorf("invalid request: missing \"op\" field")
+		h.logger.Error("HTTP PATCH request for virtual docker nodes failed due to an invalid argument.", zap.Error(err))
+		_ = c.AbortWithError(http.StatusBadRequest, err)
+		return
+	}
+
+	switch operation {
+	case "set_nodes":
+		{
+			targetNumNodes := int32(targetNumNodesVal.(float64))
+			h.logger.Debug("Issuing 'SetNumVirtualDockerNodes' request.", zap.Int32("target_num_nodes", targetNumNodes))
+			_, err = h.grpcClient.SetNumVirtualDockerNodes(context.TODO(), &gateway.SetNumVirtualDockerNodesRequest{
+				RequestId:      uuid.NewString(),
+				TargetNumNodes: targetNumNodes,
+			})
+		}
+	case "add_nodes":
+		{
+			targetNumNodes := int32(targetNumNodesVal.(float64))
+			h.logger.Debug("Issuing 'AddVirtualDockerNodes' request.", zap.Int32("target_num_nodes", targetNumNodes))
+			_, err = h.grpcClient.AddVirtualDockerNodes(context.TODO(), &gateway.AddVirtualDockerNodesRequest{
+				RequestId: uuid.NewString(),
+				NumNodes:  targetNumNodes,
+			})
+		}
+	case "remove_nodes":
+		{
+			targetNumNodes := int32(targetNumNodesVal.(float64))
+			h.logger.Debug("Issuing 'DecreaseNumNodes' request.", zap.Int32("target_num_nodes", targetNumNodes))
+			_, err = h.grpcClient.DecreaseNumNodes(context.TODO(), &gateway.DecreaseNumNodesRequest{
+				RequestId:        uuid.NewString(),
+				NumNodesToRemove: targetNumNodes,
+			})
+		}
+	default:
+		{
+			err = fmt.Errorf("invalid request: \"op\" field has unknown or unexpected value: \"%s\"", operation)
+			h.logger.Error("HTTP PATCH request for virtual docker nodes failed due to an invalid argument.", zap.Error(err))
+			_ = c.AbortWithError(http.StatusBadRequest, err)
+			return
+		}
+	}
 
 	if err != nil {
 		operationStatus, ok := status.FromError(err)

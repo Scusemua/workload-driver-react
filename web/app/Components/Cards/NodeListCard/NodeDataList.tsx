@@ -174,9 +174,15 @@ export const NodeDataList: React.FunctionComponent<NodeDataListProps> = (props: 
         const kernelId: string = props.disableRadiosWithKernel!;
         for (let i = 0; i < clusterNode.PodsOrContainers.length; i++) {
             const podOrContainer: PodOrContainer = clusterNode.PodsOrContainers[i];
-            if (podOrContainer.Name.includes(kernelId)) return true;
+            if (podOrContainer.Name.includes(kernelId)) {
+              console.log(`Pod/Container ${podOrContainer.Name} is a replica of kernel ${kernelId}. Disabling node ${clusterNode.NodeId}.`)
+              return true;
+            } else {
+              console.log(`Pod/Container ${podOrContainer.Name} is not a replica of kernel ${kernelId}...`)
+            }
         }
 
+      console.log(`Node ${clusterNode.NodeId} has no replicas of kernel ${kernelId}.`)
         return false;
     };
 

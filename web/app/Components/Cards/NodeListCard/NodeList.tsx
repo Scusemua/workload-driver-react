@@ -1,3 +1,5 @@
+import { AdjustNumNodesModal } from '@app/Components/Modals/AdjustNumNodesModal';
+import { GpuIcon } from '@app/Icons';
 import { NodeDataList } from '@cards/NodeListCard/NodeDataList';
 import { NodeResourceView } from '@cards/NodeListCard/NodeResourceView';
 import { ClusterNode } from '@data/Cluster';
@@ -25,8 +27,6 @@ import { useNodes } from '@providers/NodeProvider';
 import React from 'react';
 import { toast } from 'react-hot-toast';
 import { AdjustVirtualGPUsModal } from '../../Modals';
-import { GpuIcon } from '@app/Icons';
-import { AdjustNumNodesModal } from '@app/Components/Modals/AdjustNumNodesModal';
 
 export interface NodeListProps {
     selectableViaCheckboxes: boolean;
@@ -148,7 +148,7 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
         });
     }
 
-    async function doAdjustNumNodes(value: number) {
+    async function doAdjustNumNodes(value: number, operation: 'set_nodes' | 'add_nodes' | 'remove_nodes') {
         closeAdjustNumNodesModal();
 
         const requestOptions = {
@@ -158,26 +158,38 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
                 // 'Cache-Control': 'no-cache, no-transform, no-store'
             },
             body: JSON.stringify({
-                "target_num_nodes": value,
+                target_num_nodes: value,
+                op: operation,
             }),
         };
 
         console.log(`Attempting to set number of nodes in cluster to ${value}`);
 
-        toast.promise(
-            fetch('api/nodes', requestOptions).then(async (resp) => {
-              if (resp.status >= 300) {
-                const statusCode: number = resp.status;
-                const statusText: string = resp.statusText;
+        await toast.promise(
+            fetch('api/nodes', requestOptions)
+                .then(
+                    async (resp) => {
+                        if (resp.status >= 300) {
+                            const statusCode: number = resp.status;
+                            const statusText: string = resp.statusText;
 
-                const response: string = await resp.json();
-                console.error(`Failed to set number of nodes in cluster to ${value} because: ${response['message']}`)
+                            const response: string = await resp.json();
+                            console.error(
+                                `Failed to set number of nodes in cluster to ${value} because: ${response['message']}`,
+                            );
 
-                throw new Error(`HTTP ${statusCode} - ${statusText}: ${response['message']}`)
-              } else {
-                return resp
-              }
-            }, (err: Error) => {throw err}).catch((err: Error) => { throw err}),
+                            throw new Error(`HTTP ${statusCode} - ${statusText}: ${response['message']}`);
+                        } else {
+                            return resp;
+                        }
+                    },
+                    (err: Error) => {
+                        throw err;
+                    },
+                )
+                .catch((err: Error) => {
+                    throw err;
+                }),
             {
                 loading: 'Adjusting GPUs...',
                 success: (
@@ -418,6 +430,7 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
                             nodesPerPage={props.nodesPerPage}
                             hideAdjustVirtualGPUsButton={props.hideAdjustVirtualGPUsButton}
                             displayNodeToggleSwitch={props.displayNodeToggleSwitch}
+                            disableRadiosWithKernel={props.disableRadiosWithKernel}
                             onFilter={onFilter}
                             onAdjustVirtualGPUsClicked={onAdjustVirtualGPUsClicked}
                         />
