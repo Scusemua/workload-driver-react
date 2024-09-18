@@ -441,7 +441,7 @@ func (conn *BasicKernelConnection) RequestExecute(code string, silent bool, stor
 		//					workloadId, _ = conn.GetMetadata(WorkloadIdMetadataKey)
 		//				}
 		//
-		//				metrics.PrometheusMetricsWrapperInstance.JupyterExecuteRequestEndToEndLatency.
+		//				metrics.PrometheusMetricsWrapperInstance.JupyterExecuteRequestEndToEndLatencyMilliseconds.
 		//					With(prometheus.Labels{"workload_id": workloadId}).
 		//					Observe(latency.Seconds())
 		//
@@ -465,13 +465,13 @@ func (conn *BasicKernelConnection) RequestExecute(code string, silent bool, stor
 			workloadId, _ = conn.GetMetadata(WorkloadIdMetadataKey)
 		}
 
-		metrics.PrometheusMetricsWrapperInstance.JupyterExecuteRequestEndToEndLatency.
+		metrics.PrometheusMetricsWrapperInstance.JupyterExecuteRequestEndToEndLatencyMilliseconds.
 			With(prometheus.Labels{"workload_id": workloadId}).
-			Observe(latency.Seconds())
+			Observe(float64(latency.Milliseconds()))
 
 		metrics.PrometheusMetricsWrapperInstance.JupyterRequestExecuteTime.
 			With(prometheus.Labels{"workload_id": workloadId, "kernel_id": conn.kernelId}).
-			Add(latency.Seconds()) // Add another second.
+			Add(float64(latency.Milliseconds())) // Add another second.
 
 		// Wait until we receive the response.
 		//wg.Wait()

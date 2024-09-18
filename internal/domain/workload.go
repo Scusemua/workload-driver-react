@@ -845,9 +845,9 @@ func (w *workloadImpl) TrainingStopped(sessionId string) {
 	} else {
 		trainingDuration := time.Since(val.(time.Time))
 
-		metrics.PrometheusMetricsWrapperInstance.WorkloadTrainingEventDuration.
+		metrics.PrometheusMetricsWrapperInstance.WorkloadTrainingEventDurationMilliseconds.
 			With(prometheus.Labels{"workload_id": w.Id}).
-			Observe(trainingDuration.Seconds())
+			Observe(float64(trainingDuration.Milliseconds()))
 	}
 }
 

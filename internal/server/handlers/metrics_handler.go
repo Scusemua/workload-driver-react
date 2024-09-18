@@ -46,21 +46,24 @@ func (h *MetricsHttpHandler) HandlePatchRequest(c *gin.Context) {
 	switch req.Name {
 	case "distributed_cluster_jupyter_session_creation_latency_seconds":
 		{
-			metrics.PrometheusMetricsWrapperInstance.JupyterSessionCreationLatency.
+			metrics.PrometheusMetricsWrapperInstance.JupyterSessionCreationLatencyMilliseconds.
 				With(prometheus.Labels{"workload_id": "no_workload"}).
 				Observe(req.Value)
+			break
 		}
 	case "distributed_cluster_jupyter_execute_request_e2e_latency_seconds":
 		{
-			metrics.PrometheusMetricsWrapperInstance.JupyterExecuteRequestEndToEndLatency.
+			metrics.PrometheusMetricsWrapperInstance.JupyterExecuteRequestEndToEndLatencyMilliseconds.
 				With(prometheus.Labels{"workload_id": "no_workload"}).
 				Observe(req.Value)
+			break
 		}
 	case "distributed_cluster_jupyter_session_termination_latency_seconds":
 		{
-			metrics.PrometheusMetricsWrapperInstance.JupyterSessionTerminationLatency.
+			metrics.PrometheusMetricsWrapperInstance.JupyterSessionTerminationLatencyMilliseconds.
 				With(prometheus.Labels{"workload_id": "no_workload"}).
 				Observe(req.Value)
+			break
 		}
 	default:
 		{

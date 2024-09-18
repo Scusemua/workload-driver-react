@@ -213,7 +213,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
             });
         }
 
-        runUserCode();
+        runUserCode().then(() => {});
     };
 
     // Reset state, then call user-supplied onClose function.

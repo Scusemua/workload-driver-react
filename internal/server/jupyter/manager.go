@@ -58,9 +58,9 @@ func (m *kernelManagerMetricsImpl) KernelCreated() {
 func (m *kernelManagerMetricsImpl) SessionCreated(workloadId string, latency time.Duration) {
 	m.NumSessionsCreated += 1
 
-	metrics.PrometheusMetricsWrapperInstance.JupyterSessionCreationLatency.
+	metrics.PrometheusMetricsWrapperInstance.JupyterSessionCreationLatencyMilliseconds.
 		With(prometheus.Labels{"workload_id": workloadId}).
-		Observe(latency.Seconds())
+		Observe(float64(latency.Milliseconds()))
 }
 
 //func (m *kernelManagerMetricsImpl) KernelTerminated() {
@@ -72,9 +72,9 @@ func (m *kernelManagerMetricsImpl) SessionCreated(workloadId string, latency tim
 func (m *kernelManagerMetricsImpl) SessionTerminated(workloadId string, latency time.Duration) {
 	m.NumSessionsTerminated += 1
 
-	metrics.PrometheusMetricsWrapperInstance.JupyterSessionTerminationLatency.
+	metrics.PrometheusMetricsWrapperInstance.JupyterSessionTerminationLatencyMilliseconds.
 		With(prometheus.Labels{"workload_id": workloadId}).
-		Observe(latency.Seconds())
+		Observe(float64(latency.Milliseconds()))
 }
 
 type BasicKernelSessionManager struct {
