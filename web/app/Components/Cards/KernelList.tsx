@@ -574,7 +574,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         const timeElapsedSecRounded: number = RoundToThreeDecimalPlaces(timeElapsedMilliseconds / 1000.0);
         const successMessage: string = `Successfully launched kernel ${kernel.id} in ${timeElapsedSecRounded} seconds.`;
         console.log(successMessage);
-        toast.success(successMessage, { style: { maxWidth: 650 } });
+        toast.success(successMessage, { style: { maxWidth: 750 } });
 
         // Register a callback for when the kernel changes state.
         kernel.statusChanged.connect((_, status) => {
@@ -691,6 +691,9 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         const latencyMilliseconds: number = performance.now() - startTime;
         const latencySecRounded: number = RoundToThreeDecimalPlaces(latencyMilliseconds / 1000.0);
         console.log(`Execution on Kernel ${kernelId} finished after ${latencySecRounded} seconds.`);
+        toast.success(`Execution on Kernel ${kernelId} finished after ${latencySecRounded} seconds.`, {
+            style: { maxWidth: 700 },
+        });
 
         await fetch('api/metrics', {
             method: 'PATCH',

@@ -241,7 +241,7 @@ func (s *serverImpl) setupRoutes() error {
 		apiGroup.POST(domain.StopTrainingEndpoint, handlers.NewStopTrainingHandler(s.opts, s.atom).HandleRequest)
 
 		// Used by the frontend to upload/share Prometheus metrics.
-		s.app.PATCH(domain.MetricsEndpoint, handlers.NewMetricsHttpHandler(s.opts).HandlePatchRequest)
+		apiGroup.PATCH(domain.MetricsEndpoint, handlers.NewMetricsHttpHandler(s.opts).HandlePatchRequest)
 	}
 
 	///////////////////////////
