@@ -40,6 +40,9 @@ const (
 	// PrometheusEndpoint is used by Prometheus to scrape metrics.
 	PrometheusEndpoint = "/prometheus"
 
+	// MetricsEndpoint is used by the frontend to post/share Prometheus metrics.
+	MetricsEndpoint = "/metrics"
+
 	// WorkloadPresetEndpoint is used internally (by the frontend) to get the list of available workload presets from the backend.
 	WorkloadPresetEndpoint = "/workload-presets"
 

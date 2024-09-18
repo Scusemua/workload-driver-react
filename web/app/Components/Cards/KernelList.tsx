@@ -3,15 +3,17 @@ import {
     CreateKernelsModal,
     ExecuteCodeOnKernelModal,
     InformationModal,
+    RoundToThreeDecimalPlaces,
 } from '@app/Components/Modals';
 import { HeightFactorContext, KernelHeightFactorContext } from '@app/Dashboard/Dashboard';
 import { GpuIcon } from '@app/Icons';
 import { numberArrayFromRange } from '@app/utils/utils';
+import { PingKernelModal } from '@components/Modals';
 import { DistributedJupyterKernel, JupyterKernelReplica, ResourceSpec } from '@data/Kernel';
 
 import { KernelManager, ServerConnection, SessionManager } from '@jupyterlab/services';
 import { IKernelConnection } from '@jupyterlab/services/lib/kernel/kernel';
-import { ISessionConnection, IModel as ISessionModel } from '@jupyterlab/services/lib/session/session';
+import { IModel as ISessionModel, ISessionConnection } from '@jupyterlab/services/lib/session/session';
 import {
     Button,
     Card,
@@ -80,7 +82,6 @@ import { useKernels } from '@providers/KernelProvider';
 import React, { useEffect, useReducer, useRef } from 'react';
 
 import toast from 'react-hot-toast';
-import { PingKernelModal } from '@components/Modals';
 
 // Map from kernel status to the associated icon.
 const kernelStatusIcons = {
@@ -450,11 +451,13 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
     async function startKernel(kernelId: string, sessionId: string, resourceSpec: ResourceSpec) {
         numKernelsCreating.current = numKernelsCreating.current + 1;
 
+        const startTime: DOMHighResTimeStamp = performance.now();
+
         console.log(
             `Starting kernel ${kernelId} (sessionId=${sessionId}) now. ResourceSpec: ${JSON.stringify(resourceSpec)}`,
         );
 
-      console.log(`Starting new 'distributed' kernel for user ${sessionId} with clientID=${sessionId}.`);
+        console.log(`Starting new 'distributed' kernel for user ${sessionId} with clientID=${sessionId}.`);
         console.log(`Creating new Jupyter Session ${sessionId} now...`);
 
         if (!sessionManager.current || !sessionManager.current.isReady) {
@@ -527,22 +530,26 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             return await response.json();
         }
 
-        const sessionModel: ISessionModel = await toast.promise(start_session(), {
-            loading: <b>Starting new Jupyter Session and Jupyter Kernel...</b>,
-            success: <b>Successfully started new Jupyter Session and Jupyter Kernel.</b>,
-            error: (reason: Error) => {
-                return (
-                    <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
-                        <FlexItem>
-                            <b>Failed to start new Jupyter Session and Jupyter Kernel.</b>
-                        </FlexItem>
-                        <FlexItem>
-                            <b>Reason:</b> {reason.message}
-                        </FlexItem>
-                    </Flex>
-                );
+        const sessionModel: ISessionModel = await toast.promise(
+            start_session(),
+            {
+                loading: <b>Starting new Jupyter Session and Jupyter Kernel...</b>,
+                success: <b>Successfully started new Jupyter Session and Jupyter Kernel.</b>,
+                error: (reason: Error) => {
+                    return (
+                        <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
+                            <FlexItem>
+                                <b>Failed to start new Jupyter Session and Jupyter Kernel.</b>
+                            </FlexItem>
+                            <FlexItem>
+                                <b>Reason:</b> {reason.message}
+                            </FlexItem>
+                        </Flex>
+                    );
+                },
             },
-        });
+            { style: { maxWidth: 650 } },
+        );
 
         const session: ISessionConnection = sessionManager.current.connectTo({
             model: sessionModel,
@@ -563,11 +570,30 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         }
         const kernel: IKernelConnection = session.kernel!;
 
-        console.log(`Successfully launched new kernel: kernel ${kernel.id}`);
+        const timeElapsedMilliseconds: number = performance.now() - startTime;
+        const timeElapsedSecRounded: number = RoundToThreeDecimalPlaces(timeElapsedMilliseconds / 1000.0);
+        const successMessage: string = `Successfully launched kernel ${kernel.id} in ${timeElapsedSecRounded} seconds.`;
+        console.log(successMessage);
+        toast.success(successMessage, { style: { maxWidth: 650 } });
 
         // Register a callback for when the kernel changes state.
         kernel.statusChanged.connect((_, status) => {
             console.log(`New Kernel Status Update: ${status}`);
+        });
+
+        await fetch('api/metrics', {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                // 'Cache-Control': 'no-cache, no-transform, no-store',
+            },
+            body: JSON.stringify({
+                name: 'distributed_cluster_jupyter_session_creation_latency_seconds',
+                value: timeElapsedMilliseconds,
+                metadata: {
+                    kernel_id: kernel.id,
+                },
+            }),
         });
 
         await refreshKernels();
@@ -624,6 +650,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         kernelConnections.current = new Map(kernelConnections.current).set(kernelId, kernelConnection);
 
         console.log(`Sending 'execute-request' to kernel ${kernelId} for code: '${code}'`);
+        const startTime: number = performance.now();
 
         const future = kernelConnection.requestExecute({ code: code }, undefined, {
             target_replica: targetReplicaId,
@@ -660,7 +687,25 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         };
 
         await future.done;
-        console.log('Execution on Kernel ' + kernelId + ' is done.');
+
+        const latencyMilliseconds: number = performance.now() - startTime;
+        const latencySecRounded: number = RoundToThreeDecimalPlaces(latencyMilliseconds / 1000.0);
+        console.log(`Execution on Kernel ${kernelId} finished after ${latencySecRounded} seconds.`);
+
+        await fetch('api/metrics', {
+            method: 'PATCH',
+            headers: {
+                'Content-Type': 'application/json',
+                // 'Cache-Control': 'no-cache, no-transform, no-store',
+            },
+            body: JSON.stringify({
+                name: 'distributed_cluster_jupyter_execute_request_e2e_latency_seconds',
+                value: latencyMilliseconds,
+                metadata: {
+                    kernel_id: kernelId,
+                },
+            }),
+        });
     }
 
     const onConfirmDeleteKernelsClicked = (kernelIds: string[]) => {
@@ -682,10 +727,26 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
          */
         async function delete_kernel(id: string) {
             console.log('Deleting Kernel ' + id + ' now.');
+            const startTime: number = performance.now();
 
             await kernelManager.current?.shutdown(id).then(() => {
                 console.log('Successfully deleted Kernel ' + id + ' now.');
                 refreshKernels();
+            });
+
+            await fetch('api/metrics', {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    // 'Cache-Control': 'no-cache, no-transform, no-store',
+                },
+                body: JSON.stringify({
+                    name: 'distributed_cluster_jupyter_session_termination_latency_seconds',
+                    value: performance.now() - startTime,
+                    metadata: {
+                        kernel_id: id,
+                    },
+                }),
             });
         }
 
@@ -1101,8 +1162,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                                     icon={<CodeIcon />}
                                                     /* Disable the 'Execute' button if we have no replicas, or if we don't have at least 3. */
                                                     isDisabled={
-                                                        kernel?.replicas === null ||
-                                                        kernel?.replicas?.length < 3
+                                                        kernel?.replicas === null || kernel?.replicas?.length < 3
                                                     }
                                                     onClick={() => onExecuteCodeClicked(kernel, replicaIdx)}
                                                 >
@@ -1164,8 +1224,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                                     isShared
                                                     /* Disable the 'Execute' button if we have no replicas, or if we don't have at least 3. */
                                                     isDisabled={
-                                                        kernel?.replicas === null ||
-                                                        kernel?.replicas?.length < 3
+                                                        kernel?.replicas === null || kernel?.replicas?.length < 3
                                                     }
                                                     icon={<CodeIcon />}
                                                     onClick={() => {
@@ -1339,7 +1398,9 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                                             /* Disable the 'Execute' button if we have no replicas, or if we don't have at least 3. */
                                                             isDisabled={
                                                                 kernel?.replicas === undefined ||
-                                                                (kernel !== undefined && true && kernel?.replicas?.length < 3)
+                                                                (kernel !== undefined &&
+                                                                    true &&
+                                                                    kernel?.replicas?.length < 3)
                                                             }
                                                             onClick={() => onExecuteCodeClicked(kernel)}
                                                         >
@@ -1359,7 +1420,9 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                                             isDanger
                                                             icon={<PauseIcon />}
                                                             isDisabled={
-                                                                kernel == null || false || kernel?.replicas === null ||
+                                                                kernel == null ||
+                                                                false ||
+                                                                kernel?.replicas === null ||
                                                                 kernel?.replicas?.length < 3
                                                             }
                                                             // isDisabled={
@@ -1389,7 +1452,9 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                                             variant={'link'}
                                                             icon={<InfoAltIcon />}
                                                             isDisabled={
-                                                                kernel == null || false || kernel?.replicas === null ||
+                                                                kernel == null ||
+                                                                false ||
+                                                                kernel?.replicas === null ||
                                                                 kernel?.replicas?.length < 3
                                                             }
                                                             onClick={() => onPingKernelClicked(filteredKernels[idx])}

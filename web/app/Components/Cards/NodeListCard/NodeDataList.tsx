@@ -177,16 +177,16 @@ export const NodeDataList: React.FunctionComponent<NodeDataListProps> = (props: 
         for (let i = 0; i < clusterNode.PodsOrContainers.length; i++) {
             const podOrContainer: PodOrContainer = clusterNode.PodsOrContainers[i];
             if (podOrContainer.Name.includes(kernelId)) {
-                console.log(
-                    `Pod/Container ${podOrContainer.Name} is a replica of kernel ${kernelId}. Disabling node ${clusterNode.NodeId}.`,
-                );
+                // console.log(
+                //     `Pod/Container ${podOrContainer.Name} is a replica of kernel ${kernelId}. Disabling node ${clusterNode.NodeId}.`,
+                // );
                 return true;
             } else {
-                console.log(`Pod/Container ${podOrContainer.Name} is not a replica of kernel ${kernelId}...`);
+                // console.log(`Pod/Container ${podOrContainer.Name} is not a replica of kernel ${kernelId}...`);
             }
         }
 
-        console.log(`Node ${clusterNode.NodeId} has no replicas of kernel ${kernelId}.`);
+        // console.log(`Node ${clusterNode.NodeId} has no replicas of kernel ${kernelId}.`);
         return false;
     };
 
@@ -300,7 +300,7 @@ export const NodeDataList: React.FunctionComponent<NodeDataListProps> = (props: 
                     <Tooltip
                         exitDelay={0.125}
                         content="Enable or disable a node, rendering it either available or unavailable, respectively, for hosting Distributed Notebook resources."
-                        position={'right'}
+                        position={'left'}
                     >
                         <Switch
                             id={'node-' + clusterNode.NodeId + '-scheduling-switch'}

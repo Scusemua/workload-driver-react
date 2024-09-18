@@ -65,6 +65,10 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
         );
         toast(
             `Migrating replica ${targetReplica.replicaId} of kernel ${targetKernel.kernelId} to node ${targetNodeId}`,
+          {
+            duration: 7500,
+            style: { maxWidth: 850 },
+          },
         );
 
         fetch('/api/migrate', requestOptions).then((response) => {
