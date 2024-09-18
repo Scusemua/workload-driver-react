@@ -13,7 +13,7 @@ import { DistributedJupyterKernel, JupyterKernelReplica, ResourceSpec } from '@d
 
 import { KernelManager, ServerConnection, SessionManager } from '@jupyterlab/services';
 import { IKernelConnection } from '@jupyterlab/services/lib/kernel/kernel';
-import { IModel as ISessionModel, ISessionConnection } from '@jupyterlab/services/lib/session/session';
+import { ISessionConnection, IModel as ISessionModel } from '@jupyterlab/services/lib/session/session';
 import {
     Button,
     Card,
@@ -533,8 +533,12 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         const sessionModel: ISessionModel = await toast.promise(
             start_session(),
             {
-                loading: <b>Starting new Jupyter Session and Jupyter Kernel...</b>,
-                success: <b>Successfully started new Jupyter Session and Jupyter Kernel.</b>,
+                loading: <b>Creating new Jupyter kernel now...</b>,
+                success: () => {
+                    return (
+                        <b>{`Successfully launched new Jupyter kernel in ${RoundToThreeDecimalPlaces((performance.now() - startTime) / 1000.0)} seconds.`}</b>
+                    );
+                },
                 error: (reason: Error) => {
                     return (
                         <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
@@ -572,9 +576,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
 
         const timeElapsedMilliseconds: number = performance.now() - startTime;
         const timeElapsedSecRounded: number = RoundToThreeDecimalPlaces(timeElapsedMilliseconds / 1000.0);
-        const successMessage: string = `Successfully launched kernel ${kernel.id} in ${timeElapsedSecRounded} seconds.`;
-        console.log(successMessage);
-        toast.success(successMessage, { style: { maxWidth: 750 } });
+        console.log(`Successfully launched kernel ${kernel.id} in ${timeElapsedSecRounded} seconds.`);
 
         // Register a callback for when the kernel changes state.
         kernel.statusChanged.connect((_, status) => {
@@ -597,118 +599,6 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         });
 
         await refreshKernels();
-    }
-
-    async function onConfirmExecuteCodeClicked(
-        code: string,
-        targetReplicaId: number,
-        forceFailure: boolean,
-        logConsumer: (logMessage: string) => void,
-    ) {
-        const kernelId: string | undefined = executeCodeKernel?.kernelId;
-
-        if (kernelId == undefined) {
-            console.error("Couldn't determiner kernel ID of target kernel for code execution...");
-            return;
-        }
-
-        if (!kernelManager.current) {
-            console.error('Kernel Manager is not available. Will try to connect...');
-            await initializeKernelManagers();
-            return;
-        }
-
-        if (forceFailure) {
-            console.log(
-                `Executing code on kernel ${executeCodeKernel?.kernelId}, but we're forcing a failure:\n${code}`,
-            );
-            // NOTE: We previously just set the target replica ID to 0, but this doesn't enable us to test a subsequent execution, such as when we're testing migrations in static scheduling.
-            // So, we now use a new API that just YIELDs the next request, so that this triggers a migration, and the resubmitted request (after the migration) completes can finish successfully.
-            // targetReplicaId = 0; // -1 is used for "auto", while 0 is never used as an actual ID. So, if we specify 0, then the execution will necessarily fail.
-
-            const req: RequestInit = {
-                method: 'POST',
-                headers: {
-                    'Content-Type': 'application/json',
-                    // 'Cache-Control': 'no-cache, no-transform, no-store',
-                },
-                body: JSON.stringify({
-                    kernel_id: kernelId,
-                }),
-            };
-
-            await fetch('api/yield-next-execute-request', req);
-        } else {
-            console.log(
-                `Executing code on kernel ${executeCodeKernel?.kernelId}, replica ${targetReplicaId}:\n${code}`,
-            );
-        }
-
-        const kernelConnection: IKernelConnection = kernelManager.current.connectTo({
-            model: { id: kernelId, name: kernelId },
-        });
-        kernelConnections.current = new Map(kernelConnections.current).set(kernelId, kernelConnection);
-
-        console.log(`Sending 'execute-request' to kernel ${kernelId} for code: '${code}'`);
-        const startTime: number = performance.now();
-
-        const future = kernelConnection.requestExecute({ code: code }, undefined, {
-            target_replica: targetReplicaId,
-        });
-
-        // Handle iopub messages
-        future.onIOPub = (msg) => {
-            console.log('Received IOPub message:\n%s\n', JSON.stringify(msg));
-            const messageType: string = msg.header.msg_type;
-            if (messageType == 'execute_input') {
-                // Do nothing.
-            } else if (messageType == 'status') {
-                logConsumer(
-                    msg['header']['date'] +
-                        ': Execution state changed to ' +
-                        JSON.stringify(msg.content['execution_state']) +
-                        '\n',
-                );
-            } else if (messageType == 'stream') {
-                if (msg['content']['name'] == 'stderr') {
-                    logConsumer(msg['header']['date'] + ' <ERROR>: ' + JSON.stringify(msg.content['text']) + '\n');
-                } else if (msg['content']['name'] == 'stdout') {
-                    logConsumer(msg['header']['date'] + ': ' + JSON.stringify(msg.content['text']) + '\n');
-                } else {
-                    logConsumer(msg['header']['date'] + ': ' + JSON.stringify(msg.content['text']) + '\n');
-                }
-            } else {
-                logConsumer(msg['header']['date'] + ': ' + JSON.stringify(msg.content) + '\n');
-            }
-        };
-
-        future.onReply = (msg) => {
-            console.log(`Received reply for execution request: ${JSON.stringify(msg)}`);
-        };
-
-        await future.done;
-
-        const latencyMilliseconds: number = performance.now() - startTime;
-        const latencySecRounded: number = RoundToThreeDecimalPlaces(latencyMilliseconds / 1000.0);
-        console.log(`Execution on Kernel ${kernelId} finished after ${latencySecRounded} seconds.`);
-        toast.success(`Execution on Kernel ${kernelId} finished after ${latencySecRounded} seconds.`, {
-            style: { maxWidth: 700 },
-        });
-
-        await fetch('api/metrics', {
-            method: 'PATCH',
-            headers: {
-                'Content-Type': 'application/json',
-                // 'Cache-Control': 'no-cache, no-transform, no-store',
-            },
-            body: JSON.stringify({
-                name: 'distributed_cluster_jupyter_execute_request_e2e_latency_seconds',
-                value: latencyMilliseconds,
-                metadata: {
-                    kernel_id: kernelId,
-                },
-            }),
-        });
     }
 
     const onConfirmDeleteKernelsClicked = (kernelIds: string[]) => {
@@ -1642,7 +1532,6 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                     replicaId={executeCodeKernelReplica?.replicaId}
                     isOpen={isExecuteCodeModalOpen}
                     onClose={onCancelExecuteCodeClicked}
-                    onSubmit={onConfirmExecuteCodeClicked}
                 />
                 <InformationModal
                     isOpen={isErrorModalOpen}

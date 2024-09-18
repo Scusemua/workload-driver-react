@@ -1,34 +1,36 @@
-import {CodeEditorComponent} from '@app/Components/CodeEditor';
-import {DistributedJupyterKernel, JupyterKernelReplica} from '@app/Data';
-import {DarkModeContext} from '@app/Providers/DarkModeProvider';
-import {KernelManager, ServerConnection} from '@jupyterlab/services';
-import {IKernelConnection} from '@jupyterlab/services/lib/kernel/kernel';
-import {Language} from "@patternfly/react-code-editor";
+import { CodeEditorComponent } from '@app/Components/CodeEditor';
+import { DistributedJupyterKernel, JupyterKernelReplica } from '@app/Data';
+import { DarkModeContext } from '@app/Providers/DarkModeProvider';
+import { RoundToThreeDecimalPlaces } from '@components/Modals/NewWorkloadFromTemplateModal';
+import { KernelManager, ServerConnection } from '@jupyterlab/services';
+import { IKernelConnection } from '@jupyterlab/services/lib/kernel/kernel';
+import { Language } from '@patternfly/react-code-editor';
 import {
-  Button,
-  Checkbox,
-  ClipboardCopyButton,
-  CodeBlockAction,
-  Flex,
-  FlexItem,
-  FormSelect,
-  FormSelectOption,
-  Grid,
-  GridItem,
-  Modal,
-  Text,
-  TextVariants,
-  Title,
-  Toolbar,
-  ToolbarContent,
-  ToolbarGroup,
-  ToolbarItem,
-  ToolbarToggleGroup,
-  Tooltip,
+    Button,
+    Checkbox,
+    // ClipboardCopyButton,
+    // CodeBlockAction,
+    Flex,
+    FlexItem,
+    FormSelect,
+    FormSelectOption,
+    Grid,
+    GridItem,
+    Modal,
+    Text,
+    TextVariants,
+    Title,
+    Toolbar,
+    ToolbarContent,
+    ToolbarGroup,
+    ToolbarItem,
+    ToolbarToggleGroup,
+    Tooltip,
 } from '@patternfly/react-core';
-import {CheckCircleIcon, DownloadIcon, EllipsisVIcon} from '@patternfly/react-icons';
-import {LogViewer, LogViewerSearch} from '@patternfly/react-log-viewer';
+import { CheckCircleIcon, DownloadIcon, EllipsisVIcon } from '@patternfly/react-icons';
+import { LogViewer, LogViewerSearch } from '@patternfly/react-log-viewer';
 import React from 'react';
+import toast from 'react-hot-toast';
 
 export interface ExecuteCodeOnKernelProps {
     children?: React.ReactNode;
@@ -36,12 +38,6 @@ export interface ExecuteCodeOnKernelProps {
     replicaId?: number;
     isOpen: boolean;
     onClose: () => void;
-    onSubmit: (
-        code: string,
-        targetReplicaId: number,
-        forceFailure: boolean,
-        logConsumer: (msg: string) => void,
-    ) => Promise<void>;
 }
 
 export type CodeContext = {
@@ -50,19 +46,22 @@ export type CodeContext = {
 };
 
 /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
-export const CodeContext = React.createContext({ code: '', setCode: (newCode: string) => {} });
+export const CodeContext = React.createContext({
+    code: '',
+    setCode: (newCode: string) => {},
+});
 
 export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKernelProps> = (props) => {
     const [code, setCode] = React.useState('');
     const [executionState, setExecutionState] = React.useState('idle');
-    const [copied, setCopied] = React.useState(false);
+    // const [, setCopied] = React.useState(false);
     const [targetReplicaId, setTargetReplicaId] = React.useState(-1);
     const [forceFailure, setForceFailure] = React.useState(false);
     const [isOutputTextWrapped, setIsOutputTextWrapped] = React.useState(false);
-    const [isOutputFullScreen, setIsOutputFullScreen] = React.useState(false);
-    const logViewerRef = React.useRef<any>();
+    const [isOutputFullScreen] = React.useState(false);
+    const logViewerRef = React.useRef<never>();
 
-    const { darkMode, toggleDarkMode } = React.useContext(DarkModeContext);
+    const { darkMode } = React.useContext(DarkModeContext);
 
     const [output, setOutput] = React.useState<string[]>([]);
 
@@ -70,14 +69,14 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
         setTargetReplicaId(props.replicaId || -1);
     }, [props.replicaId]);
 
-    const clipboardCopyFunc = (_event, text) => {
-        navigator.clipboard.writeText(text.toString());
-    };
+    // const clipboardCopyFunc = (_event: React.MouseEvent<Element, MouseEvent>, text: { toString: () => string }) => {
+    //     navigator.clipboard.writeText(text.toString()).then(() => {});
+    // };
 
-    const onClickCopyToClipboard = (event, text) => {
-        clipboardCopyFunc(event, text);
-        setCopied(true);
-    };
+    // const onClickCopyToClipboard = (event: React.MouseEvent<Element, MouseEvent>, text: string) => {
+    //     clipboardCopyFunc(event, text);
+    //     setCopied(true);
+    // };
 
     const logConsumer = (msg: string) => {
         console.log(`Appending message to output log for kerenl execution: ${msg}`);
@@ -108,7 +107,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                     fetch: fetch,
                 }),
             };
-            let kernelManager = new KernelManager(kernelSpecManagerOptions);
+            const kernelManager: KernelManager = new KernelManager(kernelSpecManagerOptions);
 
             console.log('Waiting for Kernel Manager to be ready.');
 
@@ -152,6 +151,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
 
             console.log(`Sending 'execute-request' to kernel ${kernelId} for code: '${code}'`);
 
+            const startTime: number = performance.now();
             const future = kernelConnection.requestExecute({ code: code }, undefined, {
                 target_replica: targetReplicaId,
             });
@@ -189,6 +189,28 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
             await future.done;
             console.log('Execution on Kernel ' + kernelId + ' is done.');
             setExecutionState('done');
+
+            const latencyMilliseconds: number = performance.now() - startTime;
+            const latencySecRounded: number = RoundToThreeDecimalPlaces(latencyMilliseconds / 1000.0);
+            console.log(`Execution on Kernel ${kernelId} finished after ${latencySecRounded} seconds.`);
+            toast.success(`Execution on Kernel ${kernelId} finished after ${latencySecRounded} seconds.`, {
+                style: { maxWidth: 550 },
+            });
+
+            await fetch('api/metrics', {
+                method: 'PATCH',
+                headers: {
+                    'Content-Type': 'application/json',
+                    // 'Cache-Control': 'no-cache, no-transform, no-store',
+                },
+                body: JSON.stringify({
+                    name: 'distributed_cluster_jupyter_execute_request_e2e_latency_seconds',
+                    value: latencyMilliseconds,
+                    metadata: {
+                        kernel_id: kernelId,
+                    },
+                }),
+            });
         }
 
         runUserCode();
@@ -202,24 +224,24 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
         props.onClose();
     };
 
-    const outputLogActions = (
-        <React.Fragment>
-            <CodeBlockAction>
-                <ClipboardCopyButton
-                    id="basic-copy-button"
-                    textId="code-content"
-                    aria-label="Copy to clipboard"
-                    onClick={(e) => onClickCopyToClipboard(e, code)}
-                    exitDelay={copied ? 1500 : 600}
-                    maxWidth="110px"
-                    variant="plain"
-                    onTooltipHidden={() => setCopied(false)}
-                >
-                    {copied ? 'Successfully copied to clipboard!' : 'Copy to clipboard'}
-                </ClipboardCopyButton>
-            </CodeBlockAction>
-        </React.Fragment>
-    );
+    // const outputLogActions = (
+    //     <React.Fragment>
+    //         <CodeBlockAction>
+    //             <ClipboardCopyButton
+    //                 id="basic-copy-button"
+    //                 textId="code-content"
+    //                 aria-label="Copy to clipboard"
+    //                 onClick={(e) => onClickCopyToClipboard(e, code)}
+    //                 exitDelay={copied ? 1500 : 600}
+    //                 maxWidth="110px"
+    //                 variant="plain"
+    //                 onTooltipHidden={() => setCopied(false)}
+    //             >
+    //                 {copied ? 'Successfully copied to clipboard!' : 'Copy to clipboard'}
+    //             </ClipboardCopyButton>
+    //         </CodeBlockAction>
+    //     </React.Fragment>
+    // );
 
     // Returns the title to use for the Modal depending on whether a specific replica was specified as the target or not.
     const getModalTitle = () => {
@@ -371,7 +393,12 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                 </FlexItem>
                 <FlexItem>
                     <CodeContext.Provider value={{ code: code, setCode: setCode }}>
-                        <CodeEditorComponent showCodeTemplates={true} height={400} language={Language.python} defaultFilename={"code"}/>
+                        <CodeEditorComponent
+                            showCodeTemplates={true}
+                            height={400}
+                            language={Language.python}
+                            defaultFilename={'code'}
+                        />
                     </CodeContext.Provider>
                 </FlexItem>
                 <FlexItem>
@@ -437,13 +464,6 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                             </Toolbar>
                         }
                     />
-                    {/* <CodeBlock actions={outputLogActions}>
-                        {output.map((val, idx) => (
-                            <CodeBlockCode key={'log-message-' + idx} id={'log-message-' + idx}>
-                                {val}
-                            </CodeBlockCode>
-                        ))}
-                    </CodeBlock> */}
                 </FlexItem>
             </Flex>
         </Modal>
