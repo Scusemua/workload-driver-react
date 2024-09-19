@@ -14,7 +14,7 @@ import { DistributedJupyterKernel, JupyterKernelReplica, ResourceSpec } from '@d
 
 import { KernelManager, ServerConnection, SessionManager } from '@jupyterlab/services';
 import { IKernelConnection } from '@jupyterlab/services/lib/kernel/kernel';
-import { ISessionConnection, IModel as ISessionModel } from '@jupyterlab/services/lib/session/session';
+import { IModel as ISessionModel, ISessionConnection } from '@jupyterlab/services/lib/session/session';
 import {
     Button,
     Card,
@@ -68,6 +68,7 @@ import {
     InfoAltIcon,
     MemoryIcon,
     MigrationIcon,
+    PauseCircleIcon,
     PauseIcon,
     PlusIcon,
     RebootingIcon,
@@ -209,6 +210,8 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                 console.error(
                     'An error has occurred while preparing the Kernel Manager. ' + err.name + ': ' + err.message,
                 );
+
+                toast.error(`An error has occurred while preparing the Kernel Manager. ${err.name}: ${err.message}.`);
             });
 
             await kernelManager.current.ready.then(() => {
@@ -364,6 +367,39 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
     }
 
     const onInterruptKernelClicked = (index: number) => {
+        async function interrupt_kernel(kernelId: string) {
+            if (!kernelManager.current || !kernelManager.current.isReady) {
+                console.error(
+                    `KernelManager is NOT ready... will try to initialize the KernelManager before proceeding.`,
+                );
+                await initializeKernelManagers();
+
+                if (!kernelManager.current || !kernelManager.current.isReady) {
+                    toast.error('Cannot establish connection with Jupyter Server.');
+
+                    return;
+                }
+            }
+
+            console.log(`Connecting to kernel ${kernelId} (so we can interrupt it) now...`);
+
+            const kernelConnection: IKernelConnection = kernelManager.current!.connectTo({
+                model: { id: kernelId, name: kernelId },
+            });
+
+            console.log(`Connected to kernel ${kernelId}. Attempting to interrupt kernel now...`);
+
+            await kernelConnection.interrupt();
+
+            console.log(`Interrupted kernel ${kernelId}.`);
+        }
+
+        const kernel: DistributedJupyterKernel = filteredKernels[index];
+        const kernelId: string | undefined = kernel.kernelId;
+        interrupt_kernel(kernelId).then(() => {});
+    };
+
+    const onStopTrainingClicked = (index: number) => {
         const kernel: DistributedJupyterKernel = filteredKernels[index];
         const kernelId: string | undefined = kernel.kernelId;
 
@@ -386,33 +422,35 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             }),
         };
 
-        toast.promise(fetch('api/stop-training', req), {
-            loading: <b>Interrupting kernel {kernelId} now...</b>,
-            success: (resp: Response) => {
-                if (!resp.ok || resp.status != 200) {
-                    console.error(`Failed to interrupt kernel ${kernelId}.`);
-                    throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
-                }
-                console.log(`Successfully interrupted kernel ${kernelId}.`);
-                return (
-                    <b>
-                        Successfully interrupted kernel {kernelId} (HTTP {resp.status}: {resp.statusText}).
-                    </b>
-                );
-            },
-            error: (reason: Error) => {
-                return (
-                    <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
-                        <FlexItem>
-                            <b>Failed to interrupt kernel {kernelId}.</b>
-                        </FlexItem>
-                        <FlexItem>
-                            <b>Reason:</b> {reason.message}
-                        </FlexItem>
-                    </Flex>
-                );
-            },
-        });
+        toast
+            .promise(fetch('api/stop-training', req), {
+                loading: <b>Interrupting kernel {kernelId} now...</b>,
+                success: (resp: Response) => {
+                    if (!resp.ok || resp.status != 200) {
+                        console.error(`Failed to interrupt kernel ${kernelId}.`);
+                        throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
+                    }
+                    console.log(`Successfully interrupted kernel ${kernelId}.`);
+                    return (
+                        <b>
+                            Successfully interrupted kernel {kernelId} (HTTP {resp.status}: {resp.statusText}).
+                        </b>
+                    );
+                },
+                error: (reason: Error) => {
+                    return (
+                        <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
+                            <FlexItem>
+                                <b>Failed to interrupt kernel {kernelId}.</b>
+                            </FlexItem>
+                            <FlexItem>
+                                <b>Reason:</b> {reason.message}
+                            </FlexItem>
+                        </Flex>
+                    );
+                },
+            })
+            .then(() => {});
     };
 
     async function startKernel(kernelId: string, sessionId: string, resourceSpec: ResourceSpec) {
@@ -1274,6 +1312,53 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                                     <Tooltip
                                                         exitDelay={75}
                                                         entryDelay={250}
+                                                        position="right"
+                                                        content={<div>Ping kernel.</div>}
+                                                    >
+                                                        <Button
+                                                            variant={'link'}
+                                                            icon={<InfoAltIcon />}
+                                                            isDisabled={
+                                                                kernel == null ||
+                                                                false ||
+                                                                kernel?.replicas === null ||
+                                                                kernel?.replicas?.length < 3
+                                                            }
+                                                            onClick={() => onPingKernelClicked(filteredKernels[idx])}
+                                                        >
+                                                            Ping
+                                                        </Button>
+                                                    </Tooltip>
+                                                </FlexItem>
+                                            </Flex>
+                                        </OverflowMenuItem>
+                                        <OverflowMenuItem>
+                                            <Flex
+                                                direction={{ default: 'column' }}
+                                                spaceItems={{ default: 'spaceItemsNone' }}
+                                            >
+                                                <FlexItem>
+                                                    <Tooltip
+                                                        exitDelay={75}
+                                                        entryDelay={250}
+                                                        position="right"
+                                                        content={<div>Terminate this kernel.</div>}
+                                                    >
+                                                        <Button
+                                                            variant={'link'}
+                                                            icon={<TrashIcon />}
+                                                            isDanger
+                                                            isDisabled={kernel == null}
+                                                            onClick={() => onTerminateKernelClicked(kernel)}
+                                                        >
+                                                            Terminate
+                                                        </Button>
+                                                    </Tooltip>
+                                                </FlexItem>
+                                                <FlexItem>
+                                                    <Tooltip
+                                                        exitDelay={75}
+                                                        entryDelay={250}
                                                         position="left"
                                                         content={<div>Interrupt this kernel.</div>}
                                                     >
@@ -1296,54 +1381,31 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                                         </Button>
                                                     </Tooltip>
                                                 </FlexItem>
-                                            </Flex>
-                                        </OverflowMenuItem>
-                                        <OverflowMenuItem>
-                                            <Flex
-                                                direction={{ default: 'column' }}
-                                                spaceItems={{ default: 'spaceItemsNone' }}
-                                            >
                                                 <FlexItem>
                                                     <Tooltip
                                                         exitDelay={75}
                                                         entryDelay={250}
-                                                        position="right"
-                                                        content={<div>View details about kernel.</div>}
+                                                        position="left"
+                                                        content={<div>Stop training.</div>}
                                                     >
                                                         <Button
                                                             variant={'link'}
-                                                            icon={<InfoAltIcon />}
+                                                            isDanger
+                                                            icon={<PauseCircleIcon />}
                                                             isDisabled={
                                                                 kernel == null ||
                                                                 false ||
                                                                 kernel?.replicas === null ||
                                                                 kernel?.replicas?.length < 3
                                                             }
-                                                            onClick={() => onPingKernelClicked(filteredKernels[idx])}
+                                                            // isDisabled={
+                                                            //     kernel == null || kernel?.aggregateBusyStatus === 'idle'
+                                                            // }
+                                                            onClick={() => onStopTrainingClicked(idx)}
                                                         >
-                                                            Ping
+                                                            Stop Training
                                                         </Button>
                                                     </Tooltip>
-                                                </FlexItem>
-                                                <FlexItem>
-                                                    <OverflowMenuItem>
-                                                        <Tooltip
-                                                            exitDelay={75}
-                                                            entryDelay={250}
-                                                            position="right"
-                                                            content={<div>Terminate this kernel.</div>}
-                                                        >
-                                                            <Button
-                                                                variant={'link'}
-                                                                icon={<TrashIcon />}
-                                                                isDanger
-                                                                isDisabled={kernel == null}
-                                                                onClick={() => onTerminateKernelClicked(kernel)}
-                                                            >
-                                                                Terminate
-                                                            </Button>
-                                                        </Tooltip>
-                                                    </OverflowMenuItem>
                                                 </FlexItem>
                                             </Flex>
                                         </OverflowMenuItem>

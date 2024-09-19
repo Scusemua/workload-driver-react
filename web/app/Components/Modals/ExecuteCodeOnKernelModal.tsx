@@ -60,7 +60,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
     const [forceFailure, setForceFailure] = React.useState(false);
     const [isOutputTextWrapped, setIsOutputTextWrapped] = React.useState(false);
     const [isOutputFullScreen] = React.useState(false);
-    const logViewerRef = React.useRef<React.Ref<never>>();
+    const logViewerRef = React.useRef<React.Ref<any>>();
 
     const { darkMode } = React.useContext(DarkModeContext);
 
@@ -116,6 +116,8 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                 console.error(
                     'An error has occurred while preparing the Kernel Manager. ' + err.name + ': ' + err.message,
                 );
+
+              toast.error(`An error has occurred while preparing the Kernel Manager. ${err.name}: ${err.message}.`);
             });
 
             await kernelManager.ready.then(() => {

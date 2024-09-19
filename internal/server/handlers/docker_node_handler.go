@@ -1,18 +1,18 @@
 package handlers
 
 import (
-	"context"
-	"fmt"
-	"net/http"
-	"time"
+  "context"
+  "fmt"
+  "net/http"
+  "time"
 
-	"github.com/gin-gonic/gin"
-	"github.com/google/uuid"
-	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
-	gateway "github.com/scusemua/workload-driver-react/m/v2/internal/server/api/proto"
-	"go.uber.org/zap"
-	"google.golang.org/grpc/codes"
-	"google.golang.org/grpc/status"
+  "github.com/gin-gonic/gin"
+  "github.com/google/uuid"
+  "github.com/scusemua/workload-driver-react/m/v2/internal/domain"
+  gateway "github.com/scusemua/workload-driver-react/m/v2/internal/server/api/proto"
+  "go.uber.org/zap"
+  "google.golang.org/grpc/codes"
+  "google.golang.org/grpc/status"
 )
 
 // DockerSwarmNodeHttpHandler handles HTTP GET and HTTP PATCH requests that respectively retrieve and modify

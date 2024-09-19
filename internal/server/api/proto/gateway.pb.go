@@ -731,12 +731,6 @@ type VirtualDockerNode struct {
 	PendingMemory float32 `protobuf:"fixed32,10,opt,name=pendingMemory,proto3" json:"pendingMemory,omitempty"`
 	// PendingGpus is the number of vGPUs that is subscribed (but not committed) on the VirtualDockerNode.
 	PendingGpu float32 `protobuf:"fixed32,11,opt,name=pendingGpu,proto3" json:"pendingGpu,omitempty"`
-  // IdleCpu is the number of vCPUs that is subscribed (but not committed) on the VirtualDockerNode.
-  IdleCpu float32 `protobuf:"fixed32,9,opt,name=idleCpu,proto3" json:"idleCpu,omitempty"`
-  // IdleMemory is the amount of memory (in megabytes) that is subscribed (but not committed) on the VirtualDockerNode.
-  IdleMemory float32 `protobuf:"fixed32,10,opt,name=idleMemory,proto3" json:"idleMemory,omitempty"`
-  // IdleGpus is the number of vGPUs that is subscribed (but not committed) on the VirtualDockerNode.
-  IdleGpu float32 `protobuf:"fixed32,11,opt,name=idleGpu,proto3" json:"idleGpu,omitempty"`
 	// NodeName is the name of the node.
 	NodeName string `protobuf:"bytes,12,opt,name=nodeName,proto3" json:"nodeName,omitempty"`
 	// Address is the IP address of the node.
