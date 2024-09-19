@@ -195,10 +195,10 @@ export const UtilizationDonutChart: React.FunctionComponent<UtilizationDonutChar
         ]
       } else {
         return [
-          { x: `Low Resource Utilization`, y: 0 },
-          { x: `Moderate Resource Utilization`, y: 60 },
-          { x: `High Resource Utilization`, y: 75 },
-          { x: `Very High Resource Utilization`, y: 90 },
+          { x: `Low Resource Utilization`, y: 60 },
+          { x: `Moderate Resource Utilization`, y: 75 },
+          { x: `High Resource Utilization`, y: 90 },
+          { x: `Very High Resource Utilization`, y: 100 },
         ]
       }
     }
