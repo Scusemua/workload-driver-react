@@ -4,6 +4,7 @@ interface ClusterNode {
     Age: string;
     IP: string;
     AllocatedResources: Map<string, number>;
+    IdleResources: Map<string, number>;
     PendingResources: Map<string, number>;
     CapacityResources: Map<string, number>;
     Enabled: boolean;

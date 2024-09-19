@@ -9,13 +9,36 @@ import (
 //
 // The KubernetesNode struct is a concrete implementation of the ClusterNode interface.
 type KubernetesNode struct {
-	NodeId             string                   `json:"NodeId"`
-	Pods               ContainerList            `json:"PodsOrContainers"`
-	Age                string                   `json:"Age"` // Convert the time.Duration to a string
-	IP                 string                   `json:"IP"`
+	// NodeId is the unique ID of the KubernetesNode.
+	NodeId string `json:"NodeId"`
+
+	// Pods is a ContainerList of all the KubernetesPod instances scheduled on the KubernetesNode.
+	Pods ContainerList `json:"PodsOrContainers"`
+
+	// Age is how long the KubernetesNode has existed.
+	// The field is created by converting a time.Duration to a string.
+	Age string `json:"Age"`
+
+	// IP is the IP address of the KubernetesNode.
+	IP string `json:"IP"`
+
+	// AllocatedResources is a map from resource name to a float64 representing the quantity of that resource
+	// that is presently allocated to Container instances on the KubernetesNode.
 	AllocatedResources map[ResourceName]float64 `json:"AllocatedResources"`
-	CapacityResources  map[ResourceName]float64 `json:"CapacityResources"`
-	Enabled            bool                     `json:"Enabled"`
+
+	// CapacityResources is a map from resource name to a float64 representing the quantity of that resource
+	// that is allocatable on the VirtualDockerNode.
+	//
+	// Quantities stored in the CapacityResources do not change based on active resource allocations.
+	// They simply refer to the total amount of resources with which the KubernetesNode is configured.
+	CapacityResources map[ResourceName]float64 `json:"CapacityResources"`
+
+	// IdleResources is a map from resource name to a float64 representing the quantity of that resource
+	// that is not actively committed to any particular Container instance on the KubernetesNode.
+	IdleResources map[ResourceName]float64 `json:"IdleResources"`
+
+	// Enabled indicates whether the KubernetesNode is currently able to serve/host KubernetesPod instances.
+	Enabled bool `json:"Enabled"`
 }
 
 func (kn *KubernetesNode) GetNodeType() NodeType {
@@ -48,6 +71,10 @@ func (kn *KubernetesNode) GetAllocatedResources() map[ResourceName]float64 {
 
 func (kn *KubernetesNode) GetResourceCapacities() map[ResourceName]float64 {
 	return kn.CapacityResources
+}
+
+func (kn *KubernetesNode) GetIdleResources() map[ResourceName]float64 {
+	return kn.IdleResources
 }
 
 func (kn *KubernetesNode) IsEnabled() bool {

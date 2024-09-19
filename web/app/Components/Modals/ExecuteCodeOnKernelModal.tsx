@@ -48,6 +48,7 @@ export type CodeContext = {
 /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
 export const CodeContext = React.createContext({
     code: '',
+  // eslint-disable-next-line @typescript-eslint/no-unused-vars
     setCode: (newCode: string) => {},
 });
 
@@ -59,7 +60,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
     const [forceFailure, setForceFailure] = React.useState(false);
     const [isOutputTextWrapped, setIsOutputTextWrapped] = React.useState(false);
     const [isOutputFullScreen] = React.useState(false);
-    const logViewerRef = React.useRef<never>();
+    const logViewerRef = React.useRef<React.Ref<never>>();
 
     const { darkMode } = React.useContext(DarkModeContext);
 

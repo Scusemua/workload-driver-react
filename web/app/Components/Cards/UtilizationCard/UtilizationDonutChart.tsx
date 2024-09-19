@@ -15,6 +15,7 @@ export interface UtilizationDonutChart {
     resourceUnit: string;
     chartWidth?: number;
     chartHeight?: number;
+    resourceStatus: 'idle' | 'pending' | 'committed';
     randomizeUtilizations?: boolean;
     showLegend?: boolean;
     converter?: (val: number) => number;
@@ -44,9 +45,19 @@ export const UtilizationDonutChart: React.FunctionComponent<UtilizationDonutChar
                 return;
             }
 
-            const allocated: number | undefined = node.AllocatedResources[props.resourceDisplayName];
-            if (allocated) {
-                sumAllocated += allocated;
+            let amountUsed: number | undefined = 0;
+
+            if (props.resourceStatus == 'idle') {
+                amountUsed = node.IdleResources[props.resourceDisplayName];
+            } else if (props.resourceStatus == 'pending') {
+                amountUsed = node.PendingResources[props.resourceDisplayName];
+            } else {
+                amountUsed = node.AllocatedResources[props.resourceDisplayName];
+            }
+
+            // const amountUsed: number | undefined = node.AllocatedResources[props.resourceDisplayName];
+            if (amountUsed) {
+                sumAllocated += amountUsed;
             }
 
             const capacity: number | undefined = node.CapacityResources[props.resourceDisplayName];
@@ -156,6 +167,42 @@ export const UtilizationDonutChart: React.FunctionComponent<UtilizationDonutChar
         }
     };
 
+    const getThresholds = () => {
+        if (props.resourceStatus == 'idle') {
+            return [
+                { value: 0, color: '#C9190B' },
+                { value: 10, color: '#e67300' },
+                { value: 25, color: '#ffdd00' },
+                { value: 40, color: '#3E8635' },
+            ];
+        } else {
+            return [
+                { value: 0, color: '#3E8635' },
+                { value: 60, color: '#ffdd00' },
+                { value: 75, color: '#e67300' },
+                { value: 90, color: '#C9190B' },
+            ];
+        }
+    };
+
+    const getData = () => {
+      if (props.resourceStatus == 'idle') {
+        return [
+          { x: `Very High Resource Utilization`, y: 10 },
+          { x: `High Resource Utilization`, y: 25 },
+          { x: `Moderate Resource Utilization`, y: 40 },
+          { x: `Low Resource Utilization`, y: 100 },
+        ]
+      } else {
+        return [
+          { x: `Low Resource Utilization`, y: 0 },
+          { x: `Moderate Resource Utilization`, y: 60 },
+          { x: `High Resource Utilization`, y: 75 },
+          { x: `Very High Resource Utilization`, y: 90 },
+        ]
+      }
+    }
+
     // const possiblyConvertToExponent = (val: number) => {
     //     if (val.toString().length > 6) {
     //         return val.toExponential(2);
@@ -168,10 +215,7 @@ export const UtilizationDonutChart: React.FunctionComponent<UtilizationDonutChar
             ariaDesc={`Cluster ${props.resourceDisplayName} resource usage`}
             ariaTitle={`Cluster ${props.resourceDisplayName} resource usage`}
             constrainToVisibleArea={true}
-            data={[
-                { x: `Warning at 75%`, y: 75 },
-                { x: `Danger at 90%`, y: 90 },
-            ]}
+            data={getData()}
             height={props.chartHeight}
             labels={({ datum }) => (datum.x ? datum.x : null)}
             padding={{
@@ -193,7 +237,8 @@ export const UtilizationDonutChart: React.FunctionComponent<UtilizationDonutChar
                 legendData={
                     (props.showLegend && [
                         { name: `${props.resourceDisplayName} Utilization` },
-                        { name: `Warning at 60%`, symbol: { fill: '#D2D2D2' } },
+                        { name: `Minor Warning at 50%`, symbol: { fill: '#D2D2D2' } },
+                        { name: `Major Warning at 75%`, symbol: { fill: '#D2D2D2' } },
                         { name: `Danger at 90%`, symbol: { fill: '#6A6E73 ' } },
                     ]) ||
                     []
@@ -207,11 +252,7 @@ export const UtilizationDonutChart: React.FunctionComponent<UtilizationDonutChar
                 subTitleComponent={getSubtitleComponent()}
                 // colorScale={['#3E8635', '#F0AB00', '#C9190B']}
                 theme={getTheme()}
-                thresholds={[
-                    { value: 0, color: '#3E8635' },
-                    { value: 75, color: '#F0AB00' },
-                    { value: 90, color: '#C9190B' },
-                ]}
+                thresholds={getThresholds()}
             />
         </ChartDonutThreshold>
     );

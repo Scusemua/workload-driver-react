@@ -105,6 +105,10 @@ type ClusterNode interface {
 	// They simply refer to the total amount of resources with which the ClusterNode is configured.
 	GetResourceCapacities() map[ResourceName]float64
 
+	// GetIdleResources returns a map from resource name to a float64 representing the quantity of that resource
+	// that is not allocated to any Container instances on the ClusterNode.
+	GetIdleResources() map[ResourceName]float64
+
 	// IsEnabled returns a bool indicating whether the ClusterNode is currently enabled.
 	// When a ClusterNode is enabled, it is permitted to host Container instances.
 	// When a ClusterNode is disabled, it is not permitted to host Container instances.

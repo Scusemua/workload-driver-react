@@ -99,6 +99,10 @@ type VirtualDockerNode struct {
 	// that is presently allocated to Container instances on the VirtualDockerNode.
 	AllocatedResources map[ResourceName]float64 `json:"AllocatedResources"`
 
+	// IdleResources is a map from resource name to a float64 representing the quantity of that resource
+	// that is not actively committed to any particular Container instance on the VirtualDockerNode.
+	IdleResources map[ResourceName]float64 `json:"IdleResources"`
+
 	// PendingResources is a map from resource name to a float64 representing the quantity of that resource
 	// that is subscribed by, but not allocated to, a Container instance on the VirtualDockerNode.
 	PendingResources map[ResourceName]float64 `json:"PendingResources"`
@@ -137,22 +141,27 @@ func VirtualDockerNodeFromProtoVirtualDockerNode(protoNode *proto.VirtualDockerN
 
 	allocatedResources := make(map[ResourceName]float64)
 	capacityResources := make(map[ResourceName]float64)
+	idleResources := make(map[ResourceName]float64)
 	pendingResources := make(map[ResourceName]float64)
 
 	allocatedResources[CpuResource] = float64(protoNode.AllocatedCpu)
 	pendingResources[CpuResource] = float64(protoNode.PendingCpu)
+	idleResources[CpuResource] = float64(protoNode.SpecCpu) - float64(protoNode.AllocatedCpu)
 	capacityResources[CpuResource] = float64(protoNode.SpecCpu)
 
 	allocatedResources[MemoryResource] = float64(protoNode.AllocatedMemory)
 	pendingResources[MemoryResource] = float64(protoNode.PendingMemory)
+	idleResources[MemoryResource] = float64(protoNode.SpecMemory) - float64(protoNode.AllocatedMemory)
 	capacityResources[MemoryResource] = float64(protoNode.SpecMemory)
 
 	allocatedResources[GpuResource] = float64(protoNode.AllocatedGpu)
 	pendingResources[GpuResource] = float64(protoNode.PendingGpu)
+	idleResources[GpuResource] = float64(protoNode.SpecGpu) - float64(protoNode.AllocatedGpu)
 	capacityResources[GpuResource] = float64(protoNode.SpecGpu)
 
 	allocatedResources[VirtualGpuResource] = float64(protoNode.AllocatedGpu)
 	pendingResources[VirtualGpuResource] = float64(protoNode.PendingGpu)
+	idleResources[VirtualGpuResource] = float64(protoNode.SpecGpu) - float64(protoNode.AllocatedGpu)
 	capacityResources[VirtualGpuResource] = float64(protoNode.SpecGpu)
 
 	return &VirtualDockerNode{
@@ -166,6 +175,7 @@ func VirtualDockerNodeFromProtoVirtualDockerNode(protoNode *proto.VirtualDockerN
 		AllocatedResources: allocatedResources,
 		CapacityResources:  capacityResources,
 		PendingResources:   pendingResources,
+		IdleResources:      idleResources,
 	}
 }
 
@@ -176,47 +186,51 @@ func NewVirtualDockerNode() *VirtualDockerNode {
 	return node
 }
 
-func (d VirtualDockerNode) GetNodeType() NodeType {
+func (d *VirtualDockerNode) GetNodeType() NodeType {
 	return VirtualDockerNodeType
 }
 
-func (d VirtualDockerNode) GetValidContainerType() ContainerType {
+func (d *VirtualDockerNode) GetValidContainerType() ContainerType {
 	return ContainerTypeDockerContainer
 }
 
-func (d VirtualDockerNode) GetContainers() ContainerList {
+func (d *VirtualDockerNode) GetContainers() ContainerList {
 	return d.Containers
 }
 
-func (d VirtualDockerNode) GetNodeId() string {
+func (d *VirtualDockerNode) GetNodeId() string {
 	return d.NodeId
 }
 
-func (d VirtualDockerNode) GetAge() string {
+func (d *VirtualDockerNode) GetAge() string {
 	return d.Age
 }
 
-func (d VirtualDockerNode) GetAgeAsDuration() time.Duration {
+func (d *VirtualDockerNode) GetAgeAsDuration() time.Duration {
 	return d.age
 }
 
-func (d VirtualDockerNode) GetIp() string {
+func (d *VirtualDockerNode) GetIp() string {
 	return d.IP
 }
 
-func (d VirtualDockerNode) GetAllocatedResources() map[ResourceName]float64 {
+func (d *VirtualDockerNode) GetAllocatedResources() map[ResourceName]float64 {
 	return d.AllocatedResources
 }
 
-func (d VirtualDockerNode) GetResourceCapacities() map[ResourceName]float64 {
+func (d *VirtualDockerNode) GetResourceCapacities() map[ResourceName]float64 {
 	return d.CapacityResources
 }
 
-func (d VirtualDockerNode) IsEnabled() bool {
+func (d *VirtualDockerNode) GetIdleResources() map[ResourceName]float64 {
+	return d.IdleResources
+}
+
+func (d *VirtualDockerNode) IsEnabled() bool {
 	return d.Enabled
 }
 
-func (d VirtualDockerNode) String() string {
+func (d *VirtualDockerNode) String() string {
 	out, err := json.Marshal(d)
 	if err != nil {
 		panic(err)
