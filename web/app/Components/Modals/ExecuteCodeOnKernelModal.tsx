@@ -207,7 +207,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                             <div>
                                 <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
                                     <FlexItem>
-                                        <b>Execution Complete 😍</b>
+                                        <b>Execution Complete {Math.random() > 0.5 ? "🔥" : "😍"}</b>
                                     </FlexItem>
                                     <FlexItem>
                                         <Text component={TextVariants.small}>
@@ -244,7 +244,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                             <div>
                                 <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
                                     <FlexItem>
-                                        <b>Execution Failed ☹️</b>
+                                        <b>⚠️ Execution Failed ⚠️️️</b>
                                     </FlexItem>
                                     <FlexItem>
                                         <Text component={TextVariants.small}>
