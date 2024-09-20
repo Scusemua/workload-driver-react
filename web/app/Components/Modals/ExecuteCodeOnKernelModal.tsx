@@ -162,6 +162,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
             const startTime: number = performance.now();
             const future = kernelConnection.requestExecute({ code: code }, undefined, {
                 target_replica: targetReplicaId,
+                'send-timestamp-unix-milli': Date.now(),
             });
 
             // Handle iopub messages
@@ -201,23 +202,63 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                         const latencyMilliseconds: number = performance.now() - startTime;
                         const latencySecRounded: number = RoundToThreeDecimalPlaces(latencyMilliseconds / 1000.0);
                         console.log(`Execution on Kernel ${kernelId} finished after ${latencySecRounded} seconds.`);
-                        return `Execution on Kernel ${kernelId} finished after ${latencySecRounded} seconds.`;
+
+                        return (
+                            <div>
+                                <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
+                                    <FlexItem>
+                                        <b>Execution Complete 😍</b>
+                                    </FlexItem>
+                                    <FlexItem>
+                                        <Text component={TextVariants.small}>
+                                            {`Kernel ${kernelId} has finished executing your code after ${latencySecRounded} seconds.`}
+                                        </Text>
+                                    </FlexItem>
+                                </Flex>
+                            </div>
+                        );
                     },
-                    loading:
-                        action == 'submit'
-                            ? `Submitted code for execution to kernel ${kernelId}.`
-                            : `Enqueued code for execution with kernel ${kernelId}.`,
+                    loading: (
+                        <div>
+                            <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
+                                <FlexItem>
+                                    <b>{action == 'submit' ? 'Code Submitted 👀' : 'Code Enqueued 👀'}</b>
+                                </FlexItem>
+                                <FlexItem>
+                                    <Text component={TextVariants.small}>
+                                        {action == 'submit'
+                                            ? `Submitted code for execution to kernel ${kernelId}.`
+                                            : `Enqueued code for execution with kernel ${kernelId}.`}
+                                    </Text>
+                                </FlexItem>
+                            </Flex>
+                        </div>
+                    ),
                     error: (error) => {
                         const latencyMilliseconds: number = performance.now() - startTime;
                         const latencySecRounded: number = RoundToThreeDecimalPlaces(latencyMilliseconds / 1000.0);
                         console.error(
                             `Execution on Kernel ${kernelId} failed to complete after ${latencySecRounded} seconds. Error: ${error}.`,
                         );
-                        return `Execution on Kernel ${kernelId} failed to complete after ${latencySecRounded} seconds. Error: ${error}.`;
+                        return (
+                            <div>
+                                <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
+                                    <FlexItem>
+                                        <b>Execution Failed ☹️</b>
+                                    </FlexItem>
+                                    <FlexItem>
+                                        <Text component={TextVariants.small}>
+                                            {`Execution on Kernel ${kernelId} failed to complete after ${latencySecRounded} seconds. Error: ${error}.`}
+                                        </Text>
+                                    </FlexItem>
+                                </Flex>
+                            </div>
+                        );
                     },
                 },
                 {
                     style: { maxWidth: 750 },
+                    duration: 5000,
                 },
             );
 
