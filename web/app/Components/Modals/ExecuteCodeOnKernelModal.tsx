@@ -8,8 +8,6 @@ import { Language } from '@patternfly/react-code-editor';
 import {
     Button,
     Checkbox,
-    // ClipboardCopyButton,
-    // CodeBlockAction,
     Flex,
     FlexItem,
     FormSelect,
@@ -48,7 +46,7 @@ export type CodeContext = {
 /* eslint-disable-next-line @typescript-eslint/no-unused-vars */
 export const CodeContext = React.createContext({
     code: '',
-  // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     setCode: (newCode: string) => {},
 });
 
@@ -60,6 +58,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
     const [forceFailure, setForceFailure] = React.useState(false);
     const [isOutputTextWrapped, setIsOutputTextWrapped] = React.useState(false);
     const [isOutputFullScreen] = React.useState(false);
+
     const logViewerRef = React.useRef<React.Ref<any>>();
 
     const { darkMode } = React.useContext(DarkModeContext);
@@ -90,7 +89,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
         console.log(`There are now ${output.length} entries in the output log.`);
     }, [output]);
 
-    const onSubmit = () => {
+    const onSubmit = (action: 'submit' | 'enqueue') => {
         async function runUserCode() {
             const kernelId: string | undefined = props.kernel?.kernelId;
 
@@ -117,7 +116,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                     'An error has occurred while preparing the Kernel Manager. ' + err.name + ': ' + err.message,
                 );
 
-              toast.error(`An error has occurred while preparing the Kernel Manager. ${err.name}: ${err.message}.`);
+                toast.error(`An error has occurred while preparing the Kernel Manager. ${err.name}: ${err.message}.`);
             });
 
             await kernelManager.ready.then(() => {
@@ -150,6 +149,12 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
 
             const kernelConnection: IKernelConnection = kernelManager.connectTo({
                 model: { id: kernelId, name: kernelId },
+            });
+
+            kernelConnection.connectionStatusChanged.connect((sender, args) => {
+                console.log(
+                    `Kernel ${props.kernel?.kernelId} connection status changed. Sender: ${sender}, args: ${args}`,
+                );
             });
 
             console.log(`Sending 'execute-request' to kernel ${kernelId} for code: '${code}'`);
@@ -189,16 +194,35 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                 console.log(`Received reply for execution request: ${JSON.stringify(msg)}`);
             };
 
-            await future.done;
-            console.log('Execution on Kernel ' + kernelId + ' is done.');
-            setExecutionState('done');
+            await toast.promise(
+                future.done,
+                {
+                    success: () => {
+                        const latencyMilliseconds: number = performance.now() - startTime;
+                        const latencySecRounded: number = RoundToThreeDecimalPlaces(latencyMilliseconds / 1000.0);
+                        console.log(`Execution on Kernel ${kernelId} finished after ${latencySecRounded} seconds.`);
+                        return `Execution on Kernel ${kernelId} finished after ${latencySecRounded} seconds.`;
+                    },
+                    loading:
+                        action == 'submit'
+                            ? `Submitted code for execution to kernel ${kernelId}.`
+                            : `Enqueued code for execution with kernel ${kernelId}.`,
+                    error: (error) => {
+                        const latencyMilliseconds: number = performance.now() - startTime;
+                        const latencySecRounded: number = RoundToThreeDecimalPlaces(latencyMilliseconds / 1000.0);
+                        console.error(
+                            `Execution on Kernel ${kernelId} failed to complete after ${latencySecRounded} seconds. Error: ${error}.`,
+                        );
+                        return `Execution on Kernel ${kernelId} failed to complete after ${latencySecRounded} seconds. Error: ${error}.`;
+                    },
+                },
+                {
+                    style: { maxWidth: 750 },
+                },
+            );
 
-            const latencyMilliseconds: number = performance.now() - startTime;
-            const latencySecRounded: number = RoundToThreeDecimalPlaces(latencyMilliseconds / 1000.0);
-            console.log(`Execution on Kernel ${kernelId} finished after ${latencySecRounded} seconds.`);
-            toast.success(`Execution on Kernel ${kernelId} finished after ${latencySecRounded} seconds.`, {
-                style: { maxWidth: 550 },
-            });
+            // await future.done;
+            setExecutionState('done');
 
             await fetch('api/metrics', {
                 method: 'PATCH',
@@ -208,7 +232,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                 },
                 body: JSON.stringify({
                     name: 'distributed_cluster_jupyter_execute_request_e2e_latency_seconds',
-                    value: latencyMilliseconds,
+                    value: performance.now() - startTime,
                     metadata: {
                         kernel_id: kernelId,
                     },
@@ -263,6 +287,8 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
 
     const FooterButton = () => {
         const handleClick = () => {
+            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+            // @ts-expect-error
             logViewerRef.current?.scrollToBottom();
         };
         return <Button onClick={handleClick}>Jump to the bottom</Button>;
@@ -357,12 +383,12 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
             onClose={props.onClose}
             actions={[
                 <Button
-                    key="submit"
+                    key="submit-code-button"
                     variant="primary"
                     onClick={() => {
                         if (executionState == 'idle') {
                             setExecutionState('busy');
-                            onSubmit();
+                            onSubmit('submit');
                         } else if (executionState == 'busy') {
                             console.log(
                                 'Please wait until the current execution completes before submitting additional code for execution.',
@@ -382,7 +408,27 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                     {executionState === 'busy' && 'Executing code'}
                     {executionState === 'done' && 'Complete'}
                 </Button>,
-                <Button key="cancel" variant="link" onClick={onClose} hidden={executionState === 'done'}>
+                <Tooltip
+                    key="enqueue-button-tooltip"
+                    content={
+                        'Submit an additional block of code to be executed after the kernel finishes execution its current code submission.'
+                    }
+                >
+                    <Button
+                        key="enqueue-code-button"
+                        variant={'primary'}
+                        onClick={() => onSubmit('enqueue')}
+                        isDisabled={executionState === 'idle' || executionState === 'done'}
+                    >
+                        Enqueue for Execution
+                    </Button>
+                </Tooltip>,
+                <Button
+                    key="cancel-code-submission-button"
+                    variant="link"
+                    onClick={onClose}
+                    hidden={executionState === 'done'}
+                >
                     Cancel
                 </Button>,
             ]}

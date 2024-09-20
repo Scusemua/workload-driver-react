@@ -1368,13 +1368,9 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                                             icon={<PauseIcon />}
                                                             isDisabled={
                                                                 kernel == null ||
-                                                                false ||
                                                                 kernel?.replicas === null ||
                                                                 kernel?.replicas?.length < 3
                                                             }
-                                                            // isDisabled={
-                                                            //     kernel == null || kernel?.aggregateBusyStatus === 'idle'
-                                                            // }
                                                             onClick={() => onInterruptKernelClicked(idx)}
                                                         >
                                                             Interrupt
@@ -1394,7 +1390,6 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                                             icon={<PauseCircleIcon />}
                                                             isDisabled={
                                                                 kernel == null ||
-                                                                false ||
                                                                 kernel?.replicas === null ||
                                                                 kernel?.replicas?.length < 3
                                                             }
