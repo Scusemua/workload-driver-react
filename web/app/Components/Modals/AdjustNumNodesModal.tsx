@@ -61,11 +61,11 @@ export const AdjustNumNodesModal: React.FunctionComponent<AdjustNumNodesModalPro
     };
 
     const onConfirmRemoveNode = () => {
-        props.onConfirm(1, 'add_nodes');
+        props.onConfirm(1, 'remove_nodes');
     };
 
     const onConfirmAddNode = () => {
-        props.onConfirm(1, 'remove_nodes');
+        props.onConfirm(1, 'add_nodes');
     };
 
     return (

@@ -108,13 +108,16 @@ func (h *DockerSwarmNodeHttpHandler) HandlePatchRequest(c *gin.Context) {
 		return
 	}
 
-	operation, loaded := req["op"]
+	operationVal, loaded := req["op"]
 	if !loaded {
 		err = fmt.Errorf("invalid request: missing \"op\" field")
 		h.logger.Error("HTTP PATCH request for virtual docker nodes failed due to an invalid argument.", zap.Error(err))
 		_ = c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
+	operation := operationVal.(string)
+
+	h.logger.Debug("Preparing to adjust number of nodes.", zap.String("op", operation), zap.Int("nodes", int(targetNumNodesVal.(float64))))
 
 	switch operation {
 	case "set_nodes":
@@ -125,6 +128,7 @@ func (h *DockerSwarmNodeHttpHandler) HandlePatchRequest(c *gin.Context) {
 				RequestId:      uuid.NewString(),
 				TargetNumNodes: targetNumNodes,
 			})
+			break
 		}
 	case "add_nodes":
 		{
@@ -134,6 +138,7 @@ func (h *DockerSwarmNodeHttpHandler) HandlePatchRequest(c *gin.Context) {
 				RequestId: uuid.NewString(),
 				NumNodes:  targetNumNodes,
 			})
+			break
 		}
 	case "remove_nodes":
 		{
@@ -143,6 +148,7 @@ func (h *DockerSwarmNodeHttpHandler) HandlePatchRequest(c *gin.Context) {
 				RequestId:        uuid.NewString(),
 				NumNodesToRemove: targetNumNodes,
 			})
+			break
 		}
 	default:
 		{
