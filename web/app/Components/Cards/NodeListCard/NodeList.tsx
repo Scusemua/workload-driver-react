@@ -1,5 +1,6 @@
 import { AdjustNumNodesModal } from '@app/Components/Modals/AdjustNumNodesModal';
 import { GpuIcon } from '@app/Icons';
+import { GetToastWithHeaderAndBody, ToastFetch } from '@app/utils/toast_utils';
 import { NodeDataList } from '@cards/NodeListCard/NodeDataList';
 import { NodeResourceView } from '@cards/NodeListCard/NodeResourceView';
 import { ClusterNode } from '@data/Cluster';
@@ -14,8 +15,6 @@ import {
     InputGroup,
     InputGroupItem,
     SearchInput,
-    Text,
-    TextVariants,
     Title,
     ToolbarGroup,
     ToolbarItem,
@@ -109,42 +108,21 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
 
             console.log(`Attempting to set vGPUs on node ${node?.NodeId} to ${value}`);
 
-            toast.promise(
-                fetch('api/vgpus', requestOptions),
-                {
-                    loading: 'Adjusting GPUs...',
-                    success: (
-                        <div>
-                            <Flex>
-                                <FlexItem>
-                                    <Text component={TextVariants.p}>
-                                        <b>Successfully updated vGPU capacity for node {node.NodeId}.</b>
-                                    </Text>
-                                </FlexItem>
-                                <FlexItem>
-                                    <Text component={TextVariants.small}>
-                                        It may take several seconds for the updated value to appear.
-                                    </Text>
-                                </FlexItem>
-                            </Flex>
-                        </div>
-                    ),
-                    error: (reason) => (
-                        <div>
-                            <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
-                                <FlexItem>
-                                    <b>Failed to update vGPUs for node ${node.NodeId} because:</b>
-                                </FlexItem>
-                                <FlexItem>{JSON.stringify(reason)}</FlexItem>
-                            </Flex>
-                        </div>
-                    ),
+            ToastFetch(
+                `Adjusting number of vGPUs on node ${node?.NodeId} to ${value}`,
+                GetToastWithHeaderAndBody(
+                    `Successfully updated vGPU capacity for node ${node.NodeId}`,
+                    'It may take several seconds for the updated value to appear.',
+                ),
+                (_, reason) => {
+                    return GetToastWithHeaderAndBody(
+                        `Failed to update vGPUs for node ${node.NodeId}`,
+                        JSON.stringify(reason),
+                    );
                 },
-                {
-                    duration: 5000,
-                    style: { maxWidth: 450 },
-                },
-            );
+                'api/vgpus',
+                requestOptions,
+            ).then(() => {});
         });
     }
 
@@ -165,64 +143,20 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
 
         console.log(`Attempting to set number of nodes in cluster to ${value}`);
 
-        await toast.promise(
-            fetch('api/nodes', requestOptions)
-                .then(
-                    async (resp) => {
-                        if (resp.status >= 300) {
-                            const statusCode: number = resp.status;
-                            const statusText: string = resp.statusText;
-
-                            const response: string = await resp.json();
-                            console.error(
-                                `Failed to set number of nodes in cluster to ${value} because: ${response['message']}`,
-                            );
-
-                            throw new Error(`HTTP ${statusCode} - ${statusText}: ${response['message']}`);
-                        } else {
-                            return resp;
-                        }
-                    },
-                    (err: Error) => {
-                        throw err;
-                    },
-                )
-                .catch((err: Error) => {
-                    throw err;
-                }),
-            {
-                loading: 'Adjusting GPUs...',
-                success: (
-                    <div>
-                        <Flex>
-                            <FlexItem>
-                                <Text component={TextVariants.p}>
-                                    <b>Successfully scaled number of nodes in cluster to {value} nodes.</b>
-                                </Text>
-                            </FlexItem>
-                            <FlexItem>
-                                <Text component={TextVariants.small}>
-                                    It may take several seconds for the nodes list to update.
-                                </Text>
-                            </FlexItem>
-                        </Flex>
-                    </div>
-                ),
-                error: (reason: Error) => (
-                    <div>
-                        <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
-                            <FlexItem>
-                                <b>Failed to scale the number of nodes in the cluster to {value} nodes.</b>
-                            </FlexItem>
-                            <FlexItem>{reason.message}</FlexItem>
-                        </Flex>
-                    </div>
-                ),
+        await ToastFetch(
+            'Adjusting number of nodes...',
+            GetToastWithHeaderAndBody(
+                `Successfully scaled number of nodes in cluster to ${value} nodes.`,
+                'It may take several seconds for the nodes list to update.',
+            ),
+            (res, reason) => {
+                return GetToastWithHeaderAndBody(
+                    `Failed to scale the number of nodes in the cluster to ${value} nodes.`,
+                    `HTTP ${res.status} - ${res.statusText}: ${JSON.stringify(reason)}`,
+                );
             },
-            {
-                duration: 6400,
-                style: { maxWidth: 575 },
-            },
+            'api/nodes',
+            requestOptions,
         );
     }
 
@@ -249,18 +183,7 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
     const successfulRefreshMessage = (st: number) => {
         const et: number = performance.now();
         console.log(`Successful refresh. Start time: ${st}. End time: ${et}. Time elapsed: ${et - st} ms.`);
-        return (
-            <div>
-                <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
-                    <FlexItem>
-                        <b>Refreshed nodes.</b>
-                    </FlexItem>
-                    <FlexItem>
-                        <Text component={TextVariants.small}>Time elapsed: {roundToTwo(et - st)} ms.</Text>
-                    </FlexItem>
-                </Flex>
-            </div>
-        );
+        return GetToastWithHeaderAndBody('Refreshed nodes.', `Time elapsed: ${roundToTwo(et - st)} ms`);
     };
 
     // The message displayed in a Toast when a node refresh fails to complete.
@@ -270,16 +193,7 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
             explanation = 'HTTP 504 Gateway Timeout. (Is your kubeconfig correct?)';
         }
 
-        return (
-            <div>
-                <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
-                    <FlexItem>
-                        <b>Could not refresh nodes.</b>
-                    </FlexItem>
-                    <FlexItem>{explanation}</FlexItem>
-                </Flex>
-            </div>
-        );
+        return GetToastWithHeaderAndBody('Could not refresh nodes.', explanation);
     };
 
     const toolbar = (

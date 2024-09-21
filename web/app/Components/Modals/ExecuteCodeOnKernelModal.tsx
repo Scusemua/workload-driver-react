@@ -1,6 +1,7 @@
 import { CodeEditorComponent } from '@app/Components/CodeEditor';
 import { DistributedJupyterKernel, JupyterKernelReplica } from '@app/Data';
 import { DarkModeContext } from '@app/Providers/DarkModeProvider';
+import { GetToastWithHeaderAndBody } from '@app/utils/toast_utils';
 import { RoundToThreeDecimalPlaces } from '@components/Modals/NewWorkloadFromTemplateModal';
 import { KernelManager, ServerConnection } from '@jupyterlab/services';
 import { IKernelConnection } from '@jupyterlab/services/lib/kernel/kernel';
@@ -203,57 +204,18 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                         const latencySecRounded: number = RoundToThreeDecimalPlaces(latencyMilliseconds / 1000.0);
                         console.log(`Execution on Kernel ${kernelId} finished after ${latencySecRounded} seconds.`);
 
-                        return (
-                            <div>
-                                <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
-                                    <FlexItem>
-                                        <b>Execution Complete {Math.random() > 0.5 ? "🔥" : "😍"}</b>
-                                    </FlexItem>
-                                    <FlexItem>
-                                        <Text component={TextVariants.small}>
-                                            {`Kernel ${kernelId} has finished executing your code after ${latencySecRounded} seconds.`}
-                                        </Text>
-                                    </FlexItem>
-                                </Flex>
-                            </div>
-                        );
+                        return GetToastWithHeaderAndBody(`Execution Complete ${Math.random() > 0.5 ? "🔥" : "😍"}`, `Kernel ${kernelId} has finished executing your code after ${latencySecRounded} seconds.`);
                     },
-                    loading: (
-                        <div>
-                            <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
-                                <FlexItem>
-                                    <b>{action == 'submit' ? 'Code Submitted 👀' : 'Code Enqueued 👀'}</b>
-                                </FlexItem>
-                                <FlexItem>
-                                    <Text component={TextVariants.small}>
-                                        {action == 'submit'
-                                            ? `Submitted code for execution to kernel ${kernelId}.`
-                                            : `Enqueued code for execution with kernel ${kernelId}.`}
-                                    </Text>
-                                </FlexItem>
-                            </Flex>
-                        </div>
-                    ),
+                    loading: GetToastWithHeaderAndBody(action == 'submit' ? 'Code Submitted 👀' : 'Code Enqueued 👀', action == 'submit'
+                      ? `Submitted code for execution to kernel ${kernelId}.`
+                      : `Enqueued code for execution with kernel ${kernelId}.`),
                     error: (error) => {
                         const latencyMilliseconds: number = performance.now() - startTime;
                         const latencySecRounded: number = RoundToThreeDecimalPlaces(latencyMilliseconds / 1000.0);
                         console.error(
                             `Execution on Kernel ${kernelId} failed to complete after ${latencySecRounded} seconds. Error: ${error}.`,
                         );
-                        return (
-                            <div>
-                                <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
-                                    <FlexItem>
-                                        <b>⚠️ Execution Failed ⚠️️️</b>
-                                    </FlexItem>
-                                    <FlexItem>
-                                        <Text component={TextVariants.small}>
-                                            {`Execution on Kernel ${kernelId} failed to complete after ${latencySecRounded} seconds. Error: ${error}.`}
-                                        </Text>
-                                    </FlexItem>
-                                </Flex>
-                            </div>
-                        );
+                        return GetToastWithHeaderAndBody("️ Execution Failed ⚠️️️", `Execution on Kernel ${kernelId} failed to complete after ${latencySecRounded} seconds. Error: ${error}.`);
                     },
                 },
                 {

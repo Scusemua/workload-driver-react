@@ -8,6 +8,7 @@ import {
 import { HeightFactorContext, KernelHeightFactorContext } from '@app/Dashboard/Dashboard';
 import { GpuIcon } from '@app/Icons';
 import { useNodes } from '@app/Providers';
+import { GetToastWithHeaderAndBody } from '@app/utils/toast_utils';
 import { numberArrayFromRange } from '@app/utils/utils';
 import { PingKernelModal } from '@components/Modals';
 import { DistributedJupyterKernel, JupyterKernelReplica, ResourceSpec } from '@data/Kernel';
@@ -316,18 +317,11 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                             </b>
                         );
                     },
-                    error: (reason: Error) => {
-                        return (
-                            <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
-                                <FlexItem>
-                                    <b>Failed to ping one or more replicas of kernel {kernelId}.</b>
-                                </FlexItem>
-                                <FlexItem>
-                                    <b>Reason:</b> {reason.message}
-                                </FlexItem>
-                            </Flex>
-                        );
-                    },
+                    error: (reason: Error) =>
+                        GetToastWithHeaderAndBody(
+                            `Failed to ping one or more replicas of kernel ${kernelId}.`,
+                            `<b>Reason:</b> ${reason.message}`,
+                        ),
                 },
                 {
                     style: {
@@ -437,18 +431,11 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                         </b>
                     );
                 },
-                error: (reason: Error) => {
-                    return (
-                        <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
-                            <FlexItem>
-                                <b>Failed to interrupt kernel {kernelId}.</b>
-                            </FlexItem>
-                            <FlexItem>
-                                <b>Reason:</b> {reason.message}
-                            </FlexItem>
-                        </Flex>
-                    );
-                },
+                error: (reason: Error) =>
+                    GetToastWithHeaderAndBody(
+                        `Failed to interrupt kernel ${kernelId}.`,
+                        `<b>Reason:</b> ${reason.message}`,
+                    ),
             })
             .then(() => {});
     };
@@ -546,18 +533,11 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                         <b>{`Successfully launched new Jupyter kernel in ${RoundToThreeDecimalPlaces((performance.now() - startTime) / 1000.0)} seconds.`}</b>
                     );
                 },
-                error: (reason: Error) => {
-                    return (
-                        <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
-                            <FlexItem>
-                                <b>Failed to start new Jupyter Session and Jupyter Kernel.</b>
-                            </FlexItem>
-                            <FlexItem>
-                                <b>Reason:</b> {reason.message}
-                            </FlexItem>
-                        </Flex>
-                    );
-                },
+                error: (reason: Error) =>
+                    GetToastWithHeaderAndBody(
+                        'Failed to start new Jupyter Session and Jupyter Kernel.',
+                        reason.message,
+                    ),
             },
             { style: { maxWidth: 650 } },
         );

@@ -1,18 +1,18 @@
 package handlers
 
 import (
-  "context"
-  "fmt"
-  "net/http"
-  "time"
+	"context"
+	"fmt"
+	"net/http"
+	"time"
 
-  "github.com/gin-gonic/gin"
-  "github.com/google/uuid"
-  "github.com/scusemua/workload-driver-react/m/v2/internal/domain"
-  gateway "github.com/scusemua/workload-driver-react/m/v2/internal/server/api/proto"
-  "go.uber.org/zap"
-  "google.golang.org/grpc/codes"
-  "google.golang.org/grpc/status"
+	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
+	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
+	gateway "github.com/scusemua/workload-driver-react/m/v2/internal/server/api/proto"
+	"go.uber.org/zap"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
 )
 
 // DockerSwarmNodeHttpHandler handles HTTP GET and HTTP PATCH requests that respectively retrieve and modify
@@ -121,7 +121,7 @@ func (h *DockerSwarmNodeHttpHandler) HandlePatchRequest(c *gin.Context) {
 		{
 			targetNumNodes := int32(targetNumNodesVal.(float64))
 			h.logger.Debug("Issuing 'SetNumVirtualDockerNodes' request.", zap.Int32("target_num_nodes", targetNumNodes))
-			_, err = h.grpcClient.SetNumVirtualDockerNodes(context.TODO(), &gateway.SetNumVirtualDockerNodesRequest{
+			_, err = h.grpcClient.SetNumClusterNodes(context.TODO(), &gateway.SetNumClusterNodesRequest{
 				RequestId:      uuid.NewString(),
 				TargetNumNodes: targetNumNodes,
 			})
@@ -130,7 +130,7 @@ func (h *DockerSwarmNodeHttpHandler) HandlePatchRequest(c *gin.Context) {
 		{
 			targetNumNodes := int32(targetNumNodesVal.(float64))
 			h.logger.Debug("Issuing 'AddVirtualDockerNodes' request.", zap.Int32("target_num_nodes", targetNumNodes))
-			_, err = h.grpcClient.AddVirtualDockerNodes(context.TODO(), &gateway.AddVirtualDockerNodesRequest{
+			_, err = h.grpcClient.AddClusterNodes(context.TODO(), &gateway.AddClusterNodesRequest{
 				RequestId: uuid.NewString(),
 				NumNodes:  targetNumNodes,
 			})
@@ -139,7 +139,7 @@ func (h *DockerSwarmNodeHttpHandler) HandlePatchRequest(c *gin.Context) {
 		{
 			targetNumNodes := int32(targetNumNodesVal.(float64))
 			h.logger.Debug("Issuing 'DecreaseNumNodes' request.", zap.Int32("target_num_nodes", targetNumNodes))
-			_, err = h.grpcClient.DecreaseNumNodes(context.TODO(), &gateway.DecreaseNumNodesRequest{
+			_, err = h.grpcClient.RemoveClusterNodes(context.TODO(), &gateway.RemoveClusterNodesRequest{
 				RequestId:        uuid.NewString(),
 				NumNodesToRemove: targetNumNodes,
 			})
