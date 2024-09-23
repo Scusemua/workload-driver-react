@@ -1,6 +1,6 @@
 import { AdjustNumNodesModal } from '@app/Components/Modals/AdjustNumNodesModal';
 import { GpuIcon } from '@app/Icons';
-import { GetToastWithHeaderAndBody, ToastFetch } from '@app/utils/toast_utils';
+import { GetHeaderAndBodyForToast, ToastFetch } from '@app/utils/toast_utils';
 import { NodeDataList } from '@cards/NodeListCard/NodeDataList';
 import { NodeResourceView } from '@cards/NodeListCard/NodeResourceView';
 import { ClusterNode } from '@data/Cluster';
@@ -24,7 +24,6 @@ import {
 import { FilterIcon, ListIcon, MonitoringIcon, ReplicatorIcon, SyncIcon } from '@patternfly/react-icons';
 import { useNodes } from '@providers/NodeProvider';
 import React from 'react';
-import { toast } from 'react-hot-toast';
 import { AdjustVirtualGPUsModal } from '../../Modals';
 
 export interface NodeListProps {
@@ -110,12 +109,12 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
 
             ToastFetch(
                 `Adjusting number of vGPUs on node ${node?.NodeId} to ${value}`,
-                GetToastWithHeaderAndBody(
+                GetHeaderAndBodyForToast(
                     `Successfully updated vGPU capacity for node ${node.NodeId}`,
                     'It may take several seconds for the updated value to appear.',
                 ),
                 (_, reason) => {
-                    return GetToastWithHeaderAndBody(
+                    return GetHeaderAndBodyForToast(
                         `Failed to update vGPUs for node ${node.NodeId}`,
                         JSON.stringify(reason),
                     );
@@ -145,12 +144,12 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
 
         await ToastFetch(
             'Adjusting number of nodes...',
-            GetToastWithHeaderAndBody(
+            GetHeaderAndBodyForToast(
                 `Successfully scaled number of nodes in cluster to ${value} nodes.`,
                 'It may take several seconds for the nodes list to update.',
             ),
             (res, reason) => {
-                return GetToastWithHeaderAndBody(
+                return GetHeaderAndBodyForToast(
                     `Failed to scale the number of nodes in the cluster to ${value} nodes.`,
                     `HTTP ${res.status} - ${res.statusText}: ${JSON.stringify(reason)}`,
                 );
@@ -158,6 +157,8 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
             'api/nodes',
             requestOptions,
         );
+
+      refreshNodes(false);
     }
 
     // Handler for when the user filters by node name.
@@ -183,7 +184,7 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
     const successfulRefreshMessage = (st: number) => {
         const et: number = performance.now();
         console.log(`Successful refresh. Start time: ${st}. End time: ${et}. Time elapsed: ${et - st} ms.`);
-        return GetToastWithHeaderAndBody('Refreshed nodes.', `Time elapsed: ${roundToTwo(et - st)} ms`);
+        return GetHeaderAndBodyForToast('Refreshed nodes.', `Time elapsed: ${roundToTwo(et - st)} ms`);
     };
 
     // The message displayed in a Toast when a node refresh fails to complete.
@@ -193,7 +194,7 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
             explanation = 'HTTP 504 Gateway Timeout. (Is your kubeconfig correct?)';
         }
 
-        return GetToastWithHeaderAndBody('Could not refresh nodes.', explanation);
+        return GetHeaderAndBodyForToast('Could not refresh nodes.', explanation);
     };
 
     const toolbar = (
@@ -287,18 +288,7 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
                             isDisabled={nodesAreLoading}
                             onClick={() => {
                                 console.log('Refreshing nodes now.');
-                                const st: number = performance.now();
-                                return toast.promise(
-                                    refreshNodes(),
-                                    {
-                                        loading: <b>Refreshing nodes...</b>,
-                                        success: () => successfulRefreshMessage(st),
-                                        error: (reason: Error) => failedRefreshMessage(reason),
-                                    },
-                                    {
-                                        style: { maxWidth: 450 },
-                                    },
-                                );
+                                refreshNodes().then(() => {});
                             }}
                             // isDisabled={nodesAreLoading}
                             label="refresh-nodes-button"

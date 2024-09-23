@@ -1,7 +1,7 @@
 import { CodeEditorComponent } from '@app/Components/CodeEditor';
 import { DistributedJupyterKernel, JupyterKernelReplica } from '@app/Data';
 import { DarkModeContext } from '@app/Providers/DarkModeProvider';
-import { GetToastWithHeaderAndBody } from '@app/utils/toast_utils';
+import { GetHeaderAndBodyForToast } from '@app/utils/toast_utils';
 import { RoundToThreeDecimalPlaces } from '@components/Modals/NewWorkloadFromTemplateModal';
 import { KernelManager, ServerConnection } from '@jupyterlab/services';
 import { IKernelConnection } from '@jupyterlab/services/lib/kernel/kernel';
@@ -204,9 +204,9 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                         const latencySecRounded: number = RoundToThreeDecimalPlaces(latencyMilliseconds / 1000.0);
                         console.log(`Execution on Kernel ${kernelId} finished after ${latencySecRounded} seconds.`);
 
-                        return GetToastWithHeaderAndBody(`Execution Complete ${Math.random() > 0.5 ? "🔥" : "😍"}`, `Kernel ${kernelId} has finished executing your code after ${latencySecRounded} seconds.`);
+                        return GetHeaderAndBodyForToast(`Execution Complete ${Math.random() > 0.5 ? "🔥" : "😍"}`, `Kernel ${kernelId} has finished executing your code after ${latencySecRounded} seconds.`);
                     },
-                    loading: GetToastWithHeaderAndBody(action == 'submit' ? 'Code Submitted 👀' : 'Code Enqueued 👀', action == 'submit'
+                    loading: GetHeaderAndBodyForToast(action == 'submit' ? 'Code Submitted 👀' : 'Code Enqueued 👀', action == 'submit'
                       ? `Submitted code for execution to kernel ${kernelId}.`
                       : `Enqueued code for execution with kernel ${kernelId}.`),
                     error: (error) => {
@@ -215,7 +215,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                         console.error(
                             `Execution on Kernel ${kernelId} failed to complete after ${latencySecRounded} seconds. Error: ${error}.`,
                         );
-                        return GetToastWithHeaderAndBody("️ Execution Failed ⚠️️️", `Execution on Kernel ${kernelId} failed to complete after ${latencySecRounded} seconds. Error: ${error}.`);
+                        return GetHeaderAndBodyForToast("️ Execution Failed ⚠️️️", `Execution on Kernel ${kernelId} failed to complete after ${latencySecRounded} seconds. Error: ${error}.`);
                     },
                 },
                 {

@@ -1,6 +1,10 @@
-import useSWR from 'swr';
 import { ClusterNode } from '@app/Data';
-import useSWRMutation from 'swr/mutation';
+import { GetHeaderAndBodyForToast } from '@app/utils/toast_utils';
+import { RoundToTwoDecimalPlaces } from '@components/Modals';
+import React from 'react';
+import { toast } from 'react-hot-toast';
+import useSWR from 'swr';
+import useSWRMutation, { TriggerWithoutArgs } from 'swr/mutation';
 
 const api_endpoint: string = 'api/nodes';
 
@@ -35,14 +39,43 @@ const fetcher = async (input: RequestInfo | URL) => {
         const responseBody: string = await response.text();
         console.error(`Refresh Nodes Failed (${response.status} ${response.statusText}): ${responseBody}`);
         throw new Error(`${response.status} ${response.statusText}`);
-        // throw {
-        //     name: `${response.status} ${response.statusText}`,
-        //     message: `${response.status} ${response.statusText}: ${responseBody}`,
-        // };
     }
 
     return await response.json();
 };
+
+function getManualRefreshTrigger(trigger: TriggerWithoutArgs<any, any, string, never>): (showToast?: boolean) => void {
+    return async (showToast: boolean = true) => {
+        console.log('Manually refreshing nodes now.');
+
+        if (!showToast) {
+            await trigger().catch((error: Error) => {
+              console.error(`Failed to refresh nodes because: ${error.message}`);
+            })
+            return;
+        }
+
+        const st: number = performance.now();
+        const toastId: string = toast.loading(() => <b>Refreshing nodes...</b>);
+        await trigger()
+            .catch((error: Error) => {
+                toast.error(GetHeaderAndBodyForToast('Could not refresh nodes.', error.message), {
+                    id: toastId,
+                    duration: 10000,
+                    style: { maxWidth: 600 },
+                });
+            })
+            .then(() =>
+                toast.success(
+                    GetHeaderAndBodyForToast(
+                        'Refreshed nodes.',
+                        `Time elapsed: ${RoundToTwoDecimalPlaces(performance.now() - st)} ms`,
+                    ),
+                    { id: toastId, duration: 7500, style: { maxWidth: 600 } },
+                ),
+            );
+    };
+}
 
 export function useNodes() {
     const { data, error, isLoading, isValidating } = useSWR(api_endpoint, fetcher, { refreshInterval: 600000 });
@@ -50,14 +83,10 @@ export function useNodes() {
 
     const nodes: ClusterNode[] = data || [];
 
-    // console.log(
-    //     `Returning ${nodes.length} Kubernetes node(s). isLoading: ${isLoading}, isValidating: ${isValidating}, isMutating: ${isMutating}.`,
-    // );
-
     return {
         nodes: nodes,
         nodesAreLoading: isMutating || isLoading || isValidating,
-        refreshNodes: trigger,
+        refreshNodes: getManualRefreshTrigger(trigger),
         isError: error,
     };
 }

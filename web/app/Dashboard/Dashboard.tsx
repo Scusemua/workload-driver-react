@@ -166,7 +166,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
                             isDashboardList={true}
                             hideAdjustVirtualGPUsButton={false}
                             hideControlPlaneNode={true}
-                            nodesPerPage={4}
+                            nodesPerPage={10}
                             selectableViaCheckboxes={false}
                             displayNodeToggleSwitch={true}
                         />

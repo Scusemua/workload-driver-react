@@ -7,7 +7,7 @@ import { toast } from 'react-hot-toast';
  * @param header Name or title of the error
  * @param body Error message
  */
-export function GetToastWithHeaderAndBody(header: string, body: string): React.JSX.Element {
+export function GetHeaderAndBodyForToast(header: string, body: string): React.JSX.Element {
     return (
         <div>
             <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>

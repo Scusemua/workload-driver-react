@@ -8,7 +8,7 @@ import {
 import { HeightFactorContext, KernelHeightFactorContext } from '@app/Dashboard/Dashboard';
 import { GpuIcon } from '@app/Icons';
 import { useNodes } from '@app/Providers';
-import { GetToastWithHeaderAndBody } from '@app/utils/toast_utils';
+import { GetHeaderAndBodyForToast } from '@app/utils/toast_utils';
 import { numberArrayFromRange } from '@app/utils/utils';
 import { PingKernelModal } from '@components/Modals';
 import { DistributedJupyterKernel, JupyterKernelReplica, ResourceSpec } from '@data/Kernel';
@@ -318,7 +318,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                         );
                     },
                     error: (reason: Error) =>
-                        GetToastWithHeaderAndBody(
+                        GetHeaderAndBodyForToast(
                             `Failed to ping one or more replicas of kernel ${kernelId}.`,
                             `<b>Reason:</b> ${reason.message}`,
                         ),
@@ -432,7 +432,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                     );
                 },
                 error: (reason: Error) =>
-                    GetToastWithHeaderAndBody(
+                    GetHeaderAndBodyForToast(
                         `Failed to interrupt kernel ${kernelId}.`,
                         `<b>Reason:</b> ${reason.message}`,
                     ),
@@ -523,18 +523,16 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         }
 
         const sessionModel: ISessionModel = await toast.promise(
-            start_session(),
+            start_session().then(async () => refreshNodes()),
             {
                 loading: <b>Creating new Jupyter kernel now...</b>,
                 success: () => {
-                    refreshNodes();
-
                     return (
                         <b>{`Successfully launched new Jupyter kernel in ${RoundToThreeDecimalPlaces((performance.now() - startTime) / 1000.0)} seconds.`}</b>
                     );
                 },
                 error: (reason: Error) =>
-                    GetToastWithHeaderAndBody(
+                    GetHeaderAndBodyForToast(
                         'Failed to start new Jupyter Session and Jupyter Kernel.',
                         reason.message,
                     ),

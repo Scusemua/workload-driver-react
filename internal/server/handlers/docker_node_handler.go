@@ -191,5 +191,7 @@ func (h *DockerSwarmNodeHttpHandler) HandlePatchRequest(c *gin.Context) {
 		return
 	}
 
+	h.logger.Debug("Requested scale operation has completed successfully.",
+		zap.String("op", operation), zap.Int("nodes", int(targetNumNodesVal.(float64))))
 	c.Status(http.StatusOK)
 }

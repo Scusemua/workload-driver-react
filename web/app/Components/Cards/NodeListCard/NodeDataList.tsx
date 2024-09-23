@@ -1,6 +1,6 @@
 import { HeightFactorContext, NodeHeightFactorContext } from '@app/Dashboard/Dashboard';
 import { GpuIcon } from '@app/Icons';
-import { GetToastWithHeaderAndBody } from '@app/utils/toast_utils';
+import { GetHeaderAndBodyForToast } from '@app/utils/toast_utils';
 import { ClusterNode, PodOrContainer } from '@data/Cluster';
 import {
     Button,
@@ -224,7 +224,7 @@ export const NodeDataList: React.FunctionComponent<NodeDataListProps> = (props: 
                 resp.text().then((text: string) => {
                     toast.error(
                         () => {
-                            return GetToastWithHeaderAndBody(
+                            return GetHeaderAndBodyForToast(
                                 `Failed to ${checked ? 'enable' : 'disable'} node ${clusterNode.NodeId}.`,
                                 `HTTP ${resp.status} - ${resp.statusText}: ${text}`,
                             );
