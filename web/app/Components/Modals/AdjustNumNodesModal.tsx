@@ -125,7 +125,7 @@ export const AdjustNumNodesModal: React.FunctionComponent<AdjustNumNodesModalPro
             titleIconVariant={props.titleIconVariant}
             title={'Adjust the Number of Nodes in the Cluster'}
             isOpen={props.isOpen}
-            width={1280}
+            width={1350}
             onClose={props.onClose}
             actions={[
                 <Button key="cancel-adjust-num-nodes" variant="secondary" onClick={onCloseClicked}>
@@ -134,7 +134,7 @@ export const AdjustNumNodesModal: React.FunctionComponent<AdjustNumNodesModalPro
             ]}
         >
             <Form>
-                <Flex direction={{ default: 'row' }} spaceItems={{ default: 'spaceItemsMd' }}>
+                <Flex direction={{ default: 'row' }} spaceItems={{ default: 'spaceItemsMd' }} justifyContent={{'default': 'justifyContentCenter'}}>
                     <FlexItem>
                         <FormGroup label={`Scale to Target Cluster Size`}>
                             <Flex direction={{ default: 'row' }} spaceItems={{ default: 'spaceItemsSm' }}>

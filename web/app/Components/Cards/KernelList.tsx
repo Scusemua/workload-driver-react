@@ -487,7 +487,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             }),
         };
 
-        async function start_session() {
+        async function start_session(): Promise<ISessionModel> {
             const response: Response = await fetch('jupyter/api/sessions', req);
 
             if (response.status != 201) {
@@ -523,7 +523,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         }
 
         const sessionModel: ISessionModel = await toast.promise(
-            start_session().then(async () => refreshNodes()),
+            start_session(),
             {
                 loading: <b>Creating new Jupyter kernel now...</b>,
                 success: () => {
@@ -532,13 +532,12 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                     );
                 },
                 error: (reason: Error) =>
-                    GetHeaderAndBodyForToast(
-                        'Failed to start new Jupyter Session and Jupyter Kernel.',
-                        reason.message,
-                    ),
+                    GetHeaderAndBodyForToast('Failed to start new Jupyter Session and Jupyter Kernel.', reason.message),
             },
             { style: { maxWidth: 650 } },
         );
+
+        refreshNodes();
 
         const session: ISessionConnection = sessionManager.current.connectTo({
             model: sessionModel,

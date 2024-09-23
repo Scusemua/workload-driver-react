@@ -24,7 +24,7 @@ import {
 import { FilterIcon, ListIcon, MonitoringIcon, ReplicatorIcon, SyncIcon } from '@patternfly/react-icons';
 import { useNodes } from '@providers/NodeProvider';
 import React from 'react';
-import { AdjustVirtualGPUsModal } from '../../Modals';
+import { AdjustVirtualGPUsModal, RoundToTwoDecimalPlaces } from '../../Modals';
 
 export interface NodeListProps {
     selectableViaCheckboxes: boolean;
@@ -35,10 +35,6 @@ export interface NodeListProps {
     nodesPerPage: number;
     hideAdjustVirtualGPUsButton: boolean;
     displayNodeToggleSwitch: boolean; // If true, show the Switch that is used to enable/disable the node.
-}
-
-function roundToTwo(num: number) {
-    return +(Math.round(Number.parseFloat(num.toString() + 'e+2')).toString() + 'e-2');
 }
 
 export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeListProps) => {
@@ -128,6 +124,40 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
     async function doAdjustNumNodes(value: number, operation: 'set_nodes' | 'add_nodes' | 'remove_nodes') {
         closeAdjustNumNodesModal();
 
+        const startTime: number = performance.now();
+
+        const getToastLoadingMessage = (numNodes: number, op: 'set_nodes' | 'add_nodes' | 'remove_nodes') => {
+            if (op == 'set_nodes') {
+                return `Setting cluster scale to ${numNodes} ${numNodes == 1 ? 'node' : 'nodes'}...`;
+            } else if (op == 'add_nodes') {
+                return `Adding ${numNodes} ${numNodes == 1 ? 'node' : 'nodes'} to the cluster...`;
+            } else {
+                return `Removing ${numNodes} ${numNodes == 1 ? 'node' : 'nodes'} from the cluster...`;
+            }
+        };
+
+        const getToastSuccessMessage = (numNodes: number, op: 'set_nodes' | 'add_nodes' | 'remove_nodes') => {
+            if (op == 'set_nodes') {
+                return `Successfully scaled number of nodes in cluster to ${numNodes} nodes.`;
+            } else if (op == 'add_nodes') {
+                return `Successfully added ${numNodes} ${numNodes == 1 ? 'node' : 'nodes'} to the cluster.`;
+            } else {
+                return `Successfully removed ${numNodes} ${numNodes == 1 ? 'node' : 'nodes'} from the cluster.`;
+            }
+        };
+
+        const getToastFailureMessage = (numNodes: number, op: 'set_nodes' | 'add_nodes' | 'remove_nodes') => {
+            if (op == 'set_nodes') {
+                return `Failed to scale the number of nodes in cluster to ${numNodes} nodes.`;
+            } else if (op == 'add_nodes') {
+                return `Failed to add ${numNodes} ${numNodes == 1 ? 'node' : 'nodes'} to the cluster.`;
+            } else {
+                return `Failed to remove ${numNodes} ${numNodes == 1 ? 'node' : 'nodes'} from the cluster.`;
+            }
+        };
+
+        console.log(`Attempting to set number of nodes in cluster to ${value}`);
+
         const requestOptions = {
             method: 'PATCH',
             headers: {
@@ -140,17 +170,15 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
             }),
         };
 
-        console.log(`Attempting to set number of nodes in cluster to ${value}`);
-
         await ToastFetch(
-            'Adjusting number of nodes...',
+            getToastLoadingMessage(value, operation),
             GetHeaderAndBodyForToast(
-                `Successfully scaled number of nodes in cluster to ${value} nodes.`,
-                'It may take several seconds for the nodes list to update.',
+                getToastSuccessMessage(value, operation),
+                `It may take several seconds for the nodes list to update. (Time elapsed: ${RoundToTwoDecimalPlaces(performance.now() - startTime)} seconds.)`,
             ),
             (res, reason) => {
                 return GetHeaderAndBodyForToast(
-                    `Failed to scale the number of nodes in the cluster to ${value} nodes.`,
+                    getToastFailureMessage(value, operation),
                     `HTTP ${res.status} - ${res.statusText}: ${JSON.stringify(reason)}`,
                 );
             },
@@ -158,7 +186,7 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
             requestOptions,
         );
 
-      refreshNodes(false);
+        refreshNodes(false);
     }
 
     // Handler for when the user filters by node name.
@@ -178,23 +206,6 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
 
         // If the filter text box is empty, then match against everything. Otherwise, match against node ID.
         return searchValue === '' || matchesSearchValue;
-    };
-
-    // The message displayed in a Toast when a node refresh completes successfully.
-    const successfulRefreshMessage = (st: number) => {
-        const et: number = performance.now();
-        console.log(`Successful refresh. Start time: ${st}. End time: ${et}. Time elapsed: ${et - st} ms.`);
-        return GetHeaderAndBodyForToast('Refreshed nodes.', `Time elapsed: ${roundToTwo(et - st)} ms`);
-    };
-
-    // The message displayed in a Toast when a node refresh fails to complete.
-    const failedRefreshMessage = (reason: Error) => {
-        let explanation: string = reason.message;
-        if (reason.name === 'SyntaxError') {
-            explanation = 'HTTP 504 Gateway Timeout. (Is your kubeconfig correct?)';
-        }
-
-        return GetHeaderAndBodyForToast('Could not refresh nodes.', explanation);
     };
 
     const toolbar = (
@@ -288,7 +299,7 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
                             isDisabled={nodesAreLoading}
                             onClick={() => {
                                 console.log('Refreshing nodes now.');
-                                refreshNodes().then(() => {});
+                                refreshNodes();
                             }}
                             // isDisabled={nodesAreLoading}
                             label="refresh-nodes-button"
@@ -322,7 +333,9 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
                 >
                     <CardTitle>
                         <Title headingLevel="h1" size="xl">
-                            {resourceModeToggled ? 'Nodes (Resource View)' : 'Nodes (Detailed View)'}
+                            {resourceModeToggled
+                                ? `Nodes (Resource View): ${nodes.length}`
+                                : `Nodes (Detailed View): ${nodes.length}`}
                         </Title>
                     </CardTitle>
                 </CardHeader>

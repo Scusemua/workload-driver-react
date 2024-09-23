@@ -1,4 +1,4 @@
-import { Flex, FlexItem, Text, TextVariants } from '@patternfly/react-core';
+import { Button, Flex, FlexItem, Text, TextVariants } from '@patternfly/react-core';
 import React from 'react';
 import { toast } from 'react-hot-toast';
 
@@ -24,21 +24,47 @@ export function GetHeaderAndBodyForToast(header: string, body: string): React.JS
     );
 }
 
-export async function ToastFetch(loadingMessage: string, successToast: React.JSX.Element, errorToast: (resp: Response, reason: string) => React.JSX.Element, endpoint: string, requestOptions: any) {
+export async function ToastFetch(
+    loadingMessage: string,
+    successToast: React.JSX.Element,
+    errorToast: (resp: Response, reason: string) => React.JSX.Element,
+    endpoint: string,
+    requestOptions: any,
+) {
     const toastId: string = toast.loading(loadingMessage);
     await fetch(endpoint, requestOptions).then((res) => {
         if (!res.ok || res.status >= 300) {
             res.json().then((reason) => {
                 console.error(`HTTP ${res.status} - ${res.statusText}: ${JSON.stringify(reason)}`);
-                toast.error(
-                  errorToast(res, reason),
-                    { id: toastId, duration: 10000, style: { maxWidth: 600 } },
-                );
+                toast.error(errorToast(res, reason), { id: toastId, duration: 10000, style: { maxWidth: 600 } });
             });
         } else {
             toast.success(
-                () =>
-                  successToast,
+                () => (
+                    <Flex
+                        direction={{ default: 'column' }}
+                        spaceItems={{ default: 'spaceItemsNone' }}
+                        align={{ default: 'alignRight' }}
+                        alignContent={{ default: 'alignContentFlexEnd' }}
+                        justifyContent={{ default: 'justifyContentFlexEnd' }}
+                    >
+                        <FlexItem>{successToast}</FlexItem>
+                        <FlexItem
+                            spacer={{ default: 'spacerNone' }}
+                            align={{ default: 'alignRight' }}
+                            alignSelf={{ default: 'alignSelfFlexEnd' }}
+                        >
+                            <Button
+                                variant={'link'}
+                                onClick={() => {
+                                    toast.dismiss(toastId);
+                                }}
+                            >
+                                Dismiss
+                            </Button>
+                        </FlexItem>
+                    </Flex>
+                ),
                 { id: toastId, duration: 7500, style: { maxWidth: 600 } },
             );
         }
