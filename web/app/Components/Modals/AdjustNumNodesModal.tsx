@@ -1,11 +1,12 @@
 import { useNodes } from '@app/Providers';
 import {
     Button,
+    Divider,
+    Flex,
+    FlexItem,
     Form,
     FormGroup,
     FormHelperText,
-    Grid,
-    GridItem,
     HelperText,
     HelperTextItem,
     Modal,
@@ -27,23 +28,63 @@ export const AdjustNumNodesModal: React.FunctionComponent<AdjustNumNodesModalPro
     type validate = 'success' | 'warning' | 'error' | 'default';
 
     const { nodes } = useNodes();
-    const [targetNumNodes, setTargetNumNodes] = React.useState<string>(nodes.length >= 3 ? `${nodes.length}` : '4');
-    const [validated, setValidated] = React.useState<validate>('success');
+    const [setScaleTargetNumNodes, setSetScaleTargetNumNodes] = React.useState<string>(
+        nodes.length >= 3 ? `${nodes.length}` : '4',
+    );
+    const [addNumNodes, setAddNumNodes] = React.useState<string>('1');
+    const [removeNumNodes, setRemoveNumNodes] = React.useState<string>('1');
+    const [setNodesValidated, setSetNodesValidated] = React.useState<validate>('success');
+    const [addNodesValidated, setAddNodesValidated] = React.useState<validate>('success');
+    const [removeNodesValidated, setRemoveNodesValidated] = React.useState<validate>('success');
 
     const handleTargetNumNodesChanged = (_event: FormEvent<HTMLInputElement>, target: string) => {
-        setTargetNumNodes(target);
+        setSetScaleTargetNumNodes(target);
         if (target === '') {
-            setValidated('default');
+            setSetNodesValidated('default');
         } else if (/^\d+$/.test(target)) {
             const targetNum: number = Number.parseInt(target);
 
             if (targetNum < 3) {
-                setValidated('error');
+                setSetNodesValidated('error');
             } else {
-                setValidated('success');
+                setSetNodesValidated('success');
             }
         } else {
-            setValidated('error');
+            setSetNodesValidated('error');
+        }
+    };
+
+    const handleAddNumNodesChanged = (_event: FormEvent<HTMLInputElement>, target: string) => {
+        setAddNumNodes(target);
+        if (target === '') {
+            setAddNodesValidated('default');
+        } else if (/^\d+$/.test(target)) {
+            const n: number = Number.parseInt(target);
+
+            if (n <= 0) {
+                setAddNodesValidated('error');
+            } else {
+                setAddNodesValidated('success');
+            }
+        } else {
+            setAddNodesValidated('error');
+        }
+    };
+
+    const handleRemoveNumNodesChanged = (_event: FormEvent<HTMLInputElement>, target: string) => {
+        setRemoveNumNodes(target);
+        if (target === '') {
+            setRemoveNodesValidated('default');
+        } else if (/^\d+$/.test(target)) {
+            const n: number = Number.parseInt(target);
+
+            if (n <= 0) {
+                setRemoveNodesValidated('error');
+            } else {
+                setRemoveNodesValidated('success');
+            }
+        } else {
+            setRemoveNodesValidated('error');
         }
     };
 
@@ -52,20 +93,30 @@ export const AdjustNumNodesModal: React.FunctionComponent<AdjustNumNodesModalPro
     };
 
     const onConfirmSetNodes = () => {
-        if (validated !== 'success') return;
+        if (setNodesValidated !== 'success') return;
 
-        const target: number = Number.parseInt(targetNumNodes);
-        if (target < 3) return;
+        const targetScale: number = Number.parseInt(setScaleTargetNumNodes);
+        if (targetScale < 3) return;
 
-        props.onConfirm(target, 'set_nodes');
+        props.onConfirm(targetScale, 'set_nodes').then(() => {});
     };
 
     const onConfirmRemoveNode = () => {
-        props.onConfirm(1, 'remove_nodes');
+        if (removeNodesValidated !== 'success') return;
+
+        const n: number = Number.parseInt(removeNumNodes);
+        if (n <= 0) return;
+
+        props.onConfirm(n, 'remove_nodes').then(() => {});
     };
 
     const onConfirmAddNode = () => {
-        props.onConfirm(1, 'add_nodes');
+        if (addNodesValidated !== 'success') return;
+
+        const n: number = Number.parseInt(addNumNodes);
+        if (n <= 0) return;
+
+        props.onConfirm(n, 'add_nodes').then(() => {});
     };
 
     return (
@@ -74,61 +125,146 @@ export const AdjustNumNodesModal: React.FunctionComponent<AdjustNumNodesModalPro
             titleIconVariant={props.titleIconVariant}
             title={'Adjust the Number of Nodes in the Cluster'}
             isOpen={props.isOpen}
+            width={1280}
             onClose={props.onClose}
             actions={[
-                <Button
-                    key="confirm-set-num-nodes"
-                    variant="primary"
-                    onClick={onConfirmSetNodes}
-                    isDisabled={validated !== 'success'}
-                >
-                    Scale {Number.parseInt(targetNumNodes) > nodes.length ? 'Out' : 'In'} to {targetNumNodes || '?'}{' '}
-                    Nodes
-                </Button>,
-                <Button key="confirm-add-one-node" icon={<PlusIcon />} variant={'primary'} onClick={onConfirmAddNode}>
-                    Add 1 Node
-                </Button>,
-                <Button
-                    key="confirm-remove-one-node"
-                    icon={<MinusIcon />}
-                    variant={'danger'}
-                    onClick={onConfirmRemoveNode}
-                    isDisabled={nodes.length <= 3}
-                >
-                    Remove 1 Node
-                </Button>,
                 <Button key="cancel-adjust-num-nodes" variant="secondary" onClick={onCloseClicked}>
                     Cancel
                 </Button>,
             ]}
         >
             <Form>
-                <FormGroup label={`Desired number of nodes (current: ${nodes.length})`}>
-                    <Grid span={12} hasGutter>
-                        <GridItem span={4}>
-                            <TextInput
-                                id="desired-num-cluster-nodes"
-                                aria-label="Desired number of nodes within the cluster"
-                                type="number"
-                                value={targetNumNodes}
-                                onChange={handleTargetNumNodesChanged}
-                                validated={validated}
-                                placeholder={nodes.length > 0 ? `${nodes.length}` : ''}
-                            />
-                            {validated !== 'success' && (
-                                <FormHelperText>
-                                    <HelperText>
-                                        <HelperTextItem icon={<ExclamationCircleIcon />} variant={validated}>
-                                            {validated === 'error'
-                                                ? 'Must be a number ≥ 3'
-                                                : 'Please enter your desired number of nodes'}
-                                        </HelperTextItem>
-                                    </HelperText>
-                                </FormHelperText>
-                            )}
-                        </GridItem>
-                    </Grid>
-                </FormGroup>
+                <Flex direction={{ default: 'row' }} spaceItems={{ default: 'spaceItemsMd' }}>
+                    <FlexItem>
+                        <FormGroup label={`Scale to Target Cluster Size`}>
+                            <Flex direction={{ default: 'row' }} spaceItems={{ default: 'spaceItemsSm' }}>
+                                <FlexItem>
+                                    <TextInput
+                                        id="set-nodes-text-input"
+                                        aria-label="Scale the cluster to 'this' many nodes."
+                                        type="number"
+                                        value={setScaleTargetNumNodes}
+                                        onChange={handleTargetNumNodesChanged}
+                                        validated={setNodesValidated}
+                                        placeholder={nodes.length > 0 ? `${nodes.length}` : ''}
+                                    />
+                                    {setNodesValidated !== 'success' && (
+                                        <FormHelperText>
+                                            <HelperText>
+                                                <HelperTextItem
+                                                    icon={<ExclamationCircleIcon />}
+                                                    variant={setNodesValidated}
+                                                >
+                                                    {setNodesValidated === 'error'
+                                                        ? 'Must be a number ≥ 3'
+                                                        : 'Please enter your desired number of nodes'}
+                                                </HelperTextItem>
+                                            </HelperText>
+                                        </FormHelperText>
+                                    )}
+                                </FlexItem>
+                                <FlexItem>
+                                    <Button
+                                        key="confirm-set-num-nodes"
+                                        variant="primary"
+                                        onClick={onConfirmSetNodes}
+                                        isDisabled={setNodesValidated !== 'success'}
+                                    >
+                                        Scale {Number.parseInt(setScaleTargetNumNodes) > nodes.length ? 'Out' : 'In'} to{' '}
+                                        {setScaleTargetNumNodes || '?'} Nodes
+                                    </Button>
+                                </FlexItem>
+                            </Flex>
+                        </FormGroup>
+                    </FlexItem>
+                    <Divider orientation={{ default: 'vertical' }} />
+                    <FlexItem>
+                        <FormGroup label={`Add Nodes to Cluster`}>
+                            <Flex direction={{ default: 'row' }} spaceItems={{ default: 'spaceItemsSm' }}>
+                                <FlexItem>
+                                    <TextInput
+                                        id="add-nodes-text-input"
+                                        aria-label="Add 'this' many nodes to the cluster"
+                                        type="number"
+                                        value={addNumNodes}
+                                        onChange={handleAddNumNodesChanged}
+                                        validated={addNodesValidated}
+                                        placeholder={nodes.length > 0 ? `${nodes.length}` : ''}
+                                    />
+                                    {addNodesValidated !== 'success' && (
+                                        <FormHelperText>
+                                            <HelperText>
+                                                <HelperTextItem
+                                                    icon={<ExclamationCircleIcon />}
+                                                    variant={addNodesValidated}
+                                                >
+                                                    {addNodesValidated === 'error'
+                                                        ? 'Must be a number ≥ 3'
+                                                        : 'Please enter your desired number of nodes'}
+                                                </HelperTextItem>
+                                            </HelperText>
+                                        </FormHelperText>
+                                    )}
+                                </FlexItem>
+                                <FlexItem>
+                                    <Button
+                                        key="confirm-add-nodes-button"
+                                        id="confirm-add-nodes-button"
+                                        icon={<PlusIcon />}
+                                        variant={'primary'}
+                                        onClick={onConfirmAddNode}
+                                    >
+                                        {`Add ${addNumNodes} ${Number.parseInt(addNumNodes) == 1 ? 'Node' : 'Nodes'}`}
+                                    </Button>
+                                </FlexItem>
+                            </Flex>
+                        </FormGroup>
+                    </FlexItem>
+                    <Divider orientation={{ default: 'vertical' }} />
+                    <FlexItem>
+                        <FormGroup label={'Remove Nodes from Cluster'}>
+                            <Flex direction={{ default: 'row' }} spaceItems={{ default: 'spaceItemsSm' }}>
+                                <FlexItem>
+                                    <TextInput
+                                        id="remove-nodes-text-input"
+                                        aria-label="Remove 'this' many nodes from the cluster"
+                                        type="number"
+                                        value={removeNumNodes}
+                                        onChange={handleRemoveNumNodesChanged}
+                                        validated={removeNodesValidated}
+                                        placeholder={nodes.length > 0 ? `${nodes.length}` : ''}
+                                    />
+                                    {removeNodesValidated !== 'success' && (
+                                        <FormHelperText>
+                                            <HelperText>
+                                                <HelperTextItem
+                                                    icon={<ExclamationCircleIcon />}
+                                                    variant={removeNodesValidated}
+                                                >
+                                                    {removeNodesValidated === 'error'
+                                                        ? 'Must be a number ≥ 3'
+                                                        : 'Please enter your desired number of nodes'}
+                                                </HelperTextItem>
+                                            </HelperText>
+                                        </FormHelperText>
+                                    )}
+                                </FlexItem>
+                                <FlexItem>
+                                    <Button
+                                        key="confirm-remove-one-node"
+                                        icon={<MinusIcon />}
+                                        variant={'danger'}
+                                        onClick={onConfirmRemoveNode}
+                                        isDisabled={nodes.length <= 3}
+                                    >
+                                        {`Remove ${removeNumNodes} ${Number.parseInt(removeNumNodes) == 1 ? 'Node' : 'Nodes'}`}
+                                    </Button>
+                                </FlexItem>
+                            </Flex>
+                        </FormGroup>
+                    </FlexItem>
+                    <Divider orientation={{ default: 'vertical' }} />
+                </Flex>
             </Form>
         </Modal>
     );
