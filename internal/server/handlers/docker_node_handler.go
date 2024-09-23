@@ -123,7 +123,7 @@ func (h *DockerSwarmNodeHttpHandler) HandlePatchRequest(c *gin.Context) {
 	case "set_nodes":
 		{
 			targetNumNodes := int32(targetNumNodesVal.(float64))
-			h.logger.Debug("Issuing 'SetNumVirtualDockerNodes' request.", zap.Int32("target_num_nodes", targetNumNodes))
+			h.logger.Debug("Issuing 'SetNumClusterNodes' request.", zap.Int32("target_num_nodes", targetNumNodes))
 			_, err = h.grpcClient.SetNumClusterNodes(context.TODO(), &gateway.SetNumClusterNodesRequest{
 				RequestId:      uuid.NewString(),
 				TargetNumNodes: targetNumNodes,
@@ -133,7 +133,7 @@ func (h *DockerSwarmNodeHttpHandler) HandlePatchRequest(c *gin.Context) {
 	case "add_nodes":
 		{
 			targetNumNodes := int32(targetNumNodesVal.(float64))
-			h.logger.Debug("Issuing 'AddVirtualDockerNodes' request.", zap.Int32("target_num_nodes", targetNumNodes))
+			h.logger.Debug("Issuing 'AddClusterNodes' request.", zap.Int32("target_num_nodes", targetNumNodes))
 			_, err = h.grpcClient.AddClusterNodes(context.TODO(), &gateway.AddClusterNodesRequest{
 				RequestId: uuid.NewString(),
 				NumNodes:  targetNumNodes,
@@ -143,7 +143,7 @@ func (h *DockerSwarmNodeHttpHandler) HandlePatchRequest(c *gin.Context) {
 	case "remove_nodes":
 		{
 			targetNumNodes := int32(targetNumNodesVal.(float64))
-			h.logger.Debug("Issuing 'DecreaseNumNodes' request.", zap.Int32("target_num_nodes", targetNumNodes))
+			h.logger.Debug("Issuing 'RemoveClusterNodes' request.", zap.Int32("target_num_nodes", targetNumNodes))
 			_, err = h.grpcClient.RemoveClusterNodes(context.TODO(), &gateway.RemoveClusterNodesRequest{
 				RequestId:        uuid.NewString(),
 				NumNodesToRemove: targetNumNodes,

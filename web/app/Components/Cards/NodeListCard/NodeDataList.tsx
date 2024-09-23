@@ -3,40 +3,41 @@ import { GpuIcon } from '@app/Icons';
 import { GetToastWithHeaderAndBody } from '@app/utils/toast_utils';
 import { ClusterNode, PodOrContainer } from '@data/Cluster';
 import {
-  Button,
-  DataList,
-  DataListAction,
-  DataListCell,
-  DataListContent,
-  DataListControl,
-  DataListItem,
-  DataListItemCells,
-  DataListItemRow,
-  DataListToggle,
-  DescriptionList,
-  DescriptionListDescription,
-  DescriptionListGroup,
-  DescriptionListTerm,
-  Flex,
-  FlexItem, Icon, Label,
-  Pagination,
-  PaginationVariant,
-  Radio,
-  Skeleton,
-  Switch,
-  Text,
-  TextVariants,
-  Tooltip
+    Button,
+    DataList,
+    DataListAction,
+    DataListCell,
+    DataListContent,
+    DataListControl,
+    DataListItem,
+    DataListItemCells,
+    DataListItemRow,
+    DataListToggle,
+    DescriptionList,
+    DescriptionListDescription,
+    DescriptionListGroup,
+    DescriptionListTerm,
+    Flex,
+    FlexItem,
+    Label,
+    Pagination,
+    PaginationVariant,
+    Radio,
+    Skeleton,
+    Switch,
+    Text,
+    TextVariants,
+    Tooltip,
 } from '@patternfly/react-core';
 import {
-  CheckCircleIcon,
-  CheckIcon,
-  CpuIcon, CrossIcon,
-  CubeIcon,
-  GlobeIcon,
-  MemoryIcon,
-  OutlinedClockIcon, TimesCircleIcon, TimesIcon,
-  VirtualMachineIcon
+    CheckCircleIcon,
+    CpuIcon,
+    CubeIcon,
+    GlobeIcon,
+    MemoryIcon,
+    OutlinedClockIcon,
+    TimesCircleIcon,
+    VirtualMachineIcon,
 } from '@patternfly/react-icons';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 import { useNodes } from '@providers/NodeProvider';
@@ -122,6 +123,18 @@ export const NodeDataList: React.FunctionComponent<NodeDataListProps> = (props: 
                 {
                     title: '5 nodes',
                     value: 5,
+                },
+                {
+                    title: '10 nodes',
+                    value: 10,
+                },
+                {
+                    title: '15 nodes',
+                    value: 15,
+                },
+                {
+                    title: '20 nodes',
+                    value: 20,
                 },
             ]}
             onSetPage={onSetPage}
@@ -211,7 +224,10 @@ export const NodeDataList: React.FunctionComponent<NodeDataListProps> = (props: 
                 resp.text().then((text: string) => {
                     toast.error(
                         () => {
-                            return GetToastWithHeaderAndBody(`Failed to ${checked ? 'enable' : 'disable'} node ${clusterNode.NodeId}.`, `HTTP ${resp.status} - ${resp.statusText}: ${text}`);
+                            return GetToastWithHeaderAndBody(
+                                `Failed to ${checked ? 'enable' : 'disable'} node ${clusterNode.NodeId}.`,
+                                `HTTP ${resp.status} - ${resp.statusText}: ${text}`,
+                            );
                         },
                         { style: { maxWidth: 575 } },
                     );
@@ -271,19 +287,25 @@ export const NodeDataList: React.FunctionComponent<NodeDataListProps> = (props: 
                         Adjust vGPUs
                     </Button>
                 </FlexItem>
-                <FlexItem
-                    alignSelf={{ default: 'alignSelfCenter' }}
-                    hidden={props.isDashboardList}
-                >
-                  <Tooltip
-                    exitDelay={0.125}
-                    content={shouldSelectBeDisabledForNode(clusterNode) ? "This node is not a a viable migration target." : "This node is a viable migration target."}
-                    position={'right'}
-                  >
-                    <Label icon={shouldSelectBeDisabledForNode(clusterNode) ? <TimesCircleIcon/> : <CheckCircleIcon/> } color={shouldSelectBeDisabledForNode(clusterNode) ? "red" : "green"}>
-                      {shouldSelectBeDisabledForNode(clusterNode) ? "Non-viable" : "Viable"}
-                    </Label>
-                  </Tooltip>
+                <FlexItem alignSelf={{ default: 'alignSelfCenter' }} hidden={props.isDashboardList}>
+                    <Tooltip
+                        exitDelay={0.125}
+                        content={
+                            shouldSelectBeDisabledForNode(clusterNode)
+                                ? 'This node is not a a viable migration target.'
+                                : 'This node is a viable migration target.'
+                        }
+                        position={'right'}
+                    >
+                        <Label
+                            icon={
+                                shouldSelectBeDisabledForNode(clusterNode) ? <TimesCircleIcon /> : <CheckCircleIcon />
+                            }
+                            color={shouldSelectBeDisabledForNode(clusterNode) ? 'red' : 'green'}
+                        >
+                            {shouldSelectBeDisabledForNode(clusterNode) ? 'Non-viable' : 'Viable'}
+                        </Label>
+                    </Tooltip>
                 </FlexItem>
                 <FlexItem
                     alignSelf={{ default: 'alignSelfCenter' }}
