@@ -7,3 +7,4 @@ export * from './DarkModeProvider';
 export * from './PodNameProvider';
 export * from './NotificationProvider';
 export * from './SessionTabsDataProvider';
+export * from './ClusterAgeProvider';

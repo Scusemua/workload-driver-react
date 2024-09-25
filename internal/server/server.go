@@ -6,14 +6,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"io"
-	"log"
-	"net/http"
-	"net/url"
-	"path"
-	"sync"
-	"time"
-
 	"github.com/gin-gonic/contrib/cors"
 	"github.com/gin-gonic/contrib/static"
 	"github.com/gin-gonic/gin"
@@ -30,6 +22,13 @@ import (
 	"github.com/scusemua/workload-driver-react/m/v2/internal/server/workload"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"io"
+	"log"
+	"net/http"
+	"net/url"
+	"path"
+	"sync"
+	"time"
 
 	"github.com/gin-contrib/pprof"
 )
@@ -237,11 +236,14 @@ func (s *serverImpl) setupRoutes() error {
 		// dynamically create a Grafana Dashboard.
 		apiGroup.GET(path.Join(domain.VariablesEndpoint, ":variable_name"), handlers.NewVariablesHttpHandler(s.opts, s.gatewayRpcClient).HandleRequest)
 
-		// Used to tell a kernel to stop training.
+		// Used by the frontend to tell a kernel to stop training.
 		apiGroup.POST(domain.StopTrainingEndpoint, handlers.NewStopTrainingHandler(s.opts, s.atom).HandleRequest)
 
 		// Used by the frontend to upload/share Prometheus metrics.
 		apiGroup.PATCH(domain.MetricsEndpoint, handlers.NewMetricsHttpHandler(s.opts).HandlePatchRequest)
+
+		// Used by the frontend to retrieve the UnixMillisecond timestamp at which the Cluster was created.
+		apiGroup.GET(domain.ClusterAgeEndpoint, handlers.NewClusterAgeHttpHandler(s.opts, s.gatewayRpcClient).HandleRequest)
 	}
 
 	///////////////////////////

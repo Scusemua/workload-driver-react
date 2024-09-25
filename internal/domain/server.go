@@ -49,6 +49,9 @@ const (
 	// PanicEndpoint is used to cause the Cluster Gateway to panic. used for debugging/testing.
 	PanicEndpoint = "/panic"
 
+	// ClusterAgeEndpoint is used to retrieve the UnixMillisecond timestamp at which the Cluster was created.
+	ClusterAgeEndpoint = "/cluster-age"
+
 	// StopTrainingEndpoint is used to tell a kernel to stop training.
 	StopTrainingEndpoint = "/stop-training"
 

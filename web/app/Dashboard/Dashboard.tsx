@@ -3,7 +3,8 @@ import '@patternfly/react-core/dist/styles/base.css';
 import { KernelList, KernelSpecList, NodeList, UtilizationCard, WorkloadCard } from '@app/Components/Cards/';
 import { MigrationModal } from '@app/Components/Modals';
 import { DistributedJupyterKernel, JupyterKernelReplica } from '@app/Data';
-import { Grid, GridItem, gridSpans, PageSection } from '@patternfly/react-core';
+import { DockerLogViewCard } from '@cards/LogViewCard/DockerLogViewCard';
+import { Grid, GridItem, PageSection, gridSpans } from '@patternfly/react-core';
 
 import React, { createContext } from 'react';
 
@@ -65,10 +66,10 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
         );
         toast(
             `Migrating replica ${targetReplica.replicaId} of kernel ${targetKernel.kernelId} to node ${targetNodeId}`,
-          {
-            duration: 7500,
-            style: { maxWidth: 850 },
-          },
+            {
+                duration: 7500,
+                style: { maxWidth: 850 },
+            },
         );
 
         fetch('/api/migrate', requestOptions).then((response) => {
@@ -171,6 +172,9 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
                             displayNodeToggleSwitch={true}
                         />
                     </NodeHeightFactorContext.Provider>
+                </GridItem>
+                <GridItem span={12} rowSpan={2}>
+                    <DockerLogViewCard />
                 </GridItem>
             </Grid>
             {migrateKernel && migrateReplica && (

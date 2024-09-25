@@ -159,7 +159,7 @@ export const LogViewCard: React.FunctionComponent = () => {
                                         promise.then(() => {
                                             setPodsAreRefreshing(false);
                                         }).catch((reason: Error) => { // Explicitly catch the potential error.
-                                        toast.error((t) => {
+                                        toast.error(() => {
                                             setPodsAreRefreshing(false);
 
                                             let reasonUI = <FlexItem>{reason.message}</FlexItem>;
