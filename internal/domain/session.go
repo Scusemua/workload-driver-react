@@ -3,6 +3,9 @@ package domain
 import (
 	"errors"
 	"fmt"
+	"github.com/mattn/go-colorable"
+	"go.uber.org/zap"
+	"go.uber.org/zap/zapcore"
 	"time"
 )
 
@@ -34,6 +37,10 @@ type SessionMetadata interface {
 
 type SessionState string
 
+func (s SessionState) String() string {
+	return string(s)
+}
+
 type WorkloadSession interface {
 	GetId() string
 	GetResourceRequest() *ResourceRequest
@@ -54,6 +61,10 @@ type WorkloadSession interface {
 // BasicWorkloadSession corresponds to the `Session` struct defined in `web/app/Data/workloadImpl.tsx`.
 // Used by the frontend when submitting workloads created from templates (as opposed to presets).
 type BasicWorkloadSession struct {
+	logger        *zap.Logger
+	sugaredLogger *zap.SugaredLogger
+	atom          *zap.AtomicLevel
+
 	Id                  string           `json:"id"`
 	ResourceRequest     *ResourceRequest `json:"resource_request"`
 	TrainingsCompleted  int              `json:"trainings_completed"`
@@ -105,12 +116,11 @@ func (s *BasicWorkloadSession) GetState() SessionState {
 
 func (s *BasicWorkloadSession) SetState(targetState SessionState) error {
 	if s.State == targetState {
-		return fmt.Errorf("%w: attempting to transition targetState to targetState it is already in (\"%s\")",
-			ErrIllegalStateTransition, s.State)
+		s.logger.Warn("Attempting to transition state of Session into its current state.", zap.String("sessionId", s.Id), zap.String("state", s.State.String()))
 	}
 
 	if s.State == SessionStopped || s.State == SessionErred {
-		return fmt.Errorf("%w: cannot transition from targetState \"%s\" to targetState \"%s\"; session is no longer running",
+		return fmt.Errorf("%w: cannot transition from targetState '%s' to targetState '%s'; session is no longer running",
 			ErrIllegalStateTransition, s.State, targetState)
 	}
 
@@ -136,8 +146,8 @@ func (s *BasicWorkloadSession) GetTrainings() []*TrainingEvent {
 	return s.TrainingEvents
 }
 
-func newWorkloadSession(id string, meta SessionMetadata, resourceRequest *ResourceRequest, createdAtTime time.Time) *BasicWorkloadSession {
-	return &BasicWorkloadSession{
+func newWorkloadSession(id string, meta SessionMetadata, resourceRequest *ResourceRequest, createdAtTime time.Time, atom *zap.AtomicLevel) *BasicWorkloadSession {
+	session := &BasicWorkloadSession{
 		Id:                  id,
 		ResourceRequest:     resourceRequest,
 		TrainingsCompleted:  0,
@@ -148,10 +158,23 @@ func newWorkloadSession(id string, meta SessionMetadata, resourceRequest *Resour
 		StderrIoPubMessages: make([]string, 0),
 		StdoutIoPubMessages: make([]string, 0),
 	}
+
+	zapConfig := zap.NewDevelopmentEncoderConfig()
+	zapConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+	core := zapcore.NewCore(zapcore.NewConsoleEncoder(zapConfig), zapcore.AddSync(colorable.NewColorableStdout()), atom)
+	logger := zap.New(core, zap.Development())
+	if logger == nil {
+		panic("failed to create logger for workload driver")
+	}
+
+	session.logger = logger
+	session.sugaredLogger = logger.Sugar()
+
+	return session
 }
 
-func NewWorkloadSession(id string, meta SessionMetadata, resourceRequest *ResourceRequest, createdAtTime time.Time) *BasicWorkloadSession {
-	return newWorkloadSession(id, meta, resourceRequest, createdAtTime)
+func NewWorkloadSession(id string, meta SessionMetadata, resourceRequest *ResourceRequest, createdAtTime time.Time, atom *zap.AtomicLevel) *BasicWorkloadSession {
+	return newWorkloadSession(id, meta, resourceRequest, createdAtTime, atom)
 }
 
 type WorkloadTemplateSession struct {
@@ -162,8 +185,8 @@ type WorkloadTemplateSession struct {
 	Trainings []*TrainingEvent `json:"trainings"`
 }
 
-func NewWorkloadTemplateSession(id string, meta SessionMetadata, resourceRequest *ResourceRequest, createdAtTime time.Time, startTick int, stopTick int) WorkloadTemplateSession {
-	workloadSession := newWorkloadSession(id, meta, resourceRequest, createdAtTime)
+func NewWorkloadTemplateSession(id string, meta SessionMetadata, resourceRequest *ResourceRequest, createdAtTime time.Time, startTick int, stopTick int, atom *zap.AtomicLevel) WorkloadTemplateSession {
+	workloadSession := newWorkloadSession(id, meta, resourceRequest, createdAtTime, atom)
 
 	return WorkloadTemplateSession{
 		BasicWorkloadSession: workloadSession,

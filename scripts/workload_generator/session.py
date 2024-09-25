@@ -34,8 +34,8 @@ class Session(object):
       start_time: float = event_times[i]
       duration: float = event_durations[i]
 
-      gpu_utilizations: list[float] = gpu_util_vals[i * num_gpus:(i + 1) * num_gpus]
-      gpu_utilizations = [round(x, 2) for x in gpu_utilizations]
+      gpu_utilizations: list[float | dict[str, float]] = gpu_util_vals[i * num_gpus:(i + 1) * num_gpus]
+      gpu_utilizations = [{"utilization": round(x, 2)} for x in gpu_utilizations]
 
       return TrainingEvent(
         start_time,
@@ -90,18 +90,20 @@ class TrainingEvent(object):
     duration: float,
     millicpus: float = 100,
     mem_mb: float = 5,
-    gpu_utilizations: list[float] = [50.0]
+    gpu_utilizations=None
   ):
     """
     :param start_time: the time at which the event begins (in ticks).
     :param duration: the duration of the event (in ticks).
     """
+    if gpu_utilizations is None:
+      gpu_utilizations = [{"utilization": 50.0}]
     self.starting_tick: int = int(math.ceil(start_time))
     self.duration: int = int(math.ceil(duration))
     self.ending_tick: int = self.starting_tick + self.duration
     self.millicpus: float = millicpus
     self.mem_mb: float = mem_mb
-    self.gpu_utilizations: list[float] = gpu_utilizations
+    self.gpu_utilizations: list[dict[str, float]] = gpu_utilizations
 
   def to_dict(self) -> dict[str, Any]:
     """

@@ -442,7 +442,7 @@ export const SessionConfigurationFormTabContent: React.FunctionComponent<Session
                         control={control}
                         name={trainingCpuUsageFieldId}
                         defaultValue={TrainingCpuUsageDefault}
-                        rules={{min: 0, max: 1000, required: true}}
+                        rules={{min: 0, max: 128e3 /* 128 vCPU */, required: true}}
                         render={({field}) =>
                           <NumberInput
                             required

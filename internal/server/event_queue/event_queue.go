@@ -4,6 +4,7 @@ import (
 	"container/heap"
 	"errors"
 	"fmt"
+	"math"
 	"os"
 	"sync"
 	"time"
@@ -88,6 +89,10 @@ func (q *BasicEventQueue) GetAllSessionStartEventsForTick(tick time.Time, max in
 	defer q.eventHeapMutex.Unlock()
 
 	events := make([]domain.Event, 0)
+
+	if max < 0 {
+		max = math.MaxInt
+	}
 
 	for q.sessionReadyEvents.Len() > 0 {
 		// If the event isn't ready, we'll return straight away.

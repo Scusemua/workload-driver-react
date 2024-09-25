@@ -988,7 +988,7 @@ func (d *BasicWorkloadDriver) NewSession(id string, meta domain.SessionMetadata,
 
 	// The Session only exposes the CPUs, Memory, and
 	resourceRequest := domain.NewResourceRequest(meta.GetMaxSessionCPUs(), meta.GetMaxSessionMemory(), meta.GetMaxSessionGPUs(), AnyGPU)
-	session = domain.NewWorkloadSession(id, meta, resourceRequest, createdAtTime)
+	session = domain.NewWorkloadSession(id, meta, resourceRequest, createdAtTime, d.atom)
 
 	internalSessionId := d.getInternalSessionId(session.GetId())
 

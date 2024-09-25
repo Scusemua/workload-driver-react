@@ -134,7 +134,8 @@ func (h *WebsocketHandler) dispatchRequest(message []byte, ws domain.ConcurrentW
 		return "", nil, err
 	}
 
-	h.sugaredLogger.Debugf("Received workload-related WebSocket message: %v", request)
+	formatted, _ := json.MarshalIndent(request, "", "  ")
+	h.sugaredLogger.Debugf("Received workload-related WebSocket message: %v", string(formatted))
 
 	var (
 		opVal    interface{}
@@ -170,14 +171,14 @@ func (h *WebsocketHandler) dispatchRequest(message []byte, ws domain.ConcurrentW
 // Arguments:
 // - err (error): The error for which we're generating an error payload.
 // - description(string): Optional text that may provide additional context or information concerning what went wrong. This is to be written by us.
-func (h *WebsocketHandler) generateErrorPayload(err error, desciption string) *domain.ErrorMessage {
+func (h *WebsocketHandler) generateErrorPayload(err error, description string) *domain.ErrorMessage {
 	if err == nil {
 		panic("The provided error should not be nil when generating an error payload.")
 	}
 
 	return &domain.ErrorMessage{
 		ErrorMessage: err.Error(),
-		Description:  desciption,
+		Description:  description,
 		Valid:        true,
 	}
 }

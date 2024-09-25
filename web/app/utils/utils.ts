@@ -21,7 +21,6 @@ export function FormatSecondsLong(sec_num: number): string {
 }
 
 export function FormatSecondsShort(sec_num: number): string {
-  console.log(`sec_num: ${sec_num}`)
   let hours: string | number = Math.floor(sec_num / 3600);
   let minutes: string | number = Math.floor((sec_num - hours * 3600) / 60);
   let seconds: string | number = Math.floor(sec_num - hours * 3600 - minutes * 60);
