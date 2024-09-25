@@ -1,17 +1,15 @@
-import * as React from 'react';
-import { Alert, AlertActionCloseButton, AlertGroup, Page, SkipToContent } from '@patternfly/react-core';
-
-import { AppHeader } from './AppHeader';
 import { DashboardNotificationDrawer } from '@app/Components';
 import { Dashboard } from '@app/Dashboard/Dashboard';
-import { NotificationContext } from '@app/Providers';
 
 import { Notification, WebSocketMessage } from '@app/Data/';
+import { NotificationContext, useNodes } from '@app/Providers';
+import { AlertGroup, Page, SkipToContent } from '@patternfly/react-core';
+import * as React from 'react';
 
 import useWebSocket from 'react-use-websocket';
 import { v4 as uuidv4 } from 'uuid';
 
-import { Toaster } from 'react-hot-toast';
+import { AppHeader } from './AppHeader';
 
 const AppLayout: React.FunctionComponent = () => {
     const pageId = 'primary-app-container';
@@ -23,6 +21,7 @@ const AppLayout: React.FunctionComponent = () => {
     const [overflowMessage, setOverflowMessage] = React.useState<string>('');
     const { alerts, setAlerts, expanded, notifications, addNewNotification, toggleExpansion } =
         React.useContext(NotificationContext);
+    const { refreshNodes } = useNodes();
 
     // React.useEffect(() => {
     //     console.log(`Number of alerts: ${alerts.length}. Number of notifications: ${notifications.length}.`);
@@ -71,6 +70,15 @@ const AppLayout: React.FunctionComponent = () => {
                 );
 
                 addNewNotification(notification);
+
+                // If we received a notification that a Local Daemon has either connected to the Cluster or the Cluster
+                // has lost connection to a Local Daemon, then we should automatically refresh the nodes so that the UI updates accordingly.
+                if (
+                    notification.title == 'Local Daemon Connected' ||
+                    notification.title == 'Local Daemon Connectivity Error'
+                ) {
+                    refreshNodes();
+                }
             } else {
                 console.warn(`Received JSON message of unknown type: ${JSON.stringify(message)}`);
             }
