@@ -335,6 +335,25 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
         return undefined;
     };
 
+    /**
+     * Return the kernel ID associated with the given execution, shortened to First_8_Chars_of_Kernel_ID...
+     * @param execId the ID of the desired execution
+     */
+    const getShortenedKernelId = (execId: string) => {
+        const entry = execIdToKernelReplicaMap.get(execId);
+        if (entry) {
+            if (entry[0].length > 8) {
+                return entry[0].substring(0, 8) + '...';
+            }
+            return entry[0];
+        }
+        return undefined;
+    };
+
+    /**
+     * Get the replica ID associated with the given execution, if there is a replica ID associated with it.
+     * @param execId the ID of the desired execution
+     */
     const getReplicaId = (execId: string) => {
         const val = execIdToKernelReplicaMap.get(execId);
         if (val) {
@@ -343,7 +362,10 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
         return undefined;
     };
 
-    const getOutput = () => {
+    /**
+     * Get the output of the active execution
+     */
+    const getOutputForActiveExecutionTab = () => {
         const output = outputMap.get(activeExecutionOutputTab);
         if (output) {
             return output;
@@ -351,6 +373,11 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
         return [];
     };
 
+    // Note: we're just simulating the tabs here. The tabs don't have any content.
+    // We just use the tabs as the UI for selecting which output to view.
+    // The tab content is included below the tabs.
+    // When I included it explicitly as the tab content, the tab content wouldn't update properly
+    // when changing tabs. You'd have to click the "wrap text" button to get it to work.
     const executionOutputArea = (
         <Card isCompact isFlat>
             <CardBody>
@@ -374,14 +401,18 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                                 key={`execution-output-tab-${execId}`}
                                 eventKey={execId}
                                 aria-label={`${execId} Tab`}
-                                title={<TabTitleText>{execId}</TabTitleText>}
+                                title={
+                                    <TabTitleText>
+                                        Kernel {getShortenedKernelId(execId)}, Exec {execId.substring(0,8)}...
+                                    </TabTitleText>
+                                }
                                 closeButtonAriaLabel={`Close ${execId} Tab`}
                             />
                         );
                     })}
                 </Tabs>
                 <ExecutionOutputTabContent
-                    output={getOutput()}
+                    output={getOutputForActiveExecutionTab()}
                     executionId={activeExecutionOutputTab}
                     kernelId={getKernelId(activeExecutionOutputTab)}
                     replicaId={getReplicaId(activeExecutionOutputTab)}
