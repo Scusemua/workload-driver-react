@@ -15,7 +15,7 @@ import { DistributedJupyterKernel, JupyterKernelReplica, ResourceSpec } from '@d
 
 import { KernelManager, ServerConnection, SessionManager } from '@jupyterlab/services';
 import { IKernelConnection } from '@jupyterlab/services/lib/kernel/kernel';
-import { IModel as ISessionModel, ISessionConnection } from '@jupyterlab/services/lib/session/session';
+import { ISessionConnection, IModel as ISessionModel } from '@jupyterlab/services/lib/session/session';
 import {
     Button,
     Card,
@@ -81,6 +81,7 @@ import {
     VirtualMachineIcon,
 } from '@patternfly/react-icons';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
+import { ExecutionOutputTabsDataProvider } from '@providers/ExecutionOutputTabsDataProvider';
 import { useKernels } from '@providers/KernelProvider';
 import React, { useEffect, useReducer, useRef } from 'react';
 
@@ -1530,12 +1531,14 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                     title={'Terminate Kernel'}
                     message={"Are you sure you'd like to delete the specified kernel?"}
                 />
-                <ExecuteCodeOnKernelModal
-                    kernel={executeCodeKernel}
-                    replicaId={executeCodeKernelReplica?.replicaId}
-                    isOpen={isExecuteCodeModalOpen}
-                    onClose={onCancelExecuteCodeClicked}
-                />
+                <ExecutionOutputTabsDataProvider>
+                    <ExecuteCodeOnKernelModal
+                        kernel={executeCodeKernel}
+                        replicaId={executeCodeKernelReplica?.replicaId}
+                        isOpen={isExecuteCodeModalOpen}
+                        onClose={onCancelExecuteCodeClicked}
+                    />
+                </ExecutionOutputTabsDataProvider>
                 <InformationModal
                     isOpen={isErrorModalOpen}
                     onClose={() => {

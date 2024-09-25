@@ -1,13 +1,15 @@
-import { CodeEditorComponent } from '@app/Components/CodeEditor';
 import { DistributedJupyterKernel, JupyterKernelReplica } from '@app/Data';
-import { DarkModeContext } from '@app/Providers/DarkModeProvider';
 import { GetHeaderAndBodyForToast } from '@app/utils/toast_utils';
+import { CodeEditorComponent } from '@components/CodeEditor';
+import { ExecutionOutputTabContent } from '@components/Modals/ExecuteCodeOnKernelModal/ExecutionOutputTabContent';
 import { RoundToThreeDecimalPlaces } from '@components/Modals/NewWorkloadFromTemplateModal';
 import { KernelManager, ServerConnection } from '@jupyterlab/services';
 import { IKernelConnection } from '@jupyterlab/services/lib/kernel/kernel';
 import { Language } from '@patternfly/react-code-editor';
 import {
     Button,
+    Card,
+    CardBody,
     Checkbox,
     Flex,
     FlexItem,
@@ -16,20 +18,18 @@ import {
     Grid,
     GridItem,
     Modal,
+    Tab,
+    Tabs,
+    TabTitleText,
     Text,
     TextVariants,
     Title,
-    Toolbar,
-    ToolbarContent,
-    ToolbarGroup,
-    ToolbarItem,
-    ToolbarToggleGroup,
     Tooltip,
 } from '@patternfly/react-core';
-import { CheckCircleIcon, DownloadIcon, EllipsisVIcon } from '@patternfly/react-icons';
-import { LogViewer, LogViewerSearch } from '@patternfly/react-log-viewer';
+import { CheckCircleIcon } from '@patternfly/react-icons';
 import React from 'react';
 import toast from 'react-hot-toast';
+import { v4 as uuidv4 } from 'uuid';
 
 export interface ExecuteCodeOnKernelProps {
     children?: React.ReactNode;
@@ -54,44 +54,86 @@ export const CodeContext = React.createContext({
 export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKernelProps> = (props) => {
     const [code, setCode] = React.useState('');
     const [executionState, setExecutionState] = React.useState('idle');
-    // const [, setCopied] = React.useState(false);
+
     const [targetReplicaId, setTargetReplicaId] = React.useState(-1);
     const [forceFailure, setForceFailure] = React.useState(false);
-    const [isOutputTextWrapped, setIsOutputTextWrapped] = React.useState(false);
-    const [isOutputFullScreen] = React.useState(false);
+    const [activeExecutionOutputTab, setActiveExecutionOutputTab] = React.useState<string>('');
 
-    const logViewerRef = React.useRef<React.Ref<any>>();
+    const [outputMap, setOutputMap] = React.useState<Map<string, string[]>>(new Map());
+    const [execIdToKernelReplicaMap, setExecIdToKernelReplicaMap] = React.useState<
+        Map<string, [string, number | undefined]>
+    >(new Map());
+    const [closedExecutionMap, setClosedExecutionMap] = React.useState<Map<string, boolean>>(new Map());
 
-    const { darkMode } = React.useContext(DarkModeContext);
+    const executionOutputTabComponentRef = React.useRef();
 
-    const [output, setOutput] = React.useState<string[]>([]);
+    const onExecutionOutputTabSelect = (executionId: string) => {
+        setActiveExecutionOutputTab(executionId);
+    };
+
+    const onCloseExecutionOutputTab = (_: React.MouseEvent<HTMLElement, MouseEvent>, executionId: string | number) => {
+        setOutputMap((prevOutputMap) => {
+            const nextOutput = new Map(prevOutputMap);
+            nextOutput.delete(executionId as string);
+            return nextOutput;
+        });
+        setClosedExecutionMap((prevClosedExecutionMap) =>
+            new Map(prevClosedExecutionMap).set(executionId as string, true),
+        );
+
+        // If we're closing the active tab, attempt to select another tab as the active tab.
+        if (activeExecutionOutputTab == executionId) {
+            for (const [key] of Array.from(outputMap)) {
+                if (key != executionId) {
+                    console.log(`Setting active tab to ${key}`);
+                    setActiveExecutionOutputTab(key);
+                    break;
+                }
+            }
+        }
+    };
+
+    React.useEffect(() => {
+        // Basically, if we don't have an active tab selected, or if the tab we had selected was closed,
+        // and we just added a new tab, then set the active tab to the newly-added tab.
+        if (outputMap.size >= 1 && (activeExecutionOutputTab === '' || !outputMap.has(activeExecutionOutputTab))) {
+            console.log(`Setting active tab to ${outputMap.keys()[0]}`);
+            setActiveExecutionOutputTab(outputMap.keys()[0]);
+        }
+    }, [outputMap]);
 
     React.useEffect(() => {
         setTargetReplicaId(props.replicaId || -1);
     }, [props.replicaId]);
 
-    // const clipboardCopyFunc = (_event: React.MouseEvent<Element, MouseEvent>, text: { toString: () => string }) => {
-    //     navigator.clipboard.writeText(text.toString()).then(() => {});
-    // };
-
-    // const onClickCopyToClipboard = (event: React.MouseEvent<Element, MouseEvent>, text: string) => {
-    //     clipboardCopyFunc(event, text);
-    //     setCopied(true);
-    // };
-
-    const logConsumer = (msg: string) => {
-        console.log(`Appending message to output log for kerenl execution: ${msg}`);
+    const logConsumer = (msg: string, execution_id: string) => {
+        console.log(`Appending message to output log for kernel execution: ${msg}`);
         const messages: string[] = msg.trim().split(/\n/);
         console.log(`Appending ${messages.length} message(s) to output log for kerenl execution: ${messages}`);
-        setOutput((output) => [...output, ...messages]);
-    };
 
-    React.useEffect(() => {
-        console.log(`There are now ${output.length} entries in the output log.`);
-    }, [output]);
+        setOutputMap((prevOutputMap) => {
+            let prevOutput: string[] | undefined = prevOutputMap.get(execution_id);
+
+            // If the user explicitly closed the tab, then we'll just return.
+            // If the tab was never explicitly closed, then we're receiving update
+            // from the associated execution for the very first time, and so
+            // we'll need to add/create an entry in the output map.
+            if (prevOutput === undefined) {
+                if (!closedExecutionMap.has(execution_id)) {
+                    prevOutput = [];
+                } else {
+                    return new Map(prevOutputMap);
+                }
+            }
+
+            const nextOutput = [...prevOutput, ...messages];
+            return new Map(prevOutputMap.set(execution_id, nextOutput));
+        });
+    };
 
     const onSubmit = (action: 'submit' | 'enqueue') => {
         async function runUserCode() {
+            const executionId: string = uuidv4();
             const kernelId: string | undefined = props.kernel?.kernelId;
 
             if (kernelId == undefined) {
@@ -178,19 +220,27 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                             ': Execution state changed to ' +
                             JSON.stringify(msg.content['execution_state']) +
                             '\n',
+                        executionId,
                     );
                 } else if (messageType == 'stream') {
                     if (msg['content']['name'] == 'stderr') {
-                        logConsumer(msg['header']['date'] + ' <ERROR>: ' + msg.content['text'] + '\n');
+                        logConsumer(msg['header']['date'] + ' <ERROR>: ' + msg.content['text'] + '\n', executionId);
                     } else if (msg['content']['name'] == 'stdout') {
-                        logConsumer(msg['header']['date'] + ': ' + msg.content['text'] + '\n');
+                        logConsumer(msg['header']['date'] + ': ' + msg.content['text'] + '\n', executionId);
                     } else {
-                        logConsumer(msg['header']['date'] + ': ' + msg.content['text'] + '\n');
+                        logConsumer(msg['header']['date'] + ': ' + msg.content['text'] + '\n', executionId);
                     }
                 } else {
-                    logConsumer(msg['header']['date'] + ': ' + JSON.stringify(msg.content) + '\n');
+                    logConsumer(msg['header']['date'] + ': ' + JSON.stringify(msg.content) + '\n', executionId);
                 }
             };
+
+            if (activeExecutionOutputTab === '' || !outputMap.has(activeExecutionOutputTab)) {
+                console.log(`Setting active tab to ${executionId}`);
+                setActiveExecutionOutputTab(executionId);
+            }
+
+            setExecIdToKernelReplicaMap((prevMap) => new Map(prevMap).set(executionId, [kernelId, props.replicaId]));
 
             future.onReply = (msg) => {
                 console.log(`Received reply for execution request: ${JSON.stringify(msg)}`);
@@ -204,18 +254,27 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                         const latencySecRounded: number = RoundToThreeDecimalPlaces(latencyMilliseconds / 1000.0);
                         console.log(`Execution on Kernel ${kernelId} finished after ${latencySecRounded} seconds.`);
 
-                        return GetHeaderAndBodyForToast(`Execution Complete ${Math.random() > 0.5 ? "🔥" : "😍"}`, `Kernel ${kernelId} has finished executing your code after ${latencySecRounded} seconds.`);
+                        return GetHeaderAndBodyForToast(
+                            `Execution Complete ${Math.random() > 0.5 ? '🔥' : '😍'}`,
+                            `Kernel ${kernelId} has finished executing your code after ${latencySecRounded} seconds.`,
+                        );
                     },
-                    loading: GetHeaderAndBodyForToast(action == 'submit' ? 'Code Submitted 👀' : 'Code Enqueued 👀', action == 'submit'
-                      ? `Submitted code for execution to kernel ${kernelId}.`
-                      : `Enqueued code for execution with kernel ${kernelId}.`),
+                    loading: GetHeaderAndBodyForToast(
+                        action == 'submit' ? 'Code Submitted 👀' : 'Code Enqueued 👀',
+                        action == 'submit'
+                            ? `Submitted code for execution to kernel ${kernelId}.`
+                            : `Enqueued code for execution with kernel ${kernelId}.`,
+                    ),
                     error: (error) => {
                         const latencyMilliseconds: number = performance.now() - startTime;
                         const latencySecRounded: number = RoundToThreeDecimalPlaces(latencyMilliseconds / 1000.0);
                         console.error(
                             `Execution on Kernel ${kernelId} failed to complete after ${latencySecRounded} seconds. Error: ${error}.`,
                         );
-                        return GetHeaderAndBodyForToast("️ Execution Failed ⚠️️️", `Execution on Kernel ${kernelId} failed to complete after ${latencySecRounded} seconds. Error: ${error}.`);
+                        return GetHeaderAndBodyForToast(
+                            '️ Execution Failed ⚠️️️',
+                            `Execution on Kernel ${kernelId} failed to complete after ${latencySecRounded} seconds. Error: ${error}.`,
+                        );
                     },
                 },
                 {
@@ -250,28 +309,8 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
     const onClose = () => {
         console.log('Closing execute code modal.');
         setExecutionState('idle');
-        setOutput([]);
         props.onClose();
     };
-
-    // const outputLogActions = (
-    //     <React.Fragment>
-    //         <CodeBlockAction>
-    //             <ClipboardCopyButton
-    //                 id="basic-copy-button"
-    //                 textId="code-content"
-    //                 aria-label="Copy to clipboard"
-    //                 onClick={(e) => onClickCopyToClipboard(e, code)}
-    //                 exitDelay={copied ? 1500 : 600}
-    //                 maxWidth="110px"
-    //                 variant="plain"
-    //                 onTooltipHidden={() => setCopied(false)}
-    //             >
-    //                 {copied ? 'Successfully copied to clipboard!' : 'Copy to clipboard'}
-    //             </ClipboardCopyButton>
-    //         </CodeBlockAction>
-    //     </React.Fragment>
-    // );
 
     // Returns the title to use for the Modal depending on whether a specific replica was specified as the target or not.
     const getModalTitle = () => {
@@ -288,93 +327,67 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
         console.log(`Targeting replica ${replicaId}`);
     };
 
-    const FooterButton = () => {
-        const handleClick = () => {
-            // eslint-disable-next-line @typescript-eslint/ban-ts-comment
-            // @ts-expect-error
-            logViewerRef.current?.scrollToBottom();
-        };
-        return <Button onClick={handleClick}>Jump to the bottom</Button>;
+    const getKernelId = (execId: string) => {
+        const val = execIdToKernelReplicaMap.get(execId);
+        if (val) {
+            return val[0];
+        }
+        return undefined;
     };
 
-    // Buggy.
-    // const onExpandLogsClick = (_event) => {
-    //     const element = document.querySelector('#kernel-execution-output');
-
-    //     if (!isOutputFullScreen) {
-    //         if (element?.requestFullscreen) {
-    //             element.requestFullscreen();
-    //         } else if (element?.mozRequestFullScreen) {
-    //             element?.mozRequestFullScreen();
-    //         } else if (element?.webkitRequestFullScreen) {
-    //             element?.webkitRequestFullScreen(Element.ALLOW_KEYBOARD_INPUT);
-    //         }
-    //         setIsOutputFullScreen(true);
-    //     } else {
-    //         if (document.exitFullscreen) {
-    //             document.exitFullscreen();
-    //         } else if (document?.webkitExitFullscreen) {
-    //             /* Safari */
-    //             document.webkitExitFullscreen();
-    //         } else if (document?.msExitFullscreen) {
-    //             /* IE11 */
-    //             document?.msExitFullscreen();
-    //         }
-    //         setIsOutputFullScreen(false);
-    //     }
-    // };
-
-    const onDownloadLogsClick = () => {
-        const element = document.createElement('a');
-        const dataToDownload: string[] = [output.join('\r\n')];
-        const file = new Blob(dataToDownload, { type: 'text/plain' });
-        element.href = URL.createObjectURL(file);
-        element.download = `kernel-${props.kernel?.kernelId}-${props.replicaId}-execution-output.txt`;
-        document.body.appendChild(element);
-        element.click();
-        document.body.removeChild(element);
+    const getReplicaId = (execId: string) => {
+        const val = execIdToKernelReplicaMap.get(execId);
+        if (val) {
+            return val[1];
+        }
+        return undefined;
     };
 
-    const leftAlignedOutputToolbarGroup = (
-        <React.Fragment>
-            <ToolbarToggleGroup toggleIcon={<EllipsisVIcon />} breakpoint="md">
-                <ToolbarGroup>
-                    <ToolbarItem>
-                        <LogViewerSearch placeholder="Search" minSearchChars={0} />
-                    </ToolbarItem>
-                    <ToolbarItem alignSelf="center">
-                        <Checkbox
-                            label="Wrap text"
-                            aria-label="wrap text checkbox"
-                            isChecked={isOutputTextWrapped}
-                            id="wrap-text-checkbox"
-                            onChange={(_event, value) => setIsOutputTextWrapped(value)}
-                        />
-                    </ToolbarItem>
-                </ToolbarGroup>
-            </ToolbarToggleGroup>
-        </React.Fragment>
-    );
+    const getOutput = () => {
+        const output = outputMap.get(activeExecutionOutputTab);
+        if (output) {
+            return output;
+        }
+        return [];
+    };
 
-    const rightAlignedOutputToolbarGroup = (
-        <React.Fragment>
-            <ToolbarGroup variant="icon-button-group">
-                <ToolbarItem>
-                    <Tooltip position="top" content={<div>Download</div>}>
-                        <Button onClick={onDownloadLogsClick} variant="plain" aria-label="Download current logs">
-                            <DownloadIcon />
-                        </Button>
-                    </Tooltip>
-                </ToolbarItem>
-                {/* <ToolbarItem>
-                    <Tooltip position="top" content={<div>Expand</div>}>
-                        <Button onClick={onExpandLogsClick} variant="plain" aria-label="View log viewer in full screen">
-                            <ExpandIcon />
-                        </Button>
-                    </Tooltip>
-                </ToolbarItem> */}
-            </ToolbarGroup>
-        </React.Fragment>
+    const executionOutputArea = (
+        <Card isCompact isFlat>
+            <CardBody>
+                <Tabs
+                    hidden={outputMap.size == 0}
+                    activeKey={activeExecutionOutputTab}
+                    onSelect={(_: React.MouseEvent<HTMLElement, MouseEvent>, eventKey: number | string) => {
+                        onExecutionOutputTabSelect(eventKey as string);
+                    }}
+                    onClose={onCloseExecutionOutputTab}
+                    role="region"
+                    // eslint-disable-next-line @typescript-eslint/ban-ts-comment
+                    // @ts-expect-error
+                    ref={executionOutputTabComponentRef}
+                    aria-label="ExecutionOutput Configuration Tabs"
+                >
+                    {Array.from(outputMap).map(([execId]) => {
+                        return (
+                            <Tab
+                                id={`execution-output-tab-${execId}`}
+                                key={`execution-output-tab-${execId}`}
+                                eventKey={execId}
+                                aria-label={`${execId} Tab`}
+                                title={<TabTitleText>{execId}</TabTitleText>}
+                                closeButtonAriaLabel={`Close ${execId} Tab`}
+                            />
+                        );
+                    })}
+                </Tabs>
+                <ExecutionOutputTabContent
+                    output={getOutput()}
+                    executionId={activeExecutionOutputTab}
+                    kernelId={getKernelId(activeExecutionOutputTab)}
+                    replicaId={getReplicaId(activeExecutionOutputTab)}
+                />
+            </CardBody>
+        </Card>
     );
 
     return (
@@ -399,7 +412,6 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                         } else {
                             console.log('Closing execute code modal.');
                             setExecutionState('idle');
-                            setOutput([]);
                         }
                     }}
                     isDisabled={code.trim().length == 0}
@@ -493,30 +505,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                 <FlexItem>
                     <Title headingLevel="h2">Output</Title>
                 </FlexItem>
-                <FlexItem>
-                    <LogViewer
-                        // id={'kernel-execution-output'}
-                        ref={logViewerRef}
-                        hasLineNumbers={true}
-                        data={output}
-                        theme={darkMode ? 'dark' : 'light'}
-                        height={isOutputFullScreen ? '100%' : 300}
-                        footer={<FooterButton />}
-                        isTextWrapped={isOutputTextWrapped}
-                        toolbar={
-                            <Toolbar>
-                                <ToolbarContent>
-                                    <ToolbarGroup align={{ default: 'alignLeft' }}>
-                                        {leftAlignedOutputToolbarGroup}
-                                    </ToolbarGroup>
-                                    <ToolbarGroup align={{ default: 'alignRight' }}>
-                                        {rightAlignedOutputToolbarGroup}
-                                    </ToolbarGroup>
-                                </ToolbarContent>
-                            </Toolbar>
-                        }
-                    />
-                </FlexItem>
+                {executionOutputArea}
             </Flex>
         </Modal>
     );
