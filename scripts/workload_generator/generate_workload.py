@@ -53,24 +53,30 @@ def get_args():
 def plot_resource_histograms(cpu, mem, gpu, output_dir: str, show_visualization: bool):
   num_sessions: int = len(cpu)
 
-  fig, axs = plt.subplots(1, 3, figsize=(15, 6))
+  fig, axs = plt.subplots(1, 3, figsize=(15, 5))
   fig.suptitle(f'Workload Resource Distribution (NumSessions = {num_sessions})\n', fontsize=16)
 
-  axs[0].hist(cpu, bins=20, color='red', alpha=0.75)
+  cpu_bins = np.histogram_bin_edges(cpu, bins = "fd", range=(0,np.max(cpu)))
+  print("cpu_bins:", cpu_bins)
+  axs[0].hist(cpu, bins=cpu_bins, color='red', alpha=0.75)
   axs[0].set_xlabel("Millicpus (1/1000th core)")
   axs[0].set_ylabel("Frequency")
   axs[0].set_title(
     f'Histogram of Max Millicpus\nMEAN: {np.mean(cpu):.2f} | STD: {np.std(cpu):.2f}\n')
   axs[0].grid(True, alpha=0.5)
 
-  axs[1].hist(mem, bins=20, color='red', alpha=0.75)
+  memory_bins = np.histogram_bin_edges(mem, bins = "fd", range=(0,np.max(mem)))
+  print("memory_bins:", memory_bins)
+  axs[1].hist(mem, bins=memory_bins, color='red', alpha=0.75)
   axs[1].set_xlabel("Memory (MB)")
   axs[1].set_ylabel("Frequency")
   axs[1].set_title(
     f'Histogram of Max Memory Usage (MB)\nMEAN: {np.mean(mem):.2f} | STD: {np.std(mem):.2f}\n')
   axs[1].grid(True, alpha=0.5)
 
-  axs[2].hist(gpu, bins=20, color='red', alpha=0.75)
+  gpu_bins: list = [0,1,2,3,4,5,6,7,8,9]
+  axs[2].hist(gpu, bins=gpu_bins, color='red', alpha=0.75)
+  axs[2].set_xticks(gpu_bins)
   axs[2].set_xlabel("GPUs")
   axs[2].set_ylabel("Frequency")
   axs[2].set_title(

@@ -37,7 +37,7 @@ def generate_poisson_events(rate: float, time_duration: float, shape: float, sca
     print("Try adjusting your input parameters (such as the rate or duration).")
     exit(1)
 
-  init_event_times: np.ndarray = np.sort(np.random.uniform(0, time_duration, num_events))
+  init_event_times: np.ndarray = np.sort(np.random.uniform(1, time_duration, num_events))
   inter_arrival_times: np.ndarray = np.diff(init_event_times)
   event_durations: np.ndarray = np.random.gamma(shape, scale=scale, size=num_events)
 
