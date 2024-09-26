@@ -57,8 +57,14 @@ export interface InspectWorkloadModalProps {
 export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalProps> = (props) => {
     const [currentTick, setCurrentTick] = React.useState<number>(0);
 
+    const tickStartTime = React.useRef<number>(0);
+    const tickDurations = React.useRef<number[]>([]);
+
     React.useEffect(() => {
         if (props.workload && props.workload?.current_tick > currentTick) {
+            const tickDuration: number = performance.now() - tickStartTime.current;
+            tickDurations.current.push(tickDuration)
+          tickStartTime.current = performance.now();
             setCurrentTick(props.workload?.current_tick);
             toast.custom(
                 GetHeaderAndBodyForToast(

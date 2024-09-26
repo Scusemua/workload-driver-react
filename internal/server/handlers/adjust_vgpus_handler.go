@@ -57,7 +57,7 @@ func (h *AdjustVirtualGpusHandler) HandlePatchRequest(c *gin.Context) {
 
 	resp, err := h.grpcClient.SetTotalVirtualGPUs(context.TODO(), setVirtualGPUsRequest)
 	if err != nil {
-		h.logger.Error("An error occurred while changing virtual GPUs on node.",
+		domain.LogErrorWithoutStacktrace(h.logger, "An error occurred while changing virtual GPUs on node.",
 			zap.String("target-node", setVirtualGPUsRequest.KubernetesNodeName),
 			zap.Int32("vGPUs", setVirtualGPUsRequest.Value),
 			zap.Error(err))

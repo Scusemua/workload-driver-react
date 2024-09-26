@@ -715,11 +715,6 @@ func (d *BasicWorkloadDriver) ProcessWorkload(wg *sync.WaitGroup) error {
 				}
 
 				numTicksServed += 1
-				if numTicksServed > 64 {
-					// For now, workloads shouldn't go this long.
-					// We can remove this once we're testing longer workloads.
-					panic("Something is wrong. We've served 64 ticks.")
-				}
 			}
 		case err := <-d.errorChan:
 			{
@@ -815,6 +810,7 @@ func (d *BasicWorkloadDriver) workloadComplete(wg *sync.WaitGroup) {
 //
 // This only returns critical errors.
 func (d *BasicWorkloadDriver) handleTick(tick time.Time) error {
+	tickStart := time.Now()
 	_, _, err := d.currentTick.IncreaseClockTimeTo(tick)
 	if err != nil {
 		return err
@@ -839,19 +835,26 @@ func (d *BasicWorkloadDriver) handleTick(tick time.Time) error {
 	// Process "start/stop training" events.
 	d.processEventsForTick(tick)
 
-	d.doneServingTick()
+	d.doneServingTick(tickStart)
 
 	return nil
 }
 
 // Called from BasicWorkloadDriver::ProcessWorkload at the end of serving a tick to signal to the Ticker/Trigger interface that the listener (i.e., the Cluster) is done.
-func (d *BasicWorkloadDriver) doneServingTick() {
+func (d *BasicWorkloadDriver) doneServingTick(tickStart time.Time) {
+	tickDuration := time.Since(tickStart)
+	tick := d.ticksHandled.Load()
 	numEventsEnqueued := d.eventQueue.Len()
+	d.workload.TickCompleted(tick, d.clockTime.GetClockTime())
+
 	if d.sugaredLogger.Level() == zapcore.DebugLevel {
-		d.sugaredLogger.Debugf(">> [%v] Done serving tick. There is/are %d more session event(s) enqueued right now.", d.clockTime.GetClockTime(), numEventsEnqueued)
+		d.sugaredLogger.Debugf("[%v] Done serving tick #%d. "+
+			"Real-world tick duration: %v. "+
+			"Total time elapsed for workload %s: %v. "+
+			"There is/are %d more session event(s) enqueued right now.",
+			d.clockTime.GetClockTime(), tick, tickDuration, d.workload.GetId(), d.workload.GetTimeElasped(), numEventsEnqueued)
 	}
 
-	d.workload.TickCompleted(d.ticksHandled.Load(), d.clockTime.GetClockTime())
 	d.ticker.Done()
 }
 

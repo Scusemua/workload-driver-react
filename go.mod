@@ -36,6 +36,7 @@ require (
 	github.com/hashicorp/yamux v0.1.1
 	github.com/icza/gox v0.0.0-20240829094117-5982a7a6cca1
 	github.com/muesli/termenv v0.15.2
+	github.com/petermattis/goid v0.0.0-20240813172612-4fcff4a6cae7
 	github.com/prometheus/client_golang v1.20.3
 )
 

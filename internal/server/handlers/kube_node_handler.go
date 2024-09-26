@@ -272,7 +272,7 @@ func (h *KubeNodeHttpHandler) HandleRequest(c *gin.Context) {
 	st2 := time.Now()
 	actualGpuInformation, err := h.grpcClient.GetClusterActualGpuInfo(context.TODO(), &gateway.Void{})
 	if err != nil {
-		h.logger.Error("Failed to retrieve 'actual' GPU usage from Cluster Gateway.", zap.Error(err))
+		domain.LogErrorWithoutStacktrace(h.logger, "Failed to retrieve 'actual' GPU usage from Cluster Gateway.", zap.Error(err))
 		_ = c.Error(fmt.Errorf("failed to retrieve 'actual' GPU usage from Cluster Gateway: %v", err.Error()))
 		h.grpcClient.HandleConnectionError()
 	}

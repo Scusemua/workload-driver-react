@@ -195,7 +195,7 @@ func (h *KernelHttpHandler) getKernelsFromClusterGateway() ([]*gateway.Distribut
 
 	resp, err := h.grpcClient.ListKernels(context.TODO(), &gateway.Void{})
 	if err != nil {
-		h.logger.Error("Failed to fetch list of active kernels from the Cluster Gateway.", zap.Error(err))
+		domain.LogErrorWithoutStacktrace(h.logger, "Failed to fetch list of active kernels from the Cluster Gateway.", zap.Error(err))
 		h.grpcClient.HandleConnectionError()
 		return nil, err
 	} else if resp.Kernels == nil {

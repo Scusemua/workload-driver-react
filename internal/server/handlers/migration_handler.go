@@ -50,7 +50,7 @@ func (h *MigrationHttpHandler) HandleRequest(c *gin.Context) {
 
 	resp, err := h.grpcClient.MigrateKernelReplica(context.TODO(), migrationRequest)
 	if err != nil {
-		h.logger.Error("An error occurred while triggering or performing the kernel replica migration.", zap.String("kernelID", migrationRequest.TargetReplica.KernelId), zap.Int32("replicaID", migrationRequest.TargetReplica.ReplicaId), zap.String("target-node", migrationRequest.GetTargetNodeId()), zap.Error(err))
+		domain.LogErrorWithoutStacktrace(h.logger, "An error occurred while triggering or performing the kernel replica migration.", zap.String("kernelID", migrationRequest.TargetReplica.KernelId), zap.Int32("replicaID", migrationRequest.TargetReplica.ReplicaId), zap.String("target-node", migrationRequest.GetTargetNodeId()), zap.Error(err))
 		h.grpcClient.HandleConnectionError()
 
 		_ = c.AbortWithError(http.StatusInternalServerError, err)
