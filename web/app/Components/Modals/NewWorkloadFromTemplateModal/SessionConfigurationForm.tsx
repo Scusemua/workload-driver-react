@@ -29,7 +29,7 @@ export const SessionConfigurationForm: React.FunctionComponent<SessionConfigurat
   const firstSessionTabMount = React.useRef<boolean>(true);
 
   React.useEffect(() => {
-    console.log(errors);
+    console.log(`Workload template validation errors: ${JSON.stringify(errors)}`);
   }, [errors]);
 
   const onSessionTabSelect = (
