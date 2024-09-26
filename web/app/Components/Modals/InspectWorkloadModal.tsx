@@ -7,6 +7,7 @@ import {
     Workload,
 } from '@app/Data/Workload';
 import { GetHeaderAndBodyForToast } from '@app/utils/toast_utils';
+import { RoundToThreeDecimalPlaces } from '@components/Modals/NewWorkloadFromTemplateModal';
 import {
     Button,
     DescriptionList,
@@ -126,7 +127,7 @@ export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalP
 
     const getLastTickDuration = () => {
       if (tickDurations && tickDurations.current) {
-        return tickDurations.current[tickDurations.current.length - 1];
+        return RoundToThreeDecimalPlaces(tickDurations.current[tickDurations.current.length - 1]);
       } else {
         return "N/A"
       }
@@ -134,11 +135,11 @@ export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalP
 
     const getAverageTickDuration = () => {
       if (tickDurations && tickDurations.current) {
-        let sum: number = 0;
+        let sum: number = 0.0;
         tickDurations.current.forEach((val: number) => {
           sum = sum + val;
         })
-        return sum / tickDurations.current.length;
+        return RoundToThreeDecimalPlaces(sum / tickDurations.current.length);
       } else {
         return "N/A"
       }
@@ -249,13 +250,13 @@ export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalP
                         </DescriptionListGroup>
                       <DescriptionListGroup>
                         <DescriptionListTerm>
-                          Last Tick Duration <ClockIcon />
+                          Last Tick Duration (ms) <ClockIcon />
                         </DescriptionListTerm>
                         <DescriptionListDescription>{getLastTickDuration()}</DescriptionListDescription>
                       </DescriptionListGroup>
                       <DescriptionListGroup>
                         <DescriptionListTerm>
-                          Average Tick Duration <ClockIcon />
+                          Average Tick Duration (ms) <ClockIcon />
                         </DescriptionListTerm>
                         <DescriptionListDescription>{getAverageTickDuration()}</DescriptionListDescription>
                       </DescriptionListGroup>
