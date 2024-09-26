@@ -70,7 +70,7 @@ func (q *BasicEventQueue) HasEventsForTick(tick time.Time) bool {
 	}
 
 	nextEvent := q.eventHeap.Peek()
-	nextEventTimestamp := nextEvent.AdjustedTimestamp()
+	nextEventTimestamp := nextEvent.OriginalTimestamp()
 	if tick == nextEventTimestamp || nextEventTimestamp.Before(tick) {
 		return true
 	}
@@ -208,42 +208,9 @@ func (q *BasicEventQueue) EnqueueEvent(evt domain.Event) {
 		eventsForSession := val.(*hashmap.HashMap)
 		eventsForSession.Set(evt.Id(), eventHeapElement)
 
-		q.sugaredLogger.Debugf("Enqueued \"%v\" (id=%v, ts=%v) for session %s (src=%v). Heap length: %d", evt.Name(), evt.Id(), evt.Timestamp(), podId, evt.EventSource(), q.eventHeap.Len())
+		q.sugaredLogger.Debugf("Enqueued \"%v\" (id=%v, index=%d, ts=%v) for session %s (src=%v). Heap length: %d", evt.Name(), evt.Id(), evt.SessionSpecificEventIndex(), evt.Timestamp(), podId, evt.EventSource(), q.eventHeap.Len())
 	} else {
 		panic(fmt.Sprintf("Event %v has no data associated with it.", evt))
-	}
-}
-
-// FixEvents fixes the heap after the `totalDelay` field for a particular session changed.
-func (q *BasicEventQueue) FixEvents(sessionId string, updatedDelay time.Duration) {
-	val, ok := q.eventsPerSession.Get(sessionId)
-
-	if !ok {
-		panic(fmt.Sprintf("Expected to find entry in EventQueueServiceImpl::eventsPerSession field for session %s.", sessionId))
-	}
-
-	sessionEvents := val.(*hashmap.HashMap)
-	iter := sessionEvents.Iter()
-
-	if q.logger.Level() == zapcore.DebugLevel {
-		q.sugaredLogger.Debugf("Updating timestamps for event(s) targeting session %s, of which there is/are %d. New delay: %v. Current size of main event heap: %d.", sessionId, sessionEvents.Len(), updatedDelay, q.eventHeap.Len())
-	}
-
-	for kv := range iter {
-		eventHeapElement := kv.Value.(domain.EventHeapElement)
-		oldAdjustedTimestamp := eventHeapElement.AdjustedTimestamp()
-
-		oldIndex := eventHeapElement.GetIndex()
-
-		eventHeapElement.RecalculateTimestamp(updatedDelay)
-
-		if eventHeapElement.Enqueued() {
-			heap.Fix(&q.eventHeap, eventHeapElement.GetIndex())
-
-			if q.logger.Level() == zapcore.DebugLevel {
-				q.sugaredLogger.Debugf("Updated timestamp for event \"%s\" [id=%s] from %v to %v. Index changed from %d to %d.", eventHeapElement.Name(), eventHeapElement.Id(), oldAdjustedTimestamp, eventHeapElement.AdjustedTimestamp(), oldIndex, eventHeapElement.GetIndex())
-			}
-		}
 	}
 }
 
@@ -257,7 +224,7 @@ func (q *BasicEventQueue) GetTimestampOfNextReadyEvent() (time.Time, error) {
 
 	nextEvent := q.eventHeap.Peek()
 
-	return nextEvent.AdjustedTimestamp(), nil
+	return nextEvent.OriginalTimestamp(), nil
 }
 
 // Len returns the total number of events enqueued.
@@ -284,7 +251,7 @@ func (q *BasicEventQueue) GetNextEvent(threshold time.Time) (domain.EventHeapEle
 	}
 
 	nextEvent := q.eventHeap.Peek()
-	nextEventTimestamp := nextEvent.AdjustedTimestamp()
+	nextEventTimestamp := nextEvent.OriginalTimestamp()
 	if threshold == nextEventTimestamp || nextEventTimestamp.Before(threshold) {
 		heap.Pop(&q.eventHeap)
 
@@ -300,15 +267,10 @@ func (q *BasicEventQueue) GetNextEvent(threshold time.Time) (domain.EventHeapEle
 
 // Create and return a new *eventHeapElementImpl.
 func (q *BasicEventQueue) newEventHeapElement(evt domain.Event, enqueued bool) domain.EventHeapElement {
-	adjustedTimestamp := evt.Timestamp()
-
-	var totalDelay = time.Duration(0)
-
 	eventHeapElement := &eventHeapElementImpl{
-		Event:             evt,
-		enqueued:          enqueued,
-		idx:               -1,
-		adjustedTimestamp: adjustedTimestamp.Add(totalDelay),
+		Event:     evt,
+		enqueued:  enqueued,
+		heapIndex: -1,
 	}
 	return eventHeapElement
 }

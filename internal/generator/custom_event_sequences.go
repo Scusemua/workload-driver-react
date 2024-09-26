@@ -95,12 +95,12 @@ func (a *TrainingResourceUtilizationArgs) WithGpuUtilization(gpuUtil float64) *T
 	return a
 }
 
-// WithGpuUtilizationForSpecificGpu sets the GPU utilization of a specific GPU (identified by its index, which should range from 0 to NUM_GPUS - 1).
+// WithGpuUtilizationForSpecificGpu sets the GPU utilization of a specific GPU (identified by its localIndex, which should range from 0 to NUM_GPUS - 1).
 //
 // This modifies the 'TrainingResourceUtilizationArgs' struct on which it was called in-place; it also returns the TrainingResourceUtilizationArgs struct.
 func (a *TrainingResourceUtilizationArgs) WithGpuUtilizationForSpecificGpu(gpuIndex int, gpuUtil float64) *TrainingResourceUtilizationArgs {
 	if gpuIndex < 0 || gpuIndex > a.NumGPUs() {
-		panic(fmt.Sprintf("Invalid GPU index specified: %d. Value must be greater than or equal to 0 and less than the total number of GPUs (%d).", gpuIndex, cap(a.GpuUtilization)))
+		panic(fmt.Sprintf("Invalid GPU localIndex specified: %d. Value must be greater than or equal to 0 and less than the total number of GPUs (%d).", gpuIndex, cap(a.GpuUtilization)))
 	}
 
 	if gpuUtil < 0 {

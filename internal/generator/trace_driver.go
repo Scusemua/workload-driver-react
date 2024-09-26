@@ -163,7 +163,7 @@ func (d *BaseDriver) TrainingStarted(podId string) {
 
 	d.TrainingIndices[podId] = idx + 1
 
-	// log.Info("Session %s training #%d", podId, idx+1)
+	// log.Info("Session %s training #%d", podId, heapIndex+1)
 
 	// podTrainingMaxes, ok := d.TrainingMaxes[podId]
 

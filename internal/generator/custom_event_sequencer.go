@@ -3,6 +3,7 @@ package generator
 import (
 	"container/heap"
 	"fmt"
+	"log"
 	"sync/atomic"
 	"time"
 
@@ -35,11 +36,19 @@ type CustomEventSequencer struct {
 	startingSeconds     int64                 // The start time for the event sequence as the number of seconds.
 	podMap              map[string]int        // Map from SessionID to PodID
 	waitingEvents       map[string]*eventImpl // The event that will be submitted/enqueued once the next commit happens.
+
+	// sessionEventIndexes is a map from session ID to the current event localIndex for the session.
+	// See the localIndex field of eventImpl for a description of what the "event localIndex" is.
+	// The current entry for a particular session is the localIndex of the next event to be created.
+	// That is, when creating the next event, its localIndex field should be set to the current
+	// entry in the sessionEventIndexes map (using the associated session's ID as the key).
+	sessionEventIndexes map[string]int
 }
 
 func NewCustomEventSequencer(eventConsumer domain.EventConsumer, startingSeconds int64, tickDurationSeconds int64, atom *zap.AtomicLevel) *CustomEventSequencer {
 	customEventSequencer := &CustomEventSequencer{
 		sessions:            make(map[string]*sessionMetaWrapper),
+		sessionEventIndexes: make(map[string]int),
 		waitingEvents:       make(map[string]*eventImpl),
 		eventHeap:           internalEventHeap(make([]*internalEventHeapElement, 0, 100)),
 		podMap:              make(map[string]int),
@@ -67,7 +76,8 @@ func (s *CustomEventSequencer) SubmitEvents(workloadGenerationCompleteChan chan 
 		for s.eventHeap.Len() > 0 {
 			e := heap.Pop(&s.eventHeap).(*internalEventHeapElement)
 			s.eventConsumer.SubmitEvent(e.Event)
-			s.sugarLog.Debugf("Submitted event '%s' targeting session '%s' [%v]", e.Event.Name(), e.Event.Data().(*SessionMeta).Pod, e.Event.Timestamp())
+			s.sugarLog.Debugf("Submitted event #%d '%s' targeting session '%s' [%v]. EventID=%s.",
+				e.Event.SessionSpecificEventIndex(), e.Event.Name(), e.Event.Data().(*SessionMeta).Pod, e.Event.Timestamp(), e.Event.Id())
 		}
 
 		workloadGenerationCompleteChan <- struct{}{}
@@ -91,8 +101,8 @@ func (s *CustomEventSequencer) RegisterSession(sessionId string, maxCPUs float64
 	}
 
 	s.podMap[sessionId] = podIdx
-
 	s.sessions[sessionId] = wrappedSession
+	s.sessionEventIndexes[sessionId] = 0
 
 	s.sugarLog.Debugf("Registered session \"%s\". MaxCPUs: %.2f, MaxMemory: %.2f, MaxGPUs: %d.", sessionId, maxCPUs, maxMem, maxGPUs)
 }
@@ -168,24 +178,6 @@ func (s *CustomEventSequencer) stepGpu(sessionId string, timestamp time.Time, gp
 		}
 	}
 
-	// record := &GPURecord{
-	// 	Timestamp: UnixTime(timestamp),
-	// 	Pod:       sessionId,
-	// 	PodIdx:    podIdx,
-	// 	Value:     gpuUtil,
-	// 	GPUIdx:    "0",
-	// }
-	// committed := gpu.Debug_CommitAndInit(record)
-	// for i := 1; i < numGPUs; i++ {
-	// 	record := &GPURecord{
-	// 		Timestamp: UnixTime(timestamp),
-	// 		Pod:       sessionId,
-	// 		PodIdx:    podIdx,
-	// 		Value:     gpuUtil,
-	// 		GPUIdx:    fmt.Sprintf("%d", i),
-	// 	}
-	// 	gpu.Debug_Update(record)
-	// }
 	wrappedSession.session.GPU = committed
 }
 
@@ -269,13 +261,16 @@ func (s *CustomEventSequencer) AddSessionStartedEvent(sessionId string, tickNumb
 	nextUtil := session.memBuffer.Debug_Init(memRecord)
 	session.memBuffer.Debug_Commit(nextUtil)
 
+	eventIndex := s.sessionEventIndexes[sessionId]
+	s.sessionEventIndexes[sessionId] = eventIndex + 1
 	evt := &eventImpl{
 		name:                domain.EventSessionReady,
 		eventSource:         nil,
 		originalEventSource: nil,
-		// Data:                data,
-		timestamp: timestamp,
-		id:        uuid.New().String(),
+		timestamp:           timestamp,
+		localIndex:          eventIndex,
+		id:                  uuid.New().String(),
+		globalIndex:         globalCustomEventIndex.Add(1),
 	}
 	s.waitingEvents[sessionId] = evt
 
@@ -299,25 +294,29 @@ func (s *CustomEventSequencer) AddSessionTerminatedEvent(sessionId string, tickN
 	s.stepMemory(sessionId, timestamp, 0)
 
 	data := sessionMeta.Snapshot()
+	eventIndex := s.sessionEventIndexes[sessionId]
+	s.sessionEventIndexes[sessionId] = eventIndex + 1
 	evt := &eventImpl{
 		name:                domain.EventSessionStopped,
 		eventSource:         nil,
 		originalEventSource: nil,
 		data:                data,
 		timestamp:           timestamp,
+		localIndex:          eventIndex,
 		id:                  uuid.New().String(),
+		globalIndex:         globalCustomEventIndex.Add(1),
 	}
 
-	heap.Push(&s.eventHeap, &internalEventHeapElement{evt, -1, globalCustomEventIndex.Add(1)})
-	s.sugarLog.Debugf("Added 'stopped' event for Session %s with timestamp %v (sec=%d).", sessionId, timestamp, sec)
+	heap.Push(&s.eventHeap, &internalEventHeapElement{evt, -1})
+	s.sugarLog.Debugf("Added 'stopped' event for Session %s with timestamp %v (sec=%d). EventID=%s.", sessionId, timestamp, sec, evt.id)
 }
 
 func (s *CustomEventSequencer) submitWaitingEvent(sessionMeta *SessionMeta) {
 	sessionId := sessionMeta.Pod
 	dataForWaitingEvent := sessionMeta.Snapshot()
 	s.waitingEvents[sessionId].data = dataForWaitingEvent
-	heap.Push(&s.eventHeap, &internalEventHeapElement{s.waitingEvents[sessionId], -1, globalCustomEventIndex.Add(1)})
-	s.sugarLog.Debugf("Added '%s' event for Session %s with timestamp %v.", s.waitingEvents[sessionId].Name(), sessionId, s.waitingEvents[sessionId].Timestamp())
+	heap.Push(&s.eventHeap, &internalEventHeapElement{s.waitingEvents[sessionId], -1})
+	s.sugarLog.Debugf("Added '%s' event for Session %s with timestamp %v. EventID=%s.", s.waitingEvents[sessionId].Name(), sessionId, s.waitingEvents[sessionId].Timestamp(), s.waitingEvents[sessionId].id)
 	delete(s.waitingEvents, sessionId)
 }
 
@@ -344,42 +343,53 @@ func (s *CustomEventSequencer) AddTrainingEvent(sessionId string, tickNumber int
 	s.stepGpu(sessionId, endTime, gpuUtil)
 	s.stepMemory(sessionId, endTime, 0)
 
+	eventIndex := s.sessionEventIndexes[sessionId]
 	trainingStartedEvent := &eventImpl{
 		name:                domain.EventSessionTrainingStarted,
 		eventSource:         nil,
 		originalEventSource: nil,
 		data:                sessionMeta.Snapshot(),
+		localIndex:          eventIndex,
 		timestamp:           startTime,
 		id:                  uuid.New().String(),
+		globalIndex:         globalCustomEventIndex.Add(1),
 	}
-	heap.Push(&s.eventHeap, &internalEventHeapElement{trainingStartedEvent, -1, globalCustomEventIndex.Add(1)})
-	s.sugarLog.Debugf("Added 'training-started' event for Session %s with timestamp %v (sec=%d).", sessionId, startTime, startSec)
+	heap.Push(&s.eventHeap, &internalEventHeapElement{trainingStartedEvent, -1})
+	s.sugarLog.Debugf("Added 'training-started' event for Session %s with timestamp %v (sec=%d). EventID=%s.", sessionId, startTime, startSec, trainingStartedEvent.id)
 
 	trainingEndedEvent := &eventImpl{
 		name:                domain.EventSessionTrainingEnded,
 		eventSource:         nil,
 		originalEventSource: nil,
 		data:                nil,
+		localIndex:          eventIndex + 1,
 		timestamp:           endTime,
 		id:                  uuid.New().String(),
+		globalIndex:         globalCustomEventIndex.Add(1),
 	}
 	s.waitingEvents[sessionId] = trainingEndedEvent
+	s.sessionEventIndexes[sessionId] = eventIndex + 2
 }
 
 type internalEventHeap []*internalEventHeapElement
 
 type internalEventHeapElement struct {
 	domain.Event
-	idx         int
-	globalIndex uint64
+
+	// heapIndex is the index of the internalEventHeapElement within its containing internalEventHeap.
+	// heapIndex is distinct from the domain.Event's SessionSpecificEventIndex and GlobalEventIndex methods.
+	// heapIndex is dynamic and will change depending on what position the internalEventHeapElement is in
+	// within the containing internalEventHeap, whereas SessionSpecificEventIndex and GlobalEventIndex are/return
+	// static values that are set when the underlying domain.Event is first created.
+	heapIndex int
 }
 
 func (e *internalEventHeapElement) Idx() int {
-	return e.idx
+	return e.heapIndex
 }
 
 func (e *internalEventHeapElement) SetIndex(idx int) {
-	e.idx = idx
+	e.heapIndex = idx
 }
 
 func (h internalEventHeap) Len() int {
@@ -387,17 +397,31 @@ func (h internalEventHeap) Len() int {
 }
 
 func (h internalEventHeap) Less(i, j int) bool {
+	// We want to ensure that TrainingEnded events are processed before SessionStopped events.
+	// So, if the event at localIndex i is a TrainingEnded event while the event at localIndex j is a SessionStopped event,
+	// then the event at localIndex i should be processed first.
 	if h[i].Timestamp().Equal(h[j].Timestamp()) {
-		// We want to ensure that TrainingEnded events are processed before SessionStopped events.
-		// So, if event i is TrainingEnded and event j is SessionStopped, then event i should be processed first.
 		if h[i].Name() == domain.EventSessionTrainingEnded && h[j].Name() == domain.EventSessionStopped {
+			if h[i].SessionSpecificEventIndex() /* training-ended */ > h[j].SessionSpecificEventIndex() /* session-stopped */ {
+				// We expect the global localIndex of the training-ended event to be less than that of the session-stopped
+				// event, since the training-ended event should have been created prior to the session-stopped event.
+				log.Fatalf("Global event indices do not reflect correct ordering of events. "+
+					"TrainingEnded: %s. SessionStopped: %s.", h[i].String(), h[j].String())
+			}
+
 			return true
 		} else if h[j].Name() == domain.EventSessionTrainingEnded && h[i].Name() == domain.EventSessionStopped {
+			if h[j].SessionSpecificEventIndex() /* training-ended */ > h[i].SessionSpecificEventIndex() /* session-stopped */ {
+				// We expect the global localIndex of the training-ended event to be less than that of the session-stopped
+				// event, since the training-ended event should have been created prior to the session-stopped event.
+				log.Fatalf("Global event indices do not reflect correct ordering of events. "+
+					"TrainingEnded: %s. SessionStopped: %s.", h[j].String(), h[i].String())
+			}
+
 			return false
 		}
 
-		// Stable ordering for events with equal timestamps.
-		return h[i].globalIndex < h[j].globalIndex
+		return h[i].GlobalEventIndex() < h[j].GlobalEventIndex()
 	}
 
 	return h[i].Timestamp().Before(h[j].Timestamp())

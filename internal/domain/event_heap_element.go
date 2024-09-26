@@ -8,28 +8,39 @@ import (
 type EventHeapElement interface {
 	// Name of the event.
 	Name() EventName
-	// Recompute the EventHeapElementImpl's adjustedTimestamp field based on the provided Total Delay value.
-	RecalculateTimestamp(totalDelay time.Duration)
-	// Update the EventHeapElementImpl's index in its heap. This just changes the field; it doesn't interact with the heap that contains the EventHeapElementImpl.
+	// SetIndex updates the EventHeapElement's "heap index" -- that is, the EventHeapElement's index within its heap.
+	// SetIndex just changes the field; it doesn't interact with the heap that contains the EventHeapElement.
+	// The heap index is dynamic and will change depending on what position the EventHeapElement is in
+	// within the containing EventHeap, whereas SessionSpecificEventIndex and GlobalEventIndex are/return
+	// static values that are set when the underlying domain.Event is first created.
 	SetIndex(idx int)
-	// Return the EventHeapElementImpl's index in its heap.
+	// GetIndex returns the EventHeapElement's "heap index" -- that is, the EventHeapElement's index within its heap.
+	// The heap index is dynamic and will change depending on what position the EventHeapElement is in
+	// within the containing EventHeap, whereas SessionSpecificEventIndex and GlobalEventIndex are/return
+	// static values that are set when the underlying domain.Event is first created.
 	GetIndex() int
-	// Return the original timestamp of the underlying event.
+	// OriginalTimestamp returns the original timestamp of the underlying event.
 	OriginalTimestamp() time.Time
-	// Return the timestamp of the event after being adjusted by the associated Session's totalDelay field.
-	AdjustedTimestamp() time.Time
-	// Return the ID of the associated Session.
+	// SessionID returns the ID of the associated Session.
 	SessionID() string
-	// ToString for EventHeapElementImpl.
+	// String is toString for EventHeapElement.
 	String() string
-	// Data attached to the underlying *generator.Event struct.
+	// Data returns the data attached to the underlying *generator.Event struct.
 	Data() interface{}
-	// Return the underlying *generator.Event struct.
+	// GetEvent returns the underlying *generator.Event struct.
 	GetEvent() Event
-	// Return true if this event heap element is presently enqueued in/with the event queue service.
+	// Enqueued returns true if this event heap element is presently enqueued in/with the event queue service.
 	Enqueued() bool
-	// Set the enqueued value.
+	// SessionSpecificEventIndex indicates the order in which the event was created relative to other events targeting
+	// the same Session.
+	// The first event created for a session while have an index of 0.
+	// The last event created for a session while have an index of N - 1, where N is the number of events created
+	// for that Session.
+	SessionSpecificEventIndex() int
+	// GlobalEventIndex provides a global ordering for comparing all events with each other within a workload.
+	GlobalEventIndex() uint64
+	// SetEnqueued sets the enqueued value.
 	SetEnqueued(bool)
-	// Return ID of underlying event.
+	// Id returns ID of underlying event.
 	Id() string
 }

@@ -39,9 +39,6 @@ type EventQueue interface {
 	// If there are no session events enqueued, then this will return time.Time{} and an ErrNoMoreEvents error.
 	GetTimestampOfNextReadyEvent() (time.Time, error)
 
-	// FixEvents fixes the heap after the `totalDelay` field for a particular session changed.
-	FixEvents(sessionId string, updatedDelay time.Duration)
-
 	// Len returns the total number of events enqueued in the service.
 	Len() int
 

@@ -182,6 +182,8 @@ func (conn *SessionConnection) AddMetadata(key string, value string, addToKernel
 	defer conn.metadataMutex.Unlock()
 
 	if addToKernelConnection && conn.kernel != nil {
+		conn.logger.Debug("Adding metadata to kernel.", zap.String("kernel_id", conn.model.JupyterKernel.Id),
+			zap.String("metadata_key", key), zap.String("metadata_value", value))
 		conn.kernel.AddMetadata(key, value)
 	}
 
@@ -216,6 +218,8 @@ func (conn *SessionConnection) connectToKernel(username string) error {
 	conn.metadataMutex.Lock()
 	defer conn.metadataMutex.Unlock()
 	for key, value := range conn.metadata {
+		conn.logger.Debug("Adding metadata to kernel.", zap.String("kernel_id", conn.model.JupyterKernel.Id),
+			zap.String("metadata_key", key), zap.String("metadata_value", value))
 		conn.kernel.AddMetadata(key, value)
 	}
 

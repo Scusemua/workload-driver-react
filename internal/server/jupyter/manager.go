@@ -261,6 +261,8 @@ func (m *BasicKernelSessionManager) CreateSession(sessionId string, path string,
 	m.metrics.SessionCreated(workloadId, time.Since(sentAt))
 	m.mu.Unlock()
 
+	sessionConnection.AddMetadata(WorkloadIdMetadataKey, workloadId, true)
+
 	// TODO(Ben): Does this also create a new kernel?
 	return sessionConnection, nil
 }
@@ -437,6 +439,7 @@ func (m *BasicKernelSessionManager) ConnectTo(kernelId string, sessionId string,
 	conn, err := NewKernelConnection(kernelId, sessionId, username, m.jupyterServerAddress, m.atom)
 	if err != nil {
 		m.logger.Error("Failed to connect to kernel.", zap.String("kernel_id", kernelId), zap.String("session_id", sessionId))
+		return nil, err
 	} else {
 		m.logger.Debug("Successfully connected to kernel.", zap.String("kernel_id", kernelId), zap.String("session_id", sessionId))
 
@@ -444,11 +447,13 @@ func (m *BasicKernelSessionManager) ConnectTo(kernelId string, sessionId string,
 		m.metadataMutex.Lock()
 		defer m.metadataMutex.Unlock()
 		for key, value := range m.metadata {
+			m.logger.Debug("Adding metadata to kernel.", zap.String("kernel_id", kernelId),
+				zap.String("metadata_key", key), zap.String("metadata_value", value))
 			conn.AddMetadata(key, value)
 		}
-	}
 
-	// On success, conn will be non-nil and err will be nil.
-	// If there is an error, then err will be non-nil and connection will be nil.
-	return conn, err
+		// On success, conn will be non-nil and err will be nil.
+		// If there is an error, then err will be non-nil and connection will be nil.
+		return conn, err
+	}
 }

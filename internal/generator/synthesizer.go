@@ -252,11 +252,11 @@ func (s *Synthesizer) transitionAndSubmitEvent(evt domain.Event) {
 
 				if evtName == domain.EventSessionTrainingStarted {
 					if len(s.CpuTrainingTaskMap()[sess.Pod]) <= (trainingIdx + 1) {
-						s.sugarLog.Warnf("Cannot incr training idx for Session %s. len(CpuTrainingTaskMap): %d. Training index: %d", sess.Pod, len(s.CpuTrainingTaskMap()[sess.Pod]), trainingIdx)
+						s.sugarLog.Warnf("Cannot incr training heapIndex for Session %s. len(CpuTrainingTaskMap): %d. Training localIndex: %d", sess.Pod, len(s.CpuTrainingTaskMap()[sess.Pod]), trainingIdx)
 					} else if len(s.MemTrainingTaskMap()[sess.Pod]) <= (trainingIdx + 1) {
-						s.sugarLog.Warnf("Cannot incr training idx for Session %s. len(MemTrainingTaskMap): %d. Training index: %d", sess.Pod, len(s.MemTrainingTaskMap()[sess.Pod]), trainingIdx)
+						s.sugarLog.Warnf("Cannot incr training heapIndex for Session %s. len(MemTrainingTaskMap): %d. Training localIndex: %d", sess.Pod, len(s.MemTrainingTaskMap()[sess.Pod]), trainingIdx)
 					} else if len(s.GpuTrainingTaskMap()[sess.Pod]) <= (trainingIdx + 1) {
-						s.sugarLog.Warnf("Cannot incr training idx for Session %s. len(GpuTrainingTaskMap): %d. Training index: %d", sess.Pod, len(s.GpuTrainingTaskMap()[sess.Pod]), trainingIdx)
+						s.sugarLog.Warnf("Cannot incr training heapIndex for Session %s. len(GpuTrainingTaskMap): %d. Training localIndex: %d", sess.Pod, len(s.GpuTrainingTaskMap()[sess.Pod]), trainingIdx)
 					} else {
 						s.CurrentTrainingNumberMap()[sess.Pod] = trainingIdx + 1
 					}

@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"log"
 	"time"
 )
 
@@ -44,31 +45,32 @@ type EventSource interface {
 	Id() int
 	SetId(int)
 	IsDriver() bool
+	// IsLastShouldContinue returns a boolean with the following logic:
 	// If the EventSource is the last one, should the simulation continue?
 	// For Drivers, the answer is yes. For non-Drivers, it may depend.
 	// For example, if the BufferedService is the last one, then the simulation
 	// should end once all buffered events have been retriggered.
 	IsLastShouldContinue() bool
-	// Called in pre-run mode when the Synthesizer encounters a training-started event.
+	// TrainingStarted is called in pre-run mode when the Synthesizer encounters a training-started event.
 	// Sets the value in the latest training max slot to 0.
 	TrainingStarted(string)
-	// Called in pre-run mode when the Synthesizer encounters a training-stopped event.
+	// TrainingEnded is called in pre-run mode when the Synthesizer encounters a training-stopped event.
 	// Prepares the next slot in the training maxes by appending to the list a new value of -1.
 	TrainingEnded(string)
 }
 
 type EventConsumer interface {
-	// Give an event to the EventConsumer so that it may be processed.
+	// SubmitEvent delivers an event to the EventConsumer so that it may be processed.
 	SubmitEvent(Event)
 
-	// Get the channel used to tell the EventConsumer that an error has occurred
+	// GetErrorChan returns the channel used to tell the EventConsumer that an error has occurred
 	// in the generator portion of the workload simulator/driver.
 	GetErrorChan() chan<- error
 
-	// Get the channel used by the EventConsumer to signal that a workload has completed.
+	// WorkloadExecutionCompleteChan returns the channel used by the EventConsumer to signal that a workload has completed.
 	WorkloadExecutionCompleteChan() chan interface{}
 
-	// Get the channel used to notify the EventConsumer that the generator(s) have finished generating events.
+	// WorkloadEventGeneratorCompleteChan returns the channel used to notify the EventConsumer that the generator(s) have finished generating events.
 	WorkloadEventGeneratorCompleteChan() chan interface{}
 }
 
@@ -80,6 +82,14 @@ type Event interface {
 	SessionID() string
 	Timestamp() time.Time
 	Id() string
+	// SessionSpecificEventIndex indicates the order in which the event was created relative to other events targeting
+	// the same Session.
+	// The first event created for a session while have an index of 0.
+	// The last event created for a session while have an index of N - 1, where N is the number of events created
+	// for that Session.
+	SessionSpecificEventIndex() int
+	// GlobalEventIndex provides a global ordering for comparing all events with each other within a workload.
+	GlobalEventIndex() uint64
 	OrderSeq() int64 // OrderSeq is essentially timestamp of event, but randomized to make behavior stochastic.
 	SetOrderSeq(int64)
 	String() string
@@ -88,6 +98,7 @@ type Event interface {
 type EventBuff []Event
 
 // sort.Interface implementations
+
 func (buff EventBuff) Len() int {
 	return len(buff)
 }
@@ -108,17 +119,36 @@ func (h EventHeap) Len() int {
 }
 
 func (h EventHeap) Less(i, j int) bool {
-	if h[i].AdjustedTimestamp().Equal(h[j].AdjustedTimestamp()) {
-		// We want to ensure that TrainingEnded events are processed before SessionStopped events.
-		// So, if event i is TrainingEnded and event j is SessionStopped, then event i should be processed first.
+	// We want to ensure that TrainingEnded events are processed before SessionStopped events.
+	// So, if the event at index i is a TrainingEnded event while the event at index j is a SessionStopped event,
+	// then the event at index i should be processed first.
+	if h[i].OriginalTimestamp() == h[j].OriginalTimestamp() {
 		if h[i].Name() == EventSessionTrainingEnded && h[j].Name() == EventSessionStopped {
+			if h[i].SessionSpecificEventIndex() /* training-ended */ > h[j].SessionSpecificEventIndex() /* session-stopped */ {
+				// We expect the event index of the training-ended event to be less than that of the session-stopped
+				// event, since the training-ended event should have been created prior to the session-stopped event.
+				log.Fatalf("Event indices do not reflect correct ordering of events. "+
+					"TrainingEnded: %s. SessionStopped: %s.", h[i].String(), h[j].String())
+			}
+
 			return true
 		} else if h[j].Name() == EventSessionTrainingEnded && h[i].Name() == EventSessionStopped {
+			if h[j].SessionSpecificEventIndex() /* training-ended */ > h[i].SessionSpecificEventIndex() /* session-stopped */ {
+				// We expect the event index of the training-ended event to be less than that of the session-stopped
+				// event, since the training-ended event should have been created prior to the session-stopped event.
+				log.Fatalf("Event indices do not reflect correct ordering of events. "+
+					"TrainingEnded: %s. SessionStopped: %s.", h[j].String(), h[i].String())
+			}
+
 			return false
 		}
+
+		// Defer to the order in which the events were created to resolve the tie.
+		// TODO: In theory, this would also resolve the above issue...
+		return h[i].SessionSpecificEventIndex() < h[j].SessionSpecificEventIndex()
 	}
 
-	return h[i].AdjustedTimestamp().Before(h[j].AdjustedTimestamp())
+	return h[i].OriginalTimestamp().Before(h[j].OriginalTimestamp())
 }
 
 func (h EventHeap) Swap(i, j int) {
