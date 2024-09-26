@@ -77,6 +77,90 @@ type BasicWorkloadSession struct {
 	StdoutIoPubMessages []string         `json:"stdout_io_pub_messages"`
 }
 
+func newWorkloadSession(id string, meta SessionMetadata, resourceRequest *ResourceRequest, createdAtTime time.Time, atom *zap.AtomicLevel) *BasicWorkloadSession {
+	session := &BasicWorkloadSession{
+		Id:                  id,
+		ResourceRequest:     resourceRequest,
+		TrainingsCompleted:  0,
+		State:               SessionAwaitingStart,
+		CreatedAt:           createdAtTime,
+		Meta:                meta,
+		TrainingEvents:      make([]*TrainingEvent, 0),
+		StderrIoPubMessages: make([]string, 0),
+		StdoutIoPubMessages: make([]string, 0),
+	}
+
+	zapConfig := zap.NewDevelopmentEncoderConfig()
+	zapConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+	core := zapcore.NewCore(zapcore.NewConsoleEncoder(zapConfig), zapcore.AddSync(colorable.NewColorableStdout()), atom)
+	logger := zap.New(core, zap.Development())
+	if logger == nil {
+		panic("failed to create logger for workload driver")
+	}
+
+	session.logger = logger
+	session.sugaredLogger = logger.Sugar()
+
+	return session
+}
+
+func NewWorkloadSession(id string, meta SessionMetadata, resourceRequest *ResourceRequest, createdAtTime time.Time, atom *zap.AtomicLevel) *BasicWorkloadSession {
+	return newWorkloadSession(id, meta, resourceRequest, createdAtTime, atom)
+}
+
+// createLoggers instantiates the BasicWorkloadSession's zap.Logger and zap.SugaredLogger.
+// If the loggers already exist, then createLoggers returns immediately.
+func (s *BasicWorkloadSession) createLoggers(atom *zap.AtomicLevel) {
+	// If the logger is already non-nil, then it has already been created, and so we'll just return right away.
+	if s.logger != nil {
+		// If the sugared logger is nil, we'll create it real quick, and then we'll return right away.
+		if s.sugaredLogger == nil {
+			s.sugaredLogger = s.logger.Sugar()
+		}
+
+		return
+	}
+
+	// Create the zap.AtomicLevel if the parameter is nil.
+	if atom == nil {
+		atomStruct := zap.NewAtomicLevelAt(zapcore.DebugLevel)
+		atom = &atomStruct
+	}
+
+	// Create the session's zap.Logger and zap.SugaredLogger.
+	zapConfig := zap.NewDevelopmentEncoderConfig()
+	zapConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+	core := zapcore.NewCore(zapcore.NewConsoleEncoder(zapConfig), zapcore.AddSync(colorable.NewColorableStdout()), atom)
+	logger := zap.New(core, zap.Development())
+	if logger == nil {
+		panic("failed to create logger for workload driver")
+	}
+
+	s.logger = logger
+	s.sugaredLogger = logger.Sugar()
+}
+
+// getSugarLogger returns the BasicWorkloadSession's zap.Logger, creating it first (along with the
+// BasicWorkloadSession's zap.SugaredLogger) if its zap.Logger is nil.
+func (s *BasicWorkloadSession) getLogger() *zap.Logger {
+	if s.logger == nil {
+		s.createLoggers(nil)
+	}
+
+	return s.logger
+}
+
+// getSugarLogger returns the BasicWorkloadSession's zap.SugaredLogger, creating it first if it nil.
+func (s *BasicWorkloadSession) getSugarLogger() *zap.SugaredLogger {
+	if s.sugaredLogger == nil {
+		s.createLoggers(nil)
+	}
+
+	return s.sugaredLogger
+}
+
+// GetAndIncrementTrainingsCompleted increments the BasicWorkloadSession's TrainingsCompleted
+// field by 1 and returns the new value (post-increment).
 func (s *BasicWorkloadSession) GetAndIncrementTrainingsCompleted() int {
 	s.TrainingsCompleted += 1
 	return s.TrainingsCompleted
@@ -116,11 +200,8 @@ func (s *BasicWorkloadSession) GetState() SessionState {
 
 func (s *BasicWorkloadSession) SetState(targetState SessionState) error {
 	if s.State == targetState {
-		if s.logger == nil {
-			fmt.Printf("[WARNING] Attempting to transition state of Session %s into its current state '%s'.\n", s.Id, s.State.String())
-		} else {
-			s.logger.Warn("Attempting to transition state of Session into its current state.", zap.String("sessionId", s.Id), zap.String("state", s.State.String()))
-		}
+		s.getLogger().Warn("Attempting to transition state of Session into its current state.",
+			zap.String("session_id", s.Id), zap.String("state", s.State.String()))
 	}
 
 	if s.State == SessionStopped || s.State == SessionErred {
@@ -128,7 +209,15 @@ func (s *BasicWorkloadSession) SetState(targetState SessionState) error {
 			ErrIllegalStateTransition, s.State, targetState)
 	}
 
+	sourceState := s.State
+	s.getLogger().Debug("Transitioning session now.", zap.String("session_id", s.Id),
+		zap.String("source_state", sourceState.String()), zap.String("target_state", targetState.String()))
 	s.State = targetState
+
+	if sourceState == SessionTraining {
+		s.getLogger().Debug("Session finished training.", zap.String("session_id", s.Id),
+			zap.Duration("training_duration", time.Since(s.TrainingStartedAt)))
+	}
 
 	if targetState == SessionTraining {
 		s.TrainingStartedAt = time.Now()
@@ -150,37 +239,14 @@ func (s *BasicWorkloadSession) GetTrainings() []*TrainingEvent {
 	return s.TrainingEvents
 }
 
-func newWorkloadSession(id string, meta SessionMetadata, resourceRequest *ResourceRequest, createdAtTime time.Time, atom *zap.AtomicLevel) *BasicWorkloadSession {
-	session := &BasicWorkloadSession{
-		Id:                  id,
-		ResourceRequest:     resourceRequest,
-		TrainingsCompleted:  0,
-		State:               SessionAwaitingStart,
-		CreatedAt:           createdAtTime,
-		Meta:                meta,
-		TrainingEvents:      make([]*TrainingEvent, 0),
-		StderrIoPubMessages: make([]string, 0),
-		StdoutIoPubMessages: make([]string, 0),
-	}
-
-	zapConfig := zap.NewDevelopmentEncoderConfig()
-	zapConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
-	core := zapcore.NewCore(zapcore.NewConsoleEncoder(zapConfig), zapcore.AddSync(colorable.NewColorableStdout()), atom)
-	logger := zap.New(core, zap.Development())
-	if logger == nil {
-		panic("failed to create logger for workload driver")
-	}
-
-	session.logger = logger
-	session.sugaredLogger = logger.Sugar()
-
-	return session
-}
-
-func NewWorkloadSession(id string, meta SessionMetadata, resourceRequest *ResourceRequest, createdAtTime time.Time, atom *zap.AtomicLevel) *BasicWorkloadSession {
-	return newWorkloadSession(id, meta, resourceRequest, createdAtTime, atom)
-}
-
+// WorkloadTemplateSession are created from Workload templates by deserializing the JSON definition(s) of the
+// Sessions included within the Workload template.
+//
+// They have a few additional fields relative to BasicWorkloadSession structs, namely a StartTick and StopTick
+// field, indicating the workload ticks at which the WorkloadTemplateSession is first created and is terminated,
+// respectively. WorkloadTemplateSession structs also have a Trainings field, which is a slice of (pointers to)
+// TrainingEvent structs, encoding all the training events that are to be performed by the WorkloadTemplateSession
+// during the execution/orchestration of the workload.
 type WorkloadTemplateSession struct {
 	*BasicWorkloadSession
 
@@ -189,6 +255,7 @@ type WorkloadTemplateSession struct {
 	Trainings []*TrainingEvent `json:"trainings"`
 }
 
+// NewWorkloadTemplateSession creates a new WorkloadTemplateSession struct and returns a pointer to it.
 func NewWorkloadTemplateSession(id string, meta SessionMetadata, resourceRequest *ResourceRequest, createdAtTime time.Time, startTick int, stopTick int, atom *zap.AtomicLevel) WorkloadTemplateSession {
 	workloadSession := newWorkloadSession(id, meta, resourceRequest, createdAtTime, atom)
 
