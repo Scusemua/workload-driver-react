@@ -30,7 +30,7 @@ import styles from '@patternfly/react-styles/css/components/Form/form';
 
 import { WorkloadPreset } from '@app/Data';
 import { useWorkloadPresets } from '@providers/WorkloadPresetProvider';
-import { PlusIcon } from '@patternfly/react-icons';
+import { EditAltIcon, EditIcon, PencilAltIcon, PlusIcon } from '@patternfly/react-icons';
 
 export interface StartWorkloadModalProps {
     children?: React.ReactNode;
@@ -151,7 +151,7 @@ export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalPr
         }
 
         if (validateTimescaleAdjustmentFactor() == 'error') {
-            return true; 
+            return true;
         }
 
         return false;
@@ -196,7 +196,7 @@ export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalPr
             help={
                 <Tooltip exitDelay={75} content={<div>Create new workload from template.</div>}>
                     <Button variant="plain" aria-label="Create New Workload From Template" onClick={props.onRegisterWorkloadFromTemplateClicked}>
-                        <PlusIcon />
+                        <EditIcon />
                     </Button>
                 </Tooltip>
             }

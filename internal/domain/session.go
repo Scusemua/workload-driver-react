@@ -116,7 +116,11 @@ func (s *BasicWorkloadSession) GetState() SessionState {
 
 func (s *BasicWorkloadSession) SetState(targetState SessionState) error {
 	if s.State == targetState {
-		s.logger.Warn("Attempting to transition state of Session into its current state.", zap.String("sessionId", s.Id), zap.String("state", s.State.String()))
+		if s.logger == nil {
+			fmt.Printf("[WARNING] Attempting to transition state of Session %s into its current state '%s'.\n", s.Id, s.State.String())
+		} else {
+			s.logger.Warn("Attempting to transition state of Session into its current state.", zap.String("sessionId", s.Id), zap.String("state", s.State.String()))
+		}
 	}
 
 	if s.State == SessionStopped || s.State == SessionErred {
