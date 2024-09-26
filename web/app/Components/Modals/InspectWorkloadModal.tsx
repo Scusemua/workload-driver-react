@@ -1,10 +1,10 @@
 import {
+    Workload,
     WORKLOAD_STATE_ERRED,
     WORKLOAD_STATE_FINISHED,
     WORKLOAD_STATE_READY,
     WORKLOAD_STATE_RUNNING,
     WORKLOAD_STATE_TERMINATED,
-    Workload,
 } from '@app/Data/Workload';
 import { GetHeaderAndBodyForToast } from '@app/utils/toast_utils';
 import { RoundToThreeDecimalPlaces } from '@components/Modals/NewWorkloadFromTemplateModal';
@@ -72,7 +72,7 @@ export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalP
                     'Tick Incremented',
                     `Workload ${props.workload?.name} has progressed to Tick #${props.workload?.current_tick}.`,
                 ),
-                { icon: '⏱️' },
+                { icon: '⏱️', style: { maxWidth: 700 } },
             );
         }
     }, [props.workload?.current_tick]);
@@ -126,24 +126,24 @@ export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalP
     };
 
     const getLastTickDuration = () => {
-      if (tickDurations && tickDurations.current && tickDurations.current.length > 0) {
-        return RoundToThreeDecimalPlaces(tickDurations.current[tickDurations.current.length - 1]);
-      } else {
-        return "N/A"
-      }
-    }
+        if (tickDurations && tickDurations.current && tickDurations.current.length > 0) {
+            return RoundToThreeDecimalPlaces(tickDurations.current[tickDurations.current.length - 1]);
+        } else {
+            return 'N/A';
+        }
+    };
 
     const getAverageTickDuration = () => {
-      if (tickDurations && tickDurations.current && tickDurations.current.length > 0) {
-        let sum: number = 0.0;
-        tickDurations.current.forEach((val: number) => {
-          sum = sum + val;
-        })
-        return RoundToThreeDecimalPlaces(sum / tickDurations.current.length);
-      } else {
-        return "N/A"
-      }
-    }
+        if (tickDurations && tickDurations.current && tickDurations.current.length > 0) {
+            let sum: number = 0.0;
+            tickDurations.current.forEach((val: number) => {
+                sum = sum + val;
+            });
+            return RoundToThreeDecimalPlaces(sum / tickDurations.current.length);
+        } else {
+            return 'N/A';
+        }
+    };
 
     return (
         <Modal
@@ -248,18 +248,18 @@ export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalP
                             </DescriptionListTerm>
                             <DescriptionListDescription>{props.workload?.current_tick}</DescriptionListDescription>
                         </DescriptionListGroup>
-                      <DescriptionListGroup>
-                        <DescriptionListTerm>
-                          Last Tick Duration (ms) <ClockIcon />
-                        </DescriptionListTerm>
-                        <DescriptionListDescription>{getLastTickDuration()}</DescriptionListDescription>
-                      </DescriptionListGroup>
-                      <DescriptionListGroup>
-                        <DescriptionListTerm>
-                          Average Tick Duration (ms) <ClockIcon />
-                        </DescriptionListTerm>
-                        <DescriptionListDescription>{getAverageTickDuration()}</DescriptionListDescription>
-                      </DescriptionListGroup>
+                        <DescriptionListGroup>
+                            <DescriptionListTerm>
+                                Last Tick Duration (ms) <ClockIcon />
+                            </DescriptionListTerm>
+                            <DescriptionListDescription>{getLastTickDuration()}</DescriptionListDescription>
+                        </DescriptionListGroup>
+                        <DescriptionListGroup>
+                            <DescriptionListTerm>
+                                Average Tick Duration (ms) <ClockIcon />
+                            </DescriptionListTerm>
+                            <DescriptionListDescription>{getAverageTickDuration()}</DescriptionListDescription>
+                        </DescriptionListGroup>
                     </DescriptionList>
                 </FlexItem>
                 <FlexItem>
