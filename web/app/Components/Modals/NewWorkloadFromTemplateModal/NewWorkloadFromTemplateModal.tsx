@@ -423,19 +423,16 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
     const onFileUploadedNonJsonEditor = (event: DropEvent, uploadedFiles: File[]) => {
         // identify what, if any, files are re-uploads of already uploaded files
         const currentFileNames = currentFiles.map((file) => file.name);
-        const reUploads = uploadedFiles.filter((droppedFile) => currentFileNames.includes(droppedFile.name));
+        const reUploads = uploadedFiles.filter((uploadedFile) => currentFileNames.includes(uploadedFile.name));
 
         /** this promise chain is needed because if the file removal is done at the same time as the file adding react
          * won't realize that the status items for the re-uploaded files needs to be re-rendered */
         Promise.resolve()
-            .then(() => removeFiles(reUploads.map((file) => file.name)))
-            .then(() =>
-                setCurrentFiles((prevFiles) => {
-                    console.log(`Adding new file(s) to current files: ${JSON.stringify(uploadedFiles)}`);
-                    return [...prevFiles, ...uploadedFiles];
-                }),
-            )
+            .then(() => removeFiles(reUploads.map((reuploadedFile) => reuploadedFile.name)))
+            .then(() => setCurrentFiles((prevFiles) => [...prevFiles, ...uploadedFiles]))
             .then(() => {
+                /** this promise chain is needed because if the file removal is done at the same time as the file adding react
+                 * won't realize that the status items for the re-uploaded files needs to be re-rendered */
                 if (uploadedFiles.length > 1) {
                     console.error(`Too many files uploaded at once (${uploadedFiles.length}).`);
                     setFailedUploadModalBodyText(
@@ -479,8 +476,6 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                         }
 
                         toast.success(`Successfully uploaded and applied JSON template from file "${file.name}"`);
-                        console.log(`Current files: ${JSON.stringify(currentFiles)}`);
-                        console.log(`Show status: ${showFileUploadStatus}`);
                     };
 
                     reader.readAsText(file);
@@ -900,24 +895,21 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                                             titleText="Drag and drop a Workload Template file here"
                                             titleTextSeparator="or"
                                             infoText="Accepted file types: JSON"
+                                        />
+                                        <MultipleFileUploadStatus
+                                            statusToggleText={`${successfullyReadFileCount} of ${currentFiles.length} files uploaded`}
+                                            statusToggleIcon={fileUploadStatusIcon}
                                         >
-                                            {showFileUploadStatus && (
-                                                <MultipleFileUploadStatus
-                                                    statusToggleText={`${successfullyReadFileCount} of ${currentFiles.length} files uploaded`}
-                                                    statusToggleIcon={fileUploadStatusIcon}
-                                                >
-                                                    {currentFiles.map((file) => (
-                                                        <MultipleFileUploadStatusItem
-                                                            file={file}
-                                                            key={file.name}
-                                                            onClearClick={() => removeFiles([file.name])}
-                                                            onReadSuccess={handleReadSuccess}
-                                                            onReadFail={handleReadFail}
-                                                        />
-                                                    ))}
-                                                </MultipleFileUploadStatus>
-                                            )}
-                                        </MultipleFileUploadMain>
+                                            {currentFiles.map((file) => (
+                                                <MultipleFileUploadStatusItem
+                                                    file={file}
+                                                    key={file.name}
+                                                    onClearClick={() => removeFiles([file.name])}
+                                                    onReadSuccess={handleReadSuccess}
+                                                    onReadFail={handleReadFail}
+                                                />
+                                            ))}
+                                        </MultipleFileUploadStatus>
                                     </MultipleFileUpload>
                                 </FormGroup>
                             </FormSection>
