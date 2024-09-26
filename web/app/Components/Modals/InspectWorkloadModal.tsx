@@ -126,7 +126,7 @@ export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalP
     };
 
     const getLastTickDuration = () => {
-      if (tickDurations && tickDurations.current) {
+      if (tickDurations && tickDurations.current && tickDurations.current.length > 0) {
         return RoundToThreeDecimalPlaces(tickDurations.current[tickDurations.current.length - 1]);
       } else {
         return "N/A"
@@ -134,7 +134,7 @@ export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalP
     }
 
     const getAverageTickDuration = () => {
-      if (tickDurations && tickDurations.current) {
+      if (tickDurations && tickDurations.current && tickDurations.current.length > 0) {
         let sum: number = 0.0;
         tickDurations.current.forEach((val: number) => {
           sum = sum + val;
