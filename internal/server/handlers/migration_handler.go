@@ -46,7 +46,7 @@ func (h *MigrationHttpHandler) HandleRequest(c *gin.Context) {
 		return
 	}
 
-	h.logger.Info("Received migration request.", zap.Int32("replica-smr-id", migrationRequest.TargetReplica.ReplicaId), zap.String("kernel-id", migrationRequest.TargetReplica.KernelId), zap.String("target-node-id", migrationRequest.GetTargetNodeId()))
+	h.logger.Info("Received migration request.", zap.Int32("replica-smr-id", migrationRequest.TargetReplica.ReplicaId), zap.String("kernel_id", migrationRequest.TargetReplica.KernelId), zap.String("target-node-id", migrationRequest.GetTargetNodeId()))
 
 	resp, err := h.grpcClient.MigrateKernelReplica(context.TODO(), migrationRequest)
 	if err != nil {

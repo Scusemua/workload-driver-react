@@ -223,7 +223,7 @@ func (m *BasicKernelSessionManager) CreateSession(sessionId string, path string,
 			// Connect to the Session and to the associated kernel.
 			sessionConnection, err = NewSessionConnection(jupyterSession, "", m.jupyterServerAddress, m.atom)
 			if err != nil {
-				m.logger.Error("Could not establish connection to Session.", zap.String(ZapSessionIDKey, sessionId), zap.String("kernel-id", kernelId), zap.Error(err))
+				m.logger.Error("Could not establish connection to Session.", zap.String(ZapSessionIDKey, sessionId), zap.String("kernel_id", kernelId), zap.Error(err))
 				return nil, err
 			}
 			creationTime := time.Since(st)
@@ -232,7 +232,7 @@ func (m *BasicKernelSessionManager) CreateSession(sessionId string, path string,
 			m.sessionMap[sessionId] = sessionConnection
 			m.mu.Unlock()
 
-			m.logger.Debug("Successfully created and setup session.", zap.Duration("time-to-create", creationTime), zap.String("local-session-id", sessionId), zap.String("jupyter-session-id", jupyterSessionId), zap.String("kernel-id", kernelId))
+			m.logger.Debug("Successfully created and setup session.", zap.Duration("time-to-create", creationTime), zap.String("local-session-id", sessionId), zap.String("jupyter-session-id", jupyterSessionId), zap.String("kernel_id", kernelId))
 		}
 	case http.StatusBadRequest:
 		{

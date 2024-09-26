@@ -1211,12 +1211,12 @@ func (d *BasicWorkloadDriver) handleEvent(evt domain.Event) error {
 }
 
 func (d *BasicWorkloadDriver) stopSession(sessionId string) error {
-	d.logger.Debug("Stopping session.", zap.String("kernel-id", sessionId))
+	d.logger.Debug("Stopping session.", zap.String("kernel_id", sessionId))
 	return d.kernelManager.StopKernel(sessionId)
 }
 
 func (d *BasicWorkloadDriver) provisionSession(sessionId string, meta domain.SessionMetadata, createdAtTime time.Time, resourceSpec *jupyter.ResourceSpec) (*jupyter.SessionConnection, error) {
-	d.logger.Debug("Creating new kernel.", zap.String("kernel-id", sessionId))
+	d.logger.Debug("Creating new kernel.", zap.String("kernel_id", sessionId))
 	st := time.Now()
 	sessionConnection, err := d.kernelManager.CreateSession(
 		sessionId, /*strings.ToLower(sessionId) */
@@ -1237,7 +1237,7 @@ func (d *BasicWorkloadDriver) provisionSession(sessionId string, meta domain.Ses
 	d.sessionConnections[internalSessionId] = sessionConnection
 	d.mu.Unlock()
 
-	d.logger.Debug("Successfully created new kernel.", zap.String("kernel-id", sessionId), zap.Duration("time-elapsed", timeElapsed), zap.String(ZapInternalSessionIDKey, internalSessionId))
+	d.logger.Debug("Successfully created new kernel.", zap.String("kernel_id", sessionId), zap.Duration("time-elapsed", timeElapsed), zap.String(ZapInternalSessionIDKey, internalSessionId))
 
 	workloadSession := d.NewSession(sessionId, meta, createdAtTime)
 
@@ -1307,13 +1307,13 @@ func (d *BasicWorkloadDriver) handleIOPubMessage(conn jupyter.KernelConnection, 
 
 	stream, ok = content["name"].(string)
 	if !ok {
-		d.logger.Warn("Content of IOPub message did not contain an entry with key \"name\" and value of type string.", zap.Any("content", content), zap.Any("message", kernelMessage), zap.String("kernel-id", conn.KernelId()))
+		d.logger.Warn("Content of IOPub message did not contain an entry with key \"name\" and value of type string.", zap.Any("content", content), zap.Any("message", kernelMessage), zap.String("kernel_id", conn.KernelId()))
 		return nil
 	}
 
 	text, ok = content["text"].(string)
 	if !ok {
-		d.logger.Warn("Content of IOPub message did not contain an entry with key \"text\" and value of type string.", zap.Any("content", content), zap.Any("message", kernelMessage), zap.String("kernel-id", conn.KernelId()))
+		d.logger.Warn("Content of IOPub message did not contain an entry with key \"text\" and value of type string.", zap.Any("content", content), zap.Any("message", kernelMessage), zap.String("kernel_id", conn.KernelId()))
 		return nil
 	}
 

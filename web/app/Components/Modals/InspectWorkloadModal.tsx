@@ -1,10 +1,10 @@
 import {
-    Workload,
     WORKLOAD_STATE_ERRED,
     WORKLOAD_STATE_FINISHED,
     WORKLOAD_STATE_READY,
     WORKLOAD_STATE_RUNNING,
     WORKLOAD_STATE_TERMINATED,
+    Workload,
 } from '@app/Data/Workload';
 import { GetHeaderAndBodyForToast } from '@app/utils/toast_utils';
 import {
@@ -63,10 +63,10 @@ export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalP
     React.useEffect(() => {
         if (props.workload && props.workload?.current_tick > currentTick) {
             const tickDuration: number = performance.now() - tickStartTime.current;
-            tickDurations.current.push(tickDuration)
-          tickStartTime.current = performance.now();
+            tickDurations.current.push(tickDuration);
+            tickStartTime.current = performance.now();
             setCurrentTick(props.workload?.current_tick);
-            toast.custom(
+            toast(
                 GetHeaderAndBodyForToast(
                     'Tick Incremented',
                     `Workload ${props.workload?.name} has progressed to Tick #${props.workload?.current_tick}.`,
@@ -123,6 +123,26 @@ export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalP
 
         return props.workload?.time_elapsed_str;
     };
+
+    const getLastTickDuration = () => {
+      if (tickDurations && tickDurations.current) {
+        return tickDurations.current[tickDurations.current.length - 1];
+      } else {
+        return "N/A"
+      }
+    }
+
+    const getAverageTickDuration = () => {
+      if (tickDurations && tickDurations.current) {
+        let sum: number = 0;
+        tickDurations.current.forEach((val: number) => {
+          sum = sum + val;
+        })
+        return sum / tickDurations.current.length;
+      } else {
+        return "N/A"
+      }
+    }
 
     return (
         <Modal
@@ -227,6 +247,18 @@ export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalP
                             </DescriptionListTerm>
                             <DescriptionListDescription>{props.workload?.current_tick}</DescriptionListDescription>
                         </DescriptionListGroup>
+                      <DescriptionListGroup>
+                        <DescriptionListTerm>
+                          Last Tick Duration <ClockIcon />
+                        </DescriptionListTerm>
+                        <DescriptionListDescription>{getLastTickDuration()}</DescriptionListDescription>
+                      </DescriptionListGroup>
+                      <DescriptionListGroup>
+                        <DescriptionListTerm>
+                          Average Tick Duration <ClockIcon />
+                        </DescriptionListTerm>
+                        <DescriptionListDescription>{getAverageTickDuration()}</DescriptionListDescription>
+                      </DescriptionListGroup>
                     </DescriptionList>
                 </FlexItem>
                 <FlexItem>

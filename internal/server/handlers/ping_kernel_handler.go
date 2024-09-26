@@ -42,16 +42,16 @@ func (h *PingKernelHttpHandler) HandleRequest(c *gin.Context) {
 
 	resp, err := h.grpcClient.PingKernel(context.Background(), req)
 	if err != nil {
-		h.logger.Error("Error while pinging kernel", zap.String("kernel-id", req.KernelId), zap.Error(err))
+		h.logger.Error("Error while pinging kernel", zap.String("kernel_id", req.KernelId), zap.Error(err))
 		c.AbortWithError(http.StatusInternalServerError, err)
 		return
 	}
 
 	if resp.Success {
-		h.logger.Debug("Successfully pinged kernel.", zap.String("kernel-id", req.KernelId))
+		h.logger.Debug("Successfully pinged kernel.", zap.String("kernel_id", req.KernelId))
 		c.Status(http.StatusOK)
 	} else {
-		h.logger.Debug("Failed to ping one or more replicas of kernel.", zap.String("kernel-id", req.KernelId))
+		h.logger.Debug("Failed to ping one or more replicas of kernel.", zap.String("kernel_id", req.KernelId))
 		c.Status(http.StatusInternalServerError)
 	}
 }

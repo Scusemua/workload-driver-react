@@ -261,20 +261,27 @@ func (s *CustomEventSequencer) AddSessionStartedEvent(sessionId string, tickNumb
 	nextUtil := session.memBuffer.Debug_Init(memRecord)
 	session.memBuffer.Debug_Commit(nextUtil)
 
-	eventIndex := s.sessionEventIndexes[sessionId]
-	s.sessionEventIndexes[sessionId] = eventIndex + 1
+	localIndex := s.sessionEventIndexes[sessionId]
+	s.sessionEventIndexes[sessionId] = localIndex + 1
 	evt := &eventImpl{
 		name:                domain.EventSessionReady,
 		eventSource:         nil,
 		originalEventSource: nil,
 		timestamp:           timestamp,
-		localIndex:          eventIndex,
+		localIndex:          localIndex,
 		id:                  uuid.New().String(),
 		globalIndex:         globalCustomEventIndex.Add(1),
 	}
 	s.waitingEvents[sessionId] = evt
 
-	s.sugarLog.Debugf("Adding 'Session-Started' event for Session %s with timestamp %v (sec=%d).", sessionId, timestamp, sec)
+	s.log.Debug("Adding session event.",
+		zap.String("session_id", sessionId),
+		zap.String("event_name", domain.EventSessionReady.String()),
+		zap.Time("timestamp", timestamp),
+		zap.Int64("second", sec),
+		zap.Int("local_index", evt.localIndex),
+		zap.Uint64("global_index", evt.globalIndex),
+		zap.String("session_id", evt.id))
 }
 
 func (s *CustomEventSequencer) AddSessionTerminatedEvent(sessionId string, tickNumber int) {
@@ -293,14 +300,14 @@ func (s *CustomEventSequencer) AddSessionTerminatedEvent(sessionId string, tickN
 	s.stepGpu(sessionId, timestamp, []domain.GpuUtilization{{Utilization: 0}})
 	s.stepMemory(sessionId, timestamp, 0)
 
-	data := sessionMeta.Snapshot()
+	metadata := sessionMeta.Snapshot()
 	eventIndex := s.sessionEventIndexes[sessionId]
 	s.sessionEventIndexes[sessionId] = eventIndex + 1
 	evt := &eventImpl{
 		name:                domain.EventSessionStopped,
 		eventSource:         nil,
 		originalEventSource: nil,
-		data:                data,
+		data:                metadata,
 		timestamp:           timestamp,
 		localIndex:          eventIndex,
 		id:                  uuid.New().String(),
@@ -309,14 +316,34 @@ func (s *CustomEventSequencer) AddSessionTerminatedEvent(sessionId string, tickN
 
 	heap.Push(&s.eventHeap, &internalEventHeapElement{evt, -1})
 	s.sugarLog.Debugf("Added 'stopped' event for Session %s with timestamp %v (sec=%d). EventID=%s.", sessionId, timestamp, sec, evt.id)
+
+	s.log.Debug("Added session event.",
+		zap.String("session_id", sessionId),
+		zap.String("event_name", domain.EventSessionStopped.String()),
+		zap.Time("timestamp", timestamp),
+		zap.Int64("second", sec),
+		zap.Int("local_index", evt.localIndex),
+		zap.Uint64("global_index", evt.globalIndex),
+		zap.String("event_id", evt.id),
+		zap.String("metadata", metadata.String()))
 }
 
 func (s *CustomEventSequencer) submitWaitingEvent(sessionMeta *SessionMeta) {
 	sessionId := sessionMeta.Pod
 	dataForWaitingEvent := sessionMeta.Snapshot()
 	s.waitingEvents[sessionId].data = dataForWaitingEvent
-	heap.Push(&s.eventHeap, &internalEventHeapElement{s.waitingEvents[sessionId], -1})
-	s.sugarLog.Debugf("Added '%s' event for Session %s with timestamp %v. EventID=%s.", s.waitingEvents[sessionId].Name(), sessionId, s.waitingEvents[sessionId].Timestamp(), s.waitingEvents[sessionId].id)
+	evt := s.waitingEvents[sessionId]
+	heap.Push(&s.eventHeap, &internalEventHeapElement{evt, -1})
+
+	s.log.Debug("Adding session event.",
+		zap.String("session_id", sessionId),
+		zap.String("event_name", evt.name.String()),
+		zap.Time("timestamp", evt.timestamp),
+		zap.Int64("order_seq", evt.orderSeq),
+		zap.Int("local_index", evt.localIndex),
+		zap.Uint64("global_index", evt.globalIndex),
+		zap.String("session_id", evt.id))
+
 	delete(s.waitingEvents, sessionId)
 }
 
@@ -344,18 +371,27 @@ func (s *CustomEventSequencer) AddTrainingEvent(sessionId string, tickNumber int
 	s.stepMemory(sessionId, endTime, 0)
 
 	eventIndex := s.sessionEventIndexes[sessionId]
+	metadata := sessionMeta.Snapshot()
 	trainingStartedEvent := &eventImpl{
 		name:                domain.EventSessionTrainingStarted,
 		eventSource:         nil,
 		originalEventSource: nil,
-		data:                sessionMeta.Snapshot(),
+		data:                metadata,
 		localIndex:          eventIndex,
 		timestamp:           startTime,
 		id:                  uuid.New().String(),
 		globalIndex:         globalCustomEventIndex.Add(1),
 	}
 	heap.Push(&s.eventHeap, &internalEventHeapElement{trainingStartedEvent, -1})
-	s.sugarLog.Debugf("Added 'training-started' event for Session %s with timestamp %v (sec=%d). EventID=%s.", sessionId, startTime, startSec, trainingStartedEvent.id)
+	s.log.Debug("Added session event.",
+		zap.String("session_id", sessionId),
+		zap.String("event_name", domain.EventSessionTrainingStarted.String()),
+		zap.Time("timestamp", startTime),
+		zap.Int64("second", startSec),
+		zap.Int("local_index", trainingStartedEvent.localIndex),
+		zap.Uint64("global_index", trainingStartedEvent.globalIndex),
+		zap.String("event_id", trainingStartedEvent.id),
+		zap.String("metadata", metadata.String()))
 
 	trainingEndedEvent := &eventImpl{
 		name:                domain.EventSessionTrainingEnded,
