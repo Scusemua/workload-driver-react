@@ -1200,7 +1200,7 @@ func (d *BasicWorkloadDriver) handleEvent(evt domain.Event) error {
 			sessionLifetimeDuration := time.Since(session.GetCreatedAt())
 			metrics.PrometheusMetricsWrapperInstance.WorkloadSessionLifetimeSeconds.
 				With(prometheus.Labels{"workload_id": d.workload.GetId()}).
-				Observe(float64(sessionLifetimeDuration.Seconds()))
+				Observe(sessionLifetimeDuration.Seconds())
 		}
 
 		d.workload.SessionStopped(traceSessionId)

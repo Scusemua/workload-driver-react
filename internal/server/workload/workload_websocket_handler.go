@@ -480,11 +480,7 @@ func (h *WebsocketHandler) broadcastToWorkloadWebsockets(payload []byte) []error
 		if err != nil {
 			h.logger.Error("Error while broadcasting websocket message.", zap.Error(err))
 			errs = append(errs, err)
-
-			var closeError *websocket.CloseError
-			if errors.As(err, &closeError) || errors.Is(err, websocket.ErrCloseSent) {
-				toRemove = append(toRemove, ws)
-			}
+			toRemove = append(toRemove, ws)
 		}
 	}
 

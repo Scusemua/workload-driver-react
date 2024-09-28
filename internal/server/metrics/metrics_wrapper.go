@@ -97,7 +97,7 @@ func NewPrometheusMetricsWrapper(atom *zap.AtomicLevel) (*PrometheusMetricsWrapp
 			Subsystem: "workload_driver",
 			Name:      "session_lifetime_seconds",
 			Buckets: []float64{60 /* 1 min */, 600 /* 10 min */, 1800 /* 30 min */, 3600, /* 1hr */
-				21600 /* 6 hr */, 43200 /* 12 hr */, 86400 /* 24 hr */, 259200 /* 72 hr */, 6.048e8, /* 1 week */
+				21600 /* 6 hr */, 43200 /* 12 hr */, 86400 /* 24 hr */, 259200 /* 72 hr */, 6.048e5, /* 1 week */
 				1.21e6 /* 2 weeks */, 1.814e6 /* 3 weeks */, 1.051e7 /* 1 month */},
 		}, []string{"workload_id"}),
 
