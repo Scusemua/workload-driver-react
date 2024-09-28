@@ -58,6 +58,22 @@ interface Workload {
     current_tick: number;
 }
 
+/**
+ * GetNumActiveSessionsInWorkload returns the current number of actively-running (i.e., idle or executing code)
+ * sessions from the given workload.
+ */
+export function GetNumActiveSessionsInWorkload(workload: Workload): number {
+  let num_active_sessions: number = 0
+
+  workload.sessions.forEach(function(session: Session) {
+    if (session.state == "idle" || session.state == "training") {
+      num_active_sessions += 1;
+    }
+  })
+
+  return num_active_sessions
+}
+
 interface WorkloadEvent {
     idx: number;
     id: string;

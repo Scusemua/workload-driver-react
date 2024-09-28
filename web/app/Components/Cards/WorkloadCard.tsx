@@ -2,6 +2,7 @@ import {InspectWorkloadModal, RegisterWorkloadModal, VisualizeWorkloadModal} fro
 import {HeightFactorContext, WorkloadsHeightFactorContext} from '@app/Dashboard/Dashboard';
 
 import {
+  GetNumActiveSessionsInWorkload,
   GetWorkloadStatusTooltip,
   IsWorkloadFinished,
   Workload,
@@ -10,7 +11,7 @@ import {
   WORKLOAD_STATE_READY,
   WORKLOAD_STATE_RUNNING,
   WORKLOAD_STATE_TERMINATED,
-  WorkloadPreset,
+  WorkloadPreset
 } from '@app/Data/Workload';
 import {CsvFileIcon, TemplateIcon, XmlFileIcon} from '@app/Icons';
 import {
@@ -41,7 +42,7 @@ import {
   BlueprintIcon,
   CheckCircleIcon,
   ClockIcon,
-  CodeIcon,
+  CodeIcon, CubeIcon,
   DiceIcon,
   ExclamationTriangleIcon,
   HourglassStartIcon,
@@ -49,7 +50,7 @@ import {
   OutlinedCalendarAltIcon,
   PauseIcon,
   PlayIcon,
-  PlusIcon,
+  PlusIcon, RunningIcon,
   SearchIcon,
   SpinnerIcon,
   StopCircleIcon,
@@ -57,7 +58,7 @@ import {
   Stopwatch20Icon,
   StopwatchIcon,
   TimesCircleIcon,
-  UserClockIcon,
+  UserClockIcon
 } from '@patternfly/react-icons';
 
 import text from '@patternfly/react-styles/css/utilities/Text/text';
@@ -768,6 +769,16 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                                         </React.Fragment>
                                       </Tooltip>
                                     </FlexItem>
+                                    <FlexItem>
+                                      <Tooltip
+                                        content={'Total number of Sessions involved in the workload.'}
+                                        position="bottom"
+                                      >
+                                        <React.Fragment>
+                                          <CubeIcon/> {workload.sessions.length}
+                                        </React.Fragment>
+                                      </Tooltip>
+                                    </FlexItem>
 
                                     <FlexItem
                                       align={{default: 'alignRight'}}
@@ -854,6 +865,20 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                                             <Tooltip content="The current tick of the workload.">
                                               <React.Fragment>
                                                 <Stopwatch20Icon/> {workload.current_tick}
+                                              </React.Fragment>
+                                            </Tooltip>
+                                          </FlexItem>
+                                          <FlexItem>
+                                            <Tooltip content="Number of active sessions right now.">
+                                              <React.Fragment>
+                                                <CubeIcon/> {workload.num_active_sessions}
+                                              </React.Fragment>
+                                            </Tooltip>
+                                          </FlexItem>
+                                          <FlexItem>
+                                            <Tooltip content="Number of actively-training sessions right now.">
+                                              <React.Fragment>
+                                                <RunningIcon/> {workload.num_active_trainings}
                                               </React.Fragment>
                                             </Tooltip>
                                           </FlexItem>
