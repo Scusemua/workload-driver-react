@@ -326,10 +326,12 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                         return prevMap;
                     });
 
+                    const successIcon: string = Math.random() > 0.5 ? '🔥' : '😍';
+
                     toast.success(
                         (t: Toast) => {
                             return GetToastContentWithHeaderAndBodyAndDismissButton(
-                                `Execution Complete ${Math.random() > 0.5 ? '🔥' : '😍'}`,
+                                `Execution Complete ${successIcon}`,
                                 `Kernel ${kernelId} has finished executing your code after ${latencySecRounded} seconds.`,
                                 t.id,
                             );
