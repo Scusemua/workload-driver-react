@@ -41,7 +41,7 @@ func (h *StopTrainingHandler) HandleRequest(c *gin.Context) {
 	err = c.BindJSON(&req)
 	if err != nil {
 		h.logger.Error("Failed to unmarshal StopTrainingRequest.", zap.Error(err))
-		c.AbortWithError(http.StatusBadRequest, err)
+		_ = c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
 
@@ -49,18 +49,18 @@ func (h *StopTrainingHandler) HandleRequest(c *gin.Context) {
 
 	kernelConnection, err = h.getKernelConnection(req.KernelId, req.SessionId)
 	if err != nil {
-		c.AbortWithError(http.StatusInternalServerError, err)
+		_ = c.AbortWithError(http.StatusInternalServerError, err)
 	}
 
 	h.sugaredLogger.Debugf("Issuing 'stop-training' message to kernel %s now.", req.KernelId)
 	err = kernelConnection.StopRunningTrainingCode(false)
 	if err != nil {
 		h.logger.Error("Failed to stop training.", zap.String("kernel_id", req.KernelId), zap.String("session_id", req.SessionId), zap.String("connection-status", string(kernelConnection.ConnectionStatus())), zap.String("error_message", err.Error()))
-		c.AbortWithError(http.StatusInternalServerError, err)
+		_ = c.AbortWithError(http.StatusInternalServerError, err)
 
 		h.kernelConnections.Del(req.KernelId)
 		go func() {
-			kernelConnection.Close()
+			_ = kernelConnection.Close()
 		}()
 
 		return

@@ -2,7 +2,7 @@ import {DarkModeContext} from '@app/Providers';
 import {Monaco} from '@monaco-editor/react';
 import {CodeEditor, CodeEditorControl, Language} from '@patternfly/react-code-editor';
 import {Button, Chip, Grid, GridItem, Switch, TextInput} from '@patternfly/react-core';
-import {CodeIcon, FileIcon} from '@patternfly/react-icons';
+import { ClockIcon, CodeIcon, DiceIcon, FileIcon, TimesIcon } from '@patternfly/react-icons';
 import {editor} from 'monaco-editor/esm/vs/editor/editor.api';
 import React from 'react';
 import {CodeContext} from './Modals';
@@ -181,34 +181,48 @@ print("a = %d, b = %d" % (a, b))`,
 
   const defaultCodeTemplate3 = (
     <CodeEditorControl
-      icon={<CodeIcon/>}
+      icon={<DiceIcon/>}
       aria-label="Execute code"
       tooltipProps={{content: 'Sample Code #3'}}
       onClick={() => {
-        setCode(`c = (b + 15) * ((a - 2) * a)
-print("a = %d, b = %d, c = %d" % (a, b, c))`);
+        setCode(`import random
+var: int = random.randint(0, int(1e6))
+print(f"Generated a random value: {var}")
+var = var + 1
+print(f"Incremented: {var}")
+`);
       }}
     />
   );
 
   const defaultCodeTemplate4 = (
     <CodeEditorControl
-      icon={<CodeIcon/>}
+      icon={<ClockIcon/>}
       aria-label="Execute code"
       tooltipProps={{content: 'Sample Code #4'}}
       onClick={() => {
-        setCode(`a = 1
-b = a + 2
-c = (b * 3) - a
-d = (2 * a) - (4 * b) + (3 + c)
-e = (d ^ 2) + c + b + a
-f = e + d + c + b + a
-g = f + e + d + c + b + a
-h = g + f + e + d + c + b + a
-i = h + g + f + e + d + c + b + a
-j = i + h + g + f + e + d + c + b + a
-print(f"i = {i}")
-`);
+        setCode(`import time
+counter: int = 0
+end: int = 10
+
+for i in range(0, end, 1):
+  print(f"i = {i}, counter = {counter}")
+  counter = counter + 1
+  time.sleep(1)
+
+print(f"counter={counter}")`);
+//         setCode(`a = 1
+// b = a + 2
+// c = (b * 3) - a
+// d = (2 * a) - (4 * b) + (3 + c)
+// e = (d ^ 2) + c + b + a
+// f = e + d + c + b + a
+// g = f + e + d + c + b + a
+// h = g + f + e + d + c + b + a
+// i = h + g + f + e + d + c + b + a
+// j = i + h + g + f + e + d + c + b + a
+// print(f"i = {i}")
+// `);
       }}
     />
   );

@@ -17,6 +17,7 @@ import {
     FormSelectOption,
     Grid,
     GridItem,
+    Label,
     Modal,
     Tab,
     Tabs,
@@ -26,8 +27,8 @@ import {
     Title,
     Tooltip,
 } from '@patternfly/react-core';
-import { CheckCircleIcon } from '@patternfly/react-icons';
-import React from 'react';
+import { CheckCircleIcon, SpinnerIcon, TimesCircleIcon } from '@patternfly/react-icons';
+import React, { ReactElement } from 'react';
 import toast from 'react-hot-toast';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -51,6 +52,14 @@ export const CodeContext = React.createContext({
     setCode: (newCode: string) => {},
 });
 
+interface Execution {
+    kernelId: string;
+    replicaId: number | undefined;
+    executionId: string;
+    status: 'running' | 'failed' | 'completed';
+    output: string[];
+}
+
 export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKernelProps> = (props) => {
     const [code, setCode] = React.useState('');
     const [executionState, setExecutionState] = React.useState('idle');
@@ -60,9 +69,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
     const [activeExecutionOutputTab, setActiveExecutionOutputTab] = React.useState<string>('');
 
     const [outputMap, setOutputMap] = React.useState<Map<string, string[]>>(new Map());
-    const [execIdToKernelReplicaMap, setExecIdToKernelReplicaMap] = React.useState<
-        Map<string, [string, number | undefined]>
-    >(new Map());
+    const [executionMap, setExecutionMap] = React.useState<Map<string, Execution>>(new Map());
     const [closedExecutionMap, setClosedExecutionMap] = React.useState<Map<string, boolean>>(new Map());
 
     const executionOutputTabComponentRef = React.useRef();
@@ -235,12 +242,20 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                 }
             };
 
+            const execution: Execution = {
+                kernelId: kernelId,
+                replicaId: props.replicaId,
+                executionId: executionId,
+                status: 'running',
+                output: [],
+            };
+
             if (activeExecutionOutputTab === '' || !outputMap.has(activeExecutionOutputTab)) {
                 console.log(`Setting active tab to ${executionId}`);
                 setActiveExecutionOutputTab(executionId);
             }
 
-            setExecIdToKernelReplicaMap((prevMap) => new Map(prevMap).set(executionId, [kernelId, props.replicaId]));
+            setExecutionMap((prevMap) => new Map(prevMap).set(executionId, execution));
 
             future.onReply = (msg) => {
                 console.log(`Received reply for execution request: ${JSON.stringify(msg)}`);
@@ -253,6 +268,15 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                         const latencyMilliseconds: number = performance.now() - startTime;
                         const latencySecRounded: number = RoundToThreeDecimalPlaces(latencyMilliseconds / 1000.0);
                         console.log(`Execution on Kernel ${kernelId} finished after ${latencySecRounded} seconds.`);
+
+                        setExecutionMap((prevMap) => {
+                            const exec: Execution | undefined = prevMap.get(executionId);
+                            if (exec) {
+                                exec.status = 'completed';
+                                return new Map(prevMap).set(executionId, exec);
+                            }
+                            return prevMap;
+                        });
 
                         return GetHeaderAndBodyForToast(
                             `Execution Complete ${Math.random() > 0.5 ? '🔥' : '😍'}`,
@@ -271,6 +295,16 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                         console.error(
                             `Execution on Kernel ${kernelId} failed to complete after ${latencySecRounded} seconds. Error: ${error}.`,
                         );
+
+                        setExecutionMap((prevMap) => {
+                            const exec: Execution | undefined = prevMap.get(executionId);
+                            if (exec) {
+                                exec.status = 'failed';
+                                return new Map(prevMap).set(executionId, exec);
+                            }
+                            return prevMap;
+                        });
+
                         return GetHeaderAndBodyForToast(
                             '️ Execution Failed ⚠️️️',
                             `Execution on Kernel ${kernelId} failed to complete after ${latencySecRounded} seconds. Error: ${error}.`,
@@ -328,9 +362,9 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
     };
 
     const getKernelId = (execId: string) => {
-        const val = execIdToKernelReplicaMap.get(execId);
-        if (val) {
-            return val[0];
+        const execution = executionMap.get(execId);
+        if (execution) {
+            return execution.kernelId;
         }
         return undefined;
     };
@@ -340,12 +374,12 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
      * @param execId the ID of the desired execution
      */
     const getShortenedKernelId = (execId: string) => {
-        const entry = execIdToKernelReplicaMap.get(execId);
-        if (entry) {
-            if (entry[0].length > 8) {
-                return entry[0].substring(0, 8) + '...';
+        const execution = executionMap.get(execId);
+        if (execution) {
+            if (execution.kernelId.length > 20) {
+                return execution.kernelId.substring(0, 20) + '...';
             }
-            return entry[0];
+            return execution.kernelId;
         }
         return undefined;
     };
@@ -355,9 +389,9 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
      * @param execId the ID of the desired execution
      */
     const getReplicaId = (execId: string) => {
-        const val = execIdToKernelReplicaMap.get(execId);
-        if (val) {
-            return val[1];
+        const execution = executionMap.get(execId);
+        if (execution) {
+            return execution.replicaId;
         }
         return undefined;
     };
@@ -371,6 +405,27 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
             return output;
         }
         return [];
+    };
+
+    const getExecutionLabel = (exec: Execution) => {
+        let color: 'grey' | 'green' | 'red' | 'blue' | 'cyan' | 'orange' | 'purple' | 'gold' | undefined;
+        let icon: ReactElement<any, any>;
+        if (exec.status == 'running') {
+            color = 'grey';
+            icon = <SpinnerIcon className={'loading-icon-spin'} />;
+        } else if (exec.status == 'completed') {
+            color = 'green';
+            icon = <CheckCircleIcon />;
+        } else {
+            color = 'red';
+            icon = <TimesCircleIcon />;
+        }
+
+        return (
+            <Label color={color} icon={icon}>
+                {exec.status}
+            </Label>
+        );
     };
 
     // Note: we're just simulating the tabs here. The tabs don't have any content.
@@ -394,7 +449,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                     ref={executionOutputTabComponentRef}
                     aria-label="ExecutionOutput Configuration Tabs"
                 >
-                    {Array.from(outputMap).map(([execId]) => {
+                    {Array.from(executionMap).map(([execId, exec]) => {
                         return (
                             <Tab
                                 id={`execution-output-tab-${execId}`}
@@ -403,7 +458,27 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                                 aria-label={`${execId} Tab`}
                                 title={
                                     <TabTitleText>
-                                        Kernel {getShortenedKernelId(execId)}, Exec {execId.substring(0,8)}...
+                                        <Flex
+                                            direction={{ default: 'column' }}
+                                            spaceItems={{ default: 'spaceItemsNone' }}
+                                        >
+                                            <Flex
+                                                direction={{ default: 'row' }}
+                                                spaceItems={{ default: 'spaceItemsXs' }}
+                                            >
+                                                <FlexItem alignSelf={{ default: 'alignSelfFlexEnd' }}>
+                                                    <Text component={'small'}>
+                                                        <b>ExecID: </b> {execId.substring(0, 8)}
+                                                    </Text>
+                                                </FlexItem>
+                                                <FlexItem>{getExecutionLabel(exec)}</FlexItem>
+                                            </Flex>
+                                            <FlexItem alignSelf={{ default: 'alignSelfFlexStart' }}>
+                                                <Text component={'small'}>
+                                                    <b>KernelID: </b> {getShortenedKernelId(execId)}
+                                                </Text>
+                                            </FlexItem>
+                                        </Flex>
                                     </TabTitleText>
                                 }
                                 closeButtonAriaLabel={`Close ${execId} Tab`}

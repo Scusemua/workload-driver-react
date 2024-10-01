@@ -411,60 +411,10 @@ func (conn *BasicKernelConnection) RequestExecute(code string, silent bool, stor
 	conn.waitingForExecuteResponses.Add(1)
 
 	if waitForResponse {
-		// Once a second, we'll increment the Prometheus metric pertaining to how long we've spent actively-training.
-		// clockTrigger := clock.NewTrigger()
-		// ticker := clockTrigger.NewSyncTicker(time.Second, fmt.Sprintf("kernel-connection-%s", conn.kernelId), conn.internalClock)
-
 		// We'll populate this either in the ticker or when we get the response.
 		var (
 			workloadId string
-			// wg         sync.WaitGroup
 		)
-		// wg.Add(1)
-
-		//go func() {
-		//	for {
-		//		select {
-		//		case <-ticker.TickDelivery:
-		//			{
-		//				// If we haven't populated the workloadId variable with a value yet, then attempt to do so.
-		//				if len(workloadId) == 0 {
-		//					workloadId, _ = conn.GetMetadata(WorkloadIdMetadataKey)
-		//				}
-		//
-		//				metrics.PrometheusMetricsWrapperInstance.JupyterRequestExecuteTime.
-		//					With(prometheus.Labels{"workload_id": workloadId, "kernel_id": conn.kernelId}).
-		//					Add(1) // Add another second.
-		//
-		//				ticker.Done()
-		//				continue
-		//			}
-		//		case response := <-responseChan:
-		//			{
-		//				// Wait without a timeout for the response.
-		//				// Code executions can take an arbitrary amount of time.
-		//				latency := time.Since(sentAt)
-		//				conn.logger.Debug("Received response to `execute_request` message.", zap.String("message_id", message.GetHeader().MessageId), zap.Duration("latency", latency), zap.Any("response", response))
-		//
-		//				conn.waitingForExecuteResponses.Add(-1)
-		//
-		//				// If we haven't populated the workloadId variable with a value yet, then attempt to do so.
-		//				if len(workloadId) == 0 {
-		//					workloadId, _ = conn.GetMetadata(WorkloadIdMetadataKey)
-		//				}
-		//
-		//				metrics.PrometheusMetricsWrapperInstance.JupyterExecuteRequestEndToEndLatencyMilliseconds.
-		//					With(prometheus.Labels{"workload_id": workloadId}).
-		//					Observe(latency.Seconds())
-		//
-		//				// Notify that we received the response.
-		//				wg.Done()
-		//				ticker.Done()
-		//				return
-		//			}
-		//		}
-		//	}
-		//}()
 
 		response := <-responseChan
 		latency := time.Since(sentAt)
@@ -776,10 +726,17 @@ func (conn *BasicKernelConnection) createKernelMessage(messageType MessageType, 
 
 	var responseChannel chan KernelMessage
 	if channel == ShellChannel || channel == ControlChannel {
+
 		// We create a buffered channel so that the 'message-receiver' goroutine cannot get blocked trying to put
 		// a result into a response channel for which the receiver is not actively listening/waiting for said response.
 		responseChannel = make(chan KernelMessage, 1)
 		responseChannelKey := getResponseChannelKeyFromRequest(message)
+
+		if len(responseChannelKey) == 0 {
+			conn.logger.Debug("Returning nil response channel.", zap.String("message_type", messageType.String()), zap.String("channel", channel.String()))
+			return message, nil
+		}
+
 		conn.responseChannels[responseChannelKey] = responseChannel
 
 		conn.sugaredLogger.Debugf("Stored response channel for %s \"%s\" message under key \"%s\" for kernel %s.", channel, messageType, responseChannelKey, conn.kernelId)

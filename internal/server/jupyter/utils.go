@@ -53,6 +53,10 @@ func getResponseChannelKeyFromRequest(originalMessage KernelMessage) string {
 	var channel = originalMessage.GetChannel()
 	var messageId = originalMessage.GetHeader().MessageId
 
+	if originalMessage.GetHeader().MessageType == CommCloseMessage {
+		return ""
+	}
+
 	if !strings.HasSuffix(messageType.String(), "request") {
 		panic(fmt.Sprintf("%s request %s has invalid message type: \"%s\"", channel, messageId, messageType))
 	}

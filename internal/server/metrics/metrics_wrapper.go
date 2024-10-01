@@ -105,15 +105,13 @@ func NewPrometheusMetricsWrapper(atom *zap.AtomicLevel) (*PrometheusMetricsWrapp
 			Namespace: "distributed_cluster",
 			Subsystem: "jupyter",
 			Name:      "session_creation_latency_milliseconds",
-			Buckets: []float64{10, 1e3, 2e3, 3e3, 4e3, 5e3, 6e3, 7e3, 8e3, 9e3, 10e3, 15e3, 20e3, 25e3, 30e3, 45e3, 60e3,
-				90e3, 120e3, 180e3, 240e3, 300e3},
+			Buckets:   []float64{1, 10, 30, 75, 150, 250, 500, 1000, 2000, 5000, 10e3, 20e3, 45e3, 90e3, 300e3},
 		}, []string{"workload_id"}),
 		JupyterSessionTerminationLatencyMilliseconds: prometheus.NewHistogramVec(prometheus.HistogramOpts{
 			Namespace: "distributed_cluster",
 			Subsystem: "jupyter",
 			Name:      "session_termination_latency_milliseconds",
-			Buckets: []float64{1, 10, 20, 30, 50, 75, 100, 150, 200, 250, 375, 500, 750, 1000, 1500, 2000, 2500, 5000, 7500,
-				10e3, 15e3, 20e3, 25e3, 30e3, 45e3, 60e3, 90e3, 120e3},
+			Buckets:   []float64{1, 10, 30, 75, 150, 250, 500, 1000, 2000, 5000, 10e3, 20e3, 45e3, 90e3, 300e3},
 		}, []string{"workload_id"}),
 		JupyterExecuteRequestEndToEndLatencyMilliseconds: prometheus.NewHistogramVec(prometheus.HistogramOpts{
 			Namespace: "distributed_cluster",
