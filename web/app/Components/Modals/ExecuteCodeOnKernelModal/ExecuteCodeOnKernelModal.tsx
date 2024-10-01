@@ -68,9 +68,8 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
     const [forceFailure, setForceFailure] = React.useState(false);
     const [activeExecutionOutputTab, setActiveExecutionOutputTab] = React.useState<string>('');
 
-    const [outputMap, setOutputMap] = React.useState<Map<string, string[]>>(new Map());
     const [executionMap, setExecutionMap] = React.useState<Map<string, Execution>>(new Map());
-    const [closedExecutionMap, setClosedExecutionMap] = React.useState<Map<string, boolean>>(new Map());
+    const [, setClosedExecutionMap] = React.useState<Map<string, boolean>>(new Map());
 
     const executionOutputTabComponentRef = React.useRef();
 
@@ -79,10 +78,15 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
     };
 
     const onCloseExecutionOutputTab = (_: React.MouseEvent<HTMLElement, MouseEvent>, executionId: string | number) => {
-        setOutputMap((prevOutputMap) => {
-            const nextOutput = new Map(prevOutputMap);
-            nextOutput.delete(executionId as string);
-            return nextOutput;
+        // setOutputMap((prevOutputMap) => {
+        //     const nextOutput = new Map(prevOutputMap);
+        //     nextOutput.delete(executionId as string);
+        //     return nextOutput;
+        // });
+        setExecutionMap((prevExecMap) => {
+            const nextExecMap = new Map(prevExecMap);
+            nextExecMap.delete(executionId as string);
+            return nextExecMap;
         });
         setClosedExecutionMap((prevClosedExecutionMap) =>
             new Map(prevClosedExecutionMap).set(executionId as string, true),
@@ -90,7 +94,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
 
         // If we're closing the active tab, attempt to select another tab as the active tab.
         if (activeExecutionOutputTab == executionId) {
-            for (const [key] of Array.from(outputMap)) {
+            for (const [key] of Array.from(executionMap)) {
                 if (key != executionId) {
                     console.log(`Setting active tab to ${key}`);
                     setActiveExecutionOutputTab(key);
@@ -103,11 +107,14 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
     React.useEffect(() => {
         // Basically, if we don't have an active tab selected, or if the tab we had selected was closed,
         // and we just added a new tab, then set the active tab to the newly-added tab.
-        if (outputMap.size >= 1 && (activeExecutionOutputTab === '' || !outputMap.has(activeExecutionOutputTab))) {
-            console.log(`Setting active tab to ${outputMap.keys()[0]}`);
-            setActiveExecutionOutputTab(outputMap.keys()[0]);
+        if (
+            executionMap.size >= 1 &&
+            (activeExecutionOutputTab === '' || !executionMap.has(activeExecutionOutputTab))
+        ) {
+            console.log(`Setting active tab to ${executionMap.keys()[0]}`);
+            setActiveExecutionOutputTab(executionMap.keys()[0]);
         }
-    }, [outputMap]);
+    }, [executionMap]);
 
     React.useEffect(() => {
         setTargetReplicaId(props.replicaId || -1);
@@ -118,23 +125,19 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
         const messages: string[] = msg.trim().split(/\n/);
         console.log(`Appending ${messages.length} message(s) to output log for kerenl execution: ${messages}`);
 
-        setOutputMap((prevOutputMap) => {
-            let prevOutput: string[] | undefined = prevOutputMap.get(execution_id);
+        setExecutionMap((prevExecMap) => {
+            const exec: Execution | undefined = prevExecMap.get(execution_id);
 
             // If the user explicitly closed the tab, then we'll just return.
             // If the tab was never explicitly closed, then we're receiving update
             // from the associated execution for the very first time, and so
             // we'll need to add/create an entry in the output map.
-            if (prevOutput === undefined) {
-                if (!closedExecutionMap.has(execution_id)) {
-                    prevOutput = [];
-                } else {
-                    return new Map(prevOutputMap);
-                }
+            if (exec === undefined) {
+                return prevExecMap;
             }
 
-            const nextOutput = [...prevOutput, ...messages];
-            return new Map(prevOutputMap.set(execution_id, nextOutput));
+            exec.output = [...exec.output, ...messages];
+            return new Map(prevExecMap.set(execution_id, exec));
         });
     };
 
@@ -250,7 +253,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                 output: [],
             };
 
-            if (activeExecutionOutputTab === '' || !outputMap.has(activeExecutionOutputTab)) {
+            if (activeExecutionOutputTab === '' || !executionMap.has(activeExecutionOutputTab)) {
                 console.log(`Setting active tab to ${executionId}`);
                 setActiveExecutionOutputTab(executionId);
             }
@@ -400,16 +403,16 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
      * Get the output of the active execution
      */
     const getOutputForActiveExecutionTab = () => {
-        const output = outputMap.get(activeExecutionOutputTab);
-        if (output) {
-            return output;
+        const exec = executionMap.get(activeExecutionOutputTab);
+        if (exec) {
+            return exec.output;
         }
         return [];
     };
 
     const getExecutionLabel = (exec: Execution) => {
         let color: 'grey' | 'green' | 'red' | 'blue' | 'cyan' | 'orange' | 'purple' | 'gold' | undefined;
-        let icon: ReactElement<any, any>;
+        let icon: ReactElement;
         if (exec.status == 'running') {
             color = 'grey';
             icon = <SpinnerIcon className={'loading-icon-spin'} />;
@@ -437,7 +440,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
         <Card isCompact isFlat>
             <CardBody>
                 <Tabs
-                    hidden={outputMap.size == 0}
+                    hidden={executionMap.size == 0}
                     activeKey={activeExecutionOutputTab}
                     onSelect={(_: React.MouseEvent<HTMLElement, MouseEvent>, eventKey: number | string) => {
                         onExecutionOutputTabSelect(eventKey as string);
