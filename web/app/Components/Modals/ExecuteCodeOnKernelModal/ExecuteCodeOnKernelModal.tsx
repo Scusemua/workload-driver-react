@@ -1,5 +1,8 @@
 import { DistributedJupyterKernel, JupyterKernelReplica } from '@app/Data';
-import { GetHeaderAndBodyForToast } from '@app/utils/toast_utils';
+import {
+    GetToastContentWithHeaderAndBody,
+    GetToastContentWithHeaderAndBodyAndDismissButton,
+} from '@app/utils/toast_utils';
 import { CodeEditorComponent } from '@components/CodeEditor';
 import { ExecutionOutputTabContent } from '@components/Modals/ExecuteCodeOnKernelModal/ExecutionOutputTabContent';
 import { RoundToThreeDecimalPlaces } from '@components/Modals/NewWorkloadFromTemplateModal';
@@ -27,9 +30,9 @@ import {
     Title,
     Tooltip,
 } from '@patternfly/react-core';
-import { CheckCircleIcon, SpinnerIcon, TimesCircleIcon } from '@patternfly/react-icons';
+import { CheckCircleIcon, SpinnerIcon, TimesCircleIcon, TimesIcon } from '@patternfly/react-icons';
 import React, { ReactElement } from 'react';
-import toast from 'react-hot-toast';
+import toast, { Toast } from 'react-hot-toast';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface ExecuteCodeOnKernelProps {
@@ -142,13 +145,13 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
     };
 
     const onSubmit = (action: 'submit' | 'enqueue') => {
-        async function runUserCode() {
+        async function runUserCode(): Promise<Execution | undefined> {
             const executionId: string = uuidv4();
             const kernelId: string | undefined = props.kernel?.kernelId;
 
             if (kernelId == undefined) {
                 console.error("Couldn't determiner kernel ID of target kernel for code execution...");
-                return;
+                return undefined;
             }
 
             const kernelSpecManagerOptions: KernelManager.IOptions = {
@@ -264,61 +267,77 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                 console.log(`Received reply for execution request: ${JSON.stringify(msg)}`);
             };
 
-            await toast.promise(
-                future.done,
-                {
-                    success: () => {
-                        const latencyMilliseconds: number = performance.now() - startTime;
-                        const latencySecRounded: number = RoundToThreeDecimalPlaces(latencyMilliseconds / 1000.0);
-                        console.log(`Execution on Kernel ${kernelId} finished after ${latencySecRounded} seconds.`);
-
-                        setExecutionMap((prevMap) => {
-                            const exec: Execution | undefined = prevMap.get(executionId);
-                            if (exec) {
-                                exec.status = 'completed';
-                                return new Map(prevMap).set(executionId, exec);
-                            }
-                            return prevMap;
-                        });
-
-                        return GetHeaderAndBodyForToast(
-                            `Execution Complete ${Math.random() > 0.5 ? '🔥' : '😍'}`,
-                            `Kernel ${kernelId} has finished executing your code after ${latencySecRounded} seconds.`,
-                        );
-                    },
-                    loading: GetHeaderAndBodyForToast(
+            const toastId: string = toast.loading(
+                (t: Toast) => {
+                    return GetToastContentWithHeaderAndBodyAndDismissButton(
                         action == 'submit' ? 'Code Submitted 👀' : 'Code Enqueued 👀',
                         action == 'submit'
                             ? `Submitted code for execution to kernel ${kernelId}.`
                             : `Enqueued code for execution with kernel ${kernelId}.`,
-                    ),
-                    error: (error) => {
-                        const latencyMilliseconds: number = performance.now() - startTime;
-                        const latencySecRounded: number = RoundToThreeDecimalPlaces(latencyMilliseconds / 1000.0);
-                        console.error(
-                            `Execution on Kernel ${kernelId} failed to complete after ${latencySecRounded} seconds. Error: ${error}.`,
-                        );
+                        t.id,
+                    );
+                },
+                { style: { maxWidth: 750 } },
+            );
 
-                        setExecutionMap((prevMap) => {
-                            const exec: Execution | undefined = prevMap.get(executionId);
-                            if (exec) {
-                                exec.status = 'failed';
-                                return new Map(prevMap).set(executionId, exec);
-                            }
-                            return prevMap;
-                        });
+            future.done
+                .catch((error: Error) => {
+                    const latencyMilliseconds: number = performance.now() - startTime;
+                    const latencySecRounded: number = RoundToThreeDecimalPlaces(latencyMilliseconds / 1000.0);
+                    console.error(
+                        `Execution on Kernel ${kernelId} failed to complete after ${latencySecRounded} seconds. Error: ${error}.`,
+                    );
 
-                        return GetHeaderAndBodyForToast(
+                    setExecutionMap((prevMap) => {
+                        const exec: Execution | undefined = prevMap.get(executionId);
+                        if (exec) {
+                            exec.status = 'failed';
+                            return new Map(prevMap).set(executionId, exec);
+                        }
+                        return prevMap;
+                    });
+
+                    toast.error(
+                        GetToastContentWithHeaderAndBody(
                             '️ Execution Failed ⚠️️️',
                             `Execution on Kernel ${kernelId} failed to complete after ${latencySecRounded} seconds. Error: ${error}.`,
-                        );
-                    },
-                },
-                {
-                    style: { maxWidth: 750 },
-                    duration: 5000,
-                },
-            );
+                        ),
+                        {
+                            id: toastId,
+                            style: { maxWidth: 750 },
+                            duration: 12500,
+                        },
+                    );
+                })
+                .then(() => {
+                    const latencyMilliseconds: number = performance.now() - startTime;
+                    const latencySecRounded: number = RoundToThreeDecimalPlaces(latencyMilliseconds / 1000.0);
+                    console.log(`Execution on Kernel ${kernelId} finished after ${latencySecRounded} seconds.`);
+
+                    setExecutionMap((prevMap) => {
+                        const exec: Execution | undefined = prevMap.get(executionId);
+                        if (exec) {
+                            exec.status = 'completed';
+                            return new Map(prevMap).set(executionId, exec);
+                        }
+                        return prevMap;
+                    });
+
+                    toast.success(
+                        (t: Toast) => {
+                            return GetToastContentWithHeaderAndBodyAndDismissButton(
+                                `Execution Complete ${Math.random() > 0.5 ? '🔥' : '😍'}`,
+                                `Kernel ${kernelId} has finished executing your code after ${latencySecRounded} seconds.`,
+                                t.id,
+                            );
+                        },
+                        {
+                            id: toastId,
+                            style: { maxWidth: 750 },
+                            duration: 7250,
+                        },
+                    );
+                });
 
             // await future.done;
             setExecutionState('done');
@@ -337,9 +356,19 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                     },
                 }),
             });
+
+            return executionMap.get(executionId);
         }
 
-        runUserCode().then(() => {});
+        runUserCode().then(() => {
+            // if (exec) {
+            //     console.log(
+            //         `Finished execution ${exec.executionId} on kernel ${exec.kernelId} with final status: ${exec.status}`,
+            //     );
+            // } else {
+            //     console.log(`Failed to perform code execution...`);
+            // }
+        });
     };
 
     // Reset state, then call user-supplied onClose function.
@@ -519,7 +548,6 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                                 'Please wait until the current execution completes before submitting additional code for execution.',
                             );
                         } else {
-                            console.log('Closing execute code modal.');
                             setExecutionState('idle');
                         }
                     }}
@@ -611,9 +639,16 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                         </GridItem>
                     </Grid>
                 </FlexItem>
-                <FlexItem>
-                    <Title headingLevel="h2">Output</Title>
-                </FlexItem>
+                <Flex direction={{ default: 'row' }} spaceItems={{ default: 'spaceItemsNone' }}>
+                    <FlexItem align={{ default: 'alignLeft' }}>
+                        <Title headingLevel="h2">Output</Title>
+                    </FlexItem>
+                    <FlexItem align={{ default: 'alignRight' }}>
+                        <Button variant="link" isInline icon={<TimesIcon />}>
+                            Close All Tabs
+                        </Button>
+                    </FlexItem>
+                </Flex>
                 {executionOutputArea}
             </Flex>
         </Modal>

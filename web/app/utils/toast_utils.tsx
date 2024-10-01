@@ -1,13 +1,14 @@
 import { Button, Flex, FlexItem, Text, TextVariants } from '@patternfly/react-core';
+import { TimesIcon } from '@patternfly/react-icons';
 import React from 'react';
 import { toast } from 'react-hot-toast';
 
 /**
- * Return a <div> containing a <Flex> to be used as a toast error notification.
+ * Return a <div> containing a <Flex> to be used as a toast notification.
  * @param header Name or title of the error
  * @param body Error message
  */
-export function GetHeaderAndBodyForToast(header: string, body: string): React.JSX.Element {
+export function GetToastContentWithHeaderAndBody(header: string, body: string): React.JSX.Element {
     return (
         <div>
             <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
@@ -16,6 +17,38 @@ export function GetHeaderAndBodyForToast(header: string, body: string): React.JS
                         <b>{header}</b>
                     </Text>
                 </FlexItem>
+                <FlexItem>
+                    <Text component={TextVariants.small}>{body}</Text>
+                </FlexItem>
+            </Flex>
+        </div>
+    );
+}
+
+/**
+ * Return a <div> containing a <Flex> as well as a "Dismiss" button to be used as a toast notification.
+ * @param header Name or title of the error
+ * @param body Error message
+ * @param toastId The ID of the toast to be dismissed when the "Dismiss" button is pressed.
+ */
+export function GetToastContentWithHeaderAndBodyAndDismissButton(
+    header: string,
+    body: string,
+    toastId: string,
+): React.JSX.Element {
+    return (
+        <div>
+            <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
+                <Flex direction={{ default: 'row' }} spaceItems={{ default: 'spaceItemsNone' }}>
+                    <FlexItem>
+                        <Text component={TextVariants.p}>
+                            <b>{header}</b>
+                        </Text>
+                    </FlexItem>
+                    <FlexItem align={{ default: 'alignRight' }} alignSelf={{ default: 'alignSelfFlexEnd' }}>
+                        <Button variant={'link'} isInline onClick={() => toast.dismiss(toastId)}><TimesIcon /></Button>
+                    </FlexItem>
+                </Flex>
                 <FlexItem>
                     <Text component={TextVariants.small}>{body}</Text>
                 </FlexItem>

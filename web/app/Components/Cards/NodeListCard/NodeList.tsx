@@ -1,6 +1,6 @@
 import { AdjustNumNodesModal } from '@app/Components/Modals/AdjustNumNodesModal';
 import { GpuIcon } from '@app/Icons';
-import { GetHeaderAndBodyForToast, ToastFetch } from '@app/utils/toast_utils';
+import { GetToastContentWithHeaderAndBody, ToastFetch } from '@app/utils/toast_utils';
 import { NodeDataList } from '@cards/NodeListCard/NodeDataList';
 import { NodeResourceView } from '@cards/NodeListCard/NodeResourceView';
 import { ClusterNode } from '@data/Cluster';
@@ -105,12 +105,12 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
 
             ToastFetch(
                 `Adjusting number of vGPUs on node ${node?.NodeId} to ${value}`,
-                GetHeaderAndBodyForToast(
+                GetToastContentWithHeaderAndBody(
                     `Successfully updated vGPU capacity for node ${node.NodeId}`,
                     'It may take several seconds for the updated value to appear.',
                 ),
                 (_, reason) => {
-                    return GetHeaderAndBodyForToast(
+                    return GetToastContentWithHeaderAndBody(
                         `Failed to update vGPUs for node ${node.NodeId}`,
                         JSON.stringify(reason),
                     );
@@ -172,12 +172,12 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
 
         await ToastFetch(
             getToastLoadingMessage(value, operation),
-            GetHeaderAndBodyForToast(
+            GetToastContentWithHeaderAndBody(
                 getToastSuccessMessage(value, operation),
                 `It may take several seconds for the nodes list to update. (Time elapsed: ${RoundToTwoDecimalPlaces(performance.now() - startTime)} seconds.)`,
             ),
             (res, reason) => {
-                return GetHeaderAndBodyForToast(
+                return GetToastContentWithHeaderAndBody(
                     getToastFailureMessage(value, operation),
                     `HTTP ${res.status} - ${res.statusText}: ${JSON.stringify(reason)}`,
                 );

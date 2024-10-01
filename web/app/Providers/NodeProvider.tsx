@@ -1,5 +1,5 @@
 import { ClusterNode } from '@app/Data';
-import { GetHeaderAndBodyForToast } from '@app/utils/toast_utils';
+import { GetToastContentWithHeaderAndBody } from '@app/utils/toast_utils';
 import { RoundToTwoDecimalPlaces } from '@components/Modals';
 import React from 'react';
 import { toast } from 'react-hot-toast';
@@ -59,7 +59,7 @@ function getManualRefreshTrigger(trigger: TriggerWithoutArgs<any, any, string, n
         const toastId: string = toast.loading(() => <b>Refreshing nodes...</b>);
         await trigger()
             .catch((error: Error) => {
-                toast.error(GetHeaderAndBodyForToast('Could not refresh nodes.', error.message), {
+                toast.error(GetToastContentWithHeaderAndBody('Could not refresh nodes.', error.message), {
                     id: toastId,
                     duration: 10000,
                     style: { maxWidth: 600 },
@@ -67,7 +67,7 @@ function getManualRefreshTrigger(trigger: TriggerWithoutArgs<any, any, string, n
             })
             .then(() =>
                 toast.success(
-                    GetHeaderAndBodyForToast(
+                    GetToastContentWithHeaderAndBody(
                         'Refreshed nodes.',
                         `Time elapsed: ${RoundToTwoDecimalPlaces(performance.now() - st)} ms`,
                     ),

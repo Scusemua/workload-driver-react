@@ -88,8 +88,6 @@ export const ExecutionOutputTabContent: React.FunctionComponent<ExecutionOutputT
         </React.Fragment>
     );
 
-    console.log(`Output for execution ${props.executionId}: ${props.output}`);
-
     return (
         <Card isCompact isRounded isFlat hidden={props.output.length == 0}>
             <CardBody>

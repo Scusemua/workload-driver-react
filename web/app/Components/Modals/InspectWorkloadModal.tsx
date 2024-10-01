@@ -6,7 +6,7 @@ import {
     WORKLOAD_STATE_RUNNING,
     WORKLOAD_STATE_TERMINATED,
 } from '@app/Data/Workload';
-import { GetHeaderAndBodyForToast } from '@app/utils/toast_utils';
+import { GetToastContentWithHeaderAndBody } from '@app/utils/toast_utils';
 import { RoundToThreeDecimalPlaces } from '@components/Modals/NewWorkloadFromTemplateModal';
 import {
     Button,
@@ -68,7 +68,7 @@ export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalP
             tickStartTime.current = performance.now();
             setCurrentTick(props.workload?.current_tick);
             toast(
-                GetHeaderAndBodyForToast(
+                GetToastContentWithHeaderAndBody(
                     'Tick Incremented',
                     `Workload ${props.workload?.name} has progressed to Tick #${props.workload?.current_tick}.`,
                 ),
