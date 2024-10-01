@@ -283,7 +283,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                 { style: { maxWidth: 750 } },
             );
 
-            future.done
+            await future.done
                 .catch((error: Error) => {
                     const latencyMilliseconds: number = performance.now() - startTime;
                     const latencySecRounded: number = RoundToThreeDecimalPlaces(latencyMilliseconds / 1000.0);
