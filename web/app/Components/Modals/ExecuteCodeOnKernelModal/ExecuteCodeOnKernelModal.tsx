@@ -337,7 +337,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                         {
                             id: toastId,
                             style: { maxWidth: 750 },
-                            duration: 7250,
+                            duration: 5000,
                         },
                     );
                 });
