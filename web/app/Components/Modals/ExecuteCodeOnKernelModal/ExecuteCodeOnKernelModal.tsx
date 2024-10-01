@@ -101,9 +101,12 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                 if (key != executionId) {
                     console.log(`Setting active tab to ${key}`);
                     setActiveExecutionOutputTab(key);
-                    break;
+                    return;
                 }
             }
+
+            // If we get to this point, then there must be no tabs for us to set as the active tab.
+            setActiveExecutionOutputTab('');
         }
     };
 
@@ -460,6 +463,11 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
         );
     };
 
+    const onCloseAllExecutionTabsClicked = () => {
+        setActiveExecutionOutputTab('');
+        setExecutionMap(new Map()); // Clear this.
+    };
+
     // Note: we're just simulating the tabs here. The tabs don't have any content.
     // We just use the tabs as the UI for selecting which output to view.
     // The tab content is included below the tabs.
@@ -644,7 +652,12 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                         <Title headingLevel="h2">Output</Title>
                     </FlexItem>
                     <FlexItem align={{ default: 'alignRight' }}>
-                        <Button variant="link" isInline icon={<TimesIcon />}>
+                        <Button
+                            variant="link"
+                            isInline
+                            icon={<TimesIcon />}
+                            onClick={() => onCloseAllExecutionTabsClicked()}
+                        >
                             Close All Tabs
                         </Button>
                     </FlexItem>
