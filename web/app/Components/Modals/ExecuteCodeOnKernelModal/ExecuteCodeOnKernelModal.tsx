@@ -273,7 +273,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
             const toastId: string = toast.loading(
                 (t: Toast) => {
                     return GetToastContentWithHeaderAndBodyAndDismissButton(
-                        action == 'submit' ? 'Code Submitted 👀' : 'Code Enqueued 👀',
+                        action == 'submit' ? 'Code Submitted 🚀' : 'Code Enqueued 🚀',
                         action == 'submit'
                             ? `Submitted code for execution to kernel ${kernelId}.`
                             : `Enqueued code for execution with kernel ${kernelId}.`,
@@ -326,7 +326,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                         return prevMap;
                     });
 
-                    const successIcon: string = Math.random() > 0.5 ? '🔥' : '😍';
+                    const successIcon: string = Math.random() > 0.5 ? '✅' : '✅';
 
                     toast.success(
                         (t: Toast) => {
