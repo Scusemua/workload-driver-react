@@ -7,7 +7,8 @@ import { CodeEditorComponent } from '@components/CodeEditor';
 import { ExecutionOutputTabContent } from '@components/Modals/ExecuteCodeOnKernelModal/ExecutionOutputTabContent';
 import { RoundToThreeDecimalPlaces } from '@components/Modals/NewWorkloadFromTemplateModal';
 import { KernelManager, ServerConnection } from '@jupyterlab/services';
-import { IKernelConnection } from '@jupyterlab/services/lib/kernel/kernel';
+import { IKernelConnection, IShellFuture } from '@jupyterlab/services/lib/kernel/kernel';
+import { IExecuteReplyMsg, IExecuteRequestMsg } from '@jupyterlab/services/lib/kernel/messages';
 import { Language } from '@patternfly/react-code-editor';
 import {
     Button,
@@ -55,11 +56,21 @@ export const CodeContext = React.createContext({
     setCode: (newCode: string) => {},
 });
 
+// Execution encapsulates the submission of code to be executed on a kernel.
 interface Execution {
+    // The ID of the kernel to which the code was submitted for execution.
     kernelId: string;
+    // The SMR node ID of the replica targeted, if one was explicitly targeted.
     replicaId: number | undefined;
+    // The code that was submitted for execution.
+    code: string;
+    // Unique identifier for the execution.
     executionId: string;
+    // The future returned by the IKernelConnection's requestExecute method.
+    future: IShellFuture<IExecuteRequestMsg, IExecuteReplyMsg>;
+    // Status of the execution. Is it active? Did it succeed? Or did it fail?
     status: 'running' | 'failed' | 'completed';
+    // Output from the execution of the code captured from Jupyter ZMQ IOPub messages.
     output: string[];
 }
 
@@ -81,11 +92,26 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
     };
 
     const onCloseExecutionOutputTab = (_: React.MouseEvent<HTMLElement, MouseEvent>, executionId: string | number) => {
-        // setOutputMap((prevOutputMap) => {
-        //     const nextOutput = new Map(prevOutputMap);
-        //     nextOutput.delete(executionId as string);
-        //     return nextOutput;
-        // });
+        const execution: Execution | undefined = executionMap.get(executionId as string);
+        if (execution === undefined) {
+            console.warn(
+                `onCloseExecutionOutputTab called with executionId="${executionId}", but no Execution with that ID found in mapping. Mapping contains ${executionMap.size} execution(s).`,
+            );
+            return;
+        }
+
+        if (execution.status == 'running') {
+            console.warn(`Cancelling 'running' execution "${executionId}" as its tab is being closed.`);
+
+            try {
+                execution.future.dispose();
+            } catch (e) {
+                console.error(
+                    `Exception encountered while cancelling future associated with execution "${executionId}": ${JSON.stringify(e)}`,
+                );
+            }
+        }
+
         setExecutionMap((prevExecMap) => {
             const nextExecMap = new Map(prevExecMap);
             nextExecMap.delete(executionId as string);
@@ -216,6 +242,12 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                 );
             });
 
+            kernelConnection.disposed.connect((sender, args) => {
+                console.log(
+                    `Connection to Kernel ${props.kernel?.kernelId} has been disposed. Sender: ${sender}, args: ${args}`,
+                );
+            });
+
             console.log(`Sending 'execute-request' to kernel ${kernelId} for code: '${code}'`);
 
             const startTime: number = performance.now();
@@ -254,6 +286,8 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
             const execution: Execution = {
                 kernelId: kernelId,
                 replicaId: props.replicaId,
+                code: code,
+                future: future,
                 executionId: executionId,
                 status: 'running',
                 output: [],
@@ -311,6 +345,8 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                             duration: 12500,
                         },
                     );
+
+                    future.dispose();
                 })
                 .then(() => {
                     const latencyMilliseconds: number = performance.now() - startTime;
@@ -342,6 +378,8 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                             duration: 5000,
                         },
                     );
+
+                    future.dispose();
                 });
 
             // await future.done;
@@ -365,15 +403,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
             return executionMap.get(executionId);
         }
 
-        runUserCode().then(() => {
-            // if (exec) {
-            //     console.log(
-            //         `Finished execution ${exec.executionId} on kernel ${exec.kernelId} with final status: ${exec.status}`,
-            //     );
-            // } else {
-            //     console.log(`Failed to perform code execution...`);
-            // }
-        });
+        runUserCode().then(() => {});
     };
 
     // Reset state, then call user-supplied onClose function.
