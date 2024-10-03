@@ -75,6 +75,10 @@ interface Execution {
     status: 'running' | 'failed' | 'completed';
     // Output from the execution of the code captured from Jupyter ZMQ IOPub messages.
     output: string[];
+    // The name of the error that caused the execution to fail (if the execution did fail).
+    errorName: string | undefined;
+    // The error message that caused the execution to fail (if the execution did fail).
+    errorMessage: string | undefined;
 }
 
 export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKernelProps> = (props) => {
@@ -231,18 +235,20 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
 
             return true;
         } else {
+            const errorName: string = message_content['ename'];
+            const errorMessage: string = message_content['evalue'];
+            const errorNameAndMessage: string = `${errorName}: ${errorMessage}`;
+
             setExecutionMap((prevMap) => {
                 const exec: Execution | undefined = prevMap.get(executionId);
                 if (exec) {
                     exec.status = 'failed';
+                    exec.errorName = errorName;
+                    exec.errorMessage = errorMessage;
                     return new Map(prevMap).set(executionId, exec);
                 }
                 return prevMap;
             });
-
-            const errorName: string = message_content['ename'];
-            const errorMessage: string = message_content['evalue'];
-            const errorNameAndMessage: string = `${errorName}: ${errorMessage}`;
 
             toast.error(
                 () => (
@@ -412,6 +418,8 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                 executionId: executionId,
                 status: 'running',
                 output: [],
+                errorName: undefined,
+                errorMessage: undefined,
             };
 
             if (activeExecutionOutputTab === '' || !executionMap.has(activeExecutionOutputTab)) {
@@ -438,7 +446,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
             // Specifically if we enqueue multiple requests for execution.
             // But onReply is always fired, so we just make our own Promise that resolves once the response message
             // is received. We never reject this promise (even if there's an error), as the error is handled
-            // in future.onReply.
+            // in the future.onReply handler.
             let executionComplete: (value: void | PromiseLike<void>) => void;
             const executionCompletePromise: Promise<void> = new Promise<void>(function (resolve) {
                 executionComplete = resolve;
@@ -548,6 +556,17 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
         return [];
     };
 
+    /**
+     * Return the error message associated with the active execution.
+     */
+    const getErrorNameAndMessageForActiveExecutionTab = () => {
+        const exec = executionMap.get(activeExecutionOutputTab);
+        if (exec && exec.errorName && exec.errorMessage) {
+            return `${exec.errorName}: ${exec.errorMessage}`;
+        }
+        return undefined;
+    };
+
     const getExecutionLabel = (exec: Execution) => {
         let color: 'grey' | 'green' | 'red' | 'blue' | 'cyan' | 'orange' | 'purple' | 'gold' | undefined;
         let icon: ReactElement;
@@ -637,6 +656,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                     executionId={activeExecutionOutputTab}
                     kernelId={getKernelId(activeExecutionOutputTab)}
                     replicaId={getReplicaId(activeExecutionOutputTab)}
+                    errorMessage={getErrorNameAndMessageForActiveExecutionTab()}
                 />
             </CardBody>
         </Card>

@@ -1,16 +1,19 @@
 /* eslint-disable camelcase */
 import { DarkModeContext } from '@app/Providers';
 import {
-  Button,
-  Card,
-  CardBody,
-  Checkbox,
-  Toolbar,
-  ToolbarContent,
-  ToolbarGroup,
-  ToolbarItem,
-  ToolbarToggleGroup,
-  Tooltip
+    Button,
+    Card,
+    CardBody,
+    Checkbox,
+    ClipboardCopy,
+    Flex,
+    FlexItem, Title,
+    Toolbar,
+    ToolbarContent,
+    ToolbarGroup,
+    ToolbarItem,
+    ToolbarToggleGroup,
+    Tooltip
 } from '@patternfly/react-core';
 import { DownloadIcon, EllipsisVIcon } from '@patternfly/react-icons';
 import { LogViewer, LogViewerSearch } from '@patternfly/react-log-viewer';
@@ -22,6 +25,7 @@ export interface ExecutionOutputTabContentProps {
     replicaId?: number;
     executionId?: string;
     output: string[];
+    errorMessage?: string;
 }
 
 export const ExecutionOutputTabContent: React.FunctionComponent<ExecutionOutputTabContentProps> = (
@@ -91,28 +95,38 @@ export const ExecutionOutputTabContent: React.FunctionComponent<ExecutionOutputT
     return (
         <Card isCompact isRounded isFlat hidden={props.output.length == 0}>
             <CardBody>
-                <LogViewer
-                    key={'kernel-execution-output'}
-                    ref={logViewerRef}
-                    hasLineNumbers={true}
-                    data={props.output}
-                    theme={darkMode ? 'dark' : 'light'}
-                    height={isOutputFullScreen ? '100%' : 300}
-                    footer={<FooterButton />}
-                    isTextWrapped={isOutputTextWrapped}
-                    toolbar={
-                        <Toolbar>
-                            <ToolbarContent>
-                                <ToolbarGroup align={{ default: 'alignLeft' }}>
-                                    {leftAlignedOutputToolbarGroup}
-                                </ToolbarGroup>
-                                <ToolbarGroup align={{ default: 'alignRight' }}>
-                                    {rightAlignedOutputToolbarGroup}
-                                </ToolbarGroup>
-                            </ToolbarContent>
-                        </Toolbar>
-                    }
-                />
+                <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsMd' }}>
+                    <FlexItem>
+                        <LogViewer
+                            key={'kernel-execution-output'}
+                            ref={logViewerRef}
+                            hasLineNumbers={true}
+                            data={props.output}
+                            theme={darkMode ? 'dark' : 'light'}
+                            height={isOutputFullScreen ? '100%' : 300}
+                            footer={<FooterButton />}
+                            isTextWrapped={isOutputTextWrapped}
+                            toolbar={
+                                <Toolbar>
+                                    <ToolbarContent>
+                                        <ToolbarGroup align={{ default: 'alignLeft' }}>
+                                            {leftAlignedOutputToolbarGroup}
+                                        </ToolbarGroup>
+                                        <ToolbarGroup align={{ default: 'alignRight' }}>
+                                            {rightAlignedOutputToolbarGroup}
+                                        </ToolbarGroup>
+                                    </ToolbarContent>
+                                </Toolbar>
+                            }
+                        />
+                    </FlexItem>
+                    <FlexItem hidden={props.errorMessage === undefined}>
+                        <Title headingLevel="h3">Error Message</Title>
+                        <ClipboardCopy isReadOnly hoverTip="Copy" clickTip="Copied">
+                            {props.errorMessage}
+                        </ClipboardCopy>
+                    </FlexItem>
+                </Flex>
             </CardBody>
         </Card>
     );
