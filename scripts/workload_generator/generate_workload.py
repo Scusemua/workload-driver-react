@@ -50,6 +50,100 @@ def get_args():
   return parser.parse_args()
 
 
+def plot_aggregate_session_histograms(
+  sessions: list[Session],
+  output_directory:str = "",
+  show_visualization: bool = False,
+  rate: float = -1
+):
+  fig, axs = plt.subplots(nrows=1, ncols=3, figsize=(20, 6))
+
+  if isinstance(rate, list):
+    if len(rate) == 0:
+      return
+    rate = rate[0]
+
+  raw_data_dir:str = os.path.join(output_directory, "raw_data")
+  os.makedirs(raw_data_dir, exist_ok=True)
+
+  # Events, step
+  axs[0].set_xlabel('Time')
+  axs[0].set_ylabel('Event Number')
+  axs[0].set_title(f'Poisson Process Event Times (λ = {rate})')
+  axs[0].grid(True)
+
+  # IATs, histogram
+  axs[1].set_xlabel('Inter-Arrival Time')
+  axs[1].set_ylabel('Frequency')
+  axs[1].set_title('Histogram of Inter-Arrival Times')
+  axs[1].grid(True, alpha=0.5)
+
+  # Durations, histogram
+  axs[2].set_ylabel('Frequency')
+  axs[2].set_xlabel('Duration (seconds)')
+  axs[2].set_title(
+    f'Histogram of Event Durations')
+  axs[2].grid(True, alpha=0.5)
+
+  num_events: int = 0
+  inter_arrival_times: list[int] = []
+  event_durations: list[float] = []
+  all_event_times: list[float] = []
+
+  color_palette = plt.get_cmap('tab20')
+  colors = [color_palette(i) for i in range(len(sessions))]
+
+  for i, session in enumerate(sessions):
+    session_raw_data_dir:str = os.path.join(raw_data_dir, f"session_{i}")
+    os.makedirs(session_raw_data_dir, exist_ok=True)
+
+    with open(os.path.join(session_raw_data_dir, "inter_arrival_times.txt"), "w") as fp:
+      fp.writelines(str(iat) + "\n" for iat in session.inter_arrival_times)
+
+    with open(os.path.join(session_raw_data_dir, "event_times.txt"), "w") as fp:
+      fp.writelines(str(event_time) + "\n" for event_time in session.event_times)
+
+    with open(os.path.join(session_raw_data_dir, "event_durations.txt"), "w") as fp:
+      fp.writelines(str(event_duration) + "\n" for event_duration in session.event_durations)
+
+    num_events += len(session.training_events)
+    inter_arrival_times.extend(session.inter_arrival_times)
+    event_durations.extend(session.event_durations)
+    all_event_times.extend(session.event_times)
+
+    axs[0].step(session.event_times, np.arange(1, len(session.training_events) + 1), where='post', color=colors[i], alpha=0.75,
+                label=f'Session #{i}, Total Events: {len(session.training_events)}')
+
+  axs[1].hist(inter_arrival_times, bins=20, color="tab:green", alpha=0.5,
+              label=f'λ = {rate}, MEAN: {np.mean(inter_arrival_times):.2f} sec, STD: {np.std(inter_arrival_times):.2f} sec')
+  axs[2].hist(event_durations, bins=20, color='tab:red', alpha=0.65,
+              label=f'Mean: {np.mean(event_durations):.2f} sec | STD: {np.std(event_durations):.2f} sec')
+
+  axs[0].legend()
+  axs[1].legend()
+  axs[2].legend()
+
+  plt.tight_layout()
+
+  if output_directory is not None and len(output_directory) > 0:
+    filename = f"all_sessions_poisson"
+
+    os.makedirs(output_directory, exist_ok=True)
+    plt.savefig(os.path.join(output_directory, f"{filename}.png"), bbox_inches = 'tight')
+    plt.savefig(os.path.join(output_directory, f"{filename}.pdf"), bbox_inches = 'tight')
+
+  with open(os.path.join(raw_data_dir, "inter_arrival_times.txt"), "w") as fp:
+    fp.writelines(str(iat) + "\n" for iat in inter_arrival_times)
+
+  with open(os.path.join(raw_data_dir, "event_times.txt"), "w") as fp:
+    fp.writelines([str(event_time) + "\n" for event_time in all_event_times])
+
+  with open(os.path.join(raw_data_dir, "event_durations.txt"), "w") as fp:
+    fp.writelines([str(event_duration) + "\n" for event_duration in event_durations])
+
+  if show_visualization:
+    plt.show()
+
 def plot_resource_histograms(cpu, mem, gpu, output_dir: str, show_visualization: bool):
   num_sessions: int = len(cpu)
 
@@ -117,8 +211,8 @@ def main():
   mean_mem_mb: float = (0.15 * max_session_memory_mb)
   sd_mem_mb: float = (0.05 * max_session_memory_mb)
 
-  mean_num_gpus: float = (0.5 * max_session_num_gpus)
-  sd_num_gpus: float = (0.25 * max_session_num_gpus)
+  mean_num_gpus: float = 1.5
+  sd_num_gpus: float = 1.5
 
   print(f"Mean #CPUs: {mean_num_cpus}, Std. Dev.: {sd_num_cpus}")
   print(f"Mean MemMB: {mean_mem_mb}, Std. Dev.: {sd_mem_mb}")
@@ -170,24 +264,6 @@ def main():
                                                max_cpus_vals, max_mem_vals, num_gpus_vals)
     sessions: list[Session] = ret[0]
 
-  # sessions: list[Session] = []
-  # for i in range(args.num_sessions):
-  #   num_events, event_times, iats, durations = poisson_simulation(rate=args.rate, iat=args.iat, scale=args.scale,
-  #                                                                 shape=args.shape, time_duration=args.time_duration,
-  #                                                                 output_directory=output_directory,
-  #                                                                 show_visualization=args.show_visualization,
-  #                                                                 session_index=i)
-  #
-  #   session: Session = Session(
-  #     num_events[0],
-  #     event_times[0],
-  #     iats[0],
-  #     durations[0],
-  #     max_millicpus=max_cpus_vals[i],
-  #     max_mem_mb=max_mem_vals[i],
-  #     num_gpus=int(num_gpus_vals[i]))
-  #   sessions.append(session)
-
   print("Creating workload object now")
   workload: Workload = Workload(sessions, workload_name=args.workload_name)
 
@@ -195,6 +271,8 @@ def main():
 
   plot_resource_histograms(max_cpus_vals, max_mem_vals, num_gpus_vals,
                            output_dir=output_directory, show_visualization=args.show_visualization)
+
+  plot_aggregate_session_histograms(sessions, output_directory=output_directory, show_visualization=args.show_visualization, rate=args.rate)
 
   with open(os.path.join(output_directory, "template.json"), "w") as f:
     json.dump(workload_dict, f, indent=2)
