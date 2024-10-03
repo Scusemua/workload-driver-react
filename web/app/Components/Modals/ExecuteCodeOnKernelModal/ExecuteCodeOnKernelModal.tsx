@@ -1,20 +1,23 @@
 import { DistributedJupyterKernel, JupyterKernelReplica } from '@app/Data';
-import {
-    GetToastContentWithHeaderAndBody,
-    GetToastContentWithHeaderAndBodyAndDismissButton,
-} from '@app/utils/toast_utils';
+import { GetToastContentWithHeaderAndBodyAndDismissButton } from '@app/utils/toast_utils';
 import { CodeEditorComponent } from '@components/CodeEditor';
 import { ExecutionOutputTabContent } from '@components/Modals/ExecuteCodeOnKernelModal/ExecutionOutputTabContent';
 import { RoundToThreeDecimalPlaces } from '@components/Modals/NewWorkloadFromTemplateModal';
 import { KernelManager, ServerConnection } from '@jupyterlab/services';
 import { IKernelConnection, IShellFuture } from '@jupyterlab/services/lib/kernel/kernel';
-import { IExecuteReplyMsg, IExecuteRequestMsg } from '@jupyterlab/services/lib/kernel/messages';
+import {
+    IExecuteReplyMsg,
+    IExecuteRequestMsg,
+    IIOPubMessage,
+    IOPubMessageType,
+} from '@jupyterlab/services/lib/kernel/messages';
 import { Language } from '@patternfly/react-code-editor';
 import {
     Button,
     Card,
     CardBody,
     Checkbox,
+    ClipboardCopy,
     Flex,
     FlexItem,
     FormSelect,
@@ -146,16 +149,16 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
             console.log(`Setting active tab to ${executionMap.keys()[0]}`);
             setActiveExecutionOutputTab(executionMap.keys()[0]);
         }
-    }, [executionMap]);
+    }, [executionMap, activeExecutionOutputTab]);
 
     React.useEffect(() => {
         setTargetReplicaId(props.replicaId || -1);
     }, [props.replicaId]);
 
     const logConsumer = (msg: string, execution_id: string) => {
-        console.log(`Appending message to output log for kernel execution: ${msg}`);
+        // console.log(`Appending message to output log for kernel execution: ${msg}`);
         const messages: string[] = msg.trim().split(/\n/);
-        console.log(`Appending ${messages.length} message(s) to output log for kerenl execution: ${messages}`);
+        // console.log(`Appending ${messages.length} message(s) to output log for kernel execution: ${messages}`);
 
         setExecutionMap((prevExecMap) => {
             const exec: Execution | undefined = prevExecMap.get(execution_id);
@@ -173,6 +176,146 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
         });
     };
 
+    /**
+     * Handle an "execute_reply" response to an execution.
+     *
+     * We update the toast and the tab UI to indicate that the execution has completed,
+     * either successfully or with an error.
+     *
+     * @param response the "execute_reply" response from the kernel.
+     * @param executionId the ID of the execution for which we received a response.
+     * @param kernelId the ID of the kernel that executed the code for this execution
+     * @param latencySecRounded the number of seconds that elapsed before the execution completed, rounded to 2-3 decimals.
+     * @param toastId the ID of the toast that is being displayed to indicate that the execution is in-progress.
+     *
+     * @return a boolean indicating whether the execution was successful (true) or if it failed (false).
+     */
+    const onExecutionResponse = (
+        response: IExecuteReplyMsg,
+        executionId: string,
+        kernelId: string,
+        latencySecRounded: number,
+        toastId: string,
+    ): boolean => {
+        console.log(`Received reply for execution ${executionId} future: ${JSON.stringify(response)}`);
+
+        const message_content = response['content'];
+        const status: string = message_content['status'];
+
+        if (status == 'ok') {
+            setExecutionMap((prevMap) => {
+                const exec: Execution | undefined = prevMap.get(executionId);
+                if (exec) {
+                    exec.status = 'completed';
+                    return new Map(prevMap).set(executionId, exec);
+                }
+                return prevMap;
+            });
+
+            // const successIcon: string = Math.random() > 0.5 ? '✅' : '✅';
+
+            toast.success(
+                (t: Toast) => {
+                    return GetToastContentWithHeaderAndBodyAndDismissButton(
+                        `Execution Complete ✅`,
+                        `Kernel ${kernelId} has finished executing your code after ${latencySecRounded} seconds.`,
+                        t.id,
+                    );
+                },
+                {
+                    id: toastId,
+                    style: { maxWidth: 750 },
+                    duration: 5000,
+                },
+            );
+
+            return true;
+        } else {
+            setExecutionMap((prevMap) => {
+                const exec: Execution | undefined = prevMap.get(executionId);
+                if (exec) {
+                    exec.status = 'failed';
+                    return new Map(prevMap).set(executionId, exec);
+                }
+                return prevMap;
+            });
+
+            const errorName: string = message_content['ename'];
+            const errorMessage: string = message_content['evalue'];
+            const errorNameAndMessage: string = `${errorName}: ${errorMessage}`;
+
+            toast.error(
+                () => (
+                    <div>
+                        <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
+                            <FlexItem>
+                                <Text component={TextVariants.h3}>
+                                    <b>{'Execution Failed'}</b>
+                                </Text>
+                            </FlexItem>
+                            <FlexItem>
+                                <Text component={TextVariants.small}>
+                                    {`Execution on Kernel ${kernelId} failed to complete after ${latencySecRounded} seconds.`}
+                                </Text>
+                            </FlexItem>
+                            <FlexItem>
+                                <ClipboardCopy isReadOnly hoverTip="Copy" clickTip="Copied">
+                                    {errorNameAndMessage}
+                                </ClipboardCopy>
+                            </FlexItem>
+                        </Flex>
+                    </div>
+                ),
+                {
+                    id: toastId,
+                    style: {
+                        maxWidth: 750,
+                    },
+                    duration: 12500,
+                },
+            );
+
+            return false;
+        }
+    };
+
+    /**
+     * Handle an IO Pub message that we receive while an execution is occurring.
+     * @param executionId the ID of the execution associated with the IOPub message.
+     * @param msg the IOPub message itself.
+     */
+    const onExecutionIoPub = (executionId: string, msg: IIOPubMessage<IOPubMessageType>) => {
+        console.log(`Received IOPub reply for execution ${executionId}: ${JSON.stringify(msg)}`);
+        const messageType: string = msg.header.msg_type;
+        if (messageType == 'execute_input') {
+            // Do nothing.
+        } else if (messageType == 'status') {
+            logConsumer(
+                msg['header']['date'] +
+                    ': Execution state changed to ' +
+                    JSON.stringify(msg.content['execution_state']) +
+                    '\n',
+                executionId,
+            );
+        } else if (messageType == 'stream') {
+            if (msg['content']['name'] == 'stderr') {
+                logConsumer(msg['header']['date'] + ' <ERROR>: ' + msg.content['text'] + '\n', executionId);
+            } else if (msg['content']['name'] == 'stdout') {
+                logConsumer(msg['header']['date'] + ': ' + msg.content['text'] + '\n', executionId);
+            } else {
+                logConsumer(msg['header']['date'] + ': ' + msg.content['text'] + '\n', executionId);
+            }
+        } else {
+            logConsumer(msg['header']['date'] + ': ' + JSON.stringify(msg.content) + '\n', executionId);
+        }
+    };
+
+    /**
+     * Handler for when code is submitted for execution.
+     *
+     * @param action Indicates whether we're submitting code to an idle kernel or an active kernel. We submit code to
+     * an idle kernel. We enqueue code with an active/busy kernel.
+     */
     const onSubmit = (action: 'submit' | 'enqueue') => {
         async function runUserCode(): Promise<Execution | undefined> {
             const executionId: string = uuidv4();
@@ -258,29 +401,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
 
             // Handle iopub messages
             future.onIOPub = (msg) => {
-                console.log('Received IOPub message:\n%s\n', JSON.stringify(msg));
-                const messageType: string = msg.header.msg_type;
-                if (messageType == 'execute_input') {
-                    // Do nothing.
-                } else if (messageType == 'status') {
-                    logConsumer(
-                        msg['header']['date'] +
-                            ': Execution state changed to ' +
-                            JSON.stringify(msg.content['execution_state']) +
-                            '\n',
-                        executionId,
-                    );
-                } else if (messageType == 'stream') {
-                    if (msg['content']['name'] == 'stderr') {
-                        logConsumer(msg['header']['date'] + ' <ERROR>: ' + msg.content['text'] + '\n', executionId);
-                    } else if (msg['content']['name'] == 'stdout') {
-                        logConsumer(msg['header']['date'] + ': ' + msg.content['text'] + '\n', executionId);
-                    } else {
-                        logConsumer(msg['header']['date'] + ': ' + msg.content['text'] + '\n', executionId);
-                    }
-                } else {
-                    logConsumer(msg['header']['date'] + ': ' + JSON.stringify(msg.content) + '\n', executionId);
-                }
+                onExecutionIoPub(executionId, msg);
             };
 
             const execution: Execution = {
@@ -300,10 +421,6 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
 
             setExecutionMap((prevMap) => new Map(prevMap).set(executionId, execution));
 
-            future.onReply = (msg) => {
-                console.log(`Received reply for execution request: ${JSON.stringify(msg)}`);
-            };
-
             const toastId: string = toast.loading(
                 (t: Toast) => {
                     return GetToastContentWithHeaderAndBodyAndDismissButton(
@@ -317,70 +434,27 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                 { style: { maxWidth: 750 } },
             );
 
-            await future.done
-                .catch((error: Error) => {
-                    const latencyMilliseconds: number = performance.now() - startTime;
-                    const latencySecRounded: number = RoundToThreeDecimalPlaces(latencyMilliseconds / 1000.0);
-                    console.error(
-                        `Execution on Kernel ${kernelId} failed to complete after ${latencySecRounded} seconds. Error: ${error}.`,
-                    );
+            // For whatever reason, the future returned by the Jupyter API doesn't always resolve?
+            // Specifically if we enqueue multiple requests for execution.
+            // But onReply is always fired, so we just make our own Promise that resolves once the response message
+            // is received. We never reject this promise (even if there's an error), as the error is handled
+            // in future.onReply.
+            let executionComplete: (value: void | PromiseLike<void>) => void;
+            const executionCompletePromise: Promise<void> = new Promise<void>(function (resolve) {
+                executionComplete = resolve;
+            });
 
-                    setExecutionMap((prevMap) => {
-                        const exec: Execution | undefined = prevMap.get(executionId);
-                        if (exec) {
-                            exec.status = 'failed';
-                            return new Map(prevMap).set(executionId, exec);
-                        }
-                        return prevMap;
-                    });
+            future.onReply = (response: IExecuteReplyMsg) => {
+                const latencyMilliseconds: number = performance.now() - startTime;
+                const latencySecRounded: number = RoundToThreeDecimalPlaces(latencyMilliseconds / 1000.0);
+                console.log(`Execution on Kernel ${kernelId} finished after ${latencySecRounded} seconds.`);
 
-                    toast.error(
-                        GetToastContentWithHeaderAndBody(
-                            '️ Execution Failed ⚠️️️',
-                            `Execution on Kernel ${kernelId} failed to complete after ${latencySecRounded} seconds. Error: ${error}.`,
-                        ),
-                        {
-                            id: toastId,
-                            style: { maxWidth: 750 },
-                            duration: 12500,
-                        },
-                    );
+                onExecutionResponse(response, executionId, kernelId, latencySecRounded, toastId);
+                executionComplete();
+                future.dispose();
+            };
 
-                    future.dispose();
-                })
-                .then(() => {
-                    const latencyMilliseconds: number = performance.now() - startTime;
-                    const latencySecRounded: number = RoundToThreeDecimalPlaces(latencyMilliseconds / 1000.0);
-                    console.log(`Execution on Kernel ${kernelId} finished after ${latencySecRounded} seconds.`);
-
-                    setExecutionMap((prevMap) => {
-                        const exec: Execution | undefined = prevMap.get(executionId);
-                        if (exec) {
-                            exec.status = 'completed';
-                            return new Map(prevMap).set(executionId, exec);
-                        }
-                        return prevMap;
-                    });
-
-                    const successIcon: string = Math.random() > 0.5 ? '✅' : '✅';
-
-                    toast.success(
-                        (t: Toast) => {
-                            return GetToastContentWithHeaderAndBodyAndDismissButton(
-                                `Execution Complete ${successIcon}`,
-                                `Kernel ${kernelId} has finished executing your code after ${latencySecRounded} seconds.`,
-                                t.id,
-                            );
-                        },
-                        {
-                            id: toastId,
-                            style: { maxWidth: 750 },
-                            duration: 5000,
-                        },
-                    );
-
-                    future.dispose();
-                });
+            await executionCompletePromise;
 
             // await future.done;
             setExecutionState('done');
