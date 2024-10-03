@@ -83,7 +83,7 @@ def plot_aggregate_session_histograms(
   rate: float = -1
 ):
   height = int(len(sessions)  * 1.25)
-  fig, axs = plt.subplots(nrows=1, ncols=3, figsize=(20, height))
+  fig, axs = plt.subplots(nrows=1, ncols=3, figsize=(20, height), dpi = 256)
 
   if isinstance(rate, list):
     if len(rate) == 0:
@@ -186,7 +186,7 @@ def plot_aggregate_session_histograms(
 def plot_resource_histograms(cpu, mem, gpu, output_dir: str, show_visualization: bool):
   num_sessions: int = len(cpu)
 
-  fig, axs = plt.subplots(1, 3, figsize=(15, 5))
+  fig, axs = plt.subplots(1, 3, figsize=(15, 5), dpi = 256)
   fig.suptitle(f'Workload Resource Distribution (NumSessions = {num_sessions})\n', fontsize=16)
 
   cpu_bins = np.histogram_bin_edges(cpu, bins = "fd", range=(0,np.max(cpu)))
@@ -307,6 +307,8 @@ def main():
   workload: Workload = Workload(sessions, workload_name=args.workload_name)
 
   workload_dict: dict[str, Any] = workload.to_dict()
+
+  plt.style.use('ggplot')
 
   plot_resource_histograms(max_cpus_vals, max_mem_vals, num_gpus_vals,
                            output_dir=output_directory, show_visualization=args.show_visualization)

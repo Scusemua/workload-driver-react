@@ -631,14 +631,19 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                                                 direction={{ default: 'row' }}
                                                 spaceItems={{ default: 'spaceItemsXs' }}
                                             >
-                                                <FlexItem alignSelf={{ default: 'alignSelfFlexEnd' }}>
+                                                <FlexItem align={{ default: 'alignLeft' }}>
                                                     <Text component={'small'}>
                                                         <b>ExecID: </b> {execId.substring(0, 8)}
                                                     </Text>
                                                 </FlexItem>
-                                                <FlexItem>{getExecutionLabel(exec)}</FlexItem>
+                                                <FlexItem align={{ default: 'alignRight' }}>
+                                                    {getExecutionLabel(exec)}
+                                                </FlexItem>
                                             </Flex>
-                                            <FlexItem alignSelf={{ default: 'alignSelfFlexStart' }}>
+                                            <FlexItem
+                                                align={{ default: 'alignLeft' }}
+                                                alignSelf={{ default: 'alignSelfFlexStart' }}
+                                            >
                                                 <Text component={'small'}>
                                                     <b>KernelID: </b> {getShortenedKernelId(execId)}
                                                 </Text>
