@@ -1375,6 +1375,98 @@ var ClusterDashboard_ServiceDesc = grpc.ServiceDesc{
 }
 
 const (
+	KernelErrorReporter_Notify_FullMethodName = "/gateway.KernelErrorReporter/Notify"
+)
+
+// KernelErrorReporterClient is the client API for KernelErrorReporter service.
+//
+// For semantics around ctx use and closing/ending streaming RPCs, please refer to https://pkg.go.dev/google.golang.org/grpc/?tab=doc#ClientConn.NewStream.
+type KernelErrorReporterClient interface {
+	// Report that an error occurred within one of the local daemons (or possibly a jupyter kernel).
+	Notify(ctx context.Context, in *KernelNotification, opts ...grpc.CallOption) (*Void, error)
+}
+
+type kernelErrorReporterClient struct {
+	cc grpc.ClientConnInterface
+}
+
+func NewKernelErrorReporterClient(cc grpc.ClientConnInterface) KernelErrorReporterClient {
+	return &kernelErrorReporterClient{cc}
+}
+
+func (c *kernelErrorReporterClient) Notify(ctx context.Context, in *KernelNotification, opts ...grpc.CallOption) (*Void, error) {
+	out := new(Void)
+	err := c.cc.Invoke(ctx, KernelErrorReporter_Notify_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
+// KernelErrorReporterServer is the server API for KernelErrorReporter service.
+// All implementations must embed UnimplementedKernelErrorReporterServer
+// for forward compatibility
+type KernelErrorReporterServer interface {
+	// Report that an error occurred within one of the local daemons (or possibly a jupyter kernel).
+	Notify(context.Context, *KernelNotification) (*Void, error)
+	mustEmbedUnimplementedKernelErrorReporterServer()
+}
+
+// UnimplementedKernelErrorReporterServer must be embedded to have forward compatible implementations.
+type UnimplementedKernelErrorReporterServer struct {
+}
+
+func (UnimplementedKernelErrorReporterServer) Notify(context.Context, *KernelNotification) (*Void, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method Notify not implemented")
+}
+func (UnimplementedKernelErrorReporterServer) mustEmbedUnimplementedKernelErrorReporterServer() {}
+
+// UnsafeKernelErrorReporterServer may be embedded to opt out of forward compatibility for this service.
+// Use of this interface is not recommended, as added methods to KernelErrorReporterServer will
+// result in compilation errors.
+type UnsafeKernelErrorReporterServer interface {
+	mustEmbedUnimplementedKernelErrorReporterServer()
+}
+
+func RegisterKernelErrorReporterServer(s grpc.ServiceRegistrar, srv KernelErrorReporterServer) {
+	s.RegisterService(&KernelErrorReporter_ServiceDesc, srv)
+}
+
+func _KernelErrorReporter_Notify_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(KernelNotification)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(KernelErrorReporterServer).Notify(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: KernelErrorReporter_Notify_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(KernelErrorReporterServer).Notify(ctx, req.(*KernelNotification))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
+// KernelErrorReporter_ServiceDesc is the grpc.ServiceDesc for KernelErrorReporter service.
+// It's only intended for direct use with grpc.RegisterService,
+// and not to be introspected or modified (even as a copy)
+var KernelErrorReporter_ServiceDesc = grpc.ServiceDesc{
+	ServiceName: "gateway.KernelErrorReporter",
+	HandlerType: (*KernelErrorReporterServer)(nil),
+	Methods: []grpc.MethodDesc{
+		{
+			MethodName: "Notify",
+			Handler:    _KernelErrorReporter_Notify_Handler,
+		},
+	},
+	Streams:  []grpc.StreamDesc{},
+	Metadata: "internal/server/api/proto/gateway.proto",
+}
+
+const (
 	LocalGateway_SetID_FullMethodName                    = "/gateway.LocalGateway/SetID"
 	LocalGateway_StartKernel_FullMethodName              = "/gateway.LocalGateway/StartKernel"
 	LocalGateway_StartKernelReplica_FullMethodName       = "/gateway.LocalGateway/StartKernelReplica"
@@ -1387,6 +1479,7 @@ const (
 	LocalGateway_AddReplica_FullMethodName               = "/gateway.LocalGateway/AddReplica"
 	LocalGateway_UpdateReplicaAddr_FullMethodName        = "/gateway.LocalGateway/UpdateReplicaAddr"
 	LocalGateway_PrepareToMigrate_FullMethodName         = "/gateway.LocalGateway/PrepareToMigrate"
+	LocalGateway_ResourcesSnapshot_FullMethodName        = "/gateway.LocalGateway/ResourcesSnapshot"
 	LocalGateway_GetActualGpuInfo_FullMethodName         = "/gateway.LocalGateway/GetActualGpuInfo"
 	LocalGateway_GetVirtualGpuInfo_FullMethodName        = "/gateway.LocalGateway/GetVirtualGpuInfo"
 	LocalGateway_SetTotalVirtualGPUs_FullMethodName      = "/gateway.LocalGateway/SetTotalVirtualGPUs"
@@ -1426,13 +1519,20 @@ type LocalGatewayClient interface {
 	// This involves writing the contents of the etcd-raft data directory to HDFS so that
 	// it can be read back from HDFS by the new replica.
 	PrepareToMigrate(ctx context.Context, in *ReplicaInfo, opts ...grpc.CallOption) (*PrepareToMigrateResponse, error)
+	// ResourcesSnapshot returns a NodeResourcesSnapshot struct encoding a snapshot of
+	// the current resource quantities on the node.
+	ResourcesSnapshot(ctx context.Context, in *Void, opts ...grpc.CallOption) (*NodeResourcesSnapshot, error)
 	// Return the current GPU resource metrics on the node.
+	// @Deprecated: this should eventually be merged with the updated/unified ModifyClusterNodes API.
 	GetActualGpuInfo(ctx context.Context, in *Void, opts ...grpc.CallOption) (*GpuInfo, error)
 	// Return the current vGPU (or "deflated GPU") resource metrics on the node.
+	// @Deprecated: this should eventually be merged with the updated/unified ModifyClusterNodes API.
 	GetVirtualGpuInfo(ctx context.Context, in *Void, opts ...grpc.CallOption) (*VirtualGpuInfo, error)
-	// Set the maximum number of vGPU resources availabe on the node.
+	// Set the maximum number of vGPU resources available on the node.
+	// @Deprecated: this should eventually be merged with the updated/unified ModifyClusterNodes API.
 	SetTotalVirtualGPUs(ctx context.Context, in *SetVirtualGPUsRequest, opts ...grpc.CallOption) (*VirtualGpuInfo, error)
 	// Return the current vGPU allocations on this node.
+	// @Deprecated: this should eventually be merged with the updated/unified ModifyClusterNodes API.
 	GetVirtualGpuAllocations(ctx context.Context, in *Void, opts ...grpc.CallOption) (*VirtualGpuAllocations, error)
 	// Ensure that the next 'execute_request' for the specified kernel fails.
 	// This is to be used exclusively for testing/debugging purposes.
@@ -1555,6 +1655,15 @@ func (c *localGatewayClient) PrepareToMigrate(ctx context.Context, in *ReplicaIn
 	return out, nil
 }
 
+func (c *localGatewayClient) ResourcesSnapshot(ctx context.Context, in *Void, opts ...grpc.CallOption) (*NodeResourcesSnapshot, error) {
+	out := new(NodeResourcesSnapshot)
+	err := c.cc.Invoke(ctx, LocalGateway_ResourcesSnapshot_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 func (c *localGatewayClient) GetActualGpuInfo(ctx context.Context, in *Void, opts ...grpc.CallOption) (*GpuInfo, error) {
 	out := new(GpuInfo)
 	err := c.cc.Invoke(ctx, LocalGateway_GetActualGpuInfo_FullMethodName, in, out, opts...)
@@ -1632,13 +1741,20 @@ type LocalGatewayServer interface {
 	// This involves writing the contents of the etcd-raft data directory to HDFS so that
 	// it can be read back from HDFS by the new replica.
 	PrepareToMigrate(context.Context, *ReplicaInfo) (*PrepareToMigrateResponse, error)
+	// ResourcesSnapshot returns a NodeResourcesSnapshot struct encoding a snapshot of
+	// the current resource quantities on the node.
+	ResourcesSnapshot(context.Context, *Void) (*NodeResourcesSnapshot, error)
 	// Return the current GPU resource metrics on the node.
+	// @Deprecated: this should eventually be merged with the updated/unified ModifyClusterNodes API.
 	GetActualGpuInfo(context.Context, *Void) (*GpuInfo, error)
 	// Return the current vGPU (or "deflated GPU") resource metrics on the node.
+	// @Deprecated: this should eventually be merged with the updated/unified ModifyClusterNodes API.
 	GetVirtualGpuInfo(context.Context, *Void) (*VirtualGpuInfo, error)
-	// Set the maximum number of vGPU resources availabe on the node.
+	// Set the maximum number of vGPU resources available on the node.
+	// @Deprecated: this should eventually be merged with the updated/unified ModifyClusterNodes API.
 	SetTotalVirtualGPUs(context.Context, *SetVirtualGPUsRequest) (*VirtualGpuInfo, error)
 	// Return the current vGPU allocations on this node.
+	// @Deprecated: this should eventually be merged with the updated/unified ModifyClusterNodes API.
 	GetVirtualGpuAllocations(context.Context, *Void) (*VirtualGpuAllocations, error)
 	// Ensure that the next 'execute_request' for the specified kernel fails.
 	// This is to be used exclusively for testing/debugging purposes.
@@ -1685,6 +1801,9 @@ func (UnimplementedLocalGatewayServer) UpdateReplicaAddr(context.Context, *Repli
 }
 func (UnimplementedLocalGatewayServer) PrepareToMigrate(context.Context, *ReplicaInfo) (*PrepareToMigrateResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PrepareToMigrate not implemented")
+}
+func (UnimplementedLocalGatewayServer) ResourcesSnapshot(context.Context, *Void) (*NodeResourcesSnapshot, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method ResourcesSnapshot not implemented")
 }
 func (UnimplementedLocalGatewayServer) GetActualGpuInfo(context.Context, *Void) (*GpuInfo, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetActualGpuInfo not implemented")
@@ -1930,6 +2049,24 @@ func _LocalGateway_PrepareToMigrate_Handler(srv interface{}, ctx context.Context
 	return interceptor(ctx, in, info, handler)
 }
 
+func _LocalGateway_ResourcesSnapshot_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(Void)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(LocalGatewayServer).ResourcesSnapshot(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: LocalGateway_ResourcesSnapshot_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(LocalGatewayServer).ResourcesSnapshot(ctx, req.(*Void))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 func _LocalGateway_GetActualGpuInfo_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
 	in := new(Void)
 	if err := dec(in); err != nil {
@@ -2074,6 +2211,10 @@ var LocalGateway_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "PrepareToMigrate",
 			Handler:    _LocalGateway_PrepareToMigrate_Handler,
+		},
+		{
+			MethodName: "ResourcesSnapshot",
+			Handler:    _LocalGateway_ResourcesSnapshot_Handler,
 		},
 		{
 			MethodName: "GetActualGpuInfo",
