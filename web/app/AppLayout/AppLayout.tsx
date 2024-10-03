@@ -26,10 +26,6 @@ const AppLayout: React.FunctionComponent = () => {
 
     const { darkMode } = React.useContext(DarkModeContext);
 
-    // React.useEffect(() => {
-    //     console.log(`Number of alerts: ${alerts.length}. Number of notifications: ${notifications.length}.`);
-    // }, [alerts, notifications]);
-
     React.useEffect(() => {
         setOverflowMessage(buildOverflowMessage());
     }, [maxDisplayedAlerts, notifications, alerts]);
@@ -86,7 +82,7 @@ const AppLayout: React.FunctionComponent = () => {
                 console.warn(`Received JSON message of unknown type: ${JSON.stringify(message)}`);
             }
         }
-    }, [addNewNotification, lastJsonMessage, refreshNodes]);
+    }, [lastJsonMessage]);
 
     /**
      * Return the default style applied to all Toast notifications.

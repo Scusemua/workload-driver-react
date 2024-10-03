@@ -1,10 +1,9 @@
+import { Notification } from '@app/Data';
 import { Alert, AlertActionCloseButton, AlertProps } from '@patternfly/react-core';
 import React from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
-import { Notification } from '@app/Data';
-
-const notificationVariants: NotificationProps['variant'][] = ['danger', 'warning', 'info', 'success'];
+const notificationVariants: ('danger' | 'warning' | 'info' | 'success')[] = ['danger', 'warning', 'info', 'success'];
 
 type NotificationContext = {
     alerts: React.ReactElement<AlertProps>[];
@@ -72,14 +71,14 @@ const NotificationProvider = (props) => {
             variant = 'danger';
         }
 
+        console.log(
+            `Adding new notification: ${title}: ${description} (key=${key}, timestamp=${timestamp}, variant=${variant})`,
+        );
+
         setNotifications((prevNotifications) => [
             { title, variant, key, timestamp, description, isNotificationRead: false },
             ...prevNotifications,
         ]);
-
-        // console.log(
-        //     `Adding new notification: ${title}: ${description} (key=${key}, timestamp=${timestamp}, variant=${variant})`,
-        // );
 
         if (!expanded) {
             setAlerts((prevAlerts) => [
