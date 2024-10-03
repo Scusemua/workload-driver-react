@@ -96,7 +96,6 @@ export const CodeEditorComponent: React.FunctionComponent<CodeEditorComponentPro
 
   const fileNameField = (
     <TextInput
-      customIcon={<FileIcon/>}
       key={"template-filename-text-input"}
       // If the user hasn't specified a filename, then don't add the file extension automatically.
       // We'll use the placeholder text instead.
