@@ -49,6 +49,32 @@ def get_args():
 
   return parser.parse_args()
 
+def plot_session_gantt(ax: plt.Axes, event_durations, event_times, inter_arrival_times, y:int = 1, line_width:int = 15):
+  label:str = f"Session {y}\n{len(event_times)} Events\nAvg IAT: {round(sum(inter_arrival_times)/len(inter_arrival_times), 2)}\nAvg Duration: {round(sum(event_durations)/len(event_durations), 2)}"
+
+  first: bool = True
+
+  for i in range(0, len(event_times)):
+    st_tr = event_times[i]
+    et_tr = st_tr + event_durations[i]
+
+    st_idle = et_tr
+
+    try:
+      et_idle = et_tr + inter_arrival_times[i]
+    except:
+      et_idle = et_tr
+
+    if first and y == 1:
+      ax.hlines(y, st_tr, et_tr, color = 'green', linewidth = line_width, label = "Busy")
+      ax.hlines(y, st_idle, et_idle, color = 'grey', linewidth = line_width, label = "Idle")
+
+      first = False
+    else:
+      ax.hlines(y, st_tr, et_tr, color = 'green', linewidth = line_width)
+      ax.hlines(y, st_idle, et_idle, color = 'grey', linewidth = line_width)
+
+  return y, label
 
 def plot_aggregate_session_histograms(
   sessions: list[Session],
@@ -56,7 +82,8 @@ def plot_aggregate_session_histograms(
   show_visualization: bool = False,
   rate: float = -1
 ):
-  fig, axs = plt.subplots(nrows=1, ncols=3, figsize=(20, 6))
+  height = int(len(sessions)  * 1.25)
+  fig, axs = plt.subplots(nrows=1, ncols=3, figsize=(20, height))
 
   if isinstance(rate, list):
     if len(rate) == 0:
@@ -90,8 +117,8 @@ def plot_aggregate_session_histograms(
   event_durations: list[float] = []
   all_event_times: list[float] = []
 
-  color_palette = plt.get_cmap('tab20')
-  colors = [color_palette(i) for i in range(len(sessions))]
+  ticks: list[int] = []
+  labels: list[str] = []
 
   for i, session in enumerate(sessions):
     session_raw_data_dir:str = os.path.join(raw_data_dir, f"session_{i}")
@@ -111,15 +138,27 @@ def plot_aggregate_session_histograms(
     event_durations.extend(session.event_durations)
     all_event_times.extend(session.event_times)
 
-    axs[0].step(session.event_times, np.arange(1, len(session.training_events) + 1), where='post', color=colors[i], alpha=0.75,
-                label=f'Session #{i}, Total Events: {len(session.training_events)}')
+    tick, label = plot_session_gantt(
+      axs[0],
+      y = 1 + i,
+      event_durations = session.event_durations,
+      inter_arrival_times = session.inter_arrival_times,
+      event_times = session.event_times)
+    ticks.append(tick)
+    labels.append(label)
+
+    #axs[0].step(session.event_times, [0] + session.inter_arrival_times, where='post', color=colors[i], alpha=0.75,
+    #            label=f'Session #{i}, Total Events: {len(session.training_events)}')
+
+  axs[0].set_yticks(ticks = ticks, labels = labels)
+  axs[0].set_ylim(0, len(sessions) + 1)
 
   axs[1].hist(inter_arrival_times, bins=20, color="tab:green", alpha=0.5,
               label=f'λ = {rate}, MEAN: {np.mean(inter_arrival_times):.2f} sec, STD: {np.std(inter_arrival_times):.2f} sec')
   axs[2].hist(event_durations, bins=20, color='tab:red', alpha=0.65,
               label=f'Mean: {np.mean(event_durations):.2f} sec | STD: {np.std(event_durations):.2f} sec')
 
-  axs[0].legend()
+  axs[0].legend(prop={'size': 16})
   axs[1].legend()
   axs[2].legend()
 
