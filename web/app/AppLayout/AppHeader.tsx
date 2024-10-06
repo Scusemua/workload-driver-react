@@ -332,14 +332,15 @@ export const AppHeader: React.FunctionComponent = () => {
                             <Tooltip
                                 content={'Query the status of a particular Jupyter ZMQ message.'}
                                 position={'bottom'}
-                            />
-                            <Button
-                                variant={'secondary'}
-                                icon={<InfoAltIcon />}
-                                onClick={() => setQueryMessageModalOpen(true)}
                             >
-                                Query Message Status
-                            </Button>
+                                <Button
+                                    variant={'secondary'}
+                                    icon={<InfoAltIcon />}
+                                    onClick={() => setQueryMessageModalOpen(true)}
+                                >
+                                    Query Message Status
+                                </Button>
+                            </Tooltip>
                         </FlexItem>
 
                         <FlexItem>
