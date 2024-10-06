@@ -13,3 +13,11 @@ func (x *QueryMessageResponse) MarshalLogObject(encoder zapcore.ObjectEncoder) e
 
 	return nil
 }
+
+func (x *QueryMessageRequest) MarshalLogObject(encoder zapcore.ObjectEncoder) error {
+	encoder.AddString("message_id", x.MessageId)
+	encoder.AddString("message_type", x.MessageType)
+	encoder.AddString("kernel_id", x.KernelId)
+
+	return nil
+}

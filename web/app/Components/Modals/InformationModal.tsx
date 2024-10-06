@@ -1,5 +1,5 @@
-import React from 'react';
 import { Button, Modal, ModalVariant, Text, TextContent, TextVariants } from '@patternfly/react-core';
+import React from 'react';
 
 export interface InformationModalProps {
     children?: React.ReactNode;

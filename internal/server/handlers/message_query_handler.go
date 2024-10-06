@@ -25,12 +25,14 @@ func NewMessageQueryHttpHandler(opts *domain.Configuration, grpcClient *ClusterD
 	}
 	handler.BackendHttpGetHandler = handler
 
-	handler.logger.Info("Creating server-side MessageQueryHttpHandler.")
+	handler.logger.Info("Created server-side MessageQueryHttpHandler.")
 
 	return handler
 }
 
 func (h *MessageQueryHttpHandler) HandleRequest(c *gin.Context) {
+	h.logger.Debug("Received new QueryMessage request.")
+
 	var req *gateway.QueryMessageRequest
 
 	err := c.BindJSON(&req)
@@ -40,11 +42,20 @@ func (h *MessageQueryHttpHandler) HandleRequest(c *gin.Context) {
 		return
 	}
 
+	h.logger.Debug("Querying status of Jupyter message.", zap.Object("query_request", req))
+
 	resp, err := h.grpcClient.QueryMessage(context.Background(), req)
 
 	if err != nil {
 		h.logger.Error("Failed to query message status.", zap.Error(err))
-		_ = c.AbortWithError(http.StatusInternalServerError, err)
+
+		_ = c.Error(err)
+
+		c.JSON(domain.GRPCStatusToHTTPStatus(err), &domain.ErrorMessage{
+			ErrorMessage: err.Error(),
+			Valid:        true,
+		})
+
 		return
 	}
 

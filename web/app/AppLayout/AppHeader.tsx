@@ -3,6 +3,7 @@ import { NotificationContext, useClusterAge } from '@app/Providers';
 
 import { DarkModeContext } from '@app/Providers/DarkModeProvider';
 import { FormatSecondsShort } from '@app/utils/utils';
+import { QueryMessageModal } from '@components/Modals';
 import {
     Brand,
     Button,
@@ -27,10 +28,10 @@ import {
     ErrorCircleOIcon,
     InfoAltIcon,
     MoonIcon,
-    SkullCrossbonesIcon,
     SunIcon,
     WarningTriangleIcon,
 } from '@patternfly/react-icons';
+import { uuidv4 } from 'lib0/random';
 import * as React from 'react';
 import useWebSocket, { ReadyState } from 'react-use-websocket';
 
@@ -88,6 +89,8 @@ export const AppHeader: React.FunctionComponent = () => {
     const lightModeButtonId: string = lightModeId + '-button';
     const darkModeButtonId: string = darkModeId + '-button';
 
+    const [queryMessageModalOpen, setQueryMessageModalOpen] = React.useState<boolean>(false);
+
     const { clusterAge } = useClusterAge();
 
     const [currentClusterAge, setCurrentClusterAge] = React.useState<string>('N/A');
@@ -129,6 +132,7 @@ export const AppHeader: React.FunctionComponent = () => {
             case ReadyState.CLOSED:
                 if (!failedToConnect.current) {
                     addNewNotification({
+                        id: uuidv4(),
                         title: 'Failed to Connect to Backend',
                         message: 'The persistent connection with the backend server could not be established lost.',
                         notificationType: 1,
@@ -141,6 +145,7 @@ export const AppHeader: React.FunctionComponent = () => {
                     failedToConnect.current = true;
                 } else if (prevConnectionState == ReadyState.OPEN) {
                     addNewNotification({
+                        id: uuidv4(),
                         title: 'Connection Lost to Backend',
                         message: 'The persistent connection with the backend server has been lost.',
                         notificationType: 1,
@@ -155,6 +160,7 @@ export const AppHeader: React.FunctionComponent = () => {
             case ReadyState.OPEN:
                 console.log('Connected to backend');
                 addNewNotification({
+                    id: uuidv4(),
                     title: 'Connection Established',
                     message: 'The persistent connection with the backend server has been established.',
                     notificationType: 3,
@@ -167,7 +173,7 @@ export const AppHeader: React.FunctionComponent = () => {
         }
 
         setPrevConnectionState(readyState);
-    }, [readyState]);
+    }, [prevConnectionState, readyState]);
 
     const connectionStatus = connectionStatuses[readyState];
     const connectionStatusIcon = connectionStatusIcons[readyState];
@@ -275,51 +281,65 @@ export const AppHeader: React.FunctionComponent = () => {
                             </Tooltip>
                         </FlexItem>
 
+                        {/*<FlexItem>*/}
+                        {/*    <Tooltip*/}
+                        {/*        content="Prompt the server to broadcast a fake error for testing/debugging purposes."*/}
+                        {/*        position="bottom"*/}
+                        {/*    >*/}
+                        {/*        <Button*/}
+                        {/*            isDanger*/}
+                        {/*            variant="secondary"*/}
+                        {/*            icon={<SkullCrossbonesIcon />}*/}
+                        {/*            onClick={() => {*/}
+                        {/*                console.log('Requesting fake error message from backend.');*/}
+
+                        {/*                const requestOptions = {*/}
+                        {/*                    method: 'POST',*/}
+                        {/*                };*/}
+
+                        {/*                fetch('api/spoof-error', requestOptions);*/}
+                        {/*            }}*/}
+                        {/*        >*/}
+                        {/*            Spoof Error Message*/}
+                        {/*        </Button>*/}
+                        {/*    </Tooltip>*/}
+                        {/*</FlexItem>*/}
+
+                        {/*<FlexItem>*/}
+                        {/*    <Tooltip*/}
+                        {/*        content="Prompt the server to broadcast a bunch of fake notifications for testing/debugging purposes."*/}
+                        {/*        position="bottom"*/}
+                        {/*    >*/}
+                        {/*        <Button*/}
+                        {/*            variant="secondary"*/}
+                        {/*            icon={<InfoAltIcon />}*/}
+                        {/*            onClick={() => {*/}
+                        {/*                console.log('Requesting spoofed notifications from backend.');*/}
+
+                        {/*                const requestOptions = {*/}
+                        {/*                    method: 'POST',*/}
+                        {/*                };*/}
+
+                        {/*                fetch('api/spoof-notifications', requestOptions).then(() => {});*/}
+                        {/*            }}*/}
+                        {/*        >*/}
+                        {/*            Spoof Notifications*/}
+                        {/*        </Button>*/}
+                        {/*    </Tooltip>*/}
+                        {/*</FlexItem>*/}
+
                         <FlexItem>
                             <Tooltip
-                                content="Prompt the server to broadcast a fake error for testing/debugging purposes."
-                                position="bottom"
+                                content={'Query the status of a particular Jupyter ZMQ message.'}
+                                position={'bottom'}
+                            />
+                            <Button
+                                variant={'secondary'}
+                                icon={<InfoAltIcon />}
+                                onClick={() => setQueryMessageModalOpen(true)}
                             >
-                                <Button
-                                    isDanger
-                                    variant="secondary"
-                                    icon={<SkullCrossbonesIcon />}
-                                    onClick={() => {
-                                        console.log('Requesting fake error message from backend.');
-
-                                        const requestOptions = {
-                                            method: 'POST',
-                                        };
-
-                                        fetch('api/spoof-error', requestOptions);
-                                    }}
-                                >
-                                    Spoof Error Message
-                                </Button>
-                            </Tooltip>
-                        </FlexItem>
-
-                        <FlexItem>
-                            <Tooltip
-                                content="Prompt the server to broadcast a bunch of fake notifications for testing/debugging purposes."
-                                position="bottom"
-                            >
-                                <Button
-                                    variant="secondary"
-                                    icon={<InfoAltIcon />}
-                                    onClick={() => {
-                                        console.log('Requesting spoofed notifications from backend.');
-
-                                        const requestOptions = {
-                                            method: 'POST',
-                                        };
-
-                                        fetch('api/spoof-notifications', requestOptions).then(() => {});
-                                    }}
-                                >
-                                    Spoof Notifications
-                                </Button>
-                            </Tooltip>
+                                Query Message Status
+                            </Button>
                         </FlexItem>
 
                         <FlexItem>
@@ -339,6 +359,13 @@ export const AppHeader: React.FunctionComponent = () => {
                                     {currentClusterAge}
                                 </Label>
                             </Tooltip>
+                        </FlexItem>
+
+                        <FlexItem>
+                            <QueryMessageModal
+                                isOpen={queryMessageModalOpen}
+                                onClose={() => setQueryMessageModalOpen(false)}
+                            />
                         </FlexItem>
                     </Flex>
                 </MastheadContent>
