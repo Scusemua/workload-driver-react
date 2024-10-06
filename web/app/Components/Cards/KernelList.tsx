@@ -15,7 +15,7 @@ import { DistributedJupyterKernel, JupyterKernelReplica, ResourceSpec } from '@d
 
 import { KernelManager, ServerConnection, SessionManager } from '@jupyterlab/services';
 import { IKernelConnection } from '@jupyterlab/services/lib/kernel/kernel';
-import { ISessionConnection, IModel as ISessionModel } from '@jupyterlab/services/lib/session/session';
+import { IModel as ISessionModel, ISessionConnection } from '@jupyterlab/services/lib/session/session';
 import {
     Button,
     Card,
@@ -321,7 +321,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                     error: (reason: Error) =>
                         GetToastContentWithHeaderAndBody(
                             `Failed to ping one or more replicas of kernel ${kernelId}.`,
-                            `<b>Reason:</b> ${reason.message}`,
+                            reason.message,
                         ),
                 },
                 {
@@ -533,7 +533,10 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                     );
                 },
                 error: (reason: Error) =>
-                    GetToastContentWithHeaderAndBody('Failed to start new Jupyter Session and Jupyter Kernel.', reason.message),
+                    GetToastContentWithHeaderAndBody(
+                        'Failed to start new Jupyter Session and Jupyter Kernel.',
+                        reason.message,
+                    ),
             },
             { style: { maxWidth: 650 } },
         );

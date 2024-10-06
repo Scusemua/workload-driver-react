@@ -372,6 +372,7 @@ const (
 	DistributedCluster_RemoveClusterNodes_FullMethodName         = "/gateway.DistributedCluster/RemoveClusterNodes"
 	DistributedCluster_ModifyClusterNodes_FullMethodName         = "/gateway.DistributedCluster/ModifyClusterNodes"
 	DistributedCluster_GetLocalDaemonNodeIDs_FullMethodName      = "/gateway.DistributedCluster/GetLocalDaemonNodeIDs"
+	DistributedCluster_QueryMessage_FullMethodName               = "/gateway.DistributedCluster/QueryMessage"
 )
 
 // DistributedClusterClient is the client API for DistributedCluster service.
@@ -451,6 +452,9 @@ type DistributedClusterClient interface {
 	ModifyClusterNodes(ctx context.Context, in *ModifyClusterNodesRequest, opts ...grpc.CallOption) (*ModifyClusterNodesResponse, error)
 	// GetLocalDaemonNodeIDs returns a string slice containing the host IDs of each local daemon.
 	GetLocalDaemonNodeIDs(ctx context.Context, in *Void, opts ...grpc.CallOption) (*GetLocalDaemonNodeIDsResponse, error)
+	// QueryMessage is used to query whether a given ZMQ message has been seen by any of the Cluster components
+	// and what the status of that message is (i.e., sent, response received, etc.)
+	QueryMessage(ctx context.Context, in *QueryMessageRequest, opts ...grpc.CallOption) (*QueryMessageResponse, error)
 }
 
 type distributedClusterClient struct {
@@ -650,6 +654,15 @@ func (c *distributedClusterClient) GetLocalDaemonNodeIDs(ctx context.Context, in
 	return out, nil
 }
 
+func (c *distributedClusterClient) QueryMessage(ctx context.Context, in *QueryMessageRequest, opts ...grpc.CallOption) (*QueryMessageResponse, error) {
+	out := new(QueryMessageResponse)
+	err := c.cc.Invoke(ctx, DistributedCluster_QueryMessage_FullMethodName, in, out, opts...)
+	if err != nil {
+		return nil, err
+	}
+	return out, nil
+}
+
 // DistributedClusterServer is the server API for DistributedCluster service.
 // All implementations must embed UnimplementedDistributedClusterServer
 // for forward compatibility
@@ -727,6 +740,9 @@ type DistributedClusterServer interface {
 	ModifyClusterNodes(context.Context, *ModifyClusterNodesRequest) (*ModifyClusterNodesResponse, error)
 	// GetLocalDaemonNodeIDs returns a string slice containing the host IDs of each local daemon.
 	GetLocalDaemonNodeIDs(context.Context, *Void) (*GetLocalDaemonNodeIDsResponse, error)
+	// QueryMessage is used to query whether a given ZMQ message has been seen by any of the Cluster components
+	// and what the status of that message is (i.e., sent, response received, etc.)
+	QueryMessage(context.Context, *QueryMessageRequest) (*QueryMessageResponse, error)
 	mustEmbedUnimplementedDistributedClusterServer()
 }
 
@@ -796,6 +812,9 @@ func (UnimplementedDistributedClusterServer) ModifyClusterNodes(context.Context,
 }
 func (UnimplementedDistributedClusterServer) GetLocalDaemonNodeIDs(context.Context, *Void) (*GetLocalDaemonNodeIDsResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method GetLocalDaemonNodeIDs not implemented")
+}
+func (UnimplementedDistributedClusterServer) QueryMessage(context.Context, *QueryMessageRequest) (*QueryMessageResponse, error) {
+	return nil, status.Errorf(codes.Unimplemented, "method QueryMessage not implemented")
 }
 func (UnimplementedDistributedClusterServer) mustEmbedUnimplementedDistributedClusterServer() {}
 
@@ -1188,6 +1207,24 @@ func _DistributedCluster_GetLocalDaemonNodeIDs_Handler(srv interface{}, ctx cont
 	return interceptor(ctx, in, info, handler)
 }
 
+func _DistributedCluster_QueryMessage_Handler(srv interface{}, ctx context.Context, dec func(interface{}) error, interceptor grpc.UnaryServerInterceptor) (interface{}, error) {
+	in := new(QueryMessageRequest)
+	if err := dec(in); err != nil {
+		return nil, err
+	}
+	if interceptor == nil {
+		return srv.(DistributedClusterServer).QueryMessage(ctx, in)
+	}
+	info := &grpc.UnaryServerInfo{
+		Server:     srv,
+		FullMethod: DistributedCluster_QueryMessage_FullMethodName,
+	}
+	handler := func(ctx context.Context, req interface{}) (interface{}, error) {
+		return srv.(DistributedClusterServer).QueryMessage(ctx, req.(*QueryMessageRequest))
+	}
+	return interceptor(ctx, in, info, handler)
+}
+
 // DistributedCluster_ServiceDesc is the grpc.ServiceDesc for DistributedCluster service.
 // It's only intended for direct use with grpc.RegisterService,
 // and not to be introspected or modified (even as a copy)
@@ -1278,6 +1315,10 @@ var DistributedCluster_ServiceDesc = grpc.ServiceDesc{
 		{
 			MethodName: "GetLocalDaemonNodeIDs",
 			Handler:    _DistributedCluster_GetLocalDaemonNodeIDs_Handler,
+		},
+		{
+			MethodName: "QueryMessage",
+			Handler:    _DistributedCluster_QueryMessage_Handler,
 		},
 	},
 	Streams:  []grpc.StreamDesc{},
