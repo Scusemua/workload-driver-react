@@ -15,3 +15,4 @@ output.txt
 *.exe
 ./server
 server~
+/server
