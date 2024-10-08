@@ -140,6 +140,10 @@ func (s *Synthesizer) MemSessionMap() map[string]float64 {
 	return s.maxUtilizationWrapper.MemSessionMap
 }
 
+func (s *Synthesizer) VramSessionMap() map[string]float64 {
+	return s.maxUtilizationWrapper.VramSessionMap
+}
+
 func (s *Synthesizer) GpuSessionMap() map[string]int {
 	return s.maxUtilizationWrapper.GpuSessionMap
 }
@@ -172,7 +176,7 @@ func (s *Synthesizer) transitionAndSubmitEvent(evt domain.Event) {
 		}
 
 		if !initted {
-			var maxCPUs, maxMem float64
+			var maxCPUs, maxMem, maxVRAM float64
 			var maxGPUs int
 			var noCpuEntry, noMemoryEntry, noGpuEntry bool
 
@@ -204,6 +208,14 @@ func (s *Synthesizer) transitionAndSubmitEvent(evt domain.Event) {
 					}
 				}
 
+				if s.VramSessionMap() != nil {
+					if maxVRAM, ok = s.VramSessionMap()[podData.GetPod()]; !ok {
+						s.sugarLog.Warn("No data in VRAM Session Map for pod %s. (VRAM Session Map has %d entry/entries.)", podData.GetPod(), len(s.GpuSessionMap()))
+						maxVRAM = 0
+						noGpuEntry = true
+					}
+				}
+
 				if noCpuEntry && noMemoryEntry && noGpuEntry {
 					s.sugarLog.Warn("The maximum resource values for CPUs, GPU, Memory are all 0 for Session %s. Skipping.", podData.GetPod())
 					return
@@ -211,8 +223,9 @@ func (s *Synthesizer) transitionAndSubmitEvent(evt domain.Event) {
 			} else {
 				// Default values.
 				maxCPUs = 1
-				maxMem = 1
+				maxMem = 128
 				maxGPUs = 1
+				maxVRAM = 0.128
 			}
 
 			sess = &SessionMeta{
@@ -220,6 +233,7 @@ func (s *Synthesizer) transitionAndSubmitEvent(evt domain.Event) {
 				MaxSessionCPUs:   maxCPUs,
 				MaxSessionMemory: maxMem,
 				MaxSessionGPUs:   maxGPUs,
+				MaxSessionVRAM:   maxVRAM,
 			}
 			s.sessions[podData.GetPod()] = sess
 		}

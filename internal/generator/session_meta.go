@@ -26,6 +26,7 @@ type SessionMeta struct {
 	Timestamp time.Time
 	Pod       string
 	GPU       *GPUUtil
+	VRAM      float64
 	CPU       *CPUUtil
 	// The maximum number of CPUs that this SessionMeta will ever use.
 	// This is obtained by performing a "pre-run".
@@ -36,6 +37,8 @@ type SessionMeta struct {
 	// The maximum number of GPUs that this SessionMeta will ever use.
 	// This is obtained by performing a "pre-run".
 	MaxSessionGPUs int
+	// MaxSessionVRAM is the maximum amount of VRAM (i.e., GPU memory) that the SessionMeta will ever use in GB.
+	MaxSessionVRAM float64
 	// The maximum number of CPUs that this SessionMeta will use during its current training task.
 	// This will only be set (i.e., have a non-zero/non-default value) when the SessionMeta is attached as data to a 'training-started' event.
 	CurrentTrainingMaxCPUs float64
@@ -50,7 +53,7 @@ type SessionMeta struct {
 	// During the tick where ExampleSession1's utilization is reported as 50%, we would typically compute the "true" utilization (across all of its GPUs) as:
 	// 8 GPUs * 50% utilization = 400%.
 	//
-	// But if we're adusting the MaxSessionGPUs value, then we'll compute MaxSessionGPUs as 8 * 0.50 = 4 GPUs.
+	// But if we're adjusting the MaxSessionGPUs value, then we'll compute MaxSessionGPUs as 8 * 0.50 = 4 GPUs.
 	// So now, when ExampleSession1 is at 50% utilization, we'd compute the "true" utilization (across all of its GPUs) as:
 	// 4 GPUs * 50% utilization = 200%.
 	//
@@ -87,6 +90,12 @@ func (s *SessionMeta) GetMaxSessionMemory() float64 {
 // GetMaxSessionGPUs returns the maximum number of GPUs that this SessionMeta will ever use.
 // This is obtained by performing a "pre-run".
 func (s *SessionMeta) GetMaxSessionGPUs() int {
+	return s.MaxSessionGPUs
+}
+
+// GetMaxSessionVRAM returns the maximum amount of VRAM (i.e., GPU memory) that this SessionMeta will ever use in GB.
+// This is obtained by performing a "pre-run".
+func (s *SessionMeta) GetMaxSessionVRAM() int {
 	return s.MaxSessionGPUs
 }
 

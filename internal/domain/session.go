@@ -33,6 +33,8 @@ type SessionMetadata interface {
 	// GetMaxSessionGPUs returns the maximum number of GPUs that this SessionMeta will ever use.
 	// This is obtained by performing a "pre-run".
 	GetMaxSessionGPUs() int
+	// GetMaxSessionVRAM returns the maximum VRAM (i.e. GPU memory) used by the Session at any point in gigabytes (GB).
+	GetMaxSessionVRAM() float64
 }
 
 type SessionState string
@@ -285,6 +287,7 @@ type TrainingEvent struct {
 	TrainingIndex   int              `json:"training_index"`
 	Millicpus       float64          `json:"millicpus"` // CPU usage in 1/1000th CPU core
 	MemUsageMB      float64          `json:"mem_usage_mb"`
+	VRamUsageGB     float64          `json:"vram_usage_gb"`
 	GpuUtil         []GpuUtilization `json:"gpu_utilizations"`
 	StartTick       int              `json:"start_tick"`
 	DurationInTicks int              `json:"duration_in_ticks"`

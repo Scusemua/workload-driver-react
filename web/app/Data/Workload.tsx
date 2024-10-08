@@ -88,7 +88,8 @@ interface WorkloadEvent {
 interface ResourceRequest {
     cpus: number; // millicpus (1/1000 CPU cores)
     gpus: number;
-    mem_mb: number;
+    vram: number; // GPU memory in gigabytes (GB)
+    mem_mb: number; // megabytes (MB)
     gpu_type: string;
 }
 
@@ -110,6 +111,7 @@ interface TrainingEvent {
     training_index: number;
     millicpus: number;
     mem_usage_mb: number;
+    vram_usage_gb: number;
     gpu_utilizations: GpuUtilization[];
     start_tick: number;
     duration_in_ticks: number;

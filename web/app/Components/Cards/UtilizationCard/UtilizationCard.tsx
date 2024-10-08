@@ -11,8 +11,6 @@ import {
     FlexItem,
     Grid,
     GridItem,
-    Text,
-    TextVariants,
     Title,
     ToggleGroup,
     ToggleGroupItem,
@@ -22,16 +20,11 @@ import {
 } from '@patternfly/react-core';
 import { CpuIcon, MemoryIcon, SyncIcon } from '@patternfly/react-icons';
 import React from 'react';
-import { toast } from 'react-hot-toast';
 import { UtilizationDonutChart } from './UtilizationDonutChart';
 
 export interface UtilizationCardProps {
     chartWidth?: number;
     chartHeight?: number;
-}
-
-function roundToTwo(num: number) {
-    return +(Math.round(Number.parseFloat(num.toString() + 'e+2')).toString() + 'e-2');
 }
 
 export const UtilizationCard: React.FunctionComponent<UtilizationCardProps> = (props: UtilizationCardProps) => {
@@ -89,58 +82,7 @@ export const UtilizationCard: React.FunctionComponent<UtilizationCardProps> = (p
                         <Button
                             variant="plain"
                             onClick={() => {
-                                // const st: number = performance.now();
-                                refreshNodes().then(() => {});
-                                // toast
-                                //     .promise(
-                                //         refreshNodes(),
-                                //         {
-                                //             loading: <b>Refreshing cluster resource utilization data...</b>,
-                                //             success: () => (
-                                //                 <div>
-                                //                     <Flex
-                                //                         direction={{ default: 'column' }}
-                                //                         spaceItems={{ default: 'spaceItemsNone' }}
-                                //                     >
-                                //                         <FlexItem>
-                                //                             <b>Refreshed cluster resource utilization data.</b>
-                                //                         </FlexItem>
-                                //                         <FlexItem>
-                                //                             <Text component={TextVariants.small}>
-                                //                                 Time elapsed: {roundToTwo(performance.now() - st)} ms.
-                                //                             </Text>
-                                //                         </FlexItem>
-                                //                     </Flex>
-                                //                 </div>
-                                //             ),
-                                //             error: (reason: Error) => {
-                                //                 let explanation: string = reason.message;
-                                //                 if (reason.name === 'SyntaxError') {
-                                //                     explanation = 'HTTP 504 Gateway Timeout';
-                                //                 }
-                                //
-                                //                 return (
-                                //                     <div>
-                                //                         <Flex
-                                //                             direction={{ default: 'column' }}
-                                //                             spaceItems={{ default: 'spaceItemsNone' }}
-                                //                         >
-                                //                             <FlexItem>
-                                //                                 <b>
-                                //                                     Could not refresh cluster resource utilization data.
-                                //                                 </b>
-                                //                             </FlexItem>
-                                //                             <FlexItem>{explanation}</FlexItem>
-                                //                         </Flex>
-                                //                     </div>
-                                //                 );
-                                //             },
-                                //         },
-                                //         {
-                                //             style: { maxWidth: 450 },
-                                //         },
-                                //     )
-                                //     .then(() => {});
+                                refreshNodes();
                             }}
                             label="refresh-cluster-utilization-data-button"
                             aria-label="refresh-cluster-utilization-data-button"
@@ -224,15 +166,15 @@ export const UtilizationCard: React.FunctionComponent<UtilizationCardProps> = (p
                                     <GpuIcon scale={1.25} />
                                 </FlexItem>
                                 <FlexItem>
-                                    <b>vGPU</b>
+                                    <b>VRAM (GB)</b>
                                 </FlexItem>
                             </Flex>
                             <FlexItem>
                                 <UtilizationDonutChart
                                     chartHeight={props.chartHeight}
                                     chartWidth={props.chartWidth}
-                                    resourceDisplayName="vGPU"
-                                    resourceUnit="vGPUs"
+                                    resourceDisplayName="VRAM"
+                                    resourceUnit="VRAM"
                                     resourceStatus={selectedResourceType}
                                     randomizeUtilizations={randomizeUtilizations}
                                     showLegend={false}

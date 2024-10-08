@@ -6,7 +6,7 @@ import {
     RoundToThreeDecimalPlaces,
 } from '@app/Components/Modals';
 import { HeightFactorContext, KernelHeightFactorContext } from '@app/Dashboard/Dashboard';
-import { GpuIcon } from '@app/Icons';
+import { GpuIcon, GpuIconAlt, GpuIconAlt2 } from '@app/Icons';
 import { useNodes } from '@app/Providers';
 import { GetToastContentWithHeaderAndBody } from '@app/utils/toast_utils';
 import { numberArrayFromRange } from '@app/utils/utils';
@@ -1240,13 +1240,26 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                         <Flex spaceItems={{ default: 'spaceItemsSm' }}>
                                             <FlexItem>
                                                 <Tooltip content="GPU resource usage limit">
-                                                    <GpuIcon className="node-memory-icon" />
+                                                    <GpuIcon className="node-gpu-icon" />
                                                 </Tooltip>
                                             </FlexItem>
                                             <FlexItem>
                                                 {(kernel != null &&
                                                     kernel.kernelSpec.resourceSpec.gpu != null &&
                                                     kernel.kernelSpec.resourceSpec.gpu.toFixed(0)) ||
+                                                    '0'}
+                                            </FlexItem>
+                                        </Flex>
+                                        <Flex spaceItems={{ default: 'spaceItemsSm' }}>
+                                            <FlexItem>
+                                                <Tooltip content="VRAM resource usage limit">
+                                                    <GpuIconAlt2 className="node-gpu-icon" />
+                                                </Tooltip>
+                                            </FlexItem>
+                                            <FlexItem>
+                                                {(kernel != null &&
+                                                    kernel.kernelSpec.resourceSpec.vram != null &&
+                                                    kernel.kernelSpec.resourceSpec.vram.toFixed(0)) ||
                                                     '0'}
                                             </FlexItem>
                                         </Flex>

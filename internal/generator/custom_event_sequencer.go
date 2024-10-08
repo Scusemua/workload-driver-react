@@ -84,7 +84,7 @@ func (s *CustomEventSequencer) SubmitEvents(workloadGenerationCompleteChan chan 
 	}()
 }
 
-func (s *CustomEventSequencer) RegisterSession(sessionId string, maxCPUs float64, maxMem float64, maxGPUs int, podIdx int) {
+func (s *CustomEventSequencer) RegisterSession(sessionId string, maxCPUs float64, maxMem float64, maxGPUs int, maxVRAM float64, podIdx int) {
 	if _, ok := s.sessions[sessionId]; ok {
 		panic(fmt.Sprintf("Cannot register session %s; session was same ID already exists!", sessionId))
 	}
@@ -94,6 +94,7 @@ func (s *CustomEventSequencer) RegisterSession(sessionId string, maxCPUs float64
 		MaxSessionCPUs:   maxCPUs,
 		MaxSessionMemory: maxMem,
 		MaxSessionGPUs:   maxGPUs,
+		MaxSessionVRAM:   maxVRAM,
 	}
 
 	wrappedSession := &sessionMetaWrapper{
@@ -104,7 +105,7 @@ func (s *CustomEventSequencer) RegisterSession(sessionId string, maxCPUs float64
 	s.sessions[sessionId] = wrappedSession
 	s.sessionEventIndexes[sessionId] = 0
 
-	s.sugarLog.Debugf("Registered session \"%s\". MaxCPUs: %.2f, MaxMemory: %.2f, MaxGPUs: %d.", sessionId, maxCPUs, maxMem, maxGPUs)
+	s.sugarLog.Debugf("Registered session \"%s\". MaxCPUs: %.2f, MaxMemory: %.2f, MaxGPUs: %d, MaxVRAM: %.2f", sessionId, maxCPUs, maxMem, maxGPUs, maxVRAM)
 }
 
 func (s *CustomEventSequencer) getSessionMeta(sessionId string) *SessionMeta {

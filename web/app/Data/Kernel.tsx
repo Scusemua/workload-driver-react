@@ -29,9 +29,10 @@ interface DistributedKernelSpec {
 }
 
 interface ResourceSpec {
-    cpu: number;
-    memory: number;
+    cpu: number; // in Millicpus (1/1000th of vCPU)
+    memory: number; // in Megabytes (MB)
     gpu: number;
+    vram: number;  // in Gigabytes (GB)
 }
 
 // The KernelSpec used within JupyterServer when provisioning kernels.

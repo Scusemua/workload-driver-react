@@ -100,18 +100,12 @@ func (p *WorkloadPreset) UnmarshalYAML(unmarshal func(interface{}) error) error 
 		var csvPreset CsvWorkloadPreset
 		err := unmarshal(&csvPreset)
 		if err != nil {
-			log.Fatalf("Failed to unmarshal XML preset: %v\n", err)
+			log.Fatalf("Failed to unmarshal CSV preset: %v\n", err)
 		}
 
 		csvPreset.BaseWorkloadPreset = basePreset
 		p.PresetType = CsvWorkloadPresetType
 		p.CsvWorkloadPreset = csvPreset
-		if err != nil {
-			log.Fatalf("Failed to unmarshal CSV workload preset: %v\n", err)
-		}
-		// log.Printf("Unmarshaled CSV workload preset (1): \"%v\"\n", csvPreset)
-		// log.Printf("Unmarshaled CSV workload preset (2): \"%v\"\n", p.CsvWorkloadPreset)
-		// log.Printf("Unmarshaled CSV workload preset (3): \"%s\"\n", p.CsvWorkloadPreset.Name)
 	} else if basePreset.PresetType == XmlWorkloadPresetType {
 		var xmlPreset XmlWorkloadPreset
 		err := unmarshal(&xmlPreset)
@@ -326,7 +320,7 @@ func (p *CsvWorkloadPreset) NormalizeDowntime(downtime string) []int64 {
 	return downtimes
 }
 
-// Read a yaml file containing one or more CsvWorkloadPreset definitions.
+// LoadWorkloadPresetsFromFile reads a yaml file containing one or more CsvWorkloadPreset definitions.
 // Return a list of *CsvWorkloadPreset containing the definitions from the file.
 //
 // Returns an error if an error occurred. In this case, the returned slice will be nil.
@@ -350,13 +344,17 @@ func LoadWorkloadPresetsFromFile(filepath string) ([]*WorkloadPreset, error) {
 }
 
 type MaxUtilizationWrapper struct {
-	CpuSessionMap map[string]float64 `json:"cpu-session-map" yaml:"cpu-session-map"` // Maximum CPU utilization achieved during each Session's lifetime.
-	MemSessionMap map[string]float64 `json:"mem-session-map" yaml:"mem-session-map"` // Maximum memory used (in gigabytes) during each Session's lifetime.
-	GpuSessionMap map[string]int     `json:"gpu-session-map" yaml:"hpu-session-map"` // Maximum number of GPUs used during each Session's lifetime.
+	// TODO: Is this definitely in GB?
+	MemSessionMap  map[string]float64 `json:"mem-session-map" yaml:"mem-session-map"`   // Maximum memory used (in gigabytes) during each Session's lifetime.
+	CpuSessionMap  map[string]float64 `json:"cpu-session-map" yaml:"cpu-session-map"`   // Maximum CPU utilization achieved during each Session's lifetime.
+	VramSessionMap map[string]float64 `json:"vram-session-map" yaml:"vram-session-map"` // Maximum VRAM used (in gigabytes) during each Session's lifetime.
+	GpuSessionMap  map[string]int     `json:"gpu-session-map" yaml:"hpu-session-map"`   // Maximum number of GPUs used during each Session's lifetime.
 
 	CurrentTrainingNumberMap map[string]int // Map from SessionID to the current training task number we're on (beginning with 0, then 1, then 2, ..., etc.)
 
-	CpuTaskMap map[string][]float64 `json:"cpu-task-map" yaml:"cpu-task-map"` // Maximum CPU utilization achieved during each training event for each Session, arranged in chronological order of training events.
-	MemTaskMap map[string][]float64 `json:"mem-task-map" yaml:"mem-task-map"` // Maximum memory used (in GB) during each training event for each Session, arranged in chronological order of training events.
-	GpuTaskMap map[string][]int     `json:"gpu-task-map" yaml:"gpu-task-map"` // Maximum number of GPUs used during each training event for each Session, arranged in chronological order of training events.
+	// TODO: Is this definitely in GB?
+	MemTaskMap  map[string][]float64 `json:"mem-task-map" yaml:"mem-task-map"`   // Maximum memory used (in GB) during each training event for each Session, arranged in chronological order of training events.
+	CpuTaskMap  map[string][]float64 `json:"cpu-task-map" yaml:"cpu-task-map"`   // Maximum CPU utilization achieved during each training event for each Session, arranged in chronological order of training events.
+	GpuTaskMap  map[string][]int     `json:"gpu-task-map" yaml:"gpu-task-map"`   // Maximum number of GPUs used during each training event for each Session, arranged in chronological order of training events.
+	VramTaskMap map[string]float64   `json:"vram-task-map" yaml:"vram-task-map"` // Maximum amount of VRAM (in GB) used during each training event for each Session, arranged in chronological order of training events.
 }
