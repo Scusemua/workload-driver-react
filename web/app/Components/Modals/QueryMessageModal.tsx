@@ -71,16 +71,8 @@ export const QueryMessageModal: React.FunctionComponent<QueryMessageModalProps> 
                 );
             })
             .then(async (resp: Response | void) => {
-                if (!resp) {
-                    toast.error(
-                        GetToastContentWithHeaderAndBody(
-                            `Failed to query status of Jupyter ZMQ message "${jupyterMsgId}"`,
-                            `No response received.`,
-                        ),
-                        { id: toastId, style: { maxWidth: 750 } },
-                    );
-                } else if (resp.status == 200) {
-                    const queryResult: QueryMessageResponse = await resp.json();
+                if (resp?.status == 200) {
+                    const queryResult: QueryMessageResponse = await resp.json().catch(()=>{console.error("AAA");});
                     toast.success(
                         GetToastContentWithHeaderAndBody(
                             `Successfully queried status of Jupyter ZMQ message "${jupyterMsgId}"`,
@@ -93,14 +85,43 @@ export const QueryMessageModal: React.FunctionComponent<QueryMessageModalProps> 
                         return [...prevResults, queryResult];
                     });
                 } else {
-                    const errorMessage = await resp.json();
-                    toast.error(
+                    const responseContent = await resp?.json();
+
+                    // HTTP 400 here just means that the Gateway didn't have any such request whatsoever.
+                    if (resp?.status == 400) {
+                      // We'll add an entry for this query, since we know the Gateway simply didn't have
+                      // the requested request in its request log.
+                      const queryResult: QueryMessageResponse = {
+                        messageId: jupyterMsgId,
+                        kernelId: jupyterKernelId,
+                        messageType: jupyterMsgType,
+                        gatewayReceivedRequest: -1,
+                        gatewayForwardedRequest: -1,
+                        gatewayReceivedReply: -1,
+                        gatewayForwardedReply: -1,
+                      }
+
+                      setQueryResults((prevResults) => {
+                        return [...prevResults, queryResult];
+                      });
+
+                      toast.error(
                         GetToastContentWithHeaderAndBody(
-                            `Failed to query status of Jupyter ZMQ message "${jupyterMsgId}"`,
-                            `HTTP ${resp.status} ${resp.statusText}: ${JSON.stringify(errorMessage)}`,
+                          `Request Not Found`,
+                          `${responseContent["message"]}`,
                         ),
                         { id: toastId, style: { maxWidth: 750 } },
-                    );
+                      );
+                    } else {
+                      // Unknown/unexpected error. Display a warning.
+                      toast.error(
+                        GetToastContentWithHeaderAndBody(
+                          `Failed to query status of Jupyter ZMQ message "${jupyterMsgId}"`,
+                          `HTTP ${resp?.status} ${resp?.statusText}: ${responseContent["message"]}`,
+                        ),
+                        { id: toastId, style: { maxWidth: 750 } },
+                      );
+                    }
                 }
             });
     };
@@ -262,7 +283,9 @@ export const QueryMessageModal: React.FunctionComponent<QueryMessageModalProps> 
                                                     //     return [];
                                                     // }
 
-                                                    return prevResults.filter((_: QueryMessageResponse, index: number) => index != rowIndex);
+                                                    return prevResults.filter(
+                                                        (_: QueryMessageResponse, index: number) => index != rowIndex,
+                                                    );
 
                                                     // return [
                                                     //     ...prevResults.slice(0, rowIndex),

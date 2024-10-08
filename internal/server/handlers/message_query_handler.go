@@ -49,17 +49,14 @@ func (h *MessageQueryHttpHandler) HandleRequest(c *gin.Context) {
 	if err != nil {
 		h.logger.Error("Failed to query message status.", zap.Error(err))
 
-		_ = c.Error(err)
+		c.Status(domain.GRPCStatusToHTTPStatus(err))
 
-		c.JSON(domain.GRPCStatusToHTTPStatus(err), &domain.ErrorMessage{
-			ErrorMessage: err.Error(),
-			Valid:        true,
-		})
+		_ = c.Error(err)
 
 		return
 	}
 
-	h.logger.Debug("Successfully queried message status.", zap.Object("query_result", resp))
+	h.logger.Debug("Successfully queried message status.", zap.Object("request_trace", resp.RequestTrace))
 
-	c.JSON(http.StatusOK, resp)
+	c.JSON(http.StatusOK, resp.RequestTrace)
 }
