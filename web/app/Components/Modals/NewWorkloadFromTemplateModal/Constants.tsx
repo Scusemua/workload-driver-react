@@ -76,6 +76,10 @@ function RoundToThreeDecimalPlaces(num: number) {
     return +(Math.round(Number.parseFloat(num.toString() + 'e+3')).toString() + 'e-3');
 }
 
+function RoundToNDecimalPlaces(num: number, n: number) {
+  return +(Math.round(Number.parseFloat(num.toString() + `e+${n}`)).toString() + `e-${n}`);
+}
+
 export { TimescaleAdjustmentFactorDelta as TimescaleAdjustmentFactorDelta };
 export { TimescaleAdjustmentFactorMax as TimescaleAdjustmentFactorMax };
 export { TimescaleAdjustmentFactorMin as TimescaleAdjustmentFactorMin };
@@ -110,3 +114,4 @@ export { GetDefaultFormValues as GetDefaultFormValues };
 
 export { RoundToTwoDecimalPlaces as RoundToTwoDecimalPlaces };
 export { RoundToThreeDecimalPlaces as RoundToThreeDecimalPlaces };
+export { RoundToNDecimalPlaces as RoundToNDecimalPlaces};

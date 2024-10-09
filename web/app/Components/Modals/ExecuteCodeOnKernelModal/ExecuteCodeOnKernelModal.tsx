@@ -1,7 +1,7 @@
 import { DistributedJupyterKernel, JupyterKernelReplica } from '@app/Data';
 import { CodeEditorComponent } from '@components/CodeEditor';
 import { ExecutionOutputTabContent } from '@components/Modals/ExecuteCodeOnKernelModal/ExecutionOutputTabContent';
-import { RoundToThreeDecimalPlaces } from '@components/Modals/NewWorkloadFromTemplateModal';
+import { RoundToNDecimalPlaces, RoundToThreeDecimalPlaces } from '@components/Modals/NewWorkloadFromTemplateModal';
 import { KernelManager, ServerConnection } from '@jupyterlab/services';
 import { IKernelConnection, IShellFuture } from '@jupyterlab/services/lib/kernel/kernel';
 import {
@@ -217,24 +217,20 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                 return prevMap;
             });
 
-            // const successIcon: string = Math.random() > 0.5 ? '✅' : '✅';
-
             toast.custom(
                 (t: Toast) => {
                     return (
                         <Alert
-                            title={<b>`Execution Complete ✅`</b>}
+                            title={<b>Execution Complete ({latencySecRounded} sec) ✅</b>}
                             variant={'success'}
-                            customIcon={<SpinnerIcon className={'loading-icon-spin-pulse'} />}
+                            isExpandable
                             timeout={5000}
                             timeoutAnimation={30000}
                             onTimeout={() => toast.dismiss(t.id)}
                             actionClose={<AlertActionCloseButton onClose={() => toast.dismiss(t.id)} />}
                         >
-                            <p>
-                                `Kernel ${kernelId} has finished executing your code after ${latencySecRounded}{' '}
-                                seconds.`
-                            </p>
+                            <p>Kernel {kernelId} has finished executing your code after {latencySecRounded} seconds.</p>
+
                         </Alert>
                     );
                 },
@@ -479,7 +475,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
 
             future.onReply = (response: IExecuteReplyMsg) => {
                 const latencyMilliseconds: number = performance.now() - startTime;
-                const latencySecRounded: number = RoundToThreeDecimalPlaces(latencyMilliseconds / 1000.0);
+                const latencySecRounded: number = RoundToNDecimalPlaces(latencyMilliseconds / 1000.0, 4);
                 console.log(`Execution on Kernel ${kernelId} finished after ${latencySecRounded} seconds.`);
 
                 onExecutionResponse(response, executionId, kernelId, latencySecRounded, toastId);

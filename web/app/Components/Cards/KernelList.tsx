@@ -1,9 +1,9 @@
 import {
-    ConfirmationModal,
-    CreateKernelsModal,
-    ExecuteCodeOnKernelModal,
-    InformationModal,
-    RoundToThreeDecimalPlaces,
+  ConfirmationModal,
+  CreateKernelsModal,
+  ExecuteCodeOnKernelModal,
+  InformationModal, RoundToNDecimalPlaces,
+  RoundToThreeDecimalPlaces
 } from '@app/Components/Modals';
 import { HeightFactorContext, KernelHeightFactorContext } from '@app/Dashboard/Dashboard';
 import { GpuIcon, GpuIconAlt2 } from '@app/Icons';
@@ -13,11 +13,11 @@ import { numberArrayFromRange } from '@app/utils/utils';
 import { PingKernelModal } from '@components/Modals';
 import { RequestTraceSplitTable } from '@components/Tables';
 import { DistributedJupyterKernel, JupyterKernelReplica, ResourceSpec } from '@data/Kernel';
-import { GetAverageRequestTrace, GetSplitsFromRequestTrace, PongResponse, RequestTrace } from '@data/Message';
+import { PongResponse } from '@data/Message';
 
 import { KernelManager, ServerConnection, SessionManager } from '@jupyterlab/services';
 import { IKernelConnection } from '@jupyterlab/services/lib/kernel/kernel';
-import { IModel as ISessionModel, ISessionConnection } from '@jupyterlab/services/lib/session/session';
+import { ISessionConnection, IModel as ISessionModel } from '@jupyterlab/services/lib/session/session';
 import {
     Alert,
     AlertActionCloseButton,
@@ -366,7 +366,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                 } else {
                     const response: PongResponse = await resp.json();
                     const receivedReplyAt: number = Date.now();
-                    const latencyMilliseconds: number = RoundToThreeDecimalPlaces(performance.now() - startTime);
+                    const latencyMilliseconds: number = RoundToNDecimalPlaces(performance.now() - startTime, 6);
 
                     console.log('All Request Traces:');
                     console.log(JSON.stringify(response.requestTraces, null, 2));
