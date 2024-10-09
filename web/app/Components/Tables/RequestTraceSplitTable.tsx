@@ -1,4 +1,5 @@
 import { AdjustedSplitNames, GetSplitsFromRequestTrace, RequestTrace, RequestTraceSplit } from '@app/Data';
+import { RoundToTwoDecimalPlaces } from '@components/Modals';
 import {
     Card,
     CardBody,
@@ -19,13 +20,23 @@ export interface RequestTraceSplitTableProps {
     children?: React.ReactNode;
     traces: RequestTrace[];
     messageId: string;
+    receivedReplyAt: number; // Time that we, the frontend client, received the reply.
+    initialRequestSentAt?: number; // Time that we, the frontend client, initially sent the request.
 }
 
 // Displays the Sessions from a workload in a table.
 export const RequestTraceSplitTable: React.FunctionComponent<RequestTraceSplitTableProps> = (props) => {
     const [useAlternativeSplitNames, setUseAlternativeSplitNames] = React.useState<boolean>(true);
 
-    const table_columns: string[] = ['Index', 'Split Name', 'Start', 'Stop', 'Latency (ms)', 'Cumulative Latency (ms)'];
+    const table_columns: string[] = [
+        'Index',
+        'Split Name',
+        'Start',
+        'Stop',
+        'Latency (ms)',
+        'Relative Percent',
+        'Cumulative Latency (ms)',
+    ];
     const table_icons: (React.ReactNode | null)[] = [null, null, null, null, <ClockIcon key={'clock_icon'} />];
 
     const [selectedTrace, setSelectedTrace] = React.useState<number>(0);
@@ -35,12 +46,18 @@ export const RequestTraceSplitTable: React.FunctionComponent<RequestTraceSplitTa
     React.useEffect(() => {
         const _splits: RequestTraceSplit[][] = [];
         props.traces.forEach((trace: RequestTrace) => {
-            const requestTraceSplits: RequestTraceSplit[] = GetSplitsFromRequestTrace(trace);
+            const requestTraceSplits: RequestTraceSplit[] = GetSplitsFromRequestTrace(
+                props.receivedReplyAt,
+                trace,
+                props.initialRequestSentAt,
+            );
+            trace.e2eLatencyMilliseconds =
+                props.receivedReplyAt - (props.initialRequestSentAt || requestTraceSplits[0].start);
             _splits.push(requestTraceSplits);
         });
 
         setSplits(_splits);
-    }, [props.traces]);
+    }, [props.traces, props.initialRequestSentAt, props.receivedReplyAt]);
 
     const getColumnDefinitionContent = (column: string, index: number) => {
         if (table_icons[index] === null) {
@@ -57,6 +74,12 @@ export const RequestTraceSplitTable: React.FunctionComponent<RequestTraceSplitTa
 
     const getCumulativeLatency = (splits: RequestTraceSplit[], start: number, end: number): number => {
         return splits[end].end - splits[start].start;
+    };
+
+    const getRelativePercent = (traceIndex: number, targetSplitIndex: number): number => {
+        return (
+            splits[traceIndex][targetSplitIndex].latencyMilliseconds / props.traces[traceIndex].e2eLatencyMilliseconds
+        );
     };
 
     return (
@@ -80,9 +103,9 @@ export const RequestTraceSplitTable: React.FunctionComponent<RequestTraceSplitTa
                                 {props.traces.map((trace: RequestTrace, idx: number) => {
                                     return (
                                         <ToggleGroupItem
-                                            text={`Kernel #${idx}`}
-                                            key={`request-${props.messageId}-trace-split-table-kernel-${idx}-toggle-key`}
-                                            buttonId={`request-${props.messageId}-trace-split-table-kernel-${idx}-toggle`}
+                                            text={`Kernel #${trace.replicaId}`}
+                                            key={`request-${props.messageId}-trace-split-table-kernel-${trace.replicaId}-toggle-key`}
+                                            buttonId={`request-${props.messageId}-trace-split-table-kernel-${trace.replicaId}-toggle`}
                                             isSelected={selectedTrace == idx}
                                             onChange={() => setSelectedTrace(idx)}
                                         />
@@ -115,6 +138,10 @@ export const RequestTraceSplitTable: React.FunctionComponent<RequestTraceSplitTa
                                         <Td dataLabel={table_columns[3]}>{new Date(split.end).toISOString()}</Td>
                                         <Td dataLabel={table_columns[4]}>{split.latencyMilliseconds}</Td>
                                         <Td dataLabel={table_columns[5]}>
+                                            {RoundToTwoDecimalPlaces(getRelativePercent(selectedTrace, idx) * 100)}
+                                            {'%'}
+                                        </Td>
+                                        <Td dataLabel={table_columns[6]}>
                                             {getCumulativeLatency(splits[selectedTrace], 0, idx)}
                                         </Td>
                                     </Tr>

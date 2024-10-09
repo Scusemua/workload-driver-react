@@ -327,6 +327,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         );
 
         const startTime: number = performance.now();
+        const initialRequestTimestamp: number = Date.now();
         fetch('api/ping-kernel', req)
             .catch((err: Error) => {
                 toast.custom(
@@ -364,36 +365,31 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                     );
                 } else {
                     const response: PongResponse = await resp.json();
+                    const receivedReplyAt: number = Date.now();
                     const latencyMilliseconds: number = RoundToThreeDecimalPlaces(performance.now() - startTime);
-                    const averageRequestTrace: RequestTrace | void = GetAverageRequestTrace(response.requestTraces);
 
                     console.log('All Request Traces:');
                     console.log(JSON.stringify(response.requestTraces, null, 2));
-                    console.log('Averaged Request Trace:');
-                    console.log(JSON.stringify(averageRequestTrace, null, 2));
-                    if (averageRequestTrace) {
-                        console.log(JSON.stringify(GetSplitsFromRequestTrace(averageRequestTrace), null, 2));
-                    }
 
                     toast.custom(
                         <Alert
                             isExpandable
                             variant={'success'}
-                            title={`Successfully pinged kernel ${response.id} (${latencyMilliseconds} ms)`}
+                            title={`Pinged kernel ${response.id} via its ${socketType} channel (${latencyMilliseconds} ms)`}
                             timeoutAnimation={30000}
                             timeout={15000}
                             onTimeout={() => toast.dismiss(toastId)}
                             actionClose={<AlertActionCloseButton onClose={() => toast.dismiss(toastId)} />}
                         >
-                            {response.requestTraces.length > 0 &&
-                                averageRequestTrace !== null &&
-                                averageRequestTrace !== undefined && (
+                            {response.requestTraces.length > 0 && (
                                     <Flex direction={{ default: 'column' }}>
                                         <FlexItem>
                                             <Title headingLevel={'h3'}>Request Trace(s)</Title>
                                         </FlexItem>
                                         <FlexItem>
                                             <RequestTraceSplitTable
+                                                receivedReplyAt={receivedReplyAt}
+                                                initialRequestSentAt={initialRequestTimestamp}
                                                 messageId={response.msg}
                                                 traces={response.requestTraces}
                                             />

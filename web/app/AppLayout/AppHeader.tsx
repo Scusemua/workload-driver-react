@@ -1,5 +1,5 @@
 import logo from '@app/bgimages/WorkloadDriver-Logo.svg';
-import { NotificationContext, useClusterAge } from '@app/Providers';
+import { NotificationContext, useClusterAge, useKernels, useNodes } from '@app/Providers';
 
 import { DarkModeContext } from '@app/Providers/DarkModeProvider';
 import { FormatSecondsShort } from '@app/utils/utils';
@@ -10,10 +10,6 @@ import {
     AlertActionLink,
     Brand,
     Button,
-    Card,
-    CardBody,
-    CardExpandableContent,
-    CardHeader,
     Flex,
     FlexItem,
     Icon,
@@ -100,6 +96,8 @@ export const AppHeader: React.FunctionComponent = () => {
     const [queryMessageModalOpen, setQueryMessageModalOpen] = React.useState<boolean>(false);
 
     const { clusterAge } = useClusterAge();
+    const { refreshNodes } = useNodes();
+    const { refreshKernels } = useKernels(false);
 
     const [currentClusterAge, setCurrentClusterAge] = React.useState<string>('N/A');
 
@@ -167,13 +165,21 @@ export const AppHeader: React.FunctionComponent = () => {
                 break;
             case ReadyState.OPEN:
                 console.log('Connected to backend');
-                addNewNotification({
+
+                if (prevConnectionState !== ReadyState.OPEN) {
+                  addNewNotification({
                     id: uuidv4(),
                     title: 'Connection Established',
                     message: 'The persistent connection with the backend server has been established.',
                     notificationType: 3,
                     panicked: false,
-                });
+                  });
+                }
+
+                // If we've just connected, then let's refresh our kernels and our nodes, in case they've
+                // changed since we were last connected.
+                refreshKernels().then(() => {});
+                refreshNodes(false); // Pass false to omit the separate toast notification about refreshing nodes.
 
                 // Reset this to false, as we just successfully connected.
                 failedToConnect.current = false;
@@ -242,9 +248,7 @@ export const AppHeader: React.FunctionComponent = () => {
                             </AlertActionLink>
                         </React.Fragment>
                     }
-                >
-
-                </Alert>
+                ></Alert>
             ),
             {
                 style: { maxWidth: 750 },

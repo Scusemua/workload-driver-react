@@ -23,9 +23,11 @@ export interface RequestTrace {
     replySentByLocalDaemon: number;
     replyReceivedByGateway: number;
     replySentByGateway: number;
+    e2eLatencyMilliseconds: number;
 }
 
 export type SplitName =
+    | 'ClusterRequestToGateway'
     | 'GatewayProcessRequest'
     | 'GatewayRequestToLocalDaemon'
     | 'LocalDaemonProcessRequest'
@@ -38,6 +40,7 @@ export type SplitName =
     | 'GatewayReplyToClient';
 
 export const SplitNames: SplitName[] = [
+    'ClusterRequestToGateway',
     'GatewayProcessRequest',
     'GatewayRequestToLocalDaemon',
     'LocalDaemonProcessRequest',
@@ -51,16 +54,17 @@ export const SplitNames: SplitName[] = [
 ];
 
 export const AdjustedSplitNames: string[] = [
-  'Gateway Processing Request',
-  'Gateway → Scheduler Daemon',
-  'Scheduler Daemon Processing Request',
-  'Scheduler Daemon → Kernel',
-  'Kernel Processing Request',
-  'Kernel → SchedulerDaemon',
-  'Scheduler Daemon Processing Reply',
-  'Scheduler Daemon → Gateway',
-  'Gateway Processing Reply',
-  'Gateway → Client',
+    'Client → Gateway',
+    'Gateway Processing Request',
+    'Gateway → Scheduler Daemon',
+    'Scheduler Daemon Processing Request',
+    'Scheduler Daemon → Kernel',
+    'Kernel Processing Request',
+    'Kernel → SchedulerDaemon',
+    'Scheduler Daemon Processing Reply',
+    'Scheduler Daemon → Gateway',
+    'Gateway Processing Reply',
+    'Gateway → Client',
 ];
 
 export interface RequestTraceSplit {
@@ -110,7 +114,41 @@ export function GetAverageRequestTrace(traces: RequestTrace[]): RequestTrace | v
     return sumTrace;
 }
 
-export function GetSplitsFromRequestTrace(trace: RequestTrace): RequestTraceSplit[] {
+/**
+ * Generate and return a slice of RequestTraceSplit objects from the given RequestTrace.
+ * @param replyReceived the unix milliseconds at which the reply was received by the frontend client.
+ * @param trace the RequestTrace from which a slice of RequestTraceSplit objects will be created.
+ * @param initialRequestSentAt the time at which the frontend client initially sent the request.
+ */
+export function GetSplitsFromRequestTrace(
+    replyReceived: number,
+    trace: RequestTrace,
+    initialRequestSentAt: number | undefined,
+): RequestTraceSplit[] {
+    let splitClientToGateway: RequestTraceSplit;
+
+    if (initialRequestSentAt !== undefined) {
+        splitClientToGateway = {
+            messageId: trace.messageId,
+            messageType: trace.messageType,
+            kernelId: trace.kernelId,
+            splitName: 'GatewayProcessRequest',
+            start: initialRequestSentAt,
+            end: trace.requestReceivedByGateway,
+            latencyMilliseconds: trace.requestReceivedByGateway - initialRequestSentAt,
+        };
+    } else {
+        splitClientToGateway = {
+            messageId: trace.messageId,
+            messageType: trace.messageType,
+            kernelId: trace.kernelId,
+            splitName: 'GatewayProcessRequest',
+            start: trace.requestReceivedByGateway,
+            end: trace.requestReceivedByGateway,
+            latencyMilliseconds: trace.requestReceivedByGateway - trace.requestReceivedByGateway,
+        };
+    }
+
     const splitGatewayProcessRequest: RequestTraceSplit = {
         messageId: trace.messageId,
         messageType: trace.messageType,
@@ -207,11 +245,12 @@ export function GetSplitsFromRequestTrace(trace: RequestTrace): RequestTraceSpli
         kernelId: trace.kernelId,
         splitName: 'GatewayReplyToClient',
         start: trace.replySentByGateway,
-        end: Date.now(),
-        latencyMilliseconds: Date.now() - trace.replySentByGateway,
+        end: replyReceived,
+        latencyMilliseconds: replyReceived - trace.replySentByGateway,
     };
 
     return [
+        splitClientToGateway,
         splitGatewayProcessRequest,
         splitGatewayRequestToLocalDaemon,
         splitLocalDaemonProcessRequest,

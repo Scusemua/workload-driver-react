@@ -76,7 +76,7 @@ const AppLayout: React.FunctionComponent = () => {
                     notification.title == 'Local Daemon Connected' ||
                     notification.title == 'Local Daemon Connectivity Error'
                 ) {
-                    refreshNodes();
+                    refreshNodes(false); // Pass false to omit the separate toast notification about refreshing nodes.
                 }
             } else {
                 console.warn(`Received JSON message of unknown type: ${JSON.stringify(message)}`);
