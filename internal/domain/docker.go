@@ -164,6 +164,11 @@ func VirtualDockerNodeFromProtoVirtualDockerNode(protoNode *proto.VirtualDockerN
 	idleResources[VirtualGpuResource] = float64(protoNode.SpecGpu) - float64(protoNode.AllocatedGpu)
 	capacityResources[VirtualGpuResource] = float64(protoNode.SpecGpu)
 
+	allocatedResources[VRAMResource] = float64(protoNode.AllocatedVRAM)
+	pendingResources[VRAMResource] = float64(protoNode.PendingVRAM)
+	idleResources[VRAMResource] = float64(protoNode.SpecVRAM) - float64(protoNode.AllocatedVRAM)
+	capacityResources[VRAMResource] = float64(protoNode.SpecVRAM)
+
 	return &VirtualDockerNode{
 		NodeId:             protoNode.NodeId,
 		Type:               VirtualDockerNodeType,

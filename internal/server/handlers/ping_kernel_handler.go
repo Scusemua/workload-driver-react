@@ -49,7 +49,7 @@ func (h *PingKernelHttpHandler) HandleRequest(c *gin.Context) {
 
 	if resp.Success {
 		h.logger.Debug("Successfully pinged kernel.", zap.String("kernel_id", req.KernelId), zap.Array("request_traces", proto.RequestTraceArr(resp.RequestTraces)))
-		c.Status(http.StatusOK)
+		c.JSON(http.StatusOK, resp)
 	} else {
 		h.logger.Debug("Failed to ping one or more replicas of kernel.", zap.String("kernel_id", req.KernelId))
 		c.Status(http.StatusInternalServerError)

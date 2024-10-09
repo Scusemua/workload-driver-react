@@ -50,8 +50,8 @@ function getManualRefreshTrigger(trigger: TriggerWithoutArgs<any, any, string, n
 
         if (!showToast) {
             await trigger().catch((error: Error) => {
-              console.error(`Failed to refresh nodes because: ${error.message}`);
-            })
+                console.error(`Failed to refresh nodes because: ${error.message}`);
+            });
             return;
         }
 
@@ -82,6 +82,13 @@ export function useNodes() {
     const { trigger, isMutating } = useSWRMutation(api_endpoint, fetcher);
 
     const nodes: ClusterNode[] = data || [];
+
+    // if (nodes.length > 0) {
+    //     console.log(`Received ${nodes.length} ClusterNode(s) from server:`);
+    //     console.log(JSON.stringify(nodes, null, 2));
+    // } else {
+    //     console.warn('Received 0 ClusterNodes from server...');
+    // }
 
     return {
         nodes: nodes,

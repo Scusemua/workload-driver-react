@@ -83,7 +83,7 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
         }
 
         adjustVirtualGPUsNodes.forEach((node: ClusterNode) => {
-            if (node.CapacityResources['vGPU'] == value) {
+            if (node.specGpu == value) {
                 console.log('Adjusted vGPUs value is same as current value. Doing nothing.');
                 closeAdjustVirtualGPUsModal();
                 return;
@@ -97,21 +97,21 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
                 },
                 body: JSON.stringify({
                     value: value,
-                    kubernetesNodeName: node?.NodeId,
+                    kubernetesNodeName: node?.nodeId,
                 }),
             };
 
-            console.log(`Attempting to set vGPUs on node ${node?.NodeId} to ${value}`);
+            console.log(`Attempting to set vGPUs on node ${node?.nodeId} to ${value}`);
 
             ToastFetch(
-                `Adjusting number of vGPUs on node ${node?.NodeId} to ${value}`,
+                `Adjusting number of vGPUs on node ${node?.nodeId} to ${value}`,
                 GetToastContentWithHeaderAndBody(
-                    `Successfully updated vGPU capacity for node ${node.NodeId}`,
+                    `Successfully updated vGPU capacity for node ${node.nodeId}`,
                     'It may take several seconds for the updated value to appear.',
                 ),
                 (_, reason) => {
                     return GetToastContentWithHeaderAndBody(
-                        `Failed to update vGPUs for node ${node.NodeId}`,
+                        `Failed to update vGPUs for node ${node.nodeId}`,
                         JSON.stringify(reason),
                     );
                 },
@@ -191,7 +191,7 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
 
     // Handler for when the user filters by node name.
     const onFilter = (repo: ClusterNode) => {
-        if (props.hideControlPlaneNode && repo.NodeId.includes('control-plane')) {
+        if (props.hideControlPlaneNode && repo.nodeId.includes('control-plane')) {
             return false;
         }
 
@@ -202,7 +202,7 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
         } catch (err) {
             searchValueInput = new RegExp(searchValue.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
         }
-        const matchesSearchValue = repo.NodeId.search(searchValueInput) >= 0;
+        const matchesSearchValue = repo.nodeId.search(searchValueInput) >= 0;
 
         // If the filter text box is empty, then match against everything. Otherwise, match against node ID.
         return searchValue === '' || matchesSearchValue;

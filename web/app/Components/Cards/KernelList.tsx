@@ -6,12 +6,13 @@ import {
     RoundToThreeDecimalPlaces,
 } from '@app/Components/Modals';
 import { HeightFactorContext, KernelHeightFactorContext } from '@app/Dashboard/Dashboard';
-import { GpuIcon, GpuIconAlt, GpuIconAlt2 } from '@app/Icons';
+import { GpuIcon, GpuIconAlt2 } from '@app/Icons';
 import { useNodes } from '@app/Providers';
 import { GetToastContentWithHeaderAndBody } from '@app/utils/toast_utils';
 import { numberArrayFromRange } from '@app/utils/utils';
 import { PingKernelModal } from '@components/Modals';
 import { DistributedJupyterKernel, JupyterKernelReplica, ResourceSpec } from '@data/Kernel';
+import { PongResponse } from '@data/Message';
 
 import { KernelManager, ServerConnection, SessionManager } from '@jupyterlab/services';
 import { IKernelConnection } from '@jupyterlab/services/lib/kernel/kernel';
@@ -302,36 +303,53 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             }),
         };
 
-        toast
-            .promise(
-                fetch('api/ping-kernel', req),
-                {
-                    loading: <b>Pinging kernel {kernelId} now...</b>,
-                    success: (resp: Response) => {
-                        if (!resp.ok || resp.status != 200) {
-                            console.error(`Failed to ping 1 or more replicas of kernel ${kernelId}.`);
-                            throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
-                        }
-                        return (
-                            <b>
-                                Successfully pinged kernel {kernelId}. {resp.status}
-                            </b>
-                        );
-                    },
-                    error: (reason: Error) =>
+        const toastId: string = toast.loading(
+            () => {
+                return <b>Pinging kernel {kernelId} now...</b>;
+            },
+            { style: { maxWidth: 750 } },
+        );
+
+        const startTime: number = performance.now();
+        fetch('api/ping-kernel', req)
+            .catch((err: Error) => {
+                toast.error(
+                    () =>
                         GetToastContentWithHeaderAndBody(
                             `Failed to ping one or more replicas of kernel ${kernelId}.`,
-                            reason.message,
+                            err.message,
                         ),
-                },
-                {
-                    style: {
-                        padding: '8px',
-                        minWidth: '425px',
-                    },
-                },
-            )
-            .then(() => {});
+                    { id: toastId, style: { maxWidth: 750 } },
+                );
+            })
+            .then(async (resp: Response | void) => {
+                if (!resp) {
+                    console.error('No response from ping-kernel.');
+                    return;
+                }
+
+                if (resp.status != 200 || !resp.ok) {
+                    const response = await resp.json();
+                    toast.error(
+                        () =>
+                            GetToastContentWithHeaderAndBody(
+                                `Failed to ping one or more replicas of kernel ${kernelId}.`,
+                                `${JSON.stringify(response)}`,
+                            ),
+                        { id: toastId, style: { maxWidth: 750 } },
+                    );
+                } else {
+                    const response: PongResponse = await resp.json();
+                    console.log(JSON.stringify(response, null, 2));
+                    toast.success(
+                        GetToastContentWithHeaderAndBody(
+                            `Successfully pinged kernel ${response.id} (HTTP ${resp.status} ${resp.statusText})`,
+                            `Time elapsed: ${RoundToThreeDecimalPlaces(performance.now() - startTime)} ms`,
+                        ),
+                        { id: toastId, duration: 5000, style: { maxWidth: 750 } },
+                    );
+                }
+            });
     };
 
     const onExecuteCodeClicked = (kernel: DistributedJupyterKernel | null, replicaIdx?: number | undefined) => {

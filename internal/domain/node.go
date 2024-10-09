@@ -22,6 +22,7 @@ const (
 	CpuResource        ResourceName = "CPU"
 	GpuResource        ResourceName = "GPU"
 	VirtualGpuResource ResourceName = "vGPU"
+	VRAMResource       ResourceName = "VRAM"
 	MemoryResource     ResourceName = "Memory"
 )
 

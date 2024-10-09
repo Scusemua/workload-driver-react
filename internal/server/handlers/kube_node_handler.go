@@ -224,6 +224,8 @@ func (h *KubeNodeHttpHandler) parseKubernetesNode(node *corev1.Node, actualGpuIn
 		}
 	}
 
+	// TODO: VRAM not supported for Kubernetes yet.
+
 	allocatedResources[domain.CpuResource] = allocatedCPUs
 	capacityResources[domain.CpuResource] = capacityCPUs
 	allocatedResources[domain.MemoryResource] = allocatedMemory
@@ -232,6 +234,8 @@ func (h *KubeNodeHttpHandler) parseKubernetesNode(node *corev1.Node, actualGpuIn
 	capacityResources[domain.GpuResource] = capacityGPUs
 	allocatedResources[domain.VirtualGpuResource] = allocatedVirtualGPUs
 	capacityResources[domain.VirtualGpuResource] = capacityVirtualGPUs
+	allocatedResources[domain.VRAMResource] = -1
+	capacityResources[domain.VRAMResource] = -1
 
 	parsedNode := &domain.KubernetesNode{
 		NodeId:             node.Name,
