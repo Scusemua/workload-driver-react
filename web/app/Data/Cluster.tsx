@@ -1,3 +1,11 @@
+// The reason we use ClusterNode is that we need a platform-agnostic node type.
+// The fields of ClusterNode correspond to VirtualDockerNode and KubernetesNode, which have the same JSON fields.
+// The corresponding protobuffers structs for those types are not interchangeable. So, we convert them
+// to a more generic format.
+//
+// TODO: Though it might make the most sense to have a single ClusterNode type in the Golang backend, rather than two
+//       "generic" structs for docker and kubernetes nodes. (They're generic in the sense that they have the same JSON
+//       fields. But then, why not just unify the protobuffer structs under a single type in the backend?)
 export interface ClusterNode {
     NodeId: string;
     NodeName: string;
@@ -45,17 +53,16 @@ export interface ProtoTimestamp {
     nanos: number;
 }
 
-
 // I keep changing the struct definition, so this function makes it, so I only have to update
 // things in one place (here) rather than everywhere the uses the NodeName field.
 export function GetNodeName(node: ClusterNode): string {
-  return node.NodeName
+    return node.NodeName;
 }
 
 // I keep changing the struct definition, so this function makes it, so I only have to update
 // things in one place (here) rather than everywhere the uses the NodeId field.
 export function GetNodeId(node: ClusterNode): string {
-  return node.NodeId
+    return node.NodeId;
 }
 
 export function GetNodePendingResource(node: ClusterNode, resource: 'CPU' | 'GPU' | 'VRAM' | 'Memory'): number {
@@ -69,7 +76,7 @@ export function GetNodePendingResource(node: ClusterNode, resource: 'CPU' | 'GPU
     //     return node.pendingMemory || 0;
     // }
 
-  return node.PendingResources[resource];
+    return node.PendingResources[resource];
 }
 
 export function GetNodeAllocatedResource(node: ClusterNode, resource: 'CPU' | 'GPU' | 'VRAM' | 'Memory'): number {
@@ -83,7 +90,7 @@ export function GetNodeAllocatedResource(node: ClusterNode, resource: 'CPU' | 'G
     //     return node.allocatedMemory || 0;
     // }
 
-  return node.AllocatedResources[resource];
+    return node.AllocatedResources[resource];
 }
 
 export function GetNodeSpecResource(node: ClusterNode, resource: 'CPU' | 'GPU' | 'VRAM' | 'Memory'): number {
@@ -97,7 +104,7 @@ export function GetNodeSpecResource(node: ClusterNode, resource: 'CPU' | 'GPU' |
     //     return node.specMemory;
     // }
 
-  return node.CapacityResources[resource];
+    return node.CapacityResources[resource];
 }
 
 export function GetNodeIdleResource(node: ClusterNode, resource: 'CPU' | 'GPU' | 'VRAM' | 'Memory'): number {

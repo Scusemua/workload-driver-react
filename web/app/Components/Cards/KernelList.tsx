@@ -341,11 +341,26 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                 } else {
                     const response: PongResponse = await resp.json();
                     console.log(JSON.stringify(response, null, 2));
+                    const latencyMilliseconds: number = RoundToThreeDecimalPlaces(performance.now() - startTime);
                     toast.success(
-                        GetToastContentWithHeaderAndBody(
-                            `Successfully pinged kernel ${response.id} (HTTP ${resp.status} ${resp.statusText})`,
-                            `Time elapsed: ${RoundToThreeDecimalPlaces(performance.now() - startTime)} ms`,
-                        ),
+                        () => {
+                            return (
+                                <div>
+                                    <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
+                                        <FlexItem>
+                                            <Text component={TextVariants.p}>
+                                                <b>{`Successfully pinged kernel ${response.id} (HTTP ${resp.status} ${resp.statusText})`}</b>
+                                            </Text>
+                                        </FlexItem>
+                                        <FlexItem>
+                                            <Text
+                                                component={TextVariants.small}
+                                            >{`Time elapsed: ${latencyMilliseconds} ms`}</Text>
+                                        </FlexItem>
+                                    </Flex>
+                                </div>
+                            );
+                        },
                         { id: toastId, duration: 5000, style: { maxWidth: 750 } },
                     );
                 }
