@@ -71,9 +71,9 @@ func (h *DockerSwarmNodeHttpHandler) HandleRequest(c *gin.Context) {
 	}
 
 	protoNodes := resp.GetNodes()
-	//h.logger.Debug("Retrieved virtual Docker nodes.", zap.Int("num-nodes", len(protoNodes)))
+	h.logger.Debug("Retrieved virtual Docker nodes.", zap.Int("num-nodes", len(protoNodes)))
 
-	//var nodes = make([]*domain.VirtualDockerNode, 0, len(protoNodes))
+	var nodes = make([]*domain.VirtualDockerNode, 0, len(protoNodes))
 	for _, protoNode := range protoNodes {
 		virtualDockerNode := domain.VirtualDockerNodeFromProtoVirtualDockerNode(protoNode)
 		nodes = append(nodes, virtualDockerNode)
@@ -81,7 +81,7 @@ func (h *DockerSwarmNodeHttpHandler) HandleRequest(c *gin.Context) {
 
 	h.sugaredLogger.Debugf("Returning %d virtual Docker node(s): %v", len(protoNodes), protoNodes)
 
-	c.JSON(http.StatusOK, protoNodes)
+	c.JSON(http.StatusOK, nodes)
 }
 
 // HandlePatchRequest handles an HTTP PATCH requests, which enable making changes to the nodes,

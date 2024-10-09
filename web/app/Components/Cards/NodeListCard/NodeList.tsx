@@ -3,7 +3,7 @@ import { GpuIcon } from '@app/Icons';
 import { GetToastContentWithHeaderAndBody, ToastFetch } from '@app/utils/toast_utils';
 import { NodeDataList } from '@cards/NodeListCard/NodeDataList';
 import { NodeResourceView } from '@cards/NodeListCard/NodeResourceView';
-import { ClusterNode } from '@data/Cluster';
+import { ClusterNode, GetNodeId, GetNodeSpecResource } from '@data/Cluster';
 import {
     Button,
     Card,
@@ -83,7 +83,7 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
         }
 
         adjustVirtualGPUsNodes.forEach((node: ClusterNode) => {
-            if (node.specGpu == value) {
+            if (GetNodeSpecResource(node, 'GPU') == value) {
                 console.log('Adjusted vGPUs value is same as current value. Doing nothing.');
                 closeAdjustVirtualGPUsModal();
                 return;
@@ -97,21 +97,21 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
                 },
                 body: JSON.stringify({
                     value: value,
-                    kubernetesNodeName: node?.nodeId,
+                    kubernetesNodeName: GetNodeId(node),
                 }),
             };
 
-            console.log(`Attempting to set vGPUs on node ${node?.nodeId} to ${value}`);
+            console.log(`Attempting to set vGPUs on node ${GetNodeId(node)} to ${value}`);
 
             ToastFetch(
-                `Adjusting number of vGPUs on node ${node?.nodeId} to ${value}`,
+                `Adjusting number of vGPUs on node ${GetNodeId(node)} to ${value}`,
                 GetToastContentWithHeaderAndBody(
-                    `Successfully updated vGPU capacity for node ${node.nodeId}`,
+                    `Successfully updated vGPU capacity for node ${GetNodeId(node)}`,
                     'It may take several seconds for the updated value to appear.',
                 ),
                 (_, reason) => {
                     return GetToastContentWithHeaderAndBody(
-                        `Failed to update vGPUs for node ${node.nodeId}`,
+                        `Failed to update vGPUs for node ${GetNodeId(node)}`,
                         JSON.stringify(reason),
                     );
                 },
@@ -191,7 +191,7 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
 
     // Handler for when the user filters by node name.
     const onFilter = (repo: ClusterNode) => {
-        if (props.hideControlPlaneNode && repo.nodeId.includes('control-plane')) {
+        if (props.hideControlPlaneNode && GetNodeId(repo).includes('control-plane')) {
             return false;
         }
 
@@ -202,7 +202,7 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
         } catch (err) {
             searchValueInput = new RegExp(searchValue.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
         }
-        const matchesSearchValue = repo.nodeId.search(searchValueInput) >= 0;
+        const matchesSearchValue = GetNodeId(repo).search(searchValueInput) >= 0;
 
         // If the filter text box is empty, then match against everything. Otherwise, match against node ID.
         return searchValue === '' || matchesSearchValue;

@@ -1,9 +1,9 @@
 import {
-    ClusterNode,
-    GetNodeAllocatedResource,
-    GetNodeIdleResource,
-    GetNodePendingResource,
-    GetNodeSpecResource,
+  ClusterNode,
+  GetNodeAllocatedResource, GetNodeId,
+  GetNodeIdleResource,
+  GetNodePendingResource,
+  GetNodeSpecResource
 } from '@app/Data';
 import { DarkModeContext, useNodes } from '@app/Providers';
 import {
@@ -47,7 +47,7 @@ export const UtilizationDonutChart: React.FunctionComponent<UtilizationDonutChar
         let sumCapacity: number = 0.0;
 
         nodes.forEach((node: ClusterNode) => {
-            if (node.nodeId.includes('control-plane')) {
+            if (GetNodeId(node).includes('control-plane')) {
                 return;
             }
 

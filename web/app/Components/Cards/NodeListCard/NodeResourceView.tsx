@@ -2,7 +2,9 @@ import { GpuIcon } from '@app/Icons';
 import {
     ClusterNode,
     GetNodeAllocatedResource,
+    GetNodeId,
     GetNodeIdleResource,
+    GetNodeName,
     GetNodePendingResource,
     GetNodeSpecResource,
 } from '@data/Cluster';
@@ -17,7 +19,7 @@ import {
     Pagination,
 } from '@patternfly/react-core';
 import { CpuIcon, MemoryIcon } from '@patternfly/react-icons';
-import { Table, Tbody, Td, Th, Thead, ThProps, Tr } from '@patternfly/react-table';
+import { Table, Tbody, Td, Th, ThProps, Thead, Tr } from '@patternfly/react-table';
 import { useNodes } from '@providers/NodeProvider';
 import React from 'react';
 
@@ -57,18 +59,16 @@ export const NodeResourceUsageTable: React.FunctionComponent<NodeResourceUsageTa
     // This example is trivial since our data objects just contain strings, but if the data was more complex
     // this would be a place to return simplified string or number versions of each column to sort by.
     const getSortableRowValues = (node: ClusterNode): (string | number | Date)[] => {
-        const { nodeName, nodeId } = node;
-
         const idleRes: number = GetNodeIdleResource(node, props.resource); // CapacityResources[props.resource] - AllocatedResources[props.resource];
 
         console.debug(
-            `Node ${node.nodeId} has a capacity of ${GetNodeSpecResource(node, props.resource)} ${props.resource} and has ${GetNodeAllocatedResource(node, props.resource)} ${props.resource} allocated.`,
+            `Node ${node.NodeId} has a capacity of ${GetNodeSpecResource(node, props.resource)} ${props.resource} and has ${GetNodeAllocatedResource(node, props.resource)} ${props.resource} allocated.`,
         );
 
         // Note: We're omitting the event's "id" and "error_message" fields here.
         return [
-            nodeName,
-            nodeId,
+            GetNodeName(node),
+            GetNodeId(node),
             idleRes,
             GetNodePendingResource(node, props.resource),
             GetNodeAllocatedResource(node, props.resource),
@@ -140,9 +140,9 @@ export const NodeResourceUsageTable: React.FunctionComponent<NodeResourceUsageTa
                     <Tbody>
                         {paginatedNodes.map((node) => {
                             return (
-                                <Tr key={`node-${node.nodeId}-${props.resource}-usage-table-row`}>
-                                    <Td dataLabel={table_column_names[0]}>{node.nodeName}</Td>
-                                    <Td dataLabel={table_column_names[1]}>{node.nodeId}</Td>
+                                <Tr key={`node-${GetNodeId(node)}-${props.resource}-usage-table-row`}>
+                                    <Td dataLabel={table_column_names[0]}>{GetNodeName(node)}</Td>
+                                    <Td dataLabel={table_column_names[1]}>{GetNodeId(node)}</Td>
                                     <Td dataLabel={table_column_names[2]}>
                                         {GetNodeIdleResource(node, props.resource)}
                                     </Td>

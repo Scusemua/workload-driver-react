@@ -239,8 +239,10 @@ func (h *KubeNodeHttpHandler) parseKubernetesNode(node *corev1.Node, actualGpuIn
 
 	parsedNode := &domain.KubernetesNode{
 		NodeId:             node.Name,
+		NodeName:           node.Name,
 		Pods:               kubePods,
 		Age:                time.Since(node.GetCreationTimestamp().Time).Round(time.Second).String(),
+		CreatedAt:          node.GetCreationTimestamp().Time.UnixMilli(),
 		IP:                 node.Status.Addresses[0].Address,
 		Enabled:            !schedulingDisabled && !executionDisabled,
 		AllocatedResources: allocatedResources,

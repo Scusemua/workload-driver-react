@@ -1,35 +1,36 @@
-// interface ClusterNode {
-//     NodeId: string;
-//     NodeName: string;
-//     PodsOrContainers: PodOrContainer[];
-//     Age: string;
-//     IP: string;
-//     AllocatedResources: Map<string, number>;
-//     IdleResources: Map<string, number>;
-//     PendingResources: Map<string, number>;
-//     CapacityResources: Map<string, number>;
-//     Enabled: boolean;
-// }
-
 export interface ClusterNode {
-    nodeId: string;
-    containers?: PodOrContainer[];
-    specCpu: number;
-    specMemory: number;
-    specGpu: number;
-    specVRAM: number;
-    allocatedCpu?: number;
-    allocatedMemory?: number;
-    allocatedGpu?: number;
-    allocatedVRAM?: number;
-    pendingCpu?: number;
-    pendingMemory?: number;
-    pendingGpu?: number;
-    pendingVRAM?: number;
-    nodeName: string;
-    address: string;
-    createdAt: ProtoTimestamp;
+    NodeId: string;
+    NodeName: string;
+    PodsOrContainers: PodOrContainer[];
+    Age: string;
+    CreatedAt: number;
+    IP: string;
+    AllocatedResources: Map<string, number>;
+    IdleResources: Map<string, number>;
+    PendingResources: Map<string, number>;
+    CapacityResources: Map<string, number>;
+    Enabled: boolean;
 }
+
+// export interface ClusterNode {
+//     nodeId: string;
+//     containers?: PodOrContainer[];
+//     specCpu: number;
+//     specMemory: number;
+//     specGpu: number;
+//     specVRAM: number;
+//     allocatedCpu?: number;
+//     allocatedMemory?: number;
+//     allocatedGpu?: number;
+//     allocatedVRAM?: number;
+//     pendingCpu?: number;
+//     pendingMemory?: number;
+//     pendingGpu?: number;
+//     pendingVRAM?: number;
+//     nodeName: string;
+//     address: string;
+//     createdAt: ProtoTimestamp;
+// }
 
 export interface ProtoTimestamp {
     // Represents seconds of UTC time since Unix epoch
@@ -44,54 +45,73 @@ export interface ProtoTimestamp {
     nanos: number;
 }
 
+
+// I keep changing the struct definition, so this function makes it, so I only have to update
+// things in one place (here) rather than everywhere the uses the NodeName field.
+export function GetNodeName(node: ClusterNode): string {
+  return node.NodeName
+}
+
+// I keep changing the struct definition, so this function makes it, so I only have to update
+// things in one place (here) rather than everywhere the uses the NodeId field.
+export function GetNodeId(node: ClusterNode): string {
+  return node.NodeId
+}
+
 export function GetNodePendingResource(node: ClusterNode, resource: 'CPU' | 'GPU' | 'VRAM' | 'Memory'): number {
-    if (resource == 'CPU') {
-        return node.pendingCpu || 0;
-    } else if (resource == 'GPU') {
-        return node.pendingGpu || 0;
-    } else if (resource == 'VRAM') {
-        return node.pendingVRAM || 0;
-    } else {
-        return node.pendingMemory || 0;
-    }
+    // if (resource == 'CPU') {
+    //     return node.pendingCpu || 0;
+    // } else if (resource == 'GPU') {
+    //     return node.pendingGpu || 0;
+    // } else if (resource == 'VRAM') {
+    //     return node.pendingVRAM || 0;
+    // } else {
+    //     return node.pendingMemory || 0;
+    // }
+
+  return node.PendingResources[resource];
 }
 
 export function GetNodeAllocatedResource(node: ClusterNode, resource: 'CPU' | 'GPU' | 'VRAM' | 'Memory'): number {
-    if (resource == 'CPU') {
-        return node.allocatedCpu || 0;
-    } else if (resource == 'GPU') {
-        return node.allocatedGpu || 0;
-    } else if (resource == 'VRAM') {
-        return node.allocatedVRAM || 0;
-    } else {
-        return node.allocatedMemory || 0;
-    }
+    // if (resource == 'CPU') {
+    //     return node.allocatedCpu || 0;
+    // } else if (resource == 'GPU') {
+    //     return node.allocatedGpu || 0;
+    // } else if (resource == 'VRAM') {
+    //     return node.allocatedVRAM || 0;
+    // } else {
+    //     return node.allocatedMemory || 0;
+    // }
+
+  return node.AllocatedResources[resource];
 }
 
 export function GetNodeSpecResource(node: ClusterNode, resource: 'CPU' | 'GPU' | 'VRAM' | 'Memory'): number {
-    if (resource == 'CPU') {
-        return node.specCpu;
-    } else if (resource == 'GPU') {
-        return node.specGpu;
-    } else if (resource == 'VRAM') {
-        return node.specVRAM;
-    } else {
-        return node.specMemory;
-    }
+    // if (resource == 'CPU') {
+    //     return node.specCpu;
+    // } else if (resource == 'GPU') {
+    //     return node.specGpu;
+    // } else if (resource == 'VRAM') {
+    //     return node.specVRAM;
+    // } else {
+    //     return node.specMemory;
+    // }
+
+  return node.CapacityResources[resource];
 }
 
 export function GetNodeIdleResource(node: ClusterNode, resource: 'CPU' | 'GPU' | 'VRAM' | 'Memory'): number {
-    if (resource == 'CPU') {
-        return node.specCpu - (node.allocatedCpu || 0);
-    } else if (resource == 'GPU') {
-        return node.specGpu - (node.allocatedGpu || 0);
-    } else if (resource == 'VRAM') {
-        return node.specVRAM - (node.allocatedVRAM || 0);
-    } else {
-        return node.specMemory - (node.allocatedMemory || 0);
-    }
+    // if (resource == 'CPU') {
+    //     return node.specCpu - (node.allocatedCpu || 0);
+    // } else if (resource == 'GPU') {
+    //     return node.specGpu - (node.allocatedGpu || 0);
+    // } else if (resource == 'VRAM') {
+    //     return node.specVRAM - (node.allocatedVRAM || 0);
+    // } else {
+    //     return node.specMemory - (node.allocatedMemory || 0);
+    // }
 
-    // return node.CapacityResources[resource] - node.AllocatedResources[resource];
+    return node.CapacityResources[resource] - node.AllocatedResources[resource];
 }
 
 export interface PodOrContainer {
