@@ -1,5 +1,4 @@
-import { Alert, AlertActionCloseButton, Button, Flex, FlexItem, Text, TextVariants } from '@patternfly/react-core';
-import { TimesIcon } from '@patternfly/react-icons';
+import { Alert, AlertActionCloseButton, Button, Flex, FlexItem } from '@patternfly/react-core';
 import React from 'react';
 import { toast } from 'react-hot-toast';
 
@@ -28,19 +27,6 @@ export function GetToastContentWithHeaderAndBody(
         >
             <p>{body}</p>
         </Alert>
-
-        // <div>
-        //     <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
-        //         <FlexItem>
-        //             <Text component={TextVariants.p}>
-        //                 <b>{header}</b>
-        //             </Text>
-        //         </FlexItem>
-        //         <FlexItem>
-        //             <Text component={TextVariants.small}>{body}</Text>
-        //         </FlexItem>
-        //     </Flex>
-        // </div>
     );
 }
 

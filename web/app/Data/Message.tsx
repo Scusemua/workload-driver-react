@@ -12,6 +12,7 @@ export interface RequestTrace {
     messageId: string;
     messageType: string;
     kernelId: string;
+    replicaId: number;
     requestReceivedByGateway: number;
     requestSentByGateway: number;
     requestReceivedByLocalDaemon: number;
@@ -36,6 +37,32 @@ export type SplitName =
     | 'GatewayProcessReply'
     | 'GatewayReplyToClient';
 
+export const SplitNames: SplitName[] = [
+    'GatewayProcessRequest',
+    'GatewayRequestToLocalDaemon',
+    'LocalDaemonProcessRequest',
+    'LocalDaemonRequestToKernel',
+    'KernelProcessRequest',
+    'KernelReplyToLocalDaemon',
+    'LocalDaemonProcessReply',
+    'LocalDaemonReplyToGateway',
+    'GatewayProcessReply',
+    'GatewayReplyToClient',
+];
+
+export const AdjustedSplitNames: string[] = [
+  'Gateway Processing Request',
+  'Gateway → Scheduler Daemon',
+  'Scheduler Daemon Processing Request',
+  'Scheduler Daemon → Kernel',
+  'Kernel Processing Request',
+  'Kernel → SchedulerDaemon',
+  'Scheduler Daemon Processing Reply',
+  'Scheduler Daemon → Gateway',
+  'Gateway Processing Reply',
+  'Gateway → Client',
+];
+
 export interface RequestTraceSplit {
     messageId: string;
     messageType: string;
@@ -48,7 +75,7 @@ export interface RequestTraceSplit {
 
 export function GetAverageRequestTrace(traces: RequestTrace[]): RequestTrace | void {
     if (traces.length == 0) {
-      return;
+        return;
     }
 
     const sumTrace: RequestTrace = traces.reduce((acc: RequestTrace, val: RequestTrace) => {

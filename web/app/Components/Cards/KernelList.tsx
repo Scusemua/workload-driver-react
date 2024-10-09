@@ -13,13 +13,7 @@ import { numberArrayFromRange } from '@app/utils/utils';
 import { PingKernelModal } from '@components/Modals';
 import { RequestTraceSplitTable } from '@components/Tables';
 import { DistributedJupyterKernel, JupyterKernelReplica, ResourceSpec } from '@data/Kernel';
-import {
-    GetAverageRequestTrace,
-    GetSplitsFromRequestTrace,
-    PongResponse,
-    RequestTrace,
-    RequestTraceSplit,
-} from '@data/Message';
+import { GetAverageRequestTrace, GetSplitsFromRequestTrace, PongResponse, RequestTrace } from '@data/Message';
 
 import { KernelManager, ServerConnection, SessionManager } from '@jupyterlab/services';
 import { IKernelConnection } from '@jupyterlab/services/lib/kernel/kernel';
@@ -373,11 +367,12 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                     const latencyMilliseconds: number = RoundToThreeDecimalPlaces(performance.now() - startTime);
                     const averageRequestTrace: RequestTrace | void = GetAverageRequestTrace(response.requestTraces);
 
-                    let traceSplits: RequestTraceSplit[] = [];
+                    console.log('All Request Traces:');
+                    console.log(JSON.stringify(response.requestTraces, null, 2));
+                    console.log('Averaged Request Trace:');
+                    console.log(JSON.stringify(averageRequestTrace, null, 2));
                     if (averageRequestTrace) {
-                        traceSplits = GetSplitsFromRequestTrace(averageRequestTrace);
-
-                        console.log(JSON.stringify(traceSplits, null, 2));
+                        console.log(JSON.stringify(GetSplitsFromRequestTrace(averageRequestTrace), null, 2));
                     }
 
                     toast.custom(
@@ -390,10 +385,20 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                             onTimeout={() => toast.dismiss(toastId)}
                             actionClose={<AlertActionCloseButton onClose={() => toast.dismiss(toastId)} />}
                         >
-                            {traceSplits.length > 0 &&
+                            {response.requestTraces.length > 0 &&
                                 averageRequestTrace !== null &&
                                 averageRequestTrace !== undefined && (
-                                    <RequestTraceSplitTable splits={traceSplits} trace={averageRequestTrace} />
+                                    <Flex direction={{ default: 'column' }}>
+                                        <FlexItem>
+                                            <Title headingLevel={'h3'}>Request Trace(s)</Title>
+                                        </FlexItem>
+                                        <FlexItem>
+                                            <RequestTraceSplitTable
+                                                messageId={response.msg}
+                                                traces={response.requestTraces}
+                                            />
+                                        </FlexItem>
+                                    </Flex>
                                 )}
                         </Alert>,
                         { id: toastId },
