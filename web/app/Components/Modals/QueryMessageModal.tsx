@@ -62,10 +62,12 @@ export const QueryMessageModal: React.FunctionComponent<QueryMessageModalProps> 
         fetch('api/query-message', req)
             .catch((err: Error) => {
                 console.log(`QueryMessage failed: ${JSON.stringify(err)}`);
-                toast.error(
+                toast.custom(
                     GetToastContentWithHeaderAndBody(
                         `Failed to query status of Jupyter ZMQ message "${jupyterMsgId}"`,
                         `Reason: ${err.message}`,
+                      'danger',
+                      () => {toast.dismiss(toastId)}
                     ),
                     { id: toastId, style: { maxWidth: 750 } },
                 );
@@ -73,10 +75,12 @@ export const QueryMessageModal: React.FunctionComponent<QueryMessageModalProps> 
             .then(async (resp: Response | void) => {
                 if (resp?.status == 200) {
                     const queryResult: QueryMessageResponse = await resp.json().catch(()=>{console.error("AAA");});
-                    toast.success(
+                    toast.custom(
                         GetToastContentWithHeaderAndBody(
                             `Successfully queried status of Jupyter ZMQ message "${jupyterMsgId}"`,
                             JSON.stringify(queryResult),
+                          'success',
+                          () => {toast.dismiss(toastId)}
                         ),
                         { id: toastId, style: { maxWidth: 750 } },
                     );
@@ -105,19 +109,23 @@ export const QueryMessageModal: React.FunctionComponent<QueryMessageModalProps> 
                         return [...prevResults, queryResult];
                       });
 
-                      toast.error(
+                      toast.custom(
                         GetToastContentWithHeaderAndBody(
                           `Request Not Found`,
                           `${responseContent["message"]}`,
+                          'danger',
+                          () => {toast.dismiss(toastId)}
                         ),
                         { id: toastId, style: { maxWidth: 750 } },
                       );
                     } else {
                       // Unknown/unexpected error. Display a warning.
-                      toast.error(
+                      toast.custom(
                         GetToastContentWithHeaderAndBody(
                           `Failed to query status of Jupyter ZMQ message "${jupyterMsgId}"`,
                           `HTTP ${resp?.status} ${resp?.statusText}: ${responseContent["message"]}`,
+                          'danger',
+                          () => {toast.dismiss(toastId)}
                         ),
                         { id: toastId, style: { maxWidth: 750 } },
                       );

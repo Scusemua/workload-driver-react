@@ -1,5 +1,4 @@
 import { DistributedJupyterKernel, JupyterKernelReplica } from '@app/Data';
-import { GetToastContentWithHeaderAndBodyAndDismissButton } from '@app/utils/toast_utils';
 import { CodeEditorComponent } from '@components/CodeEditor';
 import { ExecutionOutputTabContent } from '@components/Modals/ExecuteCodeOnKernelModal/ExecutionOutputTabContent';
 import { RoundToThreeDecimalPlaces } from '@components/Modals/NewWorkloadFromTemplateModal';
@@ -13,6 +12,8 @@ import {
 } from '@jupyterlab/services/lib/kernel/messages';
 import { Language } from '@patternfly/react-code-editor';
 import {
+    Alert,
+    AlertActionCloseButton,
     Button,
     Card,
     CardBody,
@@ -218,12 +219,23 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
 
             // const successIcon: string = Math.random() > 0.5 ? '✅' : '✅';
 
-            toast.success(
+            toast.custom(
                 (t: Toast) => {
-                    return GetToastContentWithHeaderAndBodyAndDismissButton(
-                        `Execution Complete ✅`,
-                        `Kernel ${kernelId} has finished executing your code after ${latencySecRounded} seconds.`,
-                        t.id,
+                    return (
+                        <Alert
+                            title={<b>`Execution Complete ✅`</b>}
+                            variant={'success'}
+                            customIcon={<SpinnerIcon className={'loading-icon-spin-pulse'} />}
+                            timeout={5000}
+                            timeoutAnimation={30000}
+                            onTimeout={() => toast.dismiss(t.id)}
+                            actionClose={<AlertActionCloseButton onClose={() => toast.dismiss(t.id)} />}
+                        >
+                            <p>
+                                `Kernel ${kernelId} has finished executing your code after ${latencySecRounded}{' '}
+                                seconds.`
+                            </p>
+                        </Alert>
                     );
                 },
                 {
@@ -250,15 +262,17 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                 return prevMap;
             });
 
-            toast.error(
-                () => (
-                    <div>
+            toast.custom(
+                (t) => (
+                    <Alert
+                        title={<b>{'Execution Failed'}</b>}
+                        variant={'danger'}
+                        timeout={12500}
+                        timeoutAnimation={30000}
+                        onTimeout={() => toast.dismiss(t.id)}
+                        actionClose={<AlertActionCloseButton onClose={() => toast.dismiss(t.id)} />}
+                    >
                         <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
-                            <FlexItem>
-                                <Text component={TextVariants.h3}>
-                                    <b>{'Execution Failed'}</b>
-                                </Text>
-                            </FlexItem>
                             <FlexItem>
                                 <Text component={TextVariants.small}>
                                     {`Execution on Kernel ${kernelId} failed to complete after ${latencySecRounded} seconds.`}
@@ -270,7 +284,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                                 </ClipboardCopy>
                             </FlexItem>
                         </Flex>
-                    </div>
+                    </Alert>
                 ),
                 {
                     id: toastId,
@@ -429,17 +443,28 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
 
             setExecutionMap((prevMap) => new Map(prevMap).set(executionId, execution));
 
-            const toastId: string = toast.loading(
+            const toastId: string = toast.custom(
                 (t: Toast) => {
-                    return GetToastContentWithHeaderAndBodyAndDismissButton(
-                        action == 'submit' ? 'Code Submitted 🚀' : 'Code Enqueued 🚀',
-                        action == 'submit'
-                            ? `Submitted code for execution to kernel ${kernelId}.`
-                            : `Enqueued code for execution with kernel ${kernelId}.`,
-                        t.id,
+                    return (
+                        <Alert
+                            isInline
+                            variant={'custom'}
+                            title={action == 'submit' ? 'Code Submitted 🚀' : 'Code Enqueued 🚀'}
+                            customIcon={<SpinnerIcon className={'loading-icon-spin-pulse'} />}
+                            timeoutAnimation={30000}
+                            timeout={10000}
+                            onTimeout={() => toast.dismiss(t.id)}
+                            actionClose={<AlertActionCloseButton onClose={() => toast.dismiss(t.id)} />}
+                        >
+                            <p>
+                                {action == 'submit'
+                                    ? `Submitted code for execution to kernel ${kernelId}.`
+                                    : `Enqueued code for execution with kernel ${kernelId}.`}
+                            </p>
+                        </Alert>
                     );
                 },
-                { style: { maxWidth: 750 } },
+                { style: { maxWidth: 750 }, icon: <SpinnerIcon className={'loading-icon-spin'} /> },
             );
 
             // For whatever reason, the future returned by the Jupyter API doesn't always resolve?

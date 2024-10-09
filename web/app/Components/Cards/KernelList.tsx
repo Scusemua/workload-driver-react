@@ -18,43 +18,44 @@ import { KernelManager, ServerConnection, SessionManager } from '@jupyterlab/ser
 import { IKernelConnection } from '@jupyterlab/services/lib/kernel/kernel';
 import { IModel as ISessionModel, ISessionConnection } from '@jupyterlab/services/lib/session/session';
 import {
-    Button,
-    Card,
-    CardBody,
-    CardHeader,
-    CardTitle,
-    DataList,
-    DataListAction,
-    DataListCell,
-    DataListCheck,
-    DataListContent,
-    DataListItem,
-    DataListItemCells,
-    DataListItemRow,
-    DataListToggle,
-    Dropdown,
-    DropdownList,
-    Flex,
-    FlexItem,
-    InputGroup,
-    InputGroupItem,
-    MenuToggle,
-    OverflowMenu,
-    OverflowMenuContent,
-    OverflowMenuControl,
-    OverflowMenuDropdownItem,
-    OverflowMenuItem,
-    Pagination,
-    PaginationVariant,
-    SearchInput,
-    Skeleton,
-    Text,
-    TextVariants,
-    Title,
-    ToolbarGroup,
-    ToolbarItem,
-    ToolbarToggleGroup,
-    Tooltip,
+  Alert, AlertActionCloseButton,
+  Button,
+  Card,
+  CardBody,
+  CardHeader,
+  CardTitle,
+  DataList,
+  DataListAction,
+  DataListCell,
+  DataListCheck,
+  DataListContent,
+  DataListItem,
+  DataListItemCells,
+  DataListItemRow,
+  DataListToggle,
+  Dropdown,
+  DropdownList,
+  Flex,
+  FlexItem,
+  InputGroup,
+  InputGroupItem,
+  MenuToggle,
+  OverflowMenu,
+  OverflowMenuContent,
+  OverflowMenuControl,
+  OverflowMenuDropdownItem,
+  OverflowMenuItem,
+  Pagination,
+  PaginationVariant,
+  SearchInput,
+  Skeleton,
+  Text,
+  TextVariants,
+  Title,
+  ToolbarGroup,
+  ToolbarItem,
+  ToolbarToggleGroup,
+  Tooltip
 } from '@patternfly/react-core';
 
 import {
@@ -303,21 +304,35 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             }),
         };
 
-        const toastId: string = toast.loading(
-            () => {
-                return <b>Pinging kernel {kernelId} now...</b>;
+        const toastId: string = toast.custom(
+            (t) => {
+                return <Alert
+                  title={<b>Pinging kernel {kernelId} now...</b>}
+                  variant={'custom'}
+                  customIcon={<SpinnerIcon className={'loading-icon-spin-pulse'} />}
+                  timeout={false}
+                  actionClose={<AlertActionCloseButton onClose={() => toast.dismiss(t.id)}/>}/>
             },
-            { style: { maxWidth: 750 } },
+            {
+                style: {
+                    maxWidth: 750,
+                },
+                icon: <SpinnerIcon className={'loading-icon-spin-pulse'} />,
+            },
         );
 
         const startTime: number = performance.now();
         fetch('api/ping-kernel', req)
             .catch((err: Error) => {
-                toast.error(
+                toast.custom(
                     () =>
                         GetToastContentWithHeaderAndBody(
                             `Failed to ping one or more replicas of kernel ${kernelId}.`,
                             err.message,
+                            'danger',
+                            () => {
+                                toast.dismiss(toastId);
+                            },
                         ),
                     { id: toastId, style: { maxWidth: 750 } },
                 );
@@ -330,37 +345,30 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
 
                 if (resp.status != 200 || !resp.ok) {
                     const response = await resp.json();
-                    toast.error(
+                    toast.custom(
                         () =>
                             GetToastContentWithHeaderAndBody(
                                 `Failed to ping one or more replicas of kernel ${kernelId}.`,
                                 `${JSON.stringify(response)}`,
+                                'danger',
+                                () => {
+                                    toast.dismiss(toastId);
+                                },
                             ),
                         { id: toastId, style: { maxWidth: 750 } },
                     );
                 } else {
                     const response: PongResponse = await resp.json();
                     console.log(JSON.stringify(response, null, 2));
-                    const latencyMilliseconds: number = RoundToThreeDecimalPlaces(performance.now() - startTime);
-                    toast.success(
-                        () => {
-                            return (
-                                <div>
-                                    <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
-                                        <FlexItem>
-                                            <Text component={TextVariants.p}>
-                                                <b>{`Successfully pinged kernel ${response.id} (HTTP ${resp.status} ${resp.statusText})`}</b>
-                                            </Text>
-                                        </FlexItem>
-                                        <FlexItem>
-                                            <Text
-                                                component={TextVariants.small}
-                                            >{`Time elapsed: ${latencyMilliseconds} ms`}</Text>
-                                        </FlexItem>
-                                    </Flex>
-                                </div>
-                            );
-                        },
+                    toast.custom(
+                        GetToastContentWithHeaderAndBody(
+                            `Successfully pinged kernel ${response.id} (HTTP ${resp.status} ${resp.statusText})`,
+                            `Time elapsed: ${RoundToThreeDecimalPlaces(performance.now() - startTime)} ms`,
+                            'success',
+                            () => {
+                                toast.dismiss(toastId);
+                            },
+                        ),
                         { id: toastId, duration: 5000, style: { maxWidth: 750 } },
                     );
                 }
@@ -469,6 +477,8 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                     GetToastContentWithHeaderAndBody(
                         `Failed to interrupt kernel ${kernelId}.`,
                         `<b>Reason:</b> ${reason.message}`,
+                        'danger',
+                        () => {},
                     ),
             })
             .then(() => {});
@@ -569,6 +579,8 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                     GetToastContentWithHeaderAndBody(
                         'Failed to start new Jupyter Session and Jupyter Kernel.',
                         reason.message,
+                        'danger',
+                        () => {},
                     ),
             },
             { style: { maxWidth: 650 } },

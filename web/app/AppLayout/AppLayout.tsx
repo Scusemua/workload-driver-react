@@ -5,7 +5,7 @@ import { Notification, WebSocketMessage } from '@app/Data/';
 import { DarkModeContext, NotificationContext, useNodes } from '@app/Providers';
 import { AlertGroup, Page, SkipToContent } from '@patternfly/react-core';
 import * as React from 'react';
-import { Toaster } from 'react-hot-toast';
+import { ToastBar, Toaster } from 'react-hot-toast';
 
 import useWebSocket from 'react-use-websocket';
 import { v4 as uuidv4 } from 'uuid';
@@ -116,7 +116,17 @@ const AppLayout: React.FunctionComponent = () => {
                     className: 'react-hot-toast',
                     style: getDefaultToastStyle(),
                 }}
-            />
+            >
+                {(t) => (
+                    <ToastBar
+                        toast={t}
+                        style={{
+                            ...t.style,
+                            animation: t.visible ? 'custom-enter 1s ease' : 'custom-exit 1s ease',
+                        }}
+                    />
+                )}
+            </Toaster>
             <Page
                 mainContainerId={pageId}
                 header={<AppHeader />}

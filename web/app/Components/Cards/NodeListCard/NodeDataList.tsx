@@ -230,11 +230,12 @@ export const NodeDataList: React.FunctionComponent<NodeDataListProps> = (props: 
         fetch('api/nodes', requestOptions).then((resp) => {
             if (resp.status >= 300) {
                 resp.text().then((text: string) => {
-                    toast.error(
-                        () => {
+                    toast.custom(
+                        (t) => {
                             return GetToastContentWithHeaderAndBody(
                                 `Failed to ${checked ? 'enable' : 'disable'} node ${GetNodeId(clusterNode)}.`,
-                                `HTTP ${resp.status} - ${resp.statusText}: ${text}`,
+                                `HTTP ${resp.status} - ${resp.statusText}: ${text}`, 'danger',
+                              () => {toast.dismiss(t.id)}
                             );
                         },
                         { style: { maxWidth: 575 } },

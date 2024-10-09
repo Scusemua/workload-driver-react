@@ -24,6 +24,7 @@ import {
 import { FilterIcon, ListIcon, MonitoringIcon, ReplicatorIcon, SyncIcon } from '@patternfly/react-icons';
 import { useNodes } from '@providers/NodeProvider';
 import React from 'react';
+import toast from 'react-hot-toast';
 import { AdjustVirtualGPUsModal, RoundToTwoDecimalPlaces } from '../../Modals';
 
 export interface NodeListProps {
@@ -105,14 +106,19 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
 
             ToastFetch(
                 `Adjusting number of vGPUs on node ${GetNodeId(node)} to ${value}`,
-                GetToastContentWithHeaderAndBody(
-                    `Successfully updated vGPU capacity for node ${GetNodeId(node)}`,
-                    'It may take several seconds for the updated value to appear.',
-                ),
-                (_, reason) => {
+                (toastId: string) =>
+                    GetToastContentWithHeaderAndBody(
+                        `Successfully updated vGPU capacity for node ${GetNodeId(node)}`,
+                        'It may take several seconds for the updated value to appear.',
+                        'success',
+                        () => toast.dismiss(toastId),
+                    ),
+                (_, reason, toastId: string) => {
                     return GetToastContentWithHeaderAndBody(
                         `Failed to update vGPUs for node ${GetNodeId(node)}`,
                         JSON.stringify(reason),
+                        'danger',
+                        () => toast.dismiss(toastId),
                     );
                 },
                 'api/vgpus',
@@ -172,14 +178,23 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
 
         await ToastFetch(
             getToastLoadingMessage(value, operation),
-            GetToastContentWithHeaderAndBody(
-                getToastSuccessMessage(value, operation),
-                `It may take several seconds for the nodes list to update. (Time elapsed: ${RoundToTwoDecimalPlaces(performance.now() - startTime)} seconds.)`,
-            ),
-            (res, reason) => {
+            (toastId: string) =>
+                GetToastContentWithHeaderAndBody(
+                    getToastSuccessMessage(value, operation),
+                    `It may take several seconds for the nodes list to update. (Time elapsed: ${RoundToTwoDecimalPlaces(performance.now() - startTime)} seconds.)`,
+                    'success',
+                    () => {
+                        toast.dismiss(toastId);
+                    },
+                ),
+            (res, reason, toastId: string) => {
                 return GetToastContentWithHeaderAndBody(
                     getToastFailureMessage(value, operation),
                     `HTTP ${res.status} - ${res.statusText}: ${JSON.stringify(reason)}`,
+                    'danger',
+                    () => {
+                        toast.dismiss(toastId);
+                    },
                 );
             },
             'api/nodes',

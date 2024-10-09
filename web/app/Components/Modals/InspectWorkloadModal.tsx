@@ -67,10 +67,12 @@ export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalP
             tickDurations.current.push(tickDuration);
             tickStartTime.current = performance.now();
             setCurrentTick(props.workload?.current_tick);
-            toast(
+            toast.custom((t) =>
                 GetToastContentWithHeaderAndBody(
                     'Tick Incremented',
                     `Workload ${props.workload?.name} has progressed to Tick #${props.workload?.current_tick}.`,
+                  'info',
+                  () => {toast.dismiss(t.id)}
                 ),
                 { icon: '⏱️', style: { maxWidth: 700 } },
             );

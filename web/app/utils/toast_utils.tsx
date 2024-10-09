@@ -1,4 +1,4 @@
-import { Button, Flex, FlexItem, Text, TextVariants } from '@patternfly/react-core';
+import { Alert, AlertActionCloseButton, Button, Flex, FlexItem, Text, TextVariants } from '@patternfly/react-core';
 import { TimesIcon } from '@patternfly/react-icons';
 import React from 'react';
 import { toast } from 'react-hot-toast';
@@ -7,60 +7,47 @@ import { toast } from 'react-hot-toast';
  * Return a <div> containing a <Flex> to be used as a toast notification.
  * @param header Name or title of the error
  * @param body Error message
+ * @param variant The variant of alert to display
+ * @param dismissToast Called when the toast should be dismissed.
  */
-export function GetToastContentWithHeaderAndBody(header: string, body: string): React.JSX.Element {
-    return (
-        <div>
-            <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
-                <FlexItem>
-                    <Text component={TextVariants.p}>
-                        <b>{header}</b>
-                    </Text>
-                </FlexItem>
-                <FlexItem>
-                    <Text component={TextVariants.small}>{body}</Text>
-                </FlexItem>
-            </Flex>
-        </div>
-    );
-}
-
-/**
- * Return a <div> containing a <Flex> as well as a "Dismiss" button to be used as a toast notification.
- * @param header Name or title of the error
- * @param body Error message
- * @param toastId The ID of the toast to be dismissed when the "Dismiss" button is pressed.
- */
-export function GetToastContentWithHeaderAndBodyAndDismissButton(
+export function GetToastContentWithHeaderAndBody(
     header: string,
     body: string,
-    toastId: string,
+    variant: 'danger' | 'warning' | 'success' | 'info' | 'custom',
+    dismissToast: () => void,
 ): React.JSX.Element {
     return (
-        <div>
-            <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
-                <Flex direction={{ default: 'row' }} spaceItems={{ default: 'spaceItemsNone' }}>
-                    <FlexItem>
-                        <Text component={TextVariants.p}>
-                            <b>{header}</b>
-                        </Text>
-                    </FlexItem>
-                    <FlexItem align={{ default: 'alignRight' }} alignSelf={{ default: 'alignSelfFlexEnd' }}>
-                        <Button variant={'link'} isInline onClick={() => toast.dismiss(toastId)}><TimesIcon /></Button>
-                    </FlexItem>
-                </Flex>
-                <FlexItem>
-                    <Text component={TextVariants.small}>{body}</Text>
-                </FlexItem>
-            </Flex>
-        </div>
+        <Alert
+            isInline
+            variant={variant}
+            title={header}
+            timeoutAnimation={30000}
+            timeout={10000}
+            onTimeout={() => dismissToast()}
+            actionClose={<AlertActionCloseButton onClose={() => dismissToast()} />}
+        >
+            <p>{body}</p>
+        </Alert>
+
+        // <div>
+        //     <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
+        //         <FlexItem>
+        //             <Text component={TextVariants.p}>
+        //                 <b>{header}</b>
+        //             </Text>
+        //         </FlexItem>
+        //         <FlexItem>
+        //             <Text component={TextVariants.small}>{body}</Text>
+        //         </FlexItem>
+        //     </Flex>
+        // </div>
     );
 }
 
 export async function ToastFetch(
     loadingMessage: string,
-    successToast: React.JSX.Element,
-    errorToast: (resp: Response, reason: string) => React.JSX.Element,
+    successToast: (toastId: string) => React.JSX.Element,
+    errorToast: (resp: Response, reason: string, toastId: string) => React.JSX.Element,
     endpoint: string,
     requestOptions: any,
 ) {
@@ -69,7 +56,11 @@ export async function ToastFetch(
         if (!res.ok || res.status >= 300) {
             res.json().then((reason) => {
                 console.error(`HTTP ${res.status} - ${res.statusText}: ${JSON.stringify(reason)}`);
-                toast.error(errorToast(res, reason), { id: toastId, duration: 10000, style: { maxWidth: 600 } });
+                toast.error(errorToast(res, reason, toastId), {
+                    id: toastId,
+                    duration: 10000,
+                    style: { maxWidth: 600 },
+                });
             });
         } else {
             toast.success(
@@ -81,7 +72,7 @@ export async function ToastFetch(
                         alignContent={{ default: 'alignContentFlexEnd' }}
                         justifyContent={{ default: 'justifyContentFlexEnd' }}
                     >
-                        <FlexItem>{successToast}</FlexItem>
+                        <FlexItem>{successToast(toastId)}</FlexItem>
                         <FlexItem
                             spacer={{ default: 'spacerNone' }}
                             align={{ default: 'alignRight' }}

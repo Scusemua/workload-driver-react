@@ -5,22 +5,24 @@ import { DarkModeContext } from '@app/Providers/DarkModeProvider';
 import { FormatSecondsShort } from '@app/utils/utils';
 import { QueryMessageModal } from '@components/Modals';
 import {
-    Brand,
-    Button,
-    Flex,
-    FlexItem,
-    Icon,
-    Label,
-    Masthead,
-    MastheadBrand,
-    MastheadContent,
-    MastheadMain,
-    NotificationBadge,
-    NotificationBadgeVariant,
-    ToggleGroup,
-    ToggleGroupItem,
-    ToolbarItem,
-    Tooltip,
+  Alert, AlertActionCloseButton,
+  AlertActionLink,
+  Brand,
+  Button,
+  Flex,
+  FlexItem,
+  Icon,
+  Label,
+  Masthead,
+  MastheadBrand,
+  MastheadContent,
+  MastheadMain,
+  NotificationBadge,
+  NotificationBadgeVariant,
+  ToggleGroup,
+  ToggleGroupItem,
+  ToolbarItem,
+  Tooltip
 } from '@patternfly/react-core';
 import {
     CheckCircleIcon,
@@ -33,6 +35,7 @@ import {
 } from '@patternfly/react-icons';
 import { uuidv4 } from 'lib0/random';
 import * as React from 'react';
+import toast, { Toast } from 'react-hot-toast';
 import useWebSocket, { ReadyState } from 'react-use-websocket';
 
 const connectionStatuses = {
@@ -214,6 +217,40 @@ export const AppHeader: React.FunctionComponent = () => {
         return NotificationBadgeVariant.unread;
     };
 
+    const displayExpandableToast = () => {
+        toast.custom(
+            (t: Toast) => (
+                <Alert
+                    isExpandable
+                    isInline
+                    variant={'success'}
+                    title="Expandable Toast"
+                    timeoutAnimation={30000}
+                    timeout={10000}
+                    onTimeout={() => toast.dismiss(t.id)}
+                    actionClose={<AlertActionCloseButton onClose={() => toast.dismiss(t.id)} />}
+                    actionLinks={
+                        <React.Fragment>
+                            <AlertActionLink component="a" href="#">
+                                View details
+                            </AlertActionLink>
+                            <AlertActionLink // eslint-disable-next-line no-console
+                                onClick={() => toast.dismiss(t.id)}
+                            >
+                                Dismiss
+                            </AlertActionLink>
+                        </React.Fragment>
+                    }
+                >
+                    <p>Success alert description. This should tell the user more information about the alert.</p>
+                </Alert>
+            ),
+            {
+                style: { maxWidth: 750 },
+            },
+        );
+    };
+
     const notificationBadge = (
         <ToolbarItem>
             <NotificationBadge
@@ -266,6 +303,7 @@ export const AppHeader: React.FunctionComponent = () => {
                             <Tooltip content="Cause the Cluster Gateway to panic." position="bottom">
                                 <Button
                                     isDanger
+                                    key={'cause-gateway-panic-button'}
                                     variant="secondary"
                                     icon={<WarningTriangleIcon />}
                                     onClick={() => {
@@ -334,11 +372,25 @@ export const AppHeader: React.FunctionComponent = () => {
                                 position={'bottom'}
                             >
                                 <Button
+                                    key={'open-query-message-modal-button'}
                                     variant={'secondary'}
                                     icon={<InfoAltIcon />}
                                     onClick={() => setQueryMessageModalOpen(true)}
                                 >
                                     Query Message Status
+                                </Button>
+                            </Tooltip>
+                        </FlexItem>
+
+                        <FlexItem>
+                            <Tooltip content={'Display Expandable Toast'} position={'bottom'}>
+                                <Button
+                                    key={'display-expandable-toast-button'}
+                                    variant={'secondary'}
+                                    icon={<InfoAltIcon />}
+                                    onClick={() => displayExpandableToast()}
+                                >
+                                    Display Expandable Toast
                                 </Button>
                             </Tooltip>
                         </FlexItem>
