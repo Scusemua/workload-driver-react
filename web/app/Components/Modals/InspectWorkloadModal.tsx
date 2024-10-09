@@ -8,6 +8,7 @@ import {
 } from '@app/Data/Workload';
 import { GetToastContentWithHeaderAndBody } from '@app/utils/toast_utils';
 import { RoundToThreeDecimalPlaces } from '@components/Modals/NewWorkloadFromTemplateModal';
+import { WorkloadEventTable, WorkloadSessionTable } from '@components/Tables';
 import {
     Button,
     DescriptionList,
@@ -44,7 +45,6 @@ import {
 import text from '@patternfly/react-styles/css/utilities/Text/text';
 import React from 'react';
 import toast from 'react-hot-toast';
-import { WorkloadEventTable, WorkloadSessionTable } from '../Cards';
 
 export interface InspectWorkloadModalProps {
     children?: React.ReactNode;

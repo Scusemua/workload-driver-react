@@ -5,24 +5,29 @@ import { DarkModeContext } from '@app/Providers/DarkModeProvider';
 import { FormatSecondsShort } from '@app/utils/utils';
 import { QueryMessageModal } from '@components/Modals';
 import {
-  Alert, AlertActionCloseButton,
-  AlertActionLink,
-  Brand,
-  Button,
-  Flex,
-  FlexItem,
-  Icon,
-  Label,
-  Masthead,
-  MastheadBrand,
-  MastheadContent,
-  MastheadMain,
-  NotificationBadge,
-  NotificationBadgeVariant,
-  ToggleGroup,
-  ToggleGroupItem,
-  ToolbarItem,
-  Tooltip
+    Alert,
+    AlertActionCloseButton,
+    AlertActionLink,
+    Brand,
+    Button,
+    Card,
+    CardBody,
+    CardExpandableContent,
+    CardHeader,
+    Flex,
+    FlexItem,
+    Icon,
+    Label,
+    Masthead,
+    MastheadBrand,
+    MastheadContent,
+    MastheadMain,
+    NotificationBadge,
+    NotificationBadgeVariant,
+    ToggleGroup,
+    ToggleGroupItem,
+    ToolbarItem,
+    Tooltip,
 } from '@patternfly/react-core';
 import {
     CheckCircleIcon,
@@ -221,7 +226,6 @@ export const AppHeader: React.FunctionComponent = () => {
         toast.custom(
             (t: Toast) => (
                 <Alert
-                    isExpandable
                     isInline
                     variant={'success'}
                     title="Expandable Toast"
@@ -231,9 +235,6 @@ export const AppHeader: React.FunctionComponent = () => {
                     actionClose={<AlertActionCloseButton onClose={() => toast.dismiss(t.id)} />}
                     actionLinks={
                         <React.Fragment>
-                            <AlertActionLink component="a" href="#">
-                                View details
-                            </AlertActionLink>
                             <AlertActionLink // eslint-disable-next-line no-console
                                 onClick={() => toast.dismiss(t.id)}
                             >
@@ -242,7 +243,7 @@ export const AppHeader: React.FunctionComponent = () => {
                         </React.Fragment>
                     }
                 >
-                    <p>Success alert description. This should tell the user more information about the alert.</p>
+
                 </Alert>
             ),
             {
@@ -382,18 +383,18 @@ export const AppHeader: React.FunctionComponent = () => {
                             </Tooltip>
                         </FlexItem>
 
-                        <FlexItem>
-                            <Tooltip content={'Display Expandable Toast'} position={'bottom'}>
-                                <Button
-                                    key={'display-expandable-toast-button'}
-                                    variant={'secondary'}
-                                    icon={<InfoAltIcon />}
-                                    onClick={() => displayExpandableToast()}
-                                >
-                                    Display Expandable Toast
-                                </Button>
-                            </Tooltip>
-                        </FlexItem>
+                        {/*<FlexItem>*/}
+                        {/*    <Tooltip content={'Display Expandable Toast'} position={'bottom'}>*/}
+                        {/*        <Button*/}
+                        {/*            key={'display-expandable-toast-button'}*/}
+                        {/*            variant={'secondary'}*/}
+                        {/*            icon={<InfoAltIcon />}*/}
+                        {/*            onClick={() => displayExpandableToast()}*/}
+                        {/*        >*/}
+                        {/*            Display Expandable Toast*/}
+                        {/*        </Button>*/}
+                        {/*    </Tooltip>*/}
+                        {/*</FlexItem>*/}
 
                         <FlexItem>
                             <Tooltip

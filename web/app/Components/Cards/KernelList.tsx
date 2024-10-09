@@ -11,51 +11,59 @@ import { useNodes } from '@app/Providers';
 import { GetToastContentWithHeaderAndBody } from '@app/utils/toast_utils';
 import { numberArrayFromRange } from '@app/utils/utils';
 import { PingKernelModal } from '@components/Modals';
+import { RequestTraceSplitTable } from '@components/Tables';
 import { DistributedJupyterKernel, JupyterKernelReplica, ResourceSpec } from '@data/Kernel';
-import { PongResponse } from '@data/Message';
+import {
+    GetAverageRequestTrace,
+    GetSplitsFromRequestTrace,
+    PongResponse,
+    RequestTrace,
+    RequestTraceSplit,
+} from '@data/Message';
 
 import { KernelManager, ServerConnection, SessionManager } from '@jupyterlab/services';
 import { IKernelConnection } from '@jupyterlab/services/lib/kernel/kernel';
 import { IModel as ISessionModel, ISessionConnection } from '@jupyterlab/services/lib/session/session';
 import {
-  Alert, AlertActionCloseButton,
-  Button,
-  Card,
-  CardBody,
-  CardHeader,
-  CardTitle,
-  DataList,
-  DataListAction,
-  DataListCell,
-  DataListCheck,
-  DataListContent,
-  DataListItem,
-  DataListItemCells,
-  DataListItemRow,
-  DataListToggle,
-  Dropdown,
-  DropdownList,
-  Flex,
-  FlexItem,
-  InputGroup,
-  InputGroupItem,
-  MenuToggle,
-  OverflowMenu,
-  OverflowMenuContent,
-  OverflowMenuControl,
-  OverflowMenuDropdownItem,
-  OverflowMenuItem,
-  Pagination,
-  PaginationVariant,
-  SearchInput,
-  Skeleton,
-  Text,
-  TextVariants,
-  Title,
-  ToolbarGroup,
-  ToolbarItem,
-  ToolbarToggleGroup,
-  Tooltip
+    Alert,
+    AlertActionCloseButton,
+    Button,
+    Card,
+    CardBody,
+    CardHeader,
+    CardTitle,
+    DataList,
+    DataListAction,
+    DataListCell,
+    DataListCheck,
+    DataListContent,
+    DataListItem,
+    DataListItemCells,
+    DataListItemRow,
+    DataListToggle,
+    Dropdown,
+    DropdownList,
+    Flex,
+    FlexItem,
+    InputGroup,
+    InputGroupItem,
+    MenuToggle,
+    OverflowMenu,
+    OverflowMenuContent,
+    OverflowMenuControl,
+    OverflowMenuDropdownItem,
+    OverflowMenuItem,
+    Pagination,
+    PaginationVariant,
+    SearchInput,
+    Skeleton,
+    Text,
+    TextVariants,
+    Title,
+    ToolbarGroup,
+    ToolbarItem,
+    ToolbarToggleGroup,
+    Tooltip,
 } from '@patternfly/react-core';
 
 import {
@@ -306,12 +314,15 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
 
         const toastId: string = toast.custom(
             (t) => {
-                return <Alert
-                  title={<b>Pinging kernel {kernelId} now...</b>}
-                  variant={'custom'}
-                  customIcon={<SpinnerIcon className={'loading-icon-spin-pulse'} />}
-                  timeout={false}
-                  actionClose={<AlertActionCloseButton onClose={() => toast.dismiss(t.id)}/>}/>
+                return (
+                    <Alert
+                        title={<b>Pinging kernel {kernelId} now...</b>}
+                        variant={'custom'}
+                        customIcon={<SpinnerIcon className={'loading-icon-spin-pulse'} />}
+                        timeout={false}
+                        actionClose={<AlertActionCloseButton onClose={() => toast.dismiss(t.id)} />}
+                    />
+                );
             },
             {
                 style: {
@@ -359,17 +370,33 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                     );
                 } else {
                     const response: PongResponse = await resp.json();
-                    console.log(JSON.stringify(response, null, 2));
+                    const latencyMilliseconds: number = RoundToThreeDecimalPlaces(performance.now() - startTime);
+                    const averageRequestTrace: RequestTrace | void = GetAverageRequestTrace(response.requestTraces);
+
+                    let traceSplits: RequestTraceSplit[] = [];
+                    if (averageRequestTrace) {
+                        traceSplits = GetSplitsFromRequestTrace(averageRequestTrace);
+
+                        console.log(JSON.stringify(traceSplits, null, 2));
+                    }
+
                     toast.custom(
-                        GetToastContentWithHeaderAndBody(
-                            `Successfully pinged kernel ${response.id} (HTTP ${resp.status} ${resp.statusText})`,
-                            `Time elapsed: ${RoundToThreeDecimalPlaces(performance.now() - startTime)} ms`,
-                            'success',
-                            () => {
-                                toast.dismiss(toastId);
-                            },
-                        ),
-                        { id: toastId, duration: 5000, style: { maxWidth: 750 } },
+                        <Alert
+                            isExpandable
+                            variant={'success'}
+                            title={`Successfully pinged kernel ${response.id} (${latencyMilliseconds} ms)`}
+                            timeoutAnimation={30000}
+                            timeout={15000}
+                            onTimeout={() => toast.dismiss(toastId)}
+                            actionClose={<AlertActionCloseButton onClose={() => toast.dismiss(toastId)} />}
+                        >
+                            {traceSplits.length > 0 &&
+                                averageRequestTrace !== null &&
+                                averageRequestTrace !== undefined && (
+                                    <RequestTraceSplitTable splits={traceSplits} trace={averageRequestTrace} />
+                                )}
+                        </Alert>,
+                        { id: toastId },
                     );
                 }
             });

@@ -361,7 +361,6 @@ export const NodeDataList: React.FunctionComponent<NodeDataListProps> = (props: 
         let runningAge: number = ageMilliseconds;
 
         const hours: number = Math.floor(ageMilliseconds / 3.6e6);
-        console.log(`runningAge=${runningAge}`);
 
         let formattedTime: string = '';
         if (hours > 0) {

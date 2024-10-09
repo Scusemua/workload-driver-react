@@ -46,6 +46,43 @@ export interface RequestTraceSplit {
     latencyMilliseconds: number;
 }
 
+export function GetAverageRequestTrace(traces: RequestTrace[]): RequestTrace | void {
+    if (traces.length == 0) {
+      return;
+    }
+
+    const sumTrace: RequestTrace = traces.reduce((acc: RequestTrace, val: RequestTrace) => {
+        acc.requestReceivedByGateway += val.requestReceivedByGateway;
+        acc.requestSentByGateway += val.requestSentByGateway;
+        acc.requestReceivedByLocalDaemon += val.requestReceivedByLocalDaemon;
+        acc.requestSentByLocalDaemon += val.requestSentByLocalDaemon;
+        acc.requestReceivedByKernelReplica += val.requestReceivedByKernelReplica;
+        acc.replySentByKernelReplica += val.replySentByKernelReplica;
+        acc.replyReceivedByLocalDaemon += val.replyReceivedByLocalDaemon;
+        acc.replySentByLocalDaemon += val.replySentByLocalDaemon;
+        acc.replyReceivedByGateway += val.replyReceivedByGateway;
+        acc.replySentByGateway += val.replySentByGateway;
+
+        return acc;
+    });
+
+    sumTrace.messageId = traces[0].messageId;
+    sumTrace.messageType = traces[0].messageType;
+    sumTrace.kernelId = traces[0].kernelId;
+    sumTrace.requestReceivedByGateway = sumTrace.requestReceivedByGateway / traces.length;
+    sumTrace.requestSentByGateway = sumTrace.requestSentByGateway / traces.length;
+    sumTrace.requestReceivedByLocalDaemon = sumTrace.requestReceivedByLocalDaemon / traces.length;
+    sumTrace.requestSentByLocalDaemon = sumTrace.requestSentByLocalDaemon / traces.length;
+    sumTrace.requestReceivedByKernelReplica = sumTrace.requestReceivedByKernelReplica / traces.length;
+    sumTrace.replySentByKernelReplica = sumTrace.replySentByKernelReplica / traces.length;
+    sumTrace.replyReceivedByLocalDaemon = sumTrace.replyReceivedByLocalDaemon / traces.length;
+    sumTrace.replySentByLocalDaemon = sumTrace.replySentByLocalDaemon / traces.length;
+    sumTrace.replyReceivedByGateway = sumTrace.replyReceivedByGateway / traces.length;
+    sumTrace.replySentByGateway = sumTrace.replySentByGateway / traces.length;
+
+    return sumTrace;
+}
+
 export function GetSplitsFromRequestTrace(trace: RequestTrace): RequestTraceSplit[] {
     const splitGatewayProcessRequest: RequestTraceSplit = {
         messageId: trace.messageId,
