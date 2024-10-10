@@ -103,7 +103,8 @@ export const RequestTraceSplitTable: React.FunctionComponent<RequestTraceSplitTa
                                 name={`request-${props.messageId}-trace-split-table-alt-name-checkbox`}
                             />
                         </ToolbarItem>
-                        <ToolbarItem variant={'chip-group'}>
+                        {/* We only display the ToggleGroup if there are 2 or more individual traces to display. */}
+                        <ToolbarItem variant={'chip-group'} hidden={props.traces.length <= 1}>
                             <ToggleGroup aria-label={'Specify which request trace to view'}>
                                 {props.traces.map((trace: RequestTrace, idx: number) => {
                                     return (

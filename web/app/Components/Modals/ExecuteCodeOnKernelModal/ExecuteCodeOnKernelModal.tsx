@@ -276,6 +276,15 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
             latencyRounded = RoundToNDecimalPlaces(latencyMilliseconds, 3);
         }
 
+        // Try to extract a RequestTrace from the first buffers frame of the response.
+        const firstBufferFrame: FirstJupyterKernelBuffersFrame | null = extractRequestTraceFromResponse(response);
+        if (firstBufferFrame != null) {
+            console.log(
+                `Extracted RequestTrace from "${response.header.msg_type}" message "${executionId}" from kernel "${kernelId}":\n
+                    ${JSON.stringify(firstBufferFrame.request_trace, null, 2)}`,
+            );
+        }
+
         if (status == 'ok') {
             setExecutionMap((prevMap) => {
                 const exec: Execution | undefined = prevMap.get(executionId);
@@ -285,14 +294,6 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                 }
                 return prevMap;
             });
-
-            const firstBufferFrame: FirstJupyterKernelBuffersFrame | null = extractRequestTraceFromResponse(response);
-            if (firstBufferFrame != null) {
-                console.log(
-                    `Extracted RequestTrace from "execute_reply" message "${executionId}" from kernel "${kernelId}":\n
-                    ${JSON.stringify(firstBufferFrame.request_trace, null, 2)}`,
-                );
-            }
 
             console.log(`Execution on Kernel ${kernelId} finished after ${latencyMilliseconds} ms.`);
 
@@ -307,8 +308,8 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                             }
                             variant={'success'}
                             isExpandable
-                            timeout={5000}
-                            timeoutAnimation={30000}
+                            timeout={30000}
+                            timeoutAnimation={60000}
                             onTimeout={() => toast.dismiss(t.id)}
                             actionClose={<AlertActionCloseButton onClose={() => toast.dismiss(t.id)} />}
                         >
@@ -365,6 +366,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                 (t) => (
                     <Alert
                         title={<b>{'Execution Failed'}</b>}
+                        isExpandable
                         variant={'danger'}
                         timeout={12500}
                         timeoutAnimation={30000}
@@ -383,6 +385,22 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                                 </ClipboardCopy>
                             </FlexItem>
                         </Flex>
+
+                        {firstBufferFrame !== null && firstBufferFrame.request_trace !== undefined && (
+                            <Flex direction={{ default: 'column' }}>
+                                <FlexItem>
+                                    <Title headingLevel={'h3'}>Request Trace(s)</Title>
+                                </FlexItem>
+                                <FlexItem>
+                                    <RequestTraceSplitTable
+                                        receivedReplyAt={receivedReplyAt}
+                                        initialRequestSentAt={initialRequestTimestamp}
+                                        messageId={response.header.msg_id}
+                                        traces={[firstBufferFrame.request_trace]}
+                                    />
+                                </FlexItem>
+                            </Flex>
+                        )}
                     </Alert>
                 ),
                 {
