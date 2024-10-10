@@ -223,6 +223,9 @@ func (s *serverImpl) setupRoutes() error {
 		// Used internally (by the frontend) to get the current set of Jupyter kernels from us (i.e., the backend).
 		apiGroup.GET(domain.GetKernelsEndpoint, handlers.NewKernelHttpHandler(s.opts, s.gatewayRpcClient).HandleRequest)
 
+		// Used by the frontend to query the status of particular ZMQ messages.
+		apiGroup.POST(domain.QueryMessageEndpoint, handlers.NewMessageQueryHttpHandler(s.opts, s.gatewayRpcClient).HandleRequest)
+
 		// Used internally (by the frontend) to get the list of available workload presets from the backend.
 		apiGroup.GET(domain.WorkloadPresetEndpoint, handlers.NewWorkloadPresetHttpHandler(s.opts).HandleRequest)
 

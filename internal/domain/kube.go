@@ -12,12 +12,17 @@ type KubernetesNode struct {
 	// NodeId is the unique ID of the KubernetesNode.
 	NodeId string `json:"NodeId"`
 
+	NodeName string `json:"NodeName"`
+
 	// Pods is a ContainerList of all the KubernetesPod instances scheduled on the KubernetesNode.
 	Pods ContainerList `json:"PodsOrContainers"`
 
 	// Age is how long the KubernetesNode has existed.
 	// The field is created by converting a time.Duration to a string.
 	Age string `json:"Age"`
+
+	// CreatedAt is the unix milliseconds time at which the associated Kubernetes node was created.
+	CreatedAt int64 `json:"createdAt"`
 
 	// IP is the IP address of the KubernetesNode.
 	IP string `json:"IP"`

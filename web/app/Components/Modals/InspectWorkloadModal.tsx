@@ -8,6 +8,7 @@ import {
 } from '@app/Data/Workload';
 import { GetToastContentWithHeaderAndBody } from '@app/utils/toast_utils';
 import { RoundToThreeDecimalPlaces } from '@components/Modals/NewWorkloadFromTemplateModal';
+import { WorkloadEventTable, WorkloadSessionTable } from '@components/Tables';
 import {
     Button,
     DescriptionList,
@@ -44,7 +45,6 @@ import {
 import text from '@patternfly/react-styles/css/utilities/Text/text';
 import React from 'react';
 import toast from 'react-hot-toast';
-import { WorkloadEventTable, WorkloadSessionTable } from '../Cards';
 
 export interface InspectWorkloadModalProps {
     children?: React.ReactNode;
@@ -67,10 +67,12 @@ export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalP
             tickDurations.current.push(tickDuration);
             tickStartTime.current = performance.now();
             setCurrentTick(props.workload?.current_tick);
-            toast(
+            toast.custom((t) =>
                 GetToastContentWithHeaderAndBody(
                     'Tick Incremented',
                     `Workload ${props.workload?.name} has progressed to Tick #${props.workload?.current_tick}.`,
+                  'info',
+                  () => {toast.dismiss(t.id)}
                 ),
                 { icon: '⏱️', style: { maxWidth: 700 } },
             );

@@ -1,7 +1,15 @@
 import { HeightFactorContext, NodeHeightFactorContext } from '@app/Dashboard/Dashboard';
-import { GpuIcon } from '@app/Icons';
+import { GpuIcon, GpuIconAlt2 } from '@app/Icons';
 import { GetToastContentWithHeaderAndBody } from '@app/utils/toast_utils';
-import { ClusterNode, PodOrContainer } from '@data/Cluster';
+import { RoundToTwoDecimalPlaces } from '@components/Modals';
+import {
+  ClusterNode,
+  GetNodeAllocatedResource,
+  GetNodeId,
+  GetNodeName,
+  GetNodeSpecResource,
+  PodOrContainer
+} from '@data/Cluster';
 import {
     Button,
     DataList,
@@ -13,10 +21,6 @@ import {
     DataListItemCells,
     DataListItemRow,
     DataListToggle,
-    DescriptionList,
-    DescriptionListDescription,
-    DescriptionListGroup,
-    DescriptionListTerm,
     Flex,
     FlexItem,
     Label,
@@ -187,12 +191,16 @@ export const NodeDataList: React.FunctionComponent<NodeDataListProps> = (props: 
             return false;
         }
 
+        if (!clusterNode.PodsOrContainers) {
+            return false;
+        }
+
         const kernelId: string = props.disableRadiosWithKernel!;
         for (let i = 0; i < clusterNode.PodsOrContainers.length; i++) {
             const podOrContainer: PodOrContainer = clusterNode.PodsOrContainers[i];
             if (podOrContainer.Name.includes(kernelId)) {
                 // console.log(
-                //     `Pod/Container ${podOrContainer.Name} is a replica of kernel ${kernelId}. Disabling node ${clusterNode.NodeId}.`,
+                //     `Pod/Container ${podOrContainer.Name} is a replica of kernel ${kernelId}. Disabling node ${GetNodeId(clusterNode)}.`,
                 // );
                 return true;
             } else {
@@ -200,13 +208,13 @@ export const NodeDataList: React.FunctionComponent<NodeDataListProps> = (props: 
             }
         }
 
-        // console.log(`Node ${clusterNode.NodeId} has no replicas of kernel ${kernelId}.`);
+        // console.log(`Node ${GetNodeId(clusterNode)} has no replicas of kernel ${kernelId}.`);
         return false;
     };
 
     const enableOrDisableNode = (clusterNode: ClusterNode, checked: boolean) => {
         const requestBody = JSON.stringify({
-            node_name: clusterNode.NodeId,
+            node_name: GetNodeId(clusterNode),
             enable: checked,
         });
 
@@ -222,11 +230,12 @@ export const NodeDataList: React.FunctionComponent<NodeDataListProps> = (props: 
         fetch('api/nodes', requestOptions).then((resp) => {
             if (resp.status >= 300) {
                 resp.text().then((text: string) => {
-                    toast.error(
-                        () => {
+                    toast.custom(
+                        (t) => {
                             return GetToastContentWithHeaderAndBody(
-                                `Failed to ${checked ? 'enable' : 'disable'} node ${clusterNode.NodeId}.`,
-                                `HTTP ${resp.status} - ${resp.statusText}: ${text}`,
+                                `Failed to ${checked ? 'enable' : 'disable'} node ${GetNodeId(clusterNode)}.`,
+                                `HTTP ${resp.status} - ${resp.statusText}: ${text}`, 'danger',
+                              () => {toast.dismiss(t.id)}
                             );
                         },
                         { style: { maxWidth: 575 } },
@@ -236,7 +245,7 @@ export const NodeDataList: React.FunctionComponent<NodeDataListProps> = (props: 
                 resp.json().then((updatedNode: ClusterNode) => {
                     console.log(`Received updated Kubernetes node: ${JSON.stringify(updatedNode)}`);
                     for (let i: number = 0; i < nodes.length; i++) {
-                        if (nodes[i].NodeId == updatedNode.NodeId) {
+                        if (GetNodeId(nodes[i]) == GetNodeId(updatedNode)) {
                             nodes[i] = updatedNode;
                             break;
                         }
@@ -255,7 +264,7 @@ export const NodeDataList: React.FunctionComponent<NodeDataListProps> = (props: 
 
     const onClickNodeRow = (_event: React.MouseEvent | React.KeyboardEvent, id: string) => {
         const filteredNodeIndex: number = Number.parseInt(id.slice(id.lastIndexOf('-') + 1, id.length));
-        const filteredNodeName: string = filteredNodes[filteredNodeIndex].NodeId;
+        const filteredNodeName: string = GetNodeId(filteredNodes[filteredNodeIndex]);
 
         // Don't expand the control plane node.
         if (filteredNodeName.includes('control-plane')) {
@@ -309,7 +318,7 @@ export const NodeDataList: React.FunctionComponent<NodeDataListProps> = (props: 
                 </FlexItem>
                 <FlexItem
                     alignSelf={{ default: 'alignSelfCenter' }}
-                    hidden={clusterNode.NodeId.includes('control-plane') || !props.isDashboardList}
+                    hidden={GetNodeId(clusterNode).includes('control-plane') || !props.isDashboardList}
                 >
                     <Tooltip
                         exitDelay={0.125}
@@ -317,7 +326,7 @@ export const NodeDataList: React.FunctionComponent<NodeDataListProps> = (props: 
                         position={'left'}
                     >
                         <Switch
-                            id={'node-' + clusterNode.NodeId + '-scheduling-switch'}
+                            id={'node-' + GetNodeId(clusterNode) + '-scheduling-switch'}
                             label={
                                 <React.Fragment>
                                     <Flex direction={{ default: 'row' }} spaceItems={{ default: 'spaceItemsXs' }}>
@@ -333,7 +342,7 @@ export const NodeDataList: React.FunctionComponent<NodeDataListProps> = (props: 
                                 </React.Fragment>
                             }
                             aria-label="node-scheduling-switch"
-                            isChecked={clusterNode.Enabled}
+                            isChecked={true}
                             ouiaId="node-scheduling-switch"
                             onChange={(_event: React.FormEvent<HTMLInputElement>, checked: boolean) => {
                                 enableOrDisableNode(clusterNode, checked);
@@ -347,31 +356,70 @@ export const NodeDataList: React.FunctionComponent<NodeDataListProps> = (props: 
 
     // The general info of the node (name, IP, and age).
     const nodeDescriptionList = (clusterNode: ClusterNode) => {
+        const nodeCreatedAt: number = clusterNode.CreatedAt * 1e3;
+        const ageMilliseconds: number = Date.now() - nodeCreatedAt;
+        let runningAge: number = ageMilliseconds;
+
+        const hours: number = Math.floor(ageMilliseconds / 3.6e6);
+
+        let formattedTime: string = '';
+        if (hours > 0) {
+            formattedTime += hours + 'hr ';
+            runningAge -= hours * 3.6e6;
+        }
+
+        const minutes: number = Math.floor(runningAge / 6e4);
+        if (minutes > 0) {
+            formattedTime += minutes + 'min ';
+            runningAge -= minutes * 6e4;
+        }
+
+        const seconds: number = RoundToTwoDecimalPlaces(runningAge / 1e3);
+        if (seconds > 0) {
+            formattedTime += seconds + 'sec';
+        }
+
+        formattedTime = formattedTime.trimEnd();
+
         return (
-            <DescriptionList
-                isAutoColumnWidths
-                className="node-list-description-list"
-                columnModifier={{
-                    sm: '2Col',
-                    md: '2Col',
-                    lg: '2Col',
-                    xl: '3Col',
-                    '2xl': '3Col',
-                }}
-            >
-                <DescriptionListGroup>
-                    <DescriptionListTerm icon={<VirtualMachineIcon />}>Node ID</DescriptionListTerm>
-                    <DescriptionListDescription>{clusterNode.NodeId}</DescriptionListDescription>
-                </DescriptionListGroup>
-                <DescriptionListGroup className="node-data-list-ip">
-                    <DescriptionListTerm icon={<GlobeIcon />}>IP</DescriptionListTerm>
-                    <DescriptionListDescription>{clusterNode.IP}</DescriptionListDescription>
-                </DescriptionListGroup>
-                <DescriptionListGroup className="node-data-list-age">
-                    <DescriptionListTerm icon={<OutlinedClockIcon />}>Age</DescriptionListTerm>
-                    <DescriptionListDescription>{clusterNode.Age}</DescriptionListDescription>
-                </DescriptionListGroup>
-            </DescriptionList>
+            <Flex direction={{ default: 'row' }} className={'node-list-description-list'}>
+                <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
+                    <FlexItem>
+                        <VirtualMachineIcon />
+                        <b> Node Name</b>
+                    </FlexItem>
+                    <FlexItem>{GetNodeName(clusterNode)}</FlexItem>
+                </Flex>
+                <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
+                    <FlexItem>
+                        <VirtualMachineIcon />
+                        <b> Node ID</b>
+                    </FlexItem>
+                    <FlexItem>{GetNodeId(clusterNode)}</FlexItem>
+                </Flex>
+                <Flex
+                    direction={{ default: 'column' }}
+                    className="node-data-list-ip"
+                    spaceItems={{ default: 'spaceItemsNone' }}
+                >
+                    <FlexItem>
+                        <GlobeIcon />
+                        <b> IP</b>
+                    </FlexItem>
+                    <FlexItem>{clusterNode.IP}</FlexItem>
+                </Flex>
+                <Flex
+                    direction={{ default: 'column' }}
+                    className="node-data-list-age"
+                    spaceItems={{ default: 'spaceItemsNone' }}
+                >
+                    <FlexItem>
+                        <OutlinedClockIcon />
+                        <b> Age</b>
+                    </FlexItem>
+                    <FlexItem>{formattedTime}</FlexItem>
+                </Flex>
+            </Flex>
         );
     };
 
@@ -401,7 +449,7 @@ export const NodeDataList: React.FunctionComponent<NodeDataListProps> = (props: 
                         </Tooltip>
                     </FlexItem>
                     <FlexItem>
-                        {clusterNode.AllocatedResources['CPU'].toFixed(2)} / {clusterNode.CapacityResources['CPU']}
+                        {GetNodeAllocatedResource(clusterNode, 'CPU') .toFixed(2)} / {GetNodeSpecResource(clusterNode, 'CPU')}
                     </FlexItem>
                 </Flex>
                 <Flex spaceItems={{ default: 'spaceItemsSm' }} alignSelf={{ default: 'alignSelfCenter' }}>
@@ -411,8 +459,8 @@ export const NodeDataList: React.FunctionComponent<NodeDataListProps> = (props: 
                         </Tooltip>
                     </FlexItem>
                     <FlexItem>
-                        {(clusterNode.AllocatedResources['Memory'] * 0.001048576).toFixed(2)} /
-                        {(clusterNode.CapacityResources['Memory'] * 0.001048576).toFixed(2)}
+                        {(GetNodeAllocatedResource(clusterNode, 'Memory') * 0.001048576).toFixed(2)} /
+                        {(GetNodeSpecResource(clusterNode, 'Memory') * 0.001048576).toFixed(2)}
                     </FlexItem>
                 </Flex>
                 <Flex spaceItems={{ default: 'spaceItemsSm' }}>
@@ -421,41 +469,54 @@ export const NodeDataList: React.FunctionComponent<NodeDataListProps> = (props: 
                             <GpuIcon scale={2.25} />
                         </Tooltip>
                     </FlexItem>
-                    <Flex direction={{ default: 'row' }} spaceItems={{ default: 'spaceItemsMd' }}>
-                        <Flex spaceItems={{ default: 'spaceItemsNone' }} direction={{ default: 'column' }}>
-                            <FlexItem className="node-allocated-vgpu" align={{ default: 'alignRight' }}>
-                                <Text component={TextVariants.p} className="node-allocated-vgpu">
-                                    {clusterNode.AllocatedResources['vGPU'].toFixed(0)}
-                                </Text>
-                            </FlexItem>
-                            <FlexItem className="node-allocated-gpu" align={{ default: 'alignRight' }}>
-                                <Text component={TextVariants.p} className="node-allocated-gpu">
-                                    {clusterNode.AllocatedResources['GPU'].toFixed(0)}
-                                </Text>
-                            </FlexItem>
-                        </Flex>
-                        <Flex spaceItems={{ default: 'spaceItemsNone' }} direction={{ default: 'column' }}>
-                            <FlexItem align={{ default: 'alignRight' }}>/</FlexItem>
-                            <FlexItem align={{ default: 'alignRight' }}>/</FlexItem>
-                        </Flex>
-                        <Flex spaceItems={{ default: 'spaceItemsNone' }} direction={{ default: 'column' }}>
-                            <FlexItem align={{ default: 'alignRight' }}>
-                                {' '}
-                                {clusterNode.CapacityResources['vGPU']}
-                            </FlexItem>
-                            <FlexItem align={{ default: 'alignRight' }}>
-                                {clusterNode.CapacityResources['GPU']}
-                            </FlexItem>
-                        </Flex>
-                        <Flex spaceItems={{ default: 'spaceItemsNone' }} direction={{ default: 'column' }}>
-                            <FlexItem align={{ default: 'alignRight' }}>
-                                <Text component={TextVariants.small}>(vGPUs)</Text>
-                            </FlexItem>
-                            <FlexItem align={{ default: 'alignRight' }}>
-                                <Text component={TextVariants.small}>(GPUs)</Text>
-                            </FlexItem>
-                        </Flex>
-                    </Flex>
+                    <FlexItem>
+                        {GetNodeAllocatedResource(clusterNode, 'GPU').toFixed(0)} /{GetNodeSpecResource(clusterNode, 'GPU')}
+                    </FlexItem>
+                    {/*<Flex direction={{ default: 'row' }} spaceItems={{ default: 'spaceItemsMd' }}>*/}
+                    {/*<Flex spaceItems={{ default: 'spaceItemsNone' }} direction={{ default: 'column' }}>*/}
+                    {/*    <FlexItem className="node-allocated-vgpu" align={{ default: 'alignRight' }}>*/}
+                    {/*        <Text component={TextVariants.p} className="node-allocated-vgpu">*/}
+                    {/*            {clusterNode.allocatedGpu.toFixed(0)}*/}
+                    {/*        </Text>*/}
+                    {/*    </FlexItem>*/}
+                    {/*    <FlexItem className="node-allocated-gpu" align={{ default: 'alignRight' }}>*/}
+                    {/*        <Text component={TextVariants.p} className="node-allocated-gpu">*/}
+                    {/*            {clusterNode.AllocatedResources['GPU'].toFixed(0)}*/}
+                    {/*        </Text>*/}
+                    {/*    </FlexItem>*/}
+                    {/*</Flex>*/}
+                    {/*<Flex spaceItems={{ default: 'spaceItemsNone' }} direction={{ default: 'column' }}>*/}
+                    {/*    <FlexItem align={{ default: 'alignRight' }}>/</FlexItem>*/}
+                    {/*    <FlexItem align={{ default: 'alignRight' }}>/</FlexItem>*/}
+                    {/*</Flex>*/}
+                    {/*<Flex spaceItems={{ default: 'spaceItemsNone' }} direction={{ default: 'column' }}>*/}
+                    {/*    <FlexItem align={{ default: 'alignRight' }}>*/}
+                    {/*        {' '}*/}
+                    {/*        {clusterNode.CapacityResources['vGPU']}*/}
+                    {/*    </FlexItem>*/}
+                    {/*    <FlexItem align={{ default: 'alignRight' }}>*/}
+                    {/*        {clusterNode.CapacityResources['GPU']}*/}
+                    {/*    </FlexItem>*/}
+                    {/*</Flex>*/}
+                    {/*<Flex spaceItems={{ default: 'spaceItemsNone' }} direction={{ default: 'column' }}>*/}
+                    {/*    <FlexItem align={{ default: 'alignRight' }}>*/}
+                    {/*        <Text component={TextVariants.small}>(vGPUs)</Text>*/}
+                    {/*    </FlexItem>*/}
+                    {/*    <FlexItem align={{ default: 'alignRight' }}>*/}
+                    {/*        <Text component={TextVariants.small}>(GPUs)</Text>*/}
+                    {/*    </FlexItem>*/}
+                    {/*</Flex>*/}
+                    {/*</Flex>*/}
+                </Flex>
+                <Flex spaceItems={{ default: 'spaceItemsSm' }} alignSelf={{ default: 'alignSelfCenter' }}>
+                    <FlexItem>
+                        <Tooltip content="Committed/allocated VRAM in Gigabytes">
+                            <GpuIconAlt2 className="node-gpu-icon" />
+                        </Tooltip>
+                    </FlexItem>
+                    <FlexItem>
+                        {(GetNodeAllocatedResource(clusterNode, 'VRAM') || 0).toFixed(2)} /{GetNodeSpecResource(clusterNode, 'VRAM').toFixed(2)}
+                    </FlexItem>
                 </Flex>
             </Flex>
         );
@@ -492,43 +553,43 @@ export const NodeDataList: React.FunctionComponent<NodeDataListProps> = (props: 
             <DataList onSelectDataListItem={onClickNodeRow} isCompact aria-label="data list" hidden={nodes.length == 0}>
                 {filteredNodes.map((clusterNode: ClusterNode, idx: number) => (
                     <DataListItem
-                        key={clusterNode.NodeId}
+                        key={GetNodeId(clusterNode)}
                         id={'node-list-item-' + idx}
-                        isExpanded={expandedNodes.includes(clusterNode.NodeId)}
+                        isExpanded={expandedNodes.includes(GetNodeId(clusterNode))}
                     >
                         <DataListItemRow>
                             {props.selectableViaCheckboxes && (
                                 <DataListControl>
                                     <Radio
-                                        id={'node-' + clusterNode.NodeId + '-radio'}
-                                        aria-label={'node-' + clusterNode.NodeId + '-radio'}
-                                        aria-labelledby={'node-' + clusterNode.NodeId + '-radio'}
+                                        id={'node-' + GetNodeId(clusterNode) + '-radio'}
+                                        aria-label={'node-' + GetNodeId(clusterNode) + '-radio'}
+                                        aria-labelledby={'node-' + GetNodeId(clusterNode) + '-radio'}
                                         name={'node-list-radio-buttons'}
                                         hidden={!props.selectableViaCheckboxes}
                                         isDisabled={shouldSelectBeDisabledForNode(clusterNode)}
                                         onChange={() => {
-                                            console.log('Selected node ' + clusterNode.NodeId);
-                                            setSelectedNode(clusterNode.NodeId);
+                                            console.log('Selected node ' + GetNodeId(clusterNode));
+                                            setSelectedNode(GetNodeId(clusterNode));
                                             if (props.onSelectNode != undefined) {
-                                                props.onSelectNode(clusterNode.NodeId);
+                                                props.onSelectNode(GetNodeId(clusterNode));
                                             }
                                         }}
-                                        isChecked={clusterNode.NodeId == selectedNode}
+                                        isChecked={GetNodeId(clusterNode) == selectedNode}
                                     />
                                 </DataListControl>
                             )}
                             <DataListToggle
                                 className="node-list-toggle-button"
-                                hidden={clusterNode.NodeId.includes('control-plane')}
-                                onClick={() => expandedOrCollapseNode(clusterNode.NodeId)}
-                                isExpanded={expandedNodes.includes(clusterNode.NodeId)}
-                                id={'expand-node-' + clusterNode.NodeId + '-toggle'}
-                                aria-controls={'expand-node-' + clusterNode.NodeId + '-toggle'}
+                                hidden={GetNodeId(clusterNode).includes('control-plane')}
+                                onClick={() => expandedOrCollapseNode(GetNodeId(clusterNode))}
+                                isExpanded={expandedNodes.includes(GetNodeId(clusterNode))}
+                                id={'expand-node-' + GetNodeId(clusterNode) + '-toggle'}
+                                aria-controls={'expand-node-' + GetNodeId(clusterNode) + '-toggle'}
                             />
                             <DataListItemCells
                                 id={`node-detail-view-data-list`}
                                 dataListCells={[
-                                    <DataListCell key={`node-${clusterNode.NodeId}-primary-content`}>
+                                    <DataListCell key={`node-${GetNodeId(clusterNode)}-primary-content`}>
                                         <Flex
                                             direction={{ default: 'row', '2xl': 'row' }}
                                             spaceItems={{
@@ -553,9 +614,9 @@ export const NodeDataList: React.FunctionComponent<NodeDataListProps> = (props: 
                                         </Flex>
                                     </DataListCell>,
                                     <DataListAction
-                                        id={`node-${clusterNode.NodeId}-data-list-actions`}
-                                        key={`node-${clusterNode.NodeId}-data-list-actions`}
-                                        aria-label={`Data list actions for node ${clusterNode.NodeId}`}
+                                        id={`node-${GetNodeId(clusterNode)}-data-list-actions`}
+                                        key={`node-${GetNodeId(clusterNode)}-data-list-actions`}
+                                        aria-label={`Data list actions for node ${GetNodeId(clusterNode)}`}
                                         aria-labelledby={`node-detail-view-data-list`}
                                     >
                                         {nodeDataListActions(clusterNode)}
@@ -565,9 +626,9 @@ export const NodeDataList: React.FunctionComponent<NodeDataListProps> = (props: 
                         </DataListItemRow>
                         <DataListContent
                             className="node-list-expandable-content"
-                            aria-label={'node-' + clusterNode.NodeId + '-expandable-content'}
-                            id={'node-' + clusterNode.NodeId + '-expandable-content'}
-                            isHidden={!expandedNodes.includes(clusterNode.NodeId)}
+                            aria-label={'node-' + GetNodeId(clusterNode) + '-expandable-content'}
+                            id={'node-' + GetNodeId(clusterNode) + '-expandable-content'}
+                            isHidden={!expandedNodes.includes(GetNodeId(clusterNode))}
                         >
                             {expandedNodeContent(clusterNode)}
                         </DataListContent>

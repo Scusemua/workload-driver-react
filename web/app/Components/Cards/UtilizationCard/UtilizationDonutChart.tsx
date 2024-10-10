@@ -1,4 +1,10 @@
-import { ClusterNode } from '@app/Data';
+import {
+  ClusterNode,
+  GetNodeAllocatedResource, GetNodeId,
+  GetNodeIdleResource,
+  GetNodePendingResource,
+  GetNodeSpecResource
+} from '@app/Data';
 import { DarkModeContext, useNodes } from '@app/Providers';
 import {
     ChartDonutThreshold,
@@ -11,7 +17,7 @@ import {
 import React from 'react';
 
 export interface UtilizationDonutChart {
-    resourceDisplayName: string;
+    resourceDisplayName: 'CPU' | 'GPU' | 'VRAM' | 'Memory';
     resourceUnit: string;
     chartWidth?: number;
     chartHeight?: number;
@@ -41,18 +47,18 @@ export const UtilizationDonutChart: React.FunctionComponent<UtilizationDonutChar
         let sumCapacity: number = 0.0;
 
         nodes.forEach((node: ClusterNode) => {
-            if (node.NodeId.includes('control-plane')) {
+            if (GetNodeId(node).includes('control-plane')) {
                 return;
             }
 
             let amountUsed: number | undefined = 0;
 
             if (props.resourceStatus == 'idle') {
-                amountUsed = node.IdleResources[props.resourceDisplayName];
+                amountUsed = GetNodeIdleResource(node, props.resourceDisplayName);
             } else if (props.resourceStatus == 'pending') {
-                amountUsed = node.PendingResources[props.resourceDisplayName];
+                amountUsed = GetNodePendingResource(node, props.resourceDisplayName);
             } else {
-                amountUsed = node.AllocatedResources[props.resourceDisplayName];
+                amountUsed = GetNodeAllocatedResource(node, props.resourceDisplayName);
             }
 
             // const amountUsed: number | undefined = node.AllocatedResources[props.resourceDisplayName];
@@ -60,7 +66,7 @@ export const UtilizationDonutChart: React.FunctionComponent<UtilizationDonutChar
                 sumAllocated += amountUsed;
             }
 
-            const capacity: number | undefined = node.CapacityResources[props.resourceDisplayName];
+            const capacity: number | undefined = GetNodeSpecResource(node, props.resourceDisplayName);
             if (capacity !== undefined) {
                 sumCapacity += capacity;
             }
@@ -186,22 +192,22 @@ export const UtilizationDonutChart: React.FunctionComponent<UtilizationDonutChar
     };
 
     const getData = () => {
-      if (props.resourceStatus == 'idle') {
-        return [
-          { x: `Very High Resource Utilization`, y: 10 },
-          { x: `High Resource Utilization`, y: 25 },
-          { x: `Moderate Resource Utilization`, y: 40 },
-          { x: `Low Resource Utilization`, y: 100 },
-        ]
-      } else {
-        return [
-          { x: `Low Resource Utilization`, y: 60 },
-          { x: `Moderate Resource Utilization`, y: 75 },
-          { x: `High Resource Utilization`, y: 90 },
-          { x: `Very High Resource Utilization`, y: 100 },
-        ]
-      }
-    }
+        if (props.resourceStatus == 'idle') {
+            return [
+                { x: `Very High Resource Utilization`, y: 10 },
+                { x: `High Resource Utilization`, y: 25 },
+                { x: `Moderate Resource Utilization`, y: 40 },
+                { x: `Low Resource Utilization`, y: 100 },
+            ];
+        } else {
+            return [
+                { x: `Low Resource Utilization`, y: 60 },
+                { x: `Moderate Resource Utilization`, y: 75 },
+                { x: `High Resource Utilization`, y: 90 },
+                { x: `Very High Resource Utilization`, y: 100 },
+            ];
+        }
+    };
 
     // const possiblyConvertToExponent = (val: number) => {
     //     if (val.toString().length > 6) {

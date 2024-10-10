@@ -6,7 +6,7 @@ import { CpuIcon, ErrorCircleOIcon, MemoryIcon, OffIcon, PendingIcon, ResourcesE
 import {
     Session,
     Workload,
-} from '@app/Data/Workload';
+} from '@data/Workload';
 import { GpuIcon } from '@app/Icons';
 
 export interface WorkloadSessionTableProps {

@@ -25,6 +25,7 @@ const TrainingDurationInTicksDefault: number = 2;
 const TrainingCpuUsageDefault: number = 100; // in millicpus
 const TrainingGpuPercentUtilDefault: number = 50;
 const TrainingMemUsageGbDefault: number = 0.25;
+const TrainingVRamUsageGbDefault: number = 0.128;
 const NumberOfGpusDefault: number = 1;
 const DefaultNumTrainingEvents: number = 1;
 const DefaultSelectedTrainingEvent: number = 0;
@@ -33,7 +34,8 @@ const DefaultTrainingEventField = {
     start_tick: TrainingStartTickDefault,
     duration_in_ticks: TrainingDurationInTicksDefault,
     millicpus: TrainingCpuUsageDefault,
-  mem_usage_mb: TrainingMemUsageGbDefault,
+    mem_usage_mb: TrainingMemUsageGbDefault,
+    vram_usage_gb: TrainingVRamUsageGbDefault,
     num_gpus: NumberOfGpusDefault,
     gpu_utilizations: [
         {
@@ -74,6 +76,10 @@ function RoundToThreeDecimalPlaces(num: number) {
     return +(Math.round(Number.parseFloat(num.toString() + 'e+3')).toString() + 'e-3');
 }
 
+function RoundToNDecimalPlaces(num: number, n: number) {
+  return +(Math.round(Number.parseFloat(num.toString() + `e+${n}`)).toString() + `e-${n}`);
+}
+
 export { TimescaleAdjustmentFactorDelta as TimescaleAdjustmentFactorDelta };
 export { TimescaleAdjustmentFactorMax as TimescaleAdjustmentFactorMax };
 export { TimescaleAdjustmentFactorMin as TimescaleAdjustmentFactorMin };
@@ -95,6 +101,7 @@ export { TrainingStartTickDefault as TrainingStartTickDefault };
 export { TrainingDurationInTicksDefault as TrainingDurationInTicksDefault };
 export { TrainingCpuUsageDefault as TrainingCpuUsageDefault };
 export { TrainingGpuPercentUtilDefault as TrainingGpuPercentUtilDefault };
+export { TrainingVRamUsageGbDefault as TrainingVRamUsageGbDefault };
 export { TrainingMemUsageGbDefault as TrainingMemUsageGbDefault };
 export { NumberOfGpusDefault as NumberOfGpusDefault };
 export { DefaultNumTrainingEvents as DefaultNumTrainingEvents };
@@ -107,3 +114,4 @@ export { GetDefaultFormValues as GetDefaultFormValues };
 
 export { RoundToTwoDecimalPlaces as RoundToTwoDecimalPlaces };
 export { RoundToThreeDecimalPlaces as RoundToThreeDecimalPlaces };
+export { RoundToNDecimalPlaces as RoundToNDecimalPlaces};

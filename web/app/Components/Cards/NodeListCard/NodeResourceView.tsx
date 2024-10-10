@@ -1,6 +1,13 @@
-import { WorkloadEvent } from '@app/Data';
 import { GpuIcon } from '@app/Icons';
-import { ClusterNode, GetNodeIdleResource } from '@data/Cluster';
+import {
+    ClusterNode,
+    GetNodeAllocatedResource,
+    GetNodeId,
+    GetNodeIdleResource,
+    GetNodeName,
+    GetNodePendingResource,
+    GetNodeSpecResource,
+} from '@data/Cluster';
 import {
     Card,
     CardBody,
@@ -12,18 +19,18 @@ import {
     Pagination,
 } from '@patternfly/react-core';
 import { CpuIcon, MemoryIcon } from '@patternfly/react-icons';
-import { Table, Tbody, Td, Th, Thead, ThProps, Tr } from '@patternfly/react-table';
+import { Table, Tbody, Td, Th, ThProps, Thead, Tr } from '@patternfly/react-table';
 import { useNodes } from '@providers/NodeProvider';
 import React from 'react';
 
 export interface NodeResourceUsageTableProps {
-    resource: 'CPU' | 'GPU' | 'vGPU' | 'Memory';
+    resource: 'CPU' | 'GPU' | 'VRAM' | 'Memory';
 }
 
 export const NodeResourceUsageTable: React.FunctionComponent<NodeResourceUsageTableProps> = (
     props: NodeResourceUsageTableProps,
 ) => {
-    const table_column_names: string[] = ['Node ID', 'Idle', 'Pending', 'Allocated', 'Capacity'];
+    const table_column_names: string[] = ['Node Name', 'Node ID', 'Idle', 'Pending', 'Allocated', 'Capacity'];
 
     const { nodes } = useNodes();
     const [page, setPage] = React.useState(1);
@@ -52,20 +59,23 @@ export const NodeResourceUsageTable: React.FunctionComponent<NodeResourceUsageTa
     // This example is trivial since our data objects just contain strings, but if the data was more complex
     // this would be a place to return simplified string or number versions of each column to sort by.
     const getSortableRowValues = (node: ClusterNode): (string | number | Date)[] => {
-        const { NodeId, AllocatedResources, PendingResources, CapacityResources } = node;
+        const idleRes: number = GetNodeIdleResource(node, props.resource); // CapacityResources[props.resource] - AllocatedResources[props.resource];
 
-        const idleRes: number =
-            CapacityResources[props.resource] - AllocatedResources[props.resource];
-
-        console.debug(`Node ${node.NodeId} has a capacity of ${CapacityResources[props.resource]} ${props.resource} and has ${AllocatedResources[props.resource]} ${props.resource} allocated.`)
+        console.debug(
+            `Node ${node.NodeId} has a capacity of ${GetNodeSpecResource(node, props.resource)} ${props.resource} and has ${GetNodeAllocatedResource(node, props.resource)} ${props.resource} allocated.`,
+        );
 
         // Note: We're omitting the event's "id" and "error_message" fields here.
         return [
-            NodeId,
+            GetNodeName(node),
+            GetNodeId(node),
             idleRes,
-            PendingResources[props.resource],
-            AllocatedResources[props.resource],
-            CapacityResources[props.resource],
+            GetNodePendingResource(node, props.resource),
+            GetNodeAllocatedResource(node, props.resource),
+            GetNodeSpecResource(node, props.resource),
+            // PendingResources[props.resource],
+            // AllocatedResources[props.resource],
+            // CapacityResources[props.resource],
         ];
     };
 
@@ -130,14 +140,21 @@ export const NodeResourceUsageTable: React.FunctionComponent<NodeResourceUsageTa
                     <Tbody>
                         {paginatedNodes.map((node) => {
                             return (
-                                <Tr key={`node-${node.NodeId}-${props.resource}-usage-table-row`}>
-                                    <Td dataLabel={table_column_names[0]}>{node.NodeId}</Td>
-                                    <Td dataLabel={table_column_names[1]}>
+                                <Tr key={`node-${GetNodeId(node)}-${props.resource}-usage-table-row`}>
+                                    <Td dataLabel={table_column_names[0]}>{GetNodeName(node)}</Td>
+                                    <Td dataLabel={table_column_names[1]}>{GetNodeId(node)}</Td>
+                                    <Td dataLabel={table_column_names[2]}>
                                         {GetNodeIdleResource(node, props.resource)}
                                     </Td>
-                                    <Td dataLabel={table_column_names[2]}>{node.PendingResources[props.resource]}</Td>
-                                    <Td dataLabel={table_column_names[3]}>{node.AllocatedResources[props.resource]}</Td>
-                                    <Td dataLabel={table_column_names[4]}>{node.CapacityResources[props.resource]}</Td>
+                                    <Td dataLabel={table_column_names[3]}>
+                                        {GetNodePendingResource(node, props.resource)}
+                                    </Td>
+                                    <Td dataLabel={table_column_names[4]}>
+                                        {GetNodeAllocatedResource(node, props.resource)}
+                                    </Td>
+                                    <Td dataLabel={table_column_names[5]}>
+                                        {GetNodeSpecResource(node, props.resource)}
+                                    </Td>
                                 </Tr>
                             );
                         })}
@@ -207,25 +224,25 @@ export const NodeResourceView: React.FunctionComponent = () => {
                 </CardHeader>
                 <CardExpandableContent>
                     <CardBody>
-                      <Grid hasGutter>
-                        <GridItem span={8} rowSpan={2}>
-                          <NodeResourceUsageTable resource={'CPU'} />
-                        </GridItem>
-                        <GridItem span={4} rowSpan={1}>
-                          <iframe
-                            src={`http://localhost:3000/d-solo/ddx4gnyl0cmbka/distributed-cluster?orgId=1&refresh=5s&from=${(currentTime.current ? currentTime.current : Date.now()) - 300000}&to=${(currentTime.current ? currentTime.current : Date.now())}&panelId=26`}
-                            width="100%"
-                            height="50%"
-                          />
-                        </GridItem>
-                        <GridItem span={4} rowSpan={1}>
-                          <iframe
-                            src={`http://localhost:3000/d-solo/ddx4gnyl0cmbka/distributed-cluster?orgId=1&refresh=5s&from=${(currentTime.current ? currentTime.current : Date.now()) - 300000}&to=${(currentTime.current ? currentTime.current : Date.now())}&panelId=33`}
-                            width="100%"
-                            height="50%"
-                          />
-                        </GridItem>
-                      </Grid>
+                        <Grid hasGutter>
+                            <GridItem span={8} rowSpan={2}>
+                                <NodeResourceUsageTable resource={'CPU'} />
+                            </GridItem>
+                            <GridItem span={4} rowSpan={1}>
+                                <iframe
+                                    src={`http://localhost:3000/d-solo/ddx4gnyl0cmbka/distributed-cluster?orgId=1&refresh=5s&from=${(currentTime.current ? currentTime.current : Date.now()) - 300000}&to=${currentTime.current ? currentTime.current : Date.now()}&panelId=26`}
+                                    width="100%"
+                                    height="50%"
+                                />
+                            </GridItem>
+                            <GridItem span={4} rowSpan={1}>
+                                <iframe
+                                    src={`http://localhost:3000/d-solo/ddx4gnyl0cmbka/distributed-cluster?orgId=1&refresh=5s&from=${(currentTime.current ? currentTime.current : Date.now()) - 300000}&to=${currentTime.current ? currentTime.current : Date.now()}&panelId=33`}
+                                    width="100%"
+                                    height="50%"
+                                />
+                            </GridItem>
+                        </Grid>
                     </CardBody>
                 </CardExpandableContent>
             </Card>
@@ -249,25 +266,25 @@ export const NodeResourceView: React.FunctionComponent = () => {
                 </CardHeader>
                 <CardExpandableContent>
                     <CardBody>
-                      <Grid hasGutter>
-                        <GridItem span={8} rowSpan={2}>
-                          <NodeResourceUsageTable resource={'Memory'} />
-                        </GridItem>
-                        <GridItem span={4} rowSpan={1}>
-                          <iframe
-                            src={`http://localhost:3000/d-solo/ddx4gnyl0cmbka/distributed-cluster?orgId=1&refresh=5s&from=${(currentTime.current ? currentTime.current : Date.now()) - 300000}&to=${(currentTime.current ? currentTime.current : Date.now())}&panelId=41`}
-                            width="100%"
-                            height="50%"
-                          />
-                        </GridItem>
-                        <GridItem span={4} rowSpan={1}>
-                          <iframe
-                            src={`http://localhost:3000/d-solo/ddx4gnyl0cmbka/distributed-cluster?orgId=1&refresh=5s&from=${(currentTime.current ? currentTime.current : Date.now()) - 300000}&to=${(currentTime.current ? currentTime.current : Date.now())}&panelId=42`}
-                            width="100%"
-                            height="50%"
-                          />
-                        </GridItem>
-                      </Grid>
+                        <Grid hasGutter>
+                            <GridItem span={8} rowSpan={2}>
+                                <NodeResourceUsageTable resource={'Memory'} />
+                            </GridItem>
+                            <GridItem span={4} rowSpan={1}>
+                                <iframe
+                                    src={`http://localhost:3000/d-solo/ddx4gnyl0cmbka/distributed-cluster?orgId=1&refresh=5s&from=${(currentTime.current ? currentTime.current : Date.now()) - 300000}&to=${currentTime.current ? currentTime.current : Date.now()}&panelId=41`}
+                                    width="100%"
+                                    height="50%"
+                                />
+                            </GridItem>
+                            <GridItem span={4} rowSpan={1}>
+                                <iframe
+                                    src={`http://localhost:3000/d-solo/ddx4gnyl0cmbka/distributed-cluster?orgId=1&refresh=5s&from=${(currentTime.current ? currentTime.current : Date.now()) - 300000}&to=${currentTime.current ? currentTime.current : Date.now()}&panelId=42`}
+                                    width="100%"
+                                    height="50%"
+                                />
+                            </GridItem>
+                        </Grid>
                     </CardBody>
                 </CardExpandableContent>
             </Card>
@@ -297,17 +314,17 @@ export const NodeResourceView: React.FunctionComponent = () => {
                             </GridItem>
                             <GridItem span={4} rowSpan={1}>
                                 <iframe
-                                    src={`http://localhost:3000/d-solo/ddx4gnyl0cmbka/distributed-cluster?orgId=1&refresh=5s&from=${(currentTime.current ? currentTime.current : Date.now()) - 300000}&to=${(currentTime.current ? currentTime.current : Date.now())}&panelId=34`}
+                                    src={`http://localhost:3000/d-solo/ddx4gnyl0cmbka/distributed-cluster?orgId=1&refresh=5s&from=${(currentTime.current ? currentTime.current : Date.now()) - 300000}&to=${currentTime.current ? currentTime.current : Date.now()}&panelId=34`}
                                     width="100%"
                                     height="50%"
                                 />
                             </GridItem>
                             <GridItem span={4} rowSpan={1}>
                                 <iframe
-                                    src={`http://localhost:3000/d-solo/ddx4gnyl0cmbka/distributed-cluster?orgId=1&refresh=5s&from=${(currentTime.current ? currentTime.current : Date.now()) - 300000}&to=${(currentTime.current ? currentTime.current : Date.now())}&panelId=19`}
+                                    src={`http://localhost:3000/d-solo/ddx4gnyl0cmbka/distributed-cluster?orgId=1&refresh=5s&from=${(currentTime.current ? currentTime.current : Date.now()) - 300000}&to=${currentTime.current ? currentTime.current : Date.now()}&panelId=19`}
                                     width="100%"
                                     height="50%"
-                                    />
+                                />
                             </GridItem>
                         </Grid>
                     </CardBody>
@@ -318,23 +335,23 @@ export const NodeResourceView: React.FunctionComponent = () => {
                     onExpand={() => setIsVirtualGpuSectionExpanded(!isVirtualGpuSectionExpanded)}
                     isToggleRightAligned={false}
                     toggleButtonProps={{
-                        id: 'node-resource-view-vgpu-section-toggle-button',
+                        id: 'node-resource-view-vram-section-toggle-button',
                         'aria-label': 'Toggle vGPU resource usage section',
                         'aria-labelledby':
-                            'node-resource-view-vgpu-section-toggle-button node-resource-view-gpu-section-title',
+                            'node-resource-view-vram-section-toggle-button node-resource-view-gpu-section-title',
                         'aria-expanded': isGpuSectionExpanded,
                     }}
                 >
-                    <CardTitle id={'node-resource-view-vgpu-section-title'}>
+                    <CardTitle id={'node-resource-view-vram-section-title'}>
                         <span className="pf-v5-u-font-weight-light">
-                            <GpuIcon /> vGPU Usage
+                            <GpuIcon /> VRAM Usage
                         </span>
                     </CardTitle>
                 </CardHeader>
                 <CardExpandableContent>
                     <CardBody>
                         <Grid hasGutter>
-                            <NodeResourceUsageTable resource={'vGPU'} />
+                            <NodeResourceUsageTable resource={'VRAM'} />
                         </Grid>
                     </CardBody>
                 </CardExpandableContent>

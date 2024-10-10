@@ -72,4 +72,16 @@ module.exports = merge(common('development'), {
             },
         ],
     },
+    snapshot: {
+        managedPaths: [],
+    },
+    // when symlinks.resolve is false, we need this to make sure dev server picks up the changes in the symlinked files and rebuilds
+    watchOptions: {
+        followSymlinks: true,
+    },
+    resolve: {
+        // Uncomment the following line when working with local packages
+        // More reading : https://webpack.js.org/configuration/resolve/#resolvesymlinks
+        symlinks: false,
+    },
 });

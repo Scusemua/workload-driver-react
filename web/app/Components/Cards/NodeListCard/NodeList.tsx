@@ -3,7 +3,7 @@ import { GpuIcon } from '@app/Icons';
 import { GetToastContentWithHeaderAndBody, ToastFetch } from '@app/utils/toast_utils';
 import { NodeDataList } from '@cards/NodeListCard/NodeDataList';
 import { NodeResourceView } from '@cards/NodeListCard/NodeResourceView';
-import { ClusterNode } from '@data/Cluster';
+import { ClusterNode, GetNodeId, GetNodeSpecResource } from '@data/Cluster';
 import {
     Button,
     Card,
@@ -24,6 +24,7 @@ import {
 import { FilterIcon, ListIcon, MonitoringIcon, ReplicatorIcon, SyncIcon } from '@patternfly/react-icons';
 import { useNodes } from '@providers/NodeProvider';
 import React from 'react';
+import toast from 'react-hot-toast';
 import { AdjustVirtualGPUsModal, RoundToTwoDecimalPlaces } from '../../Modals';
 
 export interface NodeListProps {
@@ -83,7 +84,7 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
         }
 
         adjustVirtualGPUsNodes.forEach((node: ClusterNode) => {
-            if (node.CapacityResources['vGPU'] == value) {
+            if (GetNodeSpecResource(node, 'GPU') == value) {
                 console.log('Adjusted vGPUs value is same as current value. Doing nothing.');
                 closeAdjustVirtualGPUsModal();
                 return;
@@ -97,22 +98,27 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
                 },
                 body: JSON.stringify({
                     value: value,
-                    kubernetesNodeName: node?.NodeId,
+                    kubernetesNodeName: GetNodeId(node),
                 }),
             };
 
-            console.log(`Attempting to set vGPUs on node ${node?.NodeId} to ${value}`);
+            console.log(`Attempting to set vGPUs on node ${GetNodeId(node)} to ${value}`);
 
             ToastFetch(
-                `Adjusting number of vGPUs on node ${node?.NodeId} to ${value}`,
-                GetToastContentWithHeaderAndBody(
-                    `Successfully updated vGPU capacity for node ${node.NodeId}`,
-                    'It may take several seconds for the updated value to appear.',
-                ),
-                (_, reason) => {
+                `Adjusting number of vGPUs on node ${GetNodeId(node)} to ${value}`,
+                (toastId: string) =>
+                    GetToastContentWithHeaderAndBody(
+                        `Successfully updated vGPU capacity for node ${GetNodeId(node)}`,
+                        'It may take several seconds for the updated value to appear.',
+                        'success',
+                        () => toast.dismiss(toastId),
+                    ),
+                (_, reason, toastId: string) => {
                     return GetToastContentWithHeaderAndBody(
-                        `Failed to update vGPUs for node ${node.NodeId}`,
+                        `Failed to update vGPUs for node ${GetNodeId(node)}`,
                         JSON.stringify(reason),
+                        'danger',
+                        () => toast.dismiss(toastId),
                     );
                 },
                 'api/vgpus',
@@ -172,14 +178,23 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
 
         await ToastFetch(
             getToastLoadingMessage(value, operation),
-            GetToastContentWithHeaderAndBody(
-                getToastSuccessMessage(value, operation),
-                `It may take several seconds for the nodes list to update. (Time elapsed: ${RoundToTwoDecimalPlaces(performance.now() - startTime)} seconds.)`,
-            ),
-            (res, reason) => {
+            (toastId: string) =>
+                GetToastContentWithHeaderAndBody(
+                    getToastSuccessMessage(value, operation),
+                    `It may take several seconds for the nodes list to update. (Time elapsed: ${RoundToTwoDecimalPlaces(performance.now() - startTime)} seconds.)`,
+                    'success',
+                    () => {
+                        toast.dismiss(toastId);
+                    },
+                ),
+            (res, reason, toastId: string) => {
                 return GetToastContentWithHeaderAndBody(
                     getToastFailureMessage(value, operation),
                     `HTTP ${res.status} - ${res.statusText}: ${JSON.stringify(reason)}`,
+                    'danger',
+                    () => {
+                        toast.dismiss(toastId);
+                    },
                 );
             },
             'api/nodes',
@@ -191,7 +206,7 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
 
     // Handler for when the user filters by node name.
     const onFilter = (repo: ClusterNode) => {
-        if (props.hideControlPlaneNode && repo.NodeId.includes('control-plane')) {
+        if (props.hideControlPlaneNode && GetNodeId(repo).includes('control-plane')) {
             return false;
         }
 
@@ -202,7 +217,7 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
         } catch (err) {
             searchValueInput = new RegExp(searchValue.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
         }
-        const matchesSearchValue = repo.NodeId.search(searchValueInput) >= 0;
+        const matchesSearchValue = GetNodeId(repo).search(searchValueInput) >= 0;
 
         // If the filter text box is empty, then match against everything. Otherwise, match against node ID.
         return searchValue === '' || matchesSearchValue;

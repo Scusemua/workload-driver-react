@@ -171,6 +171,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
             let max_millicpus: number = -1;
             let max_mem_mb: number = -1;
             let max_num_gpus: number = -1;
+            let max_vram_gb: number = -1;
             for (let j: number = 0; j < trainings.length; j++) {
                 const training: TrainingEvent = trainings[j];
                 training.training_index = j; // Set the training index field.
@@ -183,6 +184,10 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                     max_mem_mb = training.mem_usage_mb;
                 }
 
+                if (training.vram_usage_gb > max_vram_gb) {
+                  max_vram_gb = training.vram_usage_gb;
+                }
+
                 if (training.gpu_utilizations.length > max_num_gpus) {
                     max_num_gpus = training.gpu_utilizations.length;
                 }
@@ -193,6 +198,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                 cpus: max_millicpus,
                 gpus: max_num_gpus,
                 mem_mb: max_mem_mb,
+                vram: max_vram_gb,
                 gpu_type: 'Any_GPU',
             };
         }
@@ -227,7 +233,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
         );
     };
 
-    const onSubmit = (data) => {
+    const onSubmit = (data: { workloadTitle: string }) => {
         const workloadTitle: string = data.workloadTitle;
         // const workloadSeed: string = data.workloadSeed;
         // const debugLoggingEnabled: boolean = data.debugLoggingEnabled;

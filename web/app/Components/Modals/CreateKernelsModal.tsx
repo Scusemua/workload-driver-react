@@ -1,4 +1,4 @@
-import React from 'react';
+import { ResourceSpec } from '@app/Data';
 import {
     Button,
     Divider,
@@ -15,8 +15,7 @@ import {
     TextInputGroup,
     TextInputProps,
 } from '@patternfly/react-core';
-
-import { ResourceSpec } from '@app/Data';
+import React from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface CreateKernelsModalProps {
@@ -34,7 +33,8 @@ export interface CreateKernelsModalProps {
 
 const defaultCPUs: string = '100'; // milli-cpus
 const defaultGPUs: string = '1';
-const defaultMemory: string = '1250'; // Mi
+const defaultVRAM: string = '4'; // GB
+const defaultMemory: string = '1250'; // Mb
 
 export const CreateKernelsModal: React.FunctionComponent<CreateKernelsModalProps> = (props) => {
     const [numKernelsText, setNumKernelsText] = React.useState('1');
@@ -43,14 +43,14 @@ export const CreateKernelsModal: React.FunctionComponent<CreateKernelsModalProps
     const [numKernelsValidated, setNumKernelsValidated] = React.useState<TextInputProps['validated']>('default');
     const [cpusValidated, setCpusValidated] = React.useState<TextInputProps['validated']>('default');
     const [gpusValidated, setGpusValidated] = React.useState<TextInputProps['validated']>('default');
+    const [vramValidated, setVramValidated] = React.useState<TextInputProps['validated']>('default');
     const [memValidated, setMemValidated] = React.useState<TextInputProps['validated']>('default');
 
     const [cpus, setCpus] = React.useState<Map<number, string>>(new Map());
-    new Map();
     const [memory, setMemory] = React.useState<Map<number, string>>(new Map());
-    new Map();
     const [gpus, setGpus] = React.useState<Map<number, string>>(new Map());
-    new Map();
+    const [vram, setVram] = React.useState<Map<number, string>>(new Map());
+
     const [kernelIds, setKernelIds] = React.useState<Map<number, string>>(new Map());
     const [sessionIds, setSessionIds] = React.useState<Map<number, string>>(new Map());
 
@@ -59,6 +59,7 @@ export const CreateKernelsModal: React.FunctionComponent<CreateKernelsModalProps
     const [cpuHintText] = React.useState(defaultCPUs);
     const [memHintText] = React.useState(defaultMemory);
     const [gpuHintText] = React.useState(defaultGPUs);
+    const [vramHintText] = React.useState(defaultVRAM);
 
     const defaultKernelId = React.useRef<Map<number, string> | null>(null);
     const defaultSessionId = React.useRef<Map<number, string> | null>(null);
@@ -99,6 +100,11 @@ export const CreateKernelsModal: React.FunctionComponent<CreateKernelsModalProps
                 gpu = Number.parseInt(defaultGPUs);
             }
 
+            let specified_vram: number = Number.parseInt(vram.get(i) || defaultVRAM);
+            if (Number.isNaN(vram)) {
+                specified_vram = Number.parseInt(defaultVRAM);
+            }
+
             let mem: number = Number.parseInt(memory.get(i) || defaultMemory);
             if (Number.isNaN(mem)) {
                 mem = Number.parseInt(defaultMemory);
@@ -108,6 +114,7 @@ export const CreateKernelsModal: React.FunctionComponent<CreateKernelsModalProps
                 cpu: cpu,
                 memory: mem,
                 gpu: gpu,
+                vram: specified_vram,
             };
 
             resourceSpecsList.push(resourceSpec);
@@ -124,6 +131,7 @@ export const CreateKernelsModal: React.FunctionComponent<CreateKernelsModalProps
         setCpus(new Map());
         setMemory(new Map());
         setGpus(new Map());
+        setVram(new Map());
         setNumKernels(1);
         setNumKernelsText('1');
         setNumKernelsValidated('default');
@@ -277,7 +285,7 @@ export const CreateKernelsModal: React.FunctionComponent<CreateKernelsModalProps
                                 </TextInputGroup>
                             </FormGroup>
                         </GridItem>
-                        <GridItem span={4} rowSpan={1}>
+                        <GridItem span={3} rowSpan={1}>
                             <FormGroup label="CPUs (millicpus)">
                                 <TextInputGroup>
                                     <TextInput
@@ -318,7 +326,7 @@ export const CreateKernelsModal: React.FunctionComponent<CreateKernelsModalProps
                                 </TextInputGroup>
                             </FormGroup>
                         </GridItem>
-                        <GridItem span={4} rowSpan={1}>
+                        <GridItem span={3} rowSpan={1}>
                             <FormGroup label="Memory (MB)">
                                 <TextInputGroup>
                                     <TextInput
@@ -359,7 +367,7 @@ export const CreateKernelsModal: React.FunctionComponent<CreateKernelsModalProps
                                 </TextInputGroup>
                             </FormGroup>
                         </GridItem>
-                        <GridItem span={4} rowSpan={1}>
+                        <GridItem span={3} rowSpan={1}>
                             <FormGroup label="GPUs">
                                 <TextInput
                                     id="num-gpus-textinput"
@@ -392,6 +400,43 @@ export const CreateKernelsModal: React.FunctionComponent<CreateKernelsModalProps
                                         }
 
                                         setGpusValidated('success');
+                                    }}
+                                />
+                            </FormGroup>
+                        </GridItem>
+                        <GridItem span={3} rowSpan={1}>
+                            <FormGroup label="VRAM (GB)">
+                                <TextInput
+                                    id="vram-gb-textinput"
+                                    aria-label="vram-gb-textinput"
+                                    placeholder={vramHintText}
+                                    type={'number'}
+                                    validated={vramValidated}
+                                    value={
+                                        (vram.get(currentKernelIndex) && vram.get(currentKernelIndex)?.toString()) || ''
+                                    }
+                                    onChange={(_event, value) => {
+                                        setVram(new Map(vram).set(currentKernelIndex, value));
+
+                                        if (value == '') {
+                                            setVramValidated('success');
+                                            return;
+                                        }
+
+                                        const valueAsNumber: number = Number.parseInt(value);
+
+                                        if (Number.isNaN(value)) {
+                                            setVramValidated('error');
+                                            return;
+                                        }
+
+                                        // For now, we assume 40GB is the maximum available on a node.
+                                        if (valueAsNumber > 40 || valueAsNumber <= 0) {
+                                            setVramValidated('error');
+                                            return;
+                                        }
+
+                                        setVramValidated('success');
                                     }}
                                 />
                             </FormGroup>

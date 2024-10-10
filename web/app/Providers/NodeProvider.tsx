@@ -50,8 +50,8 @@ function getManualRefreshTrigger(trigger: TriggerWithoutArgs<any, any, string, n
 
         if (!showToast) {
             await trigger().catch((error: Error) => {
-              console.error(`Failed to refresh nodes because: ${error.message}`);
-            })
+                console.error(`Failed to refresh nodes because: ${error.message}`);
+            });
             return;
         }
 
@@ -59,17 +59,26 @@ function getManualRefreshTrigger(trigger: TriggerWithoutArgs<any, any, string, n
         const toastId: string = toast.loading(() => <b>Refreshing nodes...</b>);
         await trigger()
             .catch((error: Error) => {
-                toast.error(GetToastContentWithHeaderAndBody('Could not refresh nodes.', error.message), {
-                    id: toastId,
-                    duration: 10000,
-                    style: { maxWidth: 600 },
-                });
+                toast.custom(
+                    GetToastContentWithHeaderAndBody('Could not refresh nodes.', error.message, 'danger', () => {
+                        toast.dismiss(toastId);
+                    }),
+                    {
+                        id: toastId,
+                        duration: 10000,
+                        style: { maxWidth: 600 },
+                    },
+                );
             })
             .then(() =>
-                toast.success(
+                toast.custom(
                     GetToastContentWithHeaderAndBody(
                         'Refreshed nodes.',
                         `Time elapsed: ${RoundToTwoDecimalPlaces(performance.now() - st)} ms`,
+                        'success',
+                        () => {
+                            toast.dismiss(toastId);
+                        },
                     ),
                     { id: toastId, duration: 7500, style: { maxWidth: 600 } },
                 ),
@@ -82,6 +91,13 @@ export function useNodes() {
     const { trigger, isMutating } = useSWRMutation(api_endpoint, fetcher);
 
     const nodes: ClusterNode[] = data || [];
+
+    // if (nodes.length > 0) {
+    //     console.log(`Received ${nodes.length} ClusterNode(s) from server:`);
+    //     console.log(JSON.stringify(nodes, null, 2));
+    // } else {
+    //     console.warn('Received 0 ClusterNodes from server...');
+    // }
 
     return {
         nodes: nodes,

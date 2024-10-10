@@ -6,7 +6,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
-	gateway "github.com/scusemua/workload-driver-react/m/v2/internal/server/api/proto"
+	"github.com/scusemua/workload-driver-react/m/v2/internal/server/api/proto"
 	"go.uber.org/zap"
 )
 
@@ -32,24 +32,24 @@ func NewPingKernelHttpHandler(opts *domain.Configuration, grpcClient *ClusterDas
 }
 
 func (h *PingKernelHttpHandler) HandleRequest(c *gin.Context) {
-	var req *gateway.PingInstruction
+	var req *proto.PingInstruction
 	err := c.BindJSON(&req)
 	if err != nil {
 		h.logger.Error("Failed to bind request to data type.", zap.Error(err))
-		c.AbortWithError(http.StatusBadRequest, err)
+		_ = c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
 
 	resp, err := h.grpcClient.PingKernel(context.Background(), req)
 	if err != nil {
 		h.logger.Error("Error while pinging kernel", zap.String("kernel_id", req.KernelId), zap.Error(err))
-		c.AbortWithError(http.StatusInternalServerError, err)
+		_ = c.AbortWithError(http.StatusInternalServerError, err)
 		return
 	}
 
 	if resp.Success {
-		h.logger.Debug("Successfully pinged kernel.", zap.String("kernel_id", req.KernelId))
-		c.Status(http.StatusOK)
+		h.logger.Debug("Successfully pinged kernel.", zap.String("kernel_id", req.KernelId), zap.Array("request_traces", proto.RequestTraceArr(resp.RequestTraces)))
+		c.JSON(http.StatusOK, resp)
 	} else {
 		h.logger.Debug("Failed to ping one or more replicas of kernel.", zap.String("kernel_id", req.KernelId))
 		c.Status(http.StatusInternalServerError)

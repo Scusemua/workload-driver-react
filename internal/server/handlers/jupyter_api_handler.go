@@ -40,7 +40,7 @@ func NewJupyterAPIHandler(opts *domain.Configuration) domain.JupyterApiHttpHandl
 	return handler
 }
 
-// Write an error back to the client.
+// WriteError writes an error back to the client.
 func (h *JupyterAPIHandler) WriteError(c *gin.Context, errorMessage string) {
 	// Write error back to front-end.
 	msg := &domain.ErrorMessage{

@@ -96,7 +96,6 @@ export const CodeEditorComponent: React.FunctionComponent<CodeEditorComponentPro
 
   const fileNameField = (
     <TextInput
-      customIcon={<FileIcon/>}
       key={"template-filename-text-input"}
       // If the user hasn't specified a filename, then don't add the file extension automatically.
       // We'll use the placeholder text instead.
@@ -140,6 +139,7 @@ export const CodeEditorComponent: React.FunctionComponent<CodeEditorComponentPro
   const defaultCodeTemplate0 = (
     <CodeEditorControl
       icon={<CodeIcon/>}
+      key={"default-code-template-0"}
       aria-label="Execute code"
       tooltipProps={{content: 'Sample Code #1'}}
       onClick={() => {
@@ -154,6 +154,7 @@ print("a = %d" % a)`,
   const defaultCodeTemplate1 = (
     <CodeEditorControl
       icon={<CodeIcon/>}
+      key={"default-code-template-1"}
       aria-label="Execute code"
       tooltipProps={{content: 'Sample Code #1'}}
       onClick={() => {
@@ -168,6 +169,7 @@ print("a = %d" % a)`,
   const defaultCodeTemplate2 = (
     <CodeEditorControl
       icon={<CodeIcon/>}
+      key={"default-code-template-2"}
       aria-label="Execute code"
       tooltipProps={{content: 'Sample Code #2'}}
       onClick={() => {
@@ -182,6 +184,7 @@ print("a = %d, b = %d" % (a, b))`,
   const defaultCodeTemplate3 = (
     <CodeEditorControl
       icon={<DiceIcon/>}
+      key={"default-code-template-3"}
       aria-label="Execute code"
       tooltipProps={{content: 'Sample Code #3'}}
       onClick={() => {
@@ -198,6 +201,7 @@ print(f"Incremented: {var}")
   const defaultCodeTemplate4 = (
     <CodeEditorControl
       icon={<ClockIcon/>}
+      key={"default-code-template-4"}
       aria-label="Execute code"
       tooltipProps={{content: 'Sample Code #4'}}
       onClick={() => {

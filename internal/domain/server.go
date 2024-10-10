@@ -58,6 +58,9 @@ const (
 	// YieldNextRequestEndpoint is used to specify that the next execution request served by a particular kernel should be yielded.
 	YieldNextRequestEndpoint = "/yield-next-execute-request"
 
+	// QueryMessageEndpoint is used by the frontend to query the status of particular ZMQ messages.
+	QueryMessageEndpoint = "query-message"
+
 	JupyterGroupEndpoint = "/jupyter"
 
 	// SpoofErrorEndpoint causes the server to broadcast a fake error via websockets for debugging/testing purposes.

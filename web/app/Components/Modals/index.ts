@@ -10,3 +10,4 @@ export * from './PingKernelModal';
 export * from './InspectWorkloadModal';
 export * from './NewWorkloadFromTemplateModal';
 export * from './AdjustNumNodesModal';
+export * from './QueryMessageModal';

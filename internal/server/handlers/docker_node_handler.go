@@ -79,7 +79,7 @@ func (h *DockerSwarmNodeHttpHandler) HandleRequest(c *gin.Context) {
 		nodes = append(nodes, virtualDockerNode)
 	}
 
-	h.sugaredLogger.Debugf("Returning %d virtual Docker node(s): %v", len(nodes), nodes)
+	h.sugaredLogger.Debugf("Returning %d virtual Docker node(s): %v", len(protoNodes), protoNodes)
 
 	c.JSON(http.StatusOK, nodes)
 }

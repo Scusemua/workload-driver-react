@@ -1,22 +1,26 @@
 import {
-    ConfirmationModal,
-    CreateKernelsModal,
-    ExecuteCodeOnKernelModal,
-    InformationModal,
-    RoundToThreeDecimalPlaces,
+  ConfirmationModal,
+  CreateKernelsModal,
+  ExecuteCodeOnKernelModal,
+  InformationModal, RoundToNDecimalPlaces,
+  RoundToThreeDecimalPlaces
 } from '@app/Components/Modals';
 import { HeightFactorContext, KernelHeightFactorContext } from '@app/Dashboard/Dashboard';
-import { GpuIcon } from '@app/Icons';
+import { GpuIcon, GpuIconAlt2 } from '@app/Icons';
 import { useNodes } from '@app/Providers';
 import { GetToastContentWithHeaderAndBody } from '@app/utils/toast_utils';
 import { numberArrayFromRange } from '@app/utils/utils';
 import { PingKernelModal } from '@components/Modals';
+import { RequestTraceSplitTable } from '@components/Tables';
 import { DistributedJupyterKernel, JupyterKernelReplica, ResourceSpec } from '@data/Kernel';
+import { PongResponse } from '@data/Message';
 
 import { KernelManager, ServerConnection, SessionManager } from '@jupyterlab/services';
 import { IKernelConnection } from '@jupyterlab/services/lib/kernel/kernel';
 import { ISessionConnection, IModel as ISessionModel } from '@jupyterlab/services/lib/session/session';
 import {
+    Alert,
+    AlertActionCloseButton,
     Button,
     Card,
     CardBody,
@@ -302,36 +306,101 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             }),
         };
 
-        toast
-            .promise(
-                fetch('api/ping-kernel', req),
-                {
-                    loading: <b>Pinging kernel {kernelId} now...</b>,
-                    success: (resp: Response) => {
-                        if (!resp.ok || resp.status != 200) {
-                            console.error(`Failed to ping 1 or more replicas of kernel ${kernelId}.`);
-                            throw new Error(`HTTP ${resp.status}: ${resp.statusText}`);
-                        }
-                        return (
-                            <b>
-                                Successfully pinged kernel {kernelId}. {resp.status}
-                            </b>
-                        );
-                    },
-                    error: (reason: Error) =>
+        const toastId: string = toast.custom(
+            (t) => {
+                return (
+                    <Alert
+                        title={<b>Pinging kernel {kernelId} now...</b>}
+                        variant={'custom'}
+                        customIcon={<SpinnerIcon className={'loading-icon-spin-pulse'} />}
+                        timeout={false}
+                        actionClose={<AlertActionCloseButton onClose={() => toast.dismiss(t.id)} />}
+                    />
+                );
+            },
+            {
+                style: {
+                    maxWidth: 750,
+                },
+                icon: <SpinnerIcon className={'loading-icon-spin-pulse'} />,
+            },
+        );
+
+        const startTime: number = performance.now();
+        const initialRequestTimestamp: number = Date.now();
+        fetch('api/ping-kernel', req)
+            .catch((err: Error) => {
+                toast.custom(
+                    () =>
                         GetToastContentWithHeaderAndBody(
                             `Failed to ping one or more replicas of kernel ${kernelId}.`,
-                            `<b>Reason:</b> ${reason.message}`,
+                            err.message,
+                            'danger',
+                            () => {
+                                toast.dismiss(toastId);
+                            },
                         ),
-                },
-                {
-                    style: {
-                        padding: '8px',
-                        minWidth: '425px',
-                    },
-                },
-            )
-            .then(() => {});
+                    { id: toastId, style: { maxWidth: 750 } },
+                );
+            })
+            .then(async (resp: Response | void) => {
+                if (!resp) {
+                    console.error('No response from ping-kernel.');
+                    return;
+                }
+
+                if (resp.status != 200 || !resp.ok) {
+                    const response = await resp.json();
+                    toast.custom(
+                        () =>
+                            GetToastContentWithHeaderAndBody(
+                                `Failed to ping one or more replicas of kernel ${kernelId}.`,
+                                `${JSON.stringify(response)}`,
+                                'danger',
+                                () => {
+                                    toast.dismiss(toastId);
+                                },
+                            ),
+                        { id: toastId, style: { maxWidth: 750 } },
+                    );
+                } else {
+                    const response: PongResponse = await resp.json();
+                    const receivedReplyAt: number = Date.now();
+                    const latencyMilliseconds: number = RoundToNDecimalPlaces(performance.now() - startTime, 6);
+
+                    console.log('All Request Traces:');
+                    console.log(JSON.stringify(response.requestTraces, null, 2));
+
+                    toast.custom(
+                        <Alert
+                            isExpandable
+                            variant={'success'}
+                            title={`Pinged kernel ${response.id} via its ${socketType} channel (${latencyMilliseconds} ms)`}
+                            timeoutAnimation={30000}
+                            timeout={15000}
+                            onTimeout={() => toast.dismiss(toastId)}
+                            actionClose={<AlertActionCloseButton onClose={() => toast.dismiss(toastId)} />}
+                        >
+                            {response.requestTraces.length > 0 && (
+                                    <Flex direction={{ default: 'column' }}>
+                                        <FlexItem>
+                                            <Title headingLevel={'h3'}>Request Trace(s)</Title>
+                                        </FlexItem>
+                                        <FlexItem>
+                                            <RequestTraceSplitTable
+                                                receivedReplyAt={receivedReplyAt}
+                                                initialRequestSentAt={initialRequestTimestamp}
+                                                messageId={response.msg}
+                                                traces={response.requestTraces}
+                                            />
+                                        </FlexItem>
+                                    </Flex>
+                                )}
+                        </Alert>,
+                        { id: toastId },
+                    );
+                }
+            });
     };
 
     const onExecuteCodeClicked = (kernel: DistributedJupyterKernel | null, replicaIdx?: number | undefined) => {
@@ -436,6 +505,8 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                     GetToastContentWithHeaderAndBody(
                         `Failed to interrupt kernel ${kernelId}.`,
                         `<b>Reason:</b> ${reason.message}`,
+                        'danger',
+                        () => {},
                     ),
             })
             .then(() => {});
@@ -533,7 +604,12 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                     );
                 },
                 error: (reason: Error) =>
-                    GetToastContentWithHeaderAndBody('Failed to start new Jupyter Session and Jupyter Kernel.', reason.message),
+                    GetToastContentWithHeaderAndBody(
+                        'Failed to start new Jupyter Session and Jupyter Kernel.',
+                        reason.message,
+                        'danger',
+                        () => {},
+                    ),
             },
             { style: { maxWidth: 650 } },
         );
@@ -1237,13 +1313,26 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                         <Flex spaceItems={{ default: 'spaceItemsSm' }}>
                                             <FlexItem>
                                                 <Tooltip content="GPU resource usage limit">
-                                                    <GpuIcon className="node-memory-icon" />
+                                                    <GpuIcon className="node-gpu-icon" />
                                                 </Tooltip>
                                             </FlexItem>
                                             <FlexItem>
                                                 {(kernel != null &&
                                                     kernel.kernelSpec.resourceSpec.gpu != null &&
                                                     kernel.kernelSpec.resourceSpec.gpu.toFixed(0)) ||
+                                                    '0'}
+                                            </FlexItem>
+                                        </Flex>
+                                        <Flex spaceItems={{ default: 'spaceItemsSm' }}>
+                                            <FlexItem>
+                                                <Tooltip content="VRAM resource usage limit">
+                                                    <GpuIconAlt2 className="node-gpu-icon" />
+                                                </Tooltip>
+                                            </FlexItem>
+                                            <FlexItem>
+                                                {(kernel != null &&
+                                                    kernel.kernelSpec.resourceSpec.vram != null &&
+                                                    kernel.kernelSpec.resourceSpec.vram.toFixed(0)) ||
                                                     '0'}
                                             </FlexItem>
                                         </Flex>

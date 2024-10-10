@@ -216,7 +216,7 @@ func validateSessionArgumentsAgainstTrainingArguments(session *domain.WorkloadTe
 
 // SingleSessionSingleTraining creates a training sequence involving a single Session that trains just once.
 //
-// The following quantites are configurable and are to be passed as arguments to this function (in this order):
+// The following quantities are configurable and are to be passed as arguments to this function (in this order):
 // - session start time (>= 0)
 // - training start time (> 'session start time')
 // - training duration (> 0)
@@ -252,7 +252,7 @@ func SingleSessionSingleTraining(sessions []*domain.WorkloadTemplateSession) (Se
 	}
 
 	return func(sequencer *CustomEventSequencer, log *zap.Logger) error {
-		sequencer.RegisterSession(session.GetId(), session.GetResourceRequest().Cpus, session.GetResourceRequest().MemoryMB, session.GetResourceRequest().Gpus, 0)
+		sequencer.RegisterSession(session.GetId(), session.GetResourceRequest().Cpus, session.GetResourceRequest().MemoryMB, session.GetResourceRequest().Gpus, session.GetResourceRequest().VRAM, 0)
 
 		trainingEvent := session.GetTrainings()[0]
 
@@ -301,7 +301,7 @@ func ManySessionsManyTrainingEvents(sessions []*domain.WorkloadTemplateSession) 
 			}
 			seenSessions[session.GetId()] = struct{}{}
 
-			sequencer.RegisterSession(session.GetId(), session.GetResourceRequest().Cpus, session.GetResourceRequest().MemoryMB, session.GetResourceRequest().Gpus, 0)
+			sequencer.RegisterSession(session.GetId(), session.GetResourceRequest().Cpus, session.GetResourceRequest().MemoryMB, session.GetResourceRequest().Gpus, session.GetResourceRequest().VRAM, 0)
 			sequencer.AddSessionStartedEvent(session.GetId(), session.GetStartTick(), 0, 0, 0, 1)
 
 			for _, trainingEvent := range session.GetTrainings() {

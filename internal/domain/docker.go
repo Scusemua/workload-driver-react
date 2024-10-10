@@ -84,11 +84,18 @@ type VirtualDockerNode struct {
 	// NodeID is the unique ID of the node.
 	NodeId string `json:"NodeId"`
 
+	// NodeName is the name of the node, which is (typically) distinct from its ID.
+	NodeName string `json:"NodeName"`
+
 	// Containers is a slice of DockerContainer instances that are currently scheduled on this VirtualDockerNode.
 	Containers ContainerList `json:"PodsOrContainers"`
 
 	// Age refers to the length of time that the VirtualDockerNode has existed.
 	Age string `json:"Age"`
+
+	// CreatedAt is the unix milliseconds at which the corresponding VirtualDockerNode was created.
+	// (Not when the struct was created, but the actual cluster node represented by the VirtualDockerNode struct.)
+	CreatedAt int64 `json:"createdAt"`
 
 	age time.Duration
 
@@ -164,10 +171,17 @@ func VirtualDockerNodeFromProtoVirtualDockerNode(protoNode *proto.VirtualDockerN
 	idleResources[VirtualGpuResource] = float64(protoNode.SpecGpu) - float64(protoNode.AllocatedGpu)
 	capacityResources[VirtualGpuResource] = float64(protoNode.SpecGpu)
 
+	allocatedResources[VRAMResource] = float64(protoNode.AllocatedVRAM)
+	pendingResources[VRAMResource] = float64(protoNode.PendingVRAM)
+	idleResources[VRAMResource] = float64(protoNode.SpecVRAM) - float64(protoNode.AllocatedVRAM)
+	capacityResources[VRAMResource] = float64(protoNode.SpecVRAM)
+
 	return &VirtualDockerNode{
 		NodeId:             protoNode.NodeId,
+		NodeName:           protoNode.NodeName,
 		Type:               VirtualDockerNodeType,
 		IP:                 protoNode.Address,
+		CreatedAt:          protoNode.CreatedAt.Seconds,
 		Age:                fmt.Sprintf("%v", timex.Round(time.Now().Sub(protoNode.CreatedAt.AsTime()), 3)),
 		age:                time.Now().Sub(protoNode.CreatedAt.AsTime()),
 		Enabled:            true,

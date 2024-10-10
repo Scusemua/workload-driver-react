@@ -2,9 +2,12 @@ package domain
 
 import (
 	"encoding/json"
+	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/status"
+	"net/http"
 )
 
-// Used to pass errors back to another window.
+// ErrorHandler is used to pass errors back to another window.
 type ErrorHandler interface {
 	HandleError(error, string)
 }
@@ -27,4 +30,54 @@ func (m *ErrorMessage) Encode() []byte {
 func (m *ErrorMessage) String() string {
 	out := m.Encode()
 	return string(out)
+}
+
+// GRPCStatusToHTTPStatus converts a gRPC error to the corresponding HTTP status code
+func GRPCStatusToHTTPStatus(err error) int {
+	// Get the gRPC status from the error
+	st, ok := status.FromError(err)
+	if !ok {
+		// If it's not a gRPC error, return internal server error as default
+		return http.StatusInternalServerError
+	}
+
+	// Switch on the gRPC status code and map to corresponding HTTP status code
+	switch st.Code() {
+	case codes.OK:
+		return http.StatusOK
+	case codes.Canceled:
+		return http.StatusRequestTimeout
+	case codes.Unknown:
+		return http.StatusInternalServerError
+	case codes.InvalidArgument:
+		return http.StatusBadRequest
+	case codes.DeadlineExceeded:
+		return http.StatusGatewayTimeout
+	case codes.NotFound:
+		return http.StatusNotFound
+	case codes.AlreadyExists:
+		return http.StatusConflict
+	case codes.PermissionDenied:
+		return http.StatusForbidden
+	case codes.Unauthenticated:
+		return http.StatusUnauthorized
+	case codes.ResourceExhausted:
+		return http.StatusTooManyRequests
+	case codes.FailedPrecondition:
+		return http.StatusPreconditionFailed
+	case codes.Aborted:
+		return http.StatusConflict
+	case codes.OutOfRange:
+		return http.StatusRequestedRangeNotSatisfiable
+	case codes.Unimplemented:
+		return http.StatusNotImplemented
+	case codes.Internal:
+		return http.StatusInternalServerError
+	case codes.Unavailable:
+		return http.StatusServiceUnavailable
+	case codes.DataLoss:
+		return http.StatusInternalServerError
+	default:
+		return http.StatusInternalServerError
+	}
 }

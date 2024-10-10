@@ -133,6 +133,29 @@ service DistributedCluster {
 
   // GetLocalDaemonNodeIDs returns a string slice containing the host IDs of each local daemon.
   rpc GetLocalDaemonNodeIDs(Void) returns (GetLocalDaemonNodeIDsResponse) {}
+
+  // QueryMessage is used to query whether a given ZMQ message has been seen by any of the Cluster components
+  // and what the status of that message is (i.e., sent, response received, etc.)
+  rpc QueryMessage(QueryMessageRequest) returns (QueryMessageResponse) {}
+}
+
+// QueryMessageRequest is passed to the MessageExists gRPC function.
+//
+// It encapsulates a request concerning the existence/status of a particular ZMQ message.
+message QueryMessageRequest {
+  // The Jupyter message ID.
+  string messageId = 1;
+  // The Jupyter message type.
+  string messageType = 2;
+  // The target kernel.
+  string kernelId = 3;
+}
+
+// QueryMessageResponse is returned by the gRPC function.
+//
+// It encodes the existence/status of the specified or requested ZMQ message.
+message QueryMessageResponse {
+  RequestTrace requestTrace = 1;
 }
 
 // gRPC service provided by the Dashboard and "used" by the Cluster Gateway
@@ -294,24 +317,31 @@ message VirtualDockerNode {
   // SpecGpu is the total number of vGPUs on the VirtualDockerNode.
   // This quantity is not impacted by active allocations.
   float specGpu = 5;
+  // SpecVRAM is the amount of VRAM (in GB) available on the VirtualDockerNode.
+  // This quantity is not impacted by active allocations.
+  float specVRAM = 6;
   // AllocatedCpu is the number of vCPUs that is actively/currently allocated on the VirtualDockerNode.
-  float allocatedCpu = 6;
+  float allocatedCpu = 7;
   // AllocatedMemory is the amount of memory (in megabytes) that is currently allocated on the VirtualDockerNode.
-  float allocatedMemory = 7;
+  float allocatedMemory = 8;
   // AllocatedGpu is the number of vGPUs that is actively/currently allocated on the VirtualDockerNode.
-  float allocatedGpu = 8;
+  float allocatedGpu = 9;
+  // AllocatedGpu is the amount of VRAM that is actively/currently allocated on the VirtualDockerNode.
+  float allocatedVRAM = 10;
   // PendingCpu is the number of vCPUs that is subscribed (but not committed) on the VirtualDockerNode.
-  float pendingCpu = 9;
+  float pendingCpu = 11;
   // PendingMemory is the amount of memory (in megabytes) that is subscribed (but not committed) on the VirtualDockerNode.
-  float pendingMemory = 10;
+  float pendingMemory = 12;
   // PendingGpus is the number of vGPUs that is subscribed (but not committed) on the VirtualDockerNode.
-  float pendingGpu = 11;
+  float pendingGpu = 13;
+  // PendingVRAM is the amount of VRAM (in GB) that is subscribed (but not committed) on the VirtualDockerNode.
+  float pendingVRAM = 14;
   // NodeName is the name of the node.
-  string nodeName = 12;
+  string nodeName = 15;
   // Address is the IP address of the node.
-  string address = 13;
+  string address = 16;
   // CreatedAt is the time that the node was created.
-  google.protobuf.Timestamp createdAt = 14;
+  google.protobuf.Timestamp createdAt = 17;
 }
 
 // DockerContainer describes a Docker container.
@@ -344,6 +374,24 @@ message Pong {
   string id = 1;
   bool success = 2;
   string msg = 3; // For adding extra details if the ping fails.
+  repeated RequestTrace requestTraces = 4;
+}
+
+message RequestTrace {
+  string messageId = 1;
+  string messageType = 2;
+  string kernelId = 3;
+  int32 replicaId = 4;
+  int64 requestReceivedByGateway = 5;
+  int64 requestSentByGateway = 6;
+  int64 requestReceivedByLocalDaemon = 7;
+  int64 requestSentByLocalDaemon = 8;
+  int64 requestReceivedByKernelReplica = 9;
+  int64 replySentByKernelReplica = 10;
+  int64 replyReceivedByLocalDaemon = 11;
+  int64 replySentByLocalDaemon = 12;
+  int64 replyReceivedByGateway = 13;
+  int64 replySentByGateway = 14;
 }
 
 message PingInstruction {
@@ -352,10 +400,11 @@ message PingInstruction {
 }
 
 message Notification {
-  string title = 1;
-  string message = 2;
-  int32 notificationType = 3;
-  bool panicked = 4;
+  string id = 1;
+  string title = 2;
+  string message = 3;
+  int32 notificationType = 4;
+  bool panicked = 5;
 }
 
 // Used to register the ResourceSpec to be used by a particular kernel.
@@ -367,12 +416,12 @@ message ResourceSpecRegistration {
 
 // Mapping from Kubernetes node name to the actual GPU info for that node.
 message ClusterActualGpuInfo {
-  map<string,GpuInfo> gpuInfo = 1;
+  map<string, GpuInfo> gpuInfo = 1;
 }
 
 // Mapping from Kubernetes node name to the virtual GPU info for that node.
 message ClusterVirtualGpuInfo {
-  map<string,VirtualGpuInfo> gpuInfo = 1;
+  map<string, VirtualGpuInfo> gpuInfo = 1;
 }
 
 message JupyterKernelReplica {
@@ -408,6 +457,27 @@ message HostSpec {
 message HostId {
   string id = 1;
   string nodeName = 2; // The name of the Kubernetes node that the Host is running on.
+}
+
+// KernelErrorReporter is a gRPC service provided by Local Daemon nodes.
+//
+// Kernel replicas running on the same node as the Local Daemon will connect to the KernelErrorReporter service.
+// If an error occurs within the kernel, then the kernel can report it to the Local Daemon using the KernelErrorReporter
+// gRPC service. The Local Daemon can, in turn, report the error to the Cluster Gateway, so that a notification can
+// be submitted to the Cluster Dashboard.
+service KernelErrorReporter {
+  // Report that an error occurred within one of the local daemons (or possibly a jupyter kernel).
+  rpc Notify(KernelNotification) returns (Void) {}
+}
+
+// KernelNotification is very similar to Notification, but it also includes fields to specify the replica ID and
+// kernel ID of the kernel sending the notification.
+message KernelNotification {
+  string title = 1;
+  string message = 2;
+  int32 notificationType = 3;
+  string kernelId = 4;
+  int32 replicaId = 5;
 }
 
 // The Jupyter gateway service for host local kernels.
@@ -452,16 +522,24 @@ service LocalGateway {
   // it can be read back from HDFS by the new replica.
   rpc PrepareToMigrate(ReplicaInfo) returns (PrepareToMigrateResponse) {}
 
+  // ResourcesSnapshot returns a NodeResourcesSnapshot struct encoding a snapshot of
+  // the current resource quantities on the node.
+  rpc ResourcesSnapshot(Void) returns (NodeResourcesSnapshot) {}
+
   // Return the current GPU resource metrics on the node.
+  // @Deprecated: this should eventually be merged with the updated/unified ModifyClusterNodes API.
   rpc GetActualGpuInfo(Void) returns (GpuInfo) {}
 
   // Return the current vGPU (or "deflated GPU") resource metrics on the node.
+  // @Deprecated: this should eventually be merged with the updated/unified ModifyClusterNodes API.
   rpc GetVirtualGpuInfo(Void) returns (VirtualGpuInfo) {}
 
-  // Set the maximum number of vGPU resources availabe on the node.
+  // Set the maximum number of vGPU resources available on the node.
+  // @Deprecated: this should eventually be merged with the updated/unified ModifyClusterNodes API.
   rpc SetTotalVirtualGPUs(SetVirtualGPUsRequest) returns (VirtualGpuInfo) {}
 
   // Return the current vGPU allocations on this node.
+  // @Deprecated: this should eventually be merged with the updated/unified ModifyClusterNodes API.
   rpc GetVirtualGpuAllocations(Void) returns (VirtualGpuAllocations) {}
 
   // Ensure that the next 'execute_request' for the specified kernel fails.
@@ -469,14 +547,55 @@ service LocalGateway {
   rpc YieldNextExecution(KernelId) returns (Void) {}
 }
 
-message VirtualGpuAllocations {
-  map<string,VirtualGpuAllocation> allocations = 1;
+// NodeResourcesSnapshot encodes a snapshot of the current resource quantities on a particular node.
+message NodeResourcesSnapshot {
+  // SnapshotId uniquely identifies the NodeResourcesSnapshot and defines a total order amongst all NodeResourcesSnapshot
+  // structs originating from the same node. Each newly-created NodeResourcesSnapshot is assigned an ID from a
+  // monotonically-increasing counter by the ResourceManager.
+  int32 snapshotId = 1;
+  // NodeId is the ID of the node from which the snapshot originates.
+  string nodeId = 2;
+  // ManagerId is the unique ID of the ResourceManager struct from which the NodeResourcesSnapshot was constructed.
+  string managerId = 3;
+  // Timestamp is the time at which the NodeResourcesSnapshot was taken/created.
+  google.protobuf.Timestamp timestamp = 4;
+  ResourcesSnapshot idleResources = 5;
+  ResourcesSnapshot pendingResources = 6;
+  ResourcesSnapshot committedResources = 7;
+  ResourcesSnapshot specResources = 8;
 }
 
+// ResourcesSnapshot encodes resource quantities for a particular "status" of resource (ie., idle,
+// pending, committed, or spec).
+message ResourcesSnapshot {
+  // ResourceStatus indicates whether this snapshot encodes idle, pending, committed, or spec resources.
+  string resourceStatus = 1;
+  // Millicpus is CPU in 1/1000th of CPU core.
+  int32 millicpus = 2;
+  // MemoryMB is the amount of memory in MB.
+  float memoryMb = 3;
+  // Gpus is the number of GPUs.
+  int32 gpus = 4;
+  // VramGb is the amount of VRAM in GB.
+  float vramGb = 5;
+  // SnapshotId uniquely identifies the NodeResourcesSnapshot in which this ResourcesSnapshot will be contained.
+  // The SnapshotId defines a total order amongst all NodeResourcesSnapshot structs originating from the same node.
+  // Each newly-created NodeResourcesSnapshot is assigned an ID from a monotonically-increasing counter by the
+  // ResourceManager running on the associated node.
+  int32 snapshotId = 6;
+}
+
+// @Deprecated: this should eventually be merged with the updated/unified ModifyClusterNodes API.
+message VirtualGpuAllocations {
+  map<string, VirtualGpuAllocation> allocations = 1;
+}
+
+// @Deprecated: this should eventually be merged with the updated/unified ModifyClusterNodes API.
 message VirtualGpuAllocation {
   repeated string deviceIDs = 1;
 }
 
+// @Deprecated: this should eventually be merged with the updated/unified ModifyClusterNodes API.
 message SetVirtualGPUsRequest {
   int32 value = 1;
   string kubernetesNodeName = 2;
@@ -490,21 +609,23 @@ message NumNodesResponse {
   string nodeType = 2;
 }
 
-// Encapsulates the current vGPU (or "deflated GPU") resource usage on a paritcular node.
+// Encapsulates the current vGPU (or "deflated GPU") resource usage on a particular node.
+// @Deprecated: this should eventually be merged with the updated/unified ModifyClusterNodes API.
 message VirtualGpuInfo {
   int32 totalVirtualGPUs = 1;
   int32 allocatedVirtualGPUs = 2;
   int32 freeVirtualGPUs = 3;
 }
 
-// Encapsulates the current GPU resource usage on a paritcular node.
+// Encapsulates the current GPU resource usage on a particular node.
+// @Deprecated: this should eventually be merged with the updated/unified ModifyClusterNodes API.
 message GpuInfo {
-  int32 specGPUs= 1; // The total number of GPUs c onfigured/present on this node.
-  int32 idleGPUs= 2; // The number of GPUs that are uncommitted and therefore available on this node. This quantity is equal to specGPUs - committedGPUs.
-  int32 committedGPUs= 3; // The number of GPUs that are actively committed and allocated to replicas that are scheduled onto this node.
-  int32 pendingGPUs= 4; // The sum of the outstanding GPUs of all replicas scheduled onto this node. Pending GPUs are not allocated or committed to a particular replica yet. The time at which resources are actually committed to a replica depends upon the policy being used. In some cases, they're committed immediately. In other cases, they're committed only when the replica is actively training.
-  int32 numPendingAllocations= 5; // Number of individual allocations consisting of GPUs that have NOT been fully committed to a kernel.
-  int32 numAllocations= 6; // Number of individual allocations such that the GPUs have been committed to a container.
+  int32 specGPUs = 1; // The total number of GPUs configured/present on this node.
+  int32 idleGPUs = 2; // The number of GPUs that are uncommitted and therefore available on this node. This quantity is equal to specGPUs - committedGPUs.
+  int32 committedGPUs = 3; // The number of GPUs that are actively committed and allocated to replicas that are scheduled onto this node.
+  int32 pendingGPUs = 4; // The sum of the outstanding GPUs of all replicas scheduled onto this node. Pending GPUs are not allocated or committed to a particular replica yet. The time at which resources are actually committed to a replica depends upon the policy being used. In some cases, they're committed immediately. In other cases, they're committed only when the replica is actively training.
+  int32 numPendingAllocations = 5; // Number of individual allocations consisting of GPUs that have NOT been fully committed to a kernel.
+  int32 numAllocations = 6; // Number of individual allocations such that the GPUs have been committed to a container.
   string gpuSchedulerID = 7; // Unique ID of the gpu scheduler (which is a component of a local daemon) that is reporting these metrics.
   string localDaemonID = 8; // Unique ID of the associated local daemon.
 }
@@ -524,6 +645,7 @@ message ResourceSpec {
   int32 cpu = 1;  // In 1/1000 core.
   float memory = 2; // In MB.
   int32 gpu = 3; // Number of GPUs.
+  float vram = 4; // Amount of VRAM in GB.
 }
 
 // The kernel id.
@@ -619,7 +741,7 @@ message KernelRegistrationNotification {
 // Returned by the Cluster Gateway for the NotifyKernelRegistered RPC.
 message KernelRegistrationNotificationResponse {
   int32 id = 1;
-  map<int32,string> replicas = 2;
+  map<int32, string> replicas = 2;
   int32 smrPort = 3;
   ResourceSpec resourceSpec = 4;
   bool shouldReadDataFromHdfs = 5;

@@ -2,9 +2,10 @@ import { DashboardNotificationDrawer } from '@app/Components';
 import { Dashboard } from '@app/Dashboard/Dashboard';
 
 import { Notification, WebSocketMessage } from '@app/Data/';
-import { NotificationContext, useNodes } from '@app/Providers';
+import { DarkModeContext, NotificationContext, useNodes } from '@app/Providers';
 import { AlertGroup, Page, SkipToContent } from '@patternfly/react-core';
 import * as React from 'react';
+import { ToastBar, Toaster } from 'react-hot-toast';
 
 import useWebSocket from 'react-use-websocket';
 import { v4 as uuidv4 } from 'uuid';
@@ -23,9 +24,7 @@ const AppLayout: React.FunctionComponent = () => {
         React.useContext(NotificationContext);
     const { refreshNodes } = useNodes();
 
-    // React.useEffect(() => {
-    //     console.log(`Number of alerts: ${alerts.length}. Number of notifications: ${notifications.length}.`);
-    // }, [alerts, notifications]);
+    const { darkMode } = React.useContext(DarkModeContext);
 
     React.useEffect(() => {
         setOverflowMessage(buildOverflowMessage());
@@ -77,7 +76,7 @@ const AppLayout: React.FunctionComponent = () => {
                     notification.title == 'Local Daemon Connected' ||
                     notification.title == 'Local Daemon Connectivity Error'
                 ) {
-                    refreshNodes();
+                    refreshNodes(false); // Pass false to omit the separate toast notification about refreshing nodes.
                 }
             } else {
                 console.warn(`Received JSON message of unknown type: ${JSON.stringify(message)}`);
@@ -85,27 +84,70 @@ const AppLayout: React.FunctionComponent = () => {
         }
     }, [lastJsonMessage]);
 
+    /**
+     * Return the default style applied to all Toast notifications.
+     *
+     * We return a dark mode style if the page is set to dark mode.
+     */
+    const getDefaultToastStyle = () => {
+        if (darkMode) {
+            return {
+                zIndex: 9999,
+                borderRadius: '10px',
+                background: '#333',
+                color: '#fff',
+            };
+        } else {
+            return {
+                zIndex: 9999,
+                borderRadius: '10px',
+            };
+        }
+    };
+
     return (
-        <Page
-            mainContainerId={pageId}
-            header={<AppHeader />}
-            skipToContent={PageSkipToContent}
-            isNotificationDrawerExpanded={expanded}
-            notificationDrawer={<DashboardNotificationDrawer />}
-        >
-            <Dashboard />
-            <AlertGroup
-                isToast
-                isLiveRegion
-                onOverflowClick={() => {
-                    setAlerts([]);
-                    toggleExpansion(true);
+        <React.Fragment>
+            <Toaster
+                position="bottom-right"
+                containerStyle={{
+                    zIndex: 9999,
                 }}
-                overflowMessage={overflowMessage}
+                toastOptions={{
+                    className: 'react-hot-toast',
+                    style: getDefaultToastStyle(),
+                }}
             >
-                {alerts.slice(0, maxDisplayedAlerts)}
-            </AlertGroup>
-        </Page>
+                {(t) => (
+                    <ToastBar
+                        toast={t}
+                        style={{
+                            ...t.style,
+                            animation: t.visible ? 'custom-enter 1s ease' : 'custom-exit 1s ease',
+                        }}
+                    />
+                )}
+            </Toaster>
+            <Page
+                mainContainerId={pageId}
+                header={<AppHeader />}
+                skipToContent={PageSkipToContent}
+                isNotificationDrawerExpanded={expanded}
+                notificationDrawer={<DashboardNotificationDrawer />}
+            >
+                <Dashboard />
+                <AlertGroup
+                    isToast
+                    isLiveRegion
+                    onOverflowClick={() => {
+                        setAlerts([]);
+                        toggleExpansion(true);
+                    }}
+                    overflowMessage={overflowMessage}
+                >
+                    {alerts.slice(0, maxDisplayedAlerts)}
+                </AlertGroup>
+            </Page>
+        </React.Fragment>
     );
 };
 

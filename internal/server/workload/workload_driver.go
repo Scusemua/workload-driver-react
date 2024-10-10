@@ -981,7 +981,8 @@ func (d *BasicWorkloadDriver) getOriginalSessionIdFromInternalSessionId(internal
 
 // NewSession create and return a new Session with the given ID.
 func (d *BasicWorkloadDriver) NewSession(id string, meta domain.SessionMetadata, createdAtTime time.Time) domain.WorkloadSession {
-	d.sugaredLogger.Debugf("Creating new Session %v. MaxSessionCPUs: %.2f; MaxSessionMemory: %.2f. MaxSessionGPUs: %d. TotalNumSessions: %d", id, meta.GetMaxSessionCPUs(), meta.GetMaxSessionMemory(), meta.GetMaxSessionGPUs(), d.sessions.Len())
+	d.sugaredLogger.Debugf("Creating new Session %v. MaxSessionCPUs: %.2f; MaxSessionMemory: %.2f. MaxSessionGPUs: %d. MaxSessionVRAM: %.2f, TotalNumSessions: %d",
+		id, meta.GetMaxSessionCPUs(), meta.GetMaxSessionMemory(), meta.GetMaxSessionGPUs(), meta.GetMaxSessionVRAM(), d.sessions.Len())
 
 	// Make sure the Session doesn't already exist.
 	var session domain.WorkloadSession
@@ -990,7 +991,7 @@ func (d *BasicWorkloadDriver) NewSession(id string, meta domain.SessionMetadata,
 	}
 
 	// The Session only exposes the CPUs, Memory, and
-	resourceRequest := domain.NewResourceRequest(meta.GetMaxSessionCPUs(), meta.GetMaxSessionMemory(), meta.GetMaxSessionGPUs(), AnyGPU)
+	resourceRequest := domain.NewResourceRequest(meta.GetMaxSessionCPUs(), meta.GetMaxSessionMemory(), meta.GetMaxSessionGPUs(), meta.GetMaxSessionVRAM(), AnyGPU)
 	session = domain.NewWorkloadSession(id, meta, resourceRequest, createdAtTime, d.atom)
 
 	internalSessionId := d.getInternalSessionId(session.GetId())

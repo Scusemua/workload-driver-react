@@ -1,12 +1,12 @@
 import React from 'react';
 import { Card, CardBody, Label, Pagination, Tooltip } from '@patternfly/react-core';
 import { Table, Tbody, Td, Th, Thead, ThProps, Tr } from '@patternfly/react-table';
-import { CheckCircleIcon, CheckDoubleIcon, CheckIcon, ErrorCircleOIcon, ExclamationCircleIcon, MigrationIcon, MonitoringIcon, OffIcon, PendingIcon, StarIcon, StopIcon } from '@patternfly/react-icons';
+import { CheckCircleIcon, CheckIcon, ErrorCircleOIcon, ExclamationCircleIcon, MigrationIcon, MonitoringIcon, OffIcon, PendingIcon, StarIcon } from '@patternfly/react-icons';
 
 import {
     Workload,
     WorkloadEvent,
-} from '@app/Data/Workload';
+} from '@data/Workload';
 
 export interface WorkloadEventTableProps {
     children?: React.ReactNode;
