@@ -1,7 +1,8 @@
-import { DistributedJupyterKernel, JupyterKernelReplica } from '@app/Data';
+import { RequestTraceSplitTable } from '@app/Components';
+import { DistributedJupyterKernel, FirstJupyterKernelBuffersFrame, JupyterKernelReplica } from '@app/Data';
 import { CodeEditorComponent } from '@components/CodeEditor';
 import { ExecutionOutputTabContent } from '@components/Modals/ExecuteCodeOnKernelModal/ExecutionOutputTabContent';
-import { RoundToNDecimalPlaces, RoundToThreeDecimalPlaces } from '@components/Modals/NewWorkloadFromTemplateModal';
+import { RoundToNDecimalPlaces } from '@components/Modals/NewWorkloadFromTemplateModal';
 import { KernelManager, ServerConnection } from '@jupyterlab/services';
 import { IKernelConnection, IShellFuture } from '@jupyterlab/services/lib/kernel/kernel';
 import {
@@ -182,6 +183,56 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
     };
 
     /**
+     * Extract and return a RequestTrace from the "execute_reply" message.
+     * @param response the "execute_reply" message.
+     */
+    const extractRequestTraceFromResponse = (response: IExecuteReplyMsg): FirstJupyterKernelBuffersFrame | null => {
+        const buffers: (ArrayBuffer | ArrayBufferView)[] | undefined = response.buffers;
+        if (buffers && buffers.length > 0) {
+            console.log('Buffers (from "execute_reply"): have non-zero length.');
+
+            const firstBufferFrame: ArrayBuffer | ArrayBufferView = buffers[0];
+            const textDecoder: TextDecoder = new TextDecoder('utf-8');
+
+            let firstBufferFrameAsString: string = '';
+            try {
+                firstBufferFrameAsString = textDecoder.decode(firstBufferFrame);
+            } catch (err) {
+                console.error(`Failed to decode (UTF-8) first buffers frame: ${err}`);
+                toast.error(`Failed to decode first buffers frame from "execute_reply" message.`);
+                return null;
+            }
+
+            console.log(`Decoded first buffers frame from "execute_reply" message: ${firstBufferFrameAsString}`);
+
+            try {
+                return JSON.parse(firstBufferFrameAsString);
+            } catch (err) {
+                console.error(
+                    `Failed to JSON parse RequestTrace from first buffers frame of "execute_reply" message: ${err}`,
+                );
+                toast.error(
+                    `Failed to JSON parse RequestTrace from first buffers frame of "execute_reply" message: ${err}`,
+                );
+                return null;
+            }
+        }
+
+        return null;
+        // else {
+        //   const metadata: JSONObject = response.metadata;
+        //
+        //   try {
+        //     const requestTrace: JSONValue = metadata['request_trace'];
+        //     return requestTrace;
+        //   } catch (err) {
+        //     console.debug('Could not extract request trace from "execute_request" response.');
+        //     return null;
+        //   }
+        // }
+    };
+
+    /**
      * Handle an "execute_reply" response to an execution.
      *
      * We update the toast and the tab UI to indicate that the execution has completed,
@@ -190,7 +241,9 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
      * @param response the "execute_reply" response from the kernel.
      * @param executionId the ID of the execution for which we received a response.
      * @param kernelId the ID of the kernel that executed the code for this execution
-     * @param latencySecRounded the number of seconds that elapsed before the execution completed, rounded to 2-3 decimals.
+     * @param latencyMilliseconds the number of milliseconds seconds that elapsed before the execution completed.
+     * @param initialRequestTimestamp unix milliseconds (UTC) at which we initially sent the associated "execute_request" message.
+     * @param receivedReplyAt unix milliseconds (UTC) at which we received the "execute_reply" message
      * @param toastId the ID of the toast that is being displayed to indicate that the execution is in-progress.
      *
      * @return a boolean indicating whether the execution was successful (true) or if it failed (false).
@@ -199,13 +252,29 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
         response: IExecuteReplyMsg,
         executionId: string,
         kernelId: string,
-        latencySecRounded: number,
+        latencyMilliseconds: number,
+        initialRequestTimestamp: number,
+        receivedReplyAt: number,
         toastId: string,
     ): boolean => {
         console.log(`Received reply for execution ${executionId} future: ${JSON.stringify(response)}`);
 
         const message_content = response['content'];
         const status: string = message_content['status'];
+
+        // In terms of what we display to the user, if the execution took more than 10 seconds,
+        // then we'll convert the units to seconds and display it that way (rounded to 3 decimal places).
+        //
+        // If the execution took less than 10 seconds (i.e., 1 minute), then we'll display the latency
+        // in milliseconds (rounded to 3 decimal places).
+        let latencyRounded: number;
+        let latencyUnits: string = 'ms'; // Initially, the latency is in milliseconds.
+        if (latencyMilliseconds > 10e3) {
+            latencyUnits = 'seconds';
+            latencyRounded = RoundToNDecimalPlaces(latencyMilliseconds / 1000.0, 3);
+        } else {
+            latencyRounded = RoundToNDecimalPlaces(latencyMilliseconds, 3);
+        }
 
         if (status == 'ok') {
             setExecutionMap((prevMap) => {
@@ -217,11 +286,25 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                 return prevMap;
             });
 
+            const firstBufferFrame: FirstJupyterKernelBuffersFrame | null = extractRequestTraceFromResponse(response);
+            if (firstBufferFrame != null) {
+                console.log(
+                    `Extracted RequestTrace from "execute_reply" message "${executionId}" from kernel "${kernelId}":\n
+                    ${JSON.stringify(firstBufferFrame.request_trace, null, 2)}`,
+                );
+            }
+
+            console.log(`Execution on Kernel ${kernelId} finished after ${latencyMilliseconds} ms.`);
+
             toast.custom(
                 (t: Toast) => {
                     return (
                         <Alert
-                            title={<b>Execution Complete ({latencySecRounded} sec) ✅</b>}
+                            title={
+                                <b>
+                                    Execution Complete ({latencyRounded} {latencyUnits}) ✅
+                                </b>
+                            }
                             variant={'success'}
                             isExpandable
                             timeout={5000}
@@ -229,8 +312,28 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                             onTimeout={() => toast.dismiss(t.id)}
                             actionClose={<AlertActionCloseButton onClose={() => toast.dismiss(t.id)} />}
                         >
-                            <p>Kernel {kernelId} has finished executing your code after {latencySecRounded} seconds.</p>
-
+                            {firstBufferFrame !== null && firstBufferFrame.request_trace !== undefined && (
+                                <Flex direction={{ default: 'column' }}>
+                                    <FlexItem>
+                                        <Title headingLevel={'h3'}>Request Trace(s)</Title>
+                                    </FlexItem>
+                                    <FlexItem>
+                                        <RequestTraceSplitTable
+                                            receivedReplyAt={receivedReplyAt}
+                                            initialRequestSentAt={initialRequestTimestamp}
+                                            messageId={response.header.msg_id}
+                                            traces={[firstBufferFrame.request_trace]}
+                                        />
+                                    </FlexItem>
+                                </Flex>
+                            )}
+                            {firstBufferFrame === null ||
+                                (firstBufferFrame.request_trace === undefined && (
+                                    <p>
+                                        Kernel {kernelId} has finished executing your code after {latencyRounded}{' '}
+                                        {latencyUnits}
+                                    </p>
+                                ))}
                         </Alert>
                     );
                 },
@@ -271,7 +374,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                         <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
                             <FlexItem>
                                 <Text component={TextVariants.small}>
-                                    {`Execution on Kernel ${kernelId} failed to complete after ${latencySecRounded} seconds.`}
+                                    {`Execution on Kernel ${kernelId} failed to complete after ${latencyRounded} ${latencyUnits}.`}
                                 </Text>
                             </FlexItem>
                             <FlexItem>
@@ -410,6 +513,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
             console.log(`Sending 'execute-request' to kernel ${kernelId} for code: '${code}'`);
 
             const startTime: number = performance.now();
+            const initialRequestTimestamp: number = Date.now();
             const future = kernelConnection.requestExecute({ code: code }, undefined, {
                 target_replica: targetReplicaId,
                 'send-timestamp-unix-milli': Date.now(),
@@ -474,11 +578,18 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
             });
 
             future.onReply = (response: IExecuteReplyMsg) => {
+                const receivedReplyAt: number = Date.now();
                 const latencyMilliseconds: number = performance.now() - startTime;
-                const latencySecRounded: number = RoundToNDecimalPlaces(latencyMilliseconds / 1000.0, 4);
-                console.log(`Execution on Kernel ${kernelId} finished after ${latencySecRounded} seconds.`);
 
-                onExecutionResponse(response, executionId, kernelId, latencySecRounded, toastId);
+                onExecutionResponse(
+                    response,
+                    executionId,
+                    kernelId,
+                    latencyMilliseconds,
+                    initialRequestTimestamp,
+                    receivedReplyAt,
+                    toastId,
+                );
                 executionComplete();
                 future.dispose();
             };

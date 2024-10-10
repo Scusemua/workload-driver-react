@@ -24,7 +24,8 @@ export interface RequestTraceSplitTableProps {
     initialRequestSentAt?: number; // Time that we, the frontend client, initially sent the request.
 }
 
-// Displays the Sessions from a workload in a table.
+// Displays the "splits" from a RequestTrace in a table, with the latency of each part of
+// the request trace shown in its own row.
 export const RequestTraceSplitTable: React.FunctionComponent<RequestTraceSplitTableProps> = (props) => {
     const [useAlternativeSplitNames, setUseAlternativeSplitNames] = React.useState<boolean>(true);
 
@@ -57,6 +58,10 @@ export const RequestTraceSplitTable: React.FunctionComponent<RequestTraceSplitTa
         });
 
         setSplits(_splits);
+
+        console.log(
+            `Generated the following splits from the assigned RequestTrace:\n${JSON.stringify(_splits, null, 2)}`,
+        );
     }, [props.traces, props.initialRequestSentAt, props.receivedReplyAt]);
 
     const getColumnDefinitionContent = (column: string, index: number) => {

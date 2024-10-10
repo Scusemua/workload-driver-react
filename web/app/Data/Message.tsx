@@ -273,3 +273,10 @@ export interface PongResponse {
     msg: string;
     requestTraces: RequestTrace[];
 }
+
+/**
+ * The format of a JSON-serialized buffers frame from a Jupyter kernel, containing a RequestTrace.
+ */
+export interface FirstJupyterKernelBuffersFrame {
+  request_trace: RequestTrace;
+}
