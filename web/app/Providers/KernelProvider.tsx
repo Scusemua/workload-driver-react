@@ -30,21 +30,17 @@ const baseFetcher = async (input: RequestInfo | URL) => {
     } catch (e) {
         if (signal.aborted) {
             console.error('refresh-kernels request timed out.');
-            throw new Error(`The request timed out.`); // Different error.
+            return Promise.reject(new Error(`The request timed out.`)); // Different error.
         } else {
             console.error(`Failed to fetch kernels because: ${e}`);
-            throw e; // Re-throw e.
+            return Promise.reject(e); // Re-throw e.
         }
     }
 
     if (!response.ok) {
         const responseBody: string = await response.text();
         console.error(`Refresh Kernels Failed (${response.status} ${response.statusText}): ${responseBody}`);
-        throw new Error(`Refresh Kernels Failed: ${response.status} ${response.statusText}`);
-        // throw {
-        //     name: `${response.status} ${response.statusText}`,
-        //     message: `${response.status} ${response.statusText}: ${responseBody}`,
-        // };
+        return Promise.reject(new Error(`Refresh Kernels Failed: ${response.status} ${response.statusText}`));
     }
 
     return response;
@@ -55,7 +51,9 @@ const fetcher = async (input: RequestInfo | URL, forLogging: boolean) => {
 
     if (!response.ok) {
         console.error(`Received HTTP ${response.status} ${response.statusText} when retrieving kernels.`);
-        throw new Error(`Received HTTP ${response.status} ${response.statusText} when retrieving kernels.`);
+        return Promise.reject(
+            new Error(`Received HTTP ${response.status} ${response.statusText} when retrieving kernels.`),
+        );
     }
 
     let kernels: DistributedJupyterKernel[] = await response.json();
