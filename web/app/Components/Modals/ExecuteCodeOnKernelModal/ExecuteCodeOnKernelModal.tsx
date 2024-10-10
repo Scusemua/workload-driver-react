@@ -373,24 +373,28 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                         onTimeout={() => toast.dismiss(t.id)}
                         actionClose={<AlertActionCloseButton onClose={() => toast.dismiss(t.id)} />}
                     >
-                        <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
+                        <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsSm' }}>
                             <FlexItem>
-                                <Text component={TextVariants.small}>
+                                <Text component={TextVariants.p}>
                                     {`Execution on Kernel ${kernelId} failed to complete after ${latencyRounded} ${latencyUnits}.`}
                                 </Text>
+                            </FlexItem>
+                            <FlexItem>
+                                <Title headingLevel={'h3'}>Error Message</Title>
                             </FlexItem>
                             <FlexItem>
                                 <ClipboardCopy isReadOnly hoverTip="Copy" clickTip="Copied">
                                     {errorNameAndMessage}
                                 </ClipboardCopy>
                             </FlexItem>
-                        </Flex>
-
-                        {firstBufferFrame !== null && firstBufferFrame.request_trace !== undefined && (
-                            <Flex direction={{ default: 'column' }}>
+                            {/* We won't display this next part if there's no request trace to display. */}
+                            {firstBufferFrame !== null && firstBufferFrame.request_trace !== undefined && (
                                 <FlexItem>
                                     <Title headingLevel={'h3'}>Request Trace(s)</Title>
                                 </FlexItem>
+                            )}
+                            {/* We won't display this next part if there's no request trace to display. */}
+                            {firstBufferFrame !== null && firstBufferFrame.request_trace !== undefined && (
                                 <FlexItem>
                                     <RequestTraceSplitTable
                                         receivedReplyAt={receivedReplyAt}
@@ -399,8 +403,8 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                                         traces={[firstBufferFrame.request_trace]}
                                     />
                                 </FlexItem>
-                            </Flex>
-                        )}
+                            )}
+                        </Flex>
                     </Alert>
                 ),
                 {
