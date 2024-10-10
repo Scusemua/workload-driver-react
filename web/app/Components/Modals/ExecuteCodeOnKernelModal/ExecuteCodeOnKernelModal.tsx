@@ -365,7 +365,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
             toast.custom(
                 (t) => (
                     <Alert
-                        title={<b>{'Execution Failed'}</b>}
+                        title={<b>{`Execution Failed (${latencyRounded} ${latencyUnits})`}</b>}
                         isExpandable
                         variant={'danger'}
                         timeout={12500}
@@ -373,36 +373,38 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                         onTimeout={() => toast.dismiss(t.id)}
                         actionClose={<AlertActionCloseButton onClose={() => toast.dismiss(t.id)} />}
                     >
-                        <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsSm' }}>
+                        <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsMd' }}>
                             <FlexItem>
                                 <Text component={TextVariants.p}>
                                     {`Execution on Kernel ${kernelId} failed to complete after ${latencyRounded} ${latencyUnits}.`}
                                 </Text>
                             </FlexItem>
-                            <FlexItem>
-                                <Title headingLevel={'h3'}>Error Message</Title>
-                            </FlexItem>
-                            <FlexItem>
-                                <ClipboardCopy isReadOnly hoverTip="Copy" clickTip="Copied">
-                                    {errorNameAndMessage}
-                                </ClipboardCopy>
-                            </FlexItem>
+                            {/* The error message associated with the failed execution. */}
+                            <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsSm' }}>
+                                <FlexItem>
+                                    <Title headingLevel={'h3'}>Error Message</Title>
+                                </FlexItem>
+                                <FlexItem>
+                                    <ClipboardCopy isReadOnly hoverTip="Copy" clickTip="Copied">
+                                        {errorNameAndMessage}
+                                    </ClipboardCopy>
+                                </FlexItem>
+                            </Flex>
                             {/* We won't display this next part if there's no request trace to display. */}
                             {firstBufferFrame !== null && firstBufferFrame.request_trace !== undefined && (
-                                <FlexItem>
-                                    <Title headingLevel={'h3'}>Request Trace(s)</Title>
-                                </FlexItem>
-                            )}
-                            {/* We won't display this next part if there's no request trace to display. */}
-                            {firstBufferFrame !== null && firstBufferFrame.request_trace !== undefined && (
-                                <FlexItem>
-                                    <RequestTraceSplitTable
-                                        receivedReplyAt={receivedReplyAt}
-                                        initialRequestSentAt={initialRequestTimestamp}
-                                        messageId={response.header.msg_id}
-                                        traces={[firstBufferFrame.request_trace]}
-                                    />
-                                </FlexItem>
+                                <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsSm' }}>
+                                    <FlexItem>
+                                        <Title headingLevel={'h3'}>Request Trace(s)</Title>
+                                    </FlexItem>
+                                    <FlexItem>
+                                        <RequestTraceSplitTable
+                                            receivedReplyAt={receivedReplyAt}
+                                            initialRequestSentAt={initialRequestTimestamp}
+                                            messageId={response.header.msg_id}
+                                            traces={[firstBufferFrame.request_trace]}
+                                        />
+                                    </FlexItem>
+                                </Flex>
                             )}
                         </Flex>
                     </Alert>
