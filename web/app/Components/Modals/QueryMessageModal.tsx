@@ -1,4 +1,5 @@
 import { GetToastContentWithHeaderAndBody } from '@app/utils/toast_utils';
+import { RoundToThreeDecimalPlaces } from '@components/Modals/NewWorkloadFromTemplateModal';
 import { QueryMessageResponse, RequestTrace } from '@data/Message';
 import {
     Badge,
@@ -20,10 +21,13 @@ import {
     MenuToggleElement,
     Modal,
     ModalVariant,
+    Pagination,
+    PaginationVariant,
     SearchInput,
     Select,
     SelectList,
     SelectOption,
+    Skeleton,
     TextInput,
     Toolbar,
     ToolbarContent,
@@ -35,6 +39,7 @@ import {
 import { CheckCircleIcon, FilterIcon, SearchIcon, TimesCircleIcon } from '@patternfly/react-icons';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 import { global_BackgroundColor_150 } from '@patternfly/react-tokens';
+import { MAX_SAFE_INTEGER } from 'lib0/number';
 import React from 'react';
 import toast from 'react-hot-toast';
 
@@ -51,6 +56,8 @@ export const QueryMessageModal: React.FunctionComponent<QueryMessageModalProps> 
         messageType: [],
     });
 
+    const [queryIsActive, setQueryIsActive] = React.useState<boolean>(false);
+
     const [jupyterMsgId, setJupyterMsgId] = React.useState<string>('');
     const [jupyterMsgType, setJupyterMsgType] = React.useState<string>('');
     const [jupyterKernelId, setJupyterKernelId] = React.useState<string>('');
@@ -58,6 +65,22 @@ export const QueryMessageModal: React.FunctionComponent<QueryMessageModalProps> 
         new Map<string, RequestTrace>(),
     );
     const [possibleMessageTypes, setPossibleMessageTypes] = React.useState<Set<string>>(new Set<string>());
+
+    const [paginationPage, setPaginationPage] = React.useState<number>(0);
+    const [resultsPerPage, setResultsPerPage] = React.useState<number>(5);
+
+    const onSetPage = (_event: React.MouseEvent | React.KeyboardEvent | MouseEvent, newPage: number) => {
+        setPaginationPage(newPage);
+    };
+
+    const onPerPageSelect = (
+        _event: React.MouseEvent | React.KeyboardEvent | MouseEvent,
+        newPerPage: number,
+        newPage: number,
+    ) => {
+        setResultsPerPage(newPerPage);
+        setPaginationPage(newPage);
+    };
 
     React.useEffect(() => {
         const messageTypes: Set<string> = new Set<string>();
@@ -98,10 +121,10 @@ export const QueryMessageModal: React.FunctionComponent<QueryMessageModalProps> 
 
         const toastId: string = toast.loading(loadingText, { style: { maxWidth: 750 } });
 
-        const getToastBody = (queryMessageResponse: QueryMessageResponse): string => {
+        const getToastBody = (queryMessageResponse: QueryMessageResponse, latencyMs: number): string => {
             if (targetMsgId === '*') {
                 if (queryMessageResponse.requestTraces) {
-                    return `Server returned ${queryMessageResponse.requestTraces.length} request trace(s)`;
+                    return `Server returned ${queryMessageResponse.requestTraces.length} request trace(s) in ${latencyMs} ms.`;
                 } else {
                     return `Server returned 0 request trace(s)`;
                 }
@@ -110,121 +133,132 @@ export const QueryMessageModal: React.FunctionComponent<QueryMessageModalProps> 
             }
         };
 
-        fetch('api/query-message', req)
-            .catch((err: Error) => {
-                console.log(`QueryMessage failed: ${JSON.stringify(err)}`);
-                toast.custom(
-                    GetToastContentWithHeaderAndBody(
-                        `Failed to query status of Jupyter ZMQ message "${jupyterMsgId}"`,
-                        `Reason: ${err.message}`,
-                        'danger',
-                        () => {
-                            toast.dismiss(toastId);
-                        },
-                    ),
-                    { id: toastId, style: { maxWidth: 750 } },
-                );
-            })
-            .then(async (resp: Response | void) => {
-                if (resp?.status == 200) {
-                    const queryMessageResponse: QueryMessageResponse = await resp.json();
+        const startTime: number = performance.now();
+        setQueryIsActive(true);
+        setTimeout(function () {
+            // Whatever you want to do after the wait
+            fetch('api/query-message', req)
+                .catch((err: Error) => {
+                    setQueryIsActive(false);
+                    console.log(`QueryMessage failed: ${JSON.stringify(err)}`);
                     toast.custom(
                         GetToastContentWithHeaderAndBody(
-                            `Successfully queried status of Jupyter ZMQ message "${jupyterMsgId}"`,
-                            getToastBody(queryMessageResponse),
-                            'success',
+                            `Failed to query status of Jupyter ZMQ message "${jupyterMsgId}"`,
+                            `Reason: ${err.message}`,
+                            'danger',
                             () => {
                                 toast.dismiss(toastId);
                             },
                         ),
                         { id: toastId, style: { maxWidth: 750 } },
                     );
+                })
+                .then(async (resp: Response | void) => {
+                    if (resp?.status == 200) {
+                        const queryMessageResponse: QueryMessageResponse = await resp.json();
+                        setQueryIsActive(false);
+                        const latencyMs: number = RoundToThreeDecimalPlaces(performance.now() - startTime);
+                        toast.custom(
+                            GetToastContentWithHeaderAndBody(
+                                `Successfully queried status of Jupyter ZMQ message "${jupyterMsgId}" (${latencyMs} ms)`,
+                                getToastBody(queryMessageResponse, latencyMs),
+                                'success',
+                                () => {
+                                    toast.dismiss(toastId);
+                                },
+                            ),
+                            { id: toastId, style: { maxWidth: 750 } },
+                        );
 
-                    if (queryMessageResponse.requestTraces && queryMessageResponse.requestTraces.length > 0) {
-                        setRequestTraces((prevResults: Map<string, RequestTrace>) => {
-                            const nextResults: Map<string, RequestTrace> = new Map<string, RequestTrace>(prevResults);
+                        if (queryMessageResponse.requestTraces && queryMessageResponse.requestTraces.length > 0) {
+                            setRequestTraces((prevResults: Map<string, RequestTrace>) => {
+                                const nextResults: Map<string, RequestTrace> = new Map<string, RequestTrace>(
+                                    prevResults,
+                                );
 
-                            queryMessageResponse.requestTraces.forEach((val: RequestTrace) => {
-                                nextResults.set(getRequestTraceKey(val), val);
+                                queryMessageResponse.requestTraces.forEach((val: RequestTrace) => {
+                                    nextResults.set(getRequestTraceKey(val), val);
+                                });
+
+                                return nextResults;
+                            });
+                        }
+                    } else {
+                        const responseContent = await resp?.json();
+                        setQueryIsActive(false);
+
+                        // HTTP 400 here just means that the Gateway didn't have any such request whatsoever.
+                        if (resp?.status == 400) {
+                            if (jupyterMsgId === '*') {
+                                toast.custom(
+                                    GetToastContentWithHeaderAndBody(
+                                        `RequestLog is Empty`,
+                                        `There are no requests in the Cluster Gateway's RequestLog.`,
+                                        'warning',
+                                        () => {
+                                            toast.dismiss(toastId);
+                                        },
+                                    ),
+                                    { id: toastId, style: { maxWidth: 750 } },
+                                );
+
+                                return;
+                            }
+
+                            // We'll add an entry for this query, since we know the Gateway simply didn't have
+                            // the requested request in its request log.
+                            const requestTrace: RequestTrace = {
+                                messageId: jupyterMsgId,
+                                kernelId: jupyterKernelId,
+                                messageType: jupyterMsgType,
+                                replicaId: -1,
+                                requestReceivedByGateway: -1,
+                                requestSentByGateway: -1,
+                                requestReceivedByLocalDaemon: -1,
+                                requestSentByLocalDaemon: -1,
+                                requestReceivedByKernelReplica: -1,
+                                replySentByKernelReplica: -1,
+                                replyReceivedByLocalDaemon: -1,
+                                replySentByLocalDaemon: -1,
+                                replyReceivedByGateway: -1,
+                                replySentByGateway: -1,
+                                e2eLatencyMilliseconds: -1,
+                            };
+
+                            const traceKey: string = getRequestTraceKey(requestTrace);
+
+                            setRequestTraces((prevResults) => {
+                                return new Map<string, RequestTrace>(prevResults).set(traceKey, requestTrace);
                             });
 
-                            return nextResults;
-                        });
-                    }
-                } else {
-                    const responseContent = await resp?.json();
-
-                    // HTTP 400 here just means that the Gateway didn't have any such request whatsoever.
-                    if (resp?.status == 400) {
-                        if (jupyterMsgId === '*') {
                             toast.custom(
                                 GetToastContentWithHeaderAndBody(
-                                    `RequestLog is Empty`,
-                                    `There are no requests in the Cluster Gateway's RequestLog.`,
-                                    'warning',
+                                    `Request Not Found`,
+                                    `${responseContent['message']}`,
+                                    'danger',
                                     () => {
                                         toast.dismiss(toastId);
                                     },
                                 ),
                                 { id: toastId, style: { maxWidth: 750 } },
                             );
-
-                            return;
+                        } else {
+                            // Unknown/unexpected error. Display a warning.
+                            toast.custom(
+                                GetToastContentWithHeaderAndBody(
+                                    `Failed to query status of Jupyter ZMQ message "${jupyterMsgId}"`,
+                                    `HTTP ${resp?.status} ${resp?.statusText}: ${responseContent['message']}`,
+                                    'danger',
+                                    () => {
+                                        toast.dismiss(toastId);
+                                    },
+                                ),
+                                { id: toastId, style: { maxWidth: 750 } },
+                            );
                         }
-
-                        // We'll add an entry for this query, since we know the Gateway simply didn't have
-                        // the requested request in its request log.
-                        const requestTrace: RequestTrace = {
-                            messageId: jupyterMsgId,
-                            kernelId: jupyterKernelId,
-                            messageType: jupyterMsgType,
-                            replicaId: -1,
-                            requestReceivedByGateway: -1,
-                            requestSentByGateway: -1,
-                            requestReceivedByLocalDaemon: -1,
-                            requestSentByLocalDaemon: -1,
-                            requestReceivedByKernelReplica: -1,
-                            replySentByKernelReplica: -1,
-                            replyReceivedByLocalDaemon: -1,
-                            replySentByLocalDaemon: -1,
-                            replyReceivedByGateway: -1,
-                            replySentByGateway: -1,
-                            e2eLatencyMilliseconds: -1,
-                        };
-
-                        const traceKey: string = getRequestTraceKey(requestTrace);
-
-                        setRequestTraces((prevResults) => {
-                            return new Map<string, RequestTrace>(prevResults).set(traceKey, requestTrace);
-                        });
-
-                        toast.custom(
-                            GetToastContentWithHeaderAndBody(
-                                `Request Not Found`,
-                                `${responseContent['message']}`,
-                                'danger',
-                                () => {
-                                    toast.dismiss(toastId);
-                                },
-                            ),
-                            { id: toastId, style: { maxWidth: 750 } },
-                        );
-                    } else {
-                        // Unknown/unexpected error. Display a warning.
-                        toast.custom(
-                            GetToastContentWithHeaderAndBody(
-                                `Failed to query status of Jupyter ZMQ message "${jupyterMsgId}"`,
-                                `HTTP ${resp?.status} ${resp?.statusText}: ${responseContent['message']}`,
-                                'danger',
-                                () => {
-                                    toast.dismiss(toastId);
-                                },
-                            ),
-                            { id: toastId, style: { maxWidth: 750 } },
-                        );
                     }
-                }
-            });
+                });
+        }, 3000);
     };
 
     const queryForm = (
@@ -385,81 +419,89 @@ export const QueryMessageModal: React.FunctionComponent<QueryMessageModalProps> 
         }
     };
 
+    const filterByKernelIdSearchBar = (
+        <ToolbarItem variant="search-filter">
+            <SearchInput
+                aria-label="Filter query results by kernel ID"
+                placeholder={'Filter by kernel ID'}
+                onChange={(_event, value) => setKernelIdFilter(value)}
+                value={kernelIdFilter}
+                onClear={() => {
+                    setKernelIdFilter('');
+                }}
+            />
+        </ToolbarItem>
+    );
+
+    const filterByMessageIdSearchBar = (
+        <ToolbarItem variant="search-filter">
+            <SearchInput
+                aria-label="Filter query results by message ID"
+                placeholder={'Filter by message ID'}
+                onChange={(_event, value) => setMessageIdFilter(value)}
+                value={messageIdFilter}
+                onClear={() => {
+                    setMessageIdFilter('');
+                }}
+            />
+        </ToolbarItem>
+    );
+
+    const filterByMessageTypeSelection = (
+        <ToolbarGroup variant="filter-group">
+            <ToolbarFilter
+                chips={filters.messageType}
+                deleteChip={(category, chip) => onDeleteFilter(category as string, chip as string)}
+                deleteChipGroup={(category) => onDeleteGroup(category as string)}
+                categoryName={'Message Type'}
+            >
+                <Select
+                    role={'menu'}
+                    onSelect={onMessageTypeFilterSelected}
+                    onOpenChange={(isOpen) => setMessageTypeFilterIsExpanded(isOpen)}
+                    selected={filters.messageType}
+                    isOpen={messageTypeFilterIsExpanded}
+                    toggle={(toggleRef: React.Ref<MenuToggleElement>) => (
+                        <MenuToggle
+                            ref={toggleRef}
+                            onClick={() => setMessageTypeFilterIsExpanded((expanded: boolean) => !expanded)}
+                            isExpanded={messageTypeFilterIsExpanded}
+                            icon={<SearchIcon />}
+                            badge={filters.messageType.length > 0 && <Badge isRead>{filters.messageType.length}</Badge>}
+                            style={
+                                {
+                                    width: '250px',
+                                } as React.CSSProperties
+                            }
+                        >
+                            Message Type
+                        </MenuToggle>
+                    )}
+                >
+                    <SelectList>
+                        {Array.from(possibleMessageTypes).map((msgType: string) => (
+                            <SelectOption
+                                key={msgType}
+                                value={msgType}
+                                hasCheckbox
+                                isSelected={filters.messageType.includes(msgType)}
+                            >
+                                {msgType}
+                            </SelectOption>
+                        ))}
+                    </SelectList>
+                </Select>
+            </ToolbarFilter>
+        </ToolbarGroup>
+    );
+
     const queryTableActions = (
         <Toolbar>
             <ToolbarContent>
                 <ToolbarToggleGroup toggleIcon={<FilterIcon />} breakpoint="xl">
-                    <ToolbarItem variant="search-filter">
-                        <SearchInput
-                            aria-label="Filter query results by kernel ID"
-                            placeholder={'Filter by kernel ID'}
-                            onChange={(_event, value) => setKernelIdFilter(value)}
-                            value={kernelIdFilter}
-                            onClear={() => {
-                                setKernelIdFilter('');
-                            }}
-                        />
-                    </ToolbarItem>
-                    <ToolbarItem variant="search-filter">
-                        <SearchInput
-                            aria-label="Filter query results by message ID"
-                            placeholder={'Filter by message ID'}
-                            onChange={(_event, value) => setMessageIdFilter(value)}
-                            value={messageIdFilter}
-                            onClear={() => {
-                                setMessageIdFilter('');
-                            }}
-                        />
-                    </ToolbarItem>
-                    <ToolbarGroup variant="filter-group">
-                        <ToolbarFilter
-                            chips={filters.messageType}
-                            deleteChip={(category, chip) => onDeleteFilter(category as string, chip as string)}
-                            deleteChipGroup={(category) => onDeleteGroup(category as string)}
-                            categoryName={'Message Type'}
-                        >
-                            <Select
-                                role={'menu'}
-                                onSelect={onMessageTypeFilterSelected}
-                                onOpenChange={(isOpen) => setMessageTypeFilterIsExpanded(isOpen)}
-                                selected={filters.messageType}
-                                isOpen={messageTypeFilterIsExpanded}
-                                toggle={(toggleRef: React.Ref<MenuToggleElement>) => (
-                                    <MenuToggle
-                                        ref={toggleRef}
-                                        onClick={() => setMessageTypeFilterIsExpanded((expanded: boolean) => !expanded)}
-                                        isExpanded={messageTypeFilterIsExpanded}
-                                        icon={<SearchIcon />}
-                                        badge={
-                                            filters.messageType.length > 0 && (
-                                                <Badge isRead>{filters.messageType.length}</Badge>
-                                            )
-                                        }
-                                        style={
-                                            {
-                                                width: '250px',
-                                            } as React.CSSProperties
-                                        }
-                                    >
-                                        Message Type
-                                    </MenuToggle>
-                                )}
-                            >
-                                <SelectList>
-                                    {Array.from(possibleMessageTypes).map((msgType: string) => (
-                                        <SelectOption
-                                            key={msgType}
-                                            value={msgType}
-                                            hasCheckbox
-                                            isSelected={filters.messageType.includes(msgType)}
-                                        >
-                                            {msgType}
-                                        </SelectOption>
-                                    ))}
-                                </SelectList>
-                            </Select>
-                        </ToolbarFilter>
-                    </ToolbarGroup>
+                    {filterByKernelIdSearchBar}
+                    {filterByMessageIdSearchBar}
+                    {filterByMessageTypeSelection}
                 </ToolbarToggleGroup>
             </ToolbarContent>
         </Toolbar>
@@ -500,78 +542,173 @@ export const QueryMessageModal: React.FunctionComponent<QueryMessageModalProps> 
         );
     };
 
-    const filteredTraces = Array.from(requestTraces).filter(onFilter);
+    const filteredTraces = Array.from(requestTraces)
+        .filter(onFilter)
+        .slice(resultsPerPage * (paginationPage - 1), resultsPerPage * (paginationPage - 1) + resultsPerPage);
+
+    const getSkeletonRow = (rowIndex: number) => {
+        const isOddRow = (rowIndex + 1) % 2;
+        const customStyle = {
+            backgroundColor: global_BackgroundColor_150.var,
+        };
+
+        return (
+            <Tr
+                key={`${rowIndex}-skeleton`}
+                className={isOddRow ? 'odd-row-class' : 'even-row-class'}
+                style={isOddRow ? customStyle : {}}
+            >
+                <Td dataLabel={columnNames.messageId}>
+                    <Skeleton />
+                </Td>
+                <Td dataLabel={columnNames.messageType}>
+                    <Skeleton />
+                </Td>
+                <Td dataLabel={columnNames.kernelId}>
+                    <Skeleton />
+                </Td>
+                <Td dataLabel={columnNames.replicaId}>
+                    <Skeleton />
+                </Td>
+                <Td dataLabel={columnNames.requestReceivedByGateway}>
+                    <Skeleton />
+                </Td>
+                <Td dataLabel={columnNames.requestSentByGateway}>
+                    <Skeleton />
+                </Td>
+                <Td dataLabel={columnNames.replyReceivedByGateway}>
+                    <Skeleton />
+                </Td>
+                <Td dataLabel={columnNames.replySentByGateway}>
+                    <Skeleton />
+                </Td>
+                <Td modifier="fitContent">
+                    <Skeleton />
+                </Td>
+            </Tr>
+        );
+    };
+
+    const tableBodyDefinitionDuringFirstQuery = (
+        <Tbody>
+            {getSkeletonRow(0)}
+            {getSkeletonRow(1)}
+            {getSkeletonRow(2)}
+            {getSkeletonRow(3)}
+            {getSkeletonRow(4)}
+        </Tbody>
+    );
+
+    const tableHeaderDefinition = (
+        <Thead noWrap>
+            <Tr>
+                <Th>{columnNames.messageId}</Th>
+                <Th>{columnNames.messageType}</Th>
+                <Th>{columnNames.kernelId}</Th>
+                <Th>{columnNames.replicaId}</Th>
+                <Th>{columnNames.requestReceivedByGateway}</Th>
+                <Th>{columnNames.requestSentByGateway}</Th>
+                <Th>{columnNames.replyReceivedByGateway}</Th>
+                <Th>{columnNames.replySentByGateway}</Th>
+                <Th screenReaderText={'Dismiss button'} />
+            </Tr>
+        </Thead>
+    );
+
+    const tableBodyDefinition = (
+        <Tbody>
+            {filteredTraces.map(([traceKey, requestTrace], rowIndex: number) => {
+                const isOddRow = (rowIndex + 1) % 2;
+                const customStyle = {
+                    backgroundColor: global_BackgroundColor_150.var,
+                };
+
+                return (
+                    <Tr
+                        key={`${rowIndex}-${requestTrace.messageId}`}
+                        className={isOddRow ? 'odd-row-class' : 'even-row-class'}
+                        style={isOddRow ? customStyle : {}}
+                    >
+                        <Td dataLabel={columnNames.messageId}>{requestTrace.messageId}</Td>
+                        <Td dataLabel={columnNames.messageType}>{getMsgTypeRow(requestTrace)}</Td>
+                        <Td dataLabel={columnNames.kernelId}>{getKernelIdRow(requestTrace)}</Td>
+                        <Td dataLabel={columnNames.replicaId}>{getReplicaIdRow(requestTrace)}</Td>
+                        <Td dataLabel={columnNames.requestReceivedByGateway}>
+                            {getLabel(requestTrace.requestReceivedByGateway)}
+                        </Td>
+                        <Td dataLabel={columnNames.requestSentByGateway}>
+                            {getLabel(requestTrace.requestSentByGateway)}
+                        </Td>
+                        <Td dataLabel={columnNames.replyReceivedByGateway}>
+                            {getLabel(requestTrace.replyReceivedByGateway)}
+                        </Td>
+                        <Td dataLabel={columnNames.replySentByGateway}>{getLabel(requestTrace.replySentByGateway)}</Td>
+                        <Td modifier="fitContent">
+                            <Button
+                                key={`dismiss-query-result-${rowIndex}-button`}
+                                variant="link"
+                                onClick={() => {
+                                    setRequestTraces((prevResults) => {
+                                        const nextResults: Map<string, RequestTrace> = new Map<string, RequestTrace>(
+                                            prevResults,
+                                        );
+                                        nextResults.delete(traceKey);
+                                        return nextResults;
+                                    });
+                                }}
+                            >
+                                Dismiss
+                            </Button>
+                        </Td>
+                    </Tr>
+                );
+            })}
+        </Tbody>
+    );
 
     const queryResultTable = (
         <Card isRounded isCompact>
             <CardHeader>{queryTableActions}</CardHeader>
             <CardBody>
                 <Table variant={'compact'} aria-label={'Message query result table'}>
-                    <Thead noWrap>
-                        <Tr>
-                            <Th>{columnNames.messageId}</Th>
-                            <Th>{columnNames.messageType}</Th>
-                            <Th>{columnNames.kernelId}</Th>
-                            <Th>{columnNames.replicaId}</Th>
-                            <Th>{columnNames.requestReceivedByGateway}</Th>
-                            <Th>{columnNames.requestSentByGateway}</Th>
-                            <Th>{columnNames.replyReceivedByGateway}</Th>
-                            <Th>{columnNames.replySentByGateway}</Th>
-                            <Th screenReaderText={'Dismiss button'} />
-                        </Tr>
-                    </Thead>
-                    <Tbody>
-                        {filteredTraces.map(([traceKey, requestTrace], rowIndex: number) => {
-                            const isOddRow = (rowIndex + 1) % 2;
-                            const customStyle = {
-                                backgroundColor: global_BackgroundColor_150.var,
-                            };
-
-                            return (
-                                <Tr
-                                    key={`${rowIndex}-${requestTrace.messageId}`}
-                                    className={isOddRow ? 'odd-row-class' : 'even-row-class'}
-                                    style={isOddRow ? customStyle : {}}
-                                >
-                                    <Td dataLabel={columnNames.messageId}>{requestTrace.messageId}</Td>
-                                    <Td dataLabel={columnNames.messageType}>{getMsgTypeRow(requestTrace)}</Td>
-                                    <Td dataLabel={columnNames.kernelId}>{getKernelIdRow(requestTrace)}</Td>
-                                    <Td dataLabel={columnNames.replicaId}>{getReplicaIdRow(requestTrace)}</Td>
-                                    <Td dataLabel={columnNames.requestReceivedByGateway}>
-                                        {getLabel(requestTrace.requestReceivedByGateway)}
-                                    </Td>
-                                    <Td dataLabel={columnNames.requestSentByGateway}>
-                                        {getLabel(requestTrace.requestSentByGateway)}
-                                    </Td>
-                                    <Td dataLabel={columnNames.replyReceivedByGateway}>
-                                        {getLabel(requestTrace.replyReceivedByGateway)}
-                                    </Td>
-                                    <Td dataLabel={columnNames.replySentByGateway}>
-                                        {getLabel(requestTrace.replySentByGateway)}
-                                    </Td>
-                                    <Td modifier="fitContent">
-                                        <Button
-                                            key={`dismiss-query-result-${rowIndex}-button`}
-                                            variant="link"
-                                            onClick={() => {
-                                                setRequestTraces((prevResults) => {
-                                                    const nextResults: Map<string, RequestTrace> = new Map<
-                                                        string,
-                                                        RequestTrace
-                                                    >(prevResults);
-                                                    nextResults.delete(traceKey);
-                                                    return nextResults;
-                                                });
-                                            }}
-                                        >
-                                            Dismiss
-                                        </Button>
-                                    </Td>
-                                </Tr>
-                            );
-                        })}
-                    </Tbody>
+                    {tableHeaderDefinition}
+                    {requestTraces.size == 0 && queryIsActive && tableBodyDefinitionDuringFirstQuery}
+                    {requestTraces.size > 0 && tableBodyDefinition}
                 </Table>
+                <Pagination
+                    hidden={requestTraces.size <= 0}
+                    isDisabled={requestTraces.size <= 0}
+                    itemCount={requestTraces.size >= 0 ? requestTraces.size : 0}
+                    widgetId="query-messages-list-pagination"
+                    perPage={resultsPerPage}
+                    page={paginationPage}
+                    variant={PaginationVariant.bottom}
+                    perPageOptions={[
+                        {
+                            title: '3',
+                            value: 3,
+                        },
+                        {
+                            title: '5',
+                            value: 5,
+                        },
+                        {
+                            title: '10',
+                            value: 10,
+                        },
+                        {
+                            title: '15',
+                            value: 15,
+                        },
+
+                        {
+                            title: '∞',
+                            value: MAX_SAFE_INTEGER,
+                        },
+                    ]}
+                    onSetPage={onSetPage}
+                    onPerPageSelect={onPerPageSelect}
+                />
             </CardBody>
         </Card>
     );
@@ -596,7 +733,7 @@ export const QueryMessageModal: React.FunctionComponent<QueryMessageModalProps> 
         >
             <Flex direction={{ default: 'column' }}>
                 <FlexItem>{queryForm}</FlexItem>
-                <FlexItem hidden={requestTraces.size == 0}>{queryResultTable}</FlexItem>
+                <FlexItem hidden={requestTraces.size == 0 && !queryIsActive}>{queryResultTable}</FlexItem>
             </Flex>
         </Modal>
     );
