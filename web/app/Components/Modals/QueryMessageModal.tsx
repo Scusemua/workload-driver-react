@@ -32,7 +32,7 @@ import {
     ToolbarItem,
     ToolbarToggleGroup,
 } from '@patternfly/react-core';
-import { CheckCircleIcon, FilterIcon, TimesCircleIcon } from '@patternfly/react-icons';
+import { CheckCircleIcon, FilterIcon, SearchIcon, TimesCircleIcon } from '@patternfly/react-icons';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 import { global_BackgroundColor_150 } from '@patternfly/react-tokens';
 import React from 'react';
@@ -60,15 +60,19 @@ export const QueryMessageModal: React.FunctionComponent<QueryMessageModalProps> 
     const [possibleMessageTypes, setPossibleMessageTypes] = React.useState<Set<string>>(new Set<string>());
 
     React.useEffect(() => {
+        const messageTypes: Set<string> = new Set<string>();
         requestTraces.forEach((trace: RequestTrace) => {
-            setPossibleMessageTypes((curr: Set<string>) => new Set<string>(curr).add(trace.messageType));
+            messageTypes.add(trace.messageType);
         });
+
+        console.log(`Possible message types: ${JSON.stringify(messageTypes)}`);
+        setPossibleMessageTypes(messageTypes);
     }, [requestTraces]);
 
     const onSubmitClicked = () => {
         let targetMsgId: string = jupyterMsgId;
         if (targetMsgId.length == 0) {
-          targetMsgId = "*";
+            targetMsgId = '*';
         }
 
         const req: RequestInit = {
@@ -234,7 +238,7 @@ export const QueryMessageModal: React.FunctionComponent<QueryMessageModalProps> 
                             id="query-message-jupyter-msg-id-field"
                             name="query-message-jupyter-msg-id-field"
                             aria-label="query-message-jupyter-msg-id-field"
-                            placeholder={"* (i.e., query for all messages)"}
+                            placeholder={'* (i.e., query for all messages)'}
                             value={jupyterMsgId}
                             onChange={(_event, msg_id: string) => setJupyterMsgId(msg_id)}
                         />
@@ -337,33 +341,44 @@ export const QueryMessageModal: React.FunctionComponent<QueryMessageModalProps> 
         return requestTrace.messageId + '-' + requestTrace.replicaId.toString();
     };
 
-    const onSelect = (type: string, event: MouseEvent | undefined, selection: string | number | undefined) => {
+    const onSelect = (
+        type: string,
+        event: React.MouseEvent<Element, MouseEvent> | undefined,
+        selection: string | number | undefined,
+    ) => {
         const checked = (event?.target as HTMLInputElement).checked;
         setFilters((prev) => {
             console.log(`Previous filters: ${JSON.stringify(prev)}`);
             const prevSelections = prev[type] || [];
             console.log(`Previous selections: ${JSON.stringify(prevSelections)}`);
-            return {
+            const next = {
                 ...prev,
                 [type]: checked
                     ? [...prevSelections, selection]
-                    : prevSelections.filter((value: string | number | undefined) => value !== selection),
+                    : prevSelections.filter(
+                          (value: string | number | undefined) => (value as string) !== (selection as string),
+                      ),
             };
+            console.log(`Next/new filters: ${JSON.stringify(next)}`);
+            return next;
         });
     };
 
-    const onMessageTypeFilterSelected = (event?: MouseEvent | undefined, value?: string | number | undefined) => {
-        onSelect('Message Type', event, value);
+    const onMessageTypeFilterSelected = (
+        event?: React.MouseEvent<Element, MouseEvent> | undefined,
+        value?: string | number | undefined,
+    ) => {
+        onSelect('messageType', event, value);
     };
 
     const onDeleteGroup = (type: string) => {
-        if (type === 'Message Type') {
+        if (type === 'messageType') {
             setFilters({ messageType: [] });
         }
     };
 
     const onDeleteFilter = (type: string, id: string) => {
-        if (type === 'Message Type') {
+        if (type === 'messageType') {
             setFilters({ messageType: filters.messageType.filter((fil: string) => fil !== id) });
         } else {
             setFilters({ messageType: [] });
@@ -414,16 +429,19 @@ export const QueryMessageModal: React.FunctionComponent<QueryMessageModalProps> 
                                         ref={toggleRef}
                                         onClick={() => setMessageTypeFilterIsExpanded((expanded: boolean) => !expanded)}
                                         isExpanded={messageTypeFilterIsExpanded}
+                                        icon={<SearchIcon />}
+                                        badge={
+                                            filters.messageType.length > 0 && (
+                                                <Badge isRead>{filters.messageType.length}</Badge>
+                                            )
+                                        }
                                         style={
                                             {
-                                                width: '150px',
+                                                width: '250px',
                                             } as React.CSSProperties
                                         }
                                     >
                                         Message Type
-                                        {filters.messageType.length > 0 && (
-                                            <Badge isRead>{filters.messageType.length}</Badge>
-                                        )}
                                     </MenuToggle>
                                 )}
                             >
@@ -568,11 +586,7 @@ export const QueryMessageModal: React.FunctionComponent<QueryMessageModalProps> 
             isOpen={props.isOpen}
             onClose={props.onClose}
             actions={[
-                <Button
-                    key="submit-query-message-modal-button"
-                    variant="primary"
-                    onClick={onSubmitClicked}
-                >
+                <Button key="submit-query-message-modal-button" variant="primary" onClick={onSubmitClicked}>
                     Submit
                 </Button>,
                 <Button key="dismiss-query-message-modal-button" variant="primary" onClick={props.onClose}>
