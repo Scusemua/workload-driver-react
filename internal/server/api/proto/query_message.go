@@ -3,7 +3,7 @@ package proto
 import "go.uber.org/zap/zapcore"
 
 func (x *QueryMessageResponse) MarshalLogObject(encoder zapcore.ObjectEncoder) error {
-	err := encoder.AddObject("request_trace", x.RequestTrace)
+	err := encoder.AddArray("request_traces", RequestTraceArr(x.RequestTraces))
 	if err != nil {
 		return err
 	}

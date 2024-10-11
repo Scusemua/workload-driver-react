@@ -56,7 +56,8 @@ func (h *MessageQueryHttpHandler) HandleRequest(c *gin.Context) {
 		return
 	}
 
-	h.logger.Debug("Successfully queried message status.", zap.Object("request_trace", resp.RequestTrace))
+	h.logger.Debug("Successfully queried message status.",
+		zap.String("message_id", req.MessageId), zap.Object("query_message_response", resp))
 
-	c.JSON(http.StatusOK, resp.RequestTrace)
+	c.JSON(http.StatusOK, resp)
 }

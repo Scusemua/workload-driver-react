@@ -1,11 +1,5 @@
 export interface QueryMessageResponse {
-    messageId: string;
-    messageType: string;
-    kernelId: string;
-    gatewayReceivedRequest: number;
-    gatewayForwardedRequest: number;
-    gatewayReceivedReply: number;
-    gatewayForwardedReply: number;
+    requestTraces: RequestTrace[];
 }
 
 export interface RequestTrace {
@@ -278,5 +272,5 @@ export interface PongResponse {
  * The format of a JSON-serialized buffers frame from a Jupyter kernel, containing a RequestTrace.
  */
 export interface FirstJupyterKernelBuffersFrame {
-  request_trace: RequestTrace;
+    request_trace: RequestTrace;
 }

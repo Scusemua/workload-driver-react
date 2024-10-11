@@ -803,20 +803,6 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         };
     }, [isStatusMenuOpen, statusMenuRef]);
 
-    // function onStatusMenuSelect(_event: React.MouseEvent | undefined, itemId: string | number | undefined) {
-    //     if (typeof itemId === 'undefined') {
-    //         return;
-    //     }
-
-    //     const itemStr = itemId.toString();
-
-    //     setStatusSelections(
-    //         statusSelections.includes(itemStr)
-    //             ? statusSelections.filter((selection) => selection !== itemStr)
-    //             : [itemStr, ...statusSelections],
-    //     );
-    // }
-
     const onFilter = (repo: DistributedJupyterKernel) => {
         // Search name with search value
         let searchValueInput: RegExp;

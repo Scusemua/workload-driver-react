@@ -47,7 +47,13 @@ const baseFetcher = async (input: RequestInfo | URL) => {
 };
 
 const fetcher = async (input: RequestInfo | URL, forLogging: boolean) => {
-    const response: Response = await baseFetcher(input);
+    let response: Response;
+
+    try {
+      response = await baseFetcher(input);
+    } catch (e) {
+      return Promise.reject(e);
+    }
 
     if (!response.ok) {
         console.error(`Received HTTP ${response.status} ${response.statusText} when retrieving kernels.`);
