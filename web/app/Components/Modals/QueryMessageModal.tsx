@@ -66,7 +66,7 @@ export const QueryMessageModal: React.FunctionComponent<QueryMessageModalProps> 
     );
     const [possibleMessageTypes, setPossibleMessageTypes] = React.useState<Set<string>>(new Set<string>());
 
-    const [paginationPage, setPaginationPage] = React.useState<number>(0);
+    const [paginationPage, setPaginationPage] = React.useState<number>(1);
     const [resultsPerPage, setResultsPerPage] = React.useState<number>(5);
 
     const onSetPage = (_event: React.MouseEvent | React.KeyboardEvent | MouseEvent, newPage: number) => {
@@ -135,130 +135,126 @@ export const QueryMessageModal: React.FunctionComponent<QueryMessageModalProps> 
 
         const startTime: number = performance.now();
         setQueryIsActive(true);
-        setTimeout(function () {
-            // Whatever you want to do after the wait
-            fetch('api/query-message', req)
-                .catch((err: Error) => {
+        // Whatever you want to do after the wait
+        fetch('api/query-message', req)
+            .catch((err: Error) => {
+                setQueryIsActive(false);
+                console.log(`QueryMessage failed: ${JSON.stringify(err)}`);
+                toast.custom(
+                    GetToastContentWithHeaderAndBody(
+                        `Failed to query status of Jupyter ZMQ message "${jupyterMsgId}"`,
+                        `Reason: ${err.message}`,
+                        'danger',
+                        () => {
+                            toast.dismiss(toastId);
+                        },
+                    ),
+                    { id: toastId, style: { maxWidth: 750 } },
+                );
+            })
+            .then(async (resp: Response | void) => {
+                if (resp?.status == 200) {
+                    const queryMessageResponse: QueryMessageResponse = await resp.json();
                     setQueryIsActive(false);
-                    console.log(`QueryMessage failed: ${JSON.stringify(err)}`);
+                    const latencyMs: number = RoundToThreeDecimalPlaces(performance.now() - startTime);
                     toast.custom(
                         GetToastContentWithHeaderAndBody(
-                            `Failed to query status of Jupyter ZMQ message "${jupyterMsgId}"`,
-                            `Reason: ${err.message}`,
-                            'danger',
+                            `Successfully queried status of Jupyter ZMQ message "${jupyterMsgId}" (${latencyMs} ms)`,
+                            getToastBody(queryMessageResponse, latencyMs),
+                            'success',
                             () => {
                                 toast.dismiss(toastId);
                             },
                         ),
                         { id: toastId, style: { maxWidth: 750 } },
                     );
-                })
-                .then(async (resp: Response | void) => {
-                    if (resp?.status == 200) {
-                        const queryMessageResponse: QueryMessageResponse = await resp.json();
-                        setQueryIsActive(false);
-                        const latencyMs: number = RoundToThreeDecimalPlaces(performance.now() - startTime);
+
+                    if (queryMessageResponse.requestTraces && queryMessageResponse.requestTraces.length > 0) {
+                        setRequestTraces((prevResults: Map<string, RequestTrace>) => {
+                            const nextResults: Map<string, RequestTrace> = new Map<string, RequestTrace>(prevResults);
+
+                            queryMessageResponse.requestTraces.forEach((val: RequestTrace) => {
+                                nextResults.set(getRequestTraceKey(val), val);
+                            });
+
+                            return nextResults;
+                        });
+                    }
+                } else {
+                    const responseContent = await resp?.json();
+                    setQueryIsActive(false);
+
+                    // HTTP 400 here just means that the Gateway didn't have any such request whatsoever.
+                    if (resp?.status == 400) {
+                        if (jupyterMsgId === '*') {
+                            toast.custom(
+                                GetToastContentWithHeaderAndBody(
+                                    `RequestLog is Empty`,
+                                    `There are no requests in the Cluster Gateway's RequestLog.`,
+                                    'warning',
+                                    () => {
+                                        toast.dismiss(toastId);
+                                    },
+                                ),
+                                { id: toastId, style: { maxWidth: 750 } },
+                            );
+
+                            return;
+                        }
+
+                        // We'll add an entry for this query, since we know the Gateway simply didn't have
+                        // the requested request in its request log.
+                        const requestTrace: RequestTrace = {
+                            messageId: jupyterMsgId,
+                            kernelId: jupyterKernelId,
+                            messageType: jupyterMsgType,
+                            replicaId: -1,
+                            requestReceivedByGateway: -1,
+                            requestSentByGateway: -1,
+                            requestReceivedByLocalDaemon: -1,
+                            requestSentByLocalDaemon: -1,
+                            requestReceivedByKernelReplica: -1,
+                            replySentByKernelReplica: -1,
+                            replyReceivedByLocalDaemon: -1,
+                            replySentByLocalDaemon: -1,
+                            replyReceivedByGateway: -1,
+                            replySentByGateway: -1,
+                            e2eLatencyMilliseconds: -1,
+                        };
+
+                        const traceKey: string = getRequestTraceKey(requestTrace);
+
+                        setRequestTraces((prevResults) => {
+                            return new Map<string, RequestTrace>(prevResults).set(traceKey, requestTrace);
+                        });
+
                         toast.custom(
                             GetToastContentWithHeaderAndBody(
-                                `Successfully queried status of Jupyter ZMQ message "${jupyterMsgId}" (${latencyMs} ms)`,
-                                getToastBody(queryMessageResponse, latencyMs),
-                                'success',
+                                `Request Not Found`,
+                                `${responseContent['message']}`,
+                                'danger',
                                 () => {
                                     toast.dismiss(toastId);
                                 },
                             ),
                             { id: toastId, style: { maxWidth: 750 } },
                         );
-
-                        if (queryMessageResponse.requestTraces && queryMessageResponse.requestTraces.length > 0) {
-                            setRequestTraces((prevResults: Map<string, RequestTrace>) => {
-                                const nextResults: Map<string, RequestTrace> = new Map<string, RequestTrace>(
-                                    prevResults,
-                                );
-
-                                queryMessageResponse.requestTraces.forEach((val: RequestTrace) => {
-                                    nextResults.set(getRequestTraceKey(val), val);
-                                });
-
-                                return nextResults;
-                            });
-                        }
                     } else {
-                        const responseContent = await resp?.json();
-                        setQueryIsActive(false);
-
-                        // HTTP 400 here just means that the Gateway didn't have any such request whatsoever.
-                        if (resp?.status == 400) {
-                            if (jupyterMsgId === '*') {
-                                toast.custom(
-                                    GetToastContentWithHeaderAndBody(
-                                        `RequestLog is Empty`,
-                                        `There are no requests in the Cluster Gateway's RequestLog.`,
-                                        'warning',
-                                        () => {
-                                            toast.dismiss(toastId);
-                                        },
-                                    ),
-                                    { id: toastId, style: { maxWidth: 750 } },
-                                );
-
-                                return;
-                            }
-
-                            // We'll add an entry for this query, since we know the Gateway simply didn't have
-                            // the requested request in its request log.
-                            const requestTrace: RequestTrace = {
-                                messageId: jupyterMsgId,
-                                kernelId: jupyterKernelId,
-                                messageType: jupyterMsgType,
-                                replicaId: -1,
-                                requestReceivedByGateway: -1,
-                                requestSentByGateway: -1,
-                                requestReceivedByLocalDaemon: -1,
-                                requestSentByLocalDaemon: -1,
-                                requestReceivedByKernelReplica: -1,
-                                replySentByKernelReplica: -1,
-                                replyReceivedByLocalDaemon: -1,
-                                replySentByLocalDaemon: -1,
-                                replyReceivedByGateway: -1,
-                                replySentByGateway: -1,
-                                e2eLatencyMilliseconds: -1,
-                            };
-
-                            const traceKey: string = getRequestTraceKey(requestTrace);
-
-                            setRequestTraces((prevResults) => {
-                                return new Map<string, RequestTrace>(prevResults).set(traceKey, requestTrace);
-                            });
-
-                            toast.custom(
-                                GetToastContentWithHeaderAndBody(
-                                    `Request Not Found`,
-                                    `${responseContent['message']}`,
-                                    'danger',
-                                    () => {
-                                        toast.dismiss(toastId);
-                                    },
-                                ),
-                                { id: toastId, style: { maxWidth: 750 } },
-                            );
-                        } else {
-                            // Unknown/unexpected error. Display a warning.
-                            toast.custom(
-                                GetToastContentWithHeaderAndBody(
-                                    `Failed to query status of Jupyter ZMQ message "${jupyterMsgId}"`,
-                                    `HTTP ${resp?.status} ${resp?.statusText}: ${responseContent['message']}`,
-                                    'danger',
-                                    () => {
-                                        toast.dismiss(toastId);
-                                    },
-                                ),
-                                { id: toastId, style: { maxWidth: 750 } },
-                            );
-                        }
+                        // Unknown/unexpected error. Display a warning.
+                        toast.custom(
+                            GetToastContentWithHeaderAndBody(
+                                `Failed to query status of Jupyter ZMQ message "${jupyterMsgId}"`,
+                                `HTTP ${resp?.status} ${resp?.statusText}: ${responseContent['message']}`,
+                                'danger',
+                                () => {
+                                    toast.dismiss(toastId);
+                                },
+                            ),
+                            { id: toastId, style: { maxWidth: 750 } },
+                        );
                     }
-                });
-        }, 3000);
+                }
+            });
     };
 
     const queryForm = (
@@ -542,9 +538,11 @@ export const QueryMessageModal: React.FunctionComponent<QueryMessageModalProps> 
         );
     };
 
-    const filteredTraces = Array.from(requestTraces)
-        .filter(onFilter)
-        .slice(resultsPerPage * (paginationPage - 1), resultsPerPage * (paginationPage - 1) + resultsPerPage);
+    const filteredTraces = Array.from(requestTraces).filter(onFilter);
+    const paginatedTraces = filteredTraces.slice(
+        resultsPerPage * (paginationPage - 1),
+        resultsPerPage * (paginationPage - 1) + resultsPerPage,
+    );
 
     const getSkeletonRow = (rowIndex: number) => {
         const isOddRow = (rowIndex + 1) % 2;
@@ -676,9 +674,9 @@ export const QueryMessageModal: React.FunctionComponent<QueryMessageModalProps> 
                     {requestTraces.size > 0 && tableBodyDefinition}
                 </Table>
                 <Pagination
-                    hidden={requestTraces.size <= 0}
-                    isDisabled={requestTraces.size <= 0}
-                    itemCount={requestTraces.size >= 0 ? requestTraces.size : 0}
+                    hidden={filteredTraces.length <= 0}
+                    isDisabled={filteredTraces.length <= 0}
+                    itemCount={filteredTraces.length > 0 ? filteredTraces.length : 0}
                     widgetId="query-messages-list-pagination"
                     perPage={resultsPerPage}
                     page={paginationPage}
