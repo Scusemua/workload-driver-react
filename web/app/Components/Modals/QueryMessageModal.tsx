@@ -615,7 +615,7 @@ export const QueryMessageModal: React.FunctionComponent<QueryMessageModalProps> 
 
     const tableBodyDefinition = (
         <Tbody>
-            {filteredTraces.map(([traceKey, requestTrace], rowIndex: number) => {
+            {paginatedTraces.map(([traceKey, requestTrace], rowIndex: number) => {
                 const isOddRow = (rowIndex + 1) % 2;
                 const customStyle = {
                     backgroundColor: global_BackgroundColor_150.var,
