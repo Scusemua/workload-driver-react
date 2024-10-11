@@ -12,10 +12,10 @@ import { v4 as uuidv4 } from 'uuid';
 
 import { AppHeader } from './AppHeader';
 
+const maxDisplayedAlerts: number = 3;
+
 const AppLayout: React.FunctionComponent = () => {
     const pageId = 'primary-app-container';
-
-    const maxDisplayedAlerts: number = 3;
 
     const { sendJsonMessage, lastJsonMessage } = useWebSocket('ws://localhost:8000/ws');
 
@@ -27,8 +27,12 @@ const AppLayout: React.FunctionComponent = () => {
     const { darkMode } = React.useContext(DarkModeContext);
 
     React.useEffect(() => {
-        setOverflowMessage(buildOverflowMessage());
-    }, [maxDisplayedAlerts, notifications, alerts]);
+        const overflow: number = alerts.length - maxDisplayedAlerts;
+        if (overflow > 0 && maxDisplayedAlerts > 0) {
+            setOverflowMessage(`View ${overflow} more notification(s) in notification drawer`);
+        }
+        setOverflowMessage('');
+    }, [notifications, alerts]);
 
     const PageSkipToContent = (
         <SkipToContent
@@ -42,14 +46,6 @@ const AppLayout: React.FunctionComponent = () => {
             Skip to Content
         </SkipToContent>
     );
-
-    const buildOverflowMessage = () => {
-        const overflow = alerts.length - maxDisplayedAlerts;
-        if (overflow > 0 && maxDisplayedAlerts > 0) {
-            return `View ${overflow} more notification(s) in notification drawer`;
-        }
-        return '';
-    };
 
     React.useEffect(() => {
         sendJsonMessage({
