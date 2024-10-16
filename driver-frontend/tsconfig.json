@@ -21,26 +21,29 @@
     "allowSyntheticDefaultImports": true,
     "strict": true,
     "paths": {
-      "@app/*": [
-        "web/app/*"
+      "@src/*": [
+        "src/*"
       ],
-      "@data/*": [
-        "web/app/Data/*"
+      "@App/*": [
+        "src/app/*"
       ],
-      "@assets/*": [
+      "@Data/*": [
+        "src/Data/*"
+      ],
+      "@Assets/*": [
         "node_modules/@patternfly/react-core/dist/styles/assets/*"
       ],
-      "@providers/*": [
-        "web/app/Providers/*"
+      "@Providers/*": [
+        "src/Providers/*"
       ],
-      "@components/*": [
-        "web/app/Components/*"
+      "@Components/*": [
+        "src/Components/*"
       ],
-      "@cards/*": [
-        "web/app/Components/Cards/*"
+      "@Cards/*": [
+        "src/Components/Cards/*"
       ],
-      "@icons/*": [
-        "web/app/Icons/*"
+      "@Icons/*": [
+        "src/Assets/Icons/*"
       ]
     },
     "importHelpers": true,

@@ -7,7 +7,6 @@ module.exports = {
         jsx: true,
         js: true,
         useJSXTextNode: true,
-        project: './tsconfig.json',
         tsconfigRootDir: '.',
     },
     // we want to use the recommended rules provided from the typescript plugin
@@ -41,6 +40,7 @@ module.exports = {
                 '@typescript-eslint/no-unused-vars': 'error',
                 'rulesdir/forbid-pf-relative-imports': 'off',
                 'forbid-pf-relative-imports': 'off',
+                '@rulesdir/forbid-pf-relative-imports': 'off',
             },
         },
     ],
@@ -67,6 +67,7 @@ module.exports = {
         'import/extensions': 'off',
         'react/prop-types': 'off',
         'forbid-pf-relative-imports': 'off',
+        'rulesdir/forbid-pf-relative-imports': 'off',
     },
     env: {
         browser: true,
