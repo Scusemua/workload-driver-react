@@ -1,0 +1,285 @@
+html,
+body,
+#root {
+  height: 100%;
+}
+
+.pf-v5-c-content {
+  --pf-v5-c-content--small--Color: red;
+  /* changes all <small> color to red */
+  --pf-v5-c-content--blockquote--BorderLeftColor: purple;
+  /* changes all <blockquote> left border color to purple */
+  --pf-v5-c-content--hr--BackgroundColor: lemonchiffon;
+  /* changes a <hr> color to lemonchiffon */
+}
+
+.remove-nodes-text-input {
+  --pf-v5-c-form-control: 25px;
+}
+
+.loading::after {
+  display: inline-block;
+  animation: dotty steps(1, end) 1.75s infinite;
+  content: '';
+}
+
+.code-panel {
+  --pf-v5-c-panel--BackgroundColor: "#eb7a34";
+}
+
+@keyframes dotty {
+  0% {
+    content: '';
+  }
+  25% {
+    content: '.';
+  }
+  50% {
+    content: '..';
+  }
+  75% {
+    content: '...';
+  }
+  100% {
+    content: '';
+  }
+}
+
+@keyframes spin {
+  from {
+    transform: scale(1) rotate(0deg);
+  }
+
+  to {
+    transform: scale(1) rotate(360deg);
+  }
+}
+
+@keyframes spin-pulse {
+  from {
+    transform: scale(1) rotate(0deg);
+  }
+
+  to {
+    transform: scale(1) rotate(360deg);
+  }
+}
+
+.loading-icon-spin-pulse {
+  animation: spin-pulse 1s steps(8, start) infinite;
+}
+
+.loading-icon-spin {
+  animation: spin 1.5s infinite linear;
+}
+
+.loading-icon-spin-toggleable {
+  animation: spin 1.5s infinite linear;
+  animation-play-state: running;
+}
+
+.loading-icon-spin-toggleable.paused {
+  animation: spin 1.5s infinite linear;
+  animation-play-state: paused;
+}
+
+.code-execution-output {
+  white-space: pre-wrap
+}
+
+.node-list-description-list {
+  margin-bottom: 16px
+}
+
+.node-list-expandable-content {
+  margin-top: -24px
+}
+
+.kernel-list-stat-icons {
+  margin-top: -16px;
+}
+
+.kernel-list-row {
+  padding: 0px 0px 0px 0px;
+}
+
+.kernel-list-expandable-content {
+  margin-top: -12px
+}
+
+.pf-v5-c-description-list__description {
+  margin-top: -8px
+}
+
+@import url("https://cdnjs.cloudflare.com/ajax/libs/normalize/3.0.3/normalize.min.css");
+
+/* Styles */
+
+html, body {
+  height: 100%;
+}
+
+body {
+  background-color: #2482B4;
+}
+
+.refresh-icon {
+  position: relative;
+  top: 50%;
+  left: 50%;
+  border: none;
+  outline: none;
+  padding: 10px;
+  background-color: rgba(255, 255, 255, 0.1);
+  border-radius: 5px;
+  width: 100px;
+  -webkit-transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%);
+  -webkit-transition: 0.2s background;
+  transition: 0.2s background;
+}
+
+.refresh-icon:hover {
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+.refresh-icon:focus {
+  background-color: rgba(255, 255, 255, 0.15);
+}
+
+.refresh-icon svg path {
+  stroke: #fff;
+  stroke-width: 5px;
+  stroke-linecap: round;
+  fill: none;
+}
+
+.refresh-icon svg.arrow-svg {
+  position: absolute;
+  top: 10px;
+  left: 10px;
+  right: 10px;
+  bottom: 10px;
+  -webkit-transform: rotate(-40deg);
+  transform: rotate(-40deg);
+  -webkit-transform-origin: 50% 50%;
+  transform-origin: 50% 50%;
+}
+
+.arrow-animation {
+  -webkit-animation-name: rotation;
+  animation-name: rotation;
+  -webkit-animation-duration: 0.8s;
+  animation-duration: 0.8s;
+  -webkit-animation-timing-function: linear;
+  animation-timing-function: linear;
+  -webkit-animation-fill-mode: both;
+  animation-fill-mode: both;
+}
+
+@-webkit-keyframes rotation {
+  from {
+    -webkit-transform: rotate(-40deg);
+    transform: rotate(-40deg);
+  }
+  80% {
+    -webkit-transform: rotate(340deg);
+    transform: rotate(340deg);
+  }
+  99.999% {
+    -webkit-transform: rotate(460deg);
+    transform: rotate(460deg);
+  }
+  to {
+    -webkit-transform: rotate(-40deg);
+    transform: rotate(-40deg);
+  }
+}
+
+@keyframes rotation {
+  from {
+    -webkit-transform: rotate(-40deg);
+    transform: rotate(-40deg);
+  }
+  80% {
+    -webkit-transform: rotate(340deg);
+    transform: rotate(340deg);
+  }
+  99.999% {
+    -webkit-transform: rotate(460deg);
+    transform: rotate(460deg);
+  }
+  to {
+    -webkit-transform: rotate(-40deg);
+    transform: rotate(-40deg);
+  }
+}
+
+.workload-start-stop-buttons {
+  margin-top: 4px;
+}
+
+.workload-descriptive-icons {
+  padding-top: 8px;
+}
+
+.node-list-toggle-button {
+  margin-left: -16px;
+  margin-right: -4px;
+}
+
+.node-data-list-ip {
+  margin-right: 0px;
+}
+
+.node-data-list-age {
+  margin-left: 0px;
+}
+
+.node-data-list-actions {
+  margin-left: 0;
+}
+
+.node-pods-icon {
+  transform: scale(1.25);
+}
+
+.node-memory-icon {
+  transform: scale(1.75);
+}
+
+.node-gpu-icon {
+  transform: scale(1.75);
+}
+
+.node-cpu-icon {
+  transform: scale(1.75);
+}
+
+.kernel-list-card-actions {
+  margin-left: -128px;
+}
+
+.node-allocated-vgpu {
+  padding-left: 1px;
+  margin-right: -4px;
+}
+
+.node-allocated-gpu {
+  padding-left: 1px;
+  margin-right: -4px;
+}
+
+.node-gpu-vgpu-column {
+  margin-right: -0px;
+}
+
+.create-kernel-properties-section {
+  padding-bottom: 0px;
+  margin-top: -16px;
+}
+
+.create-kernel-section-divider {
+  padding-bottom: 0px;
+  margin-bottom: -32px;
+}

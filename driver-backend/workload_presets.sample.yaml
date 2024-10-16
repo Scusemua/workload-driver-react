@@ -1,0 +1,25 @@
+ name: 'June - August'
+  description: 'Workload based on trace data from June, July, and August.'
+  key: 'jun-aug'
+  months:
+      - 'jun'
+      - 'jul'
+      - 'aug'
+  gputrace:
+  gputrace-step name:
+  gpumap:
+  cpudown:
+  cpumap:
+  cputrace-step:
+  cputrace:
+  max-task-gpu-file:
+  max-task-mem-file:
+  max-task-cpu-file:
+  max-session-gpu-file:
+  max-session-mem-file:
+  max-session-cpu-file:
+  memtrace:
+  memtrace-step:
+  memmap:
+  from-month:
+  to-month:

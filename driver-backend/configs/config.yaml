@@ -1,0 +1,10 @@
+in-cluster: false
+spoof-nodes: false
+spoof-kernels: false
+spoof-specs: false
+server-port: 8000
+workload-presets-file: "configs/workload-presets-file.yaml"
+gateway-address: localhost:8079
+cluster-dashboard-handler-port: 8078
+websocket-proxy-port: 8077
+expected-origin-port: 8001
