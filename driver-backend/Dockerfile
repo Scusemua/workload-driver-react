@@ -2,26 +2,24 @@ FROM golang:1.21.5
 
 ENV PORT=9000
 
-# Copy source code folders.
-COPY cmd ./
-COPY domain ./
-COPY generator ./
-COPY scripts ./
+# Copy everything to the image.
+#COPY vendor /go/pkg/distributed-notebook-dashboard-backend/vendor
+#COPY cmd /go/pkg/distributed-notebook-dashboard-backend/cmd
+#COPY pkg /go/pkg/distributed-notebook-dashboard-backend/pkg
+#COPY internal /go/pkg/distributed-notebook-dashboard-backend/internal
+#COPY configs /go/pkg/distributed-notebook-dashboard-backend/configs
+#
+#WORKDIR /go/pkg/distributed-notebook-dashboard-backend
+#
+#RUN make build-grpc
+#RUN make build-server
+#
+#COPY configs /go/pkg/distributed-notebook-dashboard-backend/configs
 
-COPY vendor ./
-
-# Copy resource folders.
-COPY config-files ./
-COPY custom_event_sequences ./
-COPY "workload templates" ./
-
-# Copy files.
-COPY go.mod ./
-COPY version.go ./
-
-COPY ./server ./
-COPY ./configs/config.yaml ./config.yaml
+COPY server-linux-amd64 ./server-linux-amd64
+COPY configs ./configs
+COPY .env ./.env
 
 EXPOSE 9000
 
-CMD ["server", "--yaml", "config.yaml"]
+CMD ["./server-linux-amd64", "--yaml", "./configs/config.yaml"]

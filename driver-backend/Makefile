@@ -1,4 +1,4 @@
-DOCKERUSER = "scusemua"
+DOCKERUSER=scusemua
 
 ifeq ($(OS),Windows_NT)     # is Windows_NT on XP, 2000, 7, Vista, 10...
     detected_OS := Windows
@@ -15,9 +15,22 @@ build-all: build-grpc build-server
 # Alias for build-server.
 build-backend: build-server
 
+build-server-linux: build-grpc
+	GOOS=linux GOARCH=amd64 go build -o server-linux-amd64 ./cmd/server/main.go
+
 build-server:
 	@echo Building backend server now.
 	go build -o server ./cmd/server/main.go
+
+# Build first, then create Docker image.
+build-docker: build-grpc build-server
+	docker build -t $(DOCKERUSER)/distributed-notebook-dashboard-backend .
+	# docker build -t scusemua/distributed-notebook-dashboard-backend .
+
+# Don't build first; use existing build to create docker image.
+docker:
+	docker build -t $(DOCKERUSER)/distributed-notebook-dashboard-backend .
+	# docker build -t scusemua/distributed-notebook-dashboard-backend .
 
 # Alias for run-server.
 run-backend: run-server
