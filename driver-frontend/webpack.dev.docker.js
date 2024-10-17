@@ -6,73 +6,82 @@ const common = require('./webpack.common.js');
 const { stylePaths } = require('./stylePaths');
 const { debug } = require('console');
 
-const HOST = process.env.host || '127.0.0.1';
-const PORT = process.env.port || '8001';
+const HOST = process.env.HOST || '0.0.0.0';
+const PORT = Number.parseInt(process.env.PORT) || Number.parseInt('8001');
 
-console.log('HOST: %s. PORT: %s.', HOST, PORT);
+console.log('Host: %s. Port: %d.', HOST, PORT);
 
-devServer = {
-    proxy: [
-        {
-            context: ['/jupyter'],
-            secure: false,
-            logLevel: 'debug',
-            pathRewrite: {
-                '^/jupyter': '/',
-            },
-            router: {
-                'http://127.0.0.1:8000': 'http://jupyter:8888',
-            },
-            target: 'http://jupyter:8888',
-        },
-        {
-            context: ['/api', '/authenticate', '/refresh_token'],
-            host: '127.0.0.1',
-            port: PORT,
-            scheme: 'http',
-            secure: false,
-            target: 'http://127.0.0.1:8000',
-        },
-    ],
-    host: HOST,
-    port: PORT,
-    historyApiFallback: true,
-    open: true,
-    static: {
-        directory: path.resolve(__dirname, 'dist'),
+const devServer = {
+  proxy: [
+    {
+      context: ['/jupyter'],
+      secure: false,
+      logLevel: 'debug',
+      pathRewrite: {
+        '^/jupyter': '/',
+      },
+      router: {
+        'http://127.0.0.1:8000': 'http://jupyter:8888',
+      },
+      target: 'http://jupyter:8888',
     },
-    client: {
-        overlay: true,
+    {
+      context: ['/api', "/authenticate", "/refresh_token"],
+      host: '127.0.0.1',
+      port: PORT,
+      scheme: 'http',
+      target: 'http://dashboard_backend:8000',
     },
-    headers: {
-        'X-Frame-Options': 'SAMEORIGIN',
+    {
+      context: ['/kubernetes'],
+      pathRewrite: {
+        '^/kubernetes': '/',
+      },
+      host: '127.0.0.1',
+      port: PORT,
+      scheme: 'http',
+      target: 'http://dashboard_backend:8889',
     },
+  ],
+  host: HOST,
+  port: PORT,
+  historyApiFallback: true,
+  open: true,
+  static: {
+    directory: path.resolve(__dirname, 'dist'),
+  },
+  client: {
+    overlay: true,
+  },
+  headers: {
+    'X-Frame-Options': 'SAMEORIGIN',
+  },
 };
 
 module.exports = merge(common('development'), {
-    mode: 'development',
-    devtool: 'eval-source-map',
-    entry: path.resolve(__dirname, 'src') + '/index.tsx',
-    devServer: devServer,
-    module: {
-        rules: [
-            {
-                test: /\.css$/,
-                include: [...stylePaths],
-                use: ['style-loader', 'css-loader'],
-            },
-        ],
-    },
-    snapshot: {
-        managedPaths: [],
-    },
-    // when symlinks.resolve is false, we need this to make sure dev server picks up the changes in the symlinked files and rebuilds
-    watchOptions: {
-        followSymlinks: true,
-    },
-    resolve: {
-        // Uncomment the following line when working with local packages
-        // More reading : https://webpack.js.org/configuration/resolve/#resolvesymlinks
-        symlinks: false,
-    },
+  mode: 'development',
+  devtool: 'eval-source-map',
+  entry: path.resolve(__dirname, 'src') + '/index.tsx',
+  devServer: devServer,
+  module: {
+    rules: [
+      {
+        test: /\.css$/,
+        include: [...stylePaths],
+        use: ['style-loader', 'css-loader'],
+      },
+    ],
+  },
+  snapshot: {
+    managedPaths: [],
+  },
+  // when symlinks.resolve is false, we need this to make sure dev server picks up the changes in the symlinked files and rebuilds
+  watchOptions: {
+    followSymlinks: true,
+  },
+  resolve: {
+    // Uncomment the following line when working with local packages
+    // More reading : https://webpack.js.org/configuration/resolve/#resolvesymlinks
+    symlinks: false,
+  },
 });

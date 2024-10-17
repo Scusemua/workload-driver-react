@@ -293,6 +293,8 @@ func (opts *Configuration) CheckUsage() {
 		if err := mergo.Merge(opts, fileOpts, mergo.WithOverride); err != nil {
 			panic(err)
 		}
+	} else {
+		fmt.Printf("[WARNING] No YAML configuration file specified...\n")
 	}
 
 	if opts.GPUTraceStep == 0 {
@@ -311,5 +313,5 @@ func (opts *Configuration) CheckUsage() {
 		opts.ToMonth = strings.ToLower(opts.ToMonth[:3])
 	}
 
-	fmt.Printf("Loaded options:\n%v\n", opts)
+	fmt.Printf("Server configuration:\n%v\n", opts)
 }
