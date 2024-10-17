@@ -12,7 +12,7 @@ admin_username: "scusemua"
 admin_password: "123456"
 
 # How long JWT tokens are valid
-token_valid_duration_sec: 15
+token_valid_duration_sec: 5
 
 # How long users have to refresh their tokens
-token_refresh_interval_sec: 15
+token_refresh_interval_sec: 5
