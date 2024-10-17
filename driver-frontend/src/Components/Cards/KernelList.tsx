@@ -299,6 +299,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                Authorization: 'Bearer ' + localStorage.getItem("token"),
             },
             body: JSON.stringify({
                 socketType: socketType,
@@ -478,6 +479,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                Authorization: 'Bearer ' + localStorage.getItem("token"),
                 // 'Cache-Control': 'no-cache, no-transform, no-store',
             },
             body: JSON.stringify({
@@ -648,6 +650,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             method: 'PATCH',
             headers: {
                 'Content-Type': 'application/json',
+                Authorization: 'Bearer ' + localStorage.getItem("token"),
                 // 'Cache-Control': 'no-cache, no-transform, no-store',
             },
             body: JSON.stringify({
@@ -692,6 +695,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
+                    Authorization: 'Bearer ' + localStorage.getItem("token"),
                     // 'Cache-Control': 'no-cache, no-transform, no-store',
                 },
                 body: JSON.stringify({

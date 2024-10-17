@@ -48,6 +48,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+                 Authorization: 'Bearer ' + localStorage.getItem("token"),
                 // 'Cache-Control': 'no-cache, no-transform, no-store',
             },
             body: JSON.stringify({

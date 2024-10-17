@@ -504,7 +504,8 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
         const req: RequestInit = {
           method: 'POST',
           headers: {
-            'Content-Type': 'application/json'
+            'Content-Type': 'application/json',
+            'Authorization': 'Bearer ' + localStorage.getItem("token"),
             // 'Cache-Control': 'no-cache, no-transform, no-store',
           },
           body: JSON.stringify({
@@ -625,7 +626,8 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
       await fetch('api/metrics', {
         method: 'PATCH',
         headers: {
-          'Content-Type': 'application/json'
+          'Content-Type': 'application/json',
+          Authorization: 'Bearer ' + localStorage.getItem("token"),
           // 'Cache-Control': 'no-cache, no-transform, no-store',
         },
         body: JSON.stringify({

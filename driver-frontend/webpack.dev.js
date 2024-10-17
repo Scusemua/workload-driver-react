@@ -26,7 +26,7 @@ devServer = {
             target: 'http://127.0.0.1:8888',
         },
         {
-            context: ['/api'],
+            context: ['/api', "/authenticate", "/refresh_token"],
             host: '127.0.0.1',
             port: PORT,
             scheme: 'http',

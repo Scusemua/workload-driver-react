@@ -2,6 +2,7 @@ import { Dashboard } from '@App/Dashboard';
 import { DashboardLoginPage } from '@App/DashboardLoginPage';
 import { DashboardNotificationDrawer } from '@Components/DashboardNotificationDrawer';
 import { AlertGroup, Page, SkipToContent } from '@patternfly/react-core';
+import { AuthorizationContext, AuthProvider } from '@Providers/AuthProvider';
 
 import { Notification, WebSocketMessage } from '@src/Data/';
 import { DarkModeContext, NotificationContext, useNodes } from '@src/Providers';
@@ -18,7 +19,7 @@ const maxDisplayedAlerts: number = 3;
 const AppLayout: React.FunctionComponent = () => {
     const pageId = 'primary-app-container';
 
-    const [loggedIn, setLoggedIn] = React.useState<boolean>(false);
+    const { authenticated, setAuthenticated } = React.useContext(AuthorizationContext);
 
     const { sendJsonMessage, lastJsonMessage } = useWebSocket('ws://localhost:8000/ws');
 
@@ -58,7 +59,7 @@ const AppLayout: React.FunctionComponent = () => {
     }, [sendJsonMessage]);
 
     React.useEffect(() => {
-        if (!loggedIn) {
+        if (!authenticated) {
             return;
         }
 
@@ -108,54 +109,57 @@ const AppLayout: React.FunctionComponent = () => {
         }
     };
 
-    const onSuccessfulLogin = () => {
-        setLoggedIn(true);
+    const onSuccessfulLogin = (token: string, expiration: string) => {
+        console.log(`Authenticated successfully: ${token}. Token will expire at: ${expiration}.`);
+        localStorage.setItem("token", token);
+        localStorage.setItem("token-expiration", expiration);
+        setAuthenticated(true);
     };
 
     return (
-        <React.Fragment>
-            <Toaster
-                position="bottom-right"
-                containerStyle={{
-                    zIndex: 9999,
-                }}
-                toastOptions={{
-                    className: 'react-hot-toast',
-                    style: getDefaultToastStyle(),
-                }}
-            >
-                {(t) => (
-                    <ToastBar
-                        toast={t}
-                        style={{
-                            ...t.style,
-                            animation: t.visible ? 'custom-enter 1s ease' : 'custom-exit 1s ease',
-                        }}
-                    />
-                )}
-            </Toaster>
-            <Page
-                mainContainerId={pageId}
-                header={<AppHeader isLoggedIn={loggedIn} />}
-                skipToContent={PageSkipToContent}
-                isNotificationDrawerExpanded={expanded}
-                notificationDrawer={loggedIn && <DashboardNotificationDrawer />}
-            >
-                {!loggedIn && <DashboardLoginPage onSuccessfulLogin={onSuccessfulLogin} />}
-                {loggedIn && <Dashboard />}
-                <AlertGroup
-                    isToast
-                    isLiveRegion
-                    onOverflowClick={() => {
-                        setAlerts([]);
-                        toggleExpansion(true);
+            <React.Fragment>
+                <Toaster
+                    position="bottom-right"
+                    containerStyle={{
+                        zIndex: 9999,
                     }}
-                    overflowMessage={overflowMessage}
+                    toastOptions={{
+                        className: 'react-hot-toast',
+                        style: getDefaultToastStyle(),
+                    }}
                 >
-                    {alerts.slice(0, maxDisplayedAlerts)}
-                </AlertGroup>
-            </Page>
-        </React.Fragment>
+                    {(t) => (
+                        <ToastBar
+                            toast={t}
+                            style={{
+                                ...t.style,
+                                animation: t.visible ? 'custom-enter 1s ease' : 'custom-exit 1s ease',
+                            }}
+                        />
+                    )}
+                </Toaster>
+                <Page
+                    mainContainerId={pageId}
+                    header={<AppHeader isLoggedIn={authenticated} />}
+                    skipToContent={PageSkipToContent}
+                    isNotificationDrawerExpanded={expanded}
+                    notificationDrawer={authenticated && <DashboardNotificationDrawer />}
+                >
+                    {!authenticated && <DashboardLoginPage onSuccessfulLogin={onSuccessfulLogin} />}
+                    {authenticated && <Dashboard />}
+                    <AlertGroup
+                        isToast
+                        isLiveRegion
+                        onOverflowClick={() => {
+                            setAlerts([]);
+                            toggleExpansion(true);
+                        }}
+                        overflowMessage={overflowMessage}
+                    >
+                        {alerts.slice(0, maxDisplayedAlerts)}
+                    </AlertGroup>
+                </Page>
+            </React.Fragment>
     );
 };
 

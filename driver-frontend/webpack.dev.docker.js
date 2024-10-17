@@ -26,10 +26,11 @@ devServer = {
             target: 'http://jupyter:8888',
         },
         {
-            context: ['/api'],
+            context: ['/api', '/authenticate', '/refresh_token'],
             host: '127.0.0.1',
             port: PORT,
             scheme: 'http',
+            secure: false,
             target: 'http://127.0.0.1:8000',
         },
     ],

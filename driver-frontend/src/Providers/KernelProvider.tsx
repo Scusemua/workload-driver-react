@@ -1,4 +1,6 @@
 import { DistributedJupyterKernel } from '@Data/Kernel';
+import { AuthorizationContext } from '@Providers/AuthProvider';
+import React from 'react';
 import useSWR from 'swr';
 import useSWRMutation from 'swr/mutation';
 
@@ -15,8 +17,13 @@ const baseFetcher = async (input: RequestInfo | URL) => {
     const signal: AbortSignal = abortController.signal;
     const timeout: number = 10000;
 
-    // const randNumber: number = Math.floor(Math.random() * 1e9);
-    // input += `?randNumber=${randNumber}`;
+    const init: RequestInit = {
+        method: 'GET',
+        headers: {
+            Authorization: 'Bearer ' + localStorage.getItem('token'),
+        },
+        signal: signal,
+    };
 
     setTimeout(() => {
         abortController.abort(`The request timed-out after ${timeout} milliseconds.`);
@@ -24,9 +31,7 @@ const baseFetcher = async (input: RequestInfo | URL) => {
 
     let response: Response | null = null;
     try {
-        response = await fetch(input, {
-            signal: signal,
-        });
+        response = await fetch(input, init);
     } catch (e) {
         if (signal.aborted) {
             console.error('refresh-kernels request timed out.');
@@ -37,29 +42,15 @@ const baseFetcher = async (input: RequestInfo | URL) => {
         }
     }
 
-    if (!response.ok) {
-        const responseBody: string = await response.text();
-        console.error(`Refresh Kernels Failed (${response.status} ${response.statusText}): ${responseBody}`);
-        return Promise.reject(new Error(`Refresh Kernels Failed: ${response.status} ${response.statusText}`));
-    }
-
     return response;
 };
 
 const fetcher = async (input: RequestInfo | URL, forLogging: boolean) => {
-    let response: Response;
-
-    try {
-      response = await baseFetcher(input);
-    } catch (e) {
-      return Promise.reject(e);
-    }
+    const response: Response = await baseFetcher(input);
 
     if (!response.ok) {
         console.error(`Received HTTP ${response.status} ${response.statusText} when retrieving kernels.`);
-        return Promise.reject(
-            new Error(`Received HTTP ${response.status} ${response.statusText} when retrieving kernels.`),
-        );
+        throw new Error(`Received HTTP ${response.status} ${response.statusText} when retrieving kernels.`);
     }
 
     let kernels: DistributedJupyterKernel[] = await response.json();
@@ -78,12 +69,18 @@ const fetcher = async (input: RequestInfo | URL, forLogging: boolean) => {
 const api_endpoint: string = 'api/get-kernels';
 
 export function useKernels(forLogging: boolean) {
-    const { data, error } = useSWR([api_endpoint, forLogging], ([url, forLogging]) => fetcher(url, forLogging), {
-        refreshInterval: 5000,
-        onError: (error: Error) => {
-            console.error(`Automatic refresh of kernels failed because: ${error.message}`);
+    const { authenticated } = React.useContext(AuthorizationContext);
+    const { data, error } = useSWR(
+        authenticated ? [api_endpoint, forLogging] : null,
+        ([url, forLogging]) => fetcher(url, forLogging),
+        {
+            refreshInterval: 5000,
+            suspense: false,
+            onError: (error: Error) => {
+                console.error(`Automatic refresh of kernels failed because: ${error.message}`);
+            },
         },
-    });
+    );
     const { trigger, isMutating } = useSWRMutation([api_endpoint, forLogging], ([url, forLogging]) =>
         fetcher(url, forLogging),
     );
@@ -93,7 +90,14 @@ export function useKernels(forLogging: boolean) {
     return {
         kernels: kernels,
         kernelsAreLoading: isMutating,
-        refreshKernels: trigger,
+        refreshKernels: async () => {
+            try {
+                return await trigger();
+            } catch (e) {
+                console.error(`Trigger failed: ${JSON.stringify(e)}`);
+                return;
+            }
+        },
         isError: error,
     };
 }

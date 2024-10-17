@@ -1,6 +1,7 @@
+import { RoundToTwoDecimalPlaces } from '@Components/Modals';
+import { AuthorizationContext } from '@Providers/AuthProvider';
 import { ClusterNode } from '@src/Data';
 import { GetToastContentWithHeaderAndBody } from '@src/Utils/toast_utils';
-import { RoundToTwoDecimalPlaces } from '@Components/Modals';
 import React from 'react';
 import { toast } from 'react-hot-toast';
 import useSWR from 'swr';
@@ -20,11 +21,17 @@ const fetcher = async (input: RequestInfo | URL) => {
         abortController.abort(`The request timed-out after ${timeout} milliseconds.`);
     }, timeout);
 
+    const init: RequestInit = {
+        method: 'GET',
+        headers: {
+            Authorization: 'Bearer ' + localStorage.getItem('token'),
+        },
+        signal: signal,
+    };
+
     let response: Response | null = null;
     try {
-        response = await fetch(input, {
-            signal: signal,
-        });
+        response = await fetch(input, init);
     } catch (e) {
         if (signal.aborted) {
             console.error('refresh-kubernetes-nodes request timed out.');
@@ -87,7 +94,8 @@ function getManualRefreshTrigger(trigger: TriggerWithoutArgs<any, any, string, n
 }
 
 export function useNodes() {
-    const { data, error, isLoading, isValidating } = useSWR(api_endpoint, fetcher, { refreshInterval: 600000 });
+    const { authenticated } = React.useContext(AuthorizationContext);
+    const { data, error, isLoading, isValidating } = useSWR(authenticated ? api_endpoint : null, fetcher, { refreshInterval: 600000 });
     const { trigger, isMutating } = useSWRMutation(api_endpoint, fetcher);
 
     const nodes: ClusterNode[] = data || [];

@@ -106,6 +106,7 @@ export const QueryMessageModal: React.FunctionComponent<QueryMessageModalProps> 
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
+              Authorization: 'Bearer ' + localStorage.getItem("token"),
             },
             body: JSON.stringify({
                 messageId: targetMsgId,

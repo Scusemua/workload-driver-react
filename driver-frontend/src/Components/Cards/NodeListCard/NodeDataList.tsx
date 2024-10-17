@@ -222,6 +222,7 @@ export const NodeDataList: React.FunctionComponent<NodeDataListProps> = (props: 
             method: 'PATCH',
             headers: {
                 'Content-Type': 'application/json',
+                Authorization: 'Bearer ' + localStorage.getItem("token"),
                 // 'Cache-Control': 'no-cache, no-transform, no-store',
             },
             body: requestBody,

@@ -1,4 +1,3 @@
-import logo from '@src/app/bgimages/WorkloadDriver-Logo.svg';
 import {
     Brand,
     Button,
@@ -26,13 +25,16 @@ import {
     SunIcon,
     WarningTriangleIcon,
 } from '@patternfly/react-icons';
+import { AuthorizationContext } from '@Providers/AuthProvider';
 import { useClusterAge } from '@Providers/ClusterAgeProvider';
 import { DarkModeContext } from '@Providers/DarkModeProvider';
 import { useKernels } from '@Providers/KernelProvider';
 import { useNodes } from '@Providers/NodeProvider';
 import { NotificationContext } from '@Providers/NotificationProvider';
+import logo from '@src/app/bgimages/WorkloadDriver-Logo.svg';
 import { uuidv4 } from 'lib0/random';
 import * as React from 'react';
+import { useContext } from 'react';
 import useWebSocket, { ReadyState } from 'react-use-websocket';
 import { QueryMessageModal } from 'src/Components/Modals';
 import { FormatSecondsShort } from 'src/Utils/utils';
@@ -86,7 +88,7 @@ const connectionStatusColors: connectionStatusColorsType = {
 };
 
 interface AppHeaderProps {
-  isLoggedIn: boolean;
+    isLoggedIn: boolean;
 }
 
 export const AppHeader: React.FunctionComponent<AppHeaderProps> = (props: AppHeaderProps) => {
@@ -100,6 +102,8 @@ export const AppHeader: React.FunctionComponent<AppHeaderProps> = (props: AppHea
     const { clusterAge } = useClusterAge();
     const { refreshNodes } = useNodes();
     const { refreshKernels } = useKernels(false);
+
+    const { authenticated } = useContext(AuthorizationContext);
 
     const [currentClusterAge, setCurrentClusterAge] = React.useState<string>('N/A');
 
@@ -136,6 +140,10 @@ export const AppHeader: React.FunctionComponent<AppHeaderProps> = (props: AppHea
     });
 
     React.useEffect(() => {
+        if (!authenticated) {
+            return;
+        }
+
         switch (readyState) {
             case ReadyState.CLOSED:
                 if (!failedToConnect.current) {
@@ -189,7 +197,7 @@ export const AppHeader: React.FunctionComponent<AppHeaderProps> = (props: AppHea
         }
 
         setPrevConnectionState(readyState);
-    }, [prevConnectionState, readyState]);
+    }, [prevConnectionState, readyState, authenticated]);
 
     const connectionStatus = connectionStatuses[readyState];
     const connectionStatusIcon = connectionStatusIcons[readyState];
@@ -288,6 +296,9 @@ export const AppHeader: React.FunctionComponent<AppHeaderProps> = (props: AppHea
                                     onClick={() => {
                                         const requestOptions = {
                                             method: 'POST',
+                                            Headers: {
+                                                Authorization: 'Bearer ' + localStorage.getItem('token'),
+                                            },
                                         };
 
                                         fetch('api/panic', requestOptions);

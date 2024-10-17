@@ -1,22 +1,14 @@
+import { AuthorizationContext } from '@Providers/AuthProvider';
 import { FormatSecondsLong } from '@src/Utils/utils';
+import React from 'react';
 import useSWR from 'swr';
 
-const baseFetcher = async (input: RequestInfo | URL) => {
-    const abortController: AbortController = new AbortController();
-    const signal: AbortSignal = abortController.signal;
-    const timeout: number = 10000;
-
-    setTimeout(() => {
-        abortController.abort(`The request for the age of the cluster has timed-out after ${timeout} milliseconds.`);
-    }, timeout);
-
+const baseFetcher = async (input: RequestInfo | URL, init: RequestInit) => {
     let response: Response | null = null;
     try {
-        response = await fetch(input, {
-            signal: signal,
-        });
+        response = await fetch(input, init);
     } catch (e) {
-        if (signal.aborted) {
+        if (init.signal?.aborted) {
             console.error('refresh-cluster-age request timed out.');
             throw new Error(`The request for the age of the cluster has timed out.`); // Different error.
         } else {
@@ -35,8 +27,23 @@ const baseFetcher = async (input: RequestInfo | URL) => {
 };
 
 const fetcher = async (input: RequestInfo | URL) => {
-    console.log('Fetching Cluster age now...');
-    const response: Response = await baseFetcher(input);
+    const abortController: AbortController = new AbortController();
+    const signal: AbortSignal = abortController.signal;
+    const timeout: number = 10000;
+
+    setTimeout(() => {
+        abortController.abort(`The request for the age of the cluster has timed-out after ${timeout} milliseconds.`);
+    }, timeout);
+
+    const req: RequestInit = {
+        method: 'GET',
+        headers: {
+            Authorization: 'Bearer ' + localStorage.getItem('token'),
+        },
+        signal: signal,
+    };
+
+    const response: Response = await baseFetcher(input, req);
 
     if (!response.ok) {
         console.error(`Received HTTP ${response.status} ${response.statusText} when retrieving cluster age.`);
@@ -46,17 +53,21 @@ const fetcher = async (input: RequestInfo | URL) => {
     const ageString: string = await response.text();
     const age: number = Number.parseInt(ageString);
 
-    console.log(`Returning age: ${age} (i.e., the cluster was created approximately ${FormatSecondsLong((Date.now() - (age as number)) / 1000.0)} ago).`);
+    console.log(
+        `Returning age: ${age} (i.e., the cluster was created approximately ${FormatSecondsLong((Date.now() - (age as number)) / 1000.0)} ago).`,
+    );
     return age;
 };
 
 const api_endpoint: string = 'api/cluster-age';
 
 export function useClusterAge() {
-    const { data, error } = useSWR([api_endpoint], ([url]) => fetcher(url), {
+    const { authenticated } = React.useContext(AuthorizationContext);
+
+    const { data, error } = useSWR(authenticated ? [api_endpoint] : null, ([url]) => fetcher(url), {
         refreshInterval: (age) => {
             if (age !== undefined && age > 0 && age <= Date.now()) {
-              return 30000;
+                return 30000;
             }
 
             return 250;

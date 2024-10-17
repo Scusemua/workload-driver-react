@@ -5,9 +5,14 @@ const fetcher = (input: RequestInfo | URL) => {
     const randNumber: number = Math.floor(Math.random() * 1e9);
     input += `?randNumber=${randNumber}`;
 
-    return fetch(input, {
-        // headers: { 'Cache-Control': 'no-cache, no-transform, no-store' }
-    }).then((response: Response) => response.json());
+    const init: RequestInit = {
+        method: 'GET',
+        headers: {
+            Authorization: 'Bearer ' + localStorage.getItem('token'),
+        },
+    };
+
+    return fetch(input, init).then((response: Response) => response.json());
 };
 
 const api_endpoint: string = 'api/workload-presets';
