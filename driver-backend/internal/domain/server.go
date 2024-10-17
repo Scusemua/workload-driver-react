@@ -52,6 +52,9 @@ const (
 	// ClusterAgeEndpoint is used to retrieve the UnixMillisecond timestamp at which the Cluster was created.
 	ClusterAgeEndpoint = "/cluster-age"
 
+	// RefreshToken is used to refresh a JWT auth token.
+	RefreshToken = "/refresh_token"
+
 	// AuthenticateRequest is used to authenticate and get access to the Dashboard.
 	AuthenticateRequest = "/authenticate"
 

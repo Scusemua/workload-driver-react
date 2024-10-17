@@ -29,6 +29,7 @@ import (
 	"io"
 	"log"
 	"net/http"
+	"net/http/httputil"
 	"net/url"
 	"path"
 	"sync"
@@ -195,7 +196,7 @@ func (s *serverImpl) jwtIdentityHandler() func(c *gin.Context) interface{} {
 
 func (s *serverImpl) jwtAuthenticator() func(c *gin.Context) (interface{}, error) {
 	return func(c *gin.Context) (interface{}, error) {
-		var login *auth.AuthenticationInput
+		var login *auth.LoginRequest
 		if err := c.ShouldBind(&login); err != nil {
 			s.logger.Warn("Received login request with missing login values.")
 			return "", jwt.ErrMissingLoginValues
@@ -343,9 +344,19 @@ func (s *serverImpl) setupRoutes() error {
 	})
 
 	// Used by frontend to authenticate and get access to the dashboard.
-	s.app.POST("/authenticate", func(c *gin.Context) {
-		s.logger.Debug("Login handler called: /authenticate")
+	s.app.POST(domain.AuthenticateRequest, func(c *gin.Context) {
+		request, err := httputil.DumpRequest(c.Request, true)
+		if err != nil {
+			s.logger.Error("Failed to dump JWT login request.", zap.Error(err))
+		}
+
+		s.sugaredLogger.Debugf("JWT login handler called: \"%s\": %s", domain.AuthenticateRequest, request)
 		authMiddleware.LoginHandler(c)
+	})
+
+	s.app.POST(domain.RefreshToken, func(c *gin.Context) {
+		s.sugaredLogger.Debugf("JWT token refresh handler called: \"%s\"", domain.RefreshToken)
+		authMiddleware.RefreshHandler(c)
 	})
 
 	///////////////////////////////
@@ -392,9 +403,6 @@ func (s *serverImpl) setupRoutes() error {
 
 		// Used by the frontend to retrieve the UnixMillisecond timestamp at which the Cluster was created.
 		apiGroup.GET(domain.ClusterAgeEndpoint, handlers.NewClusterAgeHttpHandler(s.opts, s.gatewayRpcClient).HandleRequest)
-
-		// Used to refresh auth token.
-		apiGroup.GET("/refresh_token", authMiddleware.RefreshHandler)
 	}
 
 	///////////////////////////
@@ -428,7 +436,7 @@ func (s *serverImpl) setupRoutes() error {
 }
 
 func (s *serverImpl) HandleAuthenticateRequest(c *gin.Context) {
-	var login *auth.AuthenticationInput
+	var login *auth.LoginRequest
 	err := c.BindJSON(&login)
 	if err != nil {
 		_ = c.AbortWithError(http.StatusBadRequest, err)
