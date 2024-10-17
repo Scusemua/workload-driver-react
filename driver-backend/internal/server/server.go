@@ -3,9 +3,12 @@ package server
 import (
 	"bufio"
 	"context"
+	"crypto/rand"
 	"encoding/json"
 	"errors"
 	"fmt"
+	jwt "github.com/appleboy/gin-jwt/v2"
+	"github.com/gin-contrib/pprof"
 	"github.com/gin-gonic/contrib/cors"
 	"github.com/gin-gonic/contrib/static"
 	"github.com/gin-gonic/gin"
@@ -30,14 +33,14 @@ import (
 	"path"
 	"sync"
 	"time"
-
-	"github.com/gin-contrib/pprof"
 )
 
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
 }
+
+var jwtIdentityKey = "identityKey"
 
 type serverImpl struct {
 	logger           *zap.Logger
@@ -164,6 +167,122 @@ func (s *serverImpl) ErrorHandlerMiddleware(c *gin.Context) {
 	}
 }
 
+func (s *serverImpl) jwtPayloadFunc() func(data interface{}) jwt.MapClaims {
+	return func(data interface{}) jwt.MapClaims {
+		s.logger.Debug("Executing jwtPayloadFunc", zap.Any("data", data))
+		if v, ok := data.(*auth.AuthenticatedUser); ok {
+			return jwt.MapClaims{
+				jwtIdentityKey: v.Username,
+			}
+		}
+		return jwt.MapClaims{}
+	}
+}
+
+func (s *serverImpl) jwtIdentityHandler() func(c *gin.Context) interface{} {
+	return func(c *gin.Context) interface{} {
+		claims := jwt.ExtractClaims(c)
+		identity, ok := claims[jwtIdentityKey].(string)
+		if ok {
+			return &auth.AuthenticatedUser{
+				Username: identity,
+			}
+		} else {
+			return nil
+		}
+	}
+}
+
+func (s *serverImpl) jwtAuthenticator() func(c *gin.Context) (interface{}, error) {
+	return func(c *gin.Context) (interface{}, error) {
+		var login *auth.AuthenticationInput
+		if err := c.ShouldBind(&login); err != nil {
+			s.logger.Warn("Received login request with missing login values.")
+			return "", jwt.ErrMissingLoginValues
+		}
+		userID := login.Username
+		password := login.Password
+
+		s.logger.Debug("Received authentication request.", zap.String("username", userID), zap.String("password", password))
+
+		if userID == s.adminUsername && password == s.adminPassword {
+			return &auth.AuthenticatedUser{Username: userID}, nil
+		}
+		return nil, jwt.ErrFailedAuthentication
+	}
+}
+
+func (s *serverImpl) jwtAuthorizer() func(data interface{}, c *gin.Context) bool {
+	return func(data interface{}, c *gin.Context) bool {
+		s.logger.Debug("Executing jwtAuthorizer", zap.Any("data", data))
+
+		var (
+			user *auth.AuthenticatedUser
+			ok   bool
+		)
+		user, ok = data.(*auth.AuthenticatedUser)
+
+		if ok {
+			s.logger.Debug("Inspecting request for authorization.", zap.String("username", user.Username))
+
+			if user.Username == s.adminUsername {
+				s.logger.Debug("Authorizing request from admin user.", zap.String("username", user.Username))
+				return true
+			} else {
+				log.Fatalf("Found non-admin authorized user with username=\"%s\"\n", user.Username)
+			}
+		} else {
+			s.logger.Debug("Rejecting unauthorized request.", zap.Any("data", data))
+		}
+
+		return false
+	}
+}
+
+func (s *serverImpl) jwtHandleUnauthorized() func(c *gin.Context, code int, message string) {
+	return func(c *gin.Context, code int, message string) {
+		s.logger.Debug("Executing jwtHandleUnauthorized")
+
+		c.JSON(code, gin.H{
+			"code":    code,
+			"message": message,
+		})
+	}
+}
+
+func (s *serverImpl) initJWTParams() *jwt.GinJWTMiddleware {
+	key := make([]byte, 32)
+	if _, err := rand.Read(key); err != nil {
+		panic(err)
+	}
+
+	return &jwt.GinJWTMiddleware{
+		Realm:             "Distributed Notebook Cluster",
+		Key:               key,
+		Timeout:           time.Hour * 2048,
+		MaxRefresh:        time.Hour * 2048,
+		IdentityKey:       jwtIdentityKey,
+		PayloadFunc:       s.jwtPayloadFunc(),
+		IdentityHandler:   s.jwtIdentityHandler(),
+		Authenticator:     s.jwtAuthenticator(),
+		Authorizator:      s.jwtAuthorizer(),
+		Unauthorized:      s.jwtHandleUnauthorized(),
+		SendAuthorization: true,
+		TokenLookup:       "header: Authorization, query: token, cookie: jwt",
+		TokenHeadName:     "Bearer",
+		TimeFunc:          time.Now,
+	}
+}
+
+func (s *serverImpl) jwtHandlerMiddleWare(authMiddleware *jwt.GinJWTMiddleware) gin.HandlerFunc {
+	return func(context *gin.Context) {
+		errInit := authMiddleware.MiddlewareInit()
+		if errInit != nil {
+			log.Fatal("authMiddleware.MiddlewareInit() Error:" + errInit.Error())
+		}
+	}
+}
+
 func (s *serverImpl) setupRoutes() error {
 	s.app = &proxy.JupyterProxyRouter{
 		ContextPath:  domain.JupyterGroupEndpoint,
@@ -180,11 +299,19 @@ func (s *serverImpl) setupRoutes() error {
 		panic(err)
 	}
 
+	// The jwt middleware.
+	authMiddleware, err := jwt.New(s.initJWTParams())
+	if err != nil {
+		log.Fatal("JWT Error:" + err.Error())
+	}
+
 	// Serve frontend static files
 	s.app.Use(static.Serve("/", static.LocalFile("./dist", true)))
+	s.logger.Debug("Attached logger middleware.")
+	s.app.Use(s.jwtHandlerMiddleWare(authMiddleware))
 	s.logger.Debug("Attached static middleware.")
 	s.app.Use(gin.Logger())
-	s.logger.Debug("Attached logger middleware.")
+	s.logger.Debug("Attached auth middleware.")
 	s.app.Use(cors.Default())
 	s.logger.Debug("Attached CORS middleware.")
 	s.app.Use(s.ErrorHandlerMiddleware)
@@ -209,10 +336,22 @@ func (s *serverImpl) setupRoutes() error {
 
 	pprof.Register(s.app, "dev/pprof")
 
+	s.app.NoRoute(authMiddleware.MiddlewareFunc(), func(c *gin.Context) {
+		claims := jwt.ExtractClaims(c)
+		log.Printf("NoRoute claims: %#v\n", claims)
+		c.JSON(404, gin.H{"code": "PAGE_NOT_FOUND", "message": "Page not found"})
+	})
+
+	// Used by frontend to authenticate and get access to the dashboard.
+	s.app.POST("/authenticate", func(c *gin.Context) {
+		s.logger.Debug("Login handler called: /authenticate")
+		authMiddleware.LoginHandler(c)
+	})
+
 	///////////////////////////////
 	// Standard/Primary Handlers //
 	///////////////////////////////
-	apiGroup := s.app.Group(domain.BaseApiGroupEndpoint)
+	apiGroup := s.app.Group(domain.BaseApiGroupEndpoint, authMiddleware.MiddlewareFunc())
 	{
 		// Used internally (by the frontend) to get the current kubernetes nodes from the backend  (i.e., the backend).
 		apiGroup.GET(domain.NodesEndpoint, s.nodeHandler.HandleRequest)
@@ -254,8 +393,8 @@ func (s *serverImpl) setupRoutes() error {
 		// Used by the frontend to retrieve the UnixMillisecond timestamp at which the Cluster was created.
 		apiGroup.GET(domain.ClusterAgeEndpoint, handlers.NewClusterAgeHttpHandler(s.opts, s.gatewayRpcClient).HandleRequest)
 
-		// Used by frontend to authenticate and get access to the dashboard.
-		apiGroup.POST(domain.AuthenticateRequest, s.HandleAuthenticateRequest)
+		// Used to refresh auth token.
+		apiGroup.GET("/refresh_token", authMiddleware.RefreshHandler)
 	}
 
 	///////////////////////////
