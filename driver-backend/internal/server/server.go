@@ -85,23 +85,27 @@ type serverImpl struct {
 
 	logResponseBodyMutex sync.RWMutex
 
-	adminUsername string
-	adminPassword string
+	adminUsername           string
+	adminPassword           string
+	jwtTokenValidDuration   time.Duration
+	jwtTokenRefreshInterval time.Duration
 }
 
 func NewServer(opts *domain.Configuration) domain.Server {
 	atom := zap.NewAtomicLevelAt(zapcore.DebugLevel)
 	s := &serverImpl{
-		opts:                  opts,
-		atom:                  &atom,
-		engine:                gin.New(),
-		expectedOriginPort:    opts.ExpectedOriginPort,
-		generalWebsockets:     make(map[string]domain.ConcurrentWebSocket),
-		getLogsResponseBodies: make(map[string]io.ReadCloser),
-		workloadManager:       workload.NewWorkloadManager(opts, &atom),
-		prometheusHandler:     promhttp.Handler(),
-		adminUsername:         opts.AdminUser,
-		adminPassword:         opts.AdminPassword,
+		opts:                    opts,
+		atom:                    &atom,
+		engine:                  gin.New(),
+		expectedOriginPort:      opts.ExpectedOriginPort,
+		generalWebsockets:       make(map[string]domain.ConcurrentWebSocket),
+		getLogsResponseBodies:   make(map[string]io.ReadCloser),
+		workloadManager:         workload.NewWorkloadManager(opts, &atom),
+		prometheusHandler:       promhttp.Handler(),
+		adminUsername:           opts.AdminUser,
+		adminPassword:           opts.AdminPassword,
+		jwtTokenValidDuration:   time.Second * time.Duration(opts.TokenValidDurationSec),
+		jwtTokenRefreshInterval: time.Second * time.Duration(opts.TokenRefreshIntervalSec),
 	}
 
 	zapConfig := zap.NewDevelopmentEncoderConfig()
@@ -260,8 +264,8 @@ func (s *serverImpl) initJWTParams() *jwt.GinJWTMiddleware {
 	return &jwt.GinJWTMiddleware{
 		Realm:             "Distributed Notebook Cluster",
 		Key:               key,
-		Timeout:           time.Hour * 2048,
-		MaxRefresh:        time.Hour * 2048,
+		Timeout:           s.jwtTokenValidDuration,
+		MaxRefresh:        s.jwtTokenRefreshInterval,
 		IdentityKey:       jwtIdentityKey,
 		PayloadFunc:       s.jwtPayloadFunc(),
 		IdentityHandler:   s.jwtIdentityHandler(),

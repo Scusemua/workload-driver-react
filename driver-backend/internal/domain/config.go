@@ -185,6 +185,8 @@ type Configuration struct {
 	WebsocketProxyPort      int    `name:"websocket-proxy-port" yaml:"websocket-proxy-port" json:"websocket-proxy-port" description:"Port of the backend websocket proxy server, which reverse-proxies websocket connections to the Jupyter server."`
 	AdminUser               string `name:"admin_username" yaml:"admin_username" json:"admin_username"`
 	AdminPassword           string `name:"admin_password" yaml:"admin_password" json:"admin_password"`
+	TokenValidDurationSec   int    `name:"token_valid_duration_sec" yaml:"token_valid_duration_sec" json:"token_valid_duration_sec"`
+	TokenRefreshIntervalSec int    `name:"token_refresh_interval_sec" yaml:"token_refresh_interval_sec" json:"token_refresh_interval_sec"`
 }
 
 func GetDefaultConfig() *Configuration {
