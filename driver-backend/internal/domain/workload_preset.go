@@ -151,9 +151,8 @@ func (p *WorkloadPreset) UnmarshalYAML(unmarshal func(interface{}) error) error 
 		p.XmlWorkloadPreset = xmlPreset
 
 		if err != nil {
-			log.Fatalf("Failed to unmarshal CSV workload preset: %v\n", err)
+			log.Printf("[ERROR] Failed to unmarshal CSV workload preset: %v\n", err)
 		}
-		// log.Printf("Unmarshaled XML workload preset \"%s\"\n", p.XmlWorkloadPreset.Name)
 	} else {
 		log.Fatalf("Unsupported workload preset type: %v", basePreset.PresetType)
 	}

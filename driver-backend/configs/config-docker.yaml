@@ -3,7 +3,7 @@ spoof-nodes: false
 spoof-kernels: false
 spoof-specs: false
 server-port: 8000
-workload-presets-file: "configs/workload-presets-file.yaml"
+workload-presets-file: "/etc/distributed-notebook-cluster/custom_event_sequences/workload-presets-file.yaml"
 gateway-address: gateway:8079
 cluster-dashboard-handler-port: 8078
 websocket-proxy-port: 8077

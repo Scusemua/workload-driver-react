@@ -26,6 +26,7 @@ build-server:
 build-docker: build-grpc build-server
 	docker build -t $(DOCKERUSER)/distributed-notebook-dashboard-backend .
 	# docker build -t scusemua/distributed-notebook-dashboard-backend .
+	# docker push scusemua/distributed-notebook-dashboard-backend:latest
 
 # Don't build first; use existing build to create docker image.
 docker:
