@@ -17,7 +17,7 @@ COPY jest.config.js ./
 COPY setupJest.js ./
 COPY stylePaths.js ./
 COPY tsconfig.json ./
-COPY webpack.dev.js ./
+COPY webpack.dev.docker.js ./webpack.dev.js
 COPY webpack.common.js ./
 COPY webpack.prod.js ./
 

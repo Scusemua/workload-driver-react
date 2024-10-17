@@ -1,4 +1,4 @@
-import logo from '@app/bgimages/WorkloadDriver-Logo.svg';
+import logo from '@src/app/bgimages/WorkloadDriver-Logo.svg';
 import {
     Brand,
     Button,
@@ -85,7 +85,11 @@ const connectionStatusColors: connectionStatusColorsType = {
     [ReadyState.UNINSTANTIATED]: 'orange',
 };
 
-export const AppHeader: React.FunctionComponent = () => {
+interface AppHeaderProps {
+  isLoggedIn: boolean;
+}
+
+export const AppHeader: React.FunctionComponent<AppHeaderProps> = (props: AppHeaderProps) => {
     const lightModeId: string = 'theme-toggle-lightmode';
     const darkModeId: string = 'theme-toggle-darkmode';
     const lightModeButtonId: string = lightModeId + '-button';
@@ -226,34 +230,6 @@ export const AppHeader: React.FunctionComponent = () => {
         return NotificationBadgeVariant.unread;
     };
 
-    // const displayExpandableToast = () => {
-    //     toast.custom(
-    //         (t: Toast) => (
-    //             <Alert
-    //                 isInline
-    //                 variant={'success'}
-    //                 title="Expandable Toast"
-    //                 timeoutAnimation={30000}
-    //                 timeout={10000}
-    //                 onTimeout={() => toast.dismiss(t.id)}
-    //                 actionClose={<AlertActionCloseButton onClose={() => toast.dismiss(t.id)} />}
-    //                 actionLinks={
-    //                     <React.Fragment>
-    //                         <AlertActionLink // eslint-disable-next-line no-console
-    //                             onClick={() => toast.dismiss(t.id)}
-    //                         >
-    //                             Dismiss
-    //                         </AlertActionLink>
-    //                     </React.Fragment>
-    //                 }
-    //             ></Alert>
-    //         ),
-    //         {
-    //             style: { maxWidth: 750 },
-    //         },
-    //     );
-    // };
-
     const notificationBadge = (
         <ToolbarItem>
             <NotificationBadge
@@ -296,13 +272,13 @@ export const AppHeader: React.FunctionComponent = () => {
                             </div>
                         </FlexItem>
 
-                        <FlexItem>
+                        <FlexItem hidden={!props.isLoggedIn}>
                             <Tooltip content="Open the notification drawer." position="bottom">
                                 {notificationBadge}
                             </Tooltip>
                         </FlexItem>
 
-                        <FlexItem>
+                        <FlexItem hidden={!props.isLoggedIn}>
                             <Tooltip content="Cause the Cluster Gateway to panic." position="bottom">
                                 <Button
                                     isDanger
@@ -322,54 +298,7 @@ export const AppHeader: React.FunctionComponent = () => {
                             </Tooltip>
                         </FlexItem>
 
-                        {/*<FlexItem>*/}
-                        {/*    <Tooltip*/}
-                        {/*        content="Prompt the server to broadcast a fake error for testing/debugging purposes."*/}
-                        {/*        position="bottom"*/}
-                        {/*    >*/}
-                        {/*        <Button*/}
-                        {/*            isDanger*/}
-                        {/*            variant="secondary"*/}
-                        {/*            icon={<SkullCrossbonesIcon />}*/}
-                        {/*            onClick={() => {*/}
-                        {/*                console.log('Requesting fake error message from backend.');*/}
-
-                        {/*                const requestOptions = {*/}
-                        {/*                    method: 'POST',*/}
-                        {/*                };*/}
-
-                        {/*                fetch('api/spoof-error', requestOptions);*/}
-                        {/*            }}*/}
-                        {/*        >*/}
-                        {/*            Spoof Error Message*/}
-                        {/*        </Button>*/}
-                        {/*    </Tooltip>*/}
-                        {/*</FlexItem>*/}
-
-                        {/*<FlexItem>*/}
-                        {/*    <Tooltip*/}
-                        {/*        content="Prompt the server to broadcast a bunch of fake notifications for testing/debugging purposes."*/}
-                        {/*        position="bottom"*/}
-                        {/*    >*/}
-                        {/*        <Button*/}
-                        {/*            variant="secondary"*/}
-                        {/*            icon={<InfoAltIcon />}*/}
-                        {/*            onClick={() => {*/}
-                        {/*                console.log('Requesting spoofed notifications from backend.');*/}
-
-                        {/*                const requestOptions = {*/}
-                        {/*                    method: 'POST',*/}
-                        {/*                };*/}
-
-                        {/*                fetch('api/spoof-notifications', requestOptions).then(() => {});*/}
-                        {/*            }}*/}
-                        {/*        >*/}
-                        {/*            Spoof Notifications*/}
-                        {/*        </Button>*/}
-                        {/*    </Tooltip>*/}
-                        {/*</FlexItem>*/}
-
-                        <FlexItem>
+                        <FlexItem hidden={!props.isLoggedIn}>
                             <Tooltip
                                 content={'Query the status of a particular Jupyter ZMQ message.'}
                                 position={'bottom'}
@@ -385,20 +314,7 @@ export const AppHeader: React.FunctionComponent = () => {
                             </Tooltip>
                         </FlexItem>
 
-                        {/*<FlexItem>*/}
-                        {/*    <Tooltip content={'Display Expandable Toast'} position={'bottom'}>*/}
-                        {/*        <Button*/}
-                        {/*            key={'display-expandable-toast-button'}*/}
-                        {/*            variant={'secondary'}*/}
-                        {/*            icon={<InfoAltIcon />}*/}
-                        {/*            onClick={() => displayExpandableToast()}*/}
-                        {/*        >*/}
-                        {/*            Display Expandable Toast*/}
-                        {/*        </Button>*/}
-                        {/*    </Tooltip>*/}
-                        {/*</FlexItem>*/}
-
-                        <FlexItem>
+                        <FlexItem hidden={!props.isLoggedIn}>
                             <Tooltip
                                 content="Indicates the current connection status with the backend of the Cluster Dashboard."
                                 position="bottom"
@@ -409,7 +325,7 @@ export const AppHeader: React.FunctionComponent = () => {
                             </Tooltip>
                         </FlexItem>
 
-                        <FlexItem>
+                        <FlexItem hidden={!props.isLoggedIn}>
                             <Tooltip content={'Age of the cluster'} position="bottom">
                                 <Label color={'purple'} icon={<ClockIcon />}>
                                     {currentClusterAge}
@@ -417,7 +333,7 @@ export const AppHeader: React.FunctionComponent = () => {
                             </Tooltip>
                         </FlexItem>
 
-                        <FlexItem>
+                        <FlexItem hidden={!props.isLoggedIn}>
                             <QueryMessageModal
                                 isOpen={queryMessageModalOpen}
                                 onClose={() => setQueryMessageModalOpen(false)}

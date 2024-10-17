@@ -16,6 +16,7 @@ import (
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
 	gateway "github.com/scusemua/workload-driver-react/m/v2/internal/server/api/proto"
+	"github.com/scusemua/workload-driver-react/m/v2/internal/server/auth"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/server/concurrent_websocket"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/server/handlers"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/server/proxy"
@@ -79,6 +80,9 @@ type serverImpl struct {
 	expectedOriginPort int
 
 	logResponseBodyMutex sync.RWMutex
+
+	adminUsername string
+	adminPassword string
 }
 
 func NewServer(opts *domain.Configuration) domain.Server {
@@ -92,6 +96,8 @@ func NewServer(opts *domain.Configuration) domain.Server {
 		getLogsResponseBodies: make(map[string]io.ReadCloser),
 		workloadManager:       workload.NewWorkloadManager(opts, &atom),
 		prometheusHandler:     promhttp.Handler(),
+		adminUsername:         opts.AdminUser,
+		adminPassword:         opts.AdminPassword,
 	}
 
 	zapConfig := zap.NewDevelopmentEncoderConfig()
@@ -247,6 +253,9 @@ func (s *serverImpl) setupRoutes() error {
 
 		// Used by the frontend to retrieve the UnixMillisecond timestamp at which the Cluster was created.
 		apiGroup.GET(domain.ClusterAgeEndpoint, handlers.NewClusterAgeHttpHandler(s.opts, s.gatewayRpcClient).HandleRequest)
+
+		// Used by frontend to authenticate and get access to the dashboard.
+		apiGroup.POST(domain.AuthenticateRequest, s.HandleAuthenticateRequest)
 	}
 
 	///////////////////////////
@@ -277,6 +286,25 @@ func (s *serverImpl) setupRoutes() error {
 	gin.SetMode(gin.DebugMode)
 
 	return nil
+}
+
+func (s *serverImpl) HandleAuthenticateRequest(c *gin.Context) {
+	var login *auth.AuthenticationInput
+	err := c.BindJSON(&login)
+	if err != nil {
+		_ = c.AbortWithError(http.StatusBadRequest, err)
+		return
+	}
+
+	if login.Username == s.adminUsername && login.Password == s.adminPassword {
+		s.logger.Debug("Authenticated.")
+		c.Status(http.StatusOK)
+		return
+	} else {
+		s.logger.Warn("Received invalid authentication attempt.")
+		c.Status(http.StatusBadRequest)
+		return
+	}
 }
 
 // HandlePrometheusRequest passes the request directly to the http.Handler returned by promhttp.Handler.

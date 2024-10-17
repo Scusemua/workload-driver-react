@@ -74,7 +74,7 @@ module.exports = (env) => {
         {
           test: /\.(jpg|jpeg|png|gif)$/i,
           include: [
-            path.resolve(__dirname, 'web'),
+            path.resolve(__dirname, 'src'),
             path.resolve(__dirname, 'node_modules/patternfly'),
             path.resolve(__dirname, 'node_modules/@patternfly/patternfly/assets/images'),
             path.resolve(__dirname, 'node_modules/@patternfly/react-styles/css/assets/images'),
@@ -112,14 +112,14 @@ module.exports = (env) => {
     },
     plugins: [
       new HtmlWebpackPlugin({
-        template: path.resolve(__dirname, 'web', 'index.html'),
+        template: path.resolve(__dirname, 'src', 'index.html'),
       }),
       new Dotenv({
         systemvars: true,
         silent: true,
       }),
       new CopyPlugin({
-        patterns: [{ from: './web/favicon.png', to: 'images' }],
+        patterns: [{ from: './src/favicon.png', to: 'images' }],
       }),
     ],
     resolve: {

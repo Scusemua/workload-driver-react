@@ -5,7 +5,7 @@ import {
   InformationModal, RoundToNDecimalPlaces,
   RoundToThreeDecimalPlaces
 } from '@Components/Modals';
-import { HeightFactorContext, KernelHeightFactorContext } from '@Components/Dashboard';
+import { HeightFactorContext, KernelHeightFactorContext } from '@App/Dashboard';
 import { GpuIcon, GpuIconAlt2 } from '@src/Assets/Icons';
 import { useNodes } from '@src/Providers';
 import { GetToastContentWithHeaderAndBody } from '@src/Utils/toast_utils';

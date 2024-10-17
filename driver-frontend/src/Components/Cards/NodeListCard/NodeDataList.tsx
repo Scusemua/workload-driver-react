@@ -1,4 +1,4 @@
-import { HeightFactorContext, NodeHeightFactorContext } from '@Components/Dashboard';
+import { HeightFactorContext, NodeHeightFactorContext } from '@App/Dashboard';
 import { GpuIcon, GpuIconAlt2 } from '@src/Assets/Icons';
 import { GetToastContentWithHeaderAndBody } from '@src/Utils/toast_utils';
 import { RoundToTwoDecimalPlaces } from '@Components/Modals';

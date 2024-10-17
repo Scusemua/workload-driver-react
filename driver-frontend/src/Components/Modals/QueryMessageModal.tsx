@@ -48,11 +48,15 @@ interface QueryMessageModalProps {
     onClose: () => void;
 }
 
+interface Filters {
+  messageType: string[]
+}
+
 export const QueryMessageModal: React.FunctionComponent<QueryMessageModalProps> = (props: QueryMessageModalProps) => {
     const [kernelIdFilter, setKernelIdFilter] = React.useState<string>('');
     const [messageIdFilter, setMessageIdFilter] = React.useState<string>('');
     const [messageTypeFilterIsExpanded, setMessageTypeFilterIsExpanded] = React.useState<boolean>(false);
-    const [filters, setFilters] = React.useState({
+    const [filters, setFilters] = React.useState<Filters>({
         messageType: [],
     });
 

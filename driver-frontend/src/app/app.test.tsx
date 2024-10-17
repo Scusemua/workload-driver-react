@@ -1,5 +1,5 @@
 import * as React from 'react';
-import App from '@app/index';
+import App from '@src/app';
 import { render } from '@testing-library/react';
 import '@testing-library/jest-dom';
 import fetch from 'jest-fetch-mock';

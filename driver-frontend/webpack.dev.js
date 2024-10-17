@@ -61,7 +61,7 @@ devServer = {
 module.exports = merge(common('development'), {
     mode: 'development',
     devtool: 'eval-source-map',
-    entry: path.resolve(__dirname, 'web') + '/index.tsx',
+    entry: path.resolve(__dirname, 'src') + '/index.tsx',
     devServer: devServer,
     module: {
         rules: [

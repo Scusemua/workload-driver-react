@@ -1,7 +1,7 @@
 // import * as React from 'react';
 // import {RouteComponentProps} from "react-router";
 // import { Route, useLocation } from 'react-router-dom';
-// import { Dashboard } from '@Components/Dashboard';
+// import { Dashboard } from '@App/Dashboard';
 // import { NotFound } from '@app/NotFound/NotFound';
 // import { useDocumentTitle } from '@src/Utils/useDocumentTitle';
 // import { Switch } from 'react-router-dom';

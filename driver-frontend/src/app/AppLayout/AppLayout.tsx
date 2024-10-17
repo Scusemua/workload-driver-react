@@ -1,8 +1,10 @@
-import { Dashboard, DashboardNotificationDrawer } from '@src/Components';
+import { Dashboard } from '@App/Dashboard';
+import { DashboardLoginPage } from '@App/DashboardLoginPage';
+import { DashboardNotificationDrawer } from '@Components/DashboardNotificationDrawer';
+import { AlertGroup, Page, SkipToContent } from '@patternfly/react-core';
 
 import { Notification, WebSocketMessage } from '@src/Data/';
 import { DarkModeContext, NotificationContext, useNodes } from '@src/Providers';
-import { AlertGroup, Page, SkipToContent } from '@patternfly/react-core';
 import * as React from 'react';
 import { ToastBar, Toaster } from 'react-hot-toast';
 
@@ -15,6 +17,8 @@ const maxDisplayedAlerts: number = 3;
 
 const AppLayout: React.FunctionComponent = () => {
     const pageId = 'primary-app-container';
+
+    const [loggedIn, setLoggedIn] = React.useState<boolean>(false);
 
     const { sendJsonMessage, lastJsonMessage } = useWebSocket('ws://localhost:8000/ws');
 
@@ -54,6 +58,10 @@ const AppLayout: React.FunctionComponent = () => {
     }, [sendJsonMessage]);
 
     React.useEffect(() => {
+        if (!loggedIn) {
+            return;
+        }
+
         if (lastJsonMessage !== null) {
             const message: WebSocketMessage = lastJsonMessage as WebSocketMessage;
 
@@ -100,6 +108,10 @@ const AppLayout: React.FunctionComponent = () => {
         }
     };
 
+    const onSuccessfulLogin = () => {
+        setLoggedIn(true);
+    };
+
     return (
         <React.Fragment>
             <Toaster
@@ -124,12 +136,13 @@ const AppLayout: React.FunctionComponent = () => {
             </Toaster>
             <Page
                 mainContainerId={pageId}
-                header={<AppHeader />}
+                header={<AppHeader isLoggedIn={loggedIn} />}
                 skipToContent={PageSkipToContent}
                 isNotificationDrawerExpanded={expanded}
-                notificationDrawer={<DashboardNotificationDrawer />}
+                notificationDrawer={loggedIn && <DashboardNotificationDrawer />}
             >
-                <Dashboard />
+                {!loggedIn && <DashboardLoginPage onSuccessfulLogin={onSuccessfulLogin} />}
+                {loggedIn && <Dashboard />}
                 <AlertGroup
                     isToast
                     isLiveRegion

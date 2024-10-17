@@ -17,9 +17,9 @@ ENV PORT=9000
 #COPY configs /go/pkg/distributed-notebook-dashboard-backend/configs
 
 COPY server-linux-amd64 ./server-linux-amd64
-COPY configs ./configs
+COPY configs/config-docker.yaml /etc/distributed-notebook-cluster/dashboard.yaml
 COPY .env ./.env
 
 EXPOSE 9000
 
-CMD ["./server-linux-amd64", "--yaml", "./configs/config.yaml"]
+CMD ["./server-linux-amd64", "--yaml", "/etc/distributed-notebook-cluster/dashboard.yaml"]

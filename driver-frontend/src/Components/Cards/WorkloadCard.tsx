@@ -1,5 +1,5 @@
 import {InspectWorkloadModal, RegisterWorkloadModal, VisualizeWorkloadModal} from '@Components/Modals';
-import {HeightFactorContext, WorkloadsHeightFactorContext} from '@Components/Dashboard';
+import {HeightFactorContext, WorkloadsHeightFactorContext} from '@App/Dashboard';
 
 import {
   GetWorkloadStatusTooltip,

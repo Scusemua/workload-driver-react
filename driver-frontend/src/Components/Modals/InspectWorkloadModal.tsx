@@ -1,10 +1,10 @@
 import {
-    Workload,
     WORKLOAD_STATE_ERRED,
     WORKLOAD_STATE_FINISHED,
     WORKLOAD_STATE_READY,
     WORKLOAD_STATE_RUNNING,
     WORKLOAD_STATE_TERMINATED,
+    Workload,
 } from '@src/Data/Workload';
 import { GetToastContentWithHeaderAndBody } from '@src/Utils/toast_utils';
 import { RoundToThreeDecimalPlaces } from '@Components/Modals/NewWorkloadFromTemplateModal';

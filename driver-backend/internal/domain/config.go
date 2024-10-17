@@ -28,7 +28,9 @@ var (
 	Months  = []string{"jan", "feb", "mar", "apr", "may", "jun", "jul", "aug", "sep", "oct", "nov", "dec"}
 )
 
-// These are all parsed and converted into flag arguments using the provided 'flag' package (i.e., the one that's part of the standard library).
+// Configuration encapsulates the configuration for the backend.
+// These are all parsed and converted into flag arguments using the
+// provided 'flag' package (i.e., the one that's part of the standard library).
 type Configuration struct {
 	YAML                         string `name:"yaml" description:"Path to config file in the yml format."`
 	TraceStep                    int64  `name:"trace-step" description:"Default interval, in seconds, of two consecutive trace readings."`
@@ -181,6 +183,8 @@ type Configuration struct {
 	JupyterServerAddress    string `name:"jupyter-server-address" yaml:"jupyter-server-address" json:"jupyter-server-address" description:"The IP address of the Jupyter Server."`
 	ServerPort              int    `name:"server-port" yaml:"server-port" json:"server-port" description:"Port of the backend server."`
 	WebsocketProxyPort      int    `name:"websocket-proxy-port" yaml:"websocket-proxy-port" json:"websocket-proxy-port" description:"Port of the backend websocket proxy server, which reverse-proxies websocket connections to the Jupyter server."`
+	AdminUser               string `name:"admin_username" yaml:"admin_username" json:"admin_username"`
+	AdminPassword           string `name:"admin_password" yaml:"admin_password" json:"admin_password"`
 }
 
 func GetDefaultConfig() *Configuration {

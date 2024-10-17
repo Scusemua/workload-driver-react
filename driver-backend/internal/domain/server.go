@@ -52,6 +52,9 @@ const (
 	// ClusterAgeEndpoint is used to retrieve the UnixMillisecond timestamp at which the Cluster was created.
 	ClusterAgeEndpoint = "/cluster-age"
 
+	// AuthenticateRequest is used to authenticate and get access to the Dashboard.
+	AuthenticateRequest = "/authenticate"
+
 	// StopTrainingEndpoint is used to tell a kernel to stop training.
 	StopTrainingEndpoint = "/stop-training"
 
