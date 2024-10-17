@@ -77,7 +77,6 @@ export const DashboardLoginPage: React.FunctionComponent<DashboardLoginPageProps
             passwordValue={password}
             onChangePassword={handlePasswordChange}
             isValidPassword={isValidPassword}
-            rememberMeLabel="Keep me logged in for 30 days."
             onLoginButtonClick={onLoginButtonClick}
             loginButtonLabel="Log in"
         />
