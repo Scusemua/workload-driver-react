@@ -125,6 +125,7 @@ func NewServer(opts *domain.Configuration) domain.Server {
 	expectedOriginAddresses := strings.Split(opts.ExpectedOriginAddresses, ",")
 	for _, addr := range expectedOriginAddresses {
 		expectedOrigin := fmt.Sprintf("%s:%d", addr, s.expectedOriginPort)
+		s.logger.Debug("Loaded expected origin from configuration.", zap.String("origin", expectedOrigin))
 		s.expectedOriginAddresses = append(s.expectedOriginAddresses, expectedOrigin)
 	}
 

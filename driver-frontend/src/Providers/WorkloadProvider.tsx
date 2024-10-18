@@ -1,6 +1,7 @@
 import { PatchedWorkload, Workload, WorkloadResponse } from '@Data/Workload';
+import { AuthorizationContext } from '@Providers/AuthProvider';
 import jsonmergepatch from 'json-merge-patch';
-import { useRef } from 'react';
+import { useContext, useRef } from 'react';
 import { MutatorCallback } from 'swr';
 import type { SWRSubscription } from 'swr/subscription';
 import useSWRSubscription from 'swr/subscription';
@@ -9,32 +10,19 @@ import { v4 as uuidv4 } from 'uuid';
 const api_endpoint: string = 'ws://localhost:8000/workload';
 
 export const useWorkloads = () => {
+    const{ authenticated } = useContext(AuthorizationContext);
+
     const subscriberSocket = useRef<WebSocket | null>(null);
     useRef<boolean>(false);
-    // const lastNextFunc = useRef<(
-    //     err?: Error | null | undefined,
-    //     data?: Map<string, Workload> | MutatorCallback<Map<string, Workload>> | undefined,
-    // ) => void>();
 
     const setupWebsocket = (
         hostname: string,
-        // forceRecreate: boolean,
         next: (
             err?: Error | null | undefined,
             data?: Map<string, Workload> | MutatorCallback<Map<string, Workload>> | undefined,
         ) => void,
     ) => {
         if (subscriberSocket.current == null) {
-            // We'll use this when we reconnect if we're disconnected.
-            // if (next !== undefined && next !== null) {
-            //     lastNextFunc.current = next; // Cache the next function so we can reuse it.
-            // } else if (lastNextFunc.current !== undefined && lastNextFunc.current !== null) {
-            //     console.debug("Used cached `next` function in Workload Websocket.");
-            //     next = lastNextFunc.current;
-            // } else {
-            //     console.error("`next` parameter is null/undefined when setting up Workload Websocket, and we have no cached previous `next` function to fallback to...");
-            // }
-
             subscriberSocket.current = new WebSocket(hostname);
             subscriberSocket.current.addEventListener('open', () => {
                 console.log("Connected to workload websocket. Sending 'subscribe' message now.");
@@ -157,8 +145,12 @@ export const useWorkloads = () => {
     }
 
     const subscribe: SWRSubscription<string, Map<string, Workload>, Error> = (key: string, { next }) => {
+        // Don't establish any WebSocket connections until we've been authenticated...
+        if (!authenticated) {
+          return null;
+        }
+
         console.log(`Connecting to Websocket server at '${key}'`);
-        // setupWebsocket(key, false, next);
         setupWebsocket(key, next);
         return () => {};
     };

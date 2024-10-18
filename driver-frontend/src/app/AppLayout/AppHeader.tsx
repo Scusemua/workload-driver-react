@@ -137,7 +137,7 @@ export const AppHeader: React.FunctionComponent<AppHeaderProps> = (props: AppHea
         // onOpen: () => {},
         // onClose: () => {},
         shouldReconnect: () => true,
-    });
+    }, authenticated);
 
     React.useEffect(() => {
         if (!authenticated) {

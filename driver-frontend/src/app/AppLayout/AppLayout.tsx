@@ -21,7 +21,7 @@ const AppLayout: React.FunctionComponent = () => {
 
     const { authenticated, setAuthenticated } = React.useContext(AuthorizationContext);
 
-    const { sendJsonMessage, lastJsonMessage } = useWebSocket('ws://localhost:8000/ws');
+    const { sendJsonMessage, lastJsonMessage } = useWebSocket('ws://localhost:8000/ws', {}, authenticated);
 
     const [overflowMessage, setOverflowMessage] = React.useState<string>('');
     const { alerts, setAlerts, expanded, notifications, addNewNotification, toggleExpansion } =
@@ -52,11 +52,16 @@ const AppLayout: React.FunctionComponent = () => {
     );
 
     React.useEffect(() => {
+        // Don't send any WebSocket messages until we've authenticated.
+        if (!authenticated) {
+          return;
+        }
+
         sendJsonMessage({
             op: 'register',
             msg_id: uuidv4(),
         });
-    }, [sendJsonMessage]);
+    }, [sendJsonMessage, authenticated]);
 
     React.useEffect(() => {
         if (!authenticated) {
