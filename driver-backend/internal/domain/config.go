@@ -68,8 +68,8 @@ type Configuration struct {
 	EvictHostOnLastContainerStop int    `name:"evict-host-on-last-container-stop" description:"Override the default settings for whatever Scheduler you're using and force a value for this parameter. -1 to force false, 0 to leave as default for the particular scheduler, and 1 to force true."`
 	WorkloadPresetsFilepath      string `name:"workload-presets-file" description:"Path to a .YAML file containing the definitions of one or more Workload Presets."`
 	ExpectedOriginPort           int    `name:"expected-origin-port" description:"Port of the expected origin for messages from the frontend."`
-
-	ClusterDashboardHandlerPort int `name:"cluster-dashboard-handler-port" description:"Port for the Cluster Dashboard handler gRPC server to listen on."`
+	ExpectedOriginAddresses      string `name:"expected_websocket_origins" json:"expected_websocket_origins" yaml:"expected_websocket_origins" description:"Comma-separated list of addresses (without ports) passed as a single string. These are acceptable/expected origins for the websocket connection upgrader to allow."`
+	ClusterDashboardHandlerPort  int    `name:"cluster-dashboard-handler-port" description:"Port for the Cluster Dashboard handler gRPC server to listen on."`
 
 	DriverTimescale float64 `name:"driver-timescale" description:"Multiplier that impacts the timescale at the Driver will operate on with respect to the trace data. For example, if each tick is 60 seconds, then a DriverTimescale value of 0.5 will mean that each tick will take 30 seconds."`
 
@@ -212,6 +212,7 @@ func GetDefaultConfig() *Configuration {
 		WebsocketProxyPort:           8001,
 		ClusterDashboardHandlerPort:  8078,
 		ExpectedOriginPort:           9001,
+		ExpectedOriginAddresses:      "localhost,127.0.0.1",
 		TraceStep:                    60,
 	}
 }
@@ -267,8 +268,8 @@ func (opts *Configuration) CheckUsage() {
 	flag.Parse()
 
 	if printInfo {
-		fmt.Fprintf(os.Stderr, "Usage: ./play [options] data_base_path\n")
-		fmt.Fprintf(os.Stderr, "Available options:\n")
+		_, _ = fmt.Fprintf(os.Stderr, "Usage: ./play [options] data_base_path\n")
+		_, _ = fmt.Fprintf(os.Stderr, "Available options:\n")
 		flag.PrintDefaults()
 		os.Exit(0)
 	}

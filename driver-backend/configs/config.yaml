@@ -7,9 +7,14 @@ workload-presets-file: "configs/workload-presets-file.yaml"
 gateway-address: localhost:8079
 cluster-dashboard-handler-port: 8078
 websocket-proxy-port: 8077
-expected-origin-port: 8001
+
+# Admin username and password for access to the dashboard.
 admin_username: "scusemua"
 admin_password: "123456"
+
+# Used by the WebSocket connection upgrader.
+expected-origin-port: 8001
+expected_websocket_origins: "localhost,127.0.0.1"
 
 # How long JWT tokens are valid
 token_valid_duration_sec: 3600

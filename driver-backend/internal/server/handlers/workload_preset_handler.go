@@ -58,7 +58,7 @@ func NewWorkloadPresetHttpHandler(opts *domain.Configuration) domain.BackendHttp
 	presets, err := domain.LoadWorkloadPresetsFromFile(opts.WorkloadPresetsFilepath)
 	if err != nil {
 		handler.logger.Error("Error encountered while loading workload presets from file now.", zap.String("filepath", opts.WorkloadPresetsFilepath), zap.Error(err))
-		panic(err)
+		presets = make([]*domain.WorkloadPreset, 0)
 	}
 
 	handler.workloadPresets = presets

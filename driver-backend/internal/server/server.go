@@ -32,6 +32,7 @@ import (
 	"net/http/httputil"
 	"net/url"
 	"path"
+	"strings"
 	"sync"
 	"time"
 )
@@ -81,7 +82,8 @@ type serverImpl struct {
 	// This is used if the websocket connection is terminated. Otherwise, the loop will continue forever.
 	getLogsResponseBodies map[string]io.ReadCloser
 
-	expectedOriginPort int
+	expectedOriginPort      int
+	expectedOriginAddresses []string
 
 	logResponseBodyMutex sync.RWMutex
 
@@ -97,7 +99,6 @@ func NewServer(opts *domain.Configuration) domain.Server {
 		opts:                    opts,
 		atom:                    &atom,
 		engine:                  gin.New(),
-		expectedOriginPort:      opts.ExpectedOriginPort,
 		generalWebsockets:       make(map[string]domain.ConcurrentWebSocket),
 		getLogsResponseBodies:   make(map[string]io.ReadCloser),
 		workloadManager:         workload.NewWorkloadManager(opts, &atom),
@@ -106,6 +107,8 @@ func NewServer(opts *domain.Configuration) domain.Server {
 		adminPassword:           opts.AdminPassword,
 		jwtTokenValidDuration:   time.Second * time.Duration(opts.TokenValidDurationSec),
 		jwtTokenRefreshInterval: time.Second * time.Duration(opts.TokenRefreshIntervalSec),
+		expectedOriginPort:      opts.ExpectedOriginPort,
+		expectedOriginAddresses: make([]string, 0, len(opts.ExpectedOriginAddresses)),
 	}
 
 	zapConfig := zap.NewDevelopmentEncoderConfig()
@@ -119,11 +122,11 @@ func NewServer(opts *domain.Configuration) domain.Server {
 	s.logger = logger
 	s.sugaredLogger = logger.Sugar()
 
-	//prometheusMetrics, errs := metrics.NewPrometheusMetricsWrapper(&atom)
-	//if errs != nil && len(errs) > 0 {
-	//	s.logger.Error("Failed to register one or more Prometheus metrics.", zap.Errors("errors", errs))
-	//}
-	//s.prometheusMetrics = prometheusMetrics
+	expectedOriginAddresses := strings.Split(opts.ExpectedOriginAddresses, ",")
+	for _, addr := range expectedOriginAddresses {
+		expectedOrigin := fmt.Sprintf("%s:%d", addr, s.expectedOriginPort)
+		s.expectedOriginAddresses = append(s.expectedOriginAddresses, expectedOrigin)
+	}
 
 	if err := s.setupRoutes(); err != nil {
 		panic(err)
@@ -175,7 +178,7 @@ func (s *serverImpl) ErrorHandlerMiddleware(c *gin.Context) {
 func (s *serverImpl) jwtPayloadFunc() func(data interface{}) jwt.MapClaims {
 	return func(data interface{}) jwt.MapClaims {
 		s.logger.Debug("Executing jwtPayloadFunc", zap.Any("data", data))
-		if v, ok := data.(*auth.AuthenticatedUser); ok {
+		if v, ok := data.(*auth.AuthorizedUser); ok {
 			return jwt.MapClaims{
 				jwtIdentityKey: v.Username,
 			}
@@ -189,7 +192,7 @@ func (s *serverImpl) jwtIdentityHandler() func(c *gin.Context) interface{} {
 		claims := jwt.ExtractClaims(c)
 		identity, ok := claims[jwtIdentityKey].(string)
 		if ok {
-			return &auth.AuthenticatedUser{
+			return &auth.AuthorizedUser{
 				Username: identity,
 			}
 		} else {
@@ -211,7 +214,7 @@ func (s *serverImpl) jwtAuthenticator() func(c *gin.Context) (interface{}, error
 		s.logger.Debug("Received authentication request.", zap.String("username", userID), zap.String("password", password))
 
 		if userID == s.adminUsername && password == s.adminPassword {
-			return &auth.AuthenticatedUser{Username: userID}, nil
+			return &auth.AuthorizedUser{Username: userID}, nil
 		}
 		return nil, jwt.ErrFailedAuthentication
 	}
@@ -222,10 +225,10 @@ func (s *serverImpl) jwtAuthorizer() func(data interface{}, c *gin.Context) bool
 		s.logger.Debug("Executing jwtAuthorizer", zap.Any("data", data))
 
 		var (
-			user *auth.AuthenticatedUser
+			user *auth.AuthorizedUser
 			ok   bool
 		)
-		user, ok = data.(*auth.AuthenticatedUser)
+		user, ok = data.(*auth.AuthorizedUser)
 
 		if ok {
 			s.logger.Debug("Inspecting request for authorization.", zap.String("username", user.Username))
@@ -535,16 +538,21 @@ func (s *serverImpl) handleSpoofedError(ctx *gin.Context) {
 }
 
 func (s *serverImpl) serveGeneralWebsocket(c *gin.Context) {
-	expectedOriginV1 := fmt.Sprintf("http://127.0.0.1:%d", s.expectedOriginPort)
-	expectedOriginV2 := fmt.Sprintf("http://localhost:%d", s.expectedOriginPort)
-	s.logger.Debug("Handling websocket origin.", zap.String("request-origin", c.Request.Header.Get("Origin")), zap.String("request-host", c.Request.Host), zap.String("request-uri", c.Request.RequestURI), zap.String("expected-origin-v1", expectedOriginV1), zap.String("expected-origin-v2", expectedOriginV2))
+	s.logger.Debug("Inspecting origin of incoming non-specific WebSocket connection.",
+		zap.String("request-origin", c.Request.Header.Get("Origin")),
+		zap.String("request-host", c.Request.Host), zap.String("request-uri", c.Request.RequestURI))
 
 	upgrader.CheckOrigin = func(r *http.Request) bool {
-		if r.Header.Get("Origin") == expectedOriginV1 || r.Header.Get("Origin") == expectedOriginV2 {
-			return true
+		incomingOrigin := r.Header.Get("Origin")
+		for _, expectedOrigin := range s.expectedOriginAddresses {
+			if incomingOrigin == expectedOrigin {
+				return true
+			}
 		}
 
-		s.sugaredLogger.Errorf("Unexpected origin: %v.", r.Header.Get("Origin"))
+		s.logger.Error("Incoming non-specific WebSocket connection had unexpected origin. Rejecting.",
+			zap.String("request-origin", c.Request.Header.Get("Origin")),
+			zap.String("request-host", c.Request.Host), zap.String("request-uri", c.Request.RequestURI))
 		return false
 	}
 
@@ -606,17 +614,21 @@ func (s *serverImpl) serveGeneralWebsocket(c *gin.Context) {
 }
 
 func (s *serverImpl) serveLogWebsocket(c *gin.Context) {
-	s.logger.Debug("Handling log-related websocket connection")
-	expectedOriginV1 := fmt.Sprintf("http://127.0.0.1:%d", s.expectedOriginPort)
-	expectedOriginV2 := fmt.Sprintf("http://localhost:%d", s.expectedOriginPort)
-	s.logger.Debug("Handling websocket origin.", zap.String("request-origin", c.Request.Header.Get("Origin")), zap.String("request-host", c.Request.Host), zap.String("request-uri", c.Request.RequestURI), zap.String("expected-origin-v1", expectedOriginV1), zap.String("expected-origin-v2", expectedOriginV2))
+	s.logger.Debug("Inspecting origin of incoming log-related WebSocket connection.",
+		zap.String("request-origin", c.Request.Header.Get("Origin")),
+		zap.String("request-host", c.Request.Host), zap.String("request-uri", c.Request.RequestURI))
 
 	upgrader.CheckOrigin = func(r *http.Request) bool {
-		if r.Header.Get("Origin") == expectedOriginV1 || r.Header.Get("Origin") == expectedOriginV2 {
-			return true
+		incomingOrigin := r.Header.Get("Origin")
+		for _, expectedOrigin := range s.expectedOriginAddresses {
+			if incomingOrigin == expectedOrigin {
+				return true
+			}
 		}
 
-		s.sugaredLogger.Errorf("Unexpected origin: %v", r.Header.Get("Origin"))
+		s.logger.Error("Incoming log-related WebSocket connection had unexpected origin. Rejecting.",
+			zap.String("request-origin", c.Request.Header.Get("Origin")),
+			zap.String("request-host", c.Request.Host), zap.String("request-uri", c.Request.RequestURI))
 		return false
 	}
 

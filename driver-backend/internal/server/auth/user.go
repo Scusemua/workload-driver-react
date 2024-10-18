@@ -1,5 +1,5 @@
 package auth
 
-type AuthenticatedUser struct {
+type AuthorizedUser struct {
 	Username string `json:"username"`
 }

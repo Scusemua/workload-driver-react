@@ -16,17 +16,21 @@ build-all: build-grpc build-server
 build-backend: build-server
 
 build-server-linux: build-grpc
+	@echo "Building backend server for Linux now."
 	GOOS=linux GOARCH=amd64 go build -o server-linux-amd64 ./cmd/server/main.go
 
 build-server:
 	@echo Building backend server now.
 	go build -o server ./cmd/server/main.go
 
+build-servers: build-server build-server-linux
+
 # Build first, then create Docker image.
 build-docker: build-grpc build-server
 	docker build -t $(DOCKERUSER)/distributed-notebook-dashboard-backend .
 	# docker build -t scusemua/distributed-notebook-dashboard-backend .
 	# docker push scusemua/distributed-notebook-dashboard-backend:latest
+	# docker run -it scusemua/distributed-notebook-dashboard-backend:latest
 
 # Don't build first; use existing build to create docker image.
 docker:
