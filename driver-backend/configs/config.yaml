@@ -1,0 +1,23 @@
+in-cluster: false
+spoof-nodes: false
+spoof-kernels: false
+spoof-specs: false
+server-port: 8000
+workload-presets-file: "configs/workload-presets-file.yaml"
+gateway-address: localhost:8079
+cluster-dashboard-handler-port: 8078
+websocket-proxy-port: 8077
+
+# Admin username and password for access to the dashboard.
+admin_username: "scusemua"
+admin_password: "123456"
+
+# Used by the WebSocket connection upgrader.
+expected-origin-port: 8001
+expected_websocket_origins: "localhost,127.0.0.1"
+
+# How long JWT tokens are valid
+token_valid_duration_sec: 3600
+
+# How long users have to refresh their tokens
+token_refresh_interval_sec: 5400
