@@ -38,6 +38,12 @@ func (h *MigrationHttpHandler) HandleRequest(c *gin.Context) {
 		return
 	}
 
+	if !h.grpcClient.ConnectedToGateway() {
+		h.logger.Warn("Connection with Cluster Gateway has not been established. Aborting.")
+		_ = c.AbortWithError(http.StatusServiceUnavailable, fmt.Errorf("connection with Cluster Gateway is inactive"))
+		return
+	}
+
 	var migrationRequest *gateway.MigrationRequest
 	if err := c.BindJSON(&migrationRequest); err != nil {
 		h.logger.Error("Failed to extract and/or unmarshal migration request from request body.")

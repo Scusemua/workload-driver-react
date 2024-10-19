@@ -47,6 +47,12 @@ func NewKernelHttpHandler(opts *domain.Configuration, grpcClient *ClusterDashboa
 }
 
 func (h *KernelHttpHandler) HandleRequest(c *gin.Context) {
+	if !h.grpcClient.ConnectedToGateway() {
+		h.logger.Warn("Connection with Cluster Gateway has not been established. Aborting.")
+		_ = c.AbortWithError(http.StatusServiceUnavailable, fmt.Errorf("connection with Cluster Gateway is inactive"))
+		return
+	}
+
 	var (
 		kernels []*gateway.DistributedJupyterKernel
 		err     error
@@ -132,14 +138,14 @@ func (h *KernelHttpHandler) doSpoofKernels() []*gateway.DistributedJupyterKernel
 		var maxAdd int
 
 		if h.spoofedKernels.Count() <= 2 {
-			// If ther's 2 kernels or less, then add up to 5.
+			// If there's 2 kernels or fewer, then add up to 5.
 			maxAdd = 5
 		} else {
-			maxAdd = int(math.Ceil((0.25 * float64(h.spoofedKernels.Count())))) // Add and remove up to 25% of the existing number of the spoofed kernels.
+			maxAdd = int(math.Ceil(0.25 * float64(h.spoofedKernels.Count()))) // Add and remove up to 25% of the existing number of the spoofed kernels.
 		}
 
-		maxDelete := int(math.Ceil((0.50 * float64(h.spoofedKernels.Count())))) // Add and remove up to 50% of the existing number of the spoofed kernels.
-		numToDelete := rand.Intn(int(math.Max(2, float64(maxDelete+1))))        // Delete UP TO this many.
+		maxDelete := int(math.Ceil(0.50 * float64(h.spoofedKernels.Count()))) // Add and remove up to 50% of the existing number of the spoofed kernels.
+		numToDelete := rand.Intn(int(math.Max(2, float64(maxDelete+1))))      // Delete UP TO this many.
 		numToAdd := rand.Intn(int(math.Max(2, float64(maxAdd+1))))
 
 		h.logger.Sugar().Debugf("Adding %d new kernel(s) and removing up to %d existing kernel(s).", numToAdd, numToDelete)
@@ -191,8 +197,6 @@ func (h *KernelHttpHandler) spoofedKernelsToSlice() []*gateway.DistributedJupyte
 }
 
 func (h *KernelHttpHandler) getKernelsFromClusterGateway() ([]*gateway.DistributedJupyterKernel, error) {
-	// h.logger.Debug("Kernel Querier is refreshing kernels now.")
-
 	resp, err := h.grpcClient.ListKernels(context.TODO(), &gateway.Void{})
 	if err != nil {
 		domain.LogErrorWithoutStacktrace(h.logger, "Failed to fetch list of active kernels from the Cluster Gateway.", zap.Error(err))

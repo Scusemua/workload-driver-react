@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -39,6 +40,12 @@ func (h *AdjustVirtualGpusHandler) HandleRequest(c *gin.Context) {
 func (h *AdjustVirtualGpusHandler) HandlePatchRequest(c *gin.Context) {
 	if h.opts.SpoofKernels {
 		// Do nothing.
+		return
+	}
+
+	if !h.grpcClient.ConnectedToGateway() {
+		h.logger.Warn("Connection with Cluster Gateway has not been established. Aborting.")
+		_ = c.AbortWithError(http.StatusServiceUnavailable, fmt.Errorf("connection with Cluster Gateway is inactive"))
 		return
 	}
 

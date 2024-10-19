@@ -187,6 +187,7 @@ type Configuration struct {
 	AdminPassword           string `name:"admin_password" yaml:"admin_password" json:"admin_password"`
 	TokenValidDurationSec   int    `name:"token_valid_duration_sec" yaml:"token_valid_duration_sec" json:"token_valid_duration_sec"`
 	TokenRefreshIntervalSec int    `name:"token_refresh_interval_sec" yaml:"token_refresh_interval_sec" json:"token_refresh_interval_sec"`
+	BaseListenPrefix        string `name:"base-listen-prefix" yaml:"base-listen-prefix" json:"base-listen-prefix" default:"/"`
 }
 
 func GetDefaultConfig() *Configuration {

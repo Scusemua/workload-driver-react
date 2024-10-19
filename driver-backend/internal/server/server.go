@@ -87,6 +87,10 @@ type serverImpl struct {
 
 	logResponseBodyMutex sync.RWMutex
 
+	// The base prefix. Useful as when we deploy this Dockerized in Docker Swarm, we need to set this to
+	// something other than "/", as we use Traefik to reverse proxy external requests.
+	baseListenPrefix string
+
 	adminUsername           string
 	adminPassword           string
 	jwtTokenValidDuration   time.Duration
@@ -109,6 +113,12 @@ func NewServer(opts *domain.Configuration) domain.Server {
 		jwtTokenRefreshInterval: time.Second * time.Duration(opts.TokenRefreshIntervalSec),
 		expectedOriginPort:      opts.ExpectedOriginPort,
 		expectedOriginAddresses: make([]string, 0, len(opts.ExpectedOriginAddresses)),
+		baseListenPrefix:        opts.BaseListenPrefix,
+	}
+
+	// Default to "/"
+	if s.baseListenPrefix == "" {
+		s.baseListenPrefix = "/"
 	}
 
 	zapConfig := zap.NewDevelopmentEncoderConfig()
@@ -292,6 +302,26 @@ func (s *serverImpl) jwtHandlerMiddleWare(authMiddleware *jwt.GinJWTMiddleware) 
 	}
 }
 
+func lastChar(target string) uint8 {
+	if target == "" {
+		panic("Cannot find last character of an empty string!")
+	}
+
+	return target[len(target)-1]
+}
+
+func (s *serverImpl) getPath(relativePath string) string {
+	if relativePath == "" {
+		return s.baseListenPrefix
+	}
+
+	finalPath := path.Join(s.baseListenPrefix, relativePath)
+	if lastChar(relativePath) == '/' && lastChar(finalPath) != '/' {
+		return finalPath + "/"
+	}
+	return finalPath
+}
+
 func (s *serverImpl) setupRoutes() error {
 	s.app = &proxy.JupyterProxyRouter{
 		ContextPath:  domain.JupyterGroupEndpoint,
@@ -315,12 +345,12 @@ func (s *serverImpl) setupRoutes() error {
 	}
 
 	// Serve frontend static files
-	s.app.Use(static.Serve("/", static.LocalFile("./dist", true)))
-	s.logger.Debug("Attached logger middleware.")
-	s.app.Use(s.jwtHandlerMiddleWare(authMiddleware))
+	s.app.Use(static.Serve(s.baseListenPrefix, static.LocalFile("./dist", true)))
 	s.logger.Debug("Attached static middleware.")
-	s.app.Use(gin.Logger())
+	s.app.Use(s.jwtHandlerMiddleWare(authMiddleware))
 	s.logger.Debug("Attached auth middleware.")
+	s.app.Use(gin.Logger())
+	s.logger.Debug("Attached logger middleware.")
 	s.app.Use(cors.Default())
 	s.logger.Debug("Attached CORS middleware.")
 	s.app.Use(s.ErrorHandlerMiddleware)
@@ -329,21 +359,21 @@ func (s *serverImpl) setupRoutes() error {
 	////////////////////////
 	// Prometheus metrics //
 	////////////////////////
-	s.app.GET(domain.PrometheusEndpoint, s.HandlePrometheusRequest)
+	s.app.GET(s.getPath(domain.PrometheusEndpoint), s.HandlePrometheusRequest)
 
 	////////////////////////
 	// Websocket Handlers //
 	////////////////////////
-	s.app.GET(domain.WorkloadEndpoint, s.workloadManager.GetWorkloadWebsocketHandler())
-	s.app.GET(domain.LogsEndpoint, s.serveLogWebsocket)
-	s.app.GET(domain.GeneralWebsocketEndpoint, s.serveGeneralWebsocket)
+	s.app.GET(s.getPath(domain.WorkloadEndpoint), s.workloadManager.GetWorkloadWebsocketHandler())
+	s.app.GET(s.getPath(domain.LogsEndpoint), s.serveLogWebsocket)
+	s.app.GET(s.getPath(domain.GeneralWebsocketEndpoint), s.serveGeneralWebsocket)
 
 	// TODO: Getting nil pointer exception because the callback occurs in the constructor, so s.gatewayRpcClient is still nil.
 	s.gatewayRpcClient = handlers.NewClusterDashboardHandler(s.opts, true, s.notifyFrontend, s.handleRpcRegistrationComplete)
 
 	s.sugaredLogger.Debugf("Creating route groups now. (gatewayRpcClient == nil: %v)", s.gatewayRpcClient == nil)
 
-	pprof.Register(s.app, "dev/pprof")
+	pprof.Register(s.app, s.getPath("dev/pprof"))
 
 	s.app.NoRoute(authMiddleware.MiddlewareFunc(), func(c *gin.Context) {
 		claims := jwt.ExtractClaims(c)
@@ -352,25 +382,25 @@ func (s *serverImpl) setupRoutes() error {
 	})
 
 	// Used by frontend to authenticate and get access to the dashboard.
-	s.app.POST(domain.AuthenticateRequest, func(c *gin.Context) {
+	s.app.POST(s.getPath(domain.AuthenticateRequest), func(c *gin.Context) {
 		request, err := httputil.DumpRequest(c.Request, true)
 		if err != nil {
 			s.logger.Error("Failed to dump JWT login request.", zap.Error(err))
 		}
 
-		s.sugaredLogger.Debugf("JWT login handler called: \"%s\": %s", domain.AuthenticateRequest, request)
+		s.sugaredLogger.Debugf("JWT login handler called: \"%s\": %s", s.getPath(domain.AuthenticateRequest), request)
 		authMiddleware.LoginHandler(c)
 	})
 
-	s.app.POST(domain.RefreshToken, func(c *gin.Context) {
-		s.sugaredLogger.Debugf("JWT token refresh handler called: \"%s\"", domain.RefreshToken)
+	s.app.POST(s.getPath(domain.RefreshToken), func(c *gin.Context) {
+		s.sugaredLogger.Debugf("JWT token refresh handler called: \"%s\"", s.getPath(domain.RefreshToken))
 		authMiddleware.RefreshHandler(c)
 	})
 
 	///////////////////////////////
 	// Standard/Primary Handlers //
 	///////////////////////////////
-	apiGroup := s.app.Group(domain.BaseApiGroupEndpoint, authMiddleware.MiddlewareFunc())
+	apiGroup := s.app.Group(s.getPath(domain.BaseApiGroupEndpoint), authMiddleware.MiddlewareFunc())
 	{
 		// Used internally (by the frontend) to get the current kubernetes nodes from the backend  (i.e., the backend).
 		apiGroup.GET(domain.NodesEndpoint, s.nodeHandler.HandleRequest)
@@ -432,7 +462,7 @@ func (s *serverImpl) setupRoutes() error {
 	// Jupyter Handler // This isn't really used anymore...
 	/////////////////////
 	if s.opts.SpoofKernelSpecs {
-		jupyterGroup := s.app.Group(domain.JupyterGroupEndpoint)
+		jupyterGroup := s.app.Group(s.getPath(domain.JupyterGroupEndpoint))
 		{
 			jupyterGroup.GET(domain.BaseApiGroupEndpoint+domain.KernelSpecEndpoint, handlers.NewJupyterAPIHandler(s.opts).HandleGetKernelSpecRequest)
 		}
@@ -824,7 +854,7 @@ func (s *serverImpl) Serve() error {
 }
 
 func (s *serverImpl) serveHttp(wg *sync.WaitGroup) {
-	s.logger.Debug("Listening for HTTP requests.", zap.String("address", fmt.Sprintf("127.0.0.1:%d", s.opts.ServerPort)))
+	s.logger.Debug("Listening for HTTP requests.", zap.String("address", fmt.Sprintf(":%d", s.opts.ServerPort)))
 	go func() {
 		addr := fmt.Sprintf(":%d", s.opts.ServerPort)
 		if err := http.ListenAndServe(addr, s.app); err != nil {

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"github.com/gin-gonic/gin"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
 	gateway "github.com/scusemua/workload-driver-react/m/v2/internal/server/api/proto"
@@ -32,6 +33,12 @@ func NewMessageQueryHttpHandler(opts *domain.Configuration, grpcClient *ClusterD
 
 func (h *MessageQueryHttpHandler) HandleRequest(c *gin.Context) {
 	h.logger.Debug("Received new QueryMessage request.")
+
+	if !h.grpcClient.ConnectedToGateway() {
+		h.logger.Warn("Connection with Cluster Gateway has not been established. Aborting.")
+		_ = c.AbortWithError(http.StatusServiceUnavailable, fmt.Errorf("connection with Cluster Gateway is inactive"))
+		return
+	}
 
 	var req *gateway.QueryMessageRequest
 

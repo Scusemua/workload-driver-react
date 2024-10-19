@@ -74,6 +74,8 @@ type ClusterDashboardHandler struct {
 	// Called in its own Goroutine when the ErrorOccurred RPC is called by the ClusterGateway to us.
 	notificationCallback notificationCallback
 
+	connected atomic.Int32
+
 	srv *grpc.Server
 
 	gatewayAddress string // Address that the Cluster Gateway's gRPC server is listening on.
@@ -119,6 +121,7 @@ func NewClusterDashboardHandler(
 		notificationCallback:        notificationCallback,
 		postRegistrationCallback:    postRegistrationCallback,
 	}
+	handler.connected.Store(0)
 
 	var err error
 	handler.logger, err = zap.NewDevelopment()
@@ -129,11 +132,13 @@ func NewClusterDashboardHandler(
 	handler.sugaredLogger = handler.logger.Sugar()
 
 	if shouldConnect {
-		err = handler.setupRpcResources(opts.GatewayAddress)
-		if err != nil {
-			handler.logger.Error("Failed to dial gRPC Cluster Gateway.", zap.Error(err))
-			panic(err)
-		}
+		go func() {
+			err = handler.setupRpcResources(opts.GatewayAddress)
+			if err != nil {
+				handler.logger.Error("Failed to dial gRPC Cluster Gateway.", zap.Error(err))
+				panic(err)
+			}
+		}()
 	}
 
 	return handler
@@ -285,6 +290,7 @@ func (h *ClusterDashboardHandler) setupRpcResources(gatewayAddress string) error
 	if !connectedToGateway {
 		h.sugaredLogger.Errorf("[gid=%d] Failed to connect to Gateway after %d attempts. Time elapsed: %v.", gid, numAttempts, time.Since(start))
 		h.exitSetup()
+		h.connected.Store(0)
 		return ErrFailedToConnect
 	}
 
@@ -296,6 +302,7 @@ func (h *ClusterDashboardHandler) setupRpcResources(gatewayAddress string) error
 			zap.String("remote_address", gatewayConn.RemoteAddr().String()),
 			zap.Error(err), zap.Int64("gid", gid))
 		h.exitSetup()
+		h.connected.Store(0)
 		return err
 	}
 
@@ -335,6 +342,7 @@ func (h *ClusterDashboardHandler) setupRpcResources(gatewayAddress string) error
 		{
 			h.sugaredLogger.Errorf("[gid=%d] Provisioner failed to connect successfully. Aborting. Last error: %v.", gid, err)
 			h.exitSetup()
+			h.connected.Store(0)
 			return err
 		}
 	}
@@ -343,6 +351,7 @@ func (h *ClusterDashboardHandler) setupRpcResources(gatewayAddress string) error
 	if err != nil {
 		h.exitSetup()
 		h.logger.DPanic("Failed to validate reverse provisioner connection.", zap.Error(err), zap.Int64("gid", gid))
+		h.connected.Store(0)
 		return err
 	}
 
@@ -377,6 +386,7 @@ func (h *ClusterDashboardHandler) setupRpcResources(gatewayAddress string) error
 
 	h.exitSetup()
 
+	h.connected.Store(1)
 	return nil
 }
 
@@ -404,6 +414,11 @@ func (h *ClusterDashboardHandler) finalize(fix bool) {
 	}
 
 	sig <- syscall.SIGINT
+}
+
+// ConnectedToGateway returns true if the ClusterDashboardHandler is currently connected.
+func (h *ClusterDashboardHandler) ConnectedToGateway() bool {
+	return h.connected.Load() > 0
 }
 
 // connectionProvisioner is used to establish a 2-way (bidirectional) gRPC connection between
