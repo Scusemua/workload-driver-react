@@ -1,4 +1,6 @@
 import { RoundToThreeDecimalPlaces } from '@Components/Modals';
+import { Alert, AlertActionCloseButton } from '@patternfly/react-core';
+import { SpinnerIcon } from '@patternfly/react-icons';
 import { GetPathForFetch } from '@src/Utils/path_utils';
 import { GetToastContentWithHeaderAndBody } from '@src/Utils/toast_utils';
 import { MAX_SAFE_INTEGER } from 'lib0/number';
@@ -13,7 +15,7 @@ type AuthContext = {
     password: string | undefined;
     setUsername: (username: string | undefined) => void;
     setPassword: (password: string | undefined) => void;
-    mutateToken: (username: string, password: string) => Promise<void>;
+    mutateToken: (username: string, password: string) => Promise<boolean>;
     error: any;
 };
 
@@ -24,7 +26,7 @@ const initialState: AuthContext = {
     setUsername: () => {},
     password: undefined,
     setPassword: () => {},
-    mutateToken: async () => {},
+    mutateToken: async () => false,
     error: undefined,
 };
 
@@ -38,6 +40,7 @@ const tokenFetcher = async (
     username: string | undefined,
     password: string | undefined,
     currentlyAuthenticated: boolean,
+    toastId: string | undefined = undefined,
 ) => {
     console.log(
         `Refreshing token. Endpoint: "${endpoint}". Username: "${username}". Password: "${password}". Currently authenticated: ${currentlyAuthenticated}.`,
@@ -90,6 +93,8 @@ const tokenFetcher = async (
 
     response['username'] = username;
     response['password'] = password;
+    response['refreshed'] = endpoint == refreshTokenEndpoint;
+    response['toastId'] = toastId || '';
 
     return responseJSON;
 };
@@ -116,7 +121,32 @@ const AuthProvider = (props: { children }) => {
             localStorage.setItem('token', data['token']);
             localStorage.setItem('token-expiration', data['expire']);
 
+            updateUsername(data['username']);
+            updatePassword(data['password']);
+
             updateAuthenticatedStatus(true);
+
+            const toastId: string = data['toastId'];
+            const refreshed: boolean = data['refreshed'];
+
+            if (refreshed) {
+                toast.custom(
+                    GetToastContentWithHeaderAndBody(
+                        'Authentication Status Refreshed',
+                        'Your log-in session has been automatically extended.',
+                        'success',
+                        () => toast.dismiss(toastId),
+                    ),
+                    { id: toastId },
+                );
+            } else {
+                toast.custom(
+                    GetToastContentWithHeaderAndBody('Authenticated', 'You have been logged in.', 'success', () =>
+                        toast.dismiss(toastId),
+                    ),
+                    { id: toastId },
+                );
+            }
         }
     };
 
@@ -158,6 +188,17 @@ const AuthProvider = (props: { children }) => {
             `Manually refreshing token now with username "${user}". Current authenticated status: ${authenticated}`,
         );
 
+        const toastId: string = toast.custom((t: Toast) => (
+            <Alert
+                isInline
+                variant={'info'}
+                title={'Logging in...'}
+                onTimeout={() => toast.dismiss(t.id)}
+                customIcon={<SpinnerIcon className={'loading-icon-spin-pulse'} />}
+                actionClose={<AlertActionCloseButton onClose={() => toast.dismiss(t.id)} />}
+            />
+        ));
+
         let response: Response | undefined = undefined;
         try {
             response = await tokenFetcher(
@@ -165,20 +206,24 @@ const AuthProvider = (props: { children }) => {
                 user,
                 passwd,
                 authenticated,
+                toastId,
             );
         } catch (err) {
-            toast.custom((t: Toast) =>
-                GetToastContentWithHeaderAndBody('Login Attempt Failed', (err as Error).message, 'danger', () =>
-                    toast.dismiss(t.id),
-                ),
+            toast.custom(
+                (t: Toast) =>
+                    GetToastContentWithHeaderAndBody('Login Attempt Failed', (err as Error).message, 'danger', () =>
+                        toast.dismiss(t.id),
+                    ),
+                { id: toastId },
             );
 
             throw err;
         }
 
         onSuccess(response);
-    };
 
+        return true;
+    };
     return (
         <AuthorizationContext.Provider
             value={{
@@ -186,7 +231,7 @@ const AuthProvider = (props: { children }) => {
                 setAuthenticated: (nextAuthStatus: boolean) => {
                     // If the user was authenticated and is now being set to unauthenticated, then display an error.
                     if (authenticated && !nextAuthStatus) {
-                        toast.error((t: Toast) =>
+                        toast.custom((t: Toast) =>
                             GetToastContentWithHeaderAndBody(
                                 'Logged Out',
                                 "You've been logged-out. Please reauthenticate to continue using the Cluster Dashboard.",

@@ -2,7 +2,7 @@ import { RoundToThreeDecimalPlaces } from '@Components/Modals';
 import { Alert, AlertActionCloseButton, Button, Flex, FlexItem } from '@patternfly/react-core';
 import { SpinnerIcon } from '@patternfly/react-icons';
 import React from 'react';
-import { toast } from 'react-hot-toast';
+import { Toast, toast } from 'react-hot-toast';
 
 /**
  * Return a <div> containing a <Flex> to be used as a toast notification.
@@ -56,7 +56,7 @@ export function ToastRefresh(
                 isInline
                 variant={'info'}
                 title={loadingMessage}
-                onTimeout={() => dismissToast()}
+                onTimeout={() => toast.dismiss(t.id)}
                 customIcon={<SpinnerIcon className={'loading-icon-spin-pulse'} />}
                 actionClose={<AlertActionCloseButton onClose={() => toast.dismiss(t.id)} />}
             />
@@ -74,7 +74,7 @@ export function ToastRefresh(
                             isInline
                             variant={'success'}
                             title={successMessage + ` in ${latencyMs} milliseconds.`}
-                            onTimeout={() => dismissToast()}
+                            onTimeout={() => toast.dismiss(t.id)}
                             timeout={10000}
                             timeoutAnimation={20000}
                             actionClose={<AlertActionCloseButton onClose={() => toast.dismiss(t.id)} />}
@@ -96,7 +96,7 @@ export function ToastRefresh(
                             isInline
                             variant={'danger'}
                             title={errorMessage + ` after ${latencyMs} milliseconds`}
-                            onTimeout={() => dismissToast()}
+                            onTimeout={() => toast.dismiss(t.id)}
                             timeout={30000}
                             timeoutAnimation={60000}
                             actionClose={<AlertActionCloseButton onClose={() => toast.dismiss(t.id)} />}

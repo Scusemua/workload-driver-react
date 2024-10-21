@@ -47,7 +47,6 @@ export const DashboardLoginPage: React.FunctionComponent<DashboardLoginPageProps
         event.preventDefault();
 
         if (mutateToken) {
-            const toastId: string = toast.loading('Attempting to log in...');
             await mutateToken(username, password)
                 .catch((err: Error) => {
                     console.error(`Failed to login: ${err}`);
@@ -55,12 +54,7 @@ export const DashboardLoginPage: React.FunctionComponent<DashboardLoginPageProps
                     setIsValidPassword(false);
                     setIsValidPassword(false);
                     setShowHelperText(true);
-
-                    toast.dismiss(toastId);
                 })
-                .then(() => {
-                    toast.success('Authenticated. You have been logged in.', { id: toastId });
-                });
         }
     };
 
