@@ -42,6 +42,13 @@ docker:
 	docker build -t $(DOCKERUSER)/distributed-notebook-dashboard-backend .
 	# docker build -t scusemua/distributed-notebook-dashboard-backend .
 
+run-backend-docker:
+	docker run -it -p "8000:8000" \
+		-v ./configs/config-docker-local.yaml:/etc/distributed-notebook-cluster/dashboard.yaml \
+		-v ./configs/workload-presets-file-docker.yaml:/etc/distributed-notebook-cluster/workload-presets-file.yaml \
+		--add-host host.docker.internal:host-gateway \
+		scusemua/distributed-notebook-dashboard-backend:latest
+
 # Alias for run-server.
 run-backend: run-server
 

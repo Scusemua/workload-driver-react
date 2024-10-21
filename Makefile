@@ -39,14 +39,22 @@ build-backend-docker:
 	@echo "Building Docker image for backend..."
 	cd $(BACKEND_DIR) && docker build -t $(DOCKERUSER)/distributed-notebook-dashboard-backend .
 
-# Push the latest backend docker image to Dockerhub.
+# Push the latest backend docker image to Dockerhub
 push-backend-docker:
 	@echo "Pushing Docker image for backend..."
 	docker push $(DOCKERUSER)/distributed-notebook-dashboard-backend:latest
 
-# Target to build the frontend and the backend server in parallel.
+# Target to build the frontend and the backend server in parallel
 build-static-frontend-and-backend-servers:
 	make -j2 build-frontend build-backend-servers
+
+# Run the backend in its Docker image
+run-backend-docker:
+	make -C $(BACKEND_DIR) run-backend-docker
+
+# Run the backend locally, not in a Docker image
+run-backend-prebuilt:
+	make -C $(BACKEND_DIR) run-server-prebuilt
 
 # Default target
 all: build-static-frontend-and-backend-servers copy-frontend build-backend-docker push-backend-docker
