@@ -6,7 +6,10 @@ const CopyPlugin = require('copy-webpack-plugin');
 const TsconfigPathsPlugin = require('tsconfig-paths-webpack-plugin');
 const Dotenv = require('dotenv-webpack');
 const BG_IMAGES_DIRNAME = 'bgimages';
-module.exports = (env) => {
+
+module.exports = (development_environment) => {
+  console.log(`Development environment=${development_environment}`);
+
   return {
     module: {
       rules: [
@@ -107,19 +110,21 @@ module.exports = (env) => {
     output: {
       filename: '[name].bundle.js',
       path: path.resolve(__dirname, 'dist'),
-      publicPath: "__BASE_URL__",
+      publicPath: 'auto',
     },
     plugins: [
       new HtmlWebpackPlugin({
         template: path.resolve(__dirname, 'src', 'index.html'),
         base: {
-          href: process.env.NODE_ENV === 'development' ? '/' : '/dashboard',
+          href: development_environment === 'development' ? '/' : '__BASE_URL__',
         },
+        baseURL: development_environment === 'development' ? '/' : '__BASE_URL__',
+        publicPath: development_environment === 'development' ? '/' : '__BASE_URL__',
       }),
       new Dotenv({
         systemvars: true,
         silent: true,
-        safe: false,
+        path: development_environment === 'development' ? '.development.env' : '.production.env',
       }),
       new CopyPlugin({
         patterns: [{ from: './src/favicon.png', to: 'images' }],
