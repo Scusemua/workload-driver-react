@@ -35,15 +35,24 @@ const loginEndpoint: string = GetPathForFetch('/authenticate');
 
 const AuthorizationContext = React.createContext<AuthContext>(initialState);
 
-const tokenFetcher = async (
+interface AuthResponse {
+    token: string;
+    expire: string | number;
+    username: string;
+    password: string;
+    refreshed: boolean; // If true, then token was refreshed, rather than created for first time.
+    toastId: string | undefined;
+}
+
+async function tokenFetcher(
     endpoint: RequestInfo | URL,
     username: string | undefined,
     password: string | undefined,
     currentlyAuthenticated: boolean,
     toastId: string | undefined = undefined,
-) => {
+): Promise<AuthResponse | void> {
     console.log(
-        `Refreshing token. Endpoint: "${endpoint}". Username: "${username}". Password: "${password}". Currently authenticated: ${currentlyAuthenticated}.`,
+        `Refreshing token. Endpoint: "${endpoint}". Username: "${username}". Password: "${password}". ToastID: ${toastId}. Currently authenticated: ${currentlyAuthenticated}.`,
     );
 
     const abortController: AbortController = new AbortController();
@@ -82,22 +91,29 @@ const tokenFetcher = async (
     }
 
     const response: Response = await fetch(endpoint, init);
-    const responseJSON = await response.json();
+    const responseJSON: AuthResponse | Error = await response.json();
 
     if (response.status !== 200) {
         console.log(`Authenticate failed. Could not log in:\n${JSON.stringify(responseJSON, null, 2)}`);
-        throw new Error(`HTTP ${response.status} ${response.statusText}: ${responseJSON.message}`);
+        throw new Error(`HTTP ${response.status} ${response.statusText}: ${(responseJSON as Error).message}`);
     } else {
         console.log(`Fetched JWT token:\n${JSON.stringify(responseJSON, null, 2)}`);
     }
 
-    response['username'] = username;
-    response['password'] = password;
-    response['refreshed'] = endpoint == refreshTokenEndpoint;
-    response['toastId'] = toastId || '';
+    console.log(`tokenFetcher toastId: ${toastId}`);
 
-    return responseJSON;
-};
+    const authResponse: AuthResponse = responseJSON as AuthResponse;
+    authResponse.username = username;
+    authResponse.password = password;
+    authResponse.refreshed = endpoint == refreshTokenEndpoint;
+    authResponse.toastId = toastId || '';
+
+    return authResponse;
+}
+
+function isNumber(n) {
+    return !isNaN(parseFloat(n)) && !isNaN(n - 0);
+}
 
 const AuthProvider = (props: { children }) => {
     const [authenticated, updateAuthenticatedStatus] = React.useState<boolean>(false);
@@ -115,19 +131,21 @@ const AuthProvider = (props: { children }) => {
         return null;
     };
 
-    const onSuccess = (data: any) => {
-        if (data && data['token'] && data['expire']) {
-            console.log(`Refreshed token: ${data['token']}. Expires at: ${data['expire']}.`);
-            localStorage.setItem('token', data['token']);
-            localStorage.setItem('token-expiration', data['expire']);
+    const onSuccess = (data: AuthResponse | void) => {
+        if (data && data.token && data.expire) {
+            console.log(`Refreshed token: ${data.token}. Expires at: ${data.expire}.`);
+            localStorage.setItem('token', data.token);
+            localStorage.setItem('token-expiration', (data.expire as number).toString());
 
-            updateUsername(data['username']);
-            updatePassword(data['password']);
+            updateUsername(data.username);
+            updatePassword(data.password);
 
             updateAuthenticatedStatus(true);
 
-            const toastId: string = data['toastId'];
+            const toastId: string | undefined = data['toastId'];
             const refreshed: boolean = data['refreshed'];
+
+            console.log(`onSuccess toastId: ${toastId}`);
 
             if (refreshed) {
                 toast.custom(
@@ -141,8 +159,11 @@ const AuthProvider = (props: { children }) => {
                 );
             } else {
                 toast.custom(
-                    GetToastContentWithHeaderAndBody('Authenticated', 'You have been logged in.', 'success', () =>
-                        toast.dismiss(toastId),
+                    GetToastContentWithHeaderAndBody(
+                        'Authentication Successful',
+                        `Successfully logged-in as user "${data['username']}"`,
+                        'success',
+                        () => toast.dismiss(toastId),
                     ),
                     { id: toastId },
                 );
@@ -163,13 +184,16 @@ const AuthProvider = (props: { children }) => {
             revalidateIfStale: false,
             onSuccess: onSuccess,
             refreshInterval: (latestData) => {
-                if (latestData && latestData['expire']) {
-                    const expire: string = latestData['expire'];
-                    const expireUnix: number = Date.parse(expire);
+                if (latestData && latestData.expire) {
+                    let expire: string | number = latestData.expire;
 
-                    console.log(`Token is set to expire at ${expireUnix}.`);
+                    if (!isNumber(expire)) {
+                        expire = Date.parse(expire as string);
+                    }
 
-                    const expireIn: number = expireUnix - Date.now();
+                    console.log(`Token is set to expire at ${expire}.`);
+
+                    const expireIn: number = (expire as number) - Date.now();
 
                     console.log(
                         `Will automatically refresh JWT token in ${RoundToThreeDecimalPlaces(expireIn / 1000.0)} seconds`,
@@ -199,7 +223,9 @@ const AuthProvider = (props: { children }) => {
             />
         ));
 
-        let response: Response | undefined = undefined;
+        console.log(`doMutate toastId: ${toastId}`);
+
+        let response: AuthResponse | void = undefined;
         try {
             response = await tokenFetcher(
                 authenticated ? refreshTokenEndpoint : loginEndpoint,
