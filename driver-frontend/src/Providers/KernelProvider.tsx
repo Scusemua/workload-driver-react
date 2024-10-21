@@ -93,10 +93,11 @@ export function useKernels(forLogging: boolean) {
         kernelsAreLoading: isMutating,
         refreshKernels: async () => {
             try {
-                return await trigger();
+                const resp: DistributedJupyterKernel[] = await trigger();
+                return Promise.resolve(resp);
             } catch (e) {
                 console.error(`Trigger failed: ${JSON.stringify(e)}`);
-                return;
+                return Promise.reject(e);
             }
         },
         isError: error,

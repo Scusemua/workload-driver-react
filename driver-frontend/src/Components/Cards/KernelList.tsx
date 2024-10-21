@@ -1,24 +1,20 @@
-import {
-  ConfirmationModal,
-  CreateKernelsModal,
-  ExecuteCodeOnKernelModal,
-  InformationModal, RoundToNDecimalPlaces,
-  RoundToThreeDecimalPlaces
-} from '@Components/Modals';
 import { HeightFactorContext, KernelHeightFactorContext } from '@App/Dashboard';
-import { GpuIcon, GpuIconAlt2 } from '@src/Assets/Icons';
-import { useNodes } from '@src/Providers';
-import { GetPathForFetch, JoinPaths } from '@src/Utils/path_utils';
-import { GetToastContentWithHeaderAndBody } from '@src/Utils/toast_utils';
-import { numberArrayFromRange } from '@src/Utils/utils';
-import { PingKernelModal } from '@Components/Modals';
+import {
+    ConfirmationModal,
+    CreateKernelsModal,
+    ExecuteCodeOnKernelModal,
+    InformationModal,
+    PingKernelModal,
+    RoundToNDecimalPlaces,
+    RoundToThreeDecimalPlaces,
+} from '@Components/Modals';
 import { RequestTraceSplitTable } from '@Components/Tables';
 import { DistributedJupyterKernel, JupyterKernelReplica, ResourceSpec } from '@Data/Kernel';
 import { PongResponse } from '@Data/Message';
 
 import { KernelManager, ServerConnection, SessionManager } from '@jupyterlab/services';
 import { IKernelConnection } from '@jupyterlab/services/lib/kernel/kernel';
-import { ISessionConnection, IModel as ISessionModel } from '@jupyterlab/services/lib/session/session';
+import { IModel as ISessionModel, ISessionConnection } from '@jupyterlab/services/lib/session/session';
 import {
     Alert,
     AlertActionCloseButton,
@@ -88,6 +84,11 @@ import {
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 import { ExecutionOutputTabsDataProvider } from '@Providers/ExecutionOutputTabsDataProvider';
 import { useKernels } from '@Providers/KernelProvider';
+import { GpuIcon, GpuIconAlt2 } from '@src/Assets/Icons';
+import { useNodes } from '@src/Providers';
+import { GetPathForFetch, JoinPaths } from '@src/Utils/path_utils';
+import { GetToastContentWithHeaderAndBody, ToastRefresh } from '@src/Utils/toast_utils';
+import { numberArrayFromRange } from '@src/Utils/utils';
 import React, { useEffect, useReducer, useRef } from 'react';
 
 import toast from 'react-hot-toast';
@@ -200,8 +201,8 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
 
     async function initializeKernelManagers() {
         if (kernelManager.current === null) {
-            const wsUrl: string = `ws://${process.env.JUPYTER_ADDR || "localhost"}:${process.env.JUPYTER_PORT}`
-            const jupyterBaseUrl: string = JoinPaths((process.env.PUBLIC_PATH || "/"), "jupyter");
+            const wsUrl: string = `ws://${process.env.JUPYTER_ADDR || 'localhost'}:${process.env.JUPYTER_PORT}`;
+            const jupyterBaseUrl: string = JoinPaths(process.env.PUBLIC_PATH || '/', 'jupyter');
 
             const kernelSpecManagerOptions: KernelManager.IOptions = {
                 serverSettings: ServerConnection.makeSettings({
@@ -230,8 +231,8 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         }
 
         if (sessionManager.current === null) {
-            const wsUrl: string = `ws://${process.env.JUPYTER_ADDR || "localhost"}:${process.env.JUPYTER_PORT}`
-            const jupyterBaseUrl: string = JoinPaths((process.env.PUBLIC_PATH || "/"), "jupyter");
+            const wsUrl: string = `ws://${process.env.JUPYTER_ADDR || 'localhost'}:${process.env.JUPYTER_PORT}`;
+            const jupyterBaseUrl: string = JoinPaths(process.env.PUBLIC_PATH || '/', 'jupyter');
 
             sessionManager.current = new SessionManager({
                 kernelManager: kernelManager.current,
@@ -306,7 +307,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                Authorization: 'Bearer ' + localStorage.getItem("token"),
+                Authorization: 'Bearer ' + localStorage.getItem('token'),
             },
             body: JSON.stringify({
                 socketType: socketType,
@@ -390,20 +391,20 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                             actionClose={<AlertActionCloseButton onClose={() => toast.dismiss(toastId)} />}
                         >
                             {response.requestTraces.length > 0 && (
-                                    <Flex direction={{ default: 'column' }}>
-                                        <FlexItem>
-                                            <Title headingLevel={'h3'}>Request Trace(s)</Title>
-                                        </FlexItem>
-                                        <FlexItem>
-                                            <RequestTraceSplitTable
-                                                receivedReplyAt={receivedReplyAt}
-                                                initialRequestSentAt={initialRequestTimestamp}
-                                                messageId={response.msg}
-                                                traces={response.requestTraces}
-                                            />
-                                        </FlexItem>
-                                    </Flex>
-                                )}
+                                <Flex direction={{ default: 'column' }}>
+                                    <FlexItem>
+                                        <Title headingLevel={'h3'}>Request Trace(s)</Title>
+                                    </FlexItem>
+                                    <FlexItem>
+                                        <RequestTraceSplitTable
+                                            receivedReplyAt={receivedReplyAt}
+                                            initialRequestSentAt={initialRequestTimestamp}
+                                            messageId={response.msg}
+                                            traces={response.requestTraces}
+                                        />
+                                    </FlexItem>
+                                </Flex>
+                            )}
                         </Alert>,
                         { id: toastId },
                     );
@@ -486,7 +487,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                Authorization: 'Bearer ' + localStorage.getItem("token"),
+                Authorization: 'Bearer ' + localStorage.getItem('token'),
                 // 'Cache-Control': 'no-cache, no-transform, no-store',
             },
             body: JSON.stringify({
@@ -657,7 +658,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             method: 'PATCH',
             headers: {
                 'Content-Type': 'application/json',
-                Authorization: 'Bearer ' + localStorage.getItem("token"),
+                Authorization: 'Bearer ' + localStorage.getItem('token'),
                 // 'Cache-Control': 'no-cache, no-transform, no-store',
             },
             body: JSON.stringify({
@@ -702,7 +703,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',
-                    Authorization: 'Bearer ' + localStorage.getItem("token"),
+                    Authorization: 'Bearer ' + localStorage.getItem('token'),
                     // 'Cache-Control': 'no-cache, no-transform, no-store',
                 },
                 body: JSON.stringify({
@@ -1012,28 +1013,12 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                                 'loading-icon-spin-toggleable paused'
                             }
                             onClick={() => {
-                                toast.promise(refreshKernels(), {
-                                    loading: <b>Refreshing kernels...</b>,
-                                    success: <b>Refreshed kernels!</b>,
-                                    error: (reason: Error) => {
-                                        let explanation: string = reason.message;
-                                        if (reason.name === 'SyntaxError') {
-                                            explanation = 'HTTP 504 Gateway Timeout';
-                                        }
-
-                                        return (
-                                            <Flex
-                                                direction={{ default: 'column' }}
-                                                spaceItems={{ default: 'spaceItemsNone' }}
-                                            >
-                                                <FlexItem>
-                                                    <b>Could not refresh kernels.</b>
-                                                </FlexItem>
-                                                <FlexItem>{explanation}</FlexItem>
-                                            </Flex>
-                                        );
-                                    },
-                                });
+                                ToastRefresh(
+                                    refreshKernels,
+                                    'Refreshing kernels...',
+                                    'Failed to refresh kernels',
+                                    'Refreshed kernels',
+                                );
                             }}
                         >
                             <SyncIcon />

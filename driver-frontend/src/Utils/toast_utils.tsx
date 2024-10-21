@@ -1,4 +1,6 @@
+import { RoundToThreeDecimalPlaces } from '@Components/Modals';
 import { Alert, AlertActionCloseButton, Button, Flex, FlexItem } from '@patternfly/react-core';
+import { SpinnerIcon } from '@patternfly/react-icons';
 import React from 'react';
 import { toast } from 'react-hot-toast';
 
@@ -28,6 +30,83 @@ export function GetToastContentWithHeaderAndBody(
             <p>{body}</p>
         </Alert>
     );
+}
+
+/**
+ * Basically an implementation of toast.promise, but this (a) actually works, and (b) is targeted specifically
+ * for refreshing a remote resource.
+ *
+ * @param refreshFunc the function (usually an SWR hook/trigger/mutator) to perform the refresh. Must be async.
+ * @param loadingMessage message to display in toast notification while refreshing.
+ * @param errorMessage message to display in toast notification if an error occurs.
+ * @param successMessage message to display in toast notification upon successful refresh. this will have " in X milliseconds"
+ * appended to the end of it before being displayed.
+ */
+export function ToastRefresh(
+    refreshFunc: () => Promise<any>,
+    loadingMessage: string,
+    errorMessage: string,
+    successMessage: string,
+) {
+    const start: number = performance.now();
+
+    const toastId: string = toast.custom((t: Toast) => {
+        return (
+            <Alert
+                isInline
+                variant={'info'}
+                title={loadingMessage}
+                onTimeout={() => dismissToast()}
+                customIcon={<SpinnerIcon className={'loading-icon-spin-pulse'} />}
+                actionClose={<AlertActionCloseButton onClose={() => toast.dismiss(t.id)} />}
+            />
+        );
+    });
+
+    const start: number = performance.now();
+    refreshFunc()
+        .catch((err: Error) => {
+            const latencyMs: number = RoundToThreeDecimalPlaces(performance.now() - start);
+            toast.custom(
+                (t) => {
+                    return (
+                        <Alert
+                            isInline
+                            variant={'error'}
+                            title={errorMessage + ` after ${latencyMs} milliseconds`}
+                            onTimeout={() => dismissToast()}
+                            timeout={30000}
+                            timeoutAnimation={60000}
+                            actionClose={<AlertActionCloseButton onClose={() => toast.dismiss(t.id)} />}
+                        >
+                            {JSON.stringify(err)}
+                        </Alert>
+                    );
+                },
+                { id: toastId },
+            );
+        })
+        .then(() => {
+            const latencyMs: number = RoundToThreeDecimalPlaces(performance.now() - start);
+            toast.custom(
+                (t) => {
+                    return (
+                        <Alert
+                            isInline
+                            variant={'success'}
+                            title={successMessage + ` in ${latencyMs} milliseconds.`}
+                            onTimeout={() => dismissToast()}
+                            timeout={10000}
+                            timeoutAnimation={20000}
+                            actionClose={<AlertActionCloseButton onClose={() => toast.dismiss(t.id)} />}
+                        />
+                    );
+                },
+                {
+                    id: toastId,
+                },
+            );
+        });
 }
 
 export async function ToastFetch(

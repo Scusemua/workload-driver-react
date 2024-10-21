@@ -1,10 +1,8 @@
-import { RoundToTwoDecimalPlaces } from '@Components/Modals';
 import { AuthorizationContext } from '@Providers/AuthProvider';
 import { ClusterNode } from '@src/Data';
 import { GetPathForFetch } from '@src/Utils/path_utils';
-import { GetToastContentWithHeaderAndBody } from '@src/Utils/toast_utils';
+import { ToastRefresh } from '@src/Utils/toast_utils';
 import React from 'react';
-import { toast } from 'react-hot-toast';
 import useSWR from 'swr';
 import useSWRMutation, { TriggerWithoutArgs } from 'swr/mutation';
 
@@ -63,40 +61,20 @@ function getManualRefreshTrigger(trigger: TriggerWithoutArgs<any, any, string, n
             return;
         }
 
-        const st: number = performance.now();
-        const toastId: string = toast.loading(() => <b>Refreshing nodes...</b>);
-        await trigger()
-            .catch((error: Error) => {
-                toast.custom(
-                    GetToastContentWithHeaderAndBody('Could not refresh nodes.', error.message, 'danger', () => {
-                        toast.dismiss(toastId);
-                    }),
-                    {
-                        id: toastId,
-                        duration: 10000,
-                        style: { maxWidth: 600 },
-                    },
-                );
-            })
-            .then(() =>
-                toast.custom(
-                    GetToastContentWithHeaderAndBody(
-                        'Refreshed nodes.',
-                        `Time elapsed: ${RoundToTwoDecimalPlaces(performance.now() - st)} ms`,
-                        'success',
-                        () => {
-                            toast.dismiss(toastId);
-                        },
-                    ),
-                    { id: toastId, duration: 7500, style: { maxWidth: 600 } },
-                ),
-            );
+        ToastRefresh(
+            trigger,
+            'Refreshing Cluster Nodes',
+            'Failed to refresh Cluster Nodes',
+            'Successfully refreshed Cluster Nodes',
+        );
     };
 }
 
 export function useNodes() {
     const { authenticated } = React.useContext(AuthorizationContext);
-    const { data, error, isLoading, isValidating } = useSWR(authenticated ? api_endpoint : null, fetcher, { refreshInterval: 600000 });
+    const { data, error, isLoading, isValidating } = useSWR(authenticated ? api_endpoint : null, fetcher, {
+        refreshInterval: 600000,
+    });
     const { trigger, isMutating } = useSWRMutation(api_endpoint, fetcher);
 
     const nodes: ClusterNode[] = data || [];
