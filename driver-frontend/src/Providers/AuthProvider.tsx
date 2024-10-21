@@ -1,8 +1,10 @@
 import { RoundToThreeDecimalPlaces } from '@Components/Modals';
 import { GetPathForFetch } from '@src/Utils/path_utils';
+import { GetToastContentWithHeaderAndBody } from '@src/Utils/toast_utils';
 import { MAX_SAFE_INTEGER } from 'lib0/number';
 import React from 'react';
-import useSWR, { KeyedMutator, useSWRConfig } from 'swr';
+import { Toast, toast } from 'react-hot-toast';
+import useSWR from 'swr';
 
 type AuthContext = {
     authenticated: boolean;
@@ -11,7 +13,7 @@ type AuthContext = {
     password: string | undefined;
     setUsername: (username: string | undefined) => void;
     setPassword: (password: string | undefined) => void;
-    mutateToken: KeyedMutator<any> | undefined;
+    mutateToken: (username: string, password: string) => Promise<void>;
     error: any;
 };
 
@@ -22,7 +24,7 @@ const initialState: AuthContext = {
     setUsername: () => {},
     password: undefined,
     setPassword: () => {},
-    mutateToken: undefined,
+    mutateToken: async () => {},
     error: undefined,
 };
 
@@ -37,7 +39,9 @@ const tokenFetcher = async (
     password: string | undefined,
     currentlyAuthenticated: boolean,
 ) => {
-    console.log(`Refreshing token. Endpoint: "${endpoint}". Username: "${username}". Password: "${password}". Currently authenticated: ${currentlyAuthenticated}.`);
+    console.log(
+        `Refreshing token. Endpoint: "${endpoint}". Username: "${username}". Password: "${password}". Currently authenticated: ${currentlyAuthenticated}.`,
+    );
 
     const abortController: AbortController = new AbortController();
     const signal: AbortSignal = abortController.signal;
@@ -75,13 +79,21 @@ const tokenFetcher = async (
     }
 
     const response: Response = await fetch(endpoint, init);
-
     const responseJSON = await response.json();
 
-    console.log(`Fetched JWT token:\n${JSON.stringify(responseJSON, null, 2)}`);
+    if (response.status !== 200) {
+        console.log(`Authenticate failed. Could not log in:\n${JSON.stringify(responseJSON, null, 2)}`);
+        throw new Error(`HTTP ${response.status} ${response.statusText}: ${responseJSON.message}`);
+    } else {
+        console.log(`Fetched JWT token:\n${JSON.stringify(responseJSON, null, 2)}`);
+    }
+
+    response['username'] = username;
+    response['password'] = password;
 
     return responseJSON;
 };
+
 const AuthProvider = (props: { children }) => {
     const [authenticated, updateAuthenticatedStatus] = React.useState<boolean>(false);
     const [username, updateUsername] = React.useState<string | undefined>();
@@ -141,23 +153,50 @@ const AuthProvider = (props: { children }) => {
         },
     );
 
-    const { mutate } = useSWRConfig();
+    const doMutate = async (user: string, passwd: string) => {
+        console.log(
+            `Manually refreshing token now with username "${user}". Current authenticated status: ${authenticated}`,
+        );
 
-    const doMutate = async () => {
-        console.log(`Manually refreshing token now. Currently authenticated: ${authenticated}`);
-        if (authenticated) {
-            return await mutate(refreshTokenEndpoint);
-        } else {
-            setDoLogin(true);
+        let response: Response | undefined = undefined;
+        try {
+            response = await tokenFetcher(
+                authenticated ? refreshTokenEndpoint : loginEndpoint,
+                user,
+                passwd,
+                authenticated,
+            );
+        } catch (err) {
+            toast.custom((t: Toast) =>
+                GetToastContentWithHeaderAndBody('Login Attempt Failed', (err as Error).message, 'danger', () =>
+                    toast.dismiss(t.id),
+                ),
+            );
+
+            throw err;
         }
+
+        onSuccess(response);
     };
 
     return (
         <AuthorizationContext.Provider
             value={{
                 authenticated: authenticated,
-                setAuthenticated: (auth: boolean) => {
-                    updateAuthenticatedStatus(auth);
+                setAuthenticated: (nextAuthStatus: boolean) => {
+                    // If the user was authenticated and is now being set to unauthenticated, then display an error.
+                    if (authenticated && !nextAuthStatus) {
+                        toast.error((t: Toast) =>
+                            GetToastContentWithHeaderAndBody(
+                                'Logged Out',
+                                "You've been logged-out. Please reauthenticate to continue using the Cluster Dashboard.",
+                                'danger',
+                                () => toast.dismiss(t.id),
+                            ),
+                        );
+                    }
+
+                    updateAuthenticatedStatus(nextAuthStatus);
                 },
                 username: username,
                 setUsername: (user: string | undefined) => {

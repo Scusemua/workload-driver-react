@@ -10,20 +10,22 @@ import { toast } from 'react-hot-toast';
  * @param body Error message
  * @param variant The variant of alert to display
  * @param dismissToast Called when the toast should be dismissed.
+ * @param timeout optional timeout for the alert
  */
 export function GetToastContentWithHeaderAndBody(
     header: string,
     body: string,
     variant: 'danger' | 'warning' | 'success' | 'info' | 'custom',
     dismissToast: () => void,
+    timeout: number | undefined = undefined,
 ): React.JSX.Element {
     return (
         <Alert
             isInline
             variant={variant}
             title={header}
-            timeoutAnimation={30000}
-            timeout={10000}
+            timeoutAnimation={timeout ? 30000 : undefined}
+            timeout={timeout}
             onTimeout={() => dismissToast()}
             actionClose={<AlertActionCloseButton onClose={() => dismissToast()} />}
         >
@@ -48,8 +50,6 @@ export function ToastRefresh(
     errorMessage: string,
     successMessage: string,
 ) {
-    const start: number = performance.now();
-
     const toastId: string = toast.custom((t: Toast) => {
         return (
             <Alert
@@ -65,27 +65,6 @@ export function ToastRefresh(
 
     const start: number = performance.now();
     refreshFunc()
-        .catch((err: Error) => {
-            const latencyMs: number = RoundToThreeDecimalPlaces(performance.now() - start);
-            toast.custom(
-                (t) => {
-                    return (
-                        <Alert
-                            isInline
-                            variant={'error'}
-                            title={errorMessage + ` after ${latencyMs} milliseconds`}
-                            onTimeout={() => dismissToast()}
-                            timeout={30000}
-                            timeoutAnimation={60000}
-                            actionClose={<AlertActionCloseButton onClose={() => toast.dismiss(t.id)} />}
-                        >
-                            {JSON.stringify(err)}
-                        </Alert>
-                    );
-                },
-                { id: toastId },
-            );
-        })
         .then(() => {
             const latencyMs: number = RoundToThreeDecimalPlaces(performance.now() - start);
             toast.custom(
@@ -105,6 +84,28 @@ export function ToastRefresh(
                 {
                     id: toastId,
                 },
+            );
+        })
+        .catch((err: Error) => {
+            console.error(`ToastRefresh ERROR: ${err}`);
+            const latencyMs: number = RoundToThreeDecimalPlaces(performance.now() - start);
+            toast.custom(
+                (t) => {
+                    return (
+                        <Alert
+                            isInline
+                            variant={'danger'}
+                            title={errorMessage + ` after ${latencyMs} milliseconds`}
+                            onTimeout={() => dismissToast()}
+                            timeout={30000}
+                            timeoutAnimation={60000}
+                            actionClose={<AlertActionCloseButton onClose={() => toast.dismiss(t.id)} />}
+                        >
+                            {`${err.name}: ${err.message}`}
+                        </Alert>
+                    );
+                },
+                { id: toastId },
             );
         });
 }

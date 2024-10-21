@@ -1,9 +1,11 @@
 import { DistributedJupyterKernel } from '@Data/Kernel';
 import { AuthorizationContext } from '@Providers/AuthProvider';
+import { RefreshError } from '@Providers/Error';
 import { GetPathForFetch } from '@src/Utils/path_utils';
+import { GetToastContentWithHeaderAndBody } from '@src/Utils/toast_utils';
 import React from 'react';
+import { Toast, toast } from 'react-hot-toast';
 import useSWR from 'swr';
-import useSWRMutation from 'swr/mutation';
 
 function omit(obj, ...props) {
     const result = { ...obj };
@@ -36,22 +38,31 @@ const baseFetcher = async (input: RequestInfo | URL) => {
     } catch (e) {
         if (signal.aborted) {
             console.error('refresh-kernels request timed out.');
-            return Promise.reject(new Error(`The request timed out.`)); // Different error.
+            throw new Error(`request timed out`); // Different error.
         } else {
             console.error(`Failed to fetch kernels because: ${e}`);
-            return Promise.reject(e); // Re-throw e.
+            throw e; // Re-throw.
         }
     }
 
     return response;
 };
 
-const fetcher = async (input: RequestInfo | URL, forLogging: boolean) => {
+const fetcher = async (input: RequestInfo | URL | null, forLogging: boolean, throwOnError: boolean) => {
+    if (!input) {
+        return;
+    }
+
     const response: Response = await baseFetcher(input);
 
     if (!response.ok) {
         console.error(`Received HTTP ${response.status} ${response.statusText} when retrieving kernels.`);
-        throw new Error(`Received HTTP ${response.status} ${response.statusText} when retrieving kernels.`);
+
+        if (throwOnError) {
+            throw new RefreshError(response);
+        } else {
+            return;
+        }
     }
 
     let kernels: DistributedJupyterKernel[] = await response.json();
@@ -70,36 +81,58 @@ const fetcher = async (input: RequestInfo | URL, forLogging: boolean) => {
 const api_endpoint: string = GetPathForFetch('api/get-kernels');
 
 export function useKernels(forLogging: boolean) {
-    const { authenticated } = React.useContext(AuthorizationContext);
-    const { data, error } = useSWR(
+    const { authenticated, setAuthenticated } = React.useContext(AuthorizationContext);
+    const { data, mutate, isLoading, error } = useSWR(
         authenticated ? [api_endpoint, forLogging] : null,
-        ([url, forLogging]) => fetcher(url, forLogging),
+        ([url, forLogging]) => fetcher(url, forLogging, false),
         {
             refreshInterval: 5000,
             suspense: false,
-            onError: (error: Error) => {
-                console.error(`Automatic refresh of kernels failed because: ${error.message}`);
+            shouldRetryOnError: (err: Error) => {
+                // If the error is a RefreshError with status code 401, then don't retry.
+                // In all other cases, retry.
+                return !(err instanceof RefreshError && (err as RefreshError).statusCode == 401);
+            },
+            onError: (err: RefreshError) => {
+                if (err.statusCode == 401) {
+                    setAuthenticated(false);
+                    return;
+                }
+
+                toast.custom((t: Toast) => {
+                    return GetToastContentWithHeaderAndBody(
+                        'Automatic refresh of active kernels has failed.',
+                        `${err.name}: ${err.message}`,
+                        'danger',
+                        () => toast.dismiss(t.id),
+                    );
+                });
             },
         },
-    );
-    const { trigger, isMutating } = useSWRMutation([api_endpoint, forLogging], ([url, forLogging]) =>
-        fetcher(url, forLogging),
     );
 
     const kernels: DistributedJupyterKernel[] = data || [];
 
+    async function refreshKernels() {
+        try {
+            return await mutate(fetcher(authenticated ? api_endpoint : null, forLogging, true), {
+                revalidate: true,
+                throwOnError: true,
+            });
+        } catch (err) {
+            if ((err as RefreshError).statusCode == 401) {
+                setAuthenticated(false);
+            }
+
+            throw err; // Re-throw error.
+        }
+    }
+
     return {
         kernels: kernels,
-        kernelsAreLoading: isMutating,
-        refreshKernels: async () => {
-            try {
-                const resp: DistributedJupyterKernel[] = await trigger();
-                return Promise.resolve(resp);
-            } catch (e) {
-                console.error(`Trigger failed: ${JSON.stringify(e)}`);
-                return Promise.reject(e);
-            }
-        },
+        kernelsAreLoading: isLoading,
+        refreshKernels: refreshKernels,
         isError: error,
+        error: error,
     };
 }

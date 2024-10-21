@@ -76,11 +76,11 @@ const connectionStatusIcons = {
     ),
 };
 
-type connectionStatusColorsType = {
+type statusColor = {
     [key in ReadyState]: 'green' | 'red' | 'blue' | 'cyan' | 'orange' | 'purple' | 'grey' | 'gold' | undefined;
 };
 
-const connectionStatusColors: connectionStatusColorsType = {
+const connectionStatusColors: statusColor = {
     [ReadyState.CONNECTING]: 'orange',
     [ReadyState.OPEN]: 'green',
     [ReadyState.CLOSING]: 'orange',
@@ -134,10 +134,14 @@ export const AppHeader: React.FunctionComponent<AppHeaderProps> = (props: AppHea
 
     const [isSelected, setIsSelected] = React.useState(darkMode ? darkModeButtonId : lightModeButtonId);
 
-    const websocketUrl: string = JoinPaths("ws://localhost:8000", process.env.PUBLIC_PATH || "/", "ws");
-    const { readyState } = useWebSocket(websocketUrl, {
-        shouldReconnect: () => true,
-    }, authenticated);
+    const websocketUrl: string = JoinPaths('ws://localhost:8000', process.env.PUBLIC_PATH || '/', 'ws');
+    const { readyState } = useWebSocket(
+        websocketUrl,
+        {
+            shouldReconnect: () => true,
+        },
+        authenticated,
+    );
 
     React.useEffect(() => {
         if (!authenticated) {
@@ -301,7 +305,7 @@ export const AppHeader: React.FunctionComponent<AppHeaderProps> = (props: AppHea
                                             },
                                         };
 
-                                        fetch(GetPathForFetch('api/panic'), requestOptions).then(()=>{});
+                                        fetch(GetPathForFetch('api/panic'), requestOptions).then(() => {});
                                     }}
                                 >
                                     Induce a Panic
@@ -322,6 +326,17 @@ export const AppHeader: React.FunctionComponent<AppHeaderProps> = (props: AppHea
                                 >
                                     Query Message Status
                                 </Button>
+                            </Tooltip>
+                        </FlexItem>
+
+                        <FlexItem>
+                            <Tooltip content="Indicates whether we're presently authenticated." position="bottom">
+                                <Label
+                                    color={authenticated ? 'green' : 'red'}
+                                    icon={authenticated ? <CheckCircleIcon /> : <ErrorCircleOIcon />}
+                                >
+                                    {authenticated ? 'Authenticated (Logged In)' : 'Unauthenticated (Logged Out)'}
+                                </Label>
                             </Tooltip>
                         </FlexItem>
 

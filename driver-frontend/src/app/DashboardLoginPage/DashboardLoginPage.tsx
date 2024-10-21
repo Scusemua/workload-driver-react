@@ -1,4 +1,3 @@
-import { Ds2Icon } from '@Icons/Ds2Icon';
 import { ListItem, ListVariant, LoginFooterItem, LoginForm, LoginPage } from '@patternfly/react-core';
 import { ExternalLinkAltIcon, GithubIcon } from '@patternfly/react-icons';
 import ExclamationCircleIcon from '@patternfly/react-icons/dist/esm/icons/exclamation-circle-icon';
@@ -6,6 +5,7 @@ import { AuthorizationContext } from '@Providers/AuthProvider';
 import logo_greyscale from '@src/app/bgimages/icon_greyscale.svg';
 import logo from '@src/app/bgimages/WorkloadDriver-Logo.svg';
 import React from 'react';
+import { toast } from 'react-hot-toast';
 
 interface DashboardLoginPageProps {
     onSuccessfulLogin: (token: string, expiration: string) => void;
@@ -14,13 +14,14 @@ interface DashboardLoginPageProps {
 export const DashboardLoginPage: React.FunctionComponent<DashboardLoginPageProps> = (
     props: DashboardLoginPageProps,
 ) => {
-    const [showHelperText, setShowHelperText] = React.useState(false);
-    // const [username, setUsername] = React.useState('');
-    const [isValidUsername, setIsValidUsername] = React.useState(true);
-    // const [password, setPassword] = React.useState('');
-    const [isValidPassword, setIsValidPassword] = React.useState(true);
+    const [showHelperText, setShowHelperText] = React.useState<boolean>(false);
+    const [username, setUsername] = React.useState<string>('');
+    const [isValidUsername, setIsValidUsername] = React.useState<boolean>(true);
+    const [password, setPassword] = React.useState<string>('');
+    const [isValidPassword, setIsValidPassword] = React.useState<boolean>(true);
 
-    const { username, setUsername, password, setPassword, mutateToken, error } = React.useContext(AuthorizationContext);
+    // username, setUsername, password, setPassword,
+    const { mutateToken, error } = React.useContext(AuthorizationContext);
 
     React.useEffect(() => {
         if (error) {
@@ -45,44 +46,31 @@ export const DashboardLoginPage: React.FunctionComponent<DashboardLoginPageProps
     const onLoginButtonClick = async (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
         event.preventDefault();
 
-        // const req: RequestInit = {
-        //     method: 'POST',
-        //     headers: {
-        //         'Content-Type': 'application/json',
-        //     },
-        //     body: JSON.stringify({ username: username, password: password }),
-        // };
-
         if (mutateToken) {
-            await mutateToken();
-        }
+            const toastId: string = toast.loading('Attempting to log in...');
+            await mutateToken(username, password)
+                .catch((err: Error) => {
+                    console.error(`Failed to login: ${err}`);
 
-        // const response = await fetch('authenticate', req);
-        // if (response.status != 200) {
-        //     setIsValidPassword(false);
-        //     setIsValidUsername(false);
-        //     setShowHelperText(true);
-        // } else {
-        //     setIsValidPassword(true);
-        //     setIsValidUsername(true);
-        //     setShowHelperText(false);
-        //
-        //     const body = await response.json();
-        //     const token: string = body['token'];
-        //     const expiration: string = body['expire'];
-        //     props.onSuccessfulLogin(token, expiration);
-        // }
+                    setIsValidPassword(false);
+                    setIsValidPassword(false);
+                    setShowHelperText(true);
+
+                    toast.dismiss(toastId);
+                })
+                .then(() => {
+                    toast.success('Authenticated. You have been logged in.', { id: toastId });
+                });
+        }
     };
 
     // icon={<Ds2Icon scale={1.5} />}
     const listItem = (
         <React.Fragment>
             <ListItem icon={<GithubIcon />}>
-                <LoginFooterItem href="https://github.com/Scusemua/workload-driver-react">
-                    Source Code
-                </LoginFooterItem>
+                <LoginFooterItem href="https://github.com/Scusemua/workload-driver-react">Source Code</LoginFooterItem>
             </ListItem>
-            <ListItem icon={<ExternalLinkAltIcon/>}>
+            <ListItem icon={<ExternalLinkAltIcon />}>
                 <LoginFooterItem href="https://ds2-lab.github.io/">
                     D<span className="lowerc">S</span>
                     <sup>2</sup> Research Lab @ UVA
@@ -105,6 +93,7 @@ export const DashboardLoginPage: React.FunctionComponent<DashboardLoginPageProps
             onChangePassword={handlePasswordChange}
             isShowPasswordEnabled
             isValidPassword={isValidPassword}
+            isLoginButtonDisabled={username === '' || password === ''}
             onLoginButtonClick={onLoginButtonClick}
             loginButtonLabel="Log in"
         />

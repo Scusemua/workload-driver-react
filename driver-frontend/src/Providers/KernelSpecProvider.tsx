@@ -1,3 +1,4 @@
+import { RefreshError } from '@Providers/Error';
 import { JupyterKernelSpecWrapper } from '@src/Data';
 import { GetPathForFetch } from '@src/Utils/path_utils';
 import useSWR from 'swr';
@@ -12,29 +13,32 @@ const fetcher = async (input: RequestInfo | URL) => {
         abortController.abort(`The request timed-out after ${timeout} milliseconds.`);
     }, timeout);
 
+    let response: Response;
     try {
-        const response: Response = await fetch(input, {
+        response = await fetch(input, {
             signal: signal,
         });
-
-        if (response.status !== 200) {
-            await Promise.reject(new Error(`HTTP ${response.status} ${response.statusText}`));
-        }
-
-        return await response.json();
     } catch (e) {
         if (signal.aborted) {
             console.error('refresh-kernel-specs request timed out.');
-            await Promise.reject(new Error(`The request timed out.`)); // Different error.
+            throw new Error(`The request timed out.`); // Different error.
         } else {
             console.error(`Failed to fetch kernels because: ${e}`);
-            await Promise.reject(e); // Re-throw e.
+            throw e; // Re-throw.
         }
     }
+
+    if (response.status !== 200) {
+        throw new RefreshError(response);
+    }
+
+    return await response.json();
 };
 
 export function useKernelSpecs() {
-    const { data, error, isLoading } = useSWR(GetPathForFetch('jupyter/api/kernelspecs'), fetcher, { refreshInterval: 5000 });
+    const { data, error, isLoading } = useSWR(GetPathForFetch('jupyter/api/kernelspecs'), fetcher, {
+        refreshInterval: 5000,
+    });
     const { trigger, isMutating } = useSWRMutation(GetPathForFetch('jupyter/api/kernelspecs'), fetcher);
 
     const kernelSpecs: JupyterKernelSpecWrapper[] = [];

@@ -1,4 +1,5 @@
 import { AuthorizationContext } from '@Providers/AuthProvider';
+import { RefreshError } from '@Providers/Error';
 import { ClusterNode } from '@src/Data';
 import { GetPathForFetch } from '@src/Utils/path_utils';
 import { ToastRefresh } from '@src/Utils/toast_utils';
@@ -44,7 +45,7 @@ const fetcher = async (input: RequestInfo | URL) => {
     if (!response.ok) {
         const responseBody: string = await response.text();
         console.error(`Refresh Nodes Failed (${response.status} ${response.statusText}): ${responseBody}`);
-        throw new Error(`${response.status} ${response.statusText}`);
+        throw new RefreshError(response);
     }
 
     return await response.json();
@@ -71,20 +72,23 @@ function getManualRefreshTrigger(trigger: TriggerWithoutArgs<any, any, string, n
 }
 
 export function useNodes() {
-    const { authenticated } = React.useContext(AuthorizationContext);
+    const { authenticated, setAuthenticated } = React.useContext(AuthorizationContext);
     const { data, error, isLoading, isValidating } = useSWR(authenticated ? api_endpoint : null, fetcher, {
         refreshInterval: 600000,
+        shouldRetryOnError: (err: Error) => {
+            // If the error is a RefreshError with status code 401, then don't retry.
+            // In all other cases, retry.
+            return !(err instanceof RefreshError && (err as RefreshError).statusCode == 401);
+        },
+        onError: (err: Error) => {
+            if (err instanceof RefreshError && (err as RefreshError).statusCode == 401) {
+                setAuthenticated(false);
+            }
+        },
     });
     const { trigger, isMutating } = useSWRMutation(api_endpoint, fetcher);
 
     const nodes: ClusterNode[] = data || [];
-
-    // if (nodes.length > 0) {
-    //     console.log(`Received ${nodes.length} ClusterNode(s) from server:`);
-    //     console.log(JSON.stringify(nodes, null, 2));
-    // } else {
-    //     console.warn('Received 0 ClusterNodes from server...');
-    // }
 
     return {
         nodes: nodes,
