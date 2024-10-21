@@ -1,4 +1,5 @@
 import { AuthorizationContext } from '@Providers/AuthProvider';
+import { RefreshError } from '@Providers/Error';
 import { GetPathForFetch } from '@src/Utils/path_utils';
 import { FormatSecondsLong } from '@src/Utils/utils';
 import React from 'react';
@@ -21,7 +22,7 @@ const baseFetcher = async (input: RequestInfo | URL, init: RequestInit) => {
     if (!response.ok) {
         const responseBody: string = await response.text();
         console.error(`Refresh cluster age (${response.status} ${response.statusText}): ${responseBody}`);
-        throw new Error(`Refresh cluster age: ${response.status} ${response.statusText}`);
+        throw new RefreshError(response);
     }
 
     return response;
@@ -63,7 +64,7 @@ const fetcher = async (input: RequestInfo | URL) => {
 const api_endpoint: string = GetPathForFetch('api/cluster-age');
 
 export function useClusterAge() {
-    const { authenticated } = React.useContext(AuthorizationContext);
+    const { authenticated, setAuthenticated } = React.useContext(AuthorizationContext);
 
     const { data, error } = useSWR(authenticated ? [api_endpoint] : null, ([url]) => fetcher(url), {
         refreshInterval: (age) => {
@@ -71,15 +72,24 @@ export function useClusterAge() {
                 return 30000;
             }
 
-            return 250;
+            return 1000;
+        },
+        shouldRetryOnError: (err: Error) => {
+            // If the error is a RefreshError with status code 401, then don't retry.
+            // In all other cases, retry.
+            return !(err instanceof RefreshError && (err as RefreshError).statusCode == 401);
         },
         revalidateOnFocus: true,
         revalidateOnMount: true,
         revalidateOnReconnect: true,
         refreshWhenOffline: true,
         refreshWhenHidden: true,
-        onError: (error: Error) => {
-            console.error(`Automatic refresh of cluster age failed because: ${error.message}`);
+        onError: (err: Error) => {
+            console.error(`Automatic refresh of cluster age failed because: ${err.message}`);
+
+            if (err instanceof RefreshError && (err as RefreshError).statusCode == 401) {
+                setAuthenticated(false);
+            }
         },
     });
 

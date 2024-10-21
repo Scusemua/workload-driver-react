@@ -8,6 +8,8 @@ import React from 'react';
 import { Toast, toast } from 'react-hot-toast';
 import useSWR from 'swr';
 
+const toastIdLoggedOut: string = '__TOAST_ERROR_LOGGED_OUT__';
+
 type AuthContext = {
     authenticated: boolean;
     setAuthenticated: (auth: boolean) => void;
@@ -257,13 +259,15 @@ const AuthProvider = (props: { children }) => {
                 setAuthenticated: (nextAuthStatus: boolean) => {
                     // If the user was authenticated and is now being set to unauthenticated, then display an error.
                     if (authenticated && !nextAuthStatus) {
-                        toast.custom((t: Toast) =>
-                            GetToastContentWithHeaderAndBody(
-                                'Logged Out',
-                                "You've been logged-out. Please reauthenticate to continue using the Cluster Dashboard.",
-                                'danger',
-                                () => toast.dismiss(t.id),
-                            ),
+                        toast.custom(
+                            () =>
+                                GetToastContentWithHeaderAndBody(
+                                    'Logged Out',
+                                    "You've been logged-out. Please reauthenticate to continue using the Cluster Dashboard.",
+                                    'danger',
+                                    () => toast.dismiss(toastIdLoggedOut),
+                                ),
+                            { id: toastIdLoggedOut },
                         );
                     }
 

@@ -670,7 +670,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             }),
         });
 
-        await refreshKernels();
+        await refreshKernels().catch((err: Error)=>console.log(`Kernel refresh failed: ${err}`));
     }
 
     const onConfirmDeleteKernelsClicked = (kernelIds: string[]) => {
@@ -696,7 +696,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
 
             await kernelManager.current?.shutdown(id).then(() => {
                 console.log('Successfully deleted Kernel ' + id + ' now.');
-                refreshKernels();
+                refreshKernels().catch((err: Error)=>console.log(`Kernel refresh failed: ${err}`));
             });
 
             await fetch(GetPathForFetch('api/metrics'), {

@@ -33,7 +33,6 @@ import { useNodes } from '@Providers/NodeProvider';
 import { NotificationContext } from '@Providers/NotificationProvider';
 import logo from '@src/app/bgimages/WorkloadDriver-Logo.svg';
 import { GetPathForFetch, JoinPaths } from '@src/Utils/path_utils';
-import { uuidv4 } from 'lib0/random';
 import * as React from 'react';
 import { useContext } from 'react';
 import useWebSocket, { ReadyState } from 'react-use-websocket';
@@ -91,6 +90,10 @@ const connectionStatusColors: statusColor = {
 interface AppHeaderProps {
     isLoggedIn: boolean;
 }
+
+const toastIdFailedToConnect: string = '__TOAST_ERROR_FAILED_TO_CONNECT__';
+const toastIdConnectionEstablished: string = '__TOAST_CONNECTION_ESTABLISHED__';
+const toastIdConnectionLost: string = '__TOAST_WARNING_CONNECTION_LOST__';
 
 export const AppHeader: React.FunctionComponent<AppHeaderProps> = (props: AppHeaderProps) => {
     const lightModeId: string = 'theme-toggle-lightmode';
@@ -152,7 +155,7 @@ export const AppHeader: React.FunctionComponent<AppHeaderProps> = (props: AppHea
             case ReadyState.CLOSED:
                 if (!failedToConnect.current) {
                     addNewNotification({
-                        id: uuidv4(),
+                        id: toastIdFailedToConnect,
                         title: 'Failed to Connect to Backend',
                         message: 'The persistent connection with the backend server could not be established lost.',
                         notificationType: 1,
@@ -165,7 +168,7 @@ export const AppHeader: React.FunctionComponent<AppHeaderProps> = (props: AppHea
                     failedToConnect.current = true;
                 } else if (prevConnectionState == ReadyState.OPEN) {
                     addNewNotification({
-                        id: uuidv4(),
+                        id: toastIdConnectionLost,
                         title: 'Connection Lost to Backend',
                         message: 'The persistent connection with the backend server has been lost.',
                         notificationType: 1,
@@ -182,7 +185,7 @@ export const AppHeader: React.FunctionComponent<AppHeaderProps> = (props: AppHea
 
                 if (prevConnectionState !== ReadyState.OPEN) {
                     addNewNotification({
-                        id: uuidv4(),
+                        id: toastIdConnectionEstablished,
                         title: 'Connection Established',
                         message: 'The persistent connection with the backend server has been established.',
                         notificationType: 3,
@@ -192,7 +195,9 @@ export const AppHeader: React.FunctionComponent<AppHeaderProps> = (props: AppHea
 
                 // If we've just connected, then let's refresh our kernels and our nodes, in case they've
                 // changed since we were last connected.
-                refreshKernels().then(() => {});
+                refreshKernels()
+                    .then(() => {})
+                    .catch((err: Error) => console.log(`Kernel refresh failed: ${err}`));
                 refreshNodes(false); // Pass false to omit the separate toast notification about refreshing nodes.
 
                 // Reset this to false, as we just successfully connected.
@@ -332,8 +337,8 @@ export const AppHeader: React.FunctionComponent<AppHeaderProps> = (props: AppHea
                         <FlexItem>
                             <Tooltip content="Indicates whether we're presently authenticated." position="bottom">
                                 <Label
-                                    color={authenticated ? 'green' : 'red'}
-                                    icon={authenticated ? <CheckCircleIcon /> : <ErrorCircleOIcon />}
+                                    color={authenticated ? 'green' : 'orange'}
+                                    icon={authenticated ? <CheckCircleIcon /> : <WarningTriangleIcon />}
                                 >
                                     {authenticated ? 'Authenticated (Logged In)' : 'Unauthenticated (Logged Out)'}
                                 </Label>
