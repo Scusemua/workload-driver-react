@@ -31,6 +31,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 	"path"
 	"strings"
 	"sync"
@@ -91,6 +92,10 @@ type serverImpl struct {
 	// something other than "/", as we use Traefik to reverse proxy external requests.
 	baseListenPrefix string
 
+	// Endpoint to serve prometheus metrics scraping requests
+	// Defined separately from the base-listen-prefix.
+	prometheusEndpoint string
+
 	adminUsername           string
 	adminPassword           string
 	jwtTokenValidDuration   time.Duration
@@ -114,11 +119,17 @@ func NewServer(opts *domain.Configuration) domain.Server {
 		expectedOriginPort:      opts.ExpectedOriginPort,
 		expectedOriginAddresses: make([]string, 0, len(opts.ExpectedOriginAddresses)),
 		baseListenPrefix:        opts.BaseListenPrefix,
+		prometheusEndpoint:      opts.PrometheusEndpoint,
 	}
 
 	// Default to "/"
 	if s.baseListenPrefix == "" {
 		s.baseListenPrefix = "/"
+	}
+
+	// Default value
+	if s.prometheusEndpoint == "" {
+		s.prometheusEndpoint = domain.PrometheusEndpoint
 	}
 
 	zapConfig := zap.NewDevelopmentEncoderConfig()
@@ -143,7 +154,54 @@ func NewServer(opts *domain.Configuration) domain.Server {
 		panic(err)
 	}
 
+	if err := s.templateHtmlFiles(); err != nil {
+		panic(err)
+	}
+
 	return s
+}
+
+// templateHtmlFiles rewrites the {{ base path }} string in the index.html and 200.html files with the base listen path.
+func (s *serverImpl) templateHtmlFiles() error {
+	executeTemplate := func(filePath string) error {
+		content, err := os.ReadFile(filePath)
+		if err != nil {
+			return err
+		}
+
+		// Convert content to a string for replacement
+		contentStr := string(content)
+
+		s.logger.Debug("Loaded file.", zap.String("file", filePath), zap.String("content", contentStr),
+			zap.String("base_listen_prefix", s.baseListenPrefix))
+
+		// Replace "{{ base_url }}" with the actual base URL
+		modifiedContent := strings.Replace(contentStr, "{{ base_URL }}", s.baseListenPrefix, -1)
+
+		s.logger.Debug("Templated file.", zap.String("file", filePath), zap.String("modified-contents", modifiedContent))
+
+		// Write the modified content back to the file (or to a new file)
+		err = os.WriteFile(filePath, []byte(modifiedContent), 0644)
+		if err != nil {
+			return err
+		}
+
+		s.logger.Debug("Successfully templated file.", zap.String("file", filePath))
+
+		return nil
+	}
+
+	err := executeTemplate("./dist/index.html")
+	if err != nil {
+		return err
+	}
+
+	err = executeTemplate("./dist/200.html")
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // handleRpcRegistrationComplete is a callback for the handlers.ClusterDashboardHandler of the serverImpl to execute
@@ -172,6 +230,9 @@ func (s *serverImpl) handleRpcRegistrationComplete(nodeType domain.NodeType, rpc
 // are processing/handling a request.
 func (s *serverImpl) ErrorHandlerMiddleware(c *gin.Context) {
 	c.Next() // Execute all the handlers.
+
+	s.logger.Debug("Serving request.", zap.String("origin", c.Request.Header.Get("Origin")),
+		zap.String("url", c.Request.URL.String()))
 
 	errorsEncountered := make([]error, 0)
 	for _, err := range c.Errors {
@@ -260,7 +321,10 @@ func (s *serverImpl) jwtAuthorizer() func(data interface{}, c *gin.Context) bool
 
 func (s *serverImpl) jwtHandleUnauthorized() func(c *gin.Context, code int, message string) {
 	return func(c *gin.Context, code int, message string) {
-		s.logger.Debug("Executing jwtHandleUnauthorized")
+		s.logger.Debug("JWT unauthorized request handler called.",
+			zap.Int("code", code), zap.String("message", message),
+			zap.String("remote_address", c.Request.RemoteAddr),
+			zap.String("client_ip", c.ClientIP()))
 
 		c.JSON(code, gin.H{
 			"code":    code,
@@ -359,7 +423,7 @@ func (s *serverImpl) setupRoutes() error {
 	////////////////////////
 	// Prometheus metrics //
 	////////////////////////
-	s.app.GET(s.getPath(domain.PrometheusEndpoint), s.HandlePrometheusRequest)
+	s.app.GET(s.prometheusEndpoint, s.HandlePrometheusRequest)
 
 	////////////////////////
 	// Websocket Handlers //

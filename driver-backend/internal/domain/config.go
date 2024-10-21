@@ -188,6 +188,7 @@ type Configuration struct {
 	TokenValidDurationSec   int    `name:"token_valid_duration_sec" yaml:"token_valid_duration_sec" json:"token_valid_duration_sec"`
 	TokenRefreshIntervalSec int    `name:"token_refresh_interval_sec" yaml:"token_refresh_interval_sec" json:"token_refresh_interval_sec"`
 	BaseListenPrefix        string `name:"base-listen-prefix" yaml:"base-listen-prefix" json:"base-listen-prefix" default:"/"`
+	PrometheusEndpoint      string `name:"prometheus-endpoint" yaml:"prometheus-endpoint" json:"prometheus-endpoint" default:"/prometheus"`
 }
 
 func GetDefaultConfig() *Configuration {

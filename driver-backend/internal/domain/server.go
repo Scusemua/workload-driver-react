@@ -37,7 +37,7 @@ const (
 	// GetKernelsEndpoint is used internally (by the frontend) to get the current set of Jupyter kernels from the backend.
 	GetKernelsEndpoint = "get-kernels"
 
-	// PrometheusEndpoint is used by Prometheus to scrape metrics.
+	// PrometheusEndpoint is the default path on which Prometheus issues GET requests to scrape metrics.
 	PrometheusEndpoint = "prometheus"
 
 	// MetricsEndpoint is used by the frontend to post/share Prometheus metrics.

@@ -1,3 +1,12 @@
+global.__globalCustomDomain = function () {
+  const environment = process.env.NODE_ENV || 'development';
+  if (environment.trim().toLowerCase() === 'production') {
+    return process.env.PUBLIC_PATH || '/';
+  }
+
+  return '/';
+};
+
 import App from '@App/index';
 import { DarkModeProvider } from '@Providers/DarkModeProvider';
 import { NotificationProvider } from '@Providers/NotificationProvider';
