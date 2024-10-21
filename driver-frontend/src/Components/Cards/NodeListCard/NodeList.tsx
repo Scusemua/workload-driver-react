@@ -1,8 +1,6 @@
-import { AdjustNumNodesModal } from '@Components/Modals/AdjustNumNodesModal';
-import { GpuIcon } from '@src/Assets/Icons';
-import { GetToastContentWithHeaderAndBody, ToastFetch } from '@src/Utils/toast_utils';
 import { NodeDataList } from '@Cards/NodeListCard/NodeDataList';
 import { NodeResourceView } from '@Cards/NodeListCard/NodeResourceView';
+import { AdjustNumNodesModal } from '@Components/Modals/AdjustNumNodesModal';
 import { ClusterNode, GetNodeId, GetNodeSpecResource } from '@Data/Cluster';
 import {
     Button,
@@ -23,6 +21,9 @@ import {
 } from '@patternfly/react-core';
 import { FilterIcon, ListIcon, MonitoringIcon, ReplicatorIcon, SyncIcon } from '@patternfly/react-icons';
 import { useNodes } from '@Providers/NodeProvider';
+import { GpuIcon } from '@src/Assets/Icons';
+import { GetPathForFetch } from '@src/Utils/path_utils';
+import { GetToastContentWithHeaderAndBody, ToastFetch } from '@src/Utils/toast_utils';
 import React from 'react';
 import toast from 'react-hot-toast';
 import { AdjustVirtualGPUsModal, RoundToTwoDecimalPlaces } from '../../Modals';
@@ -121,7 +122,7 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
                         () => toast.dismiss(toastId),
                     );
                 },
-                'api/vgpus',
+                GetPathForFetch('api/vgpus'),
                 requestOptions,
             ).then(() => {});
         });
@@ -197,7 +198,7 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
                     },
                 );
             },
-            'api/nodes',
+            GetPathForFetch('api/nodes'),
             requestOptions,
         );
 

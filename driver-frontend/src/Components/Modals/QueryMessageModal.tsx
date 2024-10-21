@@ -1,3 +1,4 @@
+import { GetPathForFetch } from '@src/Utils/path_utils';
 import { GetToastContentWithHeaderAndBody } from '@src/Utils/toast_utils';
 import { RoundToThreeDecimalPlaces } from '@Components/Modals/NewWorkloadFromTemplateModal';
 import { QueryMessageResponse, RequestTrace } from '@Data/Message';
@@ -141,7 +142,7 @@ export const QueryMessageModal: React.FunctionComponent<QueryMessageModalProps> 
         const startTime: number = performance.now();
         setQueryIsActive(true);
         // Whatever you want to do after the wait
-        fetch('api/query-message', req)
+        fetch(GetPathForFetch('api/query-message'), req)
             .catch((err: Error) => {
                 setQueryIsActive(false);
                 console.log(`QueryMessage failed: ${JSON.stringify(err)}`);

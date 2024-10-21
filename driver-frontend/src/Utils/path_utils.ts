@@ -1,0 +1,27 @@
+/**
+ * This function accepts a path of the form "x/y/z" and returns a path "{{ base_url }}/x/y/z", where "{{ base url }}"
+ * is a string retrieved from the PublicPath environment variable.
+ *
+ * This ensures that fetch requests targeting the backend server are sent to the correct path, as this can vary
+ * depending on how exactly the server is deployed (e.g., if we're deployed in a Docker Swarm cluster behind a
+ * Traefik reverse proxy).
+ *
+ * @param path The base with no "base path" prefix.
+ */
+export function GetPathForFetch(path: string): string {
+  const basePath: string = process.env.PUBLIC_PATH || "/";
+
+  return JoinPaths(basePath, path);
+}
+
+/**
+ * Concatenate one or more paths together using forward slashes.
+ * @param paths the paths to concatenate together.
+ */
+export function JoinPaths(...paths: string[]): string {
+    return paths
+        .map((path) => path.trim().replace(/\\/g, '/')) // Normalize all to forward slashes
+        .filter(Boolean) // Remove empty strings
+        .join('/')
+        .replace(/\/+/g, '/'); // Replace multiple slashes with a single one
+}

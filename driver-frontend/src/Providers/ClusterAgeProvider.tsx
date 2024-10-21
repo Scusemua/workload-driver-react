@@ -1,4 +1,5 @@
 import { AuthorizationContext } from '@Providers/AuthProvider';
+import { GetPathForFetch } from '@src/Utils/path_utils';
 import { FormatSecondsLong } from '@src/Utils/utils';
 import React from 'react';
 import useSWR from 'swr';
@@ -59,7 +60,7 @@ const fetcher = async (input: RequestInfo | URL) => {
     return age;
 };
 
-const api_endpoint: string = 'api/cluster-age';
+const api_endpoint: string = GetPathForFetch('api/cluster-age');
 
 export function useClusterAge() {
     const { authenticated } = React.useContext(AuthorizationContext);

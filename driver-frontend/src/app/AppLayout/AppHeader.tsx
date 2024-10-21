@@ -32,6 +32,7 @@ import { useKernels } from '@Providers/KernelProvider';
 import { useNodes } from '@Providers/NodeProvider';
 import { NotificationContext } from '@Providers/NotificationProvider';
 import logo from '@src/app/bgimages/WorkloadDriver-Logo.svg';
+import { GetPathForFetch } from '@src/Utils/path_utils';
 import { uuidv4 } from 'lib0/random';
 import * as React from 'react';
 import { useContext } from 'react';
@@ -301,7 +302,7 @@ export const AppHeader: React.FunctionComponent<AppHeaderProps> = (props: AppHea
                                             },
                                         };
 
-                                        fetch('api/panic', requestOptions);
+                                        fetch(GetPathForFetch('api/panic'), requestOptions).then(()=>{});
                                     }}
                                 >
                                     Induce a Panic

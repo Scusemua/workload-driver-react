@@ -1,4 +1,5 @@
 import { RoundToThreeDecimalPlaces } from '@Components/Modals';
+import { GetPathForFetch } from '@src/Utils/path_utils';
 import { MAX_SAFE_INTEGER } from 'lib0/number';
 import React from 'react';
 import useSWR, { KeyedMutator, useSWRConfig } from 'swr';
@@ -25,8 +26,8 @@ const initialState: AuthContext = {
     error: undefined,
 };
 
-const refreshTokenEndpoint: string = '/refresh_token';
-const loginEndpoint: string = '/authenticate';
+const refreshTokenEndpoint: string = GetPathForFetch('/refresh_token');
+const loginEndpoint: string = GetPathForFetch('/authenticate');
 
 const AuthorizationContext = React.createContext<AuthContext>(initialState);
 
@@ -150,29 +151,6 @@ const AuthProvider = (props: { children }) => {
             setDoLogin(true);
         }
     };
-
-    // React.useEffect(() => {
-    //   if (authenticated) {
-    //     const currentToken: string = localStorage.getItem('token');
-    //     const expireAt: string = localStorage.getItem('token-expiration');
-    //
-    //     const ttl: number = (Number.parseInt(expireAt) - Date.now()) + 2500; // Add 2.5 sec for a bit of a buffer.
-    //
-    //     if (ttl < 0) {
-    //       return;
-    //     }
-    //
-    //     const intervalId = setInterval(() => {
-    //       if (localStorage.getItem('token') == currentToken) {
-    //         updateAuthenticatedStatus(false);
-    //       }
-    //     }, ttl);
-    //
-    //     return () => clearInterval(intervalId);
-    //   }
-    //
-    //   return;
-    // }, [authenticated])
 
     return (
         <AuthorizationContext.Provider

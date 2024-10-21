@@ -1,5 +1,6 @@
 import { HeightFactorContext, NodeHeightFactorContext } from '@App/Dashboard';
 import { GpuIcon, GpuIconAlt2 } from '@src/Assets/Icons';
+import { GetPathForFetch } from '@src/Utils/path_utils';
 import { GetToastContentWithHeaderAndBody } from '@src/Utils/toast_utils';
 import { RoundToTwoDecimalPlaces } from '@Components/Modals';
 import {
@@ -228,7 +229,7 @@ export const NodeDataList: React.FunctionComponent<NodeDataListProps> = (props: 
             body: requestBody,
         };
 
-        fetch('api/nodes', requestOptions).then((resp) => {
+        fetch(GetPathForFetch('api/nodes'), requestOptions).then((resp) => {
             if (resp.status >= 300) {
                 resp.text().then((text: string) => {
                     toast.custom(

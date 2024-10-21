@@ -37,6 +37,7 @@ import {
   Tooltip
 } from '@patternfly/react-core';
 import { CheckCircleIcon, SpinnerIcon, TimesCircleIcon, TimesIcon } from '@patternfly/react-icons';
+import { GetPathForFetch } from '@src/Utils/path_utils';
 import React, { ReactElement } from 'react';
 import toast, { Toast } from 'react-hot-toast';
 import { v4 as uuidv4 } from 'uuid';
@@ -513,7 +514,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
           })
         };
 
-        await fetch('api/yield-next-execute-request', req);
+        await fetch(GetPathForFetch('api/yield-next-execute-request'), req);
       } else {
         console.log(`Executing code on kernel ${props.kernel?.kernelId}, replica ${targetReplicaId}:\n${code}`);
       }
@@ -623,7 +624,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
       // await future.done;
       setExecutionState('done');
 
-      await fetch('api/metrics', {
+      await fetch(GetPathForFetch('api/metrics'), {
         method: 'PATCH',
         headers: {
           'Content-Type': 'application/json',

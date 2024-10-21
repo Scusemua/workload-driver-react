@@ -8,6 +8,7 @@ import {
 import { HeightFactorContext, KernelHeightFactorContext } from '@App/Dashboard';
 import { GpuIcon, GpuIconAlt2 } from '@src/Assets/Icons';
 import { useNodes } from '@src/Providers';
+import { GetPathForFetch } from '@src/Utils/path_utils';
 import { GetToastContentWithHeaderAndBody } from '@src/Utils/toast_utils';
 import { numberArrayFromRange } from '@src/Utils/utils';
 import { PingKernelModal } from '@Components/Modals';
@@ -329,7 +330,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
 
         const startTime: number = performance.now();
         const initialRequestTimestamp: number = Date.now();
-        fetch('api/ping-kernel', req)
+        fetch(GetPathForFetch('api/ping-kernel'), req)
             .catch((err: Error) => {
                 toast.custom(
                     () =>
@@ -489,7 +490,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         };
 
         toast
-            .promise(fetch('api/stop-training', req), {
+            .promise(fetch(GetPathForFetch('api/stop-training'), req), {
                 loading: <b>Interrupting kernel {kernelId} now...</b>,
                 success: (resp: Response) => {
                     if (!resp.ok || resp.status != 200) {
@@ -562,7 +563,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         };
 
         async function start_session(): Promise<ISessionModel> {
-            const response: Response = await fetch('jupyter/api/sessions', req);
+            const response: Response = await fetch(GetPathForFetch('jupyter/api/sessions'), req);
 
             if (response.status != 201) {
                 numKernelsCreating.current -= 1;
@@ -646,7 +647,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             console.log(`New Kernel Status Update: ${status}`);
         });
 
-        await fetch('api/metrics', {
+        await fetch(GetPathForFetch('api/metrics'), {
             method: 'PATCH',
             headers: {
                 'Content-Type': 'application/json',
@@ -691,7 +692,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                 refreshKernels();
             });
 
-            await fetch('api/metrics', {
+            await fetch(GetPathForFetch('api/metrics'), {
                 method: 'PATCH',
                 headers: {
                     'Content-Type': 'application/json',

@@ -2,6 +2,7 @@ import '@patternfly/react-core/dist/styles/base.css';
 
 import { KernelList, KernelSpecList, NodeList, UtilizationCard, WorkloadCard } from '@Components/Cards/';
 import { MigrationModal } from '@Components/Modals';
+import { GetPathForFetch } from '@src/Utils/path_utils';
 import { DistributedJupyterKernel, JupyterKernelReplica } from 'src/Data';
 import { DockerLogViewCard } from '@Cards/LogViewCard/DockerLogViewCard';
 import { Grid, GridItem, PageSection, gridSpans } from '@patternfly/react-core';
@@ -73,7 +74,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
             },
         );
 
-        fetch('/api/migrate', requestOptions).then((response) => {
+        fetch(GetPathForFetch('/api/migrate'), requestOptions).then((response) => {
             console.log(
                 'Received response for migration operation of replica %d of kernel %s: %s',
                 targetReplica.replicaId,

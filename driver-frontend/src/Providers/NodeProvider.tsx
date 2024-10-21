@@ -1,13 +1,14 @@
 import { RoundToTwoDecimalPlaces } from '@Components/Modals';
 import { AuthorizationContext } from '@Providers/AuthProvider';
 import { ClusterNode } from '@src/Data';
+import { GetPathForFetch } from '@src/Utils/path_utils';
 import { GetToastContentWithHeaderAndBody } from '@src/Utils/toast_utils';
 import React from 'react';
 import { toast } from 'react-hot-toast';
 import useSWR from 'swr';
 import useSWRMutation, { TriggerWithoutArgs } from 'swr/mutation';
 
-const api_endpoint: string = 'api/nodes';
+const api_endpoint: string = GetPathForFetch('api/nodes');
 
 const fetcher = async (input: RequestInfo | URL) => {
     const abortController: AbortController = new AbortController();

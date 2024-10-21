@@ -1,4 +1,5 @@
 import { JupyterKernelSpecWrapper } from '@src/Data';
+import { GetPathForFetch } from '@src/Utils/path_utils';
 import useSWR from 'swr';
 import useSWRMutation from 'swr/mutation';
 
@@ -33,8 +34,8 @@ const fetcher = async (input: RequestInfo | URL) => {
 };
 
 export function useKernelSpecs() {
-    const { data, error, isLoading } = useSWR('jupyter/api/kernelspecs', fetcher, { refreshInterval: 5000 });
-    const { trigger, isMutating } = useSWRMutation('jupyter/api/kernelspecs', fetcher);
+    const { data, error, isLoading } = useSWR(GetPathForFetch('jupyter/api/kernelspecs'), fetcher, { refreshInterval: 5000 });
+    const { trigger, isMutating } = useSWRMutation(GetPathForFetch('jupyter/api/kernelspecs'), fetcher);
 
     const kernelSpecs: JupyterKernelSpecWrapper[] = [];
     let jsonParseError: boolean = false;

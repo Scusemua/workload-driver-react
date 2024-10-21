@@ -1,4 +1,5 @@
 import { WorkloadPreset } from '@Data/Workload';
+import { GetPathForFetch } from '@src/Utils/path_utils';
 import useSWR, { mutate } from 'swr';
 
 const fetcher = (input: RequestInfo | URL) => {
@@ -15,7 +16,7 @@ const fetcher = (input: RequestInfo | URL) => {
     return fetch(input, init).then((response: Response) => response.json());
 };
 
-const api_endpoint: string = 'api/workload-presets';
+const api_endpoint: string = GetPathForFetch('api/workload-presets');
 
 export function useWorkloadPresets() {
     const { data, error, isLoading } = useSWR(api_endpoint, fetcher, { refreshInterval: 120000 });

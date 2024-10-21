@@ -1,3 +1,4 @@
+import { GetPathForFetch } from '@src/Utils/path_utils';
 import useSWR from 'swr';
 import useSWRMutation from 'swr/mutation';
 
@@ -65,7 +66,7 @@ const fetcher = async (input: RequestInfo | URL) => {
     // }
 };
 
-const api_endpoint: string = 'kubernetes/api/v1/namespaces/default/pods';
+const api_endpoint: string = GetPathForFetch('kubernetes/api/v1/namespaces/default/pods');
 
 export function usePodNames() {
     const { data, error } = useSWR(api_endpoint, fetcher, {

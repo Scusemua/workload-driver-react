@@ -1,5 +1,6 @@
 import { DistributedJupyterKernel } from '@Data/Kernel';
 import { AuthorizationContext } from '@Providers/AuthProvider';
+import { GetPathForFetch } from '@src/Utils/path_utils';
 import React from 'react';
 import useSWR from 'swr';
 import useSWRMutation from 'swr/mutation';
@@ -66,7 +67,7 @@ const fetcher = async (input: RequestInfo | URL, forLogging: boolean) => {
     return kernels;
 };
 
-const api_endpoint: string = 'api/get-kernels';
+const api_endpoint: string = GetPathForFetch('api/get-kernels');
 
 export function useKernels(forLogging: boolean) {
     const { authenticated } = React.useContext(AuthorizationContext);

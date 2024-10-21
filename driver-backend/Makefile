@@ -1,5 +1,10 @@
 DOCKERUSER=scusemua
 
+# NOTE:
+#
+# If you're using Windows, then some of these commands may not work if you're using Windows PowerShell
+# or Command Prompt. I recommend using a Unix shell, such as Git Bash, on Windows when building these targets.
+
 ifeq ($(OS),Windows_NT)     # is Windows_NT on XP, 2000, 7, Vista, 10...
     detected_OS := Windows
 else
