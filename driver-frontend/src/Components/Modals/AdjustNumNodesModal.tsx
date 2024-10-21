@@ -13,6 +13,7 @@ import {
     TextInput,
 } from '@patternfly/react-core';
 import { ExclamationCircleIcon, MinusIcon, PlusIcon } from '@patternfly/react-icons';
+import { AuthorizationContext } from '@Providers/AuthProvider';
 import { useNodes } from '@src/Providers';
 import React, { FormEvent } from 'react';
 
@@ -36,6 +37,15 @@ export const AdjustNumNodesModal: React.FunctionComponent<AdjustNumNodesModalPro
     const [setNodesValidated, setSetNodesValidated] = React.useState<validate>('success');
     const [addNodesValidated, setAddNodesValidated] = React.useState<validate>('success');
     const [removeNodesValidated, setRemoveNodesValidated] = React.useState<validate>('success');
+
+    const { authenticated } = React.useContext(AuthorizationContext);
+
+    React.useEffect(() => {
+        // Automatically close the modal of we are logged out.
+        if (!authenticated) {
+            props.onClose();
+        }
+    }, [props, authenticated]);
 
     const handleTargetNumNodesChanged = (_event: FormEvent<HTMLInputElement>, target: string) => {
         setSetScaleTargetNumNodes(target);
@@ -134,7 +144,11 @@ export const AdjustNumNodesModal: React.FunctionComponent<AdjustNumNodesModalPro
             ]}
         >
             <Form>
-                <Flex direction={{ default: 'row' }} spaceItems={{ default: 'spaceItemsMd' }} justifyContent={{'default': 'justifyContentCenter'}}>
+                <Flex
+                    direction={{ default: 'row' }}
+                    spaceItems={{ default: 'spaceItemsMd' }}
+                    justifyContent={{ default: 'justifyContentCenter' }}
+                >
                     <FlexItem>
                         <FormGroup label={`Scale to Target Cluster Size`}>
                             <Flex direction={{ default: 'row' }} spaceItems={{ default: 'spaceItemsSm' }}>

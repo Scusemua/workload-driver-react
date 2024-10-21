@@ -1,4 +1,3 @@
-import React from 'react';
 import {
     Button,
     Dropdown,
@@ -23,14 +22,16 @@ import {
     Tooltip,
     ValidatedOptions,
 } from '@patternfly/react-core';
-
-import { v4 as uuidv4 } from 'uuid';
+import { EditIcon } from '@patternfly/react-icons';
 import HelpIcon from '@patternfly/react-icons/dist/esm/icons/help-icon';
 import styles from '@patternfly/react-styles/css/components/Form/form';
+import { AuthorizationContext } from '@Providers/AuthProvider';
+import { useWorkloadPresets } from '@Providers/WorkloadPresetProvider';
 
 import { WorkloadPreset } from '@src/Data';
-import { useWorkloadPresets } from '@Providers/WorkloadPresetProvider';
-import { EditAltIcon, EditIcon, PencilAltIcon, PlusIcon } from '@patternfly/react-icons';
+import React from 'react';
+
+import { v4 as uuidv4 } from 'uuid';
 
 export interface StartWorkloadModalProps {
     children?: React.ReactNode;
@@ -48,7 +49,7 @@ export interface StartWorkloadModalProps {
 
 function assertIsNumber(value: number | ''): asserts value is number {
     if (value === '') {
-        throw new Error("value is not number");
+        throw new Error('value is not number');
     }
 }
 
@@ -65,6 +66,15 @@ export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalPr
     const defaultWorkloadTitle = React.useRef(uuidv4());
 
     const { workloadPresets } = useWorkloadPresets();
+
+    const { authenticated } = React.useContext(AuthorizationContext);
+
+    React.useEffect(() => {
+        // Automatically close the modal of we are logged out.
+        if (!authenticated) {
+            props.onClose();
+        }
+    }, [props, authenticated]);
 
     const handleWorkloadTitleChanged = (_event, title: string) => {
         setWorkloadTitle(title);
@@ -133,7 +143,11 @@ export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalPr
         return ValidatedOptions.success;
     };
 
-    const isSubmitButtonDisabled = () => {
+    const isSubmitButtonDisabled = (): boolean => {
+        if (!authenticated) {
+            return true;
+        }
+
         if (workloadPresets.length == 0) {
             return true;
         }
@@ -150,15 +164,15 @@ export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalPr
             return true;
         }
 
-        if (validateTimescaleAdjustmentFactor() == 'error') {
-            return true;
-        }
-
-        return false;
+        return validateTimescaleAdjustmentFactor() == 'error';
     };
 
     // Called when the 'submit' button is clicked.
     const onSubmitWorkload = () => {
+        if (!authenticated) {
+            return;
+        }
+
         // If the user left the workload title blank, then use the default workload title, which is a randomly-generated UUID.
         let workloadTitleToSubmit: string = workloadTitle;
         if (workloadTitleToSubmit.length == 0) {
@@ -167,7 +181,13 @@ export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalPr
 
         assertIsNumber(timescaleAdjustmentFactor);
 
-        props.onConfirm(workloadTitleToSubmit, selectedWorkloadPreset!, workloadSeed, debugLoggingEnabled, timescaleAdjustmentFactor);
+        props.onConfirm(
+            workloadTitleToSubmit,
+            selectedWorkloadPreset!,
+            workloadSeed,
+            debugLoggingEnabled,
+            timescaleAdjustmentFactor,
+        );
 
         // Reset all of the fields.
         setSelectedWorkloadPreset(null);
@@ -182,7 +202,7 @@ export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalPr
             return 'error';
         }
 
-        return (timescaleAdjustmentFactor <= 0 || timescaleAdjustmentFactor > 10) ? 'error' : 'success';
+        return timescaleAdjustmentFactor <= 0 || timescaleAdjustmentFactor > 10 ? 'error' : 'success';
     };
 
     return (
@@ -195,7 +215,11 @@ export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalPr
             onClose={props.onClose}
             help={
                 <Tooltip exitDelay={75} content={<div>Create new workload from template.</div>}>
-                    <Button variant="plain" aria-label="Create New Workload From Template" onClick={props.onRegisterWorkloadFromTemplateClicked}>
+                    <Button
+                        variant="plain"
+                        aria-label="Create New Workload From Template"
+                        onClick={props.onRegisterWorkloadFromTemplateClicked}
+                    >
                         <EditIcon />
                     </Button>
                 </Tooltip>
@@ -210,7 +234,8 @@ export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalPr
             ]}
         >
             <Text>
-                You can also create new workloads using templates by clicking the + button in the top-right of this modal.
+                You can also create new workloads using templates by clicking the + button in the top-right of this
+                modal.
             </Text>
             <Form>
                 <Grid hasGutter md={6}>
@@ -326,8 +351,8 @@ export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalPr
                                         aria-label="workload-seed-text-input-helper"
                                         label="workload-seed-text-input-helper"
                                     >
-                                        Provide an optional integer seed for the workload&apos;s
-                                        random number generator.
+                                        Provide an optional integer seed for the workload&apos;s random number
+                                        generator.
                                     </HelperTextItem>
                                 </HelperText>
                             </FormHelperText>
@@ -431,11 +456,12 @@ export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalPr
                                     headerContent={<div>Timescale Adjustment Factor</div>}
                                     bodyContent={
                                         <div>
-                                            This quantity adjusts the timescale at which the trace data is replayed.
-                                            For example, if each tick is 60 seconds, then setting this value to 1.0 will instruct
-                                            the Workload Driver to simulate each tick for the full 60 seconds.
-                                            Alternatively, setting this quantity to 2.0 will instruct the Workload Driver to spend 120 seconds on each tick.
-                                            Setting the quantity to 0.5 will instruct the Workload Driver to spend 30 seconds on each tick.
+                                            This quantity adjusts the timescale at which the trace data is replayed. For
+                                            example, if each tick is 60 seconds, then setting this value to 1.0 will
+                                            instruct the Workload Driver to simulate each tick for the full 60 seconds.
+                                            Alternatively, setting this quantity to 2.0 will instruct the Workload
+                                            Driver to spend 120 seconds on each tick. Setting the quantity to 0.5 will
+                                            instruct the Workload Driver to spend 30 seconds on each tick.
                                         </div>
                                     }
                                 >

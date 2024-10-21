@@ -1,12 +1,3 @@
-import {
-    WORKLOAD_STATE_ERRED,
-    WORKLOAD_STATE_FINISHED,
-    WORKLOAD_STATE_READY,
-    WORKLOAD_STATE_RUNNING,
-    WORKLOAD_STATE_TERMINATED,
-    Workload,
-} from '@src/Data/Workload';
-import { GetToastContentWithHeaderAndBody } from '@src/Utils/toast_utils';
 import { RoundToThreeDecimalPlaces } from '@Components/Modals/NewWorkloadFromTemplateModal';
 import { WorkloadEventTable, WorkloadSessionTable } from '@Components/Tables';
 import {
@@ -43,6 +34,16 @@ import {
     UserClockIcon,
 } from '@patternfly/react-icons';
 import text from '@patternfly/react-styles/css/utilities/Text/text';
+import { AuthorizationContext } from '@Providers/AuthProvider';
+import {
+    Workload,
+    WORKLOAD_STATE_ERRED,
+    WORKLOAD_STATE_FINISHED,
+    WORKLOAD_STATE_READY,
+    WORKLOAD_STATE_RUNNING,
+    WORKLOAD_STATE_TERMINATED,
+} from '@src/Data/Workload';
+import { GetToastContentWithHeaderAndBody } from '@src/Utils/toast_utils';
 import React from 'react';
 import toast from 'react-hot-toast';
 
@@ -61,19 +62,31 @@ export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalP
     const tickStartTime = React.useRef<number>(0);
     const tickDurations = React.useRef<number[]>([]);
 
+    const { authenticated } = React.useContext(AuthorizationContext);
+
+    React.useEffect(() => {
+        // Automatically close the modal of we are logged out.
+        if (!authenticated) {
+            props.onClose();
+        }
+    }, [props, authenticated]);
+
     React.useEffect(() => {
         if (props.workload && props.workload?.current_tick > currentTick) {
             const tickDuration: number = performance.now() - tickStartTime.current;
             tickDurations.current.push(tickDuration);
             tickStartTime.current = performance.now();
             setCurrentTick(props.workload?.current_tick);
-            toast.custom((t) =>
-                GetToastContentWithHeaderAndBody(
-                    'Tick Incremented',
-                    `Workload ${props.workload?.name} has progressed to Tick #${props.workload?.current_tick}.`,
-                  'info',
-                  () => {toast.dismiss(t.id)}
-                ),
+            toast.custom(
+                (t) =>
+                    GetToastContentWithHeaderAndBody(
+                        'Tick Incremented',
+                        `Workload ${props.workload?.name} has progressed to Tick #${props.workload?.current_tick}.`,
+                        'info',
+                        () => {
+                            toast.dismiss(t.id);
+                        },
+                    ),
                 { icon: '⏱️', style: { maxWidth: 700 } },
             );
         }
@@ -159,24 +172,24 @@ export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalP
             onClose={props.onClose}
             actions={[
                 <Button
-                    key="start-workload"
+                    key="start-workload-button"
                     variant="primary"
                     icon={<PlayIcon />}
                     onClick={props.onStartClicked}
-                    isDisabled={props.workload?.workload_state != WORKLOAD_STATE_READY}
+                    isDisabled={props.workload?.workload_state != WORKLOAD_STATE_READY || !authenticated}
                 >
                     Start Workload
                 </Button>,
                 <Button
-                    key="stop-workload"
+                    key="stop-workload-button"
                     variant="danger"
                     icon={<StopIcon />}
                     onClick={props.onStopClicked}
-                    isDisabled={props.workload?.workload_state != WORKLOAD_STATE_RUNNING}
+                    isDisabled={props.workload?.workload_state != WORKLOAD_STATE_RUNNING || !authenticated}
                 >
                     Stop Workload
                 </Button>,
-                <Button key="dismiss-workload" variant="secondary" icon={<CloseIcon />} onClick={props.onClose}>
+                <Button key="close-inspect-workload-modal-button" variant="secondary" icon={<CloseIcon />} onClick={props.onClose}>
                     Close Window
                 </Button>,
             ]}
