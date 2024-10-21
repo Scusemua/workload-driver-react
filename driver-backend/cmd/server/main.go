@@ -2,29 +2,19 @@ package main
 
 import (
 	"github.com/joho/godotenv"
-	"log"
-	"os"
-
 	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/server"
+	"log"
 )
 
 func main() {
 	conf := domain.GetDefaultConfig()
 	conf.CheckUsage()
 
-	devEnvironment := os.Getenv("DEV_ENVIRONMENT")
-	var environmentFileName string
-	if devEnvironment == "production" {
-		environmentFileName = ".production.env"
-	} else {
-		environmentFileName = ".development.env"
-	}
-
 	// Load ENV from .env file
-	err := godotenv.Load(environmentFileName)
+	err := godotenv.Load()
 	if err != nil {
-		log.Fatalf("Failed to load environment file \"%s\"", environmentFileName)
+		log.Fatalf("Failed to load environment file \".env\"")
 	}
 
 	srv := server.NewServer(conf)

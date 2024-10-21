@@ -45,6 +45,7 @@ run-backend-docker:
 	docker run -it -p "8000:8000" \
 		-v $(shell pwd)/configs/config-docker-local.yaml:/etc/distributed-notebook-cluster/dashboard.yaml \
 		-v $(shell pwd)/configs/workload-presets-file-docker.yaml:/etc/distributed-notebook-cluster/workload-presets-file.yaml \
+		-v $(shell pwd)/.production.env:/go/.env
 		--add-host host.docker.internal:host-gateway \
 		scusemua/distributed-notebook-dashboard-backend:latest
 
