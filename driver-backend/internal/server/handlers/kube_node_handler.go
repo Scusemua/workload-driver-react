@@ -38,7 +38,7 @@ type KubeNodeHttpHandler struct {
 
 	clientsets goconcurrentqueue.Queue
 	clientset  *kubernetes.Clientset
-	spoof      bool
+	//spoof      bool
 }
 
 // NewKubeNodeHttpHandler creates a new NewKubeNodeHttpHandler struct and return a pointer to it.
@@ -48,9 +48,9 @@ func NewKubeNodeHttpHandler(opts *domain.Configuration, grpcClient *ClusterDashb
 	}
 
 	handler := &KubeNodeHttpHandler{
-		BaseHandler:        newBaseHandler(opts),
-		grpcClient:         grpcClient,
-		spoof:              opts.SpoofKubeNodes,
+		BaseHandler: newBaseHandler(opts),
+		grpcClient:  grpcClient,
+		//spoof:              opts.SpoofKubeNodes,
 		nodeTypeRegistered: false,
 		clientsets:         goconcurrentqueue.NewFixedFIFO(128),
 	}
@@ -58,9 +58,9 @@ func NewKubeNodeHttpHandler(opts *domain.Configuration, grpcClient *ClusterDashb
 
 	handler.logger.Info("Creating server-side KubeNodeHttpHandler.")
 
-	if !opts.SpoofKubeNodes {
-		handler.clientset = handler.createKubernetesClient(opts)
-	}
+	//if !opts.SpoofKubeNodes {
+	//	handler.clientset = handler.createKubernetesClient(opts)
+	//}
 
 	handler.logger.Info("Successfully created server-side KubeNodeHttpHandler handler.")
 
@@ -260,10 +260,10 @@ func (h *KubeNodeHttpHandler) parseKubernetesNode(node *corev1.Node, actualGpuIn
 func (h *KubeNodeHttpHandler) HandleRequest(c *gin.Context) {
 	st := time.Now()
 	h.logger.Debug("Handling 'get-nodes' request now.")
-	if h.spoof {
-		h.spoofNodes(c)
-		return
-	}
+	//if h.spoof {
+	//	h.spoofNodes(c)
+	//	return
+	//}
 
 	h.logger.Debug("Serving HTTP GET request for Kubernetes nodes.")
 

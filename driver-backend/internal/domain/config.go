@@ -171,9 +171,9 @@ type Configuration struct {
 	ScalingOutEnaled              bool    `name:"scaling-out-enabled" description:"If enabled, the scaling manager will attempt to over-provision hosts slightly so as to leave room for fluctation. If disabled, then the Cluster will exclusivel scale-out in response to real-time demand, rather than attempt to have some hosts available in the case that demand surges."`
 	ScalingBufferSize             int     `name:"scaling-buffer-size" description:"Buffer size is how many extra hosts we provision so that we can quickly scale if needed."`
 
-	SpoofKubeNodes          bool   `name:"spoof-nodes" yaml:"spoof-nodes" json:"spoof-nodes" description:"If true, spoof the Kubernetes nodes."`
-	SpoofKernels            bool   `name:"spoof-kernels" yaml:"spoof-kernels" json:"spoof-kernels" description:"If true, spoof the kernels."`
-	SpoofKernelSpecs        bool   `name:"spoof-specs" yaml:"spoof-specs" json:"spoof-specs" description:"If true, spoof the kernel specs."`
+	// SpoofKubeNodes          bool   `name:"spoof-nodes" yaml:"spoof-nodes" json:"spoof-nodes" description:"If true, spoof the Kubernetes nodes."`
+	// SpoofKernels            bool   `name:"spoof-kernels" yaml:"spoof-kernels" json:"spoof-kernels" description:"If true, spoof the kernels."`
+	// SpoofKernelSpecs        bool   `name:"spoof-specs" yaml:"spoof-specs" json:"spoof-specs" description:"If true, spoof the kernel specs."`
 	InCluster               bool   `name:"in-cluster" yaml:"in-cluster" json:"in-cluster" description:"Should be true if running from within the kubernetes cluster."`
 	KernelQueryInterval     string `name:"kernel-query-interval" yaml:"kernel-query-interval" json:"kernel-query-interval" default:"5s" description:"How frequently to query the Cluster for updated kernel information."`
 	NodeQueryInterval       string `name:"node-query-interval" yaml:"node-query-interval" json:"node-query-interval" default:"10s" description:"How frequently to query the Cluster for updated Kubernetes node information."`
@@ -187,7 +187,7 @@ type Configuration struct {
 	AdminPassword           string `name:"admin_password" yaml:"admin_password" json:"admin_password"`
 	TokenValidDurationSec   int    `name:"token_valid_duration_sec" yaml:"token_valid_duration_sec" json:"token_valid_duration_sec"`
 	TokenRefreshIntervalSec int    `name:"token_refresh_interval_sec" yaml:"token_refresh_interval_sec" json:"token_refresh_interval_sec"`
-	BaseListenPrefix        string `name:"base-listen-prefix" yaml:"base-listen-prefix" json:"base-listen-prefix" default:"/"`
+	BaseUrl                 string `name:"base-url" yaml:"base-url" json:"base-url" default:"/"`
 	PrometheusEndpoint      string `name:"prometheus-endpoint" yaml:"prometheus-endpoint" json:"prometheus-endpoint" default:"/prometheus"`
 }
 

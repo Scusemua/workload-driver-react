@@ -33,10 +33,10 @@ func NewMigrationHttpHandler(opts *domain.Configuration, grpcClient *ClusterDash
 }
 
 func (h *MigrationHttpHandler) HandleRequest(c *gin.Context) {
-	if h.opts.SpoofKernels {
-		// Do nothing.
-		return
-	}
+	//if h.opts.SpoofKernels {
+	//	// Do nothing.
+	//	return
+	//}
 
 	if !h.grpcClient.ConnectedToGateway() {
 		h.logger.Warn("Connection with Cluster Gateway has not been established. Aborting.")

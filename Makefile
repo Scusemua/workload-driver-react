@@ -50,11 +50,13 @@ build-static-frontend-and-backend-servers:
 
 # Run the backend in its Docker image
 run-backend-docker:
-	make -C $(BACKEND_DIR) run-backend-docker
+	# Using && instead of make -C on purpose or Windows breaks/doesn't load config correctly.
+	cd $(BACKEND_DIR) && make run-backend-docker
 
 # Run the backend locally, not in a Docker image
 run-backend-prebuilt:
-	make -C $(BACKEND_DIR) run-server-prebuilt
+	# Using && instead of make -C on purpose or Windows breaks/doesn't load config correctly.
+	cd $(BACKEND_DIR) && run-server-prebuilt
 
 # Default target
 all: build-static-frontend-and-backend-servers copy-frontend build-backend-docker push-backend-docker

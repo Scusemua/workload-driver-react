@@ -7,9 +7,9 @@ workload-presets-file: "configs/workload-presets-file.yaml"
 gateway-address: localhost:8079
 cluster-dashboard-handler-port: 8078
 websocket-proxy-port: 8077
-base-listen-prefix: "/"
+base-url: "/"
 
-# Defined separately from the base-listen-prefix.
+# Defined separately from the base-url.
 prometheus-endpoint: "/prometheus"
 
 # Admin username and password for access to the dashboard.

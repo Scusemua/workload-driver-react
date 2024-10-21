@@ -1,6 +1,6 @@
 /**
  * This function accepts a path of the form "x/y/z" and returns a path "{{ base_url }}/x/y/z", where "{{ base url }}"
- * is a string retrieved from the PublicPath environment variable.
+ * is a string retrieved from the PUBLIC_PATH environment variable.
  *
  * This ensures that fetch requests targeting the backend server are sent to the correct path, as this can vary
  * depending on how exactly the server is deployed (e.g., if we're deployed in a Docker Swarm cluster behind a

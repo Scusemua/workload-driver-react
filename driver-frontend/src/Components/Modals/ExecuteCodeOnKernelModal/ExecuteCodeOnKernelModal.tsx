@@ -469,12 +469,16 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
         return undefined;
       }
 
+      const wsUrl: string = `ws://${process.env.JUPYTER_ADDR || "localhost"}:${process.env.JUPYTER_PORT}`
+      const jupyterBaseUrl: string = (process.env.PUBLIC_PATH || "/") + "jupyter";
+
+      console.log(`WebSocket URL: ${wsUrl}`);
       const kernelSpecManagerOptions: KernelManager.IOptions = {
         serverSettings: ServerConnection.makeSettings({
           token: '',
           appendToken: false,
-          baseUrl: '/jupyter',
-          wsUrl: 'ws://localhost:8888/',
+          baseUrl: jupyterBaseUrl,
+          wsUrl: wsUrl,
           fetch: fetch
         })
       };

@@ -38,10 +38,10 @@ func (h *AdjustVirtualGpusHandler) HandleRequest(c *gin.Context) {
 }
 
 func (h *AdjustVirtualGpusHandler) HandlePatchRequest(c *gin.Context) {
-	if h.opts.SpoofKernels {
-		// Do nothing.
-		return
-	}
+	//if h.opts.SpoofKernels {
+	//	// Do nothing.
+	//	return
+	//}
 
 	if !h.grpcClient.ConnectedToGateway() {
 		h.logger.Warn("Connection with Cluster Gateway has not been established. Aborting.")

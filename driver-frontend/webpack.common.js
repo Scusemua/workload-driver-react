@@ -107,11 +107,14 @@ module.exports = (env) => {
     output: {
       filename: '[name].bundle.js',
       path: path.resolve(__dirname, 'dist'),
-      publicPath: "{{ base_URL }}",
+      publicPath: "{{ base_url }}",
     },
     plugins: [
       new HtmlWebpackPlugin({
         template: path.resolve(__dirname, 'src', 'index.html'),
+        base: {
+          href: process.env.NODE_ENV === 'development' ? '/' : '/dashboard',
+        },
       }),
       new Dotenv({
         systemvars: true,

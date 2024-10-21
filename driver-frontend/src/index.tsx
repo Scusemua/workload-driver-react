@@ -1,11 +1,7 @@
-global.__globalCustomDomain = function () {
-  const environment = process.env.NODE_ENV || 'development';
-  if (environment.trim().toLowerCase() === 'production') {
-    return process.env.PUBLIC_PATH || '/';
-  }
-
-  return '/';
-};
+const environment = process.env.NODE_ENV || 'development';
+if (environment.trim().toLowerCase() === 'production') {
+  __webpack_public_path__ = process.env.PUBLIC_PATH || '/';
+}
 
 import App from '@App/index';
 import { DarkModeProvider } from '@Providers/DarkModeProvider';

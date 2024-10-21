@@ -31,16 +31,15 @@ build-server:
 build-servers: build-server build-server-linux
 
 # Build first, then create Docker image.
-build-docker: build-grpc build-server
+build-docker-image: build-grpc build-server
 	docker build -t $(DOCKERUSER)/distributed-notebook-dashboard-backend .
-	# docker build -t scusemua/distributed-notebook-dashboard-backend .
-	# docker push scusemua/distributed-notebook-dashboard-backend:latest
-	# docker run -it scusemua/distributed-notebook-dashboard-backend:latest
 
 # Don't build first; use existing build to create docker image.
-docker:
+docker-image:
 	docker build -t $(DOCKERUSER)/distributed-notebook-dashboard-backend .
-	# docker build -t scusemua/distributed-notebook-dashboard-backend .
+
+push-docker-image:
+	docker push $(DOCKERUSER)/distributed-notebook-dashboard-backend:latest
 
 run-backend-docker:
 	docker run -it -p "8000:8000" \

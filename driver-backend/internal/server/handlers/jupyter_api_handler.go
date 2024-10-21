@@ -18,7 +18,7 @@ const (
 
 type JupyterAPIHandler struct {
 	jupyterServerAddress string // IP of the Jupyter Server.
-	spoofKernelSpecs     bool   // Determines whether we return real or fake data.
+	//spoofKernelSpecs     bool   // Determines whether we return real or fake data.
 
 	logger *zap.Logger
 }
@@ -26,7 +26,7 @@ type JupyterAPIHandler struct {
 func NewJupyterAPIHandler(opts *domain.Configuration) domain.JupyterApiHttpHandler {
 	handler := &JupyterAPIHandler{
 		jupyterServerAddress: opts.JupyterServerAddress,
-		spoofKernelSpecs:     opts.SpoofKernelSpecs,
+		// spoofKernelSpecs:     opts.SpoofKernelSpecs,
 	}
 
 	var err error
@@ -68,7 +68,7 @@ func (h *JupyterAPIHandler) issueHttpRequest(target string) ([]byte, error) {
 
 func (h *JupyterAPIHandler) doSpoofKernelSpecs() []*domain.KernelSpec {
 	// Distributed kernel.
-	distributed_kernel := &domain.KernelSpec{
+	distributedKernel := &domain.KernelSpec{
 		Name:          "distributed",
 		DisplayName:   "Distributed Python3",
 		Language:      "python3",
@@ -81,7 +81,7 @@ func (h *JupyterAPIHandler) doSpoofKernelSpecs() []*domain.KernelSpec {
 	}
 
 	// Standard Python3 kernel.
-	python3_kernel := &domain.KernelSpec{
+	python3Kernel := &domain.KernelSpec{
 		Name:          "python3",
 		DisplayName:   "Python 3 (ipykernel)",
 		Language:      "python",
@@ -90,7 +90,7 @@ func (h *JupyterAPIHandler) doSpoofKernelSpecs() []*domain.KernelSpec {
 	}
 
 	// Made-up kernel.
-	ai_kernel := &domain.KernelSpec{
+	aiKernel := &domain.KernelSpec{
 		Name:          "ai-kernel",
 		DisplayName:   "AI-Powered Kernel",
 		Language:      "all of them",
@@ -98,7 +98,7 @@ func (h *JupyterAPIHandler) doSpoofKernelSpecs() []*domain.KernelSpec {
 		ArgV:          []string{"N/A"},
 	}
 
-	return []*domain.KernelSpec{distributed_kernel, python3_kernel, ai_kernel}
+	return []*domain.KernelSpec{distributedKernel, python3Kernel, aiKernel}
 }
 
 // Retrieve the kernel specs by issuing an HTTP request to the Jupyter Server.
@@ -111,7 +111,10 @@ func (h *JupyterAPIHandler) getKernelSpecsFromJupyter() []*domain.KernelSpec {
 	}
 
 	var response map[string]interface{}
-	json.Unmarshal(body, &response)
+	err = json.Unmarshal(body, &response)
+	if err != nil {
+		return nil
+	}
 
 	// TODO(Ben): Handle errors here gracefully.
 	kernelSpecsJson := response["kernelspecs"].(map[string]interface{})
@@ -157,30 +160,30 @@ func (h *JupyterAPIHandler) getKernelSpecsFromJupyter() []*domain.KernelSpec {
 	return kernelSpecs
 }
 
-// Handle an HTTP POST request to create a new jupyter kernel.
+// HandleCreateKernelRequest handles an HTTP POST request to create a new jupyter kernel.
 func (h *JupyterAPIHandler) HandleCreateKernelRequest(*gin.Context) {
 
 }
 
-// Handle an HTTP GET request to get the jupyter kernel specs.
+// HandleGetKernelSpecRequest handles an HTTP GET request to get the jupyter kernel specs.
 func (h *JupyterAPIHandler) HandleGetKernelSpecRequest(c *gin.Context) {
 	var kernelSpecs []*domain.KernelSpec
 
 	// If we're spoofing the cluster, then just return some made up kernel specs for testing/debugging purposes.
-	if h.spoofKernelSpecs {
-		h.logger.Info("Spoofing Jupyter kernel specs now.")
-		kernelSpecs = h.doSpoofKernelSpecs()
-	} else {
-		h.logger.Info("Retrieving Jupyter kernel specs from the Jupyter Server now.", zap.String("jupyter-server-ip", h.jupyterServerAddress))
-		kernelSpecs = h.getKernelSpecsFromJupyter()
-
-		if kernelSpecs == nil {
-			// Write error back to front-end.
-			h.logger.Error("Failed to retrieve list of kernel specs from Jupyter Server.")
-			h.WriteError(c, "Failed to retrieve list of kernel specs from Jupyter Server.")
-			return
-		}
-	}
+	//if h.spoofKernelSpecs {
+	//	h.logger.Info("Spoofing Jupyter kernel specs now.")
+	//	kernelSpecs = h.doSpoofKernelSpecs()
+	//} else {
+	//	h.logger.Info("Retrieving Jupyter kernel specs from the Jupyter Server now.", zap.String("jupyter-server-ip", h.jupyterServerAddress))
+	//	kernelSpecs = h.getKernelSpecsFromJupyter()
+	//
+	//	if kernelSpecs == nil {
+	//		// Write error back to front-end.
+	//		h.logger.Error("Failed to retrieve list of kernel specs from Jupyter Server.")
+	//		h.WriteError(c, "Failed to retrieve list of kernel specs from Jupyter Server.")
+	//		return
+	//	}
+	//}
 
 	h.logger.Info("Sending kernel specs back to client now.", zap.Any("kernel-specs", kernelSpecs))
 	c.JSON(http.StatusOK, kernelSpecs)

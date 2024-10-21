@@ -90,7 +90,7 @@ type serverImpl struct {
 
 	// The base prefix. Useful as when we deploy this Dockerized in Docker Swarm, we need to set this to
 	// something other than "/", as we use Traefik to reverse proxy external requests.
-	baseListenPrefix string
+	baseUrl string
 
 	// Endpoint to serve prometheus metrics scraping requests
 	// Defined separately from the base-listen-prefix.
@@ -118,13 +118,13 @@ func NewServer(opts *domain.Configuration) domain.Server {
 		jwtTokenRefreshInterval: time.Second * time.Duration(opts.TokenRefreshIntervalSec),
 		expectedOriginPort:      opts.ExpectedOriginPort,
 		expectedOriginAddresses: make([]string, 0, len(opts.ExpectedOriginAddresses)),
-		baseListenPrefix:        opts.BaseListenPrefix,
+		baseUrl:                 opts.BaseUrl,
 		prometheusEndpoint:      opts.PrometheusEndpoint,
 	}
 
 	// Default to "/"
-	if s.baseListenPrefix == "" {
-		s.baseListenPrefix = "/"
+	if s.baseUrl == "" {
+		s.baseUrl = "/"
 	}
 
 	// Default value
@@ -173,10 +173,10 @@ func (s *serverImpl) templateHtmlFiles() error {
 		contentStr := string(content)
 
 		s.logger.Debug("Loaded file.", zap.String("file", filePath), zap.String("content", contentStr),
-			zap.String("base_listen_prefix", s.baseListenPrefix))
+			zap.String("base_listen_prefix", s.baseUrl))
 
 		// Replace "{{ base_url }}" with the actual base URL
-		modifiedContent := strings.Replace(contentStr, "{{ base_URL }}", s.baseListenPrefix, -1)
+		modifiedContent := strings.Replace(contentStr, "{{ base_url }}", s.baseUrl, -1)
 
 		s.logger.Debug("Templated file.", zap.String("file", filePath), zap.String("modified-contents", modifiedContent))
 
@@ -324,7 +324,8 @@ func (s *serverImpl) jwtHandleUnauthorized() func(c *gin.Context, code int, mess
 		s.logger.Debug("JWT unauthorized request handler called.",
 			zap.Int("code", code), zap.String("message", message),
 			zap.String("remote_address", c.Request.RemoteAddr),
-			zap.String("client_ip", c.ClientIP()))
+			zap.String("client_ip", c.ClientIP()),
+			zap.String("request_url", c.Request.URL.String()))
 
 		c.JSON(code, gin.H{
 			"code":    code,
@@ -376,10 +377,10 @@ func lastChar(target string) uint8 {
 
 func (s *serverImpl) getPath(relativePath string) string {
 	if relativePath == "" {
-		return s.baseListenPrefix
+		return s.baseUrl
 	}
 
-	finalPath := path.Join(s.baseListenPrefix, relativePath)
+	finalPath := path.Join(s.baseUrl, relativePath)
 	if lastChar(relativePath) == '/' && lastChar(finalPath) != '/' {
 		return finalPath + "/"
 	}
@@ -387,13 +388,14 @@ func (s *serverImpl) getPath(relativePath string) string {
 }
 
 func (s *serverImpl) setupRoutes() error {
-	s.app = &proxy.JupyterProxyRouter{
-		ContextPath:  domain.JupyterGroupEndpoint,
-		Start:        len(domain.JupyterGroupEndpoint),
-		Config:       s.opts,
-		SpoofJupyter: s.opts.SpoofKernelSpecs,
-		Engine:       s.engine,
-	}
+	//s.app = &proxy.JupyterProxyRouter{
+	//	ContextPath: domain.JupyterGroupEndpoint,
+	//	Config:      s.opts,
+	//	Engine:      s.engine,
+	//	BaseUrl:     s.baseUrl,
+	//}
+
+	s.app = proxy.NewJupyterProxyRouter(s.engine, s.opts, s.atom)
 
 	s.nodeHandler = handlers.NewNodeHttpHandler(s.opts)
 
@@ -408,11 +410,14 @@ func (s *serverImpl) setupRoutes() error {
 		log.Fatal("JWT Error:" + err.Error())
 	}
 
+	errInit := authMiddleware.MiddlewareInit()
+	if errInit != nil {
+		log.Fatal("authMiddleware.MiddlewareInit() Error:" + errInit.Error())
+	}
+
 	// Serve frontend static files
-	s.app.Use(static.Serve(s.baseListenPrefix, static.LocalFile("./dist", true)))
+	s.app.Use(static.Serve(s.baseUrl, static.LocalFile("./dist", true)))
 	s.logger.Debug("Attached static middleware.")
-	s.app.Use(s.jwtHandlerMiddleWare(authMiddleware))
-	s.logger.Debug("Attached auth middleware.")
 	s.app.Use(gin.Logger())
 	s.logger.Debug("Attached logger middleware.")
 	s.app.Use(cors.Default())
@@ -439,9 +444,9 @@ func (s *serverImpl) setupRoutes() error {
 
 	pprof.Register(s.app, s.getPath("dev/pprof"))
 
-	s.app.NoRoute(authMiddleware.MiddlewareFunc(), func(c *gin.Context) {
-		claims := jwt.ExtractClaims(c)
-		log.Printf("NoRoute claims: %#v\n", claims)
+	// authMiddleware.MiddlewareFunc()
+	s.app.NoRoute(func(c *gin.Context) {
+		s.logger.Warn("Received NoRoute request.", zap.String("url", c.Request.URL.String()))
 		c.JSON(404, gin.H{"code": "PAGE_NOT_FOUND", "message": "Page not found"})
 	})
 
@@ -525,12 +530,12 @@ func (s *serverImpl) setupRoutes() error {
 	/////////////////////
 	// Jupyter Handler // This isn't really used anymore...
 	/////////////////////
-	if s.opts.SpoofKernelSpecs {
-		jupyterGroup := s.app.Group(s.getPath(domain.JupyterGroupEndpoint))
-		{
-			jupyterGroup.GET(domain.BaseApiGroupEndpoint+domain.KernelSpecEndpoint, handlers.NewJupyterAPIHandler(s.opts).HandleGetKernelSpecRequest)
-		}
-	}
+	//if s.opts.SpoofKernelSpecs {
+	//jupyterGroup := s.app.Group(s.getPath(domain.JupyterGroupEndpoint))
+	//{
+	//	jupyterGroup.GET(domain.BaseApiGroupEndpoint+domain.KernelSpecEndpoint, handlers.NewJupyterAPIHandler(s.opts).HandleGetKernelSpecRequest)
+	//}
+	//}
 
 	gin.SetMode(gin.DebugMode)
 

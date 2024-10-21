@@ -200,12 +200,15 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
 
     async function initializeKernelManagers() {
         if (kernelManager.current === null) {
+            const wsUrl: string = `ws://${process.env.JUPYTER_ADDR || "localhost"}:${process.env.JUPYTER_PORT}`
+            const jupyterBaseUrl: string = (process.env.PUBLIC_PATH || "/") + "jupyter";
+
             const kernelSpecManagerOptions: KernelManager.IOptions = {
                 serverSettings: ServerConnection.makeSettings({
                     token: '',
                     appendToken: false,
-                    baseUrl: '/jupyter',
-                    wsUrl: 'ws://localhost:8888/',
+                    baseUrl: jupyterBaseUrl,
+                    wsUrl: wsUrl,
                     fetch: fetch,
                 }),
             };
@@ -227,13 +230,16 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         }
 
         if (sessionManager.current === null) {
+            const wsUrl: string = `ws://${process.env.JUPYTER_ADDR || "localhost"}:${process.env.JUPYTER_PORT}`
+            const jupyterBaseUrl: string = (process.env.PUBLIC_PATH || "/") + "jupyter";
+
             sessionManager.current = new SessionManager({
                 kernelManager: kernelManager.current,
                 serverSettings: ServerConnection.makeSettings({
                     token: '',
                     appendToken: false,
-                    baseUrl: '/jupyter',
-                    wsUrl: 'ws://localhost:8888/',
+                    baseUrl: jupyterBaseUrl,
+                    wsUrl: wsUrl,
                     fetch: fetch,
                 }),
             });

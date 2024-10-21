@@ -5,13 +5,14 @@ spoof-specs: false
 server-port: 8000
 workload-presets-file: "/etc/distributed-notebook-cluster/workload-presets-file.yaml"
 gateway-address: host.docker.internal:8079
+jupyter-server-address: host.docker.internal:8888
 cluster-dashboard-handler-port: 8078
 websocket-proxy-port: 8077
 admin_username: "scusemua"
 admin_password: "123456"
-base-listen-prefix: "/dashboard"
+base-url: "/dashboard"
 
-# Defined separately from the base-listen-prefix.
+# Defined separately from the base-url.
 prometheus-endpoint: "/prometheus"
 
 # Used by the WebSocket connection upgrader.

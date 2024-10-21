@@ -1,0 +1,7 @@
+ASSET_PATH=/dashboard
+PUBLIC_PATH=/dashboard
+
+# This is a placeholder.
+# We'll most likely inject the JUPYTER_ADDRESS when we create the Docker Service for the dashboard.
+JUPYTER_ADDRESS=host.docker.internal
+JUPYTER_PORT=8888
