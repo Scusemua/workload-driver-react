@@ -1,5 +1,6 @@
 import { PatchedWorkload, Workload, WorkloadResponse } from '@Data/Workload';
 import { AuthorizationContext } from '@Providers/AuthProvider';
+import { JoinPaths } from '@src/Utils/path_utils';
 import jsonmergepatch from 'json-merge-patch';
 import { useContext, useRef } from 'react';
 import { MutatorCallback } from 'swr';
@@ -7,7 +8,7 @@ import type { SWRSubscription } from 'swr/subscription';
 import useSWRSubscription from 'swr/subscription';
 import { v4 as uuidv4 } from 'uuid';
 
-const api_endpoint: string = 'ws://localhost:8000/workload';
+const api_endpoint: string = JoinPaths("ws://localhost:8000", process.env.PUBLIC_PATH || "/", "workload");
 
 export const useWorkloads = () => {
     const{ authenticated } = useContext(AuthorizationContext);

@@ -154,16 +154,17 @@ func NewServer(opts *domain.Configuration) domain.Server {
 		panic(err)
 	}
 
-	if err := s.templateHtmlFiles(); err != nil {
+	if err := s.templateStaticFiles(); err != nil {
 		panic(err)
 	}
 
 	return s
 }
 
-// templateHtmlFiles rewrites the {{ base path }} string in the index.html and 200.html files with the base listen path.
-func (s *serverImpl) templateHtmlFiles() error {
-	executeTemplate := func(filePath string) error {
+// templateStaticFiles rewrites the __BASE_PATH__ string in the ./dist/index.html and ./dist/200.html files with
+// the base listen path. It also does the same for the ./dist/main.css file.
+func (s *serverImpl) templateStaticFiles() error {
+	updateFileContents := func(filePath string, replace string, replaceWith string) error {
 		content, err := os.ReadFile(filePath)
 		if err != nil {
 			return err
@@ -172,15 +173,10 @@ func (s *serverImpl) templateHtmlFiles() error {
 		// Convert content to a string for replacement
 		contentStr := string(content)
 
-		s.logger.Debug("Loaded file.", zap.String("file", filePath), zap.String("content", contentStr),
-			zap.String("base_listen_prefix", s.baseUrl))
+		// Replace `replace` with `replaceWith`.
+		modifiedContent := strings.Replace(contentStr, replace, replaceWith, -1)
 
-		// Replace "{{ base_url }}" with the actual base URL
-		modifiedContent := strings.Replace(contentStr, "{{ base_url }}", s.baseUrl, -1)
-
-		s.logger.Debug("Templated file.", zap.String("file", filePath), zap.String("modified-contents", modifiedContent))
-
-		// Write the modified content back to the file (or to a new file)
+		// Write the modified content back to the original file.
 		err = os.WriteFile(filePath, []byte(modifiedContent), 0644)
 		if err != nil {
 			return err
@@ -191,12 +187,20 @@ func (s *serverImpl) templateHtmlFiles() error {
 		return nil
 	}
 
-	err := executeTemplate("./dist/index.html")
+	targetSubstring := "__BASE_URL__"
+	replaceWith := s.baseUrl
+
+	err := updateFileContents("./dist/index.html", targetSubstring, replaceWith)
 	if err != nil {
 		return err
 	}
 
-	err = executeTemplate("./dist/200.html")
+	err = updateFileContents("./dist/200.html", targetSubstring, replaceWith)
+	if err != nil {
+		return err
+	}
+
+	err = updateFileContents("./dist/main.css", targetSubstring, replaceWith)
 	if err != nil {
 		return err
 	}

@@ -31,7 +31,7 @@ build-server:
 build-servers: build-server build-server-linux
 
 # Build first, then create Docker image.
-build-docker-image: build-grpc build-server
+build-docker-image: build-grpc build-server-linux
 	docker build -t $(DOCKERUSER)/distributed-notebook-dashboard-backend .
 
 # Don't build first; use existing build to create docker image.

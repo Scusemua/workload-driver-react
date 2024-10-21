@@ -37,7 +37,7 @@ import {
   Tooltip
 } from '@patternfly/react-core';
 import { CheckCircleIcon, SpinnerIcon, TimesCircleIcon, TimesIcon } from '@patternfly/react-icons';
-import { GetPathForFetch } from '@src/Utils/path_utils';
+import { GetPathForFetch, JoinPaths } from '@src/Utils/path_utils';
 import React, { ReactElement } from 'react';
 import toast, { Toast } from 'react-hot-toast';
 import { v4 as uuidv4 } from 'uuid';
@@ -470,7 +470,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
       }
 
       const wsUrl: string = `ws://${process.env.JUPYTER_ADDR || "localhost"}:${process.env.JUPYTER_PORT}`
-      const jupyterBaseUrl: string = (process.env.PUBLIC_PATH || "/") + "jupyter";
+      const jupyterBaseUrl: string = JoinPaths((process.env.PUBLIC_PATH || "/"), "jupyter");
 
       console.log(`WebSocket URL: ${wsUrl}`);
       const kernelSpecManagerOptions: KernelManager.IOptions = {

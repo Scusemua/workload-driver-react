@@ -1,4 +1,5 @@
 import { LazyLog, ScrollFollow } from '@melloware/react-logviewer';
+import { JoinPaths } from '@src/Utils/path_utils';
 import React from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -120,6 +121,7 @@ export const KubernetesPodLogView: React.FunctionComponent<KubernetesPodLogViewP
     //     </React.Fragment>
     // );
 
+    const websocketUrl: string = JoinPaths("ws://localhost:8000", process.env.PUBLIC_PATH || "/", "logs");
     return (
         // <React.Fragment>
         //     <LogViewer
@@ -144,11 +146,12 @@ export const KubernetesPodLogView: React.FunctionComponent<KubernetesPodLogViewP
         //         }
         //     />
         // </React.Fragment>
+
         <ScrollFollow
             startFollowing={true}
             render={({ follow, onScroll }) => (
                 <LazyLog
-                    url={'ws://localhost:8000/logs'}
+                    url={websocketUrl}
                     enableSearch
                     enableSearchNavigation
                     enableLineNumbers

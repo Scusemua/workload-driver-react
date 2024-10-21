@@ -8,7 +8,7 @@ import {
 import { HeightFactorContext, KernelHeightFactorContext } from '@App/Dashboard';
 import { GpuIcon, GpuIconAlt2 } from '@src/Assets/Icons';
 import { useNodes } from '@src/Providers';
-import { GetPathForFetch } from '@src/Utils/path_utils';
+import { GetPathForFetch, JoinPaths } from '@src/Utils/path_utils';
 import { GetToastContentWithHeaderAndBody } from '@src/Utils/toast_utils';
 import { numberArrayFromRange } from '@src/Utils/utils';
 import { PingKernelModal } from '@Components/Modals';
@@ -201,7 +201,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
     async function initializeKernelManagers() {
         if (kernelManager.current === null) {
             const wsUrl: string = `ws://${process.env.JUPYTER_ADDR || "localhost"}:${process.env.JUPYTER_PORT}`
-            const jupyterBaseUrl: string = (process.env.PUBLIC_PATH || "/") + "jupyter";
+            const jupyterBaseUrl: string = JoinPaths((process.env.PUBLIC_PATH || "/"), "jupyter");
 
             const kernelSpecManagerOptions: KernelManager.IOptions = {
                 serverSettings: ServerConnection.makeSettings({
@@ -231,7 +231,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
 
         if (sessionManager.current === null) {
             const wsUrl: string = `ws://${process.env.JUPYTER_ADDR || "localhost"}:${process.env.JUPYTER_PORT}`
-            const jupyterBaseUrl: string = (process.env.PUBLIC_PATH || "/") + "jupyter";
+            const jupyterBaseUrl: string = JoinPaths((process.env.PUBLIC_PATH || "/"), "jupyter");
 
             sessionManager.current = new SessionManager({
                 kernelManager: kernelManager.current,

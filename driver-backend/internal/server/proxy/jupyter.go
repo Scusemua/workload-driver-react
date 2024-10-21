@@ -47,7 +47,7 @@ func NewJupyterProxyRouter(engine *gin.Engine, config *domain.Configuration, ato
 func (r *JupyterProxyRouter) ServeHTTP(w http.ResponseWriter, req *http.Request) {
 	fmt.Printf("req.RequestURI: %s. req.Method:%v\n", req.RequestURI, req.Method)
 
-	// If the request is NOT prefixed by {{ base_url }}/{{ context_path }}, then serve it normally.
+	// If the request is NOT prefixed by __BASE_URL__/{{ context_path }}, then serve it normally.
 	// So, this may mean that if a request's path has the prefix /dashboard/jupyter, then we will forward it.
 	// Otherwise, we serve the request normally.
 	if !strings.HasPrefix(req.RequestURI, path.Join(r.BaseUrl, r.ContextPath)) {

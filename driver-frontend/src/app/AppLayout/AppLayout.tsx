@@ -6,6 +6,7 @@ import { AuthorizationContext, AuthProvider } from '@Providers/AuthProvider';
 
 import { Notification, WebSocketMessage } from '@src/Data/';
 import { DarkModeContext, NotificationContext, useNodes } from '@src/Providers';
+import { JoinPaths } from '@src/Utils/path_utils';
 import * as React from 'react';
 import { ToastBar, Toaster } from 'react-hot-toast';
 
@@ -21,7 +22,8 @@ const AppLayout: React.FunctionComponent = () => {
 
     const { authenticated, setAuthenticated } = React.useContext(AuthorizationContext);
 
-    const { sendJsonMessage, lastJsonMessage } = useWebSocket('ws://localhost:8000/ws', {}, authenticated);
+    const websocketUrl: string = JoinPaths("ws://localhost:8000", process.env.PUBLIC_PATH || "/", "ws");
+    const { sendJsonMessage, lastJsonMessage } = useWebSocket(websocketUrl, {}, authenticated);
 
     const [overflowMessage, setOverflowMessage] = React.useState<string>('');
     const { alerts, setAlerts, expanded, notifications, addNewNotification, toggleExpansion } =

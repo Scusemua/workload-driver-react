@@ -1,5 +1,5 @@
 /**
- * This function accepts a path of the form "x/y/z" and returns a path "{{ base_url }}/x/y/z", where "{{ base url }}"
+ * This function accepts a path of the form "x/y/z" and returns a path "BASE_URL/x/y/z", where "BASE_URL"
  * is a string retrieved from the PUBLIC_PATH environment variable.
  *
  * This ensures that fetch requests targeting the backend server are sent to the correct path, as this can vary

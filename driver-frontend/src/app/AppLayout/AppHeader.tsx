@@ -32,7 +32,7 @@ import { useKernels } from '@Providers/KernelProvider';
 import { useNodes } from '@Providers/NodeProvider';
 import { NotificationContext } from '@Providers/NotificationProvider';
 import logo from '@src/app/bgimages/WorkloadDriver-Logo.svg';
-import { GetPathForFetch } from '@src/Utils/path_utils';
+import { GetPathForFetch, JoinPaths } from '@src/Utils/path_utils';
 import { uuidv4 } from 'lib0/random';
 import * as React from 'react';
 import { useContext } from 'react';
@@ -134,9 +134,8 @@ export const AppHeader: React.FunctionComponent<AppHeaderProps> = (props: AppHea
 
     const [isSelected, setIsSelected] = React.useState(darkMode ? darkModeButtonId : lightModeButtonId);
 
-    const { readyState } = useWebSocket('ws://localhost:8000/ws', {
-        // onOpen: () => {},
-        // onClose: () => {},
+    const websocketUrl: string = JoinPaths("ws://localhost:8000", process.env.PUBLIC_PATH || "/", "ws");
+    const { readyState } = useWebSocket(websocketUrl, {
         shouldReconnect: () => true,
     }, authenticated);
 
