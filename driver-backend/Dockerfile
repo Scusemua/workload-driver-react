@@ -2,9 +2,6 @@ FROM golang:1.21.5
 
 ENV DASHBOARD_CONFIG_DIR=/etc/distributed-notebook-cluster
 
-ENV PUBLIC_PATH=/dashboard
-ENV ASSET_PATH=/dashboard
-
 COPY server-linux-amd64 ./server-linux-amd64
 COPY configs/custom_event_sequences $DASHBOARD_CONFIG_DIR/custom_event_sequences
 COPY configs/config-docker.yaml $DASHBOARD_CONFIG_DIR/dashboard.yaml
