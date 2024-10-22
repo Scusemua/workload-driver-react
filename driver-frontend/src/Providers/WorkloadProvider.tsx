@@ -24,6 +24,7 @@ export const useWorkloads = () => {
         ) => void,
     ) => {
         if (subscriberSocket.current == null) {
+            console.log(`Attempting to connect Workload WebSocket to hostname "${hostname}"`);
             subscriberSocket.current = new WebSocket(hostname);
             subscriberSocket.current.addEventListener('open', () => {
                 console.log("Connected to workload websocket. Sending 'subscribe' message now.");
@@ -111,7 +112,7 @@ export const useWorkloads = () => {
             });
 
             subscriberSocket.current.addEventListener('close', (event: CloseEvent) => {
-                console.error(`Workloads Subscriber WebSocket closed: ${event}`);
+                console.error(`Workloads Subscriber WebSocket closed: ${JSON.stringify(event)}`);
             });
 
             subscriberSocket.current.addEventListener('error', (event: Event) => {
@@ -126,7 +127,6 @@ export const useWorkloads = () => {
                 `Cannot send workload-related message via websocket. Websocket is in state ${subscriberSocket.current?.readyState}`,
             );
 
-            // setupWebsocket(api_endpoint, true, lastNextFunc.current);
             return;
         }
 

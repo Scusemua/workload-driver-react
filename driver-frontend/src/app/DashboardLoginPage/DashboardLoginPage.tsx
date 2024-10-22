@@ -87,32 +87,7 @@ export const DashboardLoginPage: React.FunctionComponent = () => {
         />
     );
 
-    // const HeaderBrand = (
-    //     <React.Fragment>
-    //         <Brand src={logo} alt={'Distributed Dashboard Logo'} />
-    //     </React.Fragment>
-    // );
-    // const Header = <LoginHeader headerBrand={HeaderBrand} />;
-    // const Footer = (
-    //     <LoginFooter>
-    //         <p>{'Distributed Notebook Cluster | Admin Dashboard & Workload Orchestrator'}</p>
-    //         <List variant={ListVariant.inline}>{footerListItems}</List>
-    //     </LoginFooter>
-    // );
-
     return (
-        // <div className={"login_container"}>
-        //   {logo_greyscale && <BackgroundImage src={logo_greyscale} />}
-        //   <Login header={Header} footer={Footer} className={css('login_component')} {...props}>
-        //     <LoginMainHeader
-        //       title={'Log in to access the Dashboard'}
-        //       subtitle={'Enter the configured admin credentials'}
-        //     />
-        //     <LoginMainBody>{loginForm}</LoginMainBody>
-        //     <LoginMainFooter />
-        //   </Login>
-        // </div>
-
         <div className={'login_container'}>
             <LoginPage
                 className={css('login_component')}

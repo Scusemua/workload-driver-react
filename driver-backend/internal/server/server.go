@@ -392,13 +392,6 @@ func (s *serverImpl) getPath(relativePath string) string {
 }
 
 func (s *serverImpl) setupRoutes() error {
-	//s.app = &proxy.JupyterProxyRouter{
-	//	ContextPath: domain.JupyterGroupEndpoint,
-	//	Config:      s.opts,
-	//	Engine:      s.engine,
-	//	OurServerBasePath:     s.baseUrl,
-	//}
-
 	s.app = proxy.NewJupyterProxyRouter(s.engine, s.opts, s.atom)
 
 	s.nodeHandler = handlers.NewNodeHttpHandler(s.opts)
@@ -947,7 +940,8 @@ func (s *serverImpl) serveHttp(wg *sync.WaitGroup) {
 }
 
 func (s *serverImpl) serveJupyterWebSocketProxy(wg *sync.WaitGroup) {
-	wsUrlString := fmt.Sprintf("ws://%s", s.opts.JupyterServerAddress)
+	// wsUrlString := fmt.Sprintf("ws://%s", s.opts.JupyterServerAddress)
+	wsUrlString := path.Join("ws://", s.opts.JupyterServerAddress)
 	wsUrl, err := url.Parse(wsUrlString)
 	if err != nil {
 		s.logger.Error("Failed to parse URL for websocket proxy.", zap.String("url", wsUrlString), zap.Error(err))

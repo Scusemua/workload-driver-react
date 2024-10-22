@@ -137,16 +137,28 @@ export const AppHeader: React.FunctionComponent<AppHeaderProps> = (props: AppHea
 
     const [isSelected, setIsSelected] = React.useState(darkMode ? darkModeButtonId : lightModeButtonId);
 
-    const websocketUrl: string = "ws://" + JoinPaths('localhost:8000', process.env.PUBLIC_PATH || '/', 'ws');
+    const websocketUrl: string = 'ws://' + JoinPaths('localhost:8000', process.env.PUBLIC_PATH || '/', 'ws');
     const { readyState } = useWebSocket(
         websocketUrl,
         {
             shouldReconnect: () => true,
+            reconnectAttempts: 50,
+            onError: (evt) => {
+                console.error(`WebSocket encountered error: ${JSON.stringify(evt)}. WebSocket URL: ${websocketUrl}`);
+            },
+            onClose: (evt) => {
+                console.warn(`WebSocket connection has closed: ${JSON.stringify(evt)}. WebSocket URL: ${websocketUrl}`);
+            },
+            onOpen: (evt) => {
+                console.debug(
+                    `WebSocket connection has been established: ${JSON.stringify(evt)}. WebSocket URL: ${websocketUrl}`,
+                );
+            },
         },
         authenticated,
     );
 
-    React.useEffect(() => {
+    const handleConnectionStateChange = React.useCallback(() => {
         if (!authenticated) {
             return;
         }
@@ -206,7 +218,13 @@ export const AppHeader: React.FunctionComponent<AppHeaderProps> = (props: AppHea
         }
 
         setPrevConnectionState(readyState);
-    }, [prevConnectionState, readyState, authenticated]);
+        // If I add the dependencies 'refreshKernels, refreshNodes, addNewNotification' here,
+        // then it sends a million requests when the connection with the backend is not available.
+    }, [authenticated, readyState, prevConnectionState]);
+
+    React.useEffect(() => {
+        handleConnectionStateChange();
+    }, [prevConnectionState, readyState, authenticated, handleConnectionStateChange]);
 
     const connectionStatus = connectionStatuses[readyState];
     const connectionStatusIcon = connectionStatusIcons[readyState];

@@ -106,7 +106,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
 
     React.useEffect(() => {
         if (isSubmitSuccessful) {
-            console.log('Submission was successful. Resetting form to default values.');
+            console.log('Resetting form to default values.');
             form.reset(GetDefaultFormValues());
         }
     }, [form, isSubmitSuccessful]);
