@@ -33,6 +33,11 @@ devServer = {
             target: 'http://127.0.0.1:8000',
         },
         {
+            context: ['/ws'],
+            ws: true,
+            target: 'ws://127.0.0.1:8000',
+        },
+        {
             context: ['/kubernetes'],
             pathRewrite: {
                 '^/kubernetes': '/',

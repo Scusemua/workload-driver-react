@@ -137,7 +137,7 @@ export const AppHeader: React.FunctionComponent<AppHeaderProps> = (props: AppHea
 
     const [isSelected, setIsSelected] = React.useState(darkMode ? darkModeButtonId : lightModeButtonId);
 
-    const websocketUrl: string = 'ws://' + JoinPaths('localhost:8000', process.env.PUBLIC_PATH || '/', 'ws');
+    const websocketUrl: string = JoinPaths(process.env.PUBLIC_PATH || '/', 'ws');
     const { readyState } = useWebSocket(
         websocketUrl,
         {

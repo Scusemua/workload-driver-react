@@ -22,7 +22,7 @@ const AppLayout: React.FunctionComponent = () => {
 
     const { authenticated, setAuthenticated } = React.useContext(AuthorizationContext);
 
-    const websocketUrl: string = "ws://" + JoinPaths('localhost:8000', process.env.PUBLIC_PATH || '/', 'ws');
+    const websocketUrl: string = JoinPaths(process.env.PUBLIC_PATH || '/', 'ws');
     const { sendJsonMessage, lastJsonMessage } = useWebSocket(
         websocketUrl,
         {
