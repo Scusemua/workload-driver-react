@@ -1,5 +1,3 @@
-import { GpuIcon } from '@src/Assets/Icons';
-import { useNodes } from '@src/Providers';
 import {
     Button,
     Card,
@@ -7,8 +5,6 @@ import {
     CardHeader,
     CardTitle,
     Checkbox,
-    Flex,
-    FlexItem,
     Grid,
     GridItem,
     Title,
@@ -19,8 +15,10 @@ import {
     Tooltip,
 } from '@patternfly/react-core';
 import { CpuIcon, MemoryIcon, SyncIcon } from '@patternfly/react-icons';
+import { GpuIcon } from '@src/Assets/Icons';
+import { UtilizationEntry } from '@src/Components';
+import { useNodes } from '@src/Providers';
 import React from 'react';
-import { UtilizationDonutChart } from './UtilizationDonutChart';
 
 export interface UtilizationCardProps {
     chartWidth?: number;
@@ -111,99 +109,48 @@ export const UtilizationCard: React.FunctionComponent<UtilizationCardProps> = (p
             <CardBody>
                 <Grid>
                     <GridItem span={3} rowSpan={1}>
-                        <Flex justifyContent={{ default: 'justifyContentCenter' }}>
-                            <Flex direction={{ default: 'row' }} spaceItems={{ default: 'spaceItemsSm' }}>
-                                <FlexItem>
-                                    <CpuIcon />
-                                </FlexItem>
-                                <FlexItem>
-                                    <b>CPU (vCPU)</b>
-                                </FlexItem>
-                            </Flex>
-                            <FlexItem>
-                                <UtilizationDonutChart
-                                    chartHeight={props.chartHeight}
-                                    chartWidth={props.chartWidth}
-                                    resourceDisplayName="CPU"
-                                    resourceUnit="vCPU"
-                                    resourceStatus={selectedResourceType}
-                                    randomizeUtilizations={randomizeUtilizations}
-                                    showLegend={false}
-                                />
-                            </FlexItem>
-                        </Flex>
+                        <UtilizationEntry
+                            resourceUnit={'vCPU'}
+                            resourceDisplayName={'CPU'}
+                            icon={<CpuIcon />}
+                            selectedResourceType={selectedResourceType}
+                            randomizeUtilizations={randomizeUtilizations}
+                            chartWidth={props.chartWidth}
+                            chartHeight={props.chartHeight}
+                        />
                     </GridItem>
                     <GridItem span={3} rowSpan={1}>
-                        <Flex justifyContent={{ default: 'justifyContentCenter' }}>
-                            <Flex direction={{ default: 'row' }} spaceItems={{ default: 'spaceItemsSm' }}>
-                                <FlexItem>
-                                    <MemoryIcon />
-                                </FlexItem>
-                                <FlexItem>
-                                    <b>Memory (GB)</b>
-                                </FlexItem>
-                            </Flex>
-                            <FlexItem>
-                                <UtilizationDonutChart
-                                    chartHeight={props.chartHeight}
-                                    chartWidth={props.chartWidth}
-                                    resourceDisplayName="Memory"
-                                    resourceUnit="GB"
-                                    resourceStatus={selectedResourceType}
-                                    randomizeUtilizations={randomizeUtilizations}
-                                    converter={(val: number) => {
-                                        return val * 0.001048576; // Convert from MiB to GB.
-                                    }}
-                                    showLegend={false}
-                                />
-                            </FlexItem>
-                        </Flex>
+                        <UtilizationEntry
+                            resourceUnit={'GB'}
+                            resourceDisplayName={'Memory'}
+                            icon={<MemoryIcon />}
+                            selectedResourceType={selectedResourceType}
+                            randomizeUtilizations={randomizeUtilizations}
+                            chartWidth={props.chartWidth}
+                            chartHeight={props.chartHeight}
+                        />
                     </GridItem>
                     <GridItem span={3} rowSpan={1}>
-                        <Flex justifyContent={{ default: 'justifyContentCenter' }}>
-                            <Flex direction={{ default: 'row' }} spaceItems={{ default: 'spaceItemsSm' }}>
-                                <FlexItem>
-                                    <GpuIcon scale={1.25} />
-                                </FlexItem>
-                                <FlexItem>
-                                    <b>VRAM (GB)</b>
-                                </FlexItem>
-                            </Flex>
-                            <FlexItem>
-                                <UtilizationDonutChart
-                                    chartHeight={props.chartHeight}
-                                    chartWidth={props.chartWidth}
-                                    resourceDisplayName="VRAM"
-                                    resourceUnit="GB"
-                                    resourceStatus={selectedResourceType}
-                                    randomizeUtilizations={randomizeUtilizations}
-                                    showLegend={false}
-                                />
-                            </FlexItem>
-                        </Flex>
+                        <UtilizationEntry
+                            resourceUnit={'GB'}
+                            resourceDisplayName={'VRAM'}
+                            icon={<GpuIcon scale={1.25} />}
+                            selectedResourceType={selectedResourceType}
+                            randomizeUtilizations={randomizeUtilizations}
+                            chartWidth={props.chartWidth}
+                            chartHeight={props.chartHeight}
+                        />
                     </GridItem>
                     <GridItem span={3} rowSpan={1}>
-                        <Flex justifyContent={{ default: 'justifyContentCenter' }}>
-                            <Flex direction={{ default: 'row' }} spaceItems={{ default: 'spaceItemsSm' }}>
-                                <FlexItem>
-                                    <GpuIcon scale={1.25} />
-                                </FlexItem>
-                                <FlexItem>
-                                    <b>GPU</b>
-                                </FlexItem>
-                            </Flex>
-                            <FlexItem>
-                                <UtilizationDonutChart
-                                    chartHeight={props.chartHeight}
-                                    chartWidth={props.chartWidth}
-                                    resourceDisplayName="GPU"
-                                    resourceUnit="GPUs"
-                                    resourceStatus={selectedResourceType}
-                                    randomizeUtilizations={randomizeUtilizations}
-                                    showLegend={false}
-                                />
-                            </FlexItem>
-                        </Flex>
+                        <UtilizationEntry
+                            resourceUnit={'GPUs'}
+                            resourceDisplayName={'GPU'}
+                            icon={<GpuIcon scale={1.25} />}
+                            selectedResourceType={selectedResourceType}
+                            randomizeUtilizations={randomizeUtilizations}
+                            chartWidth={props.chartWidth}
+                            chartHeight={props.chartHeight}
+                        />
                     </GridItem>
                 </Grid>
             </CardBody>
