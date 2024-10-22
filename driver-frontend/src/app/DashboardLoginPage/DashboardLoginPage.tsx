@@ -1,13 +1,5 @@
-import { ListItem, LoginFooterItem, LoginForm } from '@patternfly/react-core';
-import { BackgroundImage } from '@patternfly/react-core/src/components/BackgroundImage';
-import { Brand } from '@patternfly/react-core/src/components/Brand';
-import { List, ListVariant } from '@patternfly/react-core/src/components/List';
-import { Login } from '@patternfly/react-core/src/components/LoginPage/Login';
-import { LoginFooter } from '@patternfly/react-core/src/components/LoginPage/LoginFooter';
-import { LoginHeader } from '@patternfly/react-core/src/components/LoginPage/LoginHeader';
-import { LoginMainBody } from '@patternfly/react-core/src/components/LoginPage/LoginMainBody';
-import { LoginMainFooter } from '@patternfly/react-core/src/components/LoginPage/LoginMainFooter';
-import { LoginMainHeader } from '@patternfly/react-core/src/components/LoginPage/LoginMainHeader';
+import { ListItem, LoginFooterItem, LoginForm, LoginPage } from '@patternfly/react-core';
+import { ListVariant } from '@patternfly/react-core/src/components/List';
 import { ExternalLinkAltIcon, GithubIcon } from '@patternfly/react-icons';
 import ExclamationCircleIcon from '@patternfly/react-icons/dist/esm/icons/exclamation-circle-icon';
 import { css } from '@patternfly/react-styles';
@@ -16,13 +8,7 @@ import logo_greyscale from '@src/app/bgimages/icon_greyscale.svg';
 import logo from '@src/app/bgimages/WorkloadDriver-Logo.svg';
 import React from 'react';
 
-interface DashboardLoginPageProps {
-    onSuccessfulLogin: (token: string, expiration: string) => void;
-}
-
-export const DashboardLoginPage: React.FunctionComponent<DashboardLoginPageProps> = (
-    props: DashboardLoginPageProps,
-) => {
+export const DashboardLoginPage: React.FunctionComponent = () => {
     const [showHelperText, setShowHelperText] = React.useState<boolean>(false);
     const [username, setUsername] = React.useState<string>('');
     const [isValidUsername, setIsValidUsername] = React.useState<boolean>(true);
@@ -101,44 +87,46 @@ export const DashboardLoginPage: React.FunctionComponent<DashboardLoginPageProps
         />
     );
 
-    const HeaderBrand = (
-        <React.Fragment>
-            <Brand src={logo} alt={'Distributed Dashboard Logo'} />
-        </React.Fragment>
-    );
-    const Header = <LoginHeader headerBrand={HeaderBrand} />;
-    const Footer = (
-        <LoginFooter>
-            <p>{'Distributed Notebook Cluster | Admin Dashboard & Workload Orchestrator'}</p>
-            <List variant={ListVariant.inline}>{footerListItems}</List>
-        </LoginFooter>
-    );
+    // const HeaderBrand = (
+    //     <React.Fragment>
+    //         <Brand src={logo} alt={'Distributed Dashboard Logo'} />
+    //     </React.Fragment>
+    // );
+    // const Header = <LoginHeader headerBrand={HeaderBrand} />;
+    // const Footer = (
+    //     <LoginFooter>
+    //         <p>{'Distributed Notebook Cluster | Admin Dashboard & Workload Orchestrator'}</p>
+    //         <List variant={ListVariant.inline}>{footerListItems}</List>
+    //     </LoginFooter>
+    // );
 
     return (
-        <React.Fragment>
-          <div className={"login_container"}>
-            {logo_greyscale && <BackgroundImage src={logo_greyscale} />}
-            <Login header={Header} footer={Footer} className={css('login_component')} {...props}>
-                <LoginMainHeader
-                    title={'Log in to access the Dashboard'}
-                    subtitle={'Enter the configured admin credentials'}
-                />
-                <LoginMainBody>{loginForm}</LoginMainBody>
-                <LoginMainFooter />
-            </Login>
-          </div>
-        </React.Fragment>
-        // <LoginPage
-        //     footerListVariants={ListVariant.inline}
-        //     brandImgSrc={logo}
-        //     brandImgAlt="Distributed Dashboard Logo"
-        //     backgroundImgSrc={logo_greyscale}
-        //     footerListItems={listItem}
-        //     textContent="Distributed Notebook Cluster | Admin Dashboard & Workload Orchestrator"
-        //     loginTitle="Log in to access the Dashboard"
-        //     loginSubtitle="Enter the configured admin credentials"
-        // >
-        //     {loginForm}
-        // </LoginPage>
+        // <div className={"login_container"}>
+        //   {logo_greyscale && <BackgroundImage src={logo_greyscale} />}
+        //   <Login header={Header} footer={Footer} className={css('login_component')} {...props}>
+        //     <LoginMainHeader
+        //       title={'Log in to access the Dashboard'}
+        //       subtitle={'Enter the configured admin credentials'}
+        //     />
+        //     <LoginMainBody>{loginForm}</LoginMainBody>
+        //     <LoginMainFooter />
+        //   </Login>
+        // </div>
+
+        <div className={'login_container'}>
+            <LoginPage
+                className={css('login_component')}
+                footerListVariants={ListVariant.inline}
+                brandImgSrc={logo}
+                brandImgAlt="Distributed Dashboard Logo"
+                backgroundImgSrc={logo_greyscale}
+                footerListItems={footerListItems}
+                textContent="Distributed Notebook Cluster | Admin Dashboard & Workload Orchestrator"
+                loginTitle="Log in to access the Dashboard"
+                loginSubtitle="Enter the configured admin credentials"
+            >
+                {loginForm}
+            </LoginPage>
+        </div>
     );
 };

@@ -30,7 +30,7 @@ const AppLayout: React.FunctionComponent = () => {
                 console.log(`Successfully connected to Backend Server via WebSocket @ ${websocketUrl}`);
             },
             onError: (event) => {
-                console.error(`WebSocket error (addr=${websocketUrl}): ${event}`);
+                console.error(`WebSocket error (addr="${websocketUrl}"). Event: ${JSON.stringify(event)}`);
             },
         },
         authenticated,
@@ -127,13 +127,6 @@ const AppLayout: React.FunctionComponent = () => {
         }
     };
 
-    const onSuccessfulLogin = (token: string, expiration: string) => {
-        console.log(`Authenticated successfully: ${token}. Token will expire at: ${expiration}.`);
-        localStorage.setItem('token', token);
-        localStorage.setItem('token-expiration', expiration);
-        setAuthenticated(true);
-    };
-
     return (
         <React.Fragment>
             <Toaster
@@ -163,7 +156,7 @@ const AppLayout: React.FunctionComponent = () => {
                 isNotificationDrawerExpanded={expanded}
                 notificationDrawer={authenticated && <DashboardNotificationDrawer />}
             >
-                {!authenticated && <DashboardLoginPage onSuccessfulLogin={onSuccessfulLogin} />}
+                {!authenticated && <DashboardLoginPage/>}
                 {authenticated && <Dashboard />}
                 <AlertGroup
                     isToast
