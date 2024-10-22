@@ -116,8 +116,9 @@ export const DashboardLoginPage: React.FunctionComponent<DashboardLoginPageProps
 
     return (
         <React.Fragment>
+          <div className={"login_container"}>
             {logo_greyscale && <BackgroundImage src={logo_greyscale} />}
-            <Login header={Header} footer={Footer} className={css('gradient_background')} {...props}>
+            <Login header={Header} footer={Footer} className={css('login_component')} {...props}>
                 <LoginMainHeader
                     title={'Log in to access the Dashboard'}
                     subtitle={'Enter the configured admin credentials'}
@@ -125,6 +126,7 @@ export const DashboardLoginPage: React.FunctionComponent<DashboardLoginPageProps
                 <LoginMainBody>{loginForm}</LoginMainBody>
                 <LoginMainFooter />
             </Login>
+          </div>
         </React.Fragment>
         // <LoginPage
         //     footerListVariants={ListVariant.inline}
