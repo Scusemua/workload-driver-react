@@ -2,7 +2,7 @@ import { Dashboard } from '@App/Dashboard';
 import { DashboardLoginPage } from '@App/DashboardLoginPage';
 import { DashboardNotificationDrawer } from '@Components/DashboardNotificationDrawer';
 import { AlertGroup, Page, SkipToContent } from '@patternfly/react-core';
-import { AuthorizationContext, AuthProvider } from '@Providers/AuthProvider';
+import { AuthorizationContext } from '@Providers/AuthProvider';
 
 import { Notification, WebSocketMessage } from '@src/Data/';
 import { DarkModeContext, NotificationContext, useNodes } from '@src/Providers';
@@ -22,8 +22,19 @@ const AppLayout: React.FunctionComponent = () => {
 
     const { authenticated, setAuthenticated } = React.useContext(AuthorizationContext);
 
-    const websocketUrl: string = JoinPaths("ws://localhost:8000", process.env.PUBLIC_PATH || "/", "ws");
-    const { sendJsonMessage, lastJsonMessage } = useWebSocket(websocketUrl, {}, authenticated);
+    const websocketUrl: string = "ws://" + JoinPaths('localhost:8000', process.env.PUBLIC_PATH || '/', 'ws');
+    const { sendJsonMessage, lastJsonMessage } = useWebSocket(
+        websocketUrl,
+        {
+            onOpen: () => {
+                console.log(`Successfully connected to Backend Server via WebSocket @ ${websocketUrl}`);
+            },
+            onError: (event) => {
+                console.error(`WebSocket error (addr=${websocketUrl}): ${event}`);
+            },
+        },
+        authenticated,
+    );
 
     const [overflowMessage, setOverflowMessage] = React.useState<string>('');
     const { alerts, setAlerts, expanded, notifications, addNewNotification, toggleExpansion } =
@@ -56,7 +67,7 @@ const AppLayout: React.FunctionComponent = () => {
     React.useEffect(() => {
         // Don't send any WebSocket messages until we've authenticated.
         if (!authenticated) {
-          return;
+            return;
         }
 
         sendJsonMessage({
@@ -118,55 +129,55 @@ const AppLayout: React.FunctionComponent = () => {
 
     const onSuccessfulLogin = (token: string, expiration: string) => {
         console.log(`Authenticated successfully: ${token}. Token will expire at: ${expiration}.`);
-        localStorage.setItem("token", token);
-        localStorage.setItem("token-expiration", expiration);
+        localStorage.setItem('token', token);
+        localStorage.setItem('token-expiration', expiration);
         setAuthenticated(true);
     };
 
     return (
-            <React.Fragment>
-                <Toaster
-                    position="bottom-right"
-                    containerStyle={{
-                        zIndex: 9999,
-                    }}
-                    toastOptions={{
-                        className: 'react-hot-toast',
-                        style: getDefaultToastStyle(),
-                    }}
-                >
-                    {(t) => (
-                        <ToastBar
-                            toast={t}
-                            style={{
-                                ...t.style,
-                                animation: t.visible ? 'custom-enter 1s ease' : 'custom-exit 1s ease',
-                            }}
-                        />
-                    )}
-                </Toaster>
-                <Page
-                    mainContainerId={pageId}
-                    header={<AppHeader isLoggedIn={authenticated} />}
-                    skipToContent={PageSkipToContent}
-                    isNotificationDrawerExpanded={expanded}
-                    notificationDrawer={authenticated && <DashboardNotificationDrawer />}
-                >
-                    {!authenticated && <DashboardLoginPage onSuccessfulLogin={onSuccessfulLogin} />}
-                    {authenticated && <Dashboard />}
-                    <AlertGroup
-                        isToast
-                        isLiveRegion
-                        onOverflowClick={() => {
-                            setAlerts([]);
-                            toggleExpansion(true);
+        <React.Fragment>
+            <Toaster
+                position="bottom-right"
+                containerStyle={{
+                    zIndex: 9999,
+                }}
+                toastOptions={{
+                    className: 'react-hot-toast',
+                    style: getDefaultToastStyle(),
+                }}
+            >
+                {(t) => (
+                    <ToastBar
+                        toast={t}
+                        style={{
+                            ...t.style,
+                            animation: t.visible ? 'custom-enter 1s ease' : 'custom-exit 1s ease',
                         }}
-                        overflowMessage={overflowMessage}
-                    >
-                        {alerts.slice(0, maxDisplayedAlerts)}
-                    </AlertGroup>
-                </Page>
-            </React.Fragment>
+                    />
+                )}
+            </Toaster>
+            <Page
+                mainContainerId={pageId}
+                header={<AppHeader isLoggedIn={authenticated} />}
+                skipToContent={PageSkipToContent}
+                isNotificationDrawerExpanded={expanded}
+                notificationDrawer={authenticated && <DashboardNotificationDrawer />}
+            >
+                {!authenticated && <DashboardLoginPage onSuccessfulLogin={onSuccessfulLogin} />}
+                {authenticated && <Dashboard />}
+                <AlertGroup
+                    isToast
+                    isLiveRegion
+                    onOverflowClick={() => {
+                        setAlerts([]);
+                        toggleExpansion(true);
+                    }}
+                    overflowMessage={overflowMessage}
+                >
+                    {alerts.slice(0, maxDisplayedAlerts)}
+                </AlertGroup>
+            </Page>
+        </React.Fragment>
     );
 };
 

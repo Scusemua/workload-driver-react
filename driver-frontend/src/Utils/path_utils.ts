@@ -15,6 +15,10 @@ export function GetPathForFetch(path: string): string {
 
 /**
  * Concatenate one or more paths together using forward slashes.
+ *
+ * IMPORTANT: Do not pass "ws://" or "http://", as the double slashes
+ * in those will be reduced to a single forward slash.
+ *
  * @param paths the paths to concatenate together.
  */
 export function JoinPaths(...paths: string[]): string {

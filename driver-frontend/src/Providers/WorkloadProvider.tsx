@@ -8,7 +8,7 @@ import type { SWRSubscription } from 'swr/subscription';
 import useSWRSubscription from 'swr/subscription';
 import { v4 as uuidv4 } from 'uuid';
 
-const api_endpoint: string = JoinPaths("ws://localhost:8000", process.env.PUBLIC_PATH || "/", "workload");
+const api_endpoint: string = "ws://" + JoinPaths("localhost:8000", process.env.PUBLIC_PATH || "/", "workload");
 
 export const useWorkloads = () => {
     const{ authenticated } = useContext(AuthorizationContext);
