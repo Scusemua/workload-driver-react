@@ -1,5 +1,5 @@
 export * from './KernelSpecList';
-export * from './KernelList';
+export * from './KernelListCard';
 export * from './NodeListCard/';
 export * from './LogViewCard';
 export * from './UtilizationCard';

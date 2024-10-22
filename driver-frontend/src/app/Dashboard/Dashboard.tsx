@@ -1,6 +1,6 @@
 import '@patternfly/react-core/dist/styles/base.css';
 
-import { KernelList, KernelSpecList, NodeList, UtilizationCard, WorkloadCard } from '@Components/Cards/';
+import { KernelListCard, KernelSpecList, NodeList, UtilizationCard, WorkloadCard } from '@Components/Cards/';
 import { MigrationModal } from '@Components/Modals';
 import { GetPathForFetch } from '@src/Utils/path_utils';
 import { DistributedJupyterKernel, JupyterKernelReplica } from 'src/Data';
@@ -136,7 +136,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
                             setHeightFactor: (newHeight: number) => setKernelHeightFactor(newHeight),
                         }}
                     >
-                        <KernelList kernelsPerPage={3} openMigrationModal={openMigrationModal} />
+                        <KernelListCard kernelsPerPage={3} openMigrationModal={openMigrationModal} />
                     </KernelHeightFactorContext.Provider>
                 </GridItem>
                 <GridItem span={6} rowSpan={getWorkloadCardRowspan()}>
