@@ -8,9 +8,6 @@ const CssMinimizerPlugin = require('css-minimizer-webpack-plugin');
 const TerserJSPlugin = require('terser-webpack-plugin');
 const path = require('path');
 
-console.log(`process.env.PUBLIC_PATH: ${process.env.PUBLIC_PATH}`);
-console.log(`process.env.ASSET_PATH: ${process.env.ASSET_PATH}`);
-
 module.exports = merge(common('production'), {
   mode: 'production',
   devtool: 'source-map',

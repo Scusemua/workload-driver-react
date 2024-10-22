@@ -6,6 +6,7 @@ const CopyPlugin = require('copy-webpack-plugin');
 const TsconfigPathsPlugin = require('tsconfig-paths-webpack-plugin');
 const Dotenv = require('dotenv-webpack');
 const BG_IMAGES_DIRNAME = 'bgimages';
+const BundleAnalyzerPlugin = require('webpack-bundle-analyzer').BundleAnalyzerPlugin;
 
 module.exports = (development_environment) => {
   console.log(`Development environment=${development_environment}`);
@@ -139,6 +140,9 @@ module.exports = (development_environment) => {
       ],
       symlinks: false,
       cacheWithContext: false,
+    },
+    optimization: {
+      usedExports: true,
     },
   };
 };

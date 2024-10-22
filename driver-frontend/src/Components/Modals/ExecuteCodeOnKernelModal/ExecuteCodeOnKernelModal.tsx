@@ -7,7 +7,6 @@ import {
     IExecuteReplyMsg,
     IExecuteRequestMsg,
     IIOPubMessage,
-    IOPubMessageType,
 } from '@jupyterlab/services/lib/kernel/messages';
 import { Language } from '@patternfly/react-code-editor';
 import {
@@ -27,8 +26,8 @@ import {
     Label,
     Modal,
     Tab,
-    Tabs,
     TabTitleText,
+    Tabs,
     Text,
     TextVariants,
     Title,
@@ -36,6 +35,7 @@ import {
 } from '@patternfly/react-core';
 import { CheckCircleIcon, SpinnerIcon, TimesCircleIcon, TimesIcon } from '@patternfly/react-icons';
 import { AuthorizationContext } from '@Providers/AuthProvider';
+import { useJupyterAddress } from '@Providers/JupyterAddressProvider';
 import { RequestTraceSplitTable } from '@src/Components';
 import { DistributedJupyterKernel, FirstJupyterKernelBuffersFrame, JupyterKernelReplica } from '@src/Data';
 import { GetPathForFetch, JoinPaths } from '@src/Utils/path_utils';
@@ -60,7 +60,7 @@ export type CodeContext = {
 export const CodeContext = React.createContext({
     code: '',
     // eslint-disable-next-line @typescript-eslint/no-unused-vars
-    setCode: (newCode: string) => {},
+    setCode: (_: string) => {},
 });
 
 // Execution encapsulates the submission of code to be executed on a kernel.
@@ -95,6 +95,8 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
 
     const [executionMap, setExecutionMap] = React.useState<Map<string, Execution>>(new Map());
     const [, setClosedExecutionMap] = React.useState<Map<string, boolean>>(new Map());
+
+    const { jupyterAddress } = useJupyterAddress();
 
     const { authenticated } = React.useContext(AuthorizationContext);
 
@@ -230,17 +232,6 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
         }
 
         return null;
-        // else {
-        //   const metadata: JSONObject = response.metadata;
-        //
-        //   try {
-        //     const requestTrace: JSONValue = metadata['request_trace'];
-        //     return requestTrace;
-        //   } catch (err) {
-        //     console.debug('Could not extract request trace from "execute_request" response.');
-        //     return null;
-        //   }
-        // }
     };
 
     /**
@@ -438,7 +429,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
      * @param executionId the ID of the execution associated with the IOPub message.
      * @param msg the IOPub message itself.
      */
-    const onExecutionIoPub = (executionId: string, msg: IIOPubMessage<IOPubMessageType>) => {
+    const onExecutionIoPub = (executionId: string, msg: IIOPubMessage) => {
         console.log(`Received IOPub reply for execution ${executionId}: ${JSON.stringify(msg)}`);
         const messageType: string = msg.header.msg_type;
         if (messageType == 'execute_input') {
@@ -472,7 +463,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
      */
     const onSubmit = (action: 'submit' | 'enqueue') => {
         if (!authenticated) {
-          return;
+            return;
         }
 
         async function runUserCode(): Promise<Execution | undefined> {
@@ -484,7 +475,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                 return undefined;
             }
 
-            const wsUrl: string = `ws://${process.env.JUPYTER_ADDR || 'localhost'}:${process.env.JUPYTER_PORT}`;
+            const wsUrl: string = `ws://${jupyterAddress}`;
             const jupyterBaseUrl: string = JoinPaths(process.env.PUBLIC_PATH || '/', 'jupyter');
 
             console.log(`WebSocket URL: ${wsUrl}`);
@@ -867,7 +858,11 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                             setExecutionState('idle');
                         }
                     }}
-                    isDisabled={code.trim().length == 0 || !authenticated}
+                    isDisabled={
+                        code.trim().length == 0 ||
+                        !authenticated ||
+                        jupyterAddress === undefined
+                    }
                     isLoading={executionState === 'busy'}
                     icon={executionState === 'done' ? <CheckCircleIcon /> : null}
                     spinnerAriaValueText="Loading..."
@@ -886,7 +881,12 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                         key="enqueue-code-button"
                         variant={'primary'}
                         onClick={() => onSubmit('enqueue')}
-                        isDisabled={executionState === 'idle' || executionState === 'done' || !authenticated}
+                        isDisabled={
+                            executionState === 'idle' ||
+                            executionState === 'done' ||
+                            !authenticated ||
+                            jupyterAddress === undefined
+                        }
                     >
                         Enqueue for Execution
                     </Button>

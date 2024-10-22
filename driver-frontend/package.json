@@ -86,7 +86,6 @@
   "dependencies": {
     "@gatsbyjs/reach-router": "^2.0.1",
     "@jupyterlab/services": "^7.2.2",
-    "@melloware/react-logviewer": "^5.1.1",
     "@patternfly/react-charts": "^7.3.0",
     "@patternfly/react-code-editor": "^5.3.3",
     "@patternfly/react-core": "^5.3.3",

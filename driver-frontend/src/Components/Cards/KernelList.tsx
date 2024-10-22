@@ -14,7 +14,7 @@ import { PongResponse } from '@Data/Message';
 
 import { KernelManager, ServerConnection, SessionManager } from '@jupyterlab/services';
 import { IKernelConnection } from '@jupyterlab/services/lib/kernel/kernel';
-import { IModel as ISessionModel, ISessionConnection } from '@jupyterlab/services/lib/session/session';
+import { ISessionConnection, IModel as ISessionModel } from '@jupyterlab/services/lib/session/session';
 import {
     Alert,
     AlertActionCloseButton,
@@ -83,13 +83,14 @@ import {
 } from '@patternfly/react-icons';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 import { ExecutionOutputTabsDataProvider } from '@Providers/ExecutionOutputTabsDataProvider';
+import { useJupyterAddress } from '@Providers/JupyterAddressProvider';
 import { useKernels } from '@Providers/KernelProvider';
 import { GpuIcon, GpuIconAlt2 } from '@src/Assets/Icons';
 import { useNodes } from '@src/Providers';
 import { GetPathForFetch, JoinPaths } from '@src/Utils/path_utils';
 import { GetToastContentWithHeaderAndBody, ToastRefresh } from '@src/Utils/toast_utils';
 import { numberArrayFromRange } from '@src/Utils/utils';
-import React, { useEffect, useReducer, useRef } from 'react';
+import React, { useCallback, useEffect, useReducer, useRef } from 'react';
 
 import toast from 'react-hot-toast';
 
@@ -134,6 +135,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
     const [openKernelDropdownMenu, setOpenKernelDropdownMenu] = React.useState<string>('');
     const heightFactorContext: HeightFactorContext = React.useContext(KernelHeightFactorContext);
     const { refreshNodes } = useNodes();
+    const { jupyterAddress } = useJupyterAddress();
 
     const [, forceUpdate] = useReducer((x) => x + 1, 0);
 
@@ -199,9 +201,9 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         heightFactorContext.setHeightFactor(Math.min(newPerPage, kernels.length));
     };
 
-    async function initializeKernelManagers() {
+    const initializeKernelManagers = useCallback(async () => {
         if (kernelManager.current === null) {
-            const wsUrl: string = `ws://${process.env.JUPYTER_ADDR || 'localhost'}:${process.env.JUPYTER_PORT}`;
+            const wsUrl: string = `ws://${jupyterAddress}`;
             const jupyterBaseUrl: string = JoinPaths(process.env.PUBLIC_PATH || '/', 'jupyter');
 
             const kernelSpecManagerOptions: KernelManager.IOptions = {
@@ -231,7 +233,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         }
 
         if (sessionManager.current === null) {
-            const wsUrl: string = `ws://${process.env.JUPYTER_ADDR || 'localhost'}:${process.env.JUPYTER_PORT}`;
+            const wsUrl: string = `ws://${jupyterAddress}`;
             const jupyterBaseUrl: string = JoinPaths(process.env.PUBLIC_PATH || '/', 'jupyter');
 
             sessionManager.current = new SessionManager({
@@ -249,7 +251,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                 console.log('Session Manager is ready!');
             });
         }
-    }
+    }, [jupyterAddress]);
 
     const onSelectKernel = (
         _event: React.FormEvent<HTMLInputElement>,
@@ -268,8 +270,12 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
     };
 
     useEffect(() => {
-        initializeKernelManagers();
-    }, []);
+        if (jupyterAddress === undefined) {
+            return;
+        }
+
+        initializeKernelManagers().then(() => {});
+    }, [initializeKernelManagers, jupyterAddress]);
 
     const onSearchChange = (value: string) => {
         setSearchValue(value);
@@ -670,7 +676,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
             }),
         });
 
-        await refreshKernels().catch((err: Error)=>console.log(`Kernel refresh failed: ${err}`));
+        await refreshKernels().catch((err: Error) => console.log(`Kernel refresh failed: ${err}`));
     }
 
     const onConfirmDeleteKernelsClicked = (kernelIds: string[]) => {
@@ -681,7 +687,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         // Create a new kernel.
         if (!kernelManager.current) {
             console.error('Kernel Manager is not available. Will try to connect...');
-            initializeKernelManagers();
+            initializeKernelManagers().then(()=>{});
             return;
         }
 
@@ -696,7 +702,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
 
             await kernelManager.current?.shutdown(id).then(() => {
                 console.log('Successfully deleted Kernel ' + id + ' now.');
-                refreshKernels().catch((err: Error)=>console.log(`Kernel refresh failed: ${err}`));
+                refreshKernels().catch((err: Error) => console.log(`Kernel refresh failed: ${err}`));
             });
 
             await fetch(GetPathForFetch('api/metrics'), {
@@ -722,7 +728,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
                 loading: <b>Deleting kernel {kernelId}</b>,
                 success: <b>Successfully deleted kernel {kernelId}</b>,
                 error: <b>Failed to delete kernel {kernelId}</b>,
-            });
+            }).then(()=>{});
         }
 
         setSelectedKernels([]);
@@ -743,7 +749,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         // Create a new kernel.
         if (!kernelManager.current) {
             console.error('Kernel Manager is not available. Will try to connect...');
-            initializeKernelManagers();
+            initializeKernelManagers().then(()=>{});
             return;
         } else if (!kernelManager.current.isReady) {
             console.warn("Kernel Manager isn't ready yet!");
@@ -753,7 +759,7 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
 
         if (!sessionManager.current) {
             console.error('Session Manager is not available. Will try to connect...');
-            initializeKernelManagers();
+            initializeKernelManagers().then(()=>{});
             return;
         } else if (!sessionManager.current.isReady) {
             console.warn("Session Manager isn't ready yet!");
@@ -1201,12 +1207,12 @@ export const KernelList: React.FunctionComponent<KernelListProps> = (props: Kern
         setIsConfirmDeleteKernelModalOpen(true);
     };
 
-    const toggleExpandedKernel = (id) => {
-        const index = expandedKernels.indexOf(id);
+    const toggleExpandedKernel = (kernelId) => {
+        const index = expandedKernels.indexOf(kernelId);
         const newExpanded =
             index >= 0
                 ? [...expandedKernels.slice(0, index), ...expandedKernels.slice(index + 1, expandedKernels.length)]
-                : [...expandedKernels, id];
+                : [...expandedKernels, kernelId];
         setExpandedKernels(newExpanded);
     };
 

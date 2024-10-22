@@ -234,17 +234,8 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
     };
 
     const onSubmit = (data: { workloadTitle: string }) => {
-        const workloadTitle: string = data.workloadTitle;
-        // const workloadSeed: string = data.workloadSeed;
-        // const debugLoggingEnabled: boolean = data.debugLoggingEnabled;
-        // const timescaleAdjustmentFactor: number = data.timescaleAdjustmentFactor;
-
         const workloadRegistrationRequest: string = parseData(data);
-
         console.log(`User submitted workload template data: ${JSON.stringify(data)}`);
-        // props.onConfirm(workloadTitle, workloadSeed, debugLoggingEnabled, workloadTemplate, timescaleAdjustmentFactor);
-
-        toast('Registering template-based workload "' + workloadTitle + '" now.', { style: { maxWidth: 700 } });
         props.onConfirm(workloadRegistrationRequest);
     };
 

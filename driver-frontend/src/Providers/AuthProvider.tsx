@@ -93,24 +93,89 @@ async function tokenFetcher(
     }
 
     const response: Response = await fetch(endpoint, init);
-    const responseJSON: AuthResponse | Error = await response.json();
 
+    return await handleResponse(response, username, password, endpoint, toastId);
+}
+
+/**
+ * Handle the response from a fetched login/authentication request.
+ * @param response the response returned by the call to fetch.
+ * @param username username used to log in
+ * @param password password used to log in
+ * @param endpoint endpoint targeted by login request
+ * @param toastId id of associated toast notification being displayed during login request
+ */
+async function handleResponse(
+    response: Response,
+    username: string | undefined,
+    password: string | undefined,
+    endpoint: RequestInfo | URL,
+    toastId: string | undefined = undefined,
+): Promise<AuthResponse | void> {
+    if (!username) {
+        throw new Error('username cannot be blank at this point');
+    }
+
+    if (!password) {
+        throw new Error('password cannot be blank at this point');
+    }
+
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.indexOf('application/json') !== -1) {
+        const responseJSON: AuthResponse | Error = await response.json();
+
+        return await handleJsonResponse(response, responseJSON, username, password, endpoint, toastId);
+    } else {
+        const respText: string = await response.text();
+
+        if (response.status !== 200) {
+            console.log(`Authenticate failed. Could not log in:\n${respText}`);
+            throw new Error(`HTTP ${response.status} ${response.statusText}: ${respText}`);
+        } else {
+            console.error(
+                `Received HTTP ${response.status} ${response.statusText} to login request; however, response body was unexpectedly text-based (i.e., non-JSON) with value="${respText}"`,
+            );
+            throw new Error(
+                `Received HTTP ${response.status} ${response.statusText} to login request; however, response body was unexpectedly text-based (i.e., non-JSON) with value="${respText}"`,
+            );
+        }
+    }
+}
+
+/**
+ * Handle the response from a fetched login/authentication request when the 'content-type' headers are
+ * equal to 'application/json'.
+ *
+ * @param response the original response returned by the fetch call
+ * @param responseJSON the result of parsing the JSON-encoded response body
+ * @param username username used to log in
+ * @param password password used to log in
+ * @param endpoint endpoint targeted by login request
+ * @param toastId id of associated toast notification being displayed during login request
+ */
+async function handleJsonResponse(
+    response: Response,
+    responseJSON: AuthResponse | Error,
+    username: string,
+    password: string,
+    endpoint: RequestInfo | URL,
+    toastId: string | undefined = undefined,
+): Promise<AuthResponse | void> {
     if (response.status !== 200) {
         console.log(`Authenticate failed. Could not log in:\n${JSON.stringify(responseJSON, null, 2)}`);
         throw new Error(`HTTP ${response.status} ${response.statusText}: ${(responseJSON as Error).message}`);
     } else {
         console.log(`Fetched JWT token:\n${JSON.stringify(responseJSON, null, 2)}`);
+
+        const authResponse: AuthResponse = responseJSON as AuthResponse;
+
+        authResponse.username = username;
+        authResponse.password = password;
+        authResponse.refreshed = endpoint == refreshTokenEndpoint;
+        authResponse.toastId = toastId || '';
+
+        return authResponse;
     }
-
-    console.log(`tokenFetcher toastId: ${toastId}`);
-
-    const authResponse: AuthResponse = responseJSON as AuthResponse;
-    authResponse.username = username;
-    authResponse.password = password;
-    authResponse.refreshed = endpoint == refreshTokenEndpoint;
-    authResponse.toastId = toastId || '';
-
-    return authResponse;
 }
 
 function isNumber(n) {
