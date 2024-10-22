@@ -1,7 +1,2 @@
 ASSET_PATH=/notebook-dashboard
 PUBLIC_PATH=/notebook-dashboard
-
-# This is a placeholder.
-# We'll most likely inject the JUPYTER_ADDRESS when we create the Docker Service for the dashboard.
-JUPYTER_ADDRESS=host.docker.internal
-JUPYTER_PORT=8888

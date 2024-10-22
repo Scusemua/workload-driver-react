@@ -19,3 +19,4 @@ dist2
 /server
 /server-linux-amd64
 /server~
+/.env

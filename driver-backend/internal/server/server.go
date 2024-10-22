@@ -514,6 +514,13 @@ func (s *serverImpl) setupRoutes() error {
 
 		// Used by the frontend to retrieve the UnixMillisecond timestamp at which the Cluster was created.
 		apiGroup.GET(domain.ClusterAgeEndpoint, handlers.NewClusterAgeHttpHandler(s.opts, s.gatewayRpcClient).HandleRequest)
+
+		// Used to tell the frontend what the address of Jupyter is.
+		apiGroup.GET(domain.JupyterAddressEndpoint, func(c *gin.Context) {
+			response := make(map[string]interface{})
+			response["jupyter_address"] = s.opts.JupyterServerAddress
+			c.JSON(http.StatusOK, response)
+		})
 	}
 
 	///////////////////////////

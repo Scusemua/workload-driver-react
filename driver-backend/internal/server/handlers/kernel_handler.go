@@ -56,12 +56,6 @@ func (h *KernelHttpHandler) HandleRequest(c *gin.Context) {
 		err     error
 	)
 
-	// If we're spoofing the cluster, then just return some made up kernels for testing/debugging purposes.
-	//if h.spoofKernels {
-	//	h.logger.Info("Spoofing Jupyter kernels now.")
-	//	kernels = h.doSpoofKernels()
-	//} else {
-	h.logger.Info("Retrieving Jupyter kernels from the Jupyter Server now.", zap.String("jupyter-server-ip", h.grpcClient.gatewayAddress))
 	kernels, err = h.getKernelsFromClusterGateway()
 	if err != nil {
 		// We already attempt to reconnect gRPC in the `getKernelsFromClusterGateway` method. So, just abort the request here.

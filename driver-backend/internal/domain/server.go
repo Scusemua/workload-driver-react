@@ -69,6 +69,9 @@ const (
 
 	JupyterGroupEndpoint = "jupyter"
 
+	// JupyterAddressEndpoint is used to tell the frontend what the address of Jupyter is.
+	JupyterAddressEndpoint = "jupyter-address"
+
 	// SpoofErrorEndpoint causes the server to broadcast a fake error via websockets for debugging/testing purposes.
 	SpoofErrorEndpoint = "spoof-error"
 
