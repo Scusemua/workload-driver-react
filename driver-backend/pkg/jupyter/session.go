@@ -30,13 +30,13 @@ type jupyterSessionReq struct {
 	SessionConnection *SessionConnection `json:"-"`
 }
 
-func newJupyterSessionForRequest(sessionName string, path string, sessionType string, kernelSpecName string, resourceSpec *ResourceSpec) *jupyterSessionReq {
+func newJupyterSessionForRequest(sessionName string, sessionPath string, sessionType string, kernelSpecName string, resourceSpec *ResourceSpec) *jupyterSessionReq {
 	jupyterKernel := newJupyterKernel(sessionName, kernelSpecName)
 
 	req := &jupyterSessionReq{
 		JupyterSessionId: sessionName,
 		LocalSessionId:   sessionName,
-		Path:             path,
+		Path:             sessionPath,
 		Name:             sessionName,
 		SessionType:      sessionType,
 		JupyterKernel:    jupyterKernel,

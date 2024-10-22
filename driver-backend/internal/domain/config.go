@@ -181,6 +181,7 @@ type Configuration struct {
 	KubeConfig              string `name:"kubeconfig" yaml:"kubeconfig" json:"kubeconfig" description:"Absolute path to the kubeconfig file."`
 	GatewayAddress          string `name:"gateway-address" yaml:"gateway-address" json:"gateway-address" description:"The IP address that the front-end should use to connect to the Gateway."`
 	JupyterServerAddress    string `name:"jupyter-server-address" yaml:"jupyter-server-address" json:"jupyter-server-address" description:"The IP address of the Jupyter Server."`
+	JupyterServerBasePath   string `name:"jupyter-server-base-path" json:"jupyter-server-base-path" yaml:"jupyter-server-base-path" description:"The base path on which the Jupyter Server is listening."`
 	ServerPort              int    `name:"server-port" yaml:"server-port" json:"server-port" description:"Port of the backend server."`
 	WebsocketProxyPort      int    `name:"websocket-proxy-port" yaml:"websocket-proxy-port" json:"websocket-proxy-port" description:"Port of the backend websocket proxy server, which reverse-proxies websocket connections to the Jupyter server."`
 	AdminUser               string `name:"admin_username" yaml:"admin_username" json:"admin_username"`
@@ -207,6 +208,7 @@ func GetDefaultConfig() *Configuration {
 		GatewayAddress:               "localhost:8079",
 		KernelSpecQueryInterval:      "600s",
 		JupyterServerAddress:         "localhost:8888",
+		JupyterServerBasePath:        "/",
 		ServerPort:                   8000,
 		WorkloadDriverKernelSpec:     "distributed",
 		PushUpdateInterval:           1,

@@ -396,7 +396,7 @@ func (s *serverImpl) setupRoutes() error {
 	//	ContextPath: domain.JupyterGroupEndpoint,
 	//	Config:      s.opts,
 	//	Engine:      s.engine,
-	//	BaseUrl:     s.baseUrl,
+	//	OurServerBasePath:     s.baseUrl,
 	//}
 
 	s.app = proxy.NewJupyterProxyRouter(s.engine, s.opts, s.atom)

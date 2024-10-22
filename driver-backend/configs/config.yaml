@@ -9,6 +9,12 @@ cluster-dashboard-handler-port: 8078
 websocket-proxy-port: 8077
 base-url: "/"
 
+# The address of the Jupyter Server.
+jupyter-server-address: localhost:8888
+
+# The base path that the Jupyter Server is listening on.
+jupyter-server-base-path: /
+
 # Defined separately from the base-url.
 prometheus-endpoint: "/prometheus"
 

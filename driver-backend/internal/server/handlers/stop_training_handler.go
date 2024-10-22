@@ -3,6 +3,7 @@ package handlers
 import (
 	"github.com/scusemua/workload-driver-react/m/v2/internal/server/metrics"
 	"net/http"
+	"path"
 
 	"github.com/gin-gonic/gin"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
@@ -20,9 +21,11 @@ type StopTrainingHandler struct {
 }
 
 func NewStopTrainingHandler(opts *domain.Configuration, atom *zap.AtomicLevel) domain.BackendHttpGetHandler {
+	jupyterAddress := path.Join(opts.JupyterServerAddress, opts.JupyterServerBasePath)
+
 	handler := &StopTrainingHandler{
 		BaseHandler:       newBaseHandler(opts),
-		manager:           jupyter.NewKernelSessionManager(opts.JupyterServerAddress, true, atom, metrics.PrometheusMetricsWrapperInstance),
+		manager:           jupyter.NewKernelSessionManager(jupyterAddress, true, atom, metrics.PrometheusMetricsWrapperInstance),
 		kernelConnections: hashmap.New(8),
 	}
 	handler.BackendHttpGetHandler = handler
