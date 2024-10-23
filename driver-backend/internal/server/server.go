@@ -430,9 +430,12 @@ func (s *serverImpl) setupRoutes() error {
 	////////////////////////
 	// Websocket Handlers //
 	////////////////////////
-	s.app.GET(s.getPath(domain.WorkloadEndpoint), s.workloadManager.GetWorkloadWebsocketHandler())
-	s.app.GET(s.getPath(domain.LogsEndpoint), s.serveLogWebsocket)
-	s.app.GET(s.getPath(domain.GeneralWebsocketEndpoint), s.serveGeneralWebsocket)
+	webSocketGroup := s.app.Group(domain.WebsocketGroupEndpoint)
+	{
+		webSocketGroup.GET(s.getPath(domain.WorkloadEndpoint), s.workloadManager.GetWorkloadWebsocketHandler())
+		webSocketGroup.GET(s.getPath(domain.LogsEndpoint), s.serveLogWebsocket)
+		webSocketGroup.GET(s.getPath(domain.GeneralWebsocketEndpoint), s.serveGeneralWebsocket)
+	}
 
 	// TODO: Getting nil pointer exception because the callback occurs in the constructor, so s.gatewayRpcClient is still nil.
 	s.gatewayRpcClient = handlers.NewClusterDashboardHandler(s.opts, true, s.notifyFrontend, s.handleRpcRegistrationComplete)

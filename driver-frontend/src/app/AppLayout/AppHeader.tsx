@@ -137,11 +137,11 @@ export const AppHeader: React.FunctionComponent<AppHeaderProps> = (props: AppHea
 
     const [isSelected, setIsSelected] = React.useState(darkMode ? darkModeButtonId : lightModeButtonId);
 
-    const websocketUrl: string = JoinPaths(process.env.PUBLIC_PATH || '/', 'ws');
+    const websocketUrl: string = JoinPaths(process.env.PUBLIC_PATH || '/', 'websocket', 'general');
     const { readyState } = useWebSocket(
         websocketUrl,
         {
-            shouldReconnect: () => true,
+            shouldReconnect: () => authenticated,
             reconnectAttempts: 50,
             onError: (evt) => {
                 console.error(`WebSocket encountered error: ${JSON.stringify(evt)}. WebSocket URL: ${websocketUrl}`);
@@ -154,6 +154,7 @@ export const AppHeader: React.FunctionComponent<AppHeaderProps> = (props: AppHea
                     `WebSocket connection has been established: ${JSON.stringify(evt)}. WebSocket URL: ${websocketUrl}`,
                 );
             },
+            share: true,
         },
         authenticated,
     );

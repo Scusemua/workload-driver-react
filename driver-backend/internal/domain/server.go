@@ -25,11 +25,14 @@ const (
 	// LogsEndpoint is used to stream logs to the frontend from Kubernetes.
 	LogsEndpoint = "logs"
 
+	// WebsocketGroupEndpoint is used to define the group for WebSocket requests.
+	WebsocketGroupEndpoint = "websocket"
+
 	// WorkloadEndpoint is used internally (by the frontend) to trigger the start of a new workload or retrieve the list of workloads.
 	WorkloadEndpoint = "workload"
 
 	// GeneralWebsocketEndpoint is used for WebSocket-based communication between the frontend and backend that is unrelated to workloads or logs.
-	GeneralWebsocketEndpoint = "ws"
+	GeneralWebsocketEndpoint = "general"
 
 	// KernelSpecEndpoint is used internally (by the frontend) to get the current set of Jupyter kernel specs from the backend.
 	KernelSpecEndpoint = "kernelspecs"

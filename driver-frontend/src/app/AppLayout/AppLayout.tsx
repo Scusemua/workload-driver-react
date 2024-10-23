@@ -20,9 +20,9 @@ const maxDisplayedAlerts: number = 3;
 const AppLayout: React.FunctionComponent = () => {
     const pageId = 'primary-app-container';
 
-    const { authenticated, setAuthenticated } = React.useContext(AuthorizationContext);
+    const { authenticated } = React.useContext(AuthorizationContext);
 
-    const websocketUrl: string = JoinPaths(process.env.PUBLIC_PATH || '/', 'ws');
+    const websocketUrl: string = JoinPaths(process.env.PUBLIC_PATH || '/', 'websocket', 'general');
     const { sendJsonMessage, lastJsonMessage } = useWebSocket(
         websocketUrl,
         {
@@ -32,6 +32,7 @@ const AppLayout: React.FunctionComponent = () => {
             onError: (event) => {
                 console.error(`WebSocket error (addr="${websocketUrl}"). Event: ${JSON.stringify(event)}`);
             },
+            share: true,
         },
         authenticated,
     );

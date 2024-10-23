@@ -33,9 +33,11 @@ devServer = {
             target: 'http://127.0.0.1:8000',
         },
         {
-            context: ['/ws'],
+            context: ['/websocket/general', '/websocket/workload', '/websocket/logs'],
             ws: true,
-            target: 'ws://127.0.0.1:8000',
+            secure: false,
+            changeOrigin: true,
+            target: 'ws://127.0.0.1:8000/',
         },
         {
             context: ['/kubernetes'],
