@@ -12,7 +12,7 @@ import { GpuIcon } from '@src/Assets/Icons';
 export interface WorkloadSessionTableProps {
     children?: React.ReactNode;
     workload: Workload | null;
-};
+}
 
 // Displays the Sessions from a workload in a table.
 export const WorkloadSessionTable: React.FunctionComponent<WorkloadSessionTableProps> = (props) => {

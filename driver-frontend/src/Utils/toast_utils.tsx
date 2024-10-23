@@ -1,7 +1,7 @@
 import { RoundToThreeDecimalPlaces } from '@Components/Modals';
 import { Alert, AlertActionCloseButton, Button, Flex, FlexItem } from '@patternfly/react-core';
 import { SpinnerIcon } from '@patternfly/react-icons';
-import React from 'react';
+import React, { ReactElement } from 'react';
 import { Toast, toast } from 'react-hot-toast';
 
 /**
@@ -14,11 +14,41 @@ import { Toast, toast } from 'react-hot-toast';
  */
 export function GetToastContentWithHeaderAndBody(
     header: string,
-    body: string,
+    body: string | ReactElement | (string | ReactElement)[] | undefined,
     variant: 'danger' | 'warning' | 'success' | 'info' | 'custom',
     dismissToast: () => void,
     timeout: number | undefined = undefined,
 ): React.JSX.Element {
+    const getAlertContent = () => {
+        if (!body) {
+            return <React.Fragment />;
+        }
+
+        if (typeof body === 'string') {
+            return <p>{body}</p>;
+        }
+
+        if (Array.isArray(body)) {
+            return (
+                <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsXs' }}>
+                    {(body as (string | ReactElement)[]).map((elem: string | ReactElement, index: number) => {
+                        if (typeof elem === 'string') {
+                            return (
+                                <FlexItem key={`toast-content-row-${index}`}>
+                                    <p>{elem as string}</p>
+                                </FlexItem>
+                            );
+                        } else {
+                            return <FlexItem key={`toast-content-row-${index}`}>{elem as ReactElement}</FlexItem>;
+                        }
+                    })}
+                </Flex>
+            );
+        }
+
+        throw new Error(`Unexpected type for body parameter: ${body}`);
+    };
+
     return (
         <Alert
             isInline
@@ -29,13 +59,13 @@ export function GetToastContentWithHeaderAndBody(
             onTimeout={() => dismissToast()}
             actionClose={<AlertActionCloseButton onClose={() => dismissToast()} />}
         >
-            <p>{body}</p>
+            {getAlertContent()}
         </Alert>
     );
 }
 
 /**
- * Basically an implementation of toast.promise, but this (a) actually works, and (b) is targeted specifically
+ * Basically an implementation of toast.promise(), but this (a) actually works, and (b) is targeted specifically
  * for refreshing a remote resource.
  *
  * @param refreshFunc the function (usually an SWR hook/trigger/mutator) to perform the refresh. Must be async.
@@ -115,7 +145,7 @@ export async function ToastFetch(
     successToast: (toastId: string) => React.JSX.Element,
     errorToast: (resp: Response, reason: string, toastId: string) => React.JSX.Element,
     endpoint: string,
-    requestOptions: any,
+    requestOptions: RequestInit | undefined,
 ) {
     const toastId: string = toast.loading(loadingMessage);
     await fetch(endpoint, requestOptions).then((res) => {

@@ -8,10 +8,10 @@ import type { SWRSubscription } from 'swr/subscription';
 import useSWRSubscription from 'swr/subscription';
 import { v4 as uuidv4 } from 'uuid';
 
-const api_endpoint: string = JoinPaths(process.env.PUBLIC_PATH || "/", "websocket", "workload");
+const api_endpoint: string = JoinPaths(process.env.PUBLIC_PATH || '/', 'websocket', 'workload');
 
 export const useWorkloads = () => {
-    const{ authenticated } = useContext(AuthorizationContext);
+    const { authenticated } = useContext(AuthorizationContext);
 
     const subscriberSocket = useRef<WebSocket | null>(null);
     useRef<boolean>(false);
@@ -121,19 +121,29 @@ export const useWorkloads = () => {
         }
     };
 
-    const sendJsonMessage = (msg: string) => {
+    /**
+     * Send a message to the remote WebSocket.
+     * @param msg the JSON-encoded message to send.
+     *
+     * If an error occurs, then that error will be converted to a string and returned.
+     *
+     * Returns nothing on success.
+     */
+    const sendJsonMessage = (msg: string): string | void => {
         if (subscriberSocket.current?.readyState !== WebSocket.OPEN) {
             console.error(
                 `Cannot send workload-related message via websocket. Websocket is in state ${subscriberSocket.current?.readyState}`,
             );
 
-            return;
+            return "WebSocket connection with backend is unavailable";
         }
 
         try {
             subscriberSocket.current?.send(msg);
         } catch (err) {
             console.error(`Failed to send workload-related message via websocket. Error: ${err}`);
+
+            return JSON.stringify(err);
         }
     };
 
@@ -148,7 +158,7 @@ export const useWorkloads = () => {
     const subscribe: SWRSubscription<string, Map<string, Workload>, Error> = (key: string, { next }) => {
         // Don't establish any WebSocket connections until we've been authenticated...
         if (!authenticated) {
-          return null;
+            return null;
         }
 
         console.log(`Connecting to Websocket server at '${key}'`);

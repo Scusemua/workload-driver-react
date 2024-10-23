@@ -11,7 +11,7 @@ import {
 export interface WorkloadEventTableProps {
     children?: React.ReactNode;
     workload: Workload | null;
-};
+}
 
 export const WorkloadEventTable: React.FunctionComponent<WorkloadEventTableProps> = (props) => {
     const [page, setPage] = React.useState(1);
@@ -34,7 +34,7 @@ export const WorkloadEventTable: React.FunctionComponent<WorkloadEventTableProps
         console.log(`Timestamp Adjusted: ${timestamp_adjusted}, Processed-At Adjusted: ${processed_at_adjusted}`)
 
         // Note: We're omitting the event's "id" and "error_message" fields here.
-        return [idx, name, session, Date.parse(timestamp_adjusted), Date.parse(processed_at_adjusted), processed_successfully === true ? 1 : 0];
+        return [idx, name, session, Date.parse(timestamp_adjusted), Date.parse(processed_at_adjusted), processed_successfully ? 1 : 0];
     };
 
     // Note that we perform the sort as part of the component's render logic and not in onSort.

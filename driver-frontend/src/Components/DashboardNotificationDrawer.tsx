@@ -1,11 +1,14 @@
-import React, { useEffect } from 'react';
 import {
+    Dropdown,
+    DropdownItem,
+    DropdownList,
     EmptyState,
     EmptyStateBody,
     EmptyStateHeader,
     EmptyStateIcon,
-    NotificationBadge,
-    NotificationBadgeVariant,
+    EmptyStateVariant,
+    MenuToggle,
+    MenuToggleElement,
     NotificationDrawer,
     NotificationDrawerBody,
     NotificationDrawerHeader,
@@ -13,19 +16,11 @@ import {
     NotificationDrawerListItem,
     NotificationDrawerListItemBody,
     NotificationDrawerListItemHeader,
-    EmptyStateVariant,
-    Alert,
-    AlertActionCloseButton,
-    ToolbarItem,
-    Dropdown,
-    DropdownList,
-    DropdownItem,
-    MenuToggle,
-    MenuToggleElement,
 } from '@patternfly/react-core';
-import SearchIcon from '@patternfly/react-icons/dist/js/icons/search-icon';
 import EllipsisVIcon from '@patternfly/react-icons/dist/esm/icons/ellipsis-v-icon';
+import SearchIcon from '@patternfly/react-icons/dist/js/icons/search-icon';
 import { NotificationContext } from '@src/Providers';
+import React from 'react';
 
 export const DashboardNotificationDrawer: React.FunctionComponent = () => {
     const { notifications, setNotifications, toggleExpansion } = React.useContext(NotificationContext);
@@ -58,7 +53,7 @@ export const DashboardNotificationDrawer: React.FunctionComponent = () => {
     };
 
     const getUnreadNotificationsNumber = () =>
-        notifications.filter((notification) => notification.isNotificationRead === false).length;
+        notifications.filter((notification) => !notification.isNotificationRead).length;
 
     const onDropdownToggle = (id: React.Key) => {
         if (id && openDropdownKey !== id) {

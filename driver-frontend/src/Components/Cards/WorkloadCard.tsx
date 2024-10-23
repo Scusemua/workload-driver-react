@@ -70,8 +70,9 @@ import {
     WorkloadPreset,
 } from '@src/Data/Workload';
 import { SessionTabsDataProvider } from '@src/Providers';
+import { GetToastContentWithHeaderAndBody } from '@src/Utils/toast_utils';
 import React, { useEffect } from 'react';
-import { toast } from 'react-hot-toast';
+import { Toast, toast } from 'react-hot-toast';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface WorkloadCardProps {
@@ -131,12 +132,44 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
         );
     };
 
-    const onConfirmRegisterWorkloadFromTemplate = (workloadRegistrationRequest: string) => {
+    const onConfirmRegisterWorkloadFromTemplate = (workloadName: string, workloadRegistrationRequest: string) => {
+        const toastId: string = toast(`Registering template-based workload now.`, {
+            style: { maxWidth: 650 },
+        });
+
         setIsRegisterWorkloadModalOpen(false);
         setIsRegisterNewWorkloadFromTemplateModalOpen(false);
         console.log(`Sending WorkloadRegistrationRequest: ${workloadRegistrationRequest}`);
-        sendJsonMessage(workloadRegistrationRequest);
-        toast('Registered template-based workload.', { style: { maxWidth: 700 } });
+        const errorMessage: string | void = sendJsonMessage(workloadRegistrationRequest);
+
+        if (errorMessage) {
+            toast.custom(
+                (t: Toast) =>
+                    GetToastContentWithHeaderAndBody(
+                        'Workload Registration Failed',
+                        [
+                            `Unable to register template-based workload "${workloadName}".`,
+                            <p key={'toast-content-row-2'}>
+                                <b>{'Reason:'}</b> {errorMessage}
+                            </p>,
+                        ],
+                        'danger',
+                        () => toast.dismiss(t.id),
+                    ),
+                { id: toastId },
+            );
+        } else {
+            toast.custom(
+                (t: Toast) =>
+                    GetToastContentWithHeaderAndBody(
+                        'Workload Registered Successfully',
+                        `Successfully registered template-based workload "${workloadName}"`,
+                        'success',
+                        () => toast.dismiss(t.id),
+                    ),
+                { id: toastId },
+            );
+        }
     };
 
     const onRegisterWorkloadFromTemplateClicked = () => {
@@ -150,9 +183,11 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
         debugLoggingEnabled: boolean,
         timescaleAdjustmentFactor: number,
     ) => {
-        toast('Registering preset-based workload "' + workloadName + '" now.', { style: { maxWidth: 650 } });
+        const toastId: string = toast(`Registering preset-based workload ${workloadName} now.`, {
+            style: { maxWidth: 650 },
+        });
 
-        console.log("New workload '%s' registered by user with preset:\n%s", workloadName, selectedPreset.name);
+        console.log(`New workload "${workloadName}" registered by user with preset "${selectedPreset.name}"`);
         setIsRegisterWorkloadModalOpen(false);
         setIsRegisterNewWorkloadFromTemplateModalOpen(false);
 
@@ -162,7 +197,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
         }
 
         const messageId: string = uuidv4();
-        sendJsonMessage(
+        const errorMessage: string | void = sendJsonMessage(
             JSON.stringify({
                 op: 'register_workload',
                 msg_id: messageId,
@@ -177,6 +212,35 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                 },
             }),
         );
+
+        if (errorMessage) {
+            toast.custom(
+                (t: Toast) =>
+                    GetToastContentWithHeaderAndBody(
+                        'Workload Registration Failed',
+                        [
+                            `Unable to register workload "${workloadName}" with preset "${selectedPreset.name}" at this time.`,
+                            <p key={'toast-content-row-2'}>
+                                <b>{'Reason:'}</b> {errorMessage}
+                            </p>,
+                        ],
+                        'danger',
+                        () => toast.dismiss(t.id),
+                    ),
+                { id: toastId },
+            );
+        } else {
+            toast.custom(
+                (t: Toast) =>
+                    GetToastContentWithHeaderAndBody(
+                        `Workload Registered Successfully`,
+                        `Successfully registered workload "${workloadName}" with preset "${selectedPreset.name}"`,
+                        'success',
+                        () => toast.dismiss(t.id),
+                    ),
+                { id: toastId },
+            );
+        }
     };
 
     const onCancelStartWorkload = () => {

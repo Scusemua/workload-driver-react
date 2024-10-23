@@ -112,6 +112,7 @@ module.exports = (development_environment) => {
       filename: '[name].bundle.js',
       path: path.resolve(__dirname, 'dist'),
       publicPath: 'auto',
+      clean: true, // Automatically clean the output directory before each build
     },
     plugins: [
       new HtmlWebpackPlugin({
@@ -142,6 +143,10 @@ module.exports = (development_environment) => {
       cacheWithContext: false,
     },
     optimization: {
+      sideEffects: true,
+      splitChunks: {
+        chunks: 'all',
+      },
       usedExports: true,
     },
   };

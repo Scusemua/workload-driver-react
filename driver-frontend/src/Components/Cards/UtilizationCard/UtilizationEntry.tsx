@@ -1,7 +1,6 @@
 import { Flex, FlexItem } from '@patternfly/react-core';
-import { CpuIcon } from '@patternfly/react-icons';
-import React from 'react';
 import { UtilizationDonutChart } from '@src/Components';
+import React from 'react';
 
 export interface UtilizationEntryProps {
     chartWidth?: number;
@@ -17,9 +16,7 @@ export const UtilizationEntry: React.FunctionComponent<UtilizationEntryProps> = 
     return (
         <Flex justifyContent={{ default: 'justifyContentCenter' }}>
             <Flex direction={{ default: 'row' }} spaceItems={{ default: 'spaceItemsSm' }}>
-                <FlexItem>
-                  {props.icon}
-                </FlexItem>
+                <FlexItem>{props.icon}</FlexItem>
                 <FlexItem>
                     <b>
                         {props.resourceDisplayName} {props.resourceUnit}

@@ -61,7 +61,7 @@ export interface NewWorkloadFromTemplateModalProps {
     children?: React.ReactNode;
     isOpen: boolean;
     onClose: () => void;
-    onConfirm: (workloadRegistrationRequestJson: string) => void;
+    onConfirm: (workloadName: string, workloadRegistrationRequestJson: string) => void;
 }
 
 // Clamp a value between two extremes.
@@ -236,7 +236,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
     const onSubmit = (data: { workloadTitle: string }) => {
         const workloadRegistrationRequest: string = parseData(data);
         console.log(`User submitted workload template data: ${JSON.stringify(data)}`);
-        props.onConfirm(workloadRegistrationRequest);
+        props.onConfirm(data.workloadTitle, workloadRegistrationRequest);
     };
 
     const getWorkloadNameValidationState = () => {
