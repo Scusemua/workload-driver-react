@@ -42,7 +42,7 @@ func (ticker *Ticker) onTrigger(t time.Time) {
 }
 
 func (ticker *Ticker) String() string {
-	return fmt.Sprintf("Ticker[id: %s, doneIsNil: %v, step: %v, lastTick: %v, ticksHandled: %d, numOnTriggerCalls: %d, numDefault: %d]", ticker._id, (ticker.done == nil), ticker.step, ticker.lastTick, ticker.ticksHandled.Load(), ticker.numOnTriggerCalls.Load(), ticker.numDefault.Load())
+	return fmt.Sprintf("Ticker[id: %s, doneIsNil: %v, step: %v, lastTick: %v, ticksHandled: %d, numOnTriggerCalls: %d, numDefault: %d]", ticker._id, ticker.done == nil, ticker.step, ticker.lastTick, ticker.ticksHandled.Load(), ticker.numOnTriggerCalls.Load(), ticker.numDefault.Load())
 }
 
 func (ticker *Ticker) Done() {

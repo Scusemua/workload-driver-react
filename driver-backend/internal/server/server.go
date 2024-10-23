@@ -145,7 +145,12 @@ func NewServer(opts *domain.Configuration) domain.Server {
 
 	expectedOriginAddresses := strings.Split(opts.ExpectedOriginAddresses, ",")
 	for _, addr := range expectedOriginAddresses {
-		expectedOrigin := fmt.Sprintf("%s:%d", addr, s.expectedOriginPort)
+		var expectedOrigin string
+		if s.expectedOriginPort > 0 {
+			expectedOrigin = fmt.Sprintf("%s:%d", addr, s.expectedOriginPort)
+		} else {
+			expectedOrigin = addr
+		}
 		s.logger.Debug("Loaded expected origin from configuration.", zap.String("origin", expectedOrigin))
 		s.expectedOriginAddresses = append(s.expectedOriginAddresses, expectedOrigin)
 	}
@@ -430,11 +435,11 @@ func (s *serverImpl) setupRoutes() error {
 	////////////////////////
 	// Websocket Handlers //
 	////////////////////////
-	webSocketGroup := s.app.Group(domain.WebsocketGroupEndpoint)
+	webSocketGroup := s.app.Group(s.getPath(domain.WebsocketGroupEndpoint))
 	{
-		webSocketGroup.GET(s.getPath(domain.WorkloadEndpoint), s.workloadManager.GetWorkloadWebsocketHandler())
-		webSocketGroup.GET(s.getPath(domain.LogsEndpoint), s.serveLogWebsocket)
-		webSocketGroup.GET(s.getPath(domain.GeneralWebsocketEndpoint), s.serveGeneralWebsocket)
+		webSocketGroup.GET(domain.WorkloadEndpoint, s.workloadManager.GetWorkloadWebsocketHandler())
+		webSocketGroup.GET(domain.LogsEndpoint, s.serveLogWebsocket)
+		webSocketGroup.GET(domain.GeneralWebsocketEndpoint, s.serveGeneralWebsocket)
 	}
 
 	// TODO: Getting nil pointer exception because the callback occurs in the constructor, so s.gatewayRpcClient is still nil.
@@ -659,13 +664,14 @@ func (s *serverImpl) serveGeneralWebsocket(c *gin.Context) {
 
 		s.logger.Error("Incoming non-specific WebSocket connection had unexpected origin. Rejecting.",
 			zap.String("request-origin", c.Request.Header.Get("Origin")),
-			zap.String("request-host", c.Request.Host), zap.String("request-uri", c.Request.RequestURI))
+			zap.String("request-host", c.Request.Host), zap.String("request-uri", c.Request.RequestURI),
+			zap.Strings("accepted-origins", s.expectedOriginAddresses))
 		return false
 	}
 
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
-		log.Print("upgrade:", err)
+		s.logger.Error("Failed to upgrade WebSocket connection.", zap.Error(err))
 		return
 	}
 	defer func(conn *websocket.Conn) {

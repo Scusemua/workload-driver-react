@@ -37,7 +37,7 @@ func (h *LogHttpHandler) HandleRequest(c *gin.Context) {
 	container := c.Query("container")
 	follow := c.Query("follow")
 
-	var doFollow bool = false
+	var doFollow = false
 	if follow == "true" {
 		doFollow = true
 	}
@@ -113,8 +113,8 @@ func (h *LogHttpHandler) streamLogs(c *gin.Context, resp *http.Response, pod str
 		}
 	}()
 
-	var messagesSent int = 0
-	var printEvery int = 100
+	var messagesSent = 0
+	var printEvery = 100
 	c.Stream(func(w io.Writer) bool {
 		if msg, ok := <-streamChan; ok {
 			_, err := w.Write(msg)
