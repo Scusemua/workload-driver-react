@@ -323,33 +323,59 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
     };
 
     const onStartWorkloadClicked = (workload: Workload) => {
-        toast(
-            () => (
-                <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
-                    <FlexItem>
-                        <b>Starting workload {workload.name}</b>
-                    </FlexItem>
-                    <FlexItem>
-                        <Text component={TextVariants.small}>
-                            <b>Workload ID: </b>
-                            {workload.id}
-                        </Text>
-                    </FlexItem>
-                </Flex>
+        const toastId: string = toast.custom((t: Toast) =>
+            GetToastContentWithHeaderAndBody(
+                `Starting workload ${workload.name}`,
+                [
+                    <Text key={`toast-content-start-workload-${workload.id}`} component={TextVariants.small}>
+                        <b>Workload ID: </b>
+                        {workload.id}
+                    </Text>,
+                ],
+                'info',
+                () => toast.dismiss(t.id),
             ),
-            { style: { maxWidth: 650 } },
         );
 
         console.log(`Starting workload '${workload.name}' (ID=${workload.id})`);
 
         const messageId: string = uuidv4();
-        sendJsonMessage(
+        const errorMessage: string | void = sendJsonMessage(
             JSON.stringify({
                 op: 'start_workload',
                 msg_id: messageId,
                 workload_id: workload.id,
             }),
         );
+
+        if (errorMessage) {
+            toast.custom(
+                (t: Toast) =>
+                    GetToastContentWithHeaderAndBody(
+                        'Failed to Start Workload',
+                        [
+                            `Workload "${workload.name}" (ID="${workload.id}") could not be started.`,
+                            <p key={'toast-content-row-2'}>
+                                <b>{'Reason:'}</b> {errorMessage}
+                            </p>,
+                        ],
+                        'danger',
+                        () => toast.dismiss(t.id),
+                    ),
+                { id: toastId },
+            );
+        } else {
+            toast.custom(
+                (t: Toast) =>
+                    GetToastContentWithHeaderAndBody(
+                        'Workload Started',
+                        `Workload "${workload.name}" (ID="${workload.id}") has been started successfully.`,
+                        'success',
+                        () => toast.dismiss(t.id),
+                    ),
+                { id: toastId },
+            );
+        }
     };
 
     const onPauseWorkloadClicked = (workload: Workload) => {
@@ -357,18 +383,58 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
     };
 
     const onStopWorkloadClicked = (workload: Workload) => {
-        toast(`Stopping workload ${workload.name} (ID = ${workload.id}).`, { style: { maxWidth: 650 } });
+        const toastId: string = toast(
+            (t: Toast) =>
+                GetToastContentWithHeaderAndBody(
+                    `Stopping workload ${workload.name} (ID = ${workload.id}).`,
+                    [],
+                    'info',
+                    () => toast.dismiss(t.id),
+                ),
+            {
+                style: { maxWidth: 650 },
+            },
+        );
 
         console.log("Stopping workload '%s' (ID=%s)", workload.name, workload.id);
 
         const messageId: string = uuidv4();
-        sendJsonMessage(
+        const errorMessage: string | void = sendJsonMessage(
             JSON.stringify({
                 op: 'stop_workload',
                 msg_id: messageId,
                 workload_id: workload.id,
             }),
         );
+
+        if (errorMessage) {
+            toast.custom(
+                (t: Toast) =>
+                    GetToastContentWithHeaderAndBody(
+                        'Failed to Stop Workload',
+                        [
+                            `Workload "${workload.name}" (ID="${workload.id}") could not be stopped.`,
+                            <p key={'toast-content-row-2'}>
+                                <b>{'Reason:'}</b> {errorMessage}
+                            </p>,
+                        ],
+                        'danger',
+                        () => toast.dismiss(t.id),
+                    ),
+                { id: toastId },
+            );
+        } else {
+            toast.custom(
+                (t: Toast) =>
+                    GetToastContentWithHeaderAndBody(
+                        'Workload Stopped',
+                        `Workload "${workload.name}" (ID="${workload.id}") has been stopped successfully.`,
+                        'success',
+                        () => toast.dismiss(t.id),
+                    ),
+                { id: toastId },
+            );
+        }
     };
 
     const cardHeaderActions = (
