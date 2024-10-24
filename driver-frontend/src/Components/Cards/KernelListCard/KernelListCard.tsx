@@ -43,11 +43,11 @@ import { useKernels } from '@Providers/KernelProvider';
 import { KernelDataList } from '@src/Components';
 import { useNodes } from '@src/Providers';
 import { GetPathForFetch, JoinPaths } from '@src/Utils/path_utils';
-import { GetToastContentWithHeaderAndBody, ToastRefresh } from '@src/Utils/toast_utils';
+import { DefaultDismiss, GetToastContentWithHeaderAndBody, ToastPromise, ToastRefresh } from '@src/Utils/toast_utils';
 import { numberArrayFromRange } from '@src/Utils/utils';
 import React, { useCallback, useEffect, useReducer, useRef } from 'react';
 
-import toast from 'react-hot-toast';
+import toast, { Toast } from 'react-hot-toast';
 
 export interface KernelListProps {
     openMigrationModal: (kernel: DistributedJupyterKernel, replica: JupyterKernelReplica) => void;
@@ -491,27 +491,62 @@ export const KernelListCard: React.FunctionComponent<KernelListProps> = (props: 
             return await response.json();
         }
 
-        const sessionModel: ISessionModel = await toast.promise(
-            start_session(),
-            {
-                loading: <b>Creating new Jupyter kernel now...</b>,
-                success: () => {
-                    return (
-                        <b>{`Successfully launched new Jupyter kernel in ${RoundToThreeDecimalPlaces((performance.now() - startTime) / 1000.0)} seconds.`}</b>
-                    );
-                },
-                error: (reason: Error) =>
-                    GetToastContentWithHeaderAndBody(
-                        'Failed to start new Jupyter Session and Jupyter Kernel.',
-                        reason.message,
-                        'danger',
-                        () => {},
-                    ),
+        const sessionModel: ISessionModel | null = await ToastPromise<ISessionModel>(
+            start_session,
+            (t: Toast) =>
+                GetToastContentWithHeaderAndBody(
+                    'Creating New Jupyter Kernel',
+                    undefined,
+                    'info',
+                    DefaultDismiss(t.id),
+                    false,
+                    <SpinnerIcon className={'loading-icon-spin-pulse'} />,
+                ),
+            (t: Toast, _: ISessionModel, latencyMilliseconds: number) => {
+                const latencySeconds: number = RoundToThreeDecimalPlaces(latencyMilliseconds / 1000.0);
+                return GetToastContentWithHeaderAndBody(
+                    'Successfully Created New Jupyter Kernel',
+                    `Successfully created and launched new Jupyter kernel in ${latencySeconds} seconds.`,
+                    'success',
+                    DefaultDismiss(t.id),
+                    8500,
+                );
             },
-            { style: { maxWidth: 650 } },
+            (t: Toast, e: Error) =>
+                GetToastContentWithHeaderAndBody(
+                    'Failed to start new Jupyter Session and Jupyter Kernel.',
+                    e.message,
+                    'danger',
+                    DefaultDismiss(t.id),
+                    15000,
+                ),
         );
 
-        refreshNodes();
+        // const sessionModel: ISessionModel = await toast.promise(
+        //     start_session(),
+        //     {
+        //         loading: <b>Creating new Jupyter kernel now...</b>,
+        //         success: () => {
+        //             return (
+        //                 <b>{`Successfully launched new Jupyter kernel in ${RoundToThreeDecimalPlaces((performance.now() - startTime) / 1000.0)} seconds.`}</b>
+        //             );
+        //         },
+        //         error: (reason: Error) =>
+        //             GetToastContentWithHeaderAndBody(
+        //                 'Failed to start new Jupyter Session and Jupyter Kernel.',
+        //                 reason.message,
+        //                 'danger',
+        //                 () => {},
+        //             ),
+        //     },
+        //     { style: { maxWidth: 650 } },
+        // );
+
+        if (!sessionModel) {
+            return;
+        }
+
+        await refreshNodes(false);
 
         const session: ISessionConnection = sessionManager.current.connectTo({
             model: sessionModel,
@@ -523,11 +558,19 @@ export const KernelListCard: React.FunctionComponent<KernelListProps> = (props: 
         });
 
         console.log(
-            `Successfully created new Jupyter Session. ClientID=${sessionId}, SessionID=${session.id}, SessionName=${session.name}, SessionKernelClientID=${session.kernel?.clientId}, SessionKernelName=${session.kernel?.name}, SessionKernelID=${session.kernel?.id}.`,
+            `Successfully created new Jupyter Session. ClientID=${sessionId}, SessionID=${session.id}, SessionName=${session.name},
+            SessionKernelClientID=${session.kernel?.clientId}, SessionKernelName=${session.kernel?.name}, SessionKernelID=${session.kernel?.id}.`,
         );
 
         if (session.kernel === null) {
-            toast.error(`Kernel for newly-created Session ${session.id} is null...`);
+            toast.custom((t: Toast) =>
+                GetToastContentWithHeaderAndBody(
+                    `Kernel for newly-created Session ${session.id} is null...`,
+                    null,
+                    'danger',
+                    DefaultDismiss(t.id),
+                ),
+            );
             return;
         }
         const kernel: IKernelConnection = session.kernel!;
@@ -646,7 +689,7 @@ export const KernelListCard: React.FunctionComponent<KernelListProps> = (props: 
             return;
         } else if (!sessionManager.current.isReady) {
             console.warn("Session Manager isn't ready yet!");
-            toast.error("Session Manager isn't ready yet.");
+            toast.error("Cannot create kernel: Session Manager isn't ready yet. Please try again in a few seconds.", { style: { maxWidth: 750}});
             return;
         }
 

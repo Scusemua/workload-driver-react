@@ -1,8 +1,9 @@
 import { RoundToThreeDecimalPlaces } from '@Components/Modals';
 import { Alert, AlertActionCloseButton, Button, Flex, FlexItem } from '@patternfly/react-core';
 import { SpinnerIcon } from '@patternfly/react-icons';
-import React, { ReactElement } from 'react';
+import React, { ReactElement, ReactNode } from 'react';
 import { Toast, toast } from 'react-hot-toast';
+import { DefaultToastOptions, Renderable } from 'react-hot-toast/src/core/types';
 
 /**
  * Return a <div> containing a <Flex> to be used as a toast notification.
@@ -11,13 +12,15 @@ import { Toast, toast } from 'react-hot-toast';
  * @param variant The variant of alert to display
  * @param dismissToast Called when the toast should be dismissed.
  * @param timeout optional timeout for the alert
+ * @param customIcon custom icon to display, optional
  */
 export function GetToastContentWithHeaderAndBody(
     header: string,
-    body: string | ReactElement | (string | ReactElement)[] | undefined,
+    body: string | ReactElement | (string | ReactElement)[] | undefined | null,
     variant: 'danger' | 'warning' | 'success' | 'info' | 'custom',
     dismissToast: () => void,
-    timeout: number | undefined = undefined,
+    timeout: number | boolean = false,
+    customIcon?: ReactNode,
 ): React.JSX.Element {
     const getAlertContent = () => {
         if (!body) {
@@ -56,12 +59,64 @@ export function GetToastContentWithHeaderAndBody(
             title={header}
             timeoutAnimation={timeout ? 30000 : undefined}
             timeout={timeout}
-            onTimeout={() => dismissToast()}
+            onTimeout={() => {
+                console.log('Alert has timed-out');
+                dismissToast();
+            }}
+            customIcon={customIcon}
             actionClose={<AlertActionCloseButton onClose={() => dismissToast()} />}
         >
             {getAlertContent()}
         </Alert>
     );
+}
+
+/**
+ * Simple, default dismiss function for dismissing a toast. Can be used with the other helpers, such
+ * as GetToastContentWithHeaderAndBody.
+ *
+ * DefaultDismiss returns a function/callable that can be used to dismiss the specified toast.
+ *
+ * @param toastId the ID of the toast that is to be dismissed when the function is called
+ */
+export function DefaultDismiss(toastId?: string): () => void {
+    return () => {
+        if (toastId) {
+            toast.dismiss(toastId);
+        }
+    };
+}
+
+export async function ToastPromise<T>(
+    promise: () => Promise<T>,
+    loading: (t: Toast) => Renderable,
+    success: (t: Toast, result: T, latencyMilliseconds: number) => ReactElement | string | null,
+    error: (t: Toast, e: any) => ReactElement | string | null,
+    opts?: DefaultToastOptions,
+): Promise<T | null> {
+    const toastId: string = toast.custom((t: Toast) => loading(t), { ...opts, ...opts?.loading });
+    const start: number = performance.now()
+
+    return await promise()
+        .then((result: T) => {
+            const latencyMilliseconds: number = performance.now() - start;
+            toast.custom((t: Toast) => success(t, result, latencyMilliseconds), {
+                id: toastId,
+                ...opts,
+                ...opts?.success,
+            });
+
+            return result;
+        })
+        .catch((e) => {
+            toast.custom((t: Toast) => error(t, e), {
+                id: toastId,
+                ...opts,
+                ...opts?.success,
+            });
+
+            return null;
+        });
 }
 
 /**
@@ -74,8 +129,8 @@ export function GetToastContentWithHeaderAndBody(
  * @param successMessage message to display in toast notification upon successful refresh. this will have " in X milliseconds"
  * appended to the end of it before being displayed.
  */
-export function ToastRefresh(
-    refreshFunc: () => Promise<any>,
+export function ToastRefresh<T>(
+    refreshFunc: () => Promise<T>,
     loadingMessage: string,
     errorMessage: string,
     successMessage: string,

@@ -51,7 +51,9 @@ const fetcher = async (input: RequestInfo | URL) => {
     return await response.json();
 };
 
-function getManualRefreshTrigger(trigger: TriggerWithoutArgs<any, any, string, never>): (showToast?: boolean) => void {
+function getManualRefreshTrigger(
+    trigger: TriggerWithoutArgs<any, any, string, never>,
+): (showToast?: boolean) => Promise<void> {
     return async (showToast: boolean = true) => {
         console.log('Manually refreshing nodes now.');
 

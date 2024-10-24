@@ -37,6 +37,10 @@ import (
 // RegistrationCompleteCallback will be re-triggered.
 type RegistrationCompleteCallback func(nodeType domain.NodeType, rpcHandler *ClusterDashboardHandler)
 
+const (
+	TenMilliseconds = time.Millisecond * 10000
+)
+
 var (
 	ErrFailedToConnect           = errors.New("a connection to the Gateway could not be established within the configured timeout")
 	ErrProvisionerNotInitialized = errors.New("provisioner is not initialized")
@@ -280,7 +284,13 @@ func (h *ClusterDashboardHandler) setupRpcResources(gatewayAddress string) error
 		if err != nil {
 			h.sugaredLogger.Warnf("[gid=%d] Failed to connect to provisioner at %s on attempt #%d: %v. Time elapsed: %v.", gid, gatewayAddress, numAttempts, err, time.Since(start))
 			numAttempts += 1
-			time.Sleep(time.Second * 3)
+			interval := time.Duration(1500*numAttempts) * time.Millisecond
+
+			if interval > TenMilliseconds {
+				interval = TenMilliseconds
+			}
+
+			time.Sleep(interval)
 		} else {
 			connectedToGateway = true
 			h.logger.Debug("Successfully connected to Gateway.", zap.String("gateway-address", gatewayAddress), zap.Duration("time-elapsed", time.Since(start)), zap.Int64("gid", gid))

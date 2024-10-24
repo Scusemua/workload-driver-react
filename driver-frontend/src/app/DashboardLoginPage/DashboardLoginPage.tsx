@@ -41,11 +41,21 @@ export const DashboardLoginPage: React.FunctionComponent = () => {
     const onLoginButtonClick = async (event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
         event.preventDefault();
 
+        if (username === '') {
+            setIsValidUsername(false);
+            setShowHelperText(true);
+            return;
+        } else if (password === '') {
+            setIsValidPassword(false);
+            setShowHelperText(true);
+            return;
+        }
+
         if (mutateToken) {
             await mutateToken(username, password).catch((err: Error) => {
                 console.error(`Failed to login: ${err}`);
 
-                setIsValidPassword(false);
+                setIsValidUsername(false);
                 setIsValidPassword(false);
                 setShowHelperText(true);
             });
@@ -81,7 +91,7 @@ export const DashboardLoginPage: React.FunctionComponent = () => {
             onChangePassword={handlePasswordChange}
             isShowPasswordEnabled
             isValidPassword={isValidPassword}
-            isLoginButtonDisabled={username === '' || password === ''}
+            // isLoginButtonDisabled={username === '' || password === ''}
             onLoginButtonClick={onLoginButtonClick}
             loginButtonLabel="Log in"
         />
