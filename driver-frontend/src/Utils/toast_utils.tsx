@@ -1,12 +1,12 @@
 import { RoundToThreeDecimalPlaces } from '@Components/Modals';
-import { Alert, AlertActionCloseButton, Button, Flex, FlexItem } from '@patternfly/react-core';
+import { Alert, AlertActionCloseButton, Flex, FlexItem } from '@patternfly/react-core';
 import { SpinnerIcon } from '@patternfly/react-icons';
 import React, { ReactElement, ReactNode } from 'react';
 import { Toast, toast } from 'react-hot-toast';
 import { DefaultToastOptions, Renderable } from 'react-hot-toast/src/core/types';
 
 export function GetHttpErrorMessage(res: Response, reason: string | any): string {
-  return `HTTP ${res.status} - ${res.statusText}: ${JSON.stringify(reason)}`
+    return `HTTP ${res.status} - ${res.statusText}: ${JSON.stringify(reason)}`;
 }
 
 /**
@@ -19,60 +19,60 @@ export function GetHttpErrorMessage(res: Response, reason: string | any): string
  * @param customIcon custom icon to display, optional
  */
 export function GetToastContentWithHeaderAndBody(
-  header: string,
-  body: string | ReactElement | (string | ReactElement)[] | undefined | null,
-  variant: 'danger' | 'warning' | 'success' | 'info' | 'custom',
-  dismissToast: () => void,
-  timeout: number | boolean = false,
-  customIcon?: ReactNode
+    header: string,
+    body: string | ReactElement | (string | ReactElement)[] | undefined | null,
+    variant: 'danger' | 'warning' | 'success' | 'info' | 'custom',
+    dismissToast: () => void,
+    timeout: number | boolean = false,
+    customIcon?: ReactNode,
 ): ReactElement {
-  const getAlertContent = () => {
-    if (!body) {
-      return <React.Fragment />;
-    }
+    const getAlertContent = () => {
+        if (!body) {
+            return <React.Fragment />;
+        }
 
-    if (typeof body === 'string') {
-      return <p>{body}</p>;
-    }
+        if (typeof body === 'string') {
+            return <p>{body}</p>;
+        }
 
-    if (Array.isArray(body)) {
-      return (
-        <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsXs' }}>
-          {(body as (string | ReactElement)[]).map((elem: string | ReactElement, index: number) => {
-            if (typeof elem === 'string') {
-              return (
-                <FlexItem key={`toast-content-row-${index}`}>
-                  <p>{elem as string}</p>
-                </FlexItem>
-              );
-            } else {
-              return <FlexItem key={`toast-content-row-${index}`}>{elem as ReactElement}</FlexItem>;
-            }
-          })}
-        </Flex>
-      );
-    }
+        if (Array.isArray(body)) {
+            return (
+                <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsXs' }}>
+                    {(body as (string | ReactElement)[]).map((elem: string | ReactElement, index: number) => {
+                        if (typeof elem === 'string') {
+                            return (
+                                <FlexItem key={`toast-content-row-${index}`}>
+                                    <p>{elem as string}</p>
+                                </FlexItem>
+                            );
+                        } else {
+                            return <FlexItem key={`toast-content-row-${index}`}>{elem as ReactElement}</FlexItem>;
+                        }
+                    })}
+                </Flex>
+            );
+        }
 
-    throw new Error(`Unexpected type for body parameter: ${body}`);
-  };
+        throw new Error(`Unexpected type for body parameter: ${body}`);
+    };
 
-  return (
-    <Alert
-      isInline
-      variant={variant}
-      title={header}
-      timeoutAnimation={timeout ? 30000 : undefined}
-      timeout={timeout}
-      onTimeout={() => {
-        console.log('Alert has timed-out');
-        dismissToast();
-      }}
-      customIcon={customIcon}
-      actionClose={<AlertActionCloseButton onClose={() => dismissToast()} />}
-    >
-      {getAlertContent()}
-    </Alert>
-  );
+    return (
+        <Alert
+            isInline
+            variant={variant}
+            title={header}
+            timeoutAnimation={timeout ? 30000 : undefined}
+            timeout={timeout}
+            onTimeout={() => {
+                console.log('Alert has timed-out');
+                dismissToast();
+            }}
+            customIcon={customIcon}
+            actionClose={<AlertActionCloseButton onClose={() => dismissToast()} />}
+        >
+            {getAlertContent()}
+        </Alert>
+    );
 }
 
 /**
@@ -84,43 +84,43 @@ export function GetToastContentWithHeaderAndBody(
  * @param toastId the ID of the toast that is to be dismissed when the function is called
  */
 export function DefaultDismiss(toastId?: string): () => void {
-  return () => {
-    if (toastId) {
-      toast.dismiss(toastId);
-    }
-  };
+    return () => {
+        if (toastId) {
+            toast.dismiss(toastId);
+        }
+    };
 }
 
 export async function ToastPromise<T>(
-  promise: () => Promise<T>,
-  loading: (t: Toast) => Renderable,
-  success: (t: Toast, result: T, latencyMilliseconds: number) => ReactElement | string | null,
-  error: (t: Toast, e: any) => ReactElement | string | null,
-  opts?: DefaultToastOptions
+    promise: () => Promise<T>,
+    loading: (t: Toast) => Renderable,
+    success: (t: Toast, result: T, latencyMilliseconds: number) => ReactElement | string | null,
+    error: (t: Toast, e: any) => ReactElement | string | null,
+    opts?: DefaultToastOptions,
 ): Promise<T | null> {
-  const toastId: string = toast.custom((t: Toast) => loading(t), { ...opts, ...opts?.loading });
-  const start: number = performance.now();
+    const toastId: string = toast.custom((t: Toast) => loading(t), { ...opts, ...opts?.loading });
+    const start: number = performance.now();
 
-  return await promise()
-    .then((result: T) => {
-      const latencyMilliseconds: number = performance.now() - start;
-      toast.custom((t: Toast) => success(t, result, latencyMilliseconds), {
-        id: toastId,
-        ...opts,
-        ...opts?.success
-      });
+    return await promise()
+        .then((result: T) => {
+            const latencyMilliseconds: number = performance.now() - start;
+            toast.custom((t: Toast) => success(t, result, latencyMilliseconds), {
+                id: toastId,
+                ...opts,
+                ...opts?.success,
+            });
 
-      return result;
-    })
-    .catch((e) => {
-      toast.custom((t: Toast) => error(t, e), {
-        id: toastId,
-        ...opts,
-        ...opts?.success
-      });
+            return result;
+        })
+        .catch((e) => {
+            toast.custom((t: Toast) => error(t, e), {
+                id: toastId,
+                ...opts,
+                ...opts?.success,
+            });
 
-      return null;
-    });
+            return null;
+        });
 }
 
 /**
@@ -134,118 +134,91 @@ export async function ToastPromise<T>(
  * appended to the end of it before being displayed.
  */
 export function ToastRefresh<T>(
-  refreshFunc: () => Promise<T>,
-  loadingMessage: string,
-  errorMessage: string,
-  successMessage: string
+    refreshFunc: () => Promise<T>,
+    loadingMessage: string,
+    errorMessage: string,
+    successMessage: string,
 ) {
-  const toastId: string = toast.custom((t: Toast) => {
-    return (
-      <Alert
-        isInline
-        variant={'info'}
-        title={loadingMessage}
-        onTimeout={() => toast.dismiss(t.id)}
-        customIcon={<SpinnerIcon className={'loading-icon-spin-pulse'} />}
-        actionClose={<AlertActionCloseButton onClose={() => toast.dismiss(t.id)} />}
-      />
-    );
-  });
-
-  const start: number = performance.now();
-  refreshFunc()
-    .then(() => {
-      const latencyMs: number = RoundToThreeDecimalPlaces(performance.now() - start);
-      toast.custom(
-        (t) => {
-          return (
+    const toastId: string = toast.custom((t: Toast) => {
+        return (
             <Alert
-              isInline
-              variant={'success'}
-              title={successMessage + ` in ${latencyMs} milliseconds.`}
-              onTimeout={() => toast.dismiss(t.id)}
-              timeout={10000}
-              timeoutAnimation={20000}
-              actionClose={<AlertActionCloseButton onClose={() => toast.dismiss(t.id)} />}
+                isInline
+                variant={'info'}
+                title={loadingMessage}
+                onTimeout={() => toast.dismiss(t.id)}
+                customIcon={<SpinnerIcon className={'loading-icon-spin-pulse'} />}
+                actionClose={<AlertActionCloseButton onClose={() => toast.dismiss(t.id)} />}
             />
-          );
-        },
-        {
-          id: toastId
-        }
-      );
-    })
-    .catch((err: Error) => {
-      console.error(`ToastRefresh ERROR: ${err}`);
-      const latencyMs: number = RoundToThreeDecimalPlaces(performance.now() - start);
-      toast.custom(
-        (t) => {
-          return (
-            <Alert
-              isInline
-              variant={'danger'}
-              title={errorMessage + ` after ${latencyMs} milliseconds`}
-              onTimeout={() => toast.dismiss(t.id)}
-              timeout={30000}
-              timeoutAnimation={60000}
-              actionClose={<AlertActionCloseButton onClose={() => toast.dismiss(t.id)} />}
-            >
-              {`${err.name}: ${err.message}`}
-            </Alert>
-          );
-        },
-        { id: toastId }
-      );
+        );
     });
+
+    const start: number = performance.now();
+    refreshFunc()
+        .then(() => {
+            const latencyMs: number = RoundToThreeDecimalPlaces(performance.now() - start);
+            toast.custom(
+                (t) => {
+                    return (
+                        <Alert
+                            isInline
+                            variant={'success'}
+                            title={successMessage + ` in ${latencyMs} milliseconds.`}
+                            onTimeout={() => toast.dismiss(t.id)}
+                            timeout={10000}
+                            timeoutAnimation={20000}
+                            actionClose={<AlertActionCloseButton onClose={() => toast.dismiss(t.id)} />}
+                        />
+                    );
+                },
+                {
+                    id: toastId,
+                },
+            );
+        })
+        .catch((err: Error) => {
+            console.error(`ToastRefresh ERROR: ${err}`);
+            const latencyMs: number = RoundToThreeDecimalPlaces(performance.now() - start);
+            toast.custom(
+                (t) => {
+                    return (
+                        <Alert
+                            isInline
+                            variant={'danger'}
+                            title={errorMessage + ` after ${latencyMs} milliseconds`}
+                            onTimeout={() => toast.dismiss(t.id)}
+                            timeout={30000}
+                            timeoutAnimation={60000}
+                            actionClose={<AlertActionCloseButton onClose={() => toast.dismiss(t.id)} />}
+                        >
+                            {`${err.name}: ${err.message}`}
+                        </Alert>
+                    );
+                },
+                { id: toastId },
+            );
+        });
 }
 
 export async function ToastFetch(
-  loadingMessage: string,
-  successToast: (toastId: string) => ReactElement,
-  errorToast: (resp: Response, reason: string, toastId: string) => ReactElement,
-  endpoint: string,
-  requestOptions: RequestInit | undefined
+    loadingMessage: string,
+    successToast: (toastId: string) => ReactElement,
+    errorToast: (resp: Response, reason: string, toastId: string) => ReactElement,
+    endpoint: string,
+    requestOptions: RequestInit | undefined,
 ) {
-  const toastId: string = toast.loading(loadingMessage);
-  await fetch(endpoint, requestOptions).then((res) => {
-    if (!res.ok || res.status >= 300) {
-      res.json().then((reason) => {
-        console.error(`HTTP ${res.status} - ${res.statusText}: ${JSON.stringify(reason)}`);
-        toast.error(errorToast(res, reason, toastId), {
-          id: toastId,
-          duration: 10000,
-          style: { maxWidth: 600 }
-        });
-      });
-    } else {
-      toast.success(
-        () => (
-          <Flex
-            direction={{ default: 'column' }}
-            spaceItems={{ default: 'spaceItemsNone' }}
-            align={{ default: 'alignRight' }}
-            alignContent={{ default: 'alignContentFlexEnd' }}
-            justifyContent={{ default: 'justifyContentFlexEnd' }}
-          >
-            <FlexItem>{successToast(toastId)}</FlexItem>
-            <FlexItem
-              spacer={{ default: 'spacerNone' }}
-              align={{ default: 'alignRight' }}
-              alignSelf={{ default: 'alignSelfFlexEnd' }}
-            >
-              <Button
-                variant={'link'}
-                onClick={() => {
-                  toast.dismiss(toastId);
-                }}
-              >
-                Dismiss
-              </Button>
-            </FlexItem>
-          </Flex>
-        ),
-        { id: toastId, duration: 7500, style: { maxWidth: 600 } }
-      );
-    }
-  });
+    const toastId: string = toast.loading(loadingMessage);
+    await fetch(endpoint, requestOptions).then((res) => {
+        if (!res.ok || res.status >= 300) {
+            res.json().then((reason) => {
+                console.error(`HTTP ${res.status} - ${res.statusText}: ${JSON.stringify(reason)}`);
+                toast.custom(errorToast(res, reason, toastId), {
+                    id: toastId,
+                    duration: 10000,
+                    style: { maxWidth: 600 },
+                });
+            });
+        } else {
+            toast.custom(successToast(toastId), { id: toastId, duration: 7500, style: { maxWidth: 600 } });
+        }
+    });
 }
