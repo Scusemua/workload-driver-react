@@ -517,11 +517,10 @@ func (s *serverImpl) setupRoutes() error {
 		apiGroup.GET(domain.ClusterAgeEndpoint, handlers.NewClusterAgeHttpHandler(s.opts, s.gatewayRpcClient).HandleRequest)
 
 		// Used to tell the frontend what the address of Jupyter is.
-		apiGroup.GET(domain.JupyterAddressEndpoint, func(c *gin.Context) {
-			response := make(map[string]interface{})
-			response["jupyter_address"] = s.opts.FrontendJupyterServerAddress
-			c.JSON(http.StatusOK, response)
-		})
+		apiGroup.GET(domain.JupyterAddressEndpoint, handlers.NewJupyterAddressHttpHandler(s.opts).HandleRequest)
+
+		// Used by the frontend to instruct a Local Daemon to reconnect to the Cluster Gateway.
+		apiGroup.GET(domain.InstructLocalDaemonReconnect, handlers.NewForceLocalDaemonToReconnectHttpHandler(s.opts, s.gatewayRpcClient).HandleRequest)
 	}
 
 	///////////////////////////

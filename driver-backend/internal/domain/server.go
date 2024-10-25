@@ -13,7 +13,8 @@ const (
 	// NodesEndpoint is used internally (by the frontend) to get the current kubernetes nodes from the backend.
 	NodesEndpoint = "nodes"
 
-	// AdjustVgpusEndpoint is used internally (by the frontend) to adjust the vGPUs offered by a particular kubernetes nodes.
+	// AdjustVgpusEndpoint is used internally (by the frontend) to adjust the vGPUs offered by a
+	// particular kubernetes nodes.
 	AdjustVgpusEndpoint = "vgpus"
 
 	// SystemConfigEndpoint is used internally (by the frontend) to get the system config from the backend.
@@ -28,16 +29,20 @@ const (
 	// WebsocketGroupEndpoint is used to define the group for WebSocket requests.
 	WebsocketGroupEndpoint = "websocket"
 
-	// WorkloadEndpoint is used internally (by the frontend) to trigger the start of a new workload or retrieve the list of workloads.
+	// WorkloadEndpoint is used internally (by the frontend) to trigger the start of a new workload or
+	// retrieve the list of workloads.
 	WorkloadEndpoint = "workload"
 
-	// GeneralWebsocketEndpoint is used for WebSocket-based communication between the frontend and backend that is unrelated to workloads or logs.
+	// GeneralWebsocketEndpoint is used for WebSocket-based communication between the frontend and backend
+	// that is unrelated to workloads or logs.
 	GeneralWebsocketEndpoint = "general"
 
-	// KernelSpecEndpoint is used internally (by the frontend) to get the current set of Jupyter kernel specs from the backend.
+	// KernelSpecEndpoint is used internally (by the frontend) to get the current set of Jupyter kernel specs
+	// from the backend.
 	KernelSpecEndpoint = "kernelspecs"
 
-	// GetKernelsEndpoint is used internally (by the frontend) to get the current set of Jupyter kernels from the backend.
+	// GetKernelsEndpoint is used internally (by the frontend) to get the current set of Jupyter kernels
+	// from the backend.
 	GetKernelsEndpoint = "get-kernels"
 
 	// PrometheusEndpoint is the default path on which Prometheus issues GET requests to scrape metrics.
@@ -46,7 +51,8 @@ const (
 	// MetricsEndpoint is used by the frontend to post/share Prometheus metrics.
 	MetricsEndpoint = "metrics"
 
-	// WorkloadPresetEndpoint is used internally (by the frontend) to get the list of available workload presets from the backend.
+	// WorkloadPresetEndpoint is used internally (by the frontend) to get the list of available
+	// workload presets from the backend.
 	WorkloadPresetEndpoint = "workload-presets"
 
 	// PanicEndpoint is used to cause the Cluster Gateway to panic. used for debugging/testing.
@@ -64,11 +70,16 @@ const (
 	// StopTrainingEndpoint is used to tell a kernel to stop training.
 	StopTrainingEndpoint = "stop-training"
 
-	// YieldNextRequestEndpoint is used to specify that the next execution request served by a particular kernel should be yielded.
+	// YieldNextRequestEndpoint is used to specify that the next execution request served by a
+	// particular kernel should be yielded.
 	YieldNextRequestEndpoint = "yield-next-execute-request"
 
 	// QueryMessageEndpoint is used by the frontend to query the status of particular ZMQ messages.
 	QueryMessageEndpoint = "query-message"
+
+	// InstructLocalDaemonReconnect is used by the frontend to instruct a Local Daemon to
+	// reconnect to the Cluster Gateway.
+	InstructLocalDaemonReconnect = "instruct-ld-reconnect"
 
 	JupyterGroupEndpoint = "jupyter"
 
@@ -83,8 +94,8 @@ const (
 
 	PingKernelEndpoint = "ping-kernel"
 
-	// VariablesEndpoint is queried by Grafana to query for values used to create Grafana variables that are then used to
-	// dynamically create a Grafana Dashboard.
+	// VariablesEndpoint is queried by Grafana to query for values used to create Grafana variables that are then
+	// used to dynamically create a Grafana Dashboard.
 	VariablesEndpoint = "variables"
 )
 
