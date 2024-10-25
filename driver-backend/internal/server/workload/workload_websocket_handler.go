@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"strings"
 	"sync/atomic"
 
 	"github.com/gin-gonic/gin"
@@ -49,26 +50,28 @@ type WebsocketHandler struct {
 	sugaredLogger *zap.SugaredLogger
 	atom          *zap.AtomicLevel
 
-	configuration        *domain.Configuration                 // The system/server configuration. This is passed to workload drivers when we create them during workload registration.
-	workloadManager      domain.WorkloadManager                // Provides access to all the workloads.
-	workloadMessageIndex atomic.Int32                          // Monotonically increasing index assigned to each outgoing workload message.
-	handlers             map[string]websocketRequestHandler    // A map from operation ID to the associated request handler.
-	subscribers          map[string]domain.ConcurrentWebSocket // Websockets that have submitted a workload and thus will want updates for that workload.
-	expectedOriginPort   int                                   // The origin port expected for incoming WebSocket connections.
-	workloadStartedChan  chan<- string                         // Channel of workload IDs. When a workload is started, its ID is submitted to this channel.
+	configuration           *domain.Configuration                 // The system/server configuration. This is passed to workload drivers when we create them during workload registration.
+	workloadManager         domain.WorkloadManager                // Provides access to all the workloads.
+	workloadMessageIndex    atomic.Int32                          // Monotonically increasing index assigned to each outgoing workload message.
+	handlers                map[string]websocketRequestHandler    // A map from operation ID to the associated request handler.
+	subscribers             map[string]domain.ConcurrentWebSocket // Websockets that have submitted a workload and thus will want updates for that workload.
+	workloadStartedChan     chan<- string                         // Channel of workload IDs. When a workload is started, its ID is submitted to this channel.
+	expectedOriginPort      int                                   // The origin port expected for incoming WebSocket connections.
+	expectedOriginAddresses []string
 }
 
 func NewWebsocketHandler(configuration *domain.Configuration, workloadManager domain.WorkloadManager,
 	workloadStartedChan chan<- string, atom *zap.AtomicLevel) *WebsocketHandler {
 
 	handler := &WebsocketHandler{
-		configuration:       configuration,
-		workloadManager:     workloadManager,
-		atom:                atom,
-		handlers:            make(map[string]websocketRequestHandler),
-		subscribers:         make(map[string]domain.ConcurrentWebSocket),
-		workloadStartedChan: workloadStartedChan,
-		expectedOriginPort:  configuration.ExpectedOriginPort,
+		configuration:           configuration,
+		workloadManager:         workloadManager,
+		atom:                    atom,
+		handlers:                make(map[string]websocketRequestHandler),
+		subscribers:             make(map[string]domain.ConcurrentWebSocket),
+		workloadStartedChan:     workloadStartedChan,
+		expectedOriginPort:      configuration.ExpectedOriginPort,
+		expectedOriginAddresses: make([]string, 0, len(configuration.ExpectedOriginAddresses)),
 	}
 
 	zapConfig := zap.NewDevelopmentEncoderConfig()
@@ -81,6 +84,19 @@ func NewWebsocketHandler(configuration *domain.Configuration, workloadManager do
 
 	handler.logger = logger
 	handler.sugaredLogger = logger.Sugar()
+
+	expectedOriginAddresses := strings.Split(configuration.ExpectedOriginAddresses, ",")
+	for _, addr := range expectedOriginAddresses {
+		var expectedOrigin string
+		if handler.expectedOriginPort > 0 {
+			expectedOrigin = fmt.Sprintf("%s:%d", addr, handler.expectedOriginPort)
+		} else {
+			expectedOrigin = addr
+		}
+		handler.logger.Debug("Loaded expected origin from configuration.", zap.String("origin", expectedOrigin))
+		handler.expectedOriginAddresses = append(handler.expectedOriginAddresses, expectedOrigin)
+	}
+
 	handler.setupRequestHandlers()
 
 	return handler
@@ -101,22 +117,28 @@ func (h *WebsocketHandler) setupRequestHandlers() {
 // Upgrade the given HTTP connection to a Websocket connection.
 // It is the responsibility of the caller to close the websocket when they're done with it.
 func (h *WebsocketHandler) upgradeConnectionToWebsocket(c *gin.Context) (domain.ConcurrentWebSocket, error) {
-	expectedOriginV1 := fmt.Sprintf("http://127.0.0.1:%d", h.expectedOriginPort)
-	expectedOriginV2 := fmt.Sprintf("http://localhost:%d", h.expectedOriginPort)
-	h.logger.Debug("Handling websocket origin.", zap.String("request-origin", c.Request.Header.Get("Origin")), zap.String("request-host", c.Request.Host), zap.String("request-uri", c.Request.RequestURI), zap.String("expected-origin-v1", expectedOriginV1), zap.String("expected-origin-v2", expectedOriginV2))
+	h.logger.Debug("Inspecting origin of incoming non-specific WebSocket connection.",
+		zap.String("request-origin", c.Request.Header.Get("Origin")),
+		zap.String("request-host", c.Request.Host), zap.String("request-uri", c.Request.RequestURI))
 
 	upgrader.CheckOrigin = func(r *http.Request) bool {
-		if r.Header.Get("Origin") == expectedOriginV1 || r.Header.Get("Origin") == expectedOriginV2 {
-			return true
+		incomingOrigin := r.Header.Get("Origin")
+		for _, expectedOrigin := range h.expectedOriginAddresses {
+			if incomingOrigin == expectedOrigin {
+				return true
+			}
 		}
 
-		h.sugaredLogger.Errorf("Unexpected origin: %v. Expected either %s or %s.", r.Header.Get("Origin"), expectedOriginV1, expectedOriginV2)
+		h.logger.Error("Incoming non-specific WebSocket connection had unexpected origin. Rejecting.",
+			zap.String("request-origin", c.Request.Header.Get("Origin")),
+			zap.String("request-host", c.Request.Host), zap.String("request-uri", c.Request.RequestURI),
+			zap.Strings("accepted-origins", h.expectedOriginAddresses))
 		return false
 	}
 
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
-		h.logger.Error("Failed to upgrade connection to Websocket.", zap.Error(err))
+		h.logger.Error("Failed to upgrade WebSocket connection.", zap.Error(err))
 		return nil, err
 	}
 

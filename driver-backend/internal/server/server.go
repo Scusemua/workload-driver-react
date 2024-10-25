@@ -31,6 +31,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"os"
 	"path"
 	"strings"
 	"sync"
@@ -87,6 +88,14 @@ type serverImpl struct {
 
 	logResponseBodyMutex sync.RWMutex
 
+	// The base prefix. Useful as when we deploy this Dockerized in Docker Swarm, we need to set this to
+	// something other than "/", as we use Traefik to reverse proxy external requests.
+	baseUrl string
+
+	// Endpoint to serve prometheus metrics scraping requests
+	// Defined separately from the base-listen-prefix.
+	prometheusEndpoint string
+
 	adminUsername           string
 	adminPassword           string
 	jwtTokenValidDuration   time.Duration
@@ -109,6 +118,18 @@ func NewServer(opts *domain.Configuration) domain.Server {
 		jwtTokenRefreshInterval: time.Second * time.Duration(opts.TokenRefreshIntervalSec),
 		expectedOriginPort:      opts.ExpectedOriginPort,
 		expectedOriginAddresses: make([]string, 0, len(opts.ExpectedOriginAddresses)),
+		baseUrl:                 opts.BaseUrl,
+		prometheusEndpoint:      opts.PrometheusEndpoint,
+	}
+
+	// Default to "/"
+	if s.baseUrl == "" {
+		s.baseUrl = "/"
+	}
+
+	// Default value
+	if s.prometheusEndpoint == "" {
+		s.prometheusEndpoint = domain.PrometheusEndpoint
 	}
 
 	zapConfig := zap.NewDevelopmentEncoderConfig()
@@ -124,7 +145,13 @@ func NewServer(opts *domain.Configuration) domain.Server {
 
 	expectedOriginAddresses := strings.Split(opts.ExpectedOriginAddresses, ",")
 	for _, addr := range expectedOriginAddresses {
-		expectedOrigin := fmt.Sprintf("%s:%d", addr, s.expectedOriginPort)
+		var expectedOrigin string
+		if s.expectedOriginPort > 0 {
+			expectedOrigin = fmt.Sprintf("%s:%d", addr, s.expectedOriginPort)
+		} else {
+			expectedOrigin = addr
+		}
+		s.logger.Debug("Loaded expected origin from configuration.", zap.String("origin", expectedOrigin))
 		s.expectedOriginAddresses = append(s.expectedOriginAddresses, expectedOrigin)
 	}
 
@@ -132,7 +159,58 @@ func NewServer(opts *domain.Configuration) domain.Server {
 		panic(err)
 	}
 
+	if err := s.templateStaticFiles(); err != nil {
+		panic(err)
+	}
+
 	return s
+}
+
+// templateStaticFiles rewrites the __BASE_PATH__ string in the ./dist/index.html and ./dist/200.html files with
+// the base listen path. It also does the same for the ./dist/main.css file.
+func (s *serverImpl) templateStaticFiles() error {
+	updateFileContents := func(filePath string, replace string, replaceWith string) error {
+		content, err := os.ReadFile(filePath)
+		if err != nil {
+			return err
+		}
+
+		// Convert content to a string for replacement
+		contentStr := string(content)
+
+		// Replace `replace` with `replaceWith`.
+		modifiedContent := strings.Replace(contentStr, replace, replaceWith, -1)
+
+		// Write the modified content back to the original file.
+		err = os.WriteFile(filePath, []byte(modifiedContent), 0644)
+		if err != nil {
+			return err
+		}
+
+		s.logger.Debug("Successfully templated file.", zap.String("file", filePath))
+
+		return nil
+	}
+
+	targetSubstring := "__BASE_URL__"
+	replaceWith := s.baseUrl
+
+	err := updateFileContents("./dist/index.html", targetSubstring, replaceWith)
+	if err != nil {
+		return err
+	}
+
+	err = updateFileContents("./dist/200.html", targetSubstring, replaceWith)
+	if err != nil {
+		return err
+	}
+
+	err = updateFileContents("./dist/main.css", targetSubstring, replaceWith)
+	if err != nil {
+		return err
+	}
+
+	return nil
 }
 
 // handleRpcRegistrationComplete is a callback for the handlers.ClusterDashboardHandler of the serverImpl to execute
@@ -161,6 +239,9 @@ func (s *serverImpl) handleRpcRegistrationComplete(nodeType domain.NodeType, rpc
 // are processing/handling a request.
 func (s *serverImpl) ErrorHandlerMiddleware(c *gin.Context) {
 	c.Next() // Execute all the handlers.
+
+	s.logger.Debug("Serving request.", zap.String("origin", c.Request.Header.Get("Origin")),
+		zap.String("url", c.Request.URL.String()))
 
 	errorsEncountered := make([]error, 0)
 	for _, err := range c.Errors {
@@ -249,7 +330,11 @@ func (s *serverImpl) jwtAuthorizer() func(data interface{}, c *gin.Context) bool
 
 func (s *serverImpl) jwtHandleUnauthorized() func(c *gin.Context, code int, message string) {
 	return func(c *gin.Context, code int, message string) {
-		s.logger.Debug("Executing jwtHandleUnauthorized")
+		s.logger.Debug("JWT unauthorized request handler called.",
+			zap.Int("code", code), zap.String("message", message),
+			zap.String("remote_address", c.Request.RemoteAddr),
+			zap.String("client_ip", c.ClientIP()),
+			zap.String("request_url", c.Request.URL.String()))
 
 		c.JSON(code, gin.H{
 			"code":    code,
@@ -291,14 +376,28 @@ func (s *serverImpl) jwtHandlerMiddleWare(authMiddleware *jwt.GinJWTMiddleware) 
 	}
 }
 
-func (s *serverImpl) setupRoutes() error {
-	s.app = &proxy.JupyterProxyRouter{
-		ContextPath:  domain.JupyterGroupEndpoint,
-		Start:        len(domain.JupyterGroupEndpoint),
-		Config:       s.opts,
-		SpoofJupyter: s.opts.SpoofKernelSpecs,
-		Engine:       s.engine,
+func lastChar(target string) uint8 {
+	if target == "" {
+		panic("Cannot find last character of an empty string!")
 	}
+
+	return target[len(target)-1]
+}
+
+func (s *serverImpl) getPath(relativePath string) string {
+	if relativePath == "" {
+		return s.baseUrl
+	}
+
+	finalPath := path.Join(s.baseUrl, relativePath)
+	if lastChar(relativePath) == '/' && lastChar(finalPath) != '/' {
+		return finalPath + "/"
+	}
+	return finalPath
+}
+
+func (s *serverImpl) setupRoutes() error {
+	s.app = proxy.NewJupyterProxyRouter(s.engine, s.opts, s.atom)
 
 	s.nodeHandler = handlers.NewNodeHttpHandler(s.opts)
 
@@ -313,13 +412,16 @@ func (s *serverImpl) setupRoutes() error {
 		log.Fatal("JWT Error:" + err.Error())
 	}
 
+	errInit := authMiddleware.MiddlewareInit()
+	if errInit != nil {
+		log.Fatal("authMiddleware.MiddlewareInit() Error:" + errInit.Error())
+	}
+
 	// Serve frontend static files
-	s.app.Use(static.Serve("/", static.LocalFile("./dist", true)))
-	s.logger.Debug("Attached logger middleware.")
-	s.app.Use(s.jwtHandlerMiddleWare(authMiddleware))
+	s.app.Use(static.Serve(s.baseUrl, static.LocalFile("./dist", true)))
 	s.logger.Debug("Attached static middleware.")
 	s.app.Use(gin.Logger())
-	s.logger.Debug("Attached auth middleware.")
+	s.logger.Debug("Attached logger middleware.")
 	s.app.Use(cors.Default())
 	s.logger.Debug("Attached CORS middleware.")
 	s.app.Use(s.ErrorHandlerMiddleware)
@@ -328,48 +430,51 @@ func (s *serverImpl) setupRoutes() error {
 	////////////////////////
 	// Prometheus metrics //
 	////////////////////////
-	s.app.GET(domain.PrometheusEndpoint, s.HandlePrometheusRequest)
+	s.app.GET(s.prometheusEndpoint, s.HandlePrometheusRequest)
 
 	////////////////////////
 	// Websocket Handlers //
 	////////////////////////
-	s.app.GET(domain.WorkloadEndpoint, s.workloadManager.GetWorkloadWebsocketHandler())
-	s.app.GET(domain.LogsEndpoint, s.serveLogWebsocket)
-	s.app.GET(domain.GeneralWebsocketEndpoint, s.serveGeneralWebsocket)
+	webSocketGroup := s.app.Group(s.getPath(domain.WebsocketGroupEndpoint))
+	{
+		webSocketGroup.GET(domain.WorkloadEndpoint, s.workloadManager.GetWorkloadWebsocketHandler())
+		webSocketGroup.GET(domain.LogsEndpoint, s.serveLogWebsocket)
+		webSocketGroup.GET(domain.GeneralWebsocketEndpoint, s.serveGeneralWebsocket)
+	}
 
 	// TODO: Getting nil pointer exception because the callback occurs in the constructor, so s.gatewayRpcClient is still nil.
 	s.gatewayRpcClient = handlers.NewClusterDashboardHandler(s.opts, true, s.notifyFrontend, s.handleRpcRegistrationComplete)
 
 	s.sugaredLogger.Debugf("Creating route groups now. (gatewayRpcClient == nil: %v)", s.gatewayRpcClient == nil)
 
-	pprof.Register(s.app, "dev/pprof")
+	pprof.Register(s.app, s.getPath("dev/pprof"))
 
-	s.app.NoRoute(authMiddleware.MiddlewareFunc(), func(c *gin.Context) {
-		claims := jwt.ExtractClaims(c)
-		log.Printf("NoRoute claims: %#v\n", claims)
+	// authMiddleware.MiddlewareFunc()
+	s.app.NoRoute(func(c *gin.Context) {
+		s.logger.Warn("Received NoRoute request.", zap.String("url", c.Request.URL.String()))
 		c.JSON(404, gin.H{"code": "PAGE_NOT_FOUND", "message": "Page not found"})
 	})
 
 	// Used by frontend to authenticate and get access to the dashboard.
-	s.app.POST(domain.AuthenticateRequest, func(c *gin.Context) {
+	s.app.POST(s.getPath(domain.AuthenticateRequest), func(c *gin.Context) {
 		request, err := httputil.DumpRequest(c.Request, true)
 		if err != nil {
 			s.logger.Error("Failed to dump JWT login request.", zap.Error(err))
 		}
 
-		s.sugaredLogger.Debugf("JWT login handler called: \"%s\": %s", domain.AuthenticateRequest, request)
+		s.sugaredLogger.Debugf("JWT login handler called: \"%s\": %s", s.getPath(domain.AuthenticateRequest), request)
 		authMiddleware.LoginHandler(c)
 	})
 
-	s.app.POST(domain.RefreshToken, func(c *gin.Context) {
-		s.sugaredLogger.Debugf("JWT token refresh handler called: \"%s\"", domain.RefreshToken)
+	s.app.POST(s.getPath(domain.RefreshToken), func(c *gin.Context) {
+		s.sugaredLogger.Debugf("JWT token refresh handler called: \"%s\"", s.getPath(domain.RefreshToken))
 		authMiddleware.RefreshHandler(c)
 	})
 
 	///////////////////////////////
 	// Standard/Primary Handlers //
 	///////////////////////////////
-	apiGroup := s.app.Group(domain.BaseApiGroupEndpoint, authMiddleware.MiddlewareFunc())
+	apiGroup := s.app.Group(s.getPath(domain.BaseApiGroupEndpoint), authMiddleware.MiddlewareFunc())
 	{
 		// Used internally (by the frontend) to get the current kubernetes nodes from the backend  (i.e., the backend).
 		apiGroup.GET(domain.NodesEndpoint, s.nodeHandler.HandleRequest)
@@ -410,6 +515,12 @@ func (s *serverImpl) setupRoutes() error {
 
 		// Used by the frontend to retrieve the UnixMillisecond timestamp at which the Cluster was created.
 		apiGroup.GET(domain.ClusterAgeEndpoint, handlers.NewClusterAgeHttpHandler(s.opts, s.gatewayRpcClient).HandleRequest)
+
+		// Used to tell the frontend what the address of Jupyter is.
+		apiGroup.GET(domain.JupyterAddressEndpoint, handlers.NewJupyterAddressHttpHandler(s.opts).HandleRequest)
+
+		// Used by the frontend to instruct a Local Daemon to reconnect to the Cluster Gateway.
+		apiGroup.GET(domain.InstructLocalDaemonReconnect, handlers.NewForceLocalDaemonToReconnectHttpHandler(s.opts, s.gatewayRpcClient).HandleRequest)
 	}
 
 	///////////////////////////
@@ -430,12 +541,12 @@ func (s *serverImpl) setupRoutes() error {
 	/////////////////////
 	// Jupyter Handler // This isn't really used anymore...
 	/////////////////////
-	if s.opts.SpoofKernelSpecs {
-		jupyterGroup := s.app.Group(domain.JupyterGroupEndpoint)
-		{
-			jupyterGroup.GET(domain.BaseApiGroupEndpoint+domain.KernelSpecEndpoint, handlers.NewJupyterAPIHandler(s.opts).HandleGetKernelSpecRequest)
-		}
-	}
+	//if s.opts.SpoofKernelSpecs {
+	//jupyterGroup := s.app.Group(s.getPath(domain.JupyterGroupEndpoint))
+	//{
+	//	jupyterGroup.GET(domain.BaseApiGroupEndpoint+domain.KernelSpecEndpoint, handlers.NewJupyterAPIHandler(s.opts).HandleGetKernelSpecRequest)
+	//}
+	//}
 
 	gin.SetMode(gin.DebugMode)
 
@@ -552,13 +663,14 @@ func (s *serverImpl) serveGeneralWebsocket(c *gin.Context) {
 
 		s.logger.Error("Incoming non-specific WebSocket connection had unexpected origin. Rejecting.",
 			zap.String("request-origin", c.Request.Header.Get("Origin")),
-			zap.String("request-host", c.Request.Host), zap.String("request-uri", c.Request.RequestURI))
+			zap.String("request-host", c.Request.Host), zap.String("request-uri", c.Request.RequestURI),
+			zap.Strings("accepted-origins", s.expectedOriginAddresses))
 		return false
 	}
 
 	conn, err := upgrader.Upgrade(c.Writer, c.Request, nil)
 	if err != nil {
-		log.Print("upgrade:", err)
+		s.logger.Error("Failed to upgrade WebSocket connection.", zap.Error(err))
 		return
 	}
 	defer func(conn *websocket.Conn) {
@@ -823,7 +935,7 @@ func (s *serverImpl) Serve() error {
 }
 
 func (s *serverImpl) serveHttp(wg *sync.WaitGroup) {
-	s.logger.Debug("Listening for HTTP requests.", zap.String("address", fmt.Sprintf("127.0.0.1:%d", s.opts.ServerPort)))
+	s.logger.Debug("Listening for HTTP requests.", zap.String("address", fmt.Sprintf(":%d", s.opts.ServerPort)))
 	go func() {
 		addr := fmt.Sprintf(":%d", s.opts.ServerPort)
 		if err := http.ListenAndServe(addr, s.app); err != nil {
@@ -836,7 +948,8 @@ func (s *serverImpl) serveHttp(wg *sync.WaitGroup) {
 }
 
 func (s *serverImpl) serveJupyterWebSocketProxy(wg *sync.WaitGroup) {
-	wsUrlString := fmt.Sprintf("ws://%s", s.opts.JupyterServerAddress)
+	// wsUrlString := fmt.Sprintf("ws://%s", s.opts.FrontendJupyterServerAddress)
+	wsUrlString := path.Join("ws://", s.opts.InternalJupyterServerAddress)
 	wsUrl, err := url.Parse(wsUrlString)
 	if err != nil {
 		s.logger.Error("Failed to parse URL for websocket proxy.", zap.String("url", wsUrlString), zap.Error(err))

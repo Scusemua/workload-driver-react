@@ -71,8 +71,8 @@ func getResponseChannelKeyFromRequest(originalMessage KernelMessage) string {
 // Return the key that should be used to get/retrieve the 'response channel' for this message.
 // This function accepts a response that was sent BY Jupyter.
 func getResponseChannelKeyFromReply(response KernelMessage) string {
-	var messageType MessageType = response.GetHeader().MessageType
-	var channel KernelSocketChannel = response.GetChannel()
+	var messageType = response.GetHeader().MessageType
+	var channel = response.GetChannel()
 	var parentMessageId = response.GetParentHeader().MessageId
 
 	if !strings.HasSuffix(messageType.String(), "reply") {

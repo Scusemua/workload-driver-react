@@ -1,4 +1,3 @@
-import { GetToastContentWithHeaderAndBody } from '@src/Utils/toast_utils';
 import { RoundToThreeDecimalPlaces } from '@Components/Modals/NewWorkloadFromTemplateModal';
 import { QueryMessageResponse, RequestTrace } from '@Data/Message';
 import {
@@ -39,6 +38,9 @@ import {
 import { CheckCircleIcon, FilterIcon, SearchIcon, TimesCircleIcon } from '@patternfly/react-icons';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 import { global_BackgroundColor_150 } from '@patternfly/react-tokens';
+import { AuthorizationContext } from '@Providers/AuthProvider';
+import { GetPathForFetch } from '@src/Utils/path_utils';
+import { GetToastContentWithHeaderAndBody } from '@src/Utils/toast_utils';
 import { MAX_SAFE_INTEGER } from 'lib0/number';
 import React from 'react';
 import toast from 'react-hot-toast';
@@ -49,7 +51,7 @@ interface QueryMessageModalProps {
 }
 
 interface Filters {
-  messageType: string[]
+    messageType: string[];
 }
 
 export const QueryMessageModal: React.FunctionComponent<QueryMessageModalProps> = (props: QueryMessageModalProps) => {
@@ -72,6 +74,8 @@ export const QueryMessageModal: React.FunctionComponent<QueryMessageModalProps> 
 
     const [paginationPage, setPaginationPage] = React.useState<number>(1);
     const [resultsPerPage, setResultsPerPage] = React.useState<number>(5);
+
+    const { authenticated, setAuthenticated } = React.useContext(AuthorizationContext);
 
     const onSetPage = (_event: React.MouseEvent | React.KeyboardEvent | MouseEvent, newPage: number) => {
         setPaginationPage(newPage);
@@ -96,7 +100,18 @@ export const QueryMessageModal: React.FunctionComponent<QueryMessageModalProps> 
         setPossibleMessageTypes(messageTypes);
     }, [requestTraces]);
 
+    React.useEffect(() => {
+        // If we are logged out, then close the modal.
+        if (!authenticated) {
+            props.onClose();
+        }
+    }, [authenticated, props]);
+
     const onSubmitClicked = () => {
+        if (!authenticated) {
+            return;
+        }
+
         let targetMsgId: string = jupyterMsgId;
         if (targetMsgId.length == 0) {
             targetMsgId = '*';
@@ -106,7 +121,7 @@ export const QueryMessageModal: React.FunctionComponent<QueryMessageModalProps> 
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-              Authorization: 'Bearer ' + localStorage.getItem("token"),
+                Authorization: 'Bearer ' + localStorage.getItem('token'),
             },
             body: JSON.stringify({
                 messageId: targetMsgId,
@@ -141,7 +156,7 @@ export const QueryMessageModal: React.FunctionComponent<QueryMessageModalProps> 
         const startTime: number = performance.now();
         setQueryIsActive(true);
         // Whatever you want to do after the wait
-        fetch('api/query-message', req)
+        fetch(GetPathForFetch('api/query-message'), req)
             .catch((err: Error) => {
                 setQueryIsActive(false);
                 console.log(`QueryMessage failed: ${JSON.stringify(err)}`);
@@ -244,6 +259,8 @@ export const QueryMessageModal: React.FunctionComponent<QueryMessageModalProps> 
                             ),
                             { id: toastId, style: { maxWidth: 750 } },
                         );
+                    } else if (resp?.status == 401) {
+                        setAuthenticated(false);
                     } else {
                         // Unknown/unexpected error. Display a warning.
                         toast.custom(
@@ -726,7 +743,12 @@ export const QueryMessageModal: React.FunctionComponent<QueryMessageModalProps> 
             isOpen={props.isOpen}
             onClose={props.onClose}
             actions={[
-                <Button key="submit-query-message-modal-button" variant="primary" onClick={onSubmitClicked}>
+                <Button
+                    key="submit-query-message-modal-button"
+                    variant="primary"
+                    onClick={onSubmitClicked}
+                    isDisabled={!authenticated}
+                >
                     Submit
                 </Button>,
                 <Button key="dismiss-query-message-modal-button" variant="primary" onClick={props.onClose}>

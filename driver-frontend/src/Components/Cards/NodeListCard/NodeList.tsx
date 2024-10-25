@@ -1,8 +1,6 @@
-import { AdjustNumNodesModal } from '@Components/Modals/AdjustNumNodesModal';
-import { GpuIcon } from '@src/Assets/Icons';
-import { GetToastContentWithHeaderAndBody, ToastFetch } from '@src/Utils/toast_utils';
 import { NodeDataList } from '@Cards/NodeListCard/NodeDataList';
 import { NodeResourceView } from '@Cards/NodeListCard/NodeResourceView';
+import { AdjustNumNodesModal } from '@Components/Modals/AdjustNumNodesModal';
 import { ClusterNode, GetNodeId, GetNodeSpecResource } from '@Data/Cluster';
 import {
     Button,
@@ -23,6 +21,14 @@ import {
 } from '@patternfly/react-core';
 import { FilterIcon, ListIcon, MonitoringIcon, ReplicatorIcon, SyncIcon } from '@patternfly/react-icons';
 import { useNodes } from '@Providers/NodeProvider';
+import { GpuIcon } from '@src/Assets/Icons';
+import { GetPathForFetch } from '@src/Utils/path_utils';
+import {
+    DefaultDismiss,
+    GetHttpErrorMessage,
+    GetToastContentWithHeaderAndBody,
+    ToastFetch,
+} from '@src/Utils/toast_utils';
 import React from 'react';
 import toast from 'react-hot-toast';
 import { AdjustVirtualGPUsModal, RoundToTwoDecimalPlaces } from '../../Modals';
@@ -50,6 +56,43 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
     // When the user types something into the node name filter, we update the associated state.
     const onSearchChange = (value: string) => {
         setSearchValue(value);
+    };
+
+    const onForceReconnectionClicked = (node: ClusterNode) => {
+        const loadingMessage: string = `Instructing Local Daemon ${node.NodeName} (ID=${node.NodeId}) to reconnect to Cluster Gateway.`;
+        console.log(loadingMessage);
+
+        const req: RequestInit = {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: 'Bearer ' + localStorage.getItem('token'),
+            },
+            body: JSON.stringify({
+                LocalDaemonId: node.NodeId,
+                Delay: true,
+            }),
+        };
+
+        ToastFetch(
+            loadingMessage,
+            (toastId: string) =>
+                GetToastContentWithHeaderAndBody(
+                    'Instructed Local Daemon to Reconnect to Cluster Gateway',
+                    `Successfully instructed Local Daemon ${node.NodeName} (ID=${node.NodeId}) to reconnect to Cluster Gateway.`,
+                    'success',
+                    DefaultDismiss(toastId),
+                ),
+            (resp: Response, reason: string, toastId: string) =>
+                GetToastContentWithHeaderAndBody(
+                    'Error While Instructing Local Daemon to Reconnect to Cluster Gateway',
+                    GetHttpErrorMessage(resp, reason),
+                    'danger',
+                    DefaultDismiss(toastId),
+                ),
+            GetPathForFetch('api/instruct-ld-reconnect'),
+            req,
+        ).then(() => {});
     };
 
     const onAdjustVirtualGPUsClicked = (nodes: ClusterNode[]) => {
@@ -121,7 +164,7 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
                         () => toast.dismiss(toastId),
                     );
                 },
-                'api/vgpus',
+                GetPathForFetch('api/vgpus'),
                 requestOptions,
             ).then(() => {});
         });
@@ -197,7 +240,7 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
                     },
                 );
             },
-            'api/nodes',
+            GetPathForFetch('api/nodes'),
             requestOptions,
         );
 
@@ -366,6 +409,7 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
                             onFilter={onFilter}
                             onSelectNode={props.onSelectNode}
                             onAdjustVirtualGPUsClicked={onAdjustVirtualGPUsClicked}
+                            onForceReconnectionClicked={onForceReconnectionClicked}
                         />
                     )}
                     {resourceModeToggled && <NodeResourceView />}

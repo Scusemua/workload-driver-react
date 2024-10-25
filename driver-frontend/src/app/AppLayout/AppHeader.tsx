@@ -32,7 +32,7 @@ import { useKernels } from '@Providers/KernelProvider';
 import { useNodes } from '@Providers/NodeProvider';
 import { NotificationContext } from '@Providers/NotificationProvider';
 import logo from '@src/app/bgimages/WorkloadDriver-Logo.svg';
-import { uuidv4 } from 'lib0/random';
+import { GetPathForFetch, JoinPaths } from '@src/Utils/path_utils';
 import * as React from 'react';
 import { useContext } from 'react';
 import useWebSocket, { ReadyState } from 'react-use-websocket';
@@ -75,11 +75,11 @@ const connectionStatusIcons = {
     ),
 };
 
-type connectionStatusColorsType = {
+type statusColor = {
     [key in ReadyState]: 'green' | 'red' | 'blue' | 'cyan' | 'orange' | 'purple' | 'grey' | 'gold' | undefined;
 };
 
-const connectionStatusColors: connectionStatusColorsType = {
+const connectionStatusColors: statusColor = {
     [ReadyState.CONNECTING]: 'orange',
     [ReadyState.OPEN]: 'green',
     [ReadyState.CLOSING]: 'orange',
@@ -90,6 +90,10 @@ const connectionStatusColors: connectionStatusColorsType = {
 interface AppHeaderProps {
     isLoggedIn: boolean;
 }
+
+const toastIdFailedToConnect: string = '__TOAST_ERROR_FAILED_TO_CONNECT__';
+const toastIdConnectionEstablished: string = '__TOAST_CONNECTION_ESTABLISHED__';
+const toastIdConnectionLost: string = '__TOAST_WARNING_CONNECTION_LOST__';
 
 export const AppHeader: React.FunctionComponent<AppHeaderProps> = (props: AppHeaderProps) => {
     const lightModeId: string = 'theme-toggle-lightmode';
@@ -133,13 +137,29 @@ export const AppHeader: React.FunctionComponent<AppHeaderProps> = (props: AppHea
 
     const [isSelected, setIsSelected] = React.useState(darkMode ? darkModeButtonId : lightModeButtonId);
 
-    const { readyState } = useWebSocket('ws://localhost:8000/ws', {
-        // onOpen: () => {},
-        // onClose: () => {},
-        shouldReconnect: () => true,
-    });
+    const websocketUrl: string = JoinPaths(process.env.PUBLIC_PATH || '/', 'websocket', 'general');
+    const { readyState } = useWebSocket(
+        websocketUrl,
+        {
+            shouldReconnect: () => authenticated,
+            reconnectAttempts: 50,
+            onError: (evt) => {
+                console.error(`WebSocket encountered error: ${JSON.stringify(evt)}. WebSocket URL: ${websocketUrl}`);
+            },
+            onClose: (evt) => {
+                console.warn(`WebSocket connection has closed: ${JSON.stringify(evt)}. WebSocket URL: ${websocketUrl}`);
+            },
+            onOpen: (evt) => {
+                console.debug(
+                    `WebSocket connection has been established: ${JSON.stringify(evt)}. WebSocket URL: ${websocketUrl}`,
+                );
+            },
+            share: true,
+        },
+        authenticated,
+    );
 
-    React.useEffect(() => {
+    const handleConnectionStateChange = React.useCallback(() => {
         if (!authenticated) {
             return;
         }
@@ -148,7 +168,7 @@ export const AppHeader: React.FunctionComponent<AppHeaderProps> = (props: AppHea
             case ReadyState.CLOSED:
                 if (!failedToConnect.current) {
                     addNewNotification({
-                        id: uuidv4(),
+                        id: toastIdFailedToConnect,
                         title: 'Failed to Connect to Backend',
                         message: 'The persistent connection with the backend server could not be established lost.',
                         notificationType: 1,
@@ -161,7 +181,7 @@ export const AppHeader: React.FunctionComponent<AppHeaderProps> = (props: AppHea
                     failedToConnect.current = true;
                 } else if (prevConnectionState == ReadyState.OPEN) {
                     addNewNotification({
-                        id: uuidv4(),
+                        id: toastIdConnectionLost,
                         title: 'Connection Lost to Backend',
                         message: 'The persistent connection with the backend server has been lost.',
                         notificationType: 1,
@@ -178,7 +198,7 @@ export const AppHeader: React.FunctionComponent<AppHeaderProps> = (props: AppHea
 
                 if (prevConnectionState !== ReadyState.OPEN) {
                     addNewNotification({
-                        id: uuidv4(),
+                        id: toastIdConnectionEstablished,
                         title: 'Connection Established',
                         message: 'The persistent connection with the backend server has been established.',
                         notificationType: 3,
@@ -188,7 +208,9 @@ export const AppHeader: React.FunctionComponent<AppHeaderProps> = (props: AppHea
 
                 // If we've just connected, then let's refresh our kernels and our nodes, in case they've
                 // changed since we were last connected.
-                refreshKernels().then(() => {});
+                refreshKernels()
+                    .then(() => {})
+                    .catch((err: Error) => console.log(`Kernel refresh failed: ${err}`));
                 refreshNodes(false); // Pass false to omit the separate toast notification about refreshing nodes.
 
                 // Reset this to false, as we just successfully connected.
@@ -197,7 +219,13 @@ export const AppHeader: React.FunctionComponent<AppHeaderProps> = (props: AppHea
         }
 
         setPrevConnectionState(readyState);
-    }, [prevConnectionState, readyState, authenticated]);
+        // If I add the dependencies 'refreshKernels, refreshNodes, addNewNotification' here,
+        // then it sends a million requests when the connection with the backend is not available.
+    }, [authenticated, readyState, prevConnectionState]);
+
+    React.useEffect(() => {
+        handleConnectionStateChange();
+    }, [prevConnectionState, readyState, authenticated, handleConnectionStateChange]);
 
     const connectionStatus = connectionStatuses[readyState];
     const connectionStatusIcon = connectionStatusIcons[readyState];
@@ -301,7 +329,7 @@ export const AppHeader: React.FunctionComponent<AppHeaderProps> = (props: AppHea
                                             },
                                         };
 
-                                        fetch('api/panic', requestOptions);
+                                        fetch(GetPathForFetch('api/panic'), requestOptions).then(() => {});
                                     }}
                                 >
                                     Induce a Panic
@@ -322,6 +350,17 @@ export const AppHeader: React.FunctionComponent<AppHeaderProps> = (props: AppHea
                                 >
                                     Query Message Status
                                 </Button>
+                            </Tooltip>
+                        </FlexItem>
+
+                        <FlexItem>
+                            <Tooltip content="Indicates whether we're presently authenticated." position="bottom">
+                                <Label
+                                    color={authenticated ? 'green' : 'orange'}
+                                    icon={authenticated ? <CheckCircleIcon /> : <WarningTriangleIcon />}
+                                >
+                                    {authenticated ? 'Authenticated (Logged In)' : 'Unauthenticated (Logged Out)'}
+                                </Label>
                             </Tooltip>
                         </FlexItem>
 

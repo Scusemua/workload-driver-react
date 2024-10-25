@@ -1,7 +1,14 @@
 import { RoundToThreeDecimalPlaces } from '@Components/Modals';
+import { Alert, AlertActionCloseButton } from '@patternfly/react-core';
+import { SpinnerIcon } from '@patternfly/react-icons';
+import { GetPathForFetch } from '@src/Utils/path_utils';
+import { GetToastContentWithHeaderAndBody } from '@src/Utils/toast_utils';
 import { MAX_SAFE_INTEGER } from 'lib0/number';
 import React from 'react';
-import useSWR, { KeyedMutator, useSWRConfig } from 'swr';
+import { Toast, toast } from 'react-hot-toast';
+import useSWR from 'swr';
+
+const toastIdLoggedOut: string = '__TOAST_ERROR_LOGGED_OUT__';
 
 type AuthContext = {
     authenticated: boolean;
@@ -10,7 +17,7 @@ type AuthContext = {
     password: string | undefined;
     setUsername: (username: string | undefined) => void;
     setPassword: (password: string | undefined) => void;
-    mutateToken: KeyedMutator<any> | undefined;
+    mutateToken: (username: string, password: string) => Promise<boolean>;
     error: any;
 };
 
@@ -21,22 +28,34 @@ const initialState: AuthContext = {
     setUsername: () => {},
     password: undefined,
     setPassword: () => {},
-    mutateToken: undefined,
+    mutateToken: async () => false,
     error: undefined,
 };
 
-const refreshTokenEndpoint: string = '/refresh_token';
-const loginEndpoint: string = '/authenticate';
+const refreshTokenEndpoint: string = GetPathForFetch('/refresh_token');
+const loginEndpoint: string = GetPathForFetch('/authenticate');
 
 const AuthorizationContext = React.createContext<AuthContext>(initialState);
 
-const tokenFetcher = async (
+interface AuthResponse {
+    token: string;
+    expire: string | number;
+    username: string;
+    password: string;
+    refreshed: boolean; // If true, then token was refreshed, rather than created for first time.
+    toastId: string | undefined;
+}
+
+async function tokenFetcher(
     endpoint: RequestInfo | URL,
     username: string | undefined,
     password: string | undefined,
     currentlyAuthenticated: boolean,
-) => {
-    console.log(`Refreshing token. Endpoint: "${endpoint}". Username: "${username}". Password: "${password}". Currently authenticated: ${currentlyAuthenticated}.`);
+    toastId: string | undefined = undefined,
+): Promise<AuthResponse | void> {
+    console.log(
+        `Refreshing token. Endpoint: "${endpoint}". Username: "${username}". Password: "${password}". ToastID: ${toastId}. Currently authenticated: ${currentlyAuthenticated}.`,
+    );
 
     const abortController: AbortController = new AbortController();
     const signal: AbortSignal = abortController.signal;
@@ -75,12 +94,94 @@ const tokenFetcher = async (
 
     const response: Response = await fetch(endpoint, init);
 
-    const responseJSON = await response.json();
+    return await handleResponse(response, username, password, endpoint, toastId);
+}
 
-    console.log(`Fetched JWT token:\n${JSON.stringify(responseJSON, null, 2)}`);
+/**
+ * Handle the response from a fetched login/authentication request.
+ * @param response the response returned by the call to fetch.
+ * @param username username used to log in
+ * @param password password used to log in
+ * @param endpoint endpoint targeted by login request
+ * @param toastId id of associated toast notification being displayed during login request
+ */
+async function handleResponse(
+    response: Response,
+    username: string | undefined,
+    password: string | undefined,
+    endpoint: RequestInfo | URL,
+    toastId: string | undefined = undefined,
+): Promise<AuthResponse | void> {
+    if (!username) {
+        throw new Error('username cannot be blank at this point');
+    }
 
-    return responseJSON;
-};
+    if (!password) {
+        throw new Error('password cannot be blank at this point');
+    }
+
+    const contentType = response.headers.get('content-type');
+    if (contentType && contentType.indexOf('application/json') !== -1) {
+        const responseJSON: AuthResponse | Error = await response.json();
+
+        return await handleJsonResponse(response, responseJSON, username, password, endpoint, toastId);
+    } else {
+        const respText: string = await response.text();
+
+        if (response.status !== 200) {
+            console.log(`Authenticate failed. Could not log in:\n${respText}`);
+            throw new Error(`HTTP ${response.status} ${response.statusText}: ${respText}`);
+        } else {
+            console.error(
+                `Received HTTP ${response.status} ${response.statusText} to login request; however, response body was unexpectedly text-based (i.e., non-JSON) with value="${respText}"`,
+            );
+            throw new Error(
+                `Received HTTP ${response.status} ${response.statusText} to login request; however, response body was unexpectedly text-based (i.e., non-JSON) with value="${respText}"`,
+            );
+        }
+    }
+}
+
+/**
+ * Handle the response from a fetched login/authentication request when the 'content-type' headers are
+ * equal to 'application/json'.
+ *
+ * @param response the original response returned by the fetch call
+ * @param responseJSON the result of parsing the JSON-encoded response body
+ * @param username username used to log in
+ * @param password password used to log in
+ * @param endpoint endpoint targeted by login request
+ * @param toastId id of associated toast notification being displayed during login request
+ */
+async function handleJsonResponse(
+    response: Response,
+    responseJSON: AuthResponse | Error,
+    username: string,
+    password: string,
+    endpoint: RequestInfo | URL,
+    toastId: string | undefined = undefined,
+): Promise<AuthResponse | void> {
+    if (response.status !== 200) {
+        console.log(`Authenticate failed. Could not log in:\n${JSON.stringify(responseJSON, null, 2)}`);
+        throw new Error(`HTTP ${response.status} ${response.statusText}: ${(responseJSON as Error).message}`);
+    } else {
+        console.log(`Fetched JWT token:\n${JSON.stringify(responseJSON, null, 2)}`);
+
+        const authResponse: AuthResponse = responseJSON as AuthResponse;
+
+        authResponse.username = username;
+        authResponse.password = password;
+        authResponse.refreshed = endpoint == refreshTokenEndpoint;
+        authResponse.toastId = toastId || '';
+
+        return authResponse;
+    }
+}
+
+function isNumber(n) {
+    return !isNaN(parseFloat(n)) && !isNaN(n - 0);
+}
+
 const AuthProvider = (props: { children }) => {
     const [authenticated, updateAuthenticatedStatus] = React.useState<boolean>(false);
     const [username, updateUsername] = React.useState<string | undefined>();
@@ -97,13 +198,43 @@ const AuthProvider = (props: { children }) => {
         return null;
     };
 
-    const onSuccess = (data: any) => {
-        if (data && data['token'] && data['expire']) {
-            console.log(`Refreshed token: ${data['token']}. Expires at: ${data['expire']}.`);
-            localStorage.setItem('token', data['token']);
-            localStorage.setItem('token-expiration', data['expire']);
+    const onSuccess = (data: AuthResponse | void) => {
+        if (data && data.token && data.expire) {
+            console.log(`Refreshed token: ${data.token}. Expires at: ${data.expire}.`);
+            localStorage.setItem('token', data.token);
+            localStorage.setItem('token-expiration', (data.expire as number).toString());
+
+            updateUsername(data.username);
+            updatePassword(data.password);
 
             updateAuthenticatedStatus(true);
+
+            const toastId: string | undefined = data['toastId'];
+            const refreshed: boolean = data['refreshed'];
+
+            console.log(`onSuccess toastId: ${toastId}`);
+
+            if (refreshed) {
+                toast.custom(
+                    GetToastContentWithHeaderAndBody(
+                        'Authentication Status Refreshed',
+                        'Your log-in session has been automatically extended.',
+                        'success',
+                        () => toast.dismiss(toastId),
+                    ),
+                    { id: toastId },
+                );
+            } else {
+                toast.custom(
+                    GetToastContentWithHeaderAndBody(
+                        'Authentication Successful',
+                        `Successfully logged-in as user "${data['username']}"`,
+                        'success',
+                        () => toast.dismiss(toastId),
+                    ),
+                    { id: toastId },
+                );
+            }
         }
     };
 
@@ -120,13 +251,16 @@ const AuthProvider = (props: { children }) => {
             revalidateIfStale: false,
             onSuccess: onSuccess,
             refreshInterval: (latestData) => {
-                if (latestData && latestData['expire']) {
-                    const expire: string = latestData['expire'];
-                    const expireUnix: number = Date.parse(expire);
+                if (latestData && latestData.expire) {
+                    let expire: string | number = latestData.expire;
 
-                    console.log(`Token is set to expire at ${expireUnix}.`);
+                    if (!isNumber(expire)) {
+                        expire = Date.parse(expire as string);
+                    }
 
-                    const expireIn: number = expireUnix - Date.now();
+                    console.log(`Token is set to expire at ${expire}.`);
+
+                    const expireIn: number = (expire as number) - Date.now();
 
                     console.log(
                         `Will automatically refresh JWT token in ${RoundToThreeDecimalPlaces(expireIn / 1000.0)} seconds`,
@@ -140,46 +274,69 @@ const AuthProvider = (props: { children }) => {
         },
     );
 
-    const { mutate } = useSWRConfig();
+    const doMutate = async (user: string, passwd: string) => {
+        console.log(
+            `Manually refreshing token now with username "${user}". Current authenticated status: ${authenticated}`,
+        );
 
-    const doMutate = async () => {
-        console.log(`Manually refreshing token now. Currently authenticated: ${authenticated}`);
-        if (authenticated) {
-            return await mutate(refreshTokenEndpoint);
-        } else {
-            setDoLogin(true);
+        const toastId: string = toast.custom((t: Toast) => (
+            <Alert
+                isInline
+                variant={'info'}
+                title={'Logging in...'}
+                onTimeout={() => toast.dismiss(t.id)}
+                customIcon={<SpinnerIcon className={'loading-icon-spin-pulse'} />}
+                actionClose={<AlertActionCloseButton onClose={() => toast.dismiss(t.id)} />}
+            />
+        ));
+
+        console.log(`doMutate toastId: ${toastId}`);
+
+        let response: AuthResponse | void = undefined;
+        try {
+            response = await tokenFetcher(
+                authenticated ? refreshTokenEndpoint : loginEndpoint,
+                user,
+                passwd,
+                authenticated,
+                toastId,
+            );
+        } catch (err) {
+            toast.custom(
+                (t: Toast) =>
+                    GetToastContentWithHeaderAndBody('Login Attempt Failed', (err as Error).message, 'danger', () =>
+                        toast.dismiss(t.id),
+                    ),
+                { id: toastId },
+            );
+
+            throw err;
         }
+
+        onSuccess(response);
+
+        return true;
     };
-
-    // React.useEffect(() => {
-    //   if (authenticated) {
-    //     const currentToken: string = localStorage.getItem('token');
-    //     const expireAt: string = localStorage.getItem('token-expiration');
-    //
-    //     const ttl: number = (Number.parseInt(expireAt) - Date.now()) + 2500; // Add 2.5 sec for a bit of a buffer.
-    //
-    //     if (ttl < 0) {
-    //       return;
-    //     }
-    //
-    //     const intervalId = setInterval(() => {
-    //       if (localStorage.getItem('token') == currentToken) {
-    //         updateAuthenticatedStatus(false);
-    //       }
-    //     }, ttl);
-    //
-    //     return () => clearInterval(intervalId);
-    //   }
-    //
-    //   return;
-    // }, [authenticated])
-
     return (
         <AuthorizationContext.Provider
             value={{
                 authenticated: authenticated,
-                setAuthenticated: (auth: boolean) => {
-                    updateAuthenticatedStatus(auth);
+                setAuthenticated: (nextAuthStatus: boolean) => {
+                    // If the user was authenticated and is now being set to unauthenticated, then display an error.
+                    if (authenticated && !nextAuthStatus) {
+                        toast.custom(
+                            () =>
+                                GetToastContentWithHeaderAndBody(
+                                    'Logged Out',
+                                    "You've been logged-out. Please reauthenticate to continue using the Cluster Dashboard.",
+                                    'danger',
+                                    () => toast.dismiss(toastIdLoggedOut),
+                                ),
+                            { id: toastIdLoggedOut },
+                        );
+                    }
+
+                    updateAuthenticatedStatus(nextAuthStatus);
                 },
                 username: username,
                 setUsername: (user: string | undefined) => {

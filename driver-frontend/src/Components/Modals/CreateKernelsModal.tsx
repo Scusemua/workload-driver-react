@@ -1,4 +1,3 @@
-import { ResourceSpec } from '@src/Data';
 import {
     Button,
     Divider,
@@ -15,6 +14,8 @@ import {
     TextInputGroup,
     TextInputProps,
 } from '@patternfly/react-core';
+import { AuthorizationContext } from '@Providers/AuthProvider';
+import { ResourceSpec } from '@src/Data';
 import React from 'react';
 import { v4 as uuidv4 } from 'uuid';
 
@@ -63,6 +64,15 @@ export const CreateKernelsModal: React.FunctionComponent<CreateKernelsModalProps
 
     const defaultKernelId = React.useRef<Map<number, string> | null>(null);
     const defaultSessionId = React.useRef<Map<number, string> | null>(null);
+
+    const { authenticated } = React.useContext(AuthorizationContext);
+
+    React.useEffect(() => {
+        // Automatically close the modal of we are logged out.
+        if (!authenticated) {
+            props.onClose();
+        }
+    }, [props, authenticated]);
 
     if (defaultKernelId.current === null) {
         defaultKernelId.current = new Map<number, string>();

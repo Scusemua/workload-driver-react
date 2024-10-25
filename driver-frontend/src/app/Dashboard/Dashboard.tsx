@@ -1,7 +1,8 @@
 import '@patternfly/react-core/dist/styles/base.css';
 
-import { KernelList, KernelSpecList, NodeList, UtilizationCard, WorkloadCard } from '@Components/Cards/';
+import { KernelListCard, KernelSpecList, NodeList, UtilizationCard, WorkloadCard } from '@Components/Cards/';
 import { MigrationModal } from '@Components/Modals';
+import { GetPathForFetch } from '@src/Utils/path_utils';
 import { DistributedJupyterKernel, JupyterKernelReplica } from 'src/Data';
 import { DockerLogViewCard } from '@Cards/LogViewCard/DockerLogViewCard';
 import { Grid, GridItem, PageSection, gridSpans } from '@patternfly/react-core';
@@ -73,7 +74,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
             },
         );
 
-        fetch('/api/migrate', requestOptions).then((response) => {
+        fetch(GetPathForFetch('/api/migrate'), requestOptions).then((response) => {
             console.log(
                 'Received response for migration operation of replica %d of kernel %s: %s',
                 targetReplica.replicaId,
@@ -128,9 +129,6 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
     return (
         <PageSection>
             <Grid hasGutter>
-                {/* <GridItem span={12} rowSpan={8}>
-                    <LogViewCard />
-                </GridItem> */}
                 <GridItem span={6} rowSpan={getKernelCardRowspan()}>
                     <KernelHeightFactorContext.Provider
                         value={{
@@ -138,7 +136,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
                             setHeightFactor: (newHeight: number) => setKernelHeightFactor(newHeight),
                         }}
                     >
-                        <KernelList kernelsPerPage={3} openMigrationModal={openMigrationModal} />
+                        <KernelListCard kernelsPerPage={3} openMigrationModal={openMigrationModal} />
                     </KernelHeightFactorContext.Provider>
                 </GridItem>
                 <GridItem span={6} rowSpan={getWorkloadCardRowspan()}>

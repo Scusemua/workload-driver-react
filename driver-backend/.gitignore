@@ -7,13 +7,16 @@ coverage
 storybook-static
 .DS_Store
 .idea
-.env
+.production.env
 driver-backend/config-files
 driver-backend/config-files/
 driver-backend/config-files/*
 output.txt
 *.exe
+.*.env
 dist2
 /venv/
 /server
 /server-linux-amd64
+/server~
+/.env

@@ -21,7 +21,7 @@ var (
 	NoSessionEvent      []domain.SessionEventName = nil
 	SessionReadyExpects                           = SessionCPUReady | SessionGPUReady
 	SessionStopExpects                            = SessionCPUReady | SessionGPUReady
-	ErrEventPending     error                     = errors.New("event pending")
+	ErrEventPending                               = errors.New("event pending")
 
 	NilTimestamp = time.Time{}
 )

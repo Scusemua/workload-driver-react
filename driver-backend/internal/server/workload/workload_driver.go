@@ -156,7 +156,7 @@ func NewWorkloadDriver(opts *domain.Configuration, performClockTicks bool, times
 		tickDuration:                       time.Second * time.Duration(opts.TraceStep),
 		tickDurationSeconds:                opts.TraceStep,
 		driverTimescale:                    opts.DriverTimescale,
-		kernelManager:                      jupyter.NewKernelSessionManager(opts.JupyterServerAddress, true, atom, metrics.PrometheusMetricsWrapperInstance),
+		kernelManager:                      jupyter.NewKernelSessionManager(opts.InternalJupyterServerAddress, true, atom, metrics.PrometheusMetricsWrapperInstance),
 		sessionConnections:                 make(map[string]*jupyter.SessionConnection),
 		performClockTicks:                  performClockTicks,
 		eventQueue:                         event_queue.NewBasicEventQueue(atom),
@@ -189,14 +189,11 @@ func NewWorkloadDriver(opts *domain.Configuration, performClockTicks bool, times
 	presets, err := domain.LoadWorkloadPresetsFromFile(opts.WorkloadPresetsFilepath)
 	if err != nil {
 		driver.logger.Error("Error encountered while loading workload presets from file now.", zap.String("filepath", opts.WorkloadPresetsFilepath), zap.Error(err))
-		panic(err)
 	}
 
 	driver.workloadPresets = make(map[string]*domain.WorkloadPreset, len(presets))
 	for _, preset := range presets {
 		driver.workloadPresets[preset.GetKey()] = preset
-
-		// driver.logger.Debug("Discovered preset.", zap.Any(fmt.Sprintf("preset-%s", preset.GetKey()), preset.String()))
 	}
 
 	return driver

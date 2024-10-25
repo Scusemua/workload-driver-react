@@ -61,6 +61,12 @@ func (h *VariablesHttpHandler) HandleRequest(c *gin.Context) {
 	variable := c.Param("variable_name")
 	h.logger.Debug("Received query for variable.", zap.String("variable", variable))
 
+	if !h.grpcClient.ConnectedToGateway() {
+		h.logger.Warn("Connection with Cluster Gateway has not been established. Aborting.")
+		_ = c.AbortWithError(http.StatusServiceUnavailable, fmt.Errorf("connection with Cluster Gateway is inactive"))
+		return
+	}
+
 	response := make(map[string]interface{})
 	switch variable {
 	case "num_nodes":

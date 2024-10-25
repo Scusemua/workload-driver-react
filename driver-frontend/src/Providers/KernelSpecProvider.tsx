@@ -1,4 +1,8 @@
+import { AuthorizationContext } from '@Providers/AuthProvider';
+import { RefreshError } from '@Providers/Error';
 import { JupyterKernelSpecWrapper } from '@src/Data';
+import { GetPathForFetch } from '@src/Utils/path_utils';
+import React from 'react';
 import useSWR from 'swr';
 import useSWRMutation from 'swr/mutation';
 
@@ -11,30 +15,56 @@ const fetcher = async (input: RequestInfo | URL) => {
         abortController.abort(`The request timed-out after ${timeout} milliseconds.`);
     }, timeout);
 
+    let response: Response;
     try {
-        const response: Response = await fetch(input, {
+        response = await fetch(input, {
             signal: signal,
         });
-
-        if (response.status !== 200) {
-            await Promise.reject(new Error(`HTTP ${response.status} ${response.statusText}`));
-        }
-
-        return await response.json();
     } catch (e) {
         if (signal.aborted) {
             console.error('refresh-kernel-specs request timed out.');
-            await Promise.reject(new Error(`The request timed out.`)); // Different error.
+            throw new Error(`The request timed out.`); // Different error.
         } else {
             console.error(`Failed to fetch kernels because: ${e}`);
-            await Promise.reject(e); // Re-throw e.
+            throw e; // Re-throw.
         }
     }
+
+    if (response.status !== 200) {
+        throw new RefreshError(response);
+    }
+
+    return await response.json();
 };
 
 export function useKernelSpecs() {
-    const { data, error, isLoading } = useSWR('jupyter/api/kernelspecs', fetcher, { refreshInterval: 5000 });
-    const { trigger, isMutating } = useSWRMutation('jupyter/api/kernelspecs', fetcher);
+    const { authenticated, setAuthenticated } = React.useContext(AuthorizationContext);
+
+    const { data, error, isLoading } = useSWR(
+        authenticated ? GetPathForFetch('jupyter/api/kernelspecs') : null,
+        fetcher,
+        {
+            refreshInterval: () => {
+                if (data) {
+                    // If we already have data, then we really don't need to refresh this very often.
+                    return 600000; // 10 min.
+                } else {
+                    return 5000;
+                }
+            },
+            shouldRetryOnError: (err: Error) => {
+                // If the error is a RefreshError with status code 401, then don't retry.
+                // In all other cases, retry.
+                return !(err instanceof RefreshError && (err as RefreshError).statusCode == 401);
+            },
+            onError: (err: Error) => {
+                if (err instanceof RefreshError && (err as RefreshError).statusCode == 401) {
+                    setAuthenticated(false);
+                }
+            },
+        },
+    );
+    const { trigger, isMutating } = useSWRMutation(GetPathForFetch('jupyter/api/kernelspecs'), fetcher);
 
     const kernelSpecs: JupyterKernelSpecWrapper[] = [];
     let jsonParseError: boolean = false;

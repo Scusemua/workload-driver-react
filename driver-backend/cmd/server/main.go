@@ -2,9 +2,9 @@ package main
 
 import (
 	"github.com/joho/godotenv"
-
 	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/server"
+	"log"
 )
 
 func main() {
@@ -14,7 +14,7 @@ func main() {
 	// Load ENV from .env file
 	err := godotenv.Load()
 	if err != nil {
-		panic("error loading .env file")
+		log.Fatalf("Failed to load environment file \".env\"")
 	}
 
 	srv := server.NewServer(conf)

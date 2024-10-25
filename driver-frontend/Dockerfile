@@ -20,6 +20,7 @@ COPY tsconfig.json ./
 COPY webpack.dev.docker.js ./webpack.dev.js
 COPY webpack.common.js ./
 COPY webpack.prod.js ./
+COPY .env ./
 
 EXPOSE 8001
 

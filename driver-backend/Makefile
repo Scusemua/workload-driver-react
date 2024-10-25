@@ -1,5 +1,10 @@
 DOCKERUSER=scusemua
 
+# NOTE:
+#
+# If you're using Windows, then some of these commands may not work if you're using Windows PowerShell
+# or Command Prompt. I recommend using a Unix shell, such as Git Bash, on Windows when building these targets.
+
 ifeq ($(OS),Windows_NT)     # is Windows_NT on XP, 2000, 7, Vista, 10...
     detected_OS := Windows
 else
@@ -26,16 +31,23 @@ build-server:
 build-servers: build-server build-server-linux
 
 # Build first, then create Docker image.
-build-docker: build-grpc build-server
+build-docker-image: build-grpc build-server-linux
 	docker build -t $(DOCKERUSER)/distributed-notebook-dashboard-backend .
-	# docker build -t scusemua/distributed-notebook-dashboard-backend .
-	# docker push scusemua/distributed-notebook-dashboard-backend:latest
-	# docker run -it scusemua/distributed-notebook-dashboard-backend:latest
 
 # Don't build first; use existing build to create docker image.
-docker:
+docker-image:
 	docker build -t $(DOCKERUSER)/distributed-notebook-dashboard-backend .
-	# docker build -t scusemua/distributed-notebook-dashboard-backend .
+
+push-docker-image:
+	docker push $(DOCKERUSER)/distributed-notebook-dashboard-backend:latest
+
+run-backend-docker:
+	docker run -it -p "8000:8000" \
+		-v $(shell pwd)/configs/config-docker-local.yaml:/etc/distributed-notebook-cluster/dashboard.yaml \
+		-v $(shell pwd)/configs/workload-presets-file-docker.yaml:/etc/distributed-notebook-cluster/workload-presets-file.yaml \
+		-v $(shell pwd)/.production.env:/go/.env
+		--add-host host.docker.internal:host-gateway \
+		scusemua/distributed-notebook-dashboard-backend:latest
 
 # Alias for run-server.
 run-backend: run-server

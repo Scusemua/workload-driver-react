@@ -61,7 +61,7 @@ export interface NewWorkloadFromTemplateModalProps {
     children?: React.ReactNode;
     isOpen: boolean;
     onClose: () => void;
-    onConfirm: (workloadRegistrationRequestJson: string) => void;
+    onConfirm: (workloadName: string, workloadRegistrationRequestJson: string) => void;
 }
 
 // Clamp a value between two extremes.
@@ -106,7 +106,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
 
     React.useEffect(() => {
         if (isSubmitSuccessful) {
-            console.log('Submission was successful. Resetting form to default values.');
+            console.log('Resetting form to default values.');
             form.reset(GetDefaultFormValues());
         }
     }, [form, isSubmitSuccessful]);
@@ -234,18 +234,9 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
     };
 
     const onSubmit = (data: { workloadTitle: string }) => {
-        const workloadTitle: string = data.workloadTitle;
-        // const workloadSeed: string = data.workloadSeed;
-        // const debugLoggingEnabled: boolean = data.debugLoggingEnabled;
-        // const timescaleAdjustmentFactor: number = data.timescaleAdjustmentFactor;
-
         const workloadRegistrationRequest: string = parseData(data);
-
         console.log(`User submitted workload template data: ${JSON.stringify(data)}`);
-        // props.onConfirm(workloadTitle, workloadSeed, debugLoggingEnabled, workloadTemplate, timescaleAdjustmentFactor);
-
-        toast('Registering template-based workload "' + workloadTitle + '" now.', { style: { maxWidth: 700 } });
-        props.onConfirm(workloadRegistrationRequest);
+        props.onConfirm(data.workloadTitle, workloadRegistrationRequest);
     };
 
     const getWorkloadNameValidationState = () => {

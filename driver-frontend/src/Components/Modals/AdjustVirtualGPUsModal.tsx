@@ -1,8 +1,9 @@
-import React from 'react';
 import { Button, Form, FormGroup, Modal, ModalVariant, TextInput, ValidatedOptions } from '@patternfly/react-core';
-import { ClusterNode } from '@src/Data';
 import { CheckCircleIcon } from '@patternfly/react-icons';
+import { AuthorizationContext } from '@Providers/AuthProvider';
+import { ClusterNode } from '@src/Data';
 import { useNodes } from '@src/Providers';
+import React from 'react';
 
 export interface AdjustVirtualGPUsModalProps {
     children?: React.ReactNode;
@@ -27,6 +28,15 @@ export const AdjustVirtualGPUsModal: React.FunctionComponent<AdjustVirtualGPUsMo
             }
         });
     }, [props.nodes, minVirtualGPUs]);
+
+    const { authenticated } = React.useContext(AuthorizationContext);
+
+    React.useEffect(() => {
+        // Automatically close the modal of we are logged out.
+        if (!authenticated) {
+            props.onClose();
+        }
+    }, [props, authenticated]);
 
     const handleAdjustedGPUsChanged = (_event, vgpus: string) => {
         const validValue: boolean = /[0-9]/.test(vgpus) || vgpus == '';

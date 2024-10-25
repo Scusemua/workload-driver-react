@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"path"
 	"runtime/debug"
 	"strings"
 	"sync"
@@ -498,7 +499,8 @@ func (conn *BasicKernelConnection) InterruptKernel() error {
 		return err
 	}
 
-	endpoint := fmt.Sprintf("%s/api/kernels/%s/interrupt", conn.jupyterServerAddress, conn.kernelId)
+	endpoint := path.Join(conn.jupyterServerAddress, fmt.Sprintf("/api/kernels/%s/interrupt", conn.kernelId))
+	// endpoint := fmt.Sprintf("%s/api/kernels/%s/interrupt", conn.jupyterServerAddress, conn.kernelId)
 	req, err := http.NewRequest(http.MethodPost, endpoint, bytes.NewBuffer(requestBodyEncoded))
 
 	if err != nil {
@@ -1012,7 +1014,8 @@ func (conn *BasicKernelConnection) reconnect() (bool, bool) {
 func (conn *BasicKernelConnection) getKernelModel() (*jupyterKernel, error) {
 	conn.logger.Debug("Retrieving kernel model via HTTP Rest API.", zap.String("kernel_id", conn.kernelId))
 
-	endpoint := fmt.Sprintf("http://%s/api/kernels/%s", conn.jupyterServerAddress, conn.kernelId)
+	address := path.Join(conn.jupyterServerAddress, fmt.Sprintf("/api/kernels/%s", conn.kernelId))
+	endpoint := fmt.Sprintf("http://%s", address)
 	req, err := http.NewRequest(http.MethodGet, endpoint, nil)
 	if err != nil {
 		conn.logger.Error("Error encountered while creating HTTP request to get model for kernel.", zap.String("kernel_id", conn.kernelId), zap.String("endpoint", endpoint), zap.Error(err))

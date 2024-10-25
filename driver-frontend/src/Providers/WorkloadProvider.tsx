@@ -1,40 +1,30 @@
 import { PatchedWorkload, Workload, WorkloadResponse } from '@Data/Workload';
+import { AuthorizationContext } from '@Providers/AuthProvider';
+import { JoinPaths } from '@src/Utils/path_utils';
 import jsonmergepatch from 'json-merge-patch';
-import { useRef } from 'react';
+import { useContext, useRef } from 'react';
 import { MutatorCallback } from 'swr';
 import type { SWRSubscription } from 'swr/subscription';
 import useSWRSubscription from 'swr/subscription';
 import { v4 as uuidv4 } from 'uuid';
 
-const api_endpoint: string = 'ws://localhost:8000/workload';
+const api_endpoint: string = JoinPaths(process.env.PUBLIC_PATH || '/', 'websocket', 'workload');
 
 export const useWorkloads = () => {
+    const { authenticated } = useContext(AuthorizationContext);
+
     const subscriberSocket = useRef<WebSocket | null>(null);
     useRef<boolean>(false);
-    // const lastNextFunc = useRef<(
-    //     err?: Error | null | undefined,
-    //     data?: Map<string, Workload> | MutatorCallback<Map<string, Workload>> | undefined,
-    // ) => void>();
 
     const setupWebsocket = (
         hostname: string,
-        // forceRecreate: boolean,
         next: (
             err?: Error | null | undefined,
             data?: Map<string, Workload> | MutatorCallback<Map<string, Workload>> | undefined,
         ) => void,
     ) => {
         if (subscriberSocket.current == null) {
-            // We'll use this when we reconnect if we're disconnected.
-            // if (next !== undefined && next !== null) {
-            //     lastNextFunc.current = next; // Cache the next function so we can reuse it.
-            // } else if (lastNextFunc.current !== undefined && lastNextFunc.current !== null) {
-            //     console.debug("Used cached `next` function in Workload Websocket.");
-            //     next = lastNextFunc.current;
-            // } else {
-            //     console.error("`next` parameter is null/undefined when setting up Workload Websocket, and we have no cached previous `next` function to fallback to...");
-            // }
-
+            console.log(`Attempting to connect Workload WebSocket to hostname "${hostname}"`);
             subscriberSocket.current = new WebSocket(hostname);
             subscriberSocket.current.addEventListener('open', () => {
                 console.log("Connected to workload websocket. Sending 'subscribe' message now.");
@@ -122,7 +112,7 @@ export const useWorkloads = () => {
             });
 
             subscriberSocket.current.addEventListener('close', (event: CloseEvent) => {
-                console.error(`Workloads Subscriber WebSocket closed: ${event}`);
+                console.error(`Workloads Subscriber WebSocket closed: ${JSON.stringify(event)}`);
             });
 
             subscriberSocket.current.addEventListener('error', (event: Event) => {
@@ -131,20 +121,29 @@ export const useWorkloads = () => {
         }
     };
 
-    const sendJsonMessage = (msg: string) => {
+    /**
+     * Send a message to the remote WebSocket.
+     * @param msg the JSON-encoded message to send.
+     *
+     * If an error occurs, then that error will be converted to a string and returned.
+     *
+     * Returns nothing on success.
+     */
+    const sendJsonMessage = (msg: string): string | void => {
         if (subscriberSocket.current?.readyState !== WebSocket.OPEN) {
             console.error(
                 `Cannot send workload-related message via websocket. Websocket is in state ${subscriberSocket.current?.readyState}`,
             );
 
-            // setupWebsocket(api_endpoint, true, lastNextFunc.current);
-            return;
+            return "WebSocket connection with backend is unavailable";
         }
 
         try {
             subscriberSocket.current?.send(msg);
         } catch (err) {
             console.error(`Failed to send workload-related message via websocket. Error: ${err}`);
+
+            return JSON.stringify(err);
         }
     };
 
@@ -157,8 +156,12 @@ export const useWorkloads = () => {
     }
 
     const subscribe: SWRSubscription<string, Map<string, Workload>, Error> = (key: string, { next }) => {
+        // Don't establish any WebSocket connections until we've been authenticated...
+        if (!authenticated) {
+            return null;
+        }
+
         console.log(`Connecting to Websocket server at '${key}'`);
-        // setupWebsocket(key, false, next);
         setupWebsocket(key, next);
         return () => {};
     };

@@ -1,4 +1,3 @@
-import React from 'react';
 import {
     Button,
     Card,
@@ -11,22 +10,21 @@ import {
     DescriptionListDescription,
     DescriptionListGroup,
     DescriptionListTerm,
-    Flex,
-    FlexItem,
     Skeleton,
     Tab,
     TabContent,
-    TabTitleText,
     Tabs,
+    TabTitleText,
     Title,
     ToolbarGroup,
     ToolbarItem,
     Tooltip,
 } from '@patternfly/react-core';
 import { SyncIcon } from '@patternfly/react-icons';
-import { useKernelSpecs } from '@src/Providers';
-import { toast } from 'react-hot-toast';
 import { JupyterKernelSpecWrapper } from '@src/Data';
+import { useKernelSpecs } from '@src/Providers';
+import { ToastRefresh } from '@src/Utils/toast_utils';
+import React from 'react';
 
 export const KernelSpecList: React.FunctionComponent = () => {
     const [activeTabKey, setActiveTabKey] = React.useState(0);
@@ -51,36 +49,11 @@ export const KernelSpecList: React.FunctionComponent = () => {
                             'loading-icon-spin-toggleable paused'
                         }
                         onClick={() => {
-                            toast.promise(
-                                refreshKernelSpecs(),
-                                {
-                                    loading: <b>Refreshing Jupyter KernelSpecs...</b>,
-                                    success: <b>Refreshed Jupyter KernelSpecs!</b>,
-                                    error: (reason: Error) => {
-                                        let reasonUI = <FlexItem>{reason.message}</FlexItem>;
-
-                                        if (reason.message.includes("Unexpected token 'E'")) {
-                                            reasonUI = <FlexItem>HTTP 504: Gateway Timeout</FlexItem>;
-                                        }
-
-                                        return (
-                                            <Flex
-                                                direction={{ default: 'column' }}
-                                                spaceItems={{ default: 'spaceItemsNone' }}
-                                            >
-                                                <FlexItem>
-                                                    <b>Could not refresh Jupyter KernelSpecs.</b>
-                                                </FlexItem>
-                                                {reasonUI}
-                                            </Flex>
-                                        );
-                                    },
-                                },
-                                {
-                                    style: {
-                                        padding: '8px',
-                                    },
-                                },
+                            ToastRefresh(
+                                refreshKernelSpecs,
+                                'Refreshing Jupyter KernelSpecs...',
+                                'Failed to refresh Jupyter KernelSpecs',
+                                'Refreshed Jupyter KernelSpecs',
                             );
                         }}
                         icon={<SyncIcon />}

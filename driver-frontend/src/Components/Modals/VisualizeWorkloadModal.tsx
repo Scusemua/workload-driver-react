@@ -1,9 +1,10 @@
-import React from 'react';
 import { Button, Modal, ModalVariant } from '@patternfly/react-core';
+import { AuthorizationContext } from '@Providers/AuthProvider';
+import { Workload } from '@src/Data/Workload';
+import React from 'react';
+import { INITIAL_VALUE, ReactSVGPanZoom, TOOL_NONE } from 'react-svg-pan-zoom';
 
 import { ReactSvgPanZoomLoader } from 'react-svg-pan-zoom-loader';
-import { INITIAL_VALUE, ReactSVGPanZoom, TOOL_NONE } from 'react-svg-pan-zoom';
-import { Workload } from '@src/Data/Workload';
 
 export interface VisualizeWorkloadModalProps {
     children?: React.ReactNode;
@@ -16,6 +17,14 @@ export const VisualizeWorkloadModal: React.FunctionComponent<VisualizeWorkloadMo
     const Viewer = React.useRef(null);
     const [tool, setTool] = React.useState(TOOL_NONE);
     const [value, setValue] = React.useState(INITIAL_VALUE);
+    const { authenticated } = React.useContext(AuthorizationContext);
+
+    React.useEffect(() => {
+        // Automatically close the modal of we are logged out.
+        if (!authenticated) {
+            props.onClose();
+        }
+    }, [props, authenticated]);
 
     return (
         <Modal

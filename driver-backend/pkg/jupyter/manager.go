@@ -8,6 +8,7 @@ import (
 	"io"
 	"net/http"
 	"os"
+	"path"
 	"strings"
 	"sync"
 	"time"
@@ -159,7 +160,7 @@ func (m *BasicKernelSessionManager) GetMetadata(key string) (string, bool) {
 // CreateSession creates a new session.
 //
 // This is thread-safe.
-func (m *BasicKernelSessionManager) CreateSession(sessionId string, path string, sessionType string, kernelSpecName string, resourceSpec *ResourceSpec) (*SessionConnection, error) {
+func (m *BasicKernelSessionManager) CreateSession(sessionId string, sessionPath string, sessionType string, kernelSpecName string, resourceSpec *ResourceSpec) (*SessionConnection, error) {
 	if m.adjustSessionNames {
 		if len(sessionId) < 36 {
 			generatedUuid := uuid.NewString()
@@ -169,7 +170,7 @@ func (m *BasicKernelSessionManager) CreateSession(sessionId string, path string,
 		}
 	}
 
-	requestBody := newJupyterSessionForRequest(sessionId, path, sessionType, kernelSpecName, resourceSpec)
+	requestBody := newJupyterSessionForRequest(sessionId, sessionPath, sessionType, kernelSpecName, resourceSpec)
 
 	requestBodyJson, err := json.Marshal(&requestBody)
 	if err != nil {
@@ -179,10 +180,11 @@ func (m *BasicKernelSessionManager) CreateSession(sessionId string, path string,
 
 	m.logger.Debug("Issuing 'CREATE-SESSION' request now.", zap.String("request-args", requestBody.String()))
 
-	url := fmt.Sprintf("http://%s/api/sessions", m.jupyterServerAddress)
+	address := path.Join(m.jupyterServerAddress, "/api/sessions")
+	url := fmt.Sprintf("http://%s", address)
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(requestBodyJson))
 	if err != nil {
-		m.logger.Error("Error encountered while creating request for CreateFile operation.", zap.String("request-args", requestBody.String()), zap.String("path", path), zap.String("url", url), zap.Error(err))
+		m.logger.Error("Error encountered while creating request for CreateFile operation.", zap.String("request-args", requestBody.String()), zap.String("sessionPath", sessionPath), zap.String("url", url), zap.Error(err))
 		return nil, err
 	}
 
@@ -331,10 +333,12 @@ func (m *BasicKernelSessionManager) InterruptKernel(sessionId string) error {
 	return nil
 }
 
-func (m *BasicKernelSessionManager) CreateFile(path string) error {
-	url := fmt.Sprintf("http://%s/api/contents/%s", m.jupyterServerAddress, path)
+func (m *BasicKernelSessionManager) CreateFile(target string) error {
+	pathSuffix := fmt.Sprintf("/api/contents/%s", target)
+	address := path.Join(m.jupyterServerAddress, pathSuffix)
+	url := fmt.Sprintf("http://%s", address)
 
-	createFileRequest := newCreateFileRequest(path)
+	createFileRequest := newCreateFileRequest(target)
 	payload, err := json.Marshal(&createFileRequest)
 	if err != nil {
 		m.logger.Error("Error encountered while marshalling payload for CreateFile operation.", zap.Error(err))
@@ -343,14 +347,14 @@ func (m *BasicKernelSessionManager) CreateFile(path string) error {
 
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(payload))
 	if err != nil {
-		m.logger.Error("Error encountered while creating request for CreateFile operation.", zap.String("path", path), zap.String("url", url), zap.Error(err))
+		m.logger.Error("Error encountered while creating request for CreateFile operation.", zap.String("target", target), zap.String("url", url), zap.Error(err))
 		return err
 	}
 
 	client := &http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
-		m.logger.Error("Received error when creating new file.", zap.String("path", path), zap.String("url", url), zap.Error(err))
+		m.logger.Error("Received error when creating new file.", zap.String("target", target), zap.String("url", url), zap.Error(err))
 		return err
 	}
 
@@ -385,7 +389,10 @@ func (m *BasicKernelSessionManager) CreateFile(path string) error {
 }
 
 func (m *BasicKernelSessionManager) StopKernel(id string) error {
-	url := fmt.Sprintf("http://%s/api/sessions/%s", m.jupyterServerAddress, id)
+	pathSuffix := fmt.Sprintf("/api/sessions/%s", id)
+	address := path.Join(m.jupyterServerAddress, pathSuffix)
+	url := fmt.Sprintf("http://%s", address)
+	
 	req, err := http.NewRequest(http.MethodDelete, url, nil)
 	if err != nil {
 		m.logger.Error("Failed to create DeleteSession request while stopping kernel.", zap.String(ZapSessionIDKey, id), zap.Error(err))
