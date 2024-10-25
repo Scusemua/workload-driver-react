@@ -23,9 +23,14 @@ import { FilterIcon, ListIcon, MonitoringIcon, ReplicatorIcon, SyncIcon } from '
 import { useNodes } from '@Providers/NodeProvider';
 import { GpuIcon } from '@src/Assets/Icons';
 import { GetPathForFetch } from '@src/Utils/path_utils';
-import { GetToastContentWithHeaderAndBody, ToastFetch } from '@src/Utils/toast_utils';
+import {
+    DefaultDismiss,
+    GetHttpErrorMessage,
+    GetToastContentWithHeaderAndBody,
+    ToastFetch,
+} from '@src/Utils/toast_utils';
 import React from 'react';
-import toast from 'react-hot-toast';
+import toast, { Toast } from 'react-hot-toast';
 import { AdjustVirtualGPUsModal, RoundToTwoDecimalPlaces } from '../../Modals';
 
 export interface NodeListProps {
@@ -51,6 +56,43 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
     // When the user types something into the node name filter, we update the associated state.
     const onSearchChange = (value: string) => {
         setSearchValue(value);
+    };
+
+    const onForceReconnectionClicked = (node: ClusterNode) => {
+        const loadingMessage: string = `Instructing Local Daemon ${node.NodeName} (ID=${node.NodeId}) to reconnect to Cluster Gateway.`;
+        console.log(loadingMessage);
+
+        const req: RequestInit = {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: 'Bearer ' + localStorage.getItem('token'),
+            },
+            body: JSON.stringify({
+                LocalDaemonId: node.NodeId,
+                Delay: true,
+            }),
+        };
+
+        ToastFetch(
+            loadingMessage,
+            (toastId: string) =>
+                GetToastContentWithHeaderAndBody(
+                    'Instructed Local Daemon to Reconnect to Cluster Gateway',
+                    `Successfully instructed Local Daemon ${node.NodeName} (ID=${node.NodeId}) to reconnect to Cluster Gateway.`,
+                    'success',
+                    DefaultDismiss(toastId),
+                ),
+            (resp: Response, reason: string, toastId: string) =>
+                GetToastContentWithHeaderAndBody(
+                    'Error While Instructing Local Daemon to Reconnect to Cluster Gateway',
+                    GetHttpErrorMessage(resp, reason),
+                    'danger',
+                    DefaultDismiss(toastId),
+                ),
+            'api/instruct-ld-reconnect',
+            req,
+        ).then(() => {});
     };
 
     const onAdjustVirtualGPUsClicked = (nodes: ClusterNode[]) => {
@@ -367,6 +409,7 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
                             onFilter={onFilter}
                             onSelectNode={props.onSelectNode}
                             onAdjustVirtualGPUsClicked={onAdjustVirtualGPUsClicked}
+                            onForceReconnectionClicked={onForceReconnectionClicked}
                         />
                     )}
                     {resourceModeToggled && <NodeResourceView />}

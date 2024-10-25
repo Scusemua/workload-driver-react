@@ -1,15 +1,12 @@
 import { HeightFactorContext, NodeHeightFactorContext } from '@App/Dashboard';
-import { GpuIcon, GpuIconAlt2 } from '@src/Assets/Icons';
-import { GetPathForFetch } from '@src/Utils/path_utils';
-import { GetToastContentWithHeaderAndBody } from '@src/Utils/toast_utils';
 import { RoundToTwoDecimalPlaces } from '@Components/Modals';
 import {
-  ClusterNode,
-  GetNodeAllocatedResource,
-  GetNodeId,
-  GetNodeName,
-  GetNodeSpecResource,
-  PodOrContainer
+    ClusterNode,
+    GetNodeAllocatedResource,
+    GetNodeId,
+    GetNodeName,
+    GetNodeSpecResource,
+    PodOrContainer,
 } from '@Data/Cluster';
 import {
     Button,
@@ -46,6 +43,9 @@ import {
 } from '@patternfly/react-icons';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 import { useNodes } from '@Providers/NodeProvider';
+import { GpuIcon, GpuIconAlt2 } from '@src/Assets/Icons';
+import { GetPathForFetch } from '@src/Utils/path_utils';
+import { GetToastContentWithHeaderAndBody } from '@src/Utils/toast_utils';
 import React, { useReducer } from 'react';
 import { toast } from 'react-hot-toast';
 
@@ -60,6 +60,7 @@ export interface NodeDataListProps {
     displayNodeToggleSwitch: boolean; // If true, show the Switch that is used to enable/disable the node.
     onFilter: (repo: ClusterNode) => boolean;
     onAdjustVirtualGPUsClicked: (nodes: ClusterNode[]) => void;
+    onForceReconnectionClicked: (node: ClusterNode) => void;
 }
 
 export const NodeDataList: React.FunctionComponent<NodeDataListProps> = (props: NodeDataListProps) => {
@@ -223,7 +224,7 @@ export const NodeDataList: React.FunctionComponent<NodeDataListProps> = (props: 
             method: 'PATCH',
             headers: {
                 'Content-Type': 'application/json',
-                Authorization: 'Bearer ' + localStorage.getItem("token"),
+                Authorization: 'Bearer ' + localStorage.getItem('token'),
                 // 'Cache-Control': 'no-cache, no-transform, no-store',
             },
             body: requestBody,
@@ -236,8 +237,11 @@ export const NodeDataList: React.FunctionComponent<NodeDataListProps> = (props: 
                         (t) => {
                             return GetToastContentWithHeaderAndBody(
                                 `Failed to ${checked ? 'enable' : 'disable'} node ${GetNodeId(clusterNode)}.`,
-                                `HTTP ${resp.status} - ${resp.statusText}: ${text}`, 'danger',
-                              () => {toast.dismiss(t.id)}
+                                `HTTP ${resp.status} - ${resp.statusText}: ${text}`,
+                                'danger',
+                                () => {
+                                    toast.dismiss(t.id);
+                                },
                             );
                         },
                         { style: { maxWidth: 575 } },
@@ -296,6 +300,17 @@ export const NodeDataList: React.FunctionComponent<NodeDataListProps> = (props: 
                         }}
                     >
                         Adjust vGPUs
+                    </Button>
+                </FlexItem>
+                <FlexItem hidden={props.hideAdjustVirtualGPUsButton} alignSelf={{ default: 'alignSelfCenter' }}>
+                    <Button
+                        variant="link"
+                        onClick={(event: React.MouseEvent) => {
+                            event.stopPropagation();
+                            props.onForceReconnectionClicked(clusterNode);
+                        }}
+                    >
+                        Force Reconnection
                     </Button>
                 </FlexItem>
                 <FlexItem alignSelf={{ default: 'alignSelfCenter' }} hidden={props.isDashboardList}>
@@ -451,7 +466,8 @@ export const NodeDataList: React.FunctionComponent<NodeDataListProps> = (props: 
                         </Tooltip>
                     </FlexItem>
                     <FlexItem>
-                        {GetNodeAllocatedResource(clusterNode, 'CPU') .toFixed(2)} / {GetNodeSpecResource(clusterNode, 'CPU')}
+                        {GetNodeAllocatedResource(clusterNode, 'CPU').toFixed(2)} /{' '}
+                        {GetNodeSpecResource(clusterNode, 'CPU')}
                     </FlexItem>
                 </Flex>
                 <Flex spaceItems={{ default: 'spaceItemsSm' }} alignSelf={{ default: 'alignSelfCenter' }}>
@@ -472,7 +488,8 @@ export const NodeDataList: React.FunctionComponent<NodeDataListProps> = (props: 
                         </Tooltip>
                     </FlexItem>
                     <FlexItem>
-                        {GetNodeAllocatedResource(clusterNode, 'GPU').toFixed(0)} /{GetNodeSpecResource(clusterNode, 'GPU')}
+                        {GetNodeAllocatedResource(clusterNode, 'GPU').toFixed(0)} /
+                        {GetNodeSpecResource(clusterNode, 'GPU')}
                     </FlexItem>
                     {/*<Flex direction={{ default: 'row' }} spaceItems={{ default: 'spaceItemsMd' }}>*/}
                     {/*<Flex spaceItems={{ default: 'spaceItemsNone' }} direction={{ default: 'column' }}>*/}
@@ -517,7 +534,8 @@ export const NodeDataList: React.FunctionComponent<NodeDataListProps> = (props: 
                         </Tooltip>
                     </FlexItem>
                     <FlexItem>
-                        {(GetNodeAllocatedResource(clusterNode, 'VRAM') || 0).toFixed(2)} /{GetNodeSpecResource(clusterNode, 'VRAM').toFixed(2)}
+                        {(GetNodeAllocatedResource(clusterNode, 'VRAM') || 0).toFixed(2)} /
+                        {GetNodeSpecResource(clusterNode, 'VRAM').toFixed(2)}
                     </FlexItem>
                 </Flex>
             </Flex>

@@ -557,6 +557,10 @@ export const KernelListCard: React.FunctionComponent<KernelListProps> = (props: 
             clientId: sessionId,
         });
 
+        if (session === null) {
+
+        }
+
         console.log(
             `Successfully created new Jupyter Session. ClientID=${sessionId}, SessionID=${session.id}, SessionName=${session.name},
             SessionKernelClientID=${session.kernel?.clientId}, SessionKernelName=${session.kernel?.name}, SessionKernelID=${session.kernel?.id}.`,
