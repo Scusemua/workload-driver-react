@@ -95,7 +95,7 @@ type VirtualDockerNode struct {
 
 	// CreatedAt is the unix milliseconds at which the corresponding VirtualDockerNode was created.
 	// (Not when the struct was created, but the actual cluster node represented by the VirtualDockerNode struct.)
-	CreatedAt int64 `json:"createdAt"`
+	CreatedAt int64 `json:"CreatedAt"`
 
 	age time.Duration
 

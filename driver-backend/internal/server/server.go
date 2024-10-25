@@ -520,7 +520,7 @@ func (s *serverImpl) setupRoutes() error {
 		apiGroup.GET(domain.JupyterAddressEndpoint, handlers.NewJupyterAddressHttpHandler(s.opts).HandleRequest)
 
 		// Used by the frontend to instruct a Local Daemon to reconnect to the Cluster Gateway.
-		apiGroup.GET(domain.InstructLocalDaemonReconnect, handlers.NewForceLocalDaemonToReconnectHttpHandler(s.opts, s.gatewayRpcClient).HandleRequest)
+		apiGroup.POST(domain.InstructLocalDaemonReconnect, handlers.NewForceLocalDaemonToReconnectHttpHandler(s.opts, s.gatewayRpcClient).HandleRequest)
 	}
 
 	///////////////////////////

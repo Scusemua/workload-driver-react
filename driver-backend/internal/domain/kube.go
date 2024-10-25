@@ -22,7 +22,7 @@ type KubernetesNode struct {
 	Age string `json:"Age"`
 
 	// CreatedAt is the unix milliseconds time at which the associated Kubernetes node was created.
-	CreatedAt int64 `json:"createdAt"`
+	CreatedAt int64 `json:"CreatedAt"`
 
 	// IP is the IP address of the KubernetesNode.
 	IP string `json:"IP"`

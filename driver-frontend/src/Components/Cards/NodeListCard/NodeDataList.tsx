@@ -375,30 +375,35 @@ export const NodeDataList: React.FunctionComponent<NodeDataListProps> = (props: 
 
     // The general info of the node (name, IP, and age).
     const nodeDescriptionList = (clusterNode: ClusterNode) => {
-        const nodeCreatedAt: number = clusterNode.CreatedAt * 1e3;
-        const ageMilliseconds: number = Date.now() - nodeCreatedAt;
-        let runningAge: number = ageMilliseconds;
+        let formattedTime: string = clusterNode.Age;
 
-        const hours: number = Math.floor(ageMilliseconds / 3.6e6);
+        console.log(`Formatted time: ${formattedTime}. Created at: ${clusterNode.CreatedAt * 1.0e3}`);
 
-        let formattedTime: string = '';
-        if (hours > 0) {
-            formattedTime += hours + 'hr ';
-            runningAge -= hours * 3.6e6;
+        if (formattedTime === '') {
+            const nodeCreatedAt: number = clusterNode.CreatedAt * 1e3;
+            const ageMilliseconds: number = Date.now() - nodeCreatedAt;
+            let runningAge: number = ageMilliseconds;
+
+            const hours: number = Math.floor(ageMilliseconds / 3.6e6);
+
+            if (hours > 0) {
+                formattedTime += hours + 'hr ';
+                runningAge -= hours * 3.6e6;
+            }
+
+            const minutes: number = Math.floor(runningAge / 6e4);
+            if (minutes > 0) {
+                formattedTime += minutes + 'min ';
+                runningAge -= minutes * 6e4;
+            }
+
+            const seconds: number = RoundToTwoDecimalPlaces(runningAge / 1e3);
+            if (seconds > 0) {
+                formattedTime += seconds + 'sec';
+            }
+
+            formattedTime = formattedTime.trimEnd();
         }
-
-        const minutes: number = Math.floor(runningAge / 6e4);
-        if (minutes > 0) {
-            formattedTime += minutes + 'min ';
-            runningAge -= minutes * 6e4;
-        }
-
-        const seconds: number = RoundToTwoDecimalPlaces(runningAge / 1e3);
-        if (seconds > 0) {
-            formattedTime += seconds + 'sec';
-        }
-
-        formattedTime = formattedTime.trimEnd();
 
         return (
             <Flex direction={{ default: 'row' }} className={'node-list-description-list'}>
