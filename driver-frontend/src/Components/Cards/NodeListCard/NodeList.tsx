@@ -30,7 +30,7 @@ import {
     ToastFetch,
 } from '@src/Utils/toast_utils';
 import React from 'react';
-import toast, { Toast } from 'react-hot-toast';
+import toast from 'react-hot-toast';
 import { AdjustVirtualGPUsModal, RoundToTwoDecimalPlaces } from '../../Modals';
 
 export interface NodeListProps {
@@ -90,7 +90,7 @@ export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeList
                     'danger',
                     DefaultDismiss(toastId),
                 ),
-            'api/instruct-ld-reconnect',
+            GetPathForFetch('api/instruct-ld-reconnect'),
             req,
         ).then(() => {});
     };

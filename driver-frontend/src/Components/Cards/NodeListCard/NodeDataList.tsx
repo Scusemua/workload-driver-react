@@ -291,28 +291,30 @@ export const NodeDataList: React.FunctionComponent<NodeDataListProps> = (props: 
                 alignSelf={{ default: 'alignSelfCenter' }}
                 align={{ default: 'alignRight' }}
             >
-                <FlexItem hidden={props.hideAdjustVirtualGPUsButton} alignSelf={{ default: 'alignSelfCenter' }}>
-                    <Button
-                        variant="link"
-                        onClick={(event: React.MouseEvent) => {
-                            event.stopPropagation();
-                            props.onAdjustVirtualGPUsClicked([clusterNode]);
-                        }}
-                    >
-                        Adjust vGPUs
-                    </Button>
-                </FlexItem>
-                <FlexItem hidden={props.hideAdjustVirtualGPUsButton} alignSelf={{ default: 'alignSelfCenter' }}>
-                    <Button
-                        variant="link"
-                        onClick={(event: React.MouseEvent) => {
-                            event.stopPropagation();
-                            props.onForceReconnectionClicked(clusterNode);
-                        }}
-                    >
-                        Force Reconnection
-                    </Button>
-                </FlexItem>
+                <Flex alignSelf={{ default: 'alignSelfCenter' }} direction={{ default: 'row' }}>
+                    <FlexItem hidden={props.hideAdjustVirtualGPUsButton}>
+                        <Button
+                            variant="link"
+                            onClick={(event: React.MouseEvent) => {
+                                event.stopPropagation();
+                                props.onAdjustVirtualGPUsClicked([clusterNode]);
+                            }}
+                        >
+                            Adjust vGPUs
+                        </Button>
+                    </FlexItem>
+                    <FlexItem hidden={props.hideAdjustVirtualGPUsButton}>
+                        <Button
+                            variant="link"
+                            onClick={(event: React.MouseEvent) => {
+                                event.stopPropagation();
+                                props.onForceReconnectionClicked(clusterNode);
+                            }}
+                        >
+                            Force Reconnection
+                        </Button>
+                    </FlexItem>
+                </Flex>
                 <FlexItem alignSelf={{ default: 'alignSelfCenter' }} hidden={props.isDashboardList}>
                     <Tooltip
                         exitDelay={0.125}
