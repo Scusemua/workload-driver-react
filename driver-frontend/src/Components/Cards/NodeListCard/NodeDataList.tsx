@@ -377,8 +377,8 @@ export const NodeDataList: React.FunctionComponent<NodeDataListProps> = (props: 
     const nodeDescriptionList = (clusterNode: ClusterNode) => {
         let formattedTime: string = clusterNode.Age;
 
-        console.log(`Formatted time: ${formattedTime}. Created at: ${clusterNode.CreatedAt * 1.0e3}`);
-
+        // If we don't have an already-formatted age for whatever reason, then
+        // we will construct the age string ourselves using the CreatedAt field.
         if (formattedTime === '') {
             const nodeCreatedAt: number = clusterNode.CreatedAt * 1e3;
             const ageMilliseconds: number = Date.now() - nodeCreatedAt;
