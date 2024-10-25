@@ -47,6 +47,9 @@ func NewKernelHttpHandler(opts *domain.Configuration, grpcClient *ClusterDashboa
 func (h *KernelHttpHandler) HandleRequest(c *gin.Context) {
 	if !h.grpcClient.ConnectedToGateway() {
 		h.logger.Warn("Connection with Cluster Gateway has not been established. Aborting.")
+
+		h.grpcClient.HandleConnectionError()
+
 		_ = c.AbortWithError(http.StatusServiceUnavailable, fmt.Errorf("connection with Cluster Gateway is inactive"))
 		return
 	}

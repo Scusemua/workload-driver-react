@@ -64,6 +64,9 @@ func (h *VariablesHttpHandler) HandleRequest(c *gin.Context) {
 	if !h.grpcClient.ConnectedToGateway() {
 		h.logger.Warn("Connection with Cluster Gateway has not been established. Aborting.")
 		_ = c.AbortWithError(http.StatusServiceUnavailable, fmt.Errorf("connection with Cluster Gateway is inactive"))
+
+		h.grpcClient.HandleConnectionError()
+
 		return
 	}
 

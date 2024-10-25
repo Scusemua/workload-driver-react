@@ -172,9 +172,9 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
                         />
                     </NodeHeightFactorContext.Provider>
                 </GridItem>
-                <GridItem span={12} rowSpan={2}>
-                    <DockerLogViewCard />
-                </GridItem>
+                {/*<GridItem span={12} rowSpan={2}>*/}
+                {/*    <DockerLogViewCard />*/}
+                {/*</GridItem>*/}
             </Grid>
             {migrateKernel && migrateReplica && (
                 <MigrationModal
