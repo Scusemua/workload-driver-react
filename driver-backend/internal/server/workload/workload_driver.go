@@ -156,7 +156,7 @@ func NewWorkloadDriver(opts *domain.Configuration, performClockTicks bool, times
 		tickDuration:                       time.Second * time.Duration(opts.TraceStep),
 		tickDurationSeconds:                opts.TraceStep,
 		driverTimescale:                    opts.DriverTimescale,
-		kernelManager:                      jupyter.NewKernelSessionManager(opts.JupyterServerAddress, true, atom, metrics.PrometheusMetricsWrapperInstance),
+		kernelManager:                      jupyter.NewKernelSessionManager(opts.InternalJupyterServerAddress, true, atom, metrics.PrometheusMetricsWrapperInstance),
 		sessionConnections:                 make(map[string]*jupyter.SessionConnection),
 		performClockTicks:                  performClockTicks,
 		eventQueue:                         event_queue.NewBasicEventQueue(atom),

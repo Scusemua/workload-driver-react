@@ -59,7 +59,7 @@ func NewJupyterProxyRouter(engine *gin.Engine, config *domain.Configuration, ato
 	proxyRouter := &JupyterProxyRouter{
 		Engine:                engine,
 		ContextPath:           domain.JupyterGroupEndpoint,
-		JupyterServerAddress:  config.JupyterServerAddress,
+		JupyterServerAddress:  config.InternalJupyterServerAddress,
 		JupyterServerBasePath: config.JupyterServerBasePath,
 		OurServerBasePath:     config.BaseUrl,
 	}

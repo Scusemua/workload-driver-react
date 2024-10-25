@@ -21,7 +21,7 @@ type StopTrainingHandler struct {
 }
 
 func NewStopTrainingHandler(opts *domain.Configuration, atom *zap.AtomicLevel) domain.BackendHttpGetHandler {
-	jupyterAddress := path.Join(opts.JupyterServerAddress, opts.JupyterServerBasePath)
+	jupyterAddress := path.Join(opts.InternalJupyterServerAddress, opts.JupyterServerBasePath)
 
 	handler := &StopTrainingHandler{
 		BaseHandler:       newBaseHandler(opts),

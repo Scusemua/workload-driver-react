@@ -519,7 +519,7 @@ func (s *serverImpl) setupRoutes() error {
 		// Used to tell the frontend what the address of Jupyter is.
 		apiGroup.GET(domain.JupyterAddressEndpoint, func(c *gin.Context) {
 			response := make(map[string]interface{})
-			response["jupyter_address"] = s.opts.JupyterServerAddress
+			response["jupyter_address"] = s.opts.FrontendJupyterServerAddress
 			c.JSON(http.StatusOK, response)
 		})
 	}
@@ -949,8 +949,8 @@ func (s *serverImpl) serveHttp(wg *sync.WaitGroup) {
 }
 
 func (s *serverImpl) serveJupyterWebSocketProxy(wg *sync.WaitGroup) {
-	// wsUrlString := fmt.Sprintf("ws://%s", s.opts.JupyterServerAddress)
-	wsUrlString := path.Join("ws://", s.opts.JupyterServerAddress)
+	// wsUrlString := fmt.Sprintf("ws://%s", s.opts.FrontendJupyterServerAddress)
+	wsUrlString := path.Join("ws://", s.opts.InternalJupyterServerAddress)
 	wsUrl, err := url.Parse(wsUrlString)
 	if err != nil {
 		s.logger.Error("Failed to parse URL for websocket proxy.", zap.String("url", wsUrlString), zap.Error(err))
