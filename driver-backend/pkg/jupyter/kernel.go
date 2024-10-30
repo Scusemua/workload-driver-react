@@ -75,6 +75,10 @@ func (t MessageType) getBaseMessageType() string {
 
 type KernelConnectionStatus string
 
+func (status KernelConnectionStatus) String() string {
+	return string(status)
+}
+
 type BasicKernelConnection struct {
 	logger        *zap.Logger
 	sugaredLogger *zap.SugaredLogger
@@ -813,9 +817,9 @@ func (conn *BasicKernelConnection) getNextMessageId() string {
 	return messageId
 }
 
-func (conn *BasicKernelConnection) updateConnectionStatus(status KernelConnectionStatus) {
+func (conn *BasicKernelConnection) updateConnectionStatus(status KernelConnectionStatus) error {
 	if conn.connectionStatus == status {
-		return
+		return nil
 	}
 
 	conn.connectionStatus = status
@@ -852,12 +856,22 @@ func (conn *BasicKernelConnection) updateConnectionStatus(status KernelConnectio
 		}
 
 		if !success {
-			conn.sugaredLogger.Errorf("Failed to successfully 'request-info' from kernel %s after %d attempts.", conn.kernelId, maxNumTries)
+			conn.logger.Error("Failed to issue \"kernel_info_request\" message.",
+				zap.String("kernel_id", conn.kernelId),
+				zap.Int("num_attempts", maxNumTries))
+
 			conn.connectionStatus = KernelDisconnected
+
+			if err == nil {
+				err = fmt.Errorf("failed to issue \"kernel_info_request\" message")
+			}
+
+			return err
 		}
 	}
 
 	conn.sugaredLogger.Debugf("Kernel %s connection status set to '%s'", conn.kernelId, conn.connectionStatus)
+	return nil
 }
 
 // setupWebsocket sets up the WebSocket connection to the Jupyter Server.
@@ -874,7 +888,15 @@ func (conn *BasicKernelConnection) setupWebsocket(jupyterServerAddress string) e
 		// return ErrWebsocketAlreadySetup
 	}
 
-	conn.updateConnectionStatus(KernelConnecting)
+	originalStatus := conn.connectionStatus
+	err := conn.updateConnectionStatus(KernelConnecting)
+	if err != nil {
+		conn.logger.Error("Failed to set kernel connection status.",
+			zap.String("initial_status", originalStatus.String()),
+			zap.String("target_status", KernelDead.String()),
+			zap.String("kernel_id", conn.kernelId))
+		return err
+	}
 
 	wsUrl := "ws://" + jupyterServerAddress
 	idUrl := url.PathEscape(conn.kernelId)
@@ -910,7 +932,15 @@ func (conn *BasicKernelConnection) setupWebsocket(jupyterServerAddress string) e
 	}
 	conn.webSocket.SetCloseHandler(conn.websocketClosed)
 
-	conn.updateConnectionStatus(KernelConnected)
+	originalStatus = conn.connectionStatus
+	err = conn.updateConnectionStatus(KernelConnected)
+	if err != nil {
+		conn.logger.Error("Failed to set kernel connection status.",
+			zap.String("initial_status", originalStatus.String()),
+			zap.String("target_status", KernelDead.String()),
+			zap.String("kernel_id", conn.kernelId))
+		return err
+	}
 
 	// Skip for now... we may or may not need this.
 	// The registration idea was so we could figure out a way to add support for ACKs between the Cluster Gateway and the Golang Jupyter frontends.
@@ -1001,8 +1031,16 @@ func (conn *BasicKernelConnection) websocketClosed(code int, text string) error 
 			}
 		}
 
+		originalStatus := conn.connectionStatus
 		// If it was not a network error, or it was, but we failed to reconnect, then call the original 'websocket closed' handler.
-		conn.updateConnectionStatus(KernelDead)
+		err = conn.updateConnectionStatus(KernelDead)
+		if err != nil {
+			conn.logger.Error("Failed to set kernel connection status.",
+				zap.String("initial_status", originalStatus.String()),
+				zap.String("target_status", KernelDead.String()),
+				zap.String("kernel_id", conn.kernelId))
+		}
+
 		return conn.originalWebsocketCloseHandler(code, text)
 	}
 
@@ -1011,7 +1049,15 @@ func (conn *BasicKernelConnection) websocketClosed(code int, text string) error 
 	conn.model = model
 	if model.ExecutionState == string(KernelDead) {
 		// Kernel is dead. Call the original 'websocket closed' handler.
-		conn.updateConnectionStatus(KernelDead)
+		originalStatus := conn.connectionStatus
+		err = conn.updateConnectionStatus(KernelDead)
+		if err != nil {
+			conn.logger.Error("Failed to set kernel connection status.",
+				zap.String("initial_status", originalStatus.String()),
+				zap.String("target_status", KernelDead.String()),
+				zap.String("kernel_id", conn.kernelId))
+		}
+
 		return conn.originalWebsocketCloseHandler(code, text)
 	} else {
 		success, reconnectionAttempted := conn.reconnect()
@@ -1052,13 +1098,28 @@ func (conn *BasicKernelConnection) reconnect() (bool, bool) {
 				numTries += 1
 				sleepInterval := time.Second * time.Duration(2*numTries)
 				conn.logger.Error("Network error encountered while trying to reconnect to kernel.", zap.String("kernel_id", conn.kernelId), zap.Error(err), zap.Duration("next-sleep-interval", sleepInterval))
-				conn.updateConnectionStatus(KernelDisconnected)
+				originalStatus := conn.connectionStatus
+				err = conn.updateConnectionStatus(KernelDisconnected)
+				if err != nil {
+					conn.logger.Error("Failed to set kernel connection status.",
+						zap.String("initial_status", originalStatus.String()),
+						zap.String("target_status", KernelDead.String()),
+						zap.String("kernel_id", conn.kernelId))
+				}
+
 				time.Sleep(sleepInterval)
 				continue
 			}
 
 			conn.logger.Error("Connection to kernel is dead.", zap.String("kernel_id", conn.kernelId), zap.Error(err))
-			conn.updateConnectionStatus(KernelDead)
+			originalStatus := conn.connectionStatus
+			err = conn.updateConnectionStatus(KernelDead)
+			if err != nil {
+				conn.logger.Error("Failed to set kernel connection status.",
+					zap.String("initial_status", originalStatus.String()),
+					zap.String("target_status", KernelDead.String()),
+					zap.String("kernel_id", conn.kernelId))
+			}
 			return false /* reconnection failed */, true /* we did try to reconnect */
 		} else {
 			return true /* reconnection succeeded */, true /* we did try to reconnect */
@@ -1101,7 +1162,14 @@ func (conn *BasicKernelConnection) getKernelModel() (*jupyterKernel, error) {
 		return nil, ErrNetworkIssue
 	} else if resp.StatusCode != http.StatusOK {
 		conn.logger.Error("Kernel died unexpectedly.", zap.String("kernel_id", conn.kernelId), zap.Int("http-status-code", resp.StatusCode), zap.String("http-status", resp.Status))
-		conn.updateConnectionStatus(KernelDead)
+		originalStatus := conn.connectionStatus
+		err = conn.updateConnectionStatus(KernelDead)
+		if err != nil {
+			conn.logger.Error("Failed to set kernel connection status.",
+				zap.String("initial_status", originalStatus.String()),
+				zap.String("target_status", KernelDead.String()),
+				zap.String("kernel_id", conn.kernelId))
+		}
 
 		return nil, fmt.Errorf("ErrUnexpectedFailure %w : HTTP %d -- %s", ErrUnexpectedFailure, resp.StatusCode, resp.Status)
 	}
