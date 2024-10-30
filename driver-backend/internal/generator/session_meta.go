@@ -2,6 +2,7 @@ package generator
 
 import (
 	"fmt"
+	"math"
 	"time"
 
 	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
@@ -95,8 +96,8 @@ func (s *SessionMeta) GetMaxSessionGPUs() int {
 
 // GetMaxSessionVRAM returns the maximum amount of VRAM (i.e., GPU memory) that this SessionMeta will ever use in GB.
 // This is obtained by performing a "pre-run".
-func (s *SessionMeta) GetMaxSessionVRAM() int {
-	return s.MaxSessionGPUs
+func (s *SessionMeta) GetMaxSessionVRAM() float64 {
+	return math.Ceil(float64(s.MaxSessionGPUs) * 8 * 0.75)
 }
 
 func (s *SessionMeta) String() string {

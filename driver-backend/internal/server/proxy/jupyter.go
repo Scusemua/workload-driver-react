@@ -154,7 +154,8 @@ func (r *JupyterProxyRouter) ServeHTTP(w http.ResponseWriter, req *http.Request)
 			zap.String("updated_request_path", updatedReq.URL.Path),
 			zap.String("request_method", updatedReq.Method),
 			zap.String("jupyter_server_address", r.JupyterServerAddress),
-			zap.String("jupyter_server_base_path", r.JupyterServerBasePath))
+			zap.String("jupyter_server_base_path", r.JupyterServerBasePath),
+			zap.String("request_url", req.URL.Host))
 
 		director := func(request *http.Request) {
 			request.URL.Scheme = "http"

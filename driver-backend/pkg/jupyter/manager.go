@@ -178,8 +178,6 @@ func (m *BasicKernelSessionManager) CreateSession(sessionId string, sessionPath 
 		return nil, err
 	}
 
-	m.logger.Debug("Issuing 'CREATE-SESSION' request now.", zap.String("request-args", requestBody.String()))
-
 	address := path.Join(m.jupyterServerAddress, "/api/sessions")
 	url := fmt.Sprintf("http://%s", address)
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(requestBodyJson))
@@ -187,6 +185,8 @@ func (m *BasicKernelSessionManager) CreateSession(sessionId string, sessionPath 
 		m.logger.Error("Error encountered while creating request for CreateFile operation.", zap.String("request-args", requestBody.String()), zap.String("sessionPath", sessionPath), zap.String("url", url), zap.Error(err))
 		return nil, err
 	}
+
+	m.logger.Debug("Issuing 'CREATE-SESSION' request now.", zap.String("request-args", requestBody.String()), zap.String("request-url", url))
 
 	sentAt := time.Now()
 	client := &http.Client{}
@@ -250,11 +250,11 @@ func (m *BasicKernelSessionManager) CreateSession(sessionId string, sessionPath 
 
 		m.logger.Warn("Unexpected response status code when creating a new session.", zap.Int("status-code", resp.StatusCode), zap.String("status", resp.Status), zap.Any("headers", resp.Header), zap.Any("body", body), zap.String("request-args", requestBody.String()), zap.String("response-body", string(body)))
 		if message, ok := responseJson["message"]; ok {
-			return nil, fmt.Errorf("ErrCreateSessionUnknownFailure %w: %s", ErrCreateSessionUnknownFailure, message)
+			return nil, fmt.Errorf("ErrCreateSessionUnknownFailure %w: HTTP %d %s - %s", ErrCreateSessionUnknownFailure, resp.StatusCode, resp.Status, message)
 		} else if reason, ok := responseJson["reason"]; ok {
-			return nil, fmt.Errorf("ErrCreateSessionUnknownFailure %w: %s", ErrCreateSessionUnknownFailure, reason)
+			return nil, fmt.Errorf("ErrCreateSessionUnknownFailure %w: HTTP %d %s - %s", ErrCreateSessionUnknownFailure, resp.StatusCode, resp.Status, reason)
 		} else {
-			return nil, fmt.Errorf("ErrCreateSessionUnknownFailure %w: %s", ErrCreateSessionUnknownFailure, string(body))
+			return nil, fmt.Errorf("ErrCreateSessionUnknownFailure %w: HTTP %d %s - %s", ErrCreateSessionUnknownFailure, resp.StatusCode, resp.Status, string(body))
 		}
 	}
 
@@ -392,7 +392,7 @@ func (m *BasicKernelSessionManager) StopKernel(id string) error {
 	pathSuffix := fmt.Sprintf("/api/sessions/%s", id)
 	address := path.Join(m.jupyterServerAddress, pathSuffix)
 	url := fmt.Sprintf("http://%s", address)
-	
+
 	req, err := http.NewRequest(http.MethodDelete, url, nil)
 	if err != nil {
 		m.logger.Error("Failed to create DeleteSession request while stopping kernel.", zap.String(ZapSessionIDKey, id), zap.Error(err))

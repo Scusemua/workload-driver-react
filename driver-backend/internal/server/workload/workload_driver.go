@@ -8,6 +8,7 @@ import (
 	"github.com/scusemua/workload-driver-react/m/v2/internal/server/metrics"
 	"math/rand"
 	"net/http"
+	"path"
 	"reflect"
 	"strings"
 	"sync"
@@ -143,6 +144,8 @@ type BasicWorkloadDriver struct {
 func NewWorkloadDriver(opts *domain.Configuration, performClockTicks bool, timescaleAdjustmentFactor float64,
 	websocket domain.ConcurrentWebSocket, atom *zap.AtomicLevel) *BasicWorkloadDriver {
 
+	jupyterAddress := path.Join(opts.InternalJupyterServerAddress, opts.JupyterServerBasePath)
+
 	driver := &BasicWorkloadDriver{
 		id:                                 GenerateWorkloadID(8),
 		eventChan:                          make(chan domain.Event),
@@ -156,7 +159,7 @@ func NewWorkloadDriver(opts *domain.Configuration, performClockTicks bool, times
 		tickDuration:                       time.Second * time.Duration(opts.TraceStep),
 		tickDurationSeconds:                opts.TraceStep,
 		driverTimescale:                    opts.DriverTimescale,
-		kernelManager:                      jupyter.NewKernelSessionManager(opts.InternalJupyterServerAddress, true, atom, metrics.PrometheusMetricsWrapperInstance),
+		kernelManager:                      jupyter.NewKernelSessionManager(jupyterAddress, true, atom, metrics.PrometheusMetricsWrapperInstance),
 		sessionConnections:                 make(map[string]*jupyter.SessionConnection),
 		performClockTicks:                  performClockTicks,
 		eventQueue:                         event_queue.NewBasicEventQueue(atom),

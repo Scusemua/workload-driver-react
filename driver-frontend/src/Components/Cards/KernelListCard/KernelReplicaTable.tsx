@@ -24,7 +24,7 @@ export const KernelReplicaTable: React.FunctionComponent<KernelReplicaTableProps
                 <Td dataLabel="ID">
                     <Skeleton width="100%" />
                 </Td>
-                <Td dataLabel="Pod" width={25} modifier="truncate">
+                <Td dataLabel="Pod/Container" width={25} modifier="truncate">
                     <Skeleton width="100%" />
                 </Td>
                 <Td dataLabel="Node" width={25} modifier="truncate">
@@ -42,7 +42,7 @@ export const KernelReplicaTable: React.FunctionComponent<KernelReplicaTableProps
                     <Th aria-label={'kernel-ID'}>ID</Th>
                     <Th aria-label={'kernel-container'}>
                         <BundleIcon />
-                        {' Pod'}
+                        {' Pod/Container'}
                     </Th>
                     <Th aria-label={'kernel-node'}>
                         <VirtualMachineIcon />

@@ -948,8 +948,8 @@ func (s *serverImpl) serveHttp(wg *sync.WaitGroup) {
 }
 
 func (s *serverImpl) serveJupyterWebSocketProxy(wg *sync.WaitGroup) {
-	// wsUrlString := fmt.Sprintf("ws://%s", s.opts.FrontendJupyterServerAddress)
-	wsUrlString := path.Join("ws://", s.opts.InternalJupyterServerAddress)
+	jupyterAddress := path.Join(s.opts.InternalJupyterServerAddress, s.opts.JupyterServerBasePath)
+	wsUrlString := path.Join("ws://", s.opts.InternalJupyterServerAddress, jupyterAddress)
 	wsUrl, err := url.Parse(wsUrlString)
 	if err != nil {
 		s.logger.Error("Failed to parse URL for websocket proxy.", zap.String("url", wsUrlString), zap.Error(err))
