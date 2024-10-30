@@ -3,6 +3,7 @@ package jupyter
 import (
 	"bytes"
 	"context"
+	"encoding/binary"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -564,8 +565,72 @@ func (conn *BasicKernelConnection) Username() string {
 // decoded result, or an error if one occurred.
 //
 // - WebSocket protocol: https://jupyter-server.readthedocs.io/en/latest/developers/websocket-protocols.html
-func (conn *BasicKernelConnection) decodeKernelMessage() (*KernelMessage, error) {
+func (conn *BasicKernelConnection) decodeKernelMessage(buf []byte) (*baseKernelMessage, error) {
+	conn.logger.Debug("Decoding message from kernel.",
+		zap.String("kernel_id", conn.kernelId),
+		zap.Int("size", len(buf)),
+		zap.Binary("message_as_binary", buf),
+		zap.Any("message_as_any", buf),
+		zap.ByteString("message_as_utf8", buf))
 
+	// Decode JSON from the buffer.
+	// This will usually work, but if the message has buffers attached to it, then it won't.
+	var msg *baseKernelMessage
+	if err := json.Unmarshal(buf, &msg); err == nil {
+		conn.logger.Debug("Successfully deserialized Jupyter message without having to parse any of it as binary.",
+			zap.String("message_id", msg.Header.MessageId),
+			zap.String("message_type", msg.Header.MessageType.String()),
+			zap.String("kernel_id", conn.kernelId))
+		return msg, nil
+	}
+
+	conn.logger.Debug("Failed to parse Jupyter message directly. Parsing binary now.",
+		zap.Int("size", len(buf)), zap.String("kernel_id", conn.kernelId))
+
+	if len(buf) < 4 {
+		conn.logger.Error("Jupyter message is invalid -- too small.",
+			zap.Int("size", len(buf)), zap.String("kernel_id", conn.kernelId))
+		return nil, errors.New("buffer too small for header")
+	}
+
+	// Read the number of buffers
+	numBuffers := int(binary.BigEndian.Uint32(buf[0:4]))
+	if numBuffers < 2 {
+		return nil, errors.New("invalid incoming Kernel Message")
+	}
+
+	// Read the offsets
+	offsets := make([]int, numBuffers)
+	for i := 1; i <= numBuffers; i++ {
+		offset := int(binary.BigEndian.Uint32(buf[i*4 : (i+1)*4]))
+		offsets[i-1] = offset
+	}
+
+	// Decode JSON from the buffer
+	jsonBytes := buf[offsets[0]:offsets[1]]
+	if err := json.Unmarshal(jsonBytes, &msg); err != nil {
+		return nil, err
+	}
+
+	// Collect buffers
+	msg.Buffers = make([][]byte, numBuffers-1)
+	for i := 1; i < numBuffers; i++ {
+		start := offsets[i]
+		stop := len(buf)
+		if i+1 < numBuffers {
+			stop = offsets[i+1]
+		}
+		msg.Buffers[i-1] = buf[start:stop]
+	}
+
+	conn.logger.Debug("Successfully decoded binary message from kernel.",
+		zap.String("kernel_id", conn.kernelId),
+		zap.String("message_id", msg.Header.MessageId),
+		zap.String("message_type", msg.Header.MessageType.String()),
+		zap.Int("num_buffers", numBuffers),
+		zap.Ints("buffer_offsets", offsets))
+
+	return msg, nil
 }
 
 // Listen for messages from the kernel.
@@ -583,17 +648,16 @@ func (conn *BasicKernelConnection) serveMessages() {
 				zap.Int("websocket_message_type", messageType),
 				zap.ByteString("data_byte_string", data),
 				zap.Binary("data_binary", data),
-				zap.Any("raw_data", data),
 				zap.Error(err))
 			st := time.Now()
-			conn.updateConnectionStatus(KernelDead)
+			connErr := conn.updateConnectionStatus(KernelDead)
 
-			if !conn.Connected() {
+			if !conn.Connected() || connErr != nil {
 				conn.logger.Error("Failed to re-establish connection with kernel.",
 					zap.String("kernel_id", conn.kernelId),
 					zap.String("client_id", conn.clientId),
 					zap.String("username", conn.username),
-					zap.Error(err))
+					zap.Error(connErr))
 
 				return
 			}
@@ -608,7 +672,8 @@ func (conn *BasicKernelConnection) serveMessages() {
 		}
 
 		var kernelMessage *baseKernelMessage
-		err = json.Unmarshal(data, &kernelMessage)
+		kernelMessage, err = conn.decodeKernelMessage(data)
+
 		if err == io.EOF {
 			conn.logger.Error("Got EOF while trying to decode message from kernel.",
 				zap.String("kernel_id", conn.kernelId),
@@ -788,7 +853,7 @@ func (conn *BasicKernelConnection) createKernelMessage(messageType MessageType, 
 		Header:       header,
 		Content:      content,
 		Metadata:     metadata,
-		Buffers:      make([]byte, 0),
+		Buffers:      make([][]byte, 0),
 		ParentHeader: &KernelMessageHeader{},
 	}
 

@@ -21,7 +21,7 @@ type KernelMessage interface {
 	GetHeader() *KernelMessageHeader
 	GetChannel() KernelSocketChannel
 	GetContent() interface{}
-	GetBuffers() []byte
+	GetBuffers() [][]byte
 	GetMetadata() map[string]interface{}
 	GetParentHeader() *KernelMessageHeader
 	DecodeContent() (map[string]interface{}, error)
@@ -42,7 +42,7 @@ type baseKernelMessage struct {
 	ParentHeader *KernelMessageHeader   `json:"parent_header"`
 	Metadata     map[string]interface{} `json:"metadata"`
 	Content      interface{}            `json:"content"`
-	Buffers      []byte                 `json:"buffers"`
+	Buffers      [][]byte               `json:"buffers"`
 }
 
 func (m *baseKernelMessage) GetHeader() *KernelMessageHeader {
@@ -63,7 +63,7 @@ func (m *baseKernelMessage) GetContent() interface{} {
 	return m.Content
 }
 
-func (m *baseKernelMessage) GetBuffers() []byte {
+func (m *baseKernelMessage) GetBuffers() [][]byte {
 	return m.Buffers
 }
 
