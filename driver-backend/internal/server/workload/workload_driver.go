@@ -281,7 +281,7 @@ func (d *BasicWorkloadDriver) createWorkloadFromPreset(workloadRegistrationReque
 		return nil, ErrWorkloadPresetNotFound
 	}
 
-	d.logger.Debug("Creating new workload from preset.", zap.String("workload-name", workloadRegistrationRequest.WorkloadName), zap.String("workload-preset-name", d.workloadPreset.GetName()))
+	d.logger.Debug("Creating new workload from preset.", zap.String("workload_name", workloadRegistrationRequest.WorkloadName), zap.String("workload-preset-name", d.workloadPreset.GetName()))
 	workload := domain.NewWorkloadFromPreset(
 		domain.NewWorkload(d.id, workloadRegistrationRequest.WorkloadName,
 			d.workloadRegistrationRequest.Seed, workloadRegistrationRequest.DebugLogging, workloadRegistrationRequest.TimescaleAdjustmentFactor, d.atom), d.workloadPreset)
@@ -302,7 +302,7 @@ func (d *BasicWorkloadDriver) createWorkloadFromTemplate(workloadRegistrationReq
 	}
 
 	d.workloadSessions = workloadRegistrationRequest.Sessions
-	d.logger.Debug("Creating new workload from template.", zap.String("workload-name", workloadRegistrationRequest.WorkloadName))
+	d.logger.Debug("Creating new workload from template.", zap.String("workload_name", workloadRegistrationRequest.WorkloadName))
 	workload := domain.NewWorkloadFromTemplate(
 		domain.NewWorkload(d.id, workloadRegistrationRequest.WorkloadName,
 			d.workloadRegistrationRequest.Seed, workloadRegistrationRequest.DebugLogging, workloadRegistrationRequest.TimescaleAdjustmentFactor, d.atom), d.workloadRegistrationRequest.Sessions,
@@ -335,7 +335,10 @@ func (d *BasicWorkloadDriver) RegisterWorkload(workloadRegistrationRequest *doma
 		d.logger.Debug("Debug-level logging is ENABLED.")
 	}
 
-	d.sugaredLogger.Debugf("User is requesting the execution of workload '%s'", workloadRegistrationRequest.Key)
+	d.logger.Debug("Registering workload.",
+		zap.String("workload_name", workloadRegistrationRequest.WorkloadName),
+		zap.String("workload-key", workloadRegistrationRequest.Key),
+		zap.String("workload_registration_request", workloadRegistrationRequest.String()))
 
 	// We create the workload a little differently depending on its type (either 'preset' or 'template').
 	// Workloads of type 'preset' are static in their definition, whereas workloads of type 'template'
@@ -358,7 +361,10 @@ func (d *BasicWorkloadDriver) RegisterWorkload(workloadRegistrationRequest *doma
 		}
 	default:
 		{
-			d.logger.Error("Unsupported workload type.", zap.String("workload-type", workloadRegistrationRequest.Type))
+			d.logger.Error("Unsupported workload type.",
+				zap.String("workload_name", d.workload.WorkloadName()),
+				zap.String("workload_id", d.workload.GetId()),
+				zap.String("workload-type", workloadRegistrationRequest.Type))
 			return nil, fmt.Errorf("%w: \"%s\"", ErrUnsupportedWorkloadType, workloadRegistrationRequest.Type)
 		}
 	}
@@ -416,20 +422,20 @@ func (d *BasicWorkloadDriver) StopWorkload() error {
 		return domain.ErrWorkloadNotRunning
 	}
 
-	d.logger.Debug("Stopping workload.", zap.String("workload-id", d.id), zap.String("workload-state", string(d.workload.GetWorkloadState())))
+	d.logger.Debug("Stopping workload.", zap.String("workload_id", d.id), zap.String("workload-state", string(d.workload.GetWorkloadState())))
 	d.stopChan <- struct{}{}
-	d.logger.Debug("Sent 'STOP' instruction via BasicWorkloadDriver::stopChan.", zap.String("workload-id", d.id))
+	d.logger.Debug("Sent 'STOP' instruction via BasicWorkloadDriver::stopChan.", zap.String("workload_id", d.id))
 
 	endTime, err := d.workload.TerminateWorkloadPrematurely(d.clockTime.GetClockTime())
 	if err != nil {
-		d.logger.Error("Failed to stop workload.", zap.String("workload-id", d.id), zap.Error(err))
+		d.logger.Error("Failed to stop workload.", zap.String("workload_id", d.id), zap.Error(err))
 		return err
 	}
 
 	// d.workloadEndTime, _ = d.workload.GetEndTime()
 	d.workloadEndTime = endTime
 
-	d.logger.Debug("Successfully stopped workload.", zap.String("workload-id", d.id))
+	d.logger.Debug("Successfully stopped workload.", zap.String("workload_id", d.id))
 	return nil
 }
 
@@ -443,9 +449,9 @@ func (d *BasicWorkloadDriver) handleCriticalError(err error) {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	d.logger.Error("Workload encountered a critical error and must abort.", zap.String("workload-id", d.id), zap.Error(err))
+	d.logger.Error("Workload encountered a critical error and must abort.", zap.String("workload_id", d.id), zap.Error(err))
 	if abortErr := d.abortWorkload(); abortErr != nil {
-		d.logger.Error("Failed to abort workload.", zap.String("workload-id", d.workload.GetId()), zap.Error(abortErr))
+		d.logger.Error("Failed to abort workload.", zap.String("workload_id", d.workload.GetId()), zap.Error(abortErr))
 	}
 
 	d.workload.UpdateTimeElapsed()
@@ -456,10 +462,10 @@ func (d *BasicWorkloadDriver) handleCriticalError(err error) {
 // abortWorkload manually aborts the workload.
 // Clean up any sessions/kernels that were created.
 func (d *BasicWorkloadDriver) abortWorkload() error {
-	d.logger.Warn("Aborting workload.", zap.String("workload-id", d.id))
+	d.logger.Warn("Aborting workload.", zap.String("workload_id", d.id))
 
 	if d.workloadGenerator == nil {
-		d.logger.Error("Cannot stop workload. Workload Generator is nil.", zap.String("workload-id", d.id))
+		d.logger.Error("Cannot stop workload. Workload Generator is nil.", zap.String("workload_id", d.id))
 		panic("Cannot stop workload. Workload Generator is nil.")
 	}
 
@@ -618,12 +624,21 @@ func (d *BasicWorkloadDriver) IssueClockTicks(timestamp time.Time) error {
 		// Increment the clock.
 		tick, err := d.currentTick.IncrementClockBy(d.tickDuration)
 		if err != nil {
-			d.logger.Error("Error while incrementing clock time.", zap.Duration("tick-duration", d.tickDuration), zap.Error(err))
+			d.logger.Error("Error while incrementing clock time.",
+				zap.Duration("tick-duration", d.tickDuration),
+				zap.String("workload_id", d.id),
+				zap.String("workload_name", d.workload.WorkloadName()),
+				zap.Error(err))
 			return err
 		}
 
-		tickNumber := tick.Unix() / d.tickDurationSeconds
-		d.sugaredLogger.Debugf("Issuing tick #%d: %v. Event queue size: %d.", tickNumber, tick, d.eventQueue.Len())
+		tickNumber := int(tick.Unix() / d.tickDurationSeconds)
+		d.logger.Debug("Issuing tick.",
+			zap.Int("tick_number", tickNumber),
+			zap.Time("tick_timestamp", tick),
+			zap.Int("num_events", d.eventQueue.Len()),
+			zap.String("workload_id", d.id),
+			zap.String("workload_name", d.workload.WorkloadName()))
 
 		// Trigger the clock ticker, which will prompt the other goroutine within the workload driver to process events and whatnot for this tick.
 		d.clockTrigger.Trigger(tick)
@@ -636,12 +651,25 @@ func (d *BasicWorkloadDriver) IssueClockTicks(timestamp time.Time) error {
 		// Verify that the issuing of the tick did not exceed the specified real-clock-time that a tick should last.
 		// TODO: Handle this more elegantly, such as by decreasing the length of subsequent ticks or something?
 		if tickRemaining < 0 {
-			panic(fmt.Sprintf("Issuing clock tick #%d took %v, which is greater than the configured tick duration of %v.", tickNumber, tickElapsed, d.tickDuration))
+			d.logger.Error("Issuing clock tick lasted too long.",
+				zap.Int("tick_number", tickNumber),
+				zap.Time("tick_timestamp", tick),
+				zap.Duration("time_elapsed", tickElapsed),
+				zap.Duration("target_tick_duration", d.tickDuration),
+				zap.String("workload_id", d.id),
+				zap.String("workload_name", d.workload.WorkloadName()))
+		} else {
+			// Simulate the remainder of the tick -- however much time is left.
+			d.logger.Debug("Sleeping to simulate remainder of tick.",
+				zap.Int("tick_number", tickNumber),
+				zap.Time("tick_timestamp", tick),
+				zap.Duration("time_elapsed", tickElapsed),
+				zap.Duration("target_tick_duration", d.tickDuration),
+				zap.Duration("sleep_time", tickRemaining),
+				zap.String("workload_id", d.id),
+				zap.String("workload_name", d.workload.WorkloadName()))
+			time.Sleep(tickRemaining)
 		}
-
-		// Simulate the remainder of the tick -- however much time is left.
-		d.sugaredLogger.Debugf("Sleeping for %v to simulate remainder of tick #%d.", tickRemaining, tickNumber)
-		time.Sleep(tickRemaining)
 	}
 
 	// Sanity check to ensure that we issued the correct/expected number of ticks.
@@ -672,11 +700,11 @@ func (d *BasicWorkloadDriver) ProcessWorkload(wg *sync.WaitGroup) error {
 		WithProcessedAtTime(d.workloadStartTime))
 
 	if d.workloadPreset != nil {
-		d.logger.Info("Starting preset-based workload.", zap.String("workload-name", d.workload.WorkloadName()), zap.String("workload-preset-name", d.workloadPreset.GetName()), zap.String("workload-preset-key", d.workloadPreset.GetKey()))
+		d.logger.Info("Starting preset-based workload.", zap.String("workload_id", d.id), zap.String("workload_name", d.workload.WorkloadName()), zap.String("workload-preset-name", d.workloadPreset.GetName()), zap.String("workload-preset-key", d.workloadPreset.GetKey()))
 	} else if d.workloadSessions != nil {
-		d.logger.Info("Starting template-based workload.", zap.String("workload-name", d.workload.WorkloadName()))
+		d.logger.Info("Starting template-based workload.", zap.String("workload_id", d.id), zap.String("workload_name", d.workload.WorkloadName()))
 	} else {
-		d.logger.Info("Starting workload.", zap.String("workload-name", d.workload.WorkloadName()))
+		d.logger.Info("Starting workload.", zap.String("workload_id", d.id), zap.String("workload_name", d.workload.WorkloadName()))
 	}
 
 	d.workloadGenerator = generator.NewWorkloadGenerator(d.opts, d.atom, d)
@@ -698,7 +726,7 @@ func (d *BasicWorkloadDriver) ProcessWorkload(wg *sync.WaitGroup) error {
 		select {
 		case tick := <-d.ticker.TickDelivery:
 			{
-				d.logger.Debug("Received tick.", zap.String("workload-id", d.workload.GetId()), zap.Time("tick", tick))
+				d.logger.Debug("Received tick.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.Time("tick", tick))
 
 				// Handle the tick.
 				if err := d.handleTick(tick); err != nil {
@@ -717,7 +745,7 @@ func (d *BasicWorkloadDriver) ProcessWorkload(wg *sync.WaitGroup) error {
 			}
 		case err := <-d.errorChan:
 			{
-				d.logger.Error("Received error.", zap.String("workload-id", d.workload.GetId()), zap.Error(err))
+				d.logger.Error("Received error.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.Error(err))
 				d.handleCriticalError(err)
 				if wg != nil {
 					wg.Done()
@@ -726,11 +754,11 @@ func (d *BasicWorkloadDriver) ProcessWorkload(wg *sync.WaitGroup) error {
 			}
 		case <-d.stopChan:
 			{
-				d.logger.Info("Workload has been instructed to terminate early.", zap.String("workload-id", d.workload.GetId()))
+				d.logger.Info("Workload has been instructed to terminate early.", zap.String("workload_id", d.workload.GetId()))
 
 				abortError := d.abortWorkload()
 				if abortError != nil {
-					d.logger.Error("Error while aborting workload.", zap.String("workload-id", d.workload.GetId()), zap.Error(abortError))
+					d.logger.Error("Error while aborting workload.", zap.String("workload_id", d.workload.GetId()), zap.Error(abortError))
 				}
 
 				if wg != nil {
@@ -771,8 +799,8 @@ func (d *BasicWorkloadDriver) workloadComplete(wg *sync.WaitGroup) {
 		WithEventTimestamp(d.clockTime.GetClockTime()).
 		WithProcessedAtTime(d.workloadEndTime))
 
-	d.logger.Info("The Workload Generator has finished generating events.", zap.String("workload-id", d.workload.GetId()))
-	d.logger.Info("The Workload has ended.", zap.Any("workload-duration", time.Since(d.workload.GetStartTime())), zap.Any("workload-start-time", d.workload.GetStartTime()), zap.Any("workload-end-time", d.workloadEndTime))
+	d.logger.Info("The Workload Generator has finished generating events.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()))
+	d.logger.Info("The Workload has ended.", zap.Any("workload-duration", time.Since(d.workload.GetStartTime())), zap.Any("workload-start-time", d.workload.GetStartTime()), zap.Any("workload-end-time", d.workloadEndTime), zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()))
 
 	d.sugaredLogger.Debugf("There is/are %d sessions.", len(d.sessionConnections))
 	for sessionId, sessionConnection := range d.sessionConnections {
@@ -816,7 +844,7 @@ func (d *BasicWorkloadDriver) handleTick(tick time.Time) error {
 	}
 
 	coloredOutput := ansi.Color(fmt.Sprintf("Serving tick: %v (processing everything up to %v)", tick, tick), "blue")
-	d.logger.Debug(coloredOutput)
+	d.logger.Debug(coloredOutput, zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()))
 	d.ticksHandled.Add(1)
 
 	// If there are no events processed this tick, then we still need to increment the clock time so we're in-line with the simulation.
@@ -940,7 +968,13 @@ func (d *BasicWorkloadDriver) processEventsForTick(tick time.Time) {
 // This is intended to be called within its own goroutine so that events for multiple sessions within the same tick can be processed concurrently by the driver.
 func (d *BasicWorkloadDriver) processEventsForSession(sessionId string, events []domain.Event, numSessionsWithEventsToProcess int, waitGroup *sync.WaitGroup, tick time.Time) {
 	for idx, event := range events {
-		d.sugaredLogger.Debugf("Handling event %d/%d \"%s\" for session %s now...", idx+1, numSessionsWithEventsToProcess, sessionId, event.Name())
+		d.logger.Debug("Handling workload event.",
+			zap.Int("event_index", idx+1),
+			zap.Int("total_events", numSessionsWithEventsToProcess),
+			zap.String("session", sessionId),
+			zap.String("event_name", event.Name().String()),
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String("workload_id", d.workload.GetId()))
 		err := d.handleEvent(event)
 
 		// Record it as processed even if there was an error when processing the event.
@@ -953,15 +987,34 @@ func (d *BasicWorkloadDriver) processEventsForSession(sessionId string, events [
 			WithError(err))
 
 		if err != nil {
-			d.sugaredLogger.Errorf("Failed to handle event %d/%d \"%s\" for session %s: %v", idx+1, numSessionsWithEventsToProcess, sessionId, event.Name(), err)
+			d.logger.Error("Failed to handle event workload event.",
+				zap.Int("event_index", idx+1),
+				zap.Int("total_events", numSessionsWithEventsToProcess),
+				zap.String("session", sessionId),
+				zap.String("event_name", event.Name().String()),
+				zap.String("workload_name", d.workload.WorkloadName()),
+				zap.String("workload_id", d.workload.GetId()),
+				zap.Error(err))
 			d.errorChan <- err
 			return // We just return immediately, as the workload is going to be aborted due to the error.
 		}
 
-		d.sugaredLogger.Debugf("Successfully handled event %d/%d: \"%s\"", idx+1, numSessionsWithEventsToProcess, event.Name())
+		d.logger.Debug("Successfully handled workload event.",
+			zap.Int("event_index", idx+1),
+			zap.Int("total_events", numSessionsWithEventsToProcess),
+			zap.String("session", sessionId),
+			zap.String("event_name", event.Name().String()),
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String("workload_id", d.workload.GetId()))
 	}
 
-	d.sugaredLogger.Debugf("Finished processing %d event(s) for session \"%s\" in tick %v.", len(events), sessionId, tick)
+	d.logger.Debug("Finished processing workload events for session during current tick.",
+		zap.Time("current_tick", tick),
+		zap.Int("total_events", numSessionsWithEventsToProcess),
+		zap.String("session", sessionId),
+		zap.String("workload_name", d.workload.WorkloadName()),
+		zap.String("workload_id", d.workload.GetId()))
+
 	waitGroup.Done()
 }
 
@@ -1057,7 +1110,7 @@ func (d *BasicWorkloadDriver) handleSessionReadyEvent(sessionReadyEvent domain.E
 	d.workload.ProcessedEvent(workloadEvent) // this is thread-safe
 
 	if err != nil {
-		d.logger.Error("Failed to provision new Jupyter session.", zap.String(ZapInternalSessionIDKey, sessionId), zap.Duration("real-time-elapsed", time.Since(provisionStart)), zap.Error(err))
+		d.logger.Error("Failed to provision new Jupyter session.", zap.String(ZapInternalSessionIDKey, sessionId), zap.Duration("real-time-elapsed", time.Since(provisionStart)), zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.Error(err))
 		payload, _ := json.Marshal(domain.ErrorMessage{
 			Description:  reflect.TypeOf(err).Name(),
 			ErrorMessage: err.Error(),
@@ -1066,12 +1119,12 @@ func (d *BasicWorkloadDriver) handleSessionReadyEvent(sessionReadyEvent domain.E
 
 		// This is thread-safe because the WebSocket uses a thread-safe wrapper.
 		if writeError := d.websocket.WriteMessage(websocket.BinaryMessage, payload); writeError != nil {
-			d.logger.Error("Failed to write error message via WebSocket.", zap.Error(writeError))
+			d.logger.Error("Failed to write error message via WebSocket.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.Error(writeError))
 		}
 
 		d.errorChan <- err
 	} else {
-		d.logger.Debug("Successfully handled SessionStarted event.", zap.String(ZapInternalSessionIDKey, sessionId), zap.Duration("real-time-elapsed", time.Since(provisionStart)))
+		d.logger.Debug("Successfully handled SessionStarted event.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String(ZapInternalSessionIDKey, sessionId), zap.Duration("real-time-elapsed", time.Since(provisionStart)))
 	}
 
 	if wg != nil {
@@ -1116,86 +1169,86 @@ func (d *BasicWorkloadDriver) handleEvent(evt domain.Event) error {
 		// d.logger.Debug("Received SessionStarted event.", zap.String(ZapInternalSessionIDKey, sessionId))
 		panic("Received SessionStarted event.")
 	case domain.EventSessionTrainingStarted:
-		d.logger.Debug("Received TrainingStarted event.", zap.String("internal-session-id", internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
+		d.logger.Debug("Received TrainingStarted event.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String("internal-session-id", internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
 
 		if _, ok := d.seenSessions[internalSessionId]; !ok {
-			d.logger.Error("Received 'training-started' event for unknown session.", zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
+			d.logger.Error("Received 'training-started' event for unknown session.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
 			return ErrUnknownSession
 		}
 
 		sessionConnection, ok := d.sessionConnections[internalSessionId]
 		if !ok {
-			d.logger.Error("No session connection found for session upon receiving 'training-started' event.", zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
+			d.logger.Error("No session connection found for session upon receiving 'training-started' event.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
 			return ErrNoSessionConnection
 		}
 
 		kernelConnection := sessionConnection.Kernel()
 		if kernelConnection == nil {
-			d.logger.Error("No kernel connection found for session connection.", zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
+			d.logger.Error("No kernel connection found for session connection.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
 			return ErrNoKernelConnection
 		}
 
 		err := kernelConnection.RequestExecute(TrainingCode, false, true, make(map[string]interface{}), true, false, false)
 		if err != nil {
-			d.logger.Error("Error while attempting to execute training code.", zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId), zap.Error(err))
+			d.logger.Error("Error while attempting to execute training code.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId), zap.Error(err))
 			return err
 		}
 
 		d.workload.TrainingStarted(traceSessionId)
-		d.logger.Debug("Handled TrainingStarted event.", zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
+		d.logger.Debug("Handled TrainingStarted event.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
 	case domain.EventSessionUpdateGpuUtil:
-		d.logger.Debug("Received UpdateGpuUtil event.", zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
+		d.logger.Debug("Received UpdateGpuUtil event.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
 		// TODO: Update GPU utilization.
-		d.logger.Debug("Handled UpdateGpuUtil event.", zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
+		d.logger.Debug("Handled UpdateGpuUtil event.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
 	case domain.EventSessionTrainingEnded:
-		d.logger.Debug("Received TrainingEnded event.", zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
+		d.logger.Debug("Received TrainingEnded event.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
 
 		if _, ok := d.seenSessions[internalSessionId]; !ok {
-			d.logger.Error("Received 'training-stopped' event for unknown session.", zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
+			d.logger.Error("Received 'training-stopped' event for unknown session.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
 			return ErrUnknownSession
 		}
 
 		if _, ok := d.seenSessions[internalSessionId]; !ok {
-			d.logger.Error("Received 'training-stopped' event for unknown session.", zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
+			d.logger.Error("Received 'training-stopped' event for unknown session.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
 			return ErrUnknownSession
 		}
 
 		sessionConnection, ok := d.sessionConnections[internalSessionId]
 		if !ok {
-			d.logger.Error("No session connection found for session upon receiving 'training-stopped' event.", zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
+			d.logger.Error("No session connection found for session upon receiving 'training-stopped' event.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
 			return ErrNoSessionConnection
 		}
 
 		kernelConnection := sessionConnection.Kernel()
 		if kernelConnection == nil {
-			d.logger.Error("No kernel connection found for session connection.", zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
+			d.logger.Error("No kernel connection found for session connection.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
 			return ErrNoKernelConnection
 		}
 
 		err := kernelConnection.StopRunningTrainingCode(true)
 		if err != nil {
-			d.logger.Error("Error while attempting to stop training.", zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId), zap.Error(err))
+			d.logger.Error("Error while attempting to stop training.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId), zap.Error(err))
 			return err
 		} else {
 			d.workload.TrainingStopped(traceSessionId)
-			d.logger.Debug("Successfully handled TrainingEnded event.", zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
+			d.logger.Debug("Successfully handled TrainingEnded event.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
 		}
 	case domain.EventSessionStopped:
-		d.logger.Debug("Received SessionStopped event.", zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
+		d.logger.Debug("Received SessionStopped event.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
 
 		// TODO: Test that this actually works.
 		err := d.stopSession(d.getOriginalSessionIdFromInternalSessionId(internalSessionId))
 		if err != nil {
 			return err
 		} else {
-			d.logger.Debug("Successfully stopped session.", zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
+			d.logger.Debug("Successfully stopped session.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
 		}
 
 		// Attempt to update the Prometheus metrics for Session lifetime duration (in seconds).
 		internalSessionId := d.getInternalSessionId(traceSessionId)
 		session := d.GetSession(internalSessionId)
 		if session == nil {
-			d.logger.Error("Could not find WorkloadSession with specified ID.", zap.String("session_id", internalSessionId))
+			d.logger.Error("Could not find WorkloadSession with specified ID.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String("session_id", internalSessionId))
 		} else {
 			sessionLifetimeDuration := time.Since(session.GetCreatedAt())
 			metrics.PrometheusMetricsWrapperInstance.WorkloadSessionLifetimeSeconds.
@@ -1204,19 +1257,19 @@ func (d *BasicWorkloadDriver) handleEvent(evt domain.Event) error {
 		}
 
 		d.workload.SessionStopped(traceSessionId)
-		d.logger.Debug("Handled SessionStopped event.", zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
+		d.logger.Debug("Handled SessionStopped event.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
 	}
 
 	return nil
 }
 
 func (d *BasicWorkloadDriver) stopSession(sessionId string) error {
-	d.logger.Debug("Stopping session.", zap.String("kernel_id", sessionId))
+	d.logger.Debug("Stopping session.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String("kernel_id", sessionId))
 	return d.kernelManager.StopKernel(sessionId)
 }
 
 func (d *BasicWorkloadDriver) provisionSession(sessionId string, meta domain.SessionMetadata, createdAtTime time.Time, resourceSpec *jupyter.ResourceSpec) (*jupyter.SessionConnection, error) {
-	d.logger.Debug("Creating new kernel.", zap.String("kernel_id", sessionId))
+	d.logger.Debug("Creating new kernel.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String("kernel_id", sessionId))
 	st := time.Now()
 	sessionConnection, err := d.kernelManager.CreateSession(
 		sessionId, /*strings.ToLower(sessionId) */
@@ -1224,7 +1277,7 @@ func (d *BasicWorkloadDriver) provisionSession(sessionId string, meta domain.Ses
 		"notebook", "distributed", resourceSpec)
 
 	if err != nil {
-		d.logger.Error("Failed to create session.", zap.String(ZapInternalSessionIDKey, sessionId))
+		d.logger.Error("Failed to create session.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String(ZapInternalSessionIDKey, sessionId))
 		return nil, err
 	}
 
@@ -1237,7 +1290,7 @@ func (d *BasicWorkloadDriver) provisionSession(sessionId string, meta domain.Ses
 	d.sessionConnections[internalSessionId] = sessionConnection
 	d.mu.Unlock()
 
-	d.logger.Debug("Successfully created new kernel.", zap.String("kernel_id", sessionId), zap.Duration("time-elapsed", timeElapsed), zap.String(ZapInternalSessionIDKey, internalSessionId))
+	d.logger.Debug("Successfully created new kernel.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String("kernel_id", sessionId), zap.Duration("time-elapsed", timeElapsed), zap.String(ZapInternalSessionIDKey, internalSessionId))
 
 	workloadSession := d.NewSession(sessionId, meta, createdAtTime)
 
@@ -1264,7 +1317,7 @@ func (d *BasicWorkloadDriver) provisionSession(sessionId string, meta domain.Ses
 					workloadSession.AddStderrIoPubMessage(parsedIoPubMsg.Text)
 				}
 			default:
-				d.logger.Error("Unexpected stream specified by IOPub message.", zap.String("stream", parsedIoPubMsg.Stream))
+				d.logger.Error("Unexpected stream specified by IOPub message.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String("stream", parsedIoPubMsg.Stream))
 				return false
 			}
 			return true
@@ -1274,7 +1327,7 @@ func (d *BasicWorkloadDriver) provisionSession(sessionId string, meta domain.Ses
 	}
 
 	if err := sessionConnection.RegisterIoPubHandler(d.id, ioPubHandler); err != nil {
-		d.logger.Warn("Failed to register IOPub message handler.", zap.String("id", d.id), zap.Error(err))
+		d.logger.Warn("Failed to register IOPub message handler.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String("id", d.id), zap.Error(err))
 	}
 
 	return sessionConnection, nil
@@ -1307,13 +1360,13 @@ func (d *BasicWorkloadDriver) handleIOPubMessage(conn jupyter.KernelConnection, 
 
 	stream, ok = content["name"].(string)
 	if !ok {
-		d.logger.Warn("Content of IOPub message did not contain an entry with key \"name\" and value of type string.", zap.Any("content", content), zap.Any("message", kernelMessage), zap.String("kernel_id", conn.KernelId()))
+		d.logger.Warn("Content of IOPub message did not contain an entry with key \"name\" and value of type string.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.Any("content", content), zap.Any("message", kernelMessage), zap.String("kernel_id", conn.KernelId()))
 		return nil
 	}
 
 	text, ok = content["text"].(string)
 	if !ok {
-		d.logger.Warn("Content of IOPub message did not contain an entry with key \"text\" and value of type string.", zap.Any("content", content), zap.Any("message", kernelMessage), zap.String("kernel_id", conn.KernelId()))
+		d.logger.Warn("Content of IOPub message did not contain an entry with key \"text\" and value of type string.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.Any("content", content), zap.Any("message", kernelMessage), zap.String("kernel_id", conn.KernelId()))
 		return nil
 	}
 

@@ -538,7 +538,11 @@ func (conn *BasicKernelConnection) Close() error {
 	err = conn.webSocket.Close()
 
 	if err != nil {
-		conn.logger.Error("Error while closing WebSocket connection to kernel.", zap.String("kernel_id", conn.kernelId), zap.Error(err))
+		conn.logger.Error("Error while closing WebSocket connection to kernel.",
+			zap.String("kernel_id", conn.kernelId),
+			zap.String("client_id", conn.clientId),
+			zap.String("username", conn.username),
+			zap.Error(err))
 	}
 
 	return err // Will be nil on success.
@@ -555,47 +559,78 @@ func (conn *BasicKernelConnection) Username() string {
 // Listen for messages from the kernel.
 func (conn *BasicKernelConnection) serveMessages() {
 	for {
-		var kernelMessage *baseKernelMessage
 		conn.rlock.Lock()
-		err := conn.webSocket.ReadJSON(&kernelMessage)
+		messageType, data, err := conn.webSocket.ReadMessage()
 		conn.rlock.Unlock()
 
 		if err != nil {
-			conn.logger.Error("WebSocket connection to kernel has been lost.", zap.String("kernel_id", conn.kernelId), zap.Error(err))
+			conn.logger.Error("Error while reading from kernel WebSocket.",
+				zap.String("kernel_id", conn.kernelId),
+				zap.String("client_id", conn.clientId),
+				zap.String("username", conn.username),
+				zap.Int("websocket_message_type", messageType),
+				zap.ByteString("data_byte_string", data),
+				zap.Binary("data_binary", data),
+				zap.Any("raw_data", data),
+				zap.Error(err))
+			st := time.Now()
 			conn.updateConnectionStatus(KernelDead)
-			return
-			//if websocket.IsCloseError(err, websocket.CloseNormalClosure) {
-			//	conn.logger.Warn("Websocket::CloseError.", zap.Error(err))
-			//	return
-			//}
-			//
-			//conn.logger.Error("Websocket::Read error.", zap.Error(err))
-			//
-			//var rawJsonMap map[string]interface{}
-			//conn.rlock.Lock()
-			//err = conn.webSocket.ReadJSON(&rawJsonMap)
-			//conn.rlock.Unlock()
-			//if err != nil {
-			//	if errors.Is(err, websocket.ErrCloseSent) {
-			//		conn.sugaredLogger.Warnf("WebSocket connection with kernel %s has been terminated.", conn.kernelId)
-			//		return
-			//	} else {
-			//		conn.logger.Error("Websocket::Read error. Failed to unmarshal JSON message into raw key-value map.", zap.Error(err))
-			//	}
-			//} else {
-			//	conn.logger.Error("Unmarshalled JSON message into raw key-value map.")
-			//	for k, v := range rawJsonMap {
-			//		conn.sugaredLogger.Errorf("%s: %v", k, v)
-			//	}
-			//}
-			//
-			//continue
+
+			if !conn.Connected() {
+				conn.logger.Error("Failed to re-establish connection with kernel.",
+					zap.String("kernel_id", conn.kernelId),
+					zap.String("client_id", conn.clientId),
+					zap.String("username", conn.username),
+					zap.Error(err))
+
+				return
+			}
+
+			conn.logger.Debug("Successfully re-established WebSocket connection to kernel following connection loss.",
+				zap.String("kernel_id", conn.kernelId),
+				zap.String("client_id", conn.clientId),
+				zap.String("username", conn.username),
+				zap.Duration("time_elapsed", time.Since(st)))
+
+			continue
+		}
+
+		var kernelMessage *baseKernelMessage
+		err = json.Unmarshal(data, &kernelMessage)
+		if err == io.EOF {
+			conn.logger.Error("Got EOF while trying to decode message from kernel.",
+				zap.String("kernel_id", conn.kernelId),
+				zap.String("client_id", conn.clientId),
+				zap.String("username", conn.username),
+				zap.Int("websocket_message_type", messageType))
+
+			// One value is expected in the message.
+			err = io.ErrUnexpectedEOF
+			continue
+		} else if err != nil {
+			conn.logger.Error("Failed to decode message from kernel using JSON.",
+				zap.String("kernel_id", conn.kernelId),
+				zap.String("client_id", conn.clientId),
+				zap.String("username", conn.username),
+				zap.Int("websocket_message_type", messageType),
+				zap.ByteString("data_byte_string", data),
+				zap.Binary("data_binary", data),
+				zap.Any("raw_data", data),
+				zap.Error(err))
+			continue
 		}
 
 		// We send ACKs for Shell and Control messages.
 		// We will also attempt to pair the message with its original request.
 		if kernelMessage.Channel == ShellChannel || kernelMessage.Channel == ControlChannel {
-			conn.sugaredLogger.Debugf("Received %s \"%s\" message '%s' from kernel %s: %v", kernelMessage.Channel, kernelMessage.Header.MessageType, kernelMessage.Header.MessageId, conn.kernelId, kernelMessage)
+			conn.logger.Debug("Received message from kernel.",
+				zap.String("kernel_id", conn.kernelId),
+				zap.String("client_id", conn.clientId),
+				zap.String("username", conn.username),
+				zap.String("channel", kernelMessage.Channel.String()),
+				zap.String("message_type", kernelMessage.Header.MessageType.String()),
+				zap.String("message_id", kernelMessage.Header.MessageId),
+				zap.String("message", kernelMessage.String()))
 
 			// Commented-out; for now, we're not ACK-ing anything.
 			// We do this in another goroutine so as not to block this message-receiver goroutine.
@@ -603,16 +638,31 @@ func (conn *BasicKernelConnection) serveMessages() {
 
 			responseChannelKey := getResponseChannelKeyFromReply(kernelMessage)
 			if responseChannel, ok := conn.responseChannels[responseChannelKey]; ok {
-				conn.logger.Debug("Found response channel for websocket message.", zap.String("request-message-id", kernelMessage.GetParentHeader().MessageId), zap.String("response-message-id", kernelMessage.GetHeader().MessageId), zap.String("message-type", string(kernelMessage.Header.MessageType)), zap.String("channel", kernelMessage.Channel.String()), zap.String("response-channel-key", responseChannelKey), zap.String("kernel_id", conn.kernelId))
+				conn.logger.Debug("Found response channel for websocket message.",
+					zap.String("request_message_id", kernelMessage.GetParentHeader().MessageId),
+					zap.String("response_message_id", kernelMessage.GetHeader().MessageId),
+					zap.String("message_type", string(kernelMessage.Header.MessageType)),
+					zap.String("channel", kernelMessage.Channel.String()),
+					zap.String("response_channel_key", responseChannelKey),
+					zap.String("kernel_id", conn.kernelId),
+					zap.String("client_id", conn.clientId),
+					zap.String("username", conn.username))
 				responseChannel <- kernelMessage
-				conn.logger.Debug("Response delivered (via channel) for websocket message.", zap.String("request-message-id", kernelMessage.GetParentHeader().MessageId), zap.String("response-message-id", kernelMessage.GetHeader().MessageId))
+				conn.logger.Debug("Response delivered (via channel) for websocket message.",
+					zap.String("request_message_id", kernelMessage.GetParentHeader().MessageId),
+					zap.String("response_message_id", kernelMessage.GetHeader().MessageId))
 			} else {
-				conn.logger.Warn("Could not find response channel associated with message.", zap.String("request-message-id", kernelMessage.GetParentHeader().MessageId), zap.String("response-message-id", kernelMessage.GetHeader().MessageId), zap.String("message-type", string(kernelMessage.Header.MessageType)), zap.String("channel", kernelMessage.Channel.String()), zap.String("response-channel-key", responseChannelKey), zap.String("kernel_id", conn.kernelId))
+				conn.logger.Warn("Could not find response channel associated with message.",
+					zap.String("request_message_id", kernelMessage.GetParentHeader().MessageId),
+					zap.String("response_message_id", kernelMessage.GetHeader().MessageId),
+					zap.String("message_type", string(kernelMessage.Header.MessageType)),
+					zap.String("channel", kernelMessage.Channel.String()),
+					zap.String("response_channel_key", responseChannelKey),
+					zap.String("kernel_id", conn.kernelId),
+					zap.String("client_id", conn.clientId),
+					zap.String("username", conn.username))
 			}
 		} else {
-			// For messages that are not Shell or Control, we do not actually log the message. Too much output. (IOPub messages generate a lot of output.)
-			// conn.sugaredLogger.Debugf("Received %s \"%s\" message '%s' from kernel %s.", kernelMessage.Channel, kernelMessage.Header.MessageType, kernelMessage.Header.MessageId, conn.kernelId)
-
 			if kernelMessage.Channel == IOPubChannel {
 				// TODO: Make it so we can query/view all of the output generated by a Session via the Workload Driver console/frontend.
 				conn.handleIOPubMessage(kernelMessage)
@@ -660,13 +710,17 @@ func (conn *BasicKernelConnection) defaultHandleIOPubMessage(kernelMessage Kerne
 
 	stream, ok = content["name"].(string)
 	if !ok {
-		conn.logger.Warn("Content of IOPub message did not contain an entry with key \"name\" and value of type string.", zap.Any("content", content), zap.Any("message", kernelMessage), zap.String("kernel_id", conn.kernelId))
+		conn.logger.Warn("Content of IOPub message did not contain an entry with key \"name\" and value of type string.",
+			zap.Any("content", content), zap.Any("message", kernelMessage), zap.String("kernel_id", conn.kernelId),
+			zap.String("client_id", conn.clientId), zap.String("username", conn.username))
 		return
 	}
 
 	text, ok = content["text"].(string)
 	if !ok {
-		conn.logger.Warn("Content of IOPub message did not contain an entry with key \"text\" and value of type string.", zap.Any("content", content), zap.Any("message", kernelMessage), zap.String("kernel_id", conn.kernelId))
+		conn.logger.Warn("Content of IOPub message did not contain an entry with key \"text\" and value of type string.",
+			zap.Any("content", content), zap.Any("message", kernelMessage), zap.String("kernel_id", conn.kernelId),
+			zap.String("client_id", conn.clientId), zap.String("username", conn.username))
 		return
 	}
 
@@ -680,7 +734,9 @@ func (conn *BasicKernelConnection) defaultHandleIOPubMessage(kernelMessage Kerne
 			conn.kernelStderr = append(conn.kernelStdout, text)
 		}
 	default:
-		conn.logger.Error("Unknown or unsupported stream found in IOPub message.", zap.String("stream", stream), zap.String("kernel_id", conn.kernelId), zap.Any("message", kernelMessage))
+		conn.logger.Error("Unknown or unsupported stream found in IOPub message.",
+			zap.String("stream", stream), zap.String("kernel_id", conn.kernelId), zap.Any("message", kernelMessage),
+			zap.String("client_id", conn.clientId), zap.String("username", conn.username))
 	}
 
 	return
@@ -710,7 +766,9 @@ func (conn *BasicKernelConnection) createKernelMessage(messageType MessageType, 
 		metadata["workload_id"] = workloadId
 	} else {
 		conn.logger.Warn("Could not embed workload ID in kernel message.",
-			zap.String("message_id", messageId), zap.String("message_type", messageType.String()), zap.String("channel", channel.String()))
+			zap.String("message_id", messageId), zap.String("message_type", messageType.String()),
+			zap.String("channel", channel.String()), zap.String("client_id", conn.clientId),
+			zap.String("username", conn.username))
 	}
 
 	message := &baseKernelMessage{
@@ -731,13 +789,16 @@ func (conn *BasicKernelConnection) createKernelMessage(messageType MessageType, 
 		responseChannelKey := getResponseChannelKeyFromRequest(message)
 
 		if len(responseChannelKey) == 0 {
-			conn.logger.Debug("Returning nil response channel.", zap.String("message_type", messageType.String()), zap.String("channel", channel.String()))
+			conn.logger.Debug("Returning nil response channel.",
+				zap.String("message_type", messageType.String()), zap.String("channel", channel.String()),
+				zap.String("client_id", conn.clientId), zap.String("username", conn.username))
 			return message, nil
 		}
 
 		conn.responseChannels[responseChannelKey] = responseChannel
 
-		conn.sugaredLogger.Debugf("Stored response channel for %s \"%s\" message under key \"%s\" for kernel %s.", channel, messageType, responseChannelKey, conn.kernelId)
+		conn.sugaredLogger.Debugf("Stored response channel for %s \"%s\" message under key \"%s\" for kernel %s.",
+			channel, messageType, responseChannelKey, conn.kernelId)
 	}
 
 	return message, responseChannel /* Will be nil for messages that are not either Shell or Control */

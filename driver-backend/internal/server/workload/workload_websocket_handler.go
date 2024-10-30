@@ -117,9 +117,9 @@ func (h *WebsocketHandler) setupRequestHandlers() {
 // Upgrade the given HTTP connection to a Websocket connection.
 // It is the responsibility of the caller to close the websocket when they're done with it.
 func (h *WebsocketHandler) upgradeConnectionToWebsocket(c *gin.Context) (domain.ConcurrentWebSocket, error) {
-	h.logger.Debug("Inspecting origin of incoming non-specific WebSocket connection.",
-		zap.String("request-origin", c.Request.Header.Get("Origin")),
-		zap.String("request-host", c.Request.Host), zap.String("request-uri", c.Request.RequestURI))
+	//h.logger.Debug("Inspecting origin of incoming non-specific WebSocket connection.",
+	//	zap.String("request-origin", c.Request.Header.Get("Origin")),
+	//	zap.String("request-host", c.Request.Host), zap.String("request-uri", c.Request.RequestURI))
 
 	upgrader.CheckOrigin = func(r *http.Request) bool {
 		incomingOrigin := r.Header.Get("Origin")
@@ -334,7 +334,7 @@ func (h *WebsocketHandler) handleStartWorkload(msgId string, message []byte, ws 
 		panic(fmt.Sprintf("Unexpected operation field in StartStopWorkloadRequest: \"%s\"", req.Operation))
 	}
 
-	h.logger.Debug("Starting workload.", zap.String("workload-id", req.WorkloadId))
+	h.logger.Debug("Starting workload.", zap.String("workload_id", req.WorkloadId))
 
 	startedWorkload, err := h.workloadManager.StartWorkload(req.WorkloadId)
 	if err != nil {
@@ -365,10 +365,10 @@ func (h *WebsocketHandler) handleStopWorkload(msgId string, message []byte, ws d
 		panic(fmt.Sprintf("Unexpected operation field in StartStopWorkloadRequest: \"%s\"", req.Operation))
 	}
 
-	h.logger.Debug("Stopping workload.", zap.String("workload-id", req.WorkloadId))
+	h.logger.Debug("Stopping workload.", zap.String("workload_id", req.WorkloadId))
 	stoppedWorkload, err := h.workloadManager.StopWorkload(req.WorkloadId)
 	if err != nil {
-		h.logger.Error("Failed to stop workload.", zap.String("workload-id", req.WorkloadId), zap.Error(err))
+		h.logger.Error("Failed to stop workload.", zap.String("workload_id", req.WorkloadId), zap.Error(err))
 		return nil, err
 	}
 
@@ -405,11 +405,11 @@ func (h *WebsocketHandler) handleStopWorkloads(msgId string, message []byte, ws 
 
 	h.logger.Debug("Stopping workloads.", zap.Int("num-workloads", len(req.WorkloadIDs)))
 	for _, workloadId := range req.WorkloadIDs {
-		h.logger.Debug("Stopping workload.", zap.String("workload-id", workloadId))
+		h.logger.Debug("Stopping workload.", zap.String("workload_id", workloadId))
 
 		stoppedWorkload, err := h.workloadManager.StopWorkload(workloadId)
 		if err != nil {
-			h.logger.Error("Failed to stop workload.", zap.String("workload-id", workloadId), zap.Error(err))
+			h.logger.Error("Failed to stop workload.", zap.String("workload_id", workloadId), zap.Error(err))
 			errs = append(errs, err)
 			continue
 		}

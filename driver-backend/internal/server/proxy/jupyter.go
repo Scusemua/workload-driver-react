@@ -147,15 +147,15 @@ func (r *JupyterProxyRouter) ServeHTTP(w http.ResponseWriter, req *http.Request)
 		// If we're here, then the request path has the ContextPath prefix.
 		updatedReq, originalRequestURI, originalUrlPath := r.adjustRequest(req)
 
-		r.logger.Debug("Proxying request to Jupyter.",
-			zap.String("original_request_uri", originalRequestURI),
-			zap.String("updated_request_uri", updatedReq.RequestURI),
-			zap.String("original_request_path", originalUrlPath),
-			zap.String("updated_request_path", updatedReq.URL.Path),
-			zap.String("request_method", updatedReq.Method),
-			zap.String("jupyter_server_address", r.JupyterServerAddress),
-			zap.String("jupyter_server_base_path", r.JupyterServerBasePath),
-			zap.String("request_url", req.URL.Host))
+		//r.logger.Debug("Proxying request to Jupyter.",
+		//	zap.String("original_request_uri", originalRequestURI),
+		//	zap.String("updated_request_uri", updatedReq.RequestURI),
+		//	zap.String("original_request_path", originalUrlPath),
+		//	zap.String("updated_request_path", updatedReq.URL.Path),
+		//	zap.String("request_method", updatedReq.Method),
+		//	zap.String("jupyter_server_address", r.JupyterServerAddress),
+		//	zap.String("jupyter_server_base_path", r.JupyterServerBasePath),
+		//	zap.String("request_host", req.URL.Host))
 
 		director := func(request *http.Request) {
 			request.URL.Scheme = "http"
@@ -163,6 +163,21 @@ func (r *JupyterProxyRouter) ServeHTTP(w http.ResponseWriter, req *http.Request)
 		}
 		proxy := &httputil.ReverseProxy{
 			Director: director,
+			ErrorHandler: func(writer http.ResponseWriter, request *http.Request, err error) {
+				r.logger.Error("ErrorHandler called for Jupyter ReverseProxy.",
+					zap.String("original_request_uri", originalRequestURI),
+					zap.String("updated_request_uri", updatedReq.RequestURI),
+					zap.String("original_request_path", originalUrlPath),
+					zap.String("updated_request_path", updatedReq.URL.Path),
+					zap.String("request_method", updatedReq.Method),
+					zap.String("jupyter_server_address", r.JupyterServerAddress),
+					zap.String("jupyter_server_base_path", r.JupyterServerBasePath),
+					zap.String("request_host", req.URL.Host),
+					zap.Error(err))
+
+				// Default error handler just logs the error and returns HTTP 502 Bad Gateway, so we'll do that.
+				writer.WriteHeader(http.StatusBadGateway)
+			},
 		}
 		proxy.ServeHTTP(w, updatedReq)
 	}

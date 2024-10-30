@@ -29,7 +29,6 @@ import (
 	"io"
 	"log"
 	"net/http"
-	"net/http/httputil"
 	"net/url"
 	"os"
 	"path"
@@ -258,7 +257,7 @@ func (s *serverImpl) ErrorHandlerMiddleware(c *gin.Context) {
 
 func (s *serverImpl) jwtPayloadFunc() func(data interface{}) jwt.MapClaims {
 	return func(data interface{}) jwt.MapClaims {
-		s.logger.Debug("Executing jwtPayloadFunc", zap.Any("data", data))
+		//s.logger.Debug("Executing jwtPayloadFunc", zap.Any("data", data))
 		if v, ok := data.(*auth.AuthorizedUser); ok {
 			return jwt.MapClaims{
 				jwtIdentityKey: v.Username,
@@ -292,7 +291,7 @@ func (s *serverImpl) jwtAuthenticator() func(c *gin.Context) (interface{}, error
 		userID := login.Username
 		password := login.Password
 
-		s.logger.Debug("Received authentication request.", zap.String("username", userID), zap.String("password", password))
+		//s.logger.Debug("Received authentication request.", zap.String("username", userID), zap.String("password", password))
 
 		if userID == s.adminUsername && password == s.adminPassword {
 			return &auth.AuthorizedUser{Username: userID}, nil
@@ -303,7 +302,7 @@ func (s *serverImpl) jwtAuthenticator() func(c *gin.Context) (interface{}, error
 
 func (s *serverImpl) jwtAuthorizer() func(data interface{}, c *gin.Context) bool {
 	return func(data interface{}, c *gin.Context) bool {
-		s.logger.Debug("Executing jwtAuthorizer", zap.Any("data", data))
+		//s.logger.Debug("Executing jwtAuthorizer", zap.Any("data", data))
 
 		var (
 			user *auth.AuthorizedUser
@@ -312,10 +311,10 @@ func (s *serverImpl) jwtAuthorizer() func(data interface{}, c *gin.Context) bool
 		user, ok = data.(*auth.AuthorizedUser)
 
 		if ok {
-			s.logger.Debug("Inspecting request for authorization.", zap.String("username", user.Username))
+			//s.logger.Debug("Inspecting request for authorization.", zap.String("username", user.Username))
 
 			if user.Username == s.adminUsername {
-				s.logger.Debug("Authorizing request from admin user.", zap.String("username", user.Username))
+				//s.logger.Debug("Authorizing request from admin user.", zap.String("username", user.Username))
 				return true
 			} else {
 				log.Fatalf("Found non-admin authorized user with username=\"%s\"\n", user.Username)
@@ -451,23 +450,23 @@ func (s *serverImpl) setupRoutes() error {
 
 	// authMiddleware.MiddlewareFunc()
 	s.app.NoRoute(func(c *gin.Context) {
-		s.logger.Warn("Received NoRoute request.", zap.String("url", c.Request.URL.String()))
+		//s.logger.Warn("Received NoRoute request.", zap.String("url", c.Request.URL.String()))
 		c.JSON(404, gin.H{"code": "PAGE_NOT_FOUND", "message": "Page not found"})
 	})
 
 	// Used by frontend to authenticate and get access to the dashboard.
 	s.app.POST(s.getPath(domain.AuthenticateRequest), func(c *gin.Context) {
-		request, err := httputil.DumpRequest(c.Request, true)
-		if err != nil {
-			s.logger.Error("Failed to dump JWT login request.", zap.Error(err))
-		}
+		//request, err := httputil.DumpRequest(c.Request, true)
+		//if err != nil {
+		//	s.logger.Error("Failed to dump JWT login request.", zap.Error(err))
+		//}
 
-		s.sugaredLogger.Debugf("JWT login handler called: \"%s\": %s", s.getPath(domain.AuthenticateRequest), request)
+		//s.sugaredLogger.Debugf("JWT login handler called: \"%s\": %s", s.getPath(domain.AuthenticateRequest), request)
 		authMiddleware.LoginHandler(c)
 	})
 
 	s.app.POST(s.getPath(domain.RefreshToken), func(c *gin.Context) {
-		s.sugaredLogger.Debugf("JWT token refresh handler called: \"%s\"", s.getPath(domain.RefreshToken))
+		//s.sugaredLogger.Debugf("JWT token refresh handler called: \"%s\"", s.getPath(domain.RefreshToken))
 		authMiddleware.RefreshHandler(c)
 	})
 
@@ -649,9 +648,9 @@ func (s *serverImpl) handleSpoofedError(ctx *gin.Context) {
 }
 
 func (s *serverImpl) serveGeneralWebsocket(c *gin.Context) {
-	s.logger.Debug("Inspecting origin of incoming non-specific WebSocket connection.",
-		zap.String("request-origin", c.Request.Header.Get("Origin")),
-		zap.String("request-host", c.Request.Host), zap.String("request-uri", c.Request.RequestURI))
+	//s.logger.Debug("Inspecting origin of incoming non-specific WebSocket connection.",
+	//	zap.String("request-origin", c.Request.Header.Get("Origin")),
+	//	zap.String("request-host", c.Request.Host), zap.String("request-uri", c.Request.RequestURI))
 
 	upgrader.CheckOrigin = func(r *http.Request) bool {
 		incomingOrigin := r.Header.Get("Origin")

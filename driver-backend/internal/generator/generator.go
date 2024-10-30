@@ -229,7 +229,7 @@ func (g *BasicWorkloadGenerator) generateWorkloadWithCsvPreset(consumer domain.E
 
 	g.synthesizer.Synthesize(g.ctx, g.opts, consumer.WorkloadEventGeneratorCompleteChan())
 
-	g.logger.Debug("Finished generating CSV workload.", zap.String("workload-id", workload.GetId()))
+	g.logger.Debug("Finished generating CSV workload.", zap.String("workload_id", workload.GetId()))
 
 	return nil
 }
@@ -257,7 +257,7 @@ func (g *BasicWorkloadGenerator) generateWorkloadWithXmlPreset(consumer domain.E
 		return err
 	}
 
-	g.logger.Debug("Finished generating XML workload.", zap.String("workload-id", workload.GetId()))
+	g.logger.Debug("Finished generating XML workload.", zap.String("workload_id", workload.GetId()))
 	return nil
 }
 

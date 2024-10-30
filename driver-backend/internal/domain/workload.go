@@ -542,7 +542,7 @@ func (w *workloadImpl) GetProcessedEvents() []*WorkloadEvent {
 // TerminateWorkloadPrematurely stops the workload.
 func (w *workloadImpl) TerminateWorkloadPrematurely(simulationTimestamp time.Time) (time.Time, error) {
 	if !w.IsRunning() {
-		w.logger.Error("Cannot stop as I am not running.", zap.String("workload-id", w.Id), zap.String("workload-state", string(w.WorkloadState)))
+		w.logger.Error("Cannot stop as I am not running.", zap.String("workload_id", w.Id), zap.String("workload-state", string(w.WorkloadState)))
 		return time.Now(), ErrWorkloadNotRunning
 	}
 
@@ -578,7 +578,7 @@ func (w *workloadImpl) TerminateWorkloadPrematurely(simulationTimestamp time.Tim
 	// 	ProcessedSuccessfully: true,
 	// })
 
-	w.logger.Debug("Stopped.", zap.String("workload-id", w.Id))
+	w.logger.Debug("Stopped.", zap.String("workload_id", w.Id))
 	return w.EndTime, nil
 }
 

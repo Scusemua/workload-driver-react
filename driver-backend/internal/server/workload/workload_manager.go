@@ -151,7 +151,7 @@ func (m *workloadManagerImpl) StartWorkload(workloadId string) (domain.Workload,
 	workload := workloadDriver.GetWorkload()
 	workload.UpdateTimeElapsed()
 
-	m.logger.Debug("Started workload.", zap.String("workload-id", workloadId), zap.Any("workload-source", workload.GetWorkloadSource()))
+	m.logger.Debug("Started workload.", zap.String("workload_id", workloadId), zap.Any("workload-source", workload.GetWorkloadSource()))
 
 	return workload, nil
 }
@@ -164,7 +164,7 @@ func (m *workloadManagerImpl) StartWorkload(workloadId string) (domain.Workload,
 func (m *workloadManagerImpl) StopWorkload(workloadId string) (domain.Workload, error) {
 	workloadDriver := m.GetWorkloadDriver(workloadId)
 	if workloadDriver == nil {
-		m.logger.Error("Could not find workload driver with specified workload ID.", zap.String("workload-id", workloadId))
+		m.logger.Error("Could not find workload driver with specified workload ID.", zap.String("workload_id", workloadId))
 		return nil, fmt.Errorf("%w: \"%s\"", domain.ErrWorkloadNotFound, workloadId)
 	}
 
@@ -265,7 +265,7 @@ func (m *workloadManagerImpl) serverPushRoutine( /* doneChan chan struct{} */ ) 
 		if len(activeWorkloads) > 0 {
 			// Keep track of any workloads that are no longer active.
 			// We'll push one more update for these workloads and then stop pushing updates for them,
-			// as the state/data of non-active workoads does not change.
+			// as the state/data of non-active workl	oads does not change.
 			noLongerActivelyRunning := make([]string, 0)
 			activeWorkloadsSlice := make([]domain.Workload, 0)
 
@@ -292,7 +292,6 @@ func (m *workloadManagerImpl) serverPushRoutine( /* doneChan chan struct{} */ ) 
 
 			allWorkloadsEncodedSizeBytes := 0
 			for _, workload := range activeWorkloadsSlice {
-				m.logger.Debug("Processing workload.", zap.String("workload-id", workload.GetId()))
 				workloadEncoded, err := json.Marshal(workload)
 				if err != nil {
 					panic(err)
@@ -331,8 +330,6 @@ func (m *workloadManagerImpl) serverPushRoutine( /* doneChan chan struct{} */ ) 
 			// will determine if the client needs the full workload or just a patch.
 			if err := m.pushWorkloadUpdate(responseEncoded); err != nil {
 				m.logger.Error("Failed to push workload update to frontend.", zap.Error(err))
-			} else {
-				m.logger.Debug("Successfully pushed 'Active Workloads' update to frontend.", zap.Int("response-size-bytes", len(responseEncoded)), zap.Int("all-workloads-encoded-size-bytes", allWorkloadsEncodedSizeBytes), zap.Int("bytes-saved", allWorkloadsEncodedSizeBytes-len(responseEncoded)))
 			}
 
 			// Remove workloads that are now inactive from the map.
