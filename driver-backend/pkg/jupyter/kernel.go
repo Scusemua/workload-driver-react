@@ -560,6 +560,14 @@ func (conn *BasicKernelConnection) Username() string {
 	return conn.username
 }
 
+// decodeKernelMessage decodes a kernel message according to the WebSocket protocol and returns the
+// decoded result, or an error if one occurred.
+//
+// - WebSocket protocol: https://jupyter-server.readthedocs.io/en/latest/developers/websocket-protocols.html
+func (conn *BasicKernelConnection) decodeKernelMessage() (*KernelMessage, error) {
+
+}
+
 // Listen for messages from the kernel.
 func (conn *BasicKernelConnection) serveMessages() {
 	for {
@@ -830,7 +838,7 @@ func (conn *BasicKernelConnection) updateConnectionStatus(status KernelConnectio
 	// established. If we are restarting, this message will skip the queue
 	// and be sent immediately.
 	success := false
-	maxNumTries := 5
+	maxNumTries := 1 // TODO: Change me to a higher number after debugging.
 	if conn.connectionStatus == KernelConnected {
 		conn.logger.Debug("Connection status is being updated to 'connected'. Attempting to retrieve kernel info.",
 			zap.String("kernel_id", conn.kernelId))
@@ -846,7 +854,7 @@ func (conn *BasicKernelConnection) updateConnectionStatus(status KernelConnectio
 			if err != nil {
 				numTries += 1
 				conn.sugaredLogger.Errorf("Attempt %d/%d to request-info from kernel %s FAILED. Error: %s", numTries, maxNumTries, conn.kernelId, err)
-				time.Sleep(time.Duration(1.5*float64(numTries)) * time.Second)
+				time.Sleep(time.Duration(1.25*float64(numTries)) * time.Second)
 				continue
 			} else {
 				success = true

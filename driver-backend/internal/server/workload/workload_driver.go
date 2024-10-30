@@ -524,20 +524,25 @@ func (d *BasicWorkloadDriver) bootstrapSimulation() error {
 //
 // DriveWorkload should be called from its own goroutine.
 func (d *BasicWorkloadDriver) DriveWorkload(wg *sync.WaitGroup) {
-	d.logger.Info("Workload Simulator has started running. Bootstrapping simulation now.")
+	d.logger.Info("Workload Simulator has started running. Bootstrapping simulation now.",
+		zap.String("workload_id", d.id),
+		zap.String("workload_name", d.workload.WorkloadName()))
 	err := d.bootstrapSimulation()
 	if err != nil {
-		d.logger.Error("Failed to bootstrap simulation.", zap.String("reason", err.Error()))
+		d.logger.Error("Failed to bootstrap simulation.",
+			zap.String("workload_id", d.id),
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String("reason", err.Error()))
 		d.handleCriticalError(err)
 		wg.Done()
 		return
 	}
 
-	d.logger.Info("The simulation has started.")
+	d.logger.Info("The simulation has started.",
+		zap.String("workload_id", d.id),
+		zap.String("workload_name", d.workload.WorkloadName()))
 
 	nextTick := d.currentTick.GetClockTime().Add(d.tickDuration)
-
-	d.sugaredLogger.Infof("Next tick: %v", nextTick)
 
 OUTER:
 	for {
@@ -545,7 +550,14 @@ OUTER:
 		// These events are then enqueued in the EventQueue.
 		select {
 		case evt := <-d.eventChan:
-			// d.logger.Debug("Extracted event from event channel.", zap.String("event-name", evt.Name().String()), zap.String("event-id", evt.Id()))
+			if !d.workload.IsRunning() {
+				d.logger.Warn("Workload is no longer running. Aborting drive procedure.",
+					zap.String("workload_name", d.workload.WorkloadName()),
+					zap.String("workload_id", d.workload.GetId()),
+					zap.String("workload_state", d.workload.GetWorkloadState().String()))
+
+				return
+			}
 
 			// If the event occurs during this tick, then call SimulationDriver::HandleDriverEvent to enqueue the event in the EventQueue.
 			if evt.Timestamp().Before(nextTick) {
@@ -554,23 +566,30 @@ OUTER:
 				// The event occurs in the next tick. Update the current tick clock, issue/perform a tick-trigger, and then process the event.
 				err = d.IssueClockTicks(evt.Timestamp())
 				if err != nil {
-					d.logger.Error("Critical error occurred while attempting to increment clock time.", zap.String("error-message", err.Error()))
+					d.logger.Error("Critical error occurred while attempting to increment clock time.",
+						zap.String("workload_id", d.id),
+						zap.String("workload_name", d.workload.WorkloadName()),
+						zap.String("error-message", err.Error()))
 					d.handleCriticalError(err)
 					break OUTER
 				}
 				nextTick = d.currentTick.GetClockTime().Add(d.tickDuration)
 				d.eventQueue.EnqueueEvent(evt)
-
-				d.sugaredLogger.Debugf("Next tick: %v", nextTick)
 			}
 		case <-d.workloadEventGeneratorCompleteChan:
-			d.sugaredLogger.Debugf("Drivers finished generating events. #Events still enqueued: %d.", d.eventQueue.Len())
+			d.logger.Debug("Drivers finished generating events.",
+				zap.Int("events_still_enqueued", d.eventQueue.Len()),
+				zap.String("workload_id", d.id),
+				zap.String("workload_name", d.workload.WorkloadName()))
 
 			// Continue issuing ticks until the cluster is finished.
 			for d.eventQueue.Len() > 0 {
 				err = d.IssueClockTicks(nextTick)
 				if err != nil {
-					d.logger.Error("Critical error occurred while attempting to increment clock time.", zap.String("error-message", err.Error()))
+					d.logger.Error("Critical error occurred while attempting to increment clock time.",
+						zap.String("workload_id", d.id),
+						zap.String("workload_name", d.workload.WorkloadName()),
+						zap.String("error-message", err.Error()))
 					d.handleCriticalError(err)
 					break OUTER
 				}
@@ -618,7 +637,7 @@ func (d *BasicWorkloadDriver) IssueClockTicks(timestamp time.Time) error {
 
 	// Issue clock ticks.
 	var numTicksIssued int64 = 0
-	for timestamp.After(currentTick) {
+	for timestamp.After(currentTick) && d.workload.IsRunning() {
 		tickStart := time.Now()
 
 		// Increment the clock.
@@ -645,6 +664,17 @@ func (d *BasicWorkloadDriver) IssueClockTicks(timestamp time.Time) error {
 		numTicksIssued += 1
 		currentTick = d.currentTick.GetClockTime()
 
+		// If the workload is no longer running, then we'll just return.
+		// This can happen if the user manually stopped the workload, or if the workload encountered a critical error.
+		if !d.workload.IsRunning() {
+			d.logger.Warn("Workload is no longer running. Aborting post-issue-clock-tick procedure early.",
+				zap.String("workload_name", d.workload.WorkloadName()),
+				zap.String("workload_id", d.workload.GetId()),
+				zap.String("workload_state", d.workload.GetWorkloadState().String()))
+
+			return nil
+		}
+
 		tickElapsed := time.Since(tickStart)
 		tickRemaining := time.Duration(d.timescaleAdjustmentFactor * float64(d.tickDuration-tickElapsed))
 
@@ -656,6 +686,7 @@ func (d *BasicWorkloadDriver) IssueClockTicks(timestamp time.Time) error {
 				zap.Time("tick_timestamp", tick),
 				zap.Duration("time_elapsed", tickElapsed),
 				zap.Duration("target_tick_duration", d.tickDuration),
+				zap.Float64("timescale_adjustment_factor", d.timescaleAdjustmentFactor),
 				zap.String("workload_id", d.id),
 				zap.String("workload_name", d.workload.WorkloadName()))
 		} else {
@@ -665,6 +696,7 @@ func (d *BasicWorkloadDriver) IssueClockTicks(timestamp time.Time) error {
 				zap.Time("tick_timestamp", tick),
 				zap.Duration("time_elapsed", tickElapsed),
 				zap.Duration("target_tick_duration", d.tickDuration),
+				zap.Float64("timescale_adjustment_factor", d.timescaleAdjustmentFactor),
 				zap.Duration("sleep_time", tickRemaining),
 				zap.String("workload_id", d.id),
 				zap.String("workload_name", d.workload.WorkloadName()))
@@ -700,11 +732,19 @@ func (d *BasicWorkloadDriver) ProcessWorkload(wg *sync.WaitGroup) error {
 		WithProcessedAtTime(d.workloadStartTime))
 
 	if d.workloadPreset != nil {
-		d.logger.Info("Starting preset-based workload.", zap.String("workload_id", d.id), zap.String("workload_name", d.workload.WorkloadName()), zap.String("workload-preset-name", d.workloadPreset.GetName()), zap.String("workload-preset-key", d.workloadPreset.GetKey()))
+		d.logger.Info("Starting preset-based workload.",
+			zap.String("workload_id", d.id),
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String("workload-preset-name", d.workloadPreset.GetName()),
+			zap.String("workload-preset-key", d.workloadPreset.GetKey()))
 	} else if d.workloadSessions != nil {
-		d.logger.Info("Starting template-based workload.", zap.String("workload_id", d.id), zap.String("workload_name", d.workload.WorkloadName()))
+		d.logger.Info("Starting template-based workload.",
+			zap.String("workload_id", d.id),
+			zap.String("workload_name", d.workload.WorkloadName()))
 	} else {
-		d.logger.Info("Starting workload.", zap.String("workload_id", d.id), zap.String("workload_name", d.workload.WorkloadName()))
+		d.logger.Info("Starting workload.",
+			zap.String("workload_id", d.id),
+			zap.String("workload_name", d.workload.WorkloadName()))
 	}
 
 	d.workloadGenerator = generator.NewWorkloadGenerator(d.opts, d.atom, d)
@@ -718,7 +758,9 @@ func (d *BasicWorkloadDriver) ProcessWorkload(wg *sync.WaitGroup) error {
 		panic(fmt.Sprintf("Workload is of presently-unsuporrted type: \"%s\" -- cannot generate workload.", d.workload.GetWorkloadType()))
 	}
 
-	d.logger.Info("The Workload Driver has started running.")
+	d.logger.Info("The Workload Driver has started running.",
+		zap.String("workload_id", d.id),
+		zap.String("workload_name", d.workload.WorkloadName()))
 
 	numTicksServed := 0
 	d.servingTicks.Store(true)
@@ -726,11 +768,17 @@ func (d *BasicWorkloadDriver) ProcessWorkload(wg *sync.WaitGroup) error {
 		select {
 		case tick := <-d.ticker.TickDelivery:
 			{
-				d.logger.Debug("Received tick.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.Time("tick", tick))
+				d.logger.Debug("Received tick.",
+					zap.String("workload_id", d.workload.GetId()),
+					zap.String("workload_name", d.workload.WorkloadName()),
+					zap.Time("tick", tick))
 
 				// Handle the tick.
 				if err := d.handleTick(tick); err != nil {
-					d.logger.Error("Critical error occurred when attempting to increase clock time.", zap.Error(err))
+					d.logger.Error("Critical error occurred when attempting to increase clock time.",
+						zap.String("workload_id", d.id),
+						zap.String("workload_name", d.workload.WorkloadName()),
+						zap.Error(err))
 					d.handleCriticalError(err)
 
 					// If this is non-nil, then call Done() to signal to the caller that the workload has finished (in this case, because of a critical error).
@@ -745,7 +793,10 @@ func (d *BasicWorkloadDriver) ProcessWorkload(wg *sync.WaitGroup) error {
 			}
 		case err := <-d.errorChan:
 			{
-				d.logger.Error("Received error.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.Error(err))
+				d.logger.Error("Received error.",
+					zap.String("workload_id", d.workload.GetId()),
+					zap.String("workload_name", d.workload.WorkloadName()),
+					zap.Error(err))
 				d.handleCriticalError(err)
 				if wg != nil {
 					wg.Done()
@@ -754,11 +805,16 @@ func (d *BasicWorkloadDriver) ProcessWorkload(wg *sync.WaitGroup) error {
 			}
 		case <-d.stopChan:
 			{
-				d.logger.Info("Workload has been instructed to terminate early.", zap.String("workload_id", d.workload.GetId()))
+				d.logger.Info("Workload has been instructed to terminate early.",
+					zap.String("workload_id", d.id),
+					zap.String("workload_name", d.workload.WorkloadName()))
 
 				abortError := d.abortWorkload()
 				if abortError != nil {
-					d.logger.Error("Error while aborting workload.", zap.String("workload_id", d.workload.GetId()), zap.Error(abortError))
+					d.logger.Error("Error while aborting workload.",
+						zap.String("workload_id", d.id),
+						zap.String("workload_name", d.workload.WorkloadName()),
+						zap.Error(abortError))
 				}
 
 				if wg != nil {
@@ -879,7 +935,7 @@ func (d *BasicWorkloadDriver) doneServingTick(tickStart time.Time) {
 			"Real-world tick duration: %v. "+
 			"Total time elapsed for workload %s: %v. "+
 			"There is/are %d more session event(s) enqueued right now.",
-			d.clockTime.GetClockTime(), tick, tickDuration, d.workload.GetId(), d.workload.GetTimeElasped(), numEventsEnqueued)
+			d.clockTime.GetClockTime(), tick, tickDuration, d.workload.GetId(), d.workload.GetTimeElapsed(), numEventsEnqueued)
 	}
 
 	d.ticker.Done()
@@ -1118,9 +1174,11 @@ func (d *BasicWorkloadDriver) handleSessionReadyEvent(sessionReadyEvent domain.E
 		})
 
 		// This is thread-safe because the WebSocket uses a thread-safe wrapper.
-		if writeError := d.websocket.WriteMessage(websocket.BinaryMessage, payload); writeError != nil {
-			d.logger.Error("Failed to write error message via WebSocket.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.Error(writeError))
-		}
+		go func() {
+			if writeError := d.websocket.WriteMessage(websocket.BinaryMessage, payload); writeError != nil {
+				d.logger.Error("Failed to write error message via WebSocket.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.Error(writeError))
+			}
+		}()
 
 		d.errorChan <- err
 	} else {

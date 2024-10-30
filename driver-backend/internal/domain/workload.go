@@ -39,6 +39,10 @@ var (
 
 type WorkloadState string
 
+func (state WorkloadState) String() string {
+	return string(state)
+}
+
 // WorkloadType defines a type that a workload can have/be.
 //
 // Workloads can be of several different types, namely 'preset' and 'template' and possibly 'trace'.
@@ -47,6 +51,10 @@ type WorkloadState string
 // Workloads of type 'preset' are static in their definition, whereas workloads of type 'template'
 // have properties that the user can specify and change before submitting the workload for registration.
 type WorkloadType string
+
+func (typ WorkloadType) String() string {
+	return string(typ)
+}
 
 type WorkloadGenerator interface {
 	GeneratePresetWorkload(EventConsumer, Workload, *WorkloadPreset, *WorkloadRegistrationRequest) error              // Start generating the workload.
@@ -85,12 +93,12 @@ type Workload interface {
 	WorkloadName() string
 	// GetWorkloadState Returns the current state of the workload.
 	GetWorkloadState() WorkloadState
-	// GetTimeElasped Returns the time elapsed, which is computed at the time that data is requested by the user.
-	GetTimeElasped() time.Duration
-	// GetTimeElaspedAsString Returns the time elapsed as a string, which is computed at the time that data is requested by the user.
-	GetTimeElaspedAsString() string
-	// SetTimeElasped Updates the time elapsed.
-	SetTimeElasped(time.Duration)
+	// GetTimeElapsed returns the time elapsed, which is computed at the time that data is requested by the user.
+	GetTimeElapsed() time.Duration
+	// GetTimeElapsedAsString returns the time elapsed as a string, which is computed at the time that data is requested by the user.
+	GetTimeElapsedAsString() string
+	// SetTimeElapsed updates the time elapsed.
+	SetTimeElapsed(time.Duration)
 	// UpdateTimeElapsed Instructs the Workload to recompute its 'time elapsed' field.
 	UpdateTimeElapsed()
 	// GetNumEventsProcessed Returns the number of events processed by the workload.
@@ -714,20 +722,20 @@ func (w *workloadImpl) GetRegisteredTime() time.Time {
 }
 
 // GetTimeElasped returns the time elapsed, which is computed at the time that data is requested by the user.
-func (w *workloadImpl) GetTimeElasped() time.Duration {
+func (w *workloadImpl) GetTimeElapsed() time.Duration {
 	return w.TimeElapsed
 }
 
 // GetTimeElaspedAsString returns the time elapsed as a string, which is computed at the time that data is requested by the user.
 //
 // IMPORTANT: This updates the w.TimeElapsedStr field (setting it to w.TimeElapsed.String()) before returning it.
-func (w *workloadImpl) GetTimeElaspedAsString() string {
+func (w *workloadImpl) GetTimeElapsedAsString() string {
 	w.TimeElapsedStr = w.TimeElapsed.String()
 	return w.TimeElapsed.String()
 }
 
 // SetTimeElasped updates the time elapsed.
-func (w *workloadImpl) SetTimeElasped(timeElapsed time.Duration) {
+func (w *workloadImpl) SetTimeElapsed(timeElapsed time.Duration) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 

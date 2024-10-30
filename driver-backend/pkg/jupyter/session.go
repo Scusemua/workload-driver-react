@@ -169,7 +169,9 @@ func NewSessionConnection(model *jupyterSession, username string, jupyterServerA
 		return nil, err
 	}
 
-	conn.logger.Debug("Successfully connected to kernel (as part of a SessionConnection).", zap.String("kernel_id", model.JupyterKernel.Id), zap.String("session_id", model.JupyterSessionId))
+	conn.logger.Debug("Successfully connected to kernel (as part of a SessionConnection).",
+		zap.String("kernel_id", model.JupyterKernel.Id),
+		zap.String("session_id", model.JupyterSessionId))
 
 	return conn, err
 }
