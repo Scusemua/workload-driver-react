@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"github.com/google/uuid"
+	"github.com/gorilla/websocket"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -18,35 +19,47 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
-type workloadManagerImpl struct {
+type BasicWorkloadManager struct {
 	atom          *zap.AtomicLevel
 	logger        *zap.Logger
 	sugaredLogger *zap.SugaredLogger
 
-	configuration            *domain.Configuration                                 // Server-wide configuration.
-	pushGoroutineActive      atomic.Int32                                          // Indicates whether there is already a goroutine serving the "push" routine, which pushes updated workload data to the frontend.
-	pushUpdateInterval       time.Duration                                         // The interval at which we push updates to the workloads to the frontend.
-	workloadWebsocketHandler *WebsocketHandler                                     // Workload WebSocket handler. Accepts and processes WebSocket requests related to workloads.
-	workloadDrivers          *orderedmap.OrderedMap[string, domain.WorkloadDriver] // Map from workload ID to the associated driver.
-	workloadsMap             *orderedmap.OrderedMap[string, domain.Workload]       // Map from workload ID to workload
-	workloads                []domain.Workload                                     // Slice of workloads. Same contents as the map, but in slice form.
-	mu                       sync.Mutex                                            // Synchronizes access to the workload drivers and the workloads themselves (both the map and the slice).
-	workloadStartedChan      chan string                                           // Channel of workload IDs. When a workload is started, its ID is submitted to this channel.
+	configuration            *domain.Configuration                                // Server-wide configuration.
+	pushGoroutineActive      atomic.Int32                                         // Indicates whether there is already a goroutine serving the "push" routine, which pushes updated workload data to the frontend.
+	pushUpdateInterval       time.Duration                                        // The interval at which we push updates to the workloads to the frontend.
+	workloadWebsocketHandler *WebsocketHandler                                    // Workload WebSocket handler. Accepts and processes WebSocket requests related to workloads.
+	workloadDrivers          *orderedmap.OrderedMap[string, *BasicWorkloadDriver] // Map from workload ID to the associated driver.
+	workloadsMap             *orderedmap.OrderedMap[string, domain.Workload]      // Map from workload ID to workload
+	workloads                []domain.Workload                                    // Slice of workloads. Same contents as the map, but in slice form.
+	mu                       sync.Mutex                                           // Synchronizes access to the workload drivers and the workloads themselves (both the map and the slice).
+	workloadStartedChan      chan string                                          // Channel of workload IDs. When a workload is started, its ID is submitted to this channel.
+
+	// OnError is a callback passed to WorkloadDrivers (via the WorkloadManager).
+	// If a critical error occurs during the execution of the workload, then this handler is called.
+	onCriticalError domain.WorkloadErrorHandler
+
+	// OnError is a callback passed to WorkloadDrivers (via the WorkloadManager).
+	// If a non-critical error occurs during the execution of the workload, then this handler is called.
+	onNonCriticalError domain.WorkloadErrorHandler
 }
 
 func init() {
 	jsonpatch.SupportNegativeIndices = false
 }
 
-func NewWorkloadManager(configuration *domain.Configuration, atom *zap.AtomicLevel) domain.WorkloadManager {
-	manager := &workloadManagerImpl{
+func NewWorkloadManager(configuration *domain.Configuration, atom *zap.AtomicLevel, onCriticalError domain.WorkloadErrorHandler,
+	onNonCriticalError domain.WorkloadErrorHandler) *BasicWorkloadManager {
+
+	manager := &BasicWorkloadManager{
 		atom:                atom,
 		configuration:       configuration,
-		workloadDrivers:     orderedmap.NewOrderedMap[string, domain.WorkloadDriver](),
+		workloadDrivers:     orderedmap.NewOrderedMap[string, *BasicWorkloadDriver](),
 		workloadsMap:        orderedmap.NewOrderedMap[string, domain.Workload](),
 		workloads:           make([]domain.Workload, 0),
 		workloadStartedChan: make(chan string, 4),
 		pushUpdateInterval:  time.Second * time.Duration(configuration.PushUpdateInterval),
+		onCriticalError:     onCriticalError,
+		onNonCriticalError:  onNonCriticalError,
 	}
 
 	zapConfig := zap.NewDevelopmentEncoderConfig()
@@ -60,7 +73,8 @@ func NewWorkloadManager(configuration *domain.Configuration, atom *zap.AtomicLev
 	manager.logger = logger
 	manager.sugaredLogger = logger.Sugar()
 
-	manager.workloadWebsocketHandler = NewWebsocketHandler(configuration, manager, manager.workloadStartedChan, atom)
+	manager.workloadWebsocketHandler = NewWebsocketHandler(configuration, manager, manager.workloadStartedChan, atom,
+		manager.onCriticalError, manager.onNonCriticalError)
 	manager.pushGoroutineActive.Store(0)
 
 	return manager
@@ -68,8 +82,8 @@ func NewWorkloadManager(configuration *domain.Configuration, atom *zap.AtomicLev
 
 // GetWorkloadWebsocketHandler returns a function that can handle WebSocket requests for workload operations.
 //
-// This simply returns the handler function of the WorkloadWebsocketHandler struct of the WorkloadManager.
-func (m *workloadManagerImpl) GetWorkloadWebsocketHandler() gin.HandlerFunc {
+// This simply returns the handler function of the WebsocketHandler struct of the WorkloadManager.
+func (m *BasicWorkloadManager) GetWorkloadWebsocketHandler() gin.HandlerFunc {
 	if m.pushGoroutineActive.CompareAndSwap(0, 1) {
 		go m.serverPushRoutine()
 	}
@@ -79,7 +93,7 @@ func (m *workloadManagerImpl) GetWorkloadWebsocketHandler() gin.HandlerFunc {
 
 // GetWorkloads returns a slice containing all currently-registered workloads (at the time that the method is called).
 // The workloads within this slice should not be modified by the caller.
-func (m *workloadManagerImpl) GetWorkloads() []domain.Workload {
+func (m *BasicWorkloadManager) GetWorkloads() []domain.Workload {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -87,7 +101,7 @@ func (m *workloadManagerImpl) GetWorkloads() []domain.Workload {
 }
 
 // GetActiveWorkloads returns a map from Workload ID to Workload struct containing workloads that are active when the method is called.
-func (m *workloadManagerImpl) GetActiveWorkloads() map[string]domain.Workload {
+func (m *BasicWorkloadManager) GetActiveWorkloads() map[string]domain.Workload {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -104,7 +118,7 @@ func (m *workloadManagerImpl) GetActiveWorkloads() map[string]domain.Workload {
 
 // GetWorkloadDriver returns the workload driver associated with the given workload ID.
 // If there is no driver associated with the provided workload ID, then nil is returned.
-func (m *workloadManagerImpl) GetWorkloadDriver(workloadId string) domain.WorkloadDriver {
+func (m *BasicWorkloadManager) GetWorkloadDriver(workloadId string) *BasicWorkloadDriver {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
@@ -115,7 +129,7 @@ func (m *workloadManagerImpl) GetWorkloadDriver(workloadId string) domain.Worklo
 // If there is no workload with the specified ID, then an error is returned.
 //
 // If successful, then this returns the updated workload.
-func (m *workloadManagerImpl) ToggleDebugLogging(workloadId string, enabled bool) (domain.Workload, error) {
+func (m *BasicWorkloadManager) ToggleDebugLogging(workloadId string, enabled bool) (domain.Workload, error) {
 	workloadDriver := m.GetWorkloadDriver(workloadId)
 	if workloadDriver == nil {
 		return nil, fmt.Errorf("%w: \"%s\"", domain.ErrWorkloadNotFound, workloadId)
@@ -125,16 +139,53 @@ func (m *workloadManagerImpl) ToggleDebugLogging(workloadId string, enabled bool
 	return updatedWorkload, nil
 }
 
+// RegisterOnCriticalErrorHandler registers a critical error handler for the specified workload.
+//
+// If the specified workload cannot be found, then an error is returned.
+//
+// If there is already a critical handler error registered for the particular workload, then the existing
+// critical error handler is overwritten.
+func (m *BasicWorkloadManager) RegisterOnCriticalErrorHandler(workloadId string, handler domain.WorkloadErrorHandler) error {
+	workloadDriver := m.GetWorkloadDriver(workloadId)
+	if workloadDriver == nil {
+		m.logger.Error("Cannot register critical error handler for workload as that workload has not yet been "+
+			"registered with the Workload Manager.", zap.String("workload_id", workloadId))
+		return fmt.Errorf("%w: \"%s\"", domain.ErrWorkloadNotFound, workloadId)
+	}
+
+	workloadDriver.onCriticalErrorOccurred = handler
+	return nil
+}
+
+// RegisterOnNonCriticalErrorHandler registers a non-critical error handler for the specified workload.
+//
+// If the specified workload cannot be found, then an error is returned.
+//
+// If there is already a non-critical handler error registered for the particular workload, then the existing
+// non-critical error handler is overwritten.
+func (m *BasicWorkloadManager) RegisterOnNonCriticalErrorHandler(workloadId string, handler domain.WorkloadErrorHandler) error {
+	workloadDriver := m.GetWorkloadDriver(workloadId)
+	if workloadDriver == nil {
+		m.logger.Error("Cannot register critical error handler for workload as that workload has not yet been "+
+			"registered with the Workload Manager.", zap.String("workload_id", workloadId))
+		return fmt.Errorf("%w: \"%s\"", domain.ErrWorkloadNotFound, workloadId)
+	}
+
+	workloadDriver.onNonCriticalErrorOccurred = handler
+	return nil
+}
+
 // StartWorkload starts the workload with the specified ID.
 // The workload must have already been registered.
 //
 // If successful, then this returns the updated workload.
 // If there is no workload with the specified ID, then an error is returned.
 // Likewise, if the specified workload is either already-running or has already been stopped, then an error is returned.
-func (m *workloadManagerImpl) StartWorkload(workloadId string) (domain.Workload, error) {
+func (m *BasicWorkloadManager) StartWorkload(workloadId string) (domain.Workload, error) {
 	workloadDriver := m.GetWorkloadDriver(workloadId)
 	if workloadDriver == nil {
-		m.sugaredLogger.Errorf("Cannot start workload \"%s\" as it has not yet been reigstered with the Workload Manager.", workloadId)
+		m.logger.Error("Cannot register critical error handler for workload as that workload has not yet been "+
+			"registered with the Workload Manager.", zap.String("workload_id", workloadId))
 		return nil, fmt.Errorf("%w: \"%s\"", domain.ErrWorkloadNotFound, workloadId)
 	}
 
@@ -161,7 +212,7 @@ func (m *workloadManagerImpl) StartWorkload(workloadId string) (domain.Workload,
 //
 // If successful, then this returns the updated workload.
 // If there is no workload with the specified ID, or the specified workload is not actively-running, then an error is returned.
-func (m *workloadManagerImpl) StopWorkload(workloadId string) (domain.Workload, error) {
+func (m *BasicWorkloadManager) StopWorkload(workloadId string) (domain.Workload, error) {
 	workloadDriver := m.GetWorkloadDriver(workloadId)
 	if workloadDriver == nil {
 		m.logger.Error("Could not find workload driver with specified workload ID.", zap.String("workload_id", workloadId))
@@ -178,12 +229,16 @@ func (m *workloadManagerImpl) StopWorkload(workloadId string) (domain.Workload, 
 }
 
 // RegisterWorkload registers a new workload.
-func (m *workloadManagerImpl) RegisterWorkload(request *domain.WorkloadRegistrationRequest, ws domain.ConcurrentWebSocket) (domain.Workload, error) {
+func (m *BasicWorkloadManager) RegisterWorkload(request *domain.WorkloadRegistrationRequest,
+	ws domain.ConcurrentWebSocket, criticalErrorHandler domain.WorkloadErrorHandler,
+	nonCriticalErrorHandler domain.WorkloadErrorHandler) (domain.Workload, error) {
+
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	// Create a new workload driver.
-	workloadDriver := NewWorkloadDriver(m.configuration, true, request.TimescaleAdjustmentFactor, ws, m.atom)
+	workloadDriver := NewBasicWorkloadDriver(m.configuration, true, request.TimescaleAdjustmentFactor,
+		ws, m.atom, criticalErrorHandler, nonCriticalErrorHandler)
 
 	// Register a new workload with the workload driver.
 	workload, err := workloadDriver.RegisterWorkload(request)
@@ -205,7 +260,7 @@ func (m *workloadManagerImpl) RegisterWorkload(request *domain.WorkloadRegistrat
 
 // Push an update to the frontend.
 // patchPayload is a JSON PATCH, and fullPayload is the full, encoded workload state.
-func (m *workloadManagerImpl) pushWorkloadUpdate(payload []byte) error {
+func (m *BasicWorkloadManager) pushWorkloadUpdate(payload []byte) error {
 	errs := m.workloadWebsocketHandler.broadcastToWorkloadWebsockets(payload)
 
 	if len(errs) >= 1 {
@@ -216,7 +271,7 @@ func (m *workloadManagerImpl) pushWorkloadUpdate(payload []byte) error {
 }
 
 // Used to push updates about active workloads to the frontend.
-func (m *workloadManagerImpl) serverPushRoutine( /* doneChan chan struct{} */ ) {
+func (m *BasicWorkloadManager) serverPushRoutine( /* doneChan chan struct{} */ ) {
 	activeWorkloads := m.GetActiveWorkloads()
 
 	// Function that continuously pulls workload IDs out of the 'workloadStartedChan' until there are none left.
@@ -288,7 +343,7 @@ func (m *workloadManagerImpl) serverPushRoutine( /* doneChan chan struct{} */ ) 
 
 			// Create a message to push to the frontend.
 			var msgId = uuid.NewString()
-			responseBuilder := newResponseBuilder(msgId)
+			responseBuilder := newResponseBuilder(msgId, OpPushedWorkloadUpdate)
 
 			allWorkloadsEncodedSizeBytes := 0
 			for _, workload := range activeWorkloadsSlice {
@@ -328,7 +383,7 @@ func (m *workloadManagerImpl) serverPushRoutine( /* doneChan chan struct{} */ ) 
 			//
 			// New clients need to receive the full workload, so maybe we should pass both to pushWorkloadUpdate, and some logic in there
 			// will determine if the client needs the full workload or just a patch.
-			if err := m.pushWorkloadUpdate(responseEncoded); err != nil {
+			if err := m.pushWorkloadUpdate(responseEncoded); err != nil && !errors.Is(err, websocket.ErrCloseSent) && !websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway) {
 				m.logger.Error("Failed to push workload update to frontend.", zap.Error(err))
 			}
 

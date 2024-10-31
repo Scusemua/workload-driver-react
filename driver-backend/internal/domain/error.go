@@ -12,10 +12,17 @@ type ErrorHandler interface {
 	HandleError(error, string)
 }
 
+const (
+	ResponseStatusError string = "ERROR"
+	ResponseStatusOK    string = "OK"
+)
+
 type ErrorMessage struct {
 	Description  string `json:"Description"`  // Provides additional context for what occurred; written by us.
 	ErrorMessage string `json:"ErrorMessage"` // The value returned by err.Error() for whatever error occurred.
 	Valid        bool   `json:"Valid"`        // Used to determine if the struct was sent/received correctly over the network.
+	Operation    string `json:"op"`           // The original operation of the request to which this error is being sent as a response.
+	Status       string `json:"status"`       // ERROR.
 }
 
 func (m *ErrorMessage) Encode() []byte {

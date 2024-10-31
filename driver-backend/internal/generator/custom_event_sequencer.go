@@ -439,7 +439,10 @@ func (h internalEventHeap) Less(i, j int) bool {
 	// then the event at localIndex i should be processed first.
 	if h[i].Timestamp().Equal(h[j].Timestamp()) {
 		if h[i].Name() == domain.EventSessionTrainingEnded && h[j].Name() == domain.EventSessionStopped {
-			if h[i].SessionSpecificEventIndex() /* training-ended */ > h[j].SessionSpecificEventIndex() /* session-stopped */ {
+			// Sanity check -- if we find a "session-stopped" and "training-ended" event targeting the same session,
+			// then we double-check that their "event indices" are consistent with the order that they should be
+			// processed. "training-ended" events should always be processed before "session-stopped" events.
+			if h[i].SessionSpecificEventIndex() /* training-ended */ > h[j].SessionSpecificEventIndex() /* session-stopped */ && h[i].SessionID() == h[j].SessionID() {
 				// We expect the global localIndex of the training-ended event to be less than that of the session-stopped
 				// event, since the training-ended event should have been created prior to the session-stopped event.
 				log.Fatalf("Global event indices do not reflect correct ordering of events. "+
@@ -448,7 +451,10 @@ func (h internalEventHeap) Less(i, j int) bool {
 
 			return true
 		} else if h[j].Name() == domain.EventSessionTrainingEnded && h[i].Name() == domain.EventSessionStopped {
-			if h[j].SessionSpecificEventIndex() /* training-ended */ > h[i].SessionSpecificEventIndex() /* session-stopped */ {
+			// Sanity check -- if we find a "session-stopped" and "training-ended" event targeting the same session,
+			// then we double-check that their "event indices" are consistent with the order that they should be
+			// processed. "training-ended" events should always be processed before "session-stopped" events.
+			if h[j].SessionSpecificEventIndex() /* training-ended */ > h[i].SessionSpecificEventIndex() /* session-stopped */ && h[i].SessionID() == h[j].SessionID() {
 				// We expect the global localIndex of the training-ended event to be less than that of the session-stopped
 				// event, since the training-ended event should have been created prior to the session-stopped event.
 				log.Fatalf("Global event indices do not reflect correct ordering of events. "+

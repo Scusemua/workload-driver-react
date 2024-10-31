@@ -37,6 +37,8 @@ var (
 	ErrWorkloadNotFound   = errors.New("could not find workload with the specified ID")
 )
 
+type WorkloadErrorHandler func(workloadId string, err error)
+
 type WorkloadState string
 
 func (state WorkloadState) String() string {
@@ -188,6 +190,16 @@ type Workload interface {
 	// TickCompleted is Called by the driver after each tick.
 	// Updates the time elapsed, current tick, and simulation clock time.
 	TickCompleted(int64, time.Time)
+	// RegisterOnNonCriticalErrorHandler registers a non-critical error handler for the target workload.
+	//
+	// If there is already a non-critical handler error registered for the target workload, then the existing
+	// non-critical error handler is overwritten.
+	RegisterOnNonCriticalErrorHandler(handler WorkloadErrorHandler)
+	// RegisterOnCriticalErrorHandler registers a critical error handler for the target workload.
+	//
+	// If there is already a critical handler error registered for the target workload, then the existing
+	// critical error handler is overwritten.
+	RegisterOnCriticalErrorHandler(handler WorkloadErrorHandler)
 }
 
 // GetWorkloadStateAsString will panic if an invalid workload state is specified.
@@ -389,8 +401,6 @@ type workloadImpl struct {
 	SimulationClockTimeStr    string            `json:"simulation_clock_time"`
 	WorkloadType              WorkloadType      `json:"workload_type"`
 
-	// workloadSource interface{} `json:"-"`
-
 	// This is basically the child struct.
 	// So, if this is a preset workload, then this is the WorkloadFromPreset struct.
 	// We use this so we can delegate certain method calls to the child/derived struct.
@@ -401,9 +411,19 @@ type workloadImpl struct {
 	trainingStartedTimes *hashmap.HashMap // Internal mapping of session ID to the time at which it began training.
 	seedSet              bool             // Flag keeping track of whether we've already set the seed for this workload.
 	sessionsSet          bool             // Flag keeping track of whether we've already set the sessions for this workload.
+
+	// OnError is a callback passed to WorkloadDrivers (via the WorkloadManager).
+	// If a critical error occurs during the execution of the workload, then this handler is called.
+	onCriticalError WorkloadErrorHandler
+
+	// OnError is a callback passed to WorkloadDrivers (via the WorkloadManager).
+	// If a non-critical error occurs during the execution of the workload, then this handler is called.
+	onNonCriticalError WorkloadErrorHandler
 }
 
-func NewWorkload(id string, workloadName string, seed int64, debugLoggingEnabled bool, timescaleAdjustmentFactor float64, atom *zap.AtomicLevel) Workload {
+func NewWorkload(id string, workloadName string, seed int64, debugLoggingEnabled bool, timescaleAdjustmentFactor float64,
+	atom *zap.AtomicLevel) Workload {
+
 	workload := &workloadImpl{
 		Id:                        id, // Same ID as the driver.
 		Name:                      workloadName,
@@ -439,6 +459,22 @@ func NewWorkload(id string, workloadName string, seed int64, debugLoggingEnabled
 	workload.sugaredLogger = logger.Sugar()
 
 	return workload
+}
+
+// RegisterOnCriticalErrorHandler registers a critical error handler for the target workload.
+//
+// If there is already a critical handler error registered for the target workload, then the existing
+// critical error handler is overwritten.
+func (w *workloadImpl) RegisterOnCriticalErrorHandler(handler WorkloadErrorHandler) {
+	w.onCriticalError = handler
+}
+
+// RegisterOnNonCriticalErrorHandler registers a non-critical error handler for the target workload.
+//
+// If there is already a non-critical handler error registered for the target workload, then the existing
+// non-critical error handler is overwritten.
+func (w *workloadImpl) RegisterOnNonCriticalErrorHandler(handler WorkloadErrorHandler) {
+	w.onNonCriticalError = handler
 }
 
 // TickCompleted is called by the driver after each tick.
@@ -721,12 +757,12 @@ func (w *workloadImpl) GetRegisteredTime() time.Time {
 	return w.RegisteredTime
 }
 
-// GetTimeElasped returns the time elapsed, which is computed at the time that data is requested by the user.
+// GetTimeElapsed returns the time elapsed, which is computed at the time that data is requested by the user.
 func (w *workloadImpl) GetTimeElapsed() time.Duration {
 	return w.TimeElapsed
 }
 
-// GetTimeElaspedAsString returns the time elapsed as a string, which is computed at the time that data is requested by the user.
+// GetTimeElapsedAsString returns the time elapsed as a string, which is computed at the time that data is requested by the user.
 //
 // IMPORTANT: This updates the w.TimeElapsedStr field (setting it to w.TimeElapsed.String()) before returning it.
 func (w *workloadImpl) GetTimeElapsedAsString() string {
@@ -734,7 +770,7 @@ func (w *workloadImpl) GetTimeElapsedAsString() string {
 	return w.TimeElapsed.String()
 }
 
-// SetTimeElasped updates the time elapsed.
+// SetTimeElapsed updates the time elapsed.
 func (w *workloadImpl) SetTimeElapsed(timeElapsed time.Duration) {
 	w.mu.Lock()
 	defer w.mu.Unlock()

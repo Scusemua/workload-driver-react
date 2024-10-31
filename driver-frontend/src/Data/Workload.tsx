@@ -126,10 +126,26 @@ interface PatchedWorkload {
   patch: string;
 }
 
+interface BaseWorkloadResponse {
+  msg_id: string;
+  op: string;
+  status: string;
+}
+
+interface ErrorResponse {
+  Description: string;
+  ErrorMessage: string;
+  Valid: boolean;
+  op: string;
+  status: string;
+}
+
 // Response for a 'get workloads' request.
 // Sent to the front-end by the back-end.
 interface WorkloadResponse {
     msg_id: string;
+    op: string;
+    status: string;
     new_workloads: Workload[];
     modified_workloads: Workload[];
     deleted_workloads: Workload[];
@@ -178,10 +194,12 @@ export { GetWorkloadStatusTooltip as GetWorkloadStatusTooltip };
 
 export type { Workload as Workload };
 export type { WorkloadPreset as WorkloadPreset };
+export type { BaseWorkloadResponse as BaseWorkloadResponse };
 export type { WorkloadResponse as WorkloadResponse };
 export type { WorkloadEvent as WorkloadEvent };
 export type { Session as Session };
 export type { TrainingEvent as TrainingEvent };
 export type { WorkloadTemplate as WorkloadTemplate };
 export type { ResourceRequest as ResourceRequest };
-export type {PatchedWorkload as PatchedWorkload};
+export type { PatchedWorkload as PatchedWorkload };
+export type { ErrorResponse as ErrorResponse };

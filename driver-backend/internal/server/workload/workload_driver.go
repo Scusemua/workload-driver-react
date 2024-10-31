@@ -139,10 +139,19 @@ type BasicWorkloadDriver struct {
 	workloadPresets                    map[string]*domain.WorkloadPreset     // All the available workload presets.
 	workloadRegistrationRequest        *domain.WorkloadRegistrationRequest   // The request that registered the workload that is being driven by this driver.
 	workloadSessions                   []*domain.WorkloadTemplateSession     // The template used by the associated workload. Will only be non-nil if the associated workload is a template-based workload, rather than a preset-based workload.
+
+	// onCriticalErrorOccurred is a handler that is called when a critical error occurs.
+	// The onCriticalErrorOccurred handler is called in its own goroutine.
+	onCriticalErrorOccurred domain.WorkloadErrorHandler
+
+	// onNonCriticalErrorOccurred is a handler that is called when a non-critical error occurs.
+	// The onNonCriticalErrorOccurred handler is called in its own goroutine.
+	onNonCriticalErrorOccurred domain.WorkloadErrorHandler
 }
 
-func NewWorkloadDriver(opts *domain.Configuration, performClockTicks bool, timescaleAdjustmentFactor float64,
-	websocket domain.ConcurrentWebSocket, atom *zap.AtomicLevel) *BasicWorkloadDriver {
+func NewBasicWorkloadDriver(opts *domain.Configuration, performClockTicks bool, timescaleAdjustmentFactor float64,
+	websocket domain.ConcurrentWebSocket, atom *zap.AtomicLevel, criticalErrorHandler domain.WorkloadErrorHandler,
+	nonCriticalErrorHandler domain.WorkloadErrorHandler) *BasicWorkloadDriver {
 
 	jupyterAddress := path.Join(opts.InternalJupyterServerAddress, opts.JupyterServerBasePath)
 
@@ -170,6 +179,8 @@ func NewWorkloadDriver(opts *domain.Configuration, performClockTicks bool, times
 		timescaleAdjustmentFactor:          timescaleAdjustmentFactor,
 		currentTick:                        clock.NewSimulationClock(),
 		clockTime:                          clock.NewSimulationClock(),
+		onCriticalErrorOccurred:            criticalErrorHandler,
+		onNonCriticalErrorOccurred:         nonCriticalErrorHandler,
 	}
 
 	// Create the ticker for the workload.
@@ -197,6 +208,13 @@ func NewWorkloadDriver(opts *domain.Configuration, performClockTicks bool, times
 	driver.workloadPresets = make(map[string]*domain.WorkloadPreset, len(presets))
 	for _, preset := range presets {
 		driver.workloadPresets[preset.GetKey()] = preset
+	}
+
+	if driver.onNonCriticalErrorOccurred != nil {
+		driver.kernelManager.RegisterOnErrorHandler(func(sessionId string, kernelId string, err error) {
+			err = fmt.Errorf("error occurred for kernel=%s,session=%s: %w", kernelId, sessionId, err)
+			driver.onNonCriticalErrorOccurred(driver.id, err)
+		})
 	}
 
 	return driver
@@ -371,6 +389,32 @@ func (d *BasicWorkloadDriver) RegisterWorkload(workloadRegistrationRequest *doma
 
 	if workload == nil {
 		panic("Workload should not be nil at this point.")
+	}
+
+	if d.onCriticalErrorOccurred != nil {
+		workload.RegisterOnCriticalErrorHandler(d.onCriticalErrorOccurred)
+		d.logger.Debug("Registered critical error handler with workload.",
+			zap.String("workload_id", workload.GetId()),
+			zap.String("workload_name", workload.WorkloadName()),
+			zap.String("workload_driver_id", d.id))
+	} else {
+		d.logger.Warn("No critical error handler configured on workload driver.",
+			zap.String("workload_id", workload.GetId()),
+			zap.String("workload_name", workload.WorkloadName()),
+			zap.String("workload_driver_id", d.id))
+	}
+
+	if d.onNonCriticalErrorOccurred != nil {
+		workload.RegisterOnNonCriticalErrorHandler(d.onNonCriticalErrorOccurred)
+		d.logger.Debug("Registered non-critical error handler with workload.",
+			zap.String("workload_id", workload.GetId()),
+			zap.String("workload_name", workload.WorkloadName()),
+			zap.String("workload_driver_id", d.id))
+	} else {
+		d.logger.Warn("No non-critical error handler configured on workload driver.",
+			zap.String("workload_id", workload.GetId()),
+			zap.String("workload_name", workload.WorkloadName()),
+			zap.String("workload_driver_id", d.id))
 	}
 
 	// If the workload seed is negative, then assign it a random value.
@@ -1052,6 +1096,11 @@ func (d *BasicWorkloadDriver) processEventsForSession(sessionId string, events [
 				zap.String("workload_id", d.workload.GetId()),
 				zap.Error(err))
 			d.errorChan <- err
+
+			if d.onCriticalErrorOccurred != nil {
+				go d.onCriticalErrorOccurred(d.workload.GetId(), err)
+			}
+
 			return // We just return immediately, as the workload is going to be aborted due to the error.
 		}
 
@@ -1087,8 +1136,8 @@ func (d *BasicWorkloadDriver) getOriginalSessionIdFromInternalSessionId(internal
 	return internalSessionId[0:rightIndex]
 }
 
-// NewSession create and return a new Session with the given ID.
-func (d *BasicWorkloadDriver) NewSession(id string, meta domain.SessionMetadata, createdAtTime time.Time) domain.WorkloadSession {
+// newSession create and return a new Session with the given ID.
+func (d *BasicWorkloadDriver) newSession(id string, meta domain.SessionMetadata, createdAtTime time.Time) domain.WorkloadSession {
 	d.sugaredLogger.Debugf("Creating new Session %v. MaxSessionCPUs: %.2f; MaxSessionMemory: %.2f. MaxSessionGPUs: %d. MaxSessionVRAM: %.2f, TotalNumSessions: %d",
 		id, meta.GetMaxSessionCPUs(), meta.GetMaxSessionMemory(), meta.GetMaxSessionGPUs(), meta.GetMaxSessionVRAM(), d.sessions.Len())
 
@@ -1153,7 +1202,6 @@ func (d *BasicWorkloadDriver) handleSessionReadyEvent(sessionReadyEvent domain.E
 	_, err := d.provisionSession(sessionId, sessionMeta, sessionReadyEvent.Timestamp(), resourceSpec)
 
 	// The event index will be populated automatically by the ProcessedEvent method.
-	// d.workload.ProcessedEvent(domain.NewWorkloadEvent(-1, sessionReadyEvent.Id(), domain.EventSessionStarted.String(), sessionReadyEvent.SessionID(), sessionReadyEvent.Timestamp().String(), time.Now().String(), (err == nil), err))
 	workloadEvent := domain.NewEmptyWorkloadEvent().
 		WithEventId(sessionReadyEvent.Id()).
 		WithEventName(domain.EventSessionStarted).
@@ -1165,8 +1213,13 @@ func (d *BasicWorkloadDriver) handleSessionReadyEvent(sessionReadyEvent domain.E
 		WithError(err)
 	d.workload.ProcessedEvent(workloadEvent) // this is thread-safe
 
+	// Handle the error from the above call to provisionSession.
 	if err != nil {
-		d.logger.Error("Failed to provision new Jupyter session.", zap.String(ZapInternalSessionIDKey, sessionId), zap.Duration("real-time-elapsed", time.Since(provisionStart)), zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.Error(err))
+		d.logger.Error("Failed to provision new Jupyter session.",
+			zap.String(ZapInternalSessionIDKey, sessionId),
+			zap.Duration("real-time-elapsed", time.Since(provisionStart)),
+			zap.String("workload_id", d.workload.GetId()),
+			zap.String("workload_name", d.workload.WorkloadName()), zap.Error(err))
 		payload, _ := json.Marshal(domain.ErrorMessage{
 			Description:  reflect.TypeOf(err).Name(),
 			ErrorMessage: err.Error(),
@@ -1181,6 +1234,10 @@ func (d *BasicWorkloadDriver) handleSessionReadyEvent(sessionReadyEvent domain.E
 		}()
 
 		d.errorChan <- err
+
+		if d.onCriticalErrorOccurred != nil {
+			go d.onCriticalErrorOccurred(d.workload.GetId(), err)
+		}
 	} else {
 		d.logger.Debug("Successfully handled SessionStarted event.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String(ZapInternalSessionIDKey, sessionId), zap.Duration("real-time-elapsed", time.Since(provisionStart)))
 	}
@@ -1329,6 +1386,8 @@ func (d *BasicWorkloadDriver) stopSession(sessionId string) error {
 func (d *BasicWorkloadDriver) provisionSession(sessionId string, meta domain.SessionMetadata, createdAtTime time.Time, resourceSpec *jupyter.ResourceSpec) (*jupyter.SessionConnection, error) {
 	d.logger.Debug("Creating new kernel.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String("kernel_id", sessionId))
 	st := time.Now()
+
+	// Create the kernel in Jupyter.
 	sessionConnection, err := d.kernelManager.CreateSession(
 		sessionId, /*strings.ToLower(sessionId) */
 		fmt.Sprintf("%s.ipynb", sessionId),
@@ -1336,6 +1395,8 @@ func (d *BasicWorkloadDriver) provisionSession(sessionId string, meta domain.Ses
 
 	if err != nil {
 		d.logger.Error("Failed to create session.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String(ZapInternalSessionIDKey, sessionId))
+
+		// We call our OnError handlers after returning; no need to call them here.
 		return nil, err
 	}
 
@@ -1344,13 +1405,13 @@ func (d *BasicWorkloadDriver) provisionSession(sessionId string, meta domain.Ses
 	internalSessionId := d.getInternalSessionId(sessionId)
 
 	d.mu.Lock()
-	// d.sessionConnections[sessionId] = sessionConnection
 	d.sessionConnections[internalSessionId] = sessionConnection
 	d.mu.Unlock()
 
 	d.logger.Debug("Successfully created new kernel.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String("kernel_id", sessionId), zap.Duration("time-elapsed", timeElapsed), zap.String(ZapInternalSessionIDKey, internalSessionId))
 
-	workloadSession := d.NewSession(sessionId, meta, createdAtTime)
+	// Create a new workload session.
+	workloadSession := d.newSession(sessionId, meta, createdAtTime)
 
 	// ioPubHandler is a session-specific wrapper around the standard BasicWorkloadDriver::handleIOPubMessage method.
 	// This returns true if the received IOPub message is a "stream" message and is parsed successfully.
@@ -1358,8 +1419,6 @@ func (d *BasicWorkloadDriver) provisionSession(sessionId string, meta domain.Ses
 	//
 	// The return value is not really used.
 	ioPubHandler := func(conn jupyter.KernelConnection, kernelMessage jupyter.KernelMessage) interface{} {
-		//d.sugaredLogger.Debugf("Handling IOPub message targeting session \"%s\", kernel \"%s\".", sessionId, conn.KernelId())
-
 		// Parse the IOPub message.
 		// If it is a stream message, this will return a *parsedIoPubMessage variable.
 		parsedIoPubMsgVal := d.handleIOPubMessage(conn, kernelMessage)

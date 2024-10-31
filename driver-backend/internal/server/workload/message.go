@@ -10,7 +10,8 @@ import (
 // There's no reason for this to be attempted, but a responseBuilder
 // struct should only ever be modified/accessed from a single goroutine.
 type responseBuilder struct {
-	messageId         string                    // Identifier for the message. Optionally specified when the builder is created, or alternatively the builder will generate the ID automatically.
+	messageId         string // Identifier for the message. Optionally specified when the builder is created, or alternatively the builder will generate the ID automatically.
+	op                string
 	newWorkloads      []domain.Workload         // Workloads that are newly-created.
 	modifiedWorkloads []domain.Workload         // Modified workloads sent in their entirety.
 	patchedWorkloads  []*domain.PatchedWorkload // Modified workloads sent as JSON merge patches.
@@ -18,13 +19,14 @@ type responseBuilder struct {
 }
 
 // Pass an empty string for the 'msgId' parameter in order to have the message ID to be automatically generated (as a UUID).
-func newResponseBuilder(msgId string) *responseBuilder {
+func newResponseBuilder(msgId string, op string) *responseBuilder {
 	if len(msgId) == 0 {
 		msgId = uuid.NewString()
 	}
 
 	return &responseBuilder{
 		messageId: msgId,
+		op:        op,
 	}
 }
 
@@ -87,6 +89,8 @@ func (b *responseBuilder) BuildResponse() *domain.WorkloadResponse {
 		ModifiedWorkloads: b.modifiedWorkloads,
 		DeletedWorkloads:  b.deletedWorkloads,
 		PatchedWorkloads:  b.patchedWorkloads,
+		Operation:         b.op,
+		Status:            domain.ResponseStatusOK,
 	}
 
 	if response.NewWorkloads == nil {

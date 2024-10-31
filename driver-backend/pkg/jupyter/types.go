@@ -76,6 +76,8 @@ type KernelConnection interface {
 	// Close the connection to the kernel.
 	Close() error
 
+	SetOnError(func(err error))
+
 	// RegisterIoPubHandler registers a handler/consumer of IOPub messages under a specific ID.
 	RegisterIoPubHandler(id string, handler IOPubMessageHandler) error
 
@@ -90,6 +92,8 @@ type KernelConnection interface {
 	// This metadata is primarily used for attaching labels to Prometheus kernelMetricsManager.
 	GetMetadata(key string) (string, bool)
 }
+
+type ErrorHandler func(sessionId string, kernelId string, err error)
 
 type KernelSessionManager interface {
 	// CreateSession creates a new session.
@@ -145,6 +149,11 @@ type KernelSessionManager interface {
 	// If there is no metadata attached to the KernelSessionManager at the given key, then the empty
 	// string is returned, along with a boolean equal to false.
 	GetMetadata(key string) (string, bool)
+
+	// RegisterOnErrorHandler registers an error handler to be called if the kernel manager encounters an error.
+	//
+	// If there is already an existing error handler, then it is overwritten.
+	RegisterOnErrorHandler(handler ErrorHandler)
 }
 
 type KernelManagerMetrics interface {

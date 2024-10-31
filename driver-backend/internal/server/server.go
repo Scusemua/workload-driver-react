@@ -60,7 +60,7 @@ type serverImpl struct {
 	prometheusHandler http.Handler
 
 	// workloadManager is responsible for managing workloads submitted to the server for execution/orchestration.
-	workloadManager domain.WorkloadManager
+	workloadManager *workload.BasicWorkloadManager
 
 	// nodeHandler is responsible for handling HTTP GET and HTTP PATCH requests for the nodes within the cluster.
 	//
@@ -109,7 +109,6 @@ func NewServer(opts *domain.Configuration) domain.Server {
 		engine:                  gin.New(),
 		generalWebsockets:       make(map[string]domain.ConcurrentWebSocket),
 		getLogsResponseBodies:   make(map[string]io.ReadCloser),
-		workloadManager:         workload.NewWorkloadManager(opts, &atom),
 		prometheusHandler:       promhttp.Handler(),
 		adminUsername:           opts.AdminUser,
 		adminPassword:           opts.AdminPassword,
@@ -120,6 +119,8 @@ func NewServer(opts *domain.Configuration) domain.Server {
 		baseUrl:                 opts.BaseUrl,
 		prometheusEndpoint:      opts.PrometheusEndpoint,
 	}
+
+	s.workloadManager = workload.NewWorkloadManager(opts, &atom, s.handleWorkloadError, s.handleCriticalWorkloadError)
 
 	// Default to "/"
 	if s.baseUrl == "" {
@@ -571,6 +572,36 @@ func (s *serverImpl) HandleAuthenticateRequest(c *gin.Context) {
 	}
 }
 
+func (s *serverImpl) handleWorkloadError(workloadId string, err error) {
+	if err == nil {
+		s.logger.Warn("Workload non-critical error handler called with nil error...",
+			zap.String("workload_id", workloadId))
+		err = fmt.Errorf("unspecified")
+	}
+
+	s.notifyFrontend(&gateway.Notification{
+		Title:            fmt.Sprintf("Non-Critical Error Occurred in Workload \"%s\"", workloadId),
+		Message:          err.Error(),
+		NotificationType: int32(domain.WarningNotification),
+		Panicked:         false,
+	})
+}
+
+func (s *serverImpl) handleCriticalWorkloadError(workloadId string, err error) {
+	if err == nil {
+		s.logger.Warn("Workload critical error handler called with nil error...",
+			zap.String("workload_id", workloadId))
+		err = fmt.Errorf("unspecified")
+	}
+
+	s.notifyFrontend(&gateway.Notification{
+		Title:            fmt.Sprintf("Critical Error Occurred in Workload \"%s\"", workloadId),
+		Message:          err.Error(),
+		NotificationType: int32(domain.ErrorNotification),
+		Panicked:         false,
+	})
+}
+
 // HandlePrometheusRequest passes the request directly to the http.Handler returned by promhttp.Handler.
 func (s *serverImpl) HandlePrometheusRequest(c *gin.Context) {
 	s.prometheusHandler.ServeHTTP(c.Writer, c.Request)
@@ -686,7 +717,10 @@ func (s *serverImpl) serveGeneralWebsocket(c *gin.Context) {
 	for {
 		_, message, err := concurrentConn.ReadMessage()
 		if err != nil {
-			s.logger.Error("Error while reading message from general websocket.", zap.Error(err))
+			if !errors.Is(err, websocket.ErrCloseSent) && !websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway) {
+				s.logger.Error("Error while reading message from general websocket.", zap.Error(err))
+			}
+
 			delete(s.generalWebsockets, remoteIp)
 			break
 		}

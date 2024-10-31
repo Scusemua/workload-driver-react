@@ -133,9 +133,9 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
     };
 
     const onConfirmRegisterWorkloadFromTemplate = (workloadName: string, workloadRegistrationRequest: string) => {
-        const toastId: string = toast(`Registering template-based workload now.`, {
-            style: { maxWidth: 650 },
-        });
+        // const toastId: string = toast(`Registering template-based workload now.`, {
+        //     style: { maxWidth: 650 },
+        // });
 
         setIsRegisterWorkloadModalOpen(false);
         setIsRegisterNewWorkloadFromTemplateModalOpen(false);
@@ -156,18 +156,6 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                         'danger',
                         () => toast.dismiss(t.id),
                     ),
-                { id: toastId },
-            );
-        } else {
-            toast.custom(
-                (t: Toast) =>
-                    GetToastContentWithHeaderAndBody(
-                        'Workload Registered Successfully',
-                        `Successfully registered template-based workload "${workloadName}"`,
-                        'success',
-                        () => toast.dismiss(t.id),
-                    ),
-                { id: toastId },
             );
         }
     };

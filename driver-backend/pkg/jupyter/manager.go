@@ -95,6 +95,9 @@ type BasicKernelSessionManager struct {
 	metadataMutex                    sync.Mutex                    // Synchronizes access to the metadata map.
 	adjustSessionNames               bool                          // If true, ensure all session names are 36 characters in length. For now, this should be true. Setting it to false causes problems for some reason...
 
+	// Invoked in a new goroutine when an error occurs.
+	onError ErrorHandler
+
 	mu sync.Mutex
 }
 
@@ -118,6 +121,20 @@ func NewKernelSessionManager(jupyterServerAddress string, adjustSessionNames boo
 	manager.sugaredLogger = manager.logger.Sugar()
 
 	return manager
+}
+
+// RegisterOnErrorHandler registers an error handler to be called if the kernel manager encounters an error.
+// The error handler is invoked in a new goroutine.
+//
+// If there is already an existing error handler, then it is overwritten.
+func (m *BasicKernelSessionManager) RegisterOnErrorHandler(handler ErrorHandler) {
+	m.onError = handler
+}
+
+func (m *BasicKernelSessionManager) tryCallErrorHandler(kernelId string, sessionId string, err error) {
+	if m.onError != nil {
+		go m.onError(kernelId, sessionId, err)
+	}
 }
 
 // AddMetadata attaches some metadata to the BasicKernelSessionManager.
@@ -175,6 +192,7 @@ func (m *BasicKernelSessionManager) CreateSession(sessionId string, sessionPath 
 	requestBodyJson, err := json.Marshal(&requestBody)
 	if err != nil {
 		m.logger.Error("Error encountered while marshalling payload for CreateSession operation.", zap.Error(err))
+		m.tryCallErrorHandler("", sessionId, err)
 		return nil, err
 	}
 
@@ -183,6 +201,7 @@ func (m *BasicKernelSessionManager) CreateSession(sessionId string, sessionPath 
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(requestBodyJson))
 	if err != nil {
 		m.logger.Error("Error encountered while creating request for CreateFile operation.", zap.String("request-args", requestBody.String()), zap.String("sessionPath", sessionPath), zap.String("url", url), zap.Error(err))
+		m.tryCallErrorHandler("", sessionId, err)
 		return nil, err
 	}
 
@@ -193,6 +212,7 @@ func (m *BasicKernelSessionManager) CreateSession(sessionId string, sessionPath 
 	resp, err := client.Do(req)
 	if err != nil {
 		m.logger.Error("Received error when creating new session.", zap.String("request-args", requestBody.String()), zap.String("local-session-id", sessionId), zap.String("url", url), zap.Error(err))
+		m.tryCallErrorHandler("", sessionId, err)
 		return nil, err
 	}
 
@@ -206,6 +226,7 @@ func (m *BasicKernelSessionManager) CreateSession(sessionId string, sessionPath 
 			var jupyterSession *jupyterSession
 			if err := json.Unmarshal(body, &jupyterSession); err != nil {
 				m.logger.Error("Failed to decode Jupyter Session from JSON.", zap.Error(err))
+				m.tryCallErrorHandler("", sessionId, err)
 				return nil, err
 			}
 
@@ -224,9 +245,12 @@ func (m *BasicKernelSessionManager) CreateSession(sessionId string, sessionPath 
 
 			st := time.Now()
 			// Connect to the Session and to the associated kernel.
-			sessionConnection, err = NewSessionConnection(jupyterSession, "", m.jupyterServerAddress, m.atom, m.kernelMetricsManager.metricsConsumer)
+			sessionConnection, err = NewSessionConnection(jupyterSession, "", m.jupyterServerAddress, m.atom, m.kernelMetricsManager.metricsConsumer, func(err error) {
+				m.tryCallErrorHandler(kernelId, sessionId, err)
+			})
 			if err != nil {
 				m.logger.Error("Could not establish connection to Session.", zap.String(ZapSessionIDKey, sessionId), zap.String("kernel_id", kernelId), zap.Error(err))
+				m.tryCallErrorHandler("", sessionId, err)
 				return nil, err
 			}
 			creationTime := time.Since(st)
@@ -240,6 +264,7 @@ func (m *BasicKernelSessionManager) CreateSession(sessionId string, sessionPath 
 	case http.StatusBadRequest:
 		{
 			m.logger.Error("Received HTTP 400 'Bad Request' when creating session", zap.String("status", resp.Status), zap.Any("headers", resp.Header), zap.Any("body", body))
+			m.tryCallErrorHandler("", sessionId, err)
 			return nil, fmt.Errorf("ErrCreateSessionBadRequest %w : %s", ErrCreateSessionBadRequest, string(body))
 		}
 	default:
@@ -250,11 +275,17 @@ func (m *BasicKernelSessionManager) CreateSession(sessionId string, sessionPath 
 
 		m.logger.Warn("Unexpected response status code when creating a new session.", zap.Int("status-code", resp.StatusCode), zap.String("status", resp.Status), zap.Any("headers", resp.Header), zap.Any("body", body), zap.String("request-args", requestBody.String()), zap.String("response-body", string(body)))
 		if message, ok := responseJson["message"]; ok {
-			return nil, fmt.Errorf("ErrCreateSessionUnknownFailure %w: HTTP %d %s - %s", ErrCreateSessionUnknownFailure, resp.StatusCode, resp.Status, message)
+			err = fmt.Errorf("ErrCreateSessionUnknownFailure %w: HTTP %d %s - %s", ErrCreateSessionUnknownFailure, resp.StatusCode, resp.Status, message)
+			m.tryCallErrorHandler("", sessionId, err)
+			return nil, err
 		} else if reason, ok := responseJson["reason"]; ok {
-			return nil, fmt.Errorf("ErrCreateSessionUnknownFailure %w: HTTP %d %s - %s", ErrCreateSessionUnknownFailure, resp.StatusCode, resp.Status, reason)
+			err = fmt.Errorf("ErrCreateSessionUnknownFailure %w: HTTP %d %s - %s", ErrCreateSessionUnknownFailure, resp.StatusCode, resp.Status, reason)
+			m.tryCallErrorHandler("", sessionId, err)
+			return nil, err
 		} else {
-			return nil, fmt.Errorf("ErrCreateSessionUnknownFailure %w: HTTP %d %s - %s", ErrCreateSessionUnknownFailure, resp.StatusCode, resp.Status, string(body))
+			err = fmt.Errorf("ErrCreateSessionUnknownFailure %w: HTTP %d %s - %s", ErrCreateSessionUnknownFailure, resp.StatusCode, resp.Status, string(body))
+			m.tryCallErrorHandler("", sessionId, err)
+			return nil, err
 		}
 	}
 
@@ -300,11 +331,13 @@ func (m *BasicKernelSessionManager) InterruptKernel(sessionId string) error {
 	}
 
 	var requestBody = make(map[string]interface{})
-	requestBody["kernel_id"] = conn.KernelId()
+	kernelId := conn.KernelId()
+	requestBody["kernel_id"] = kernelId
 
 	requestBodyEncoded, err := json.Marshal(requestBody)
 	if err != nil {
 		m.logger.Error("Failed to marshal request body for kernel interruption request", zap.Error(err))
+		m.tryCallErrorHandler(kernelId, sessionId, err)
 		return err
 	}
 
@@ -313,6 +346,7 @@ func (m *BasicKernelSessionManager) InterruptKernel(sessionId string) error {
 
 	if err != nil {
 		m.logger.Error("Failed to create HTTP request for kernel interruption.", zap.String("url", url), zap.Error(err))
+		m.tryCallErrorHandler(kernelId, sessionId, err)
 		return err
 	}
 
@@ -320,12 +354,14 @@ func (m *BasicKernelSessionManager) InterruptKernel(sessionId string) error {
 	resp, err := client.Do(req)
 	if err != nil {
 		m.logger.Error("Error while issuing HTTP request to interrupt kernel.", zap.String("url", url), zap.Error(err))
+		m.tryCallErrorHandler(kernelId, sessionId, err)
 		return err
 	}
 
 	data, err := io.ReadAll(resp.Body)
 	if err != nil {
 		m.logger.Error("Failed to read response to interrupting kernel.", zap.Error(err))
+		m.tryCallErrorHandler(kernelId, sessionId, err)
 		return err
 	}
 
@@ -342,12 +378,14 @@ func (m *BasicKernelSessionManager) CreateFile(target string) error {
 	payload, err := json.Marshal(&createFileRequest)
 	if err != nil {
 		m.logger.Error("Error encountered while marshalling payload for CreateFile operation.", zap.Error(err))
+		m.tryCallErrorHandler("", "", err)
 		return err
 	}
 
 	req, err := http.NewRequest(http.MethodPost, url, bytes.NewBuffer(payload))
 	if err != nil {
 		m.logger.Error("Error encountered while creating request for CreateFile operation.", zap.String("target", target), zap.String("url", url), zap.Error(err))
+		m.tryCallErrorHandler("", "", err)
 		return err
 	}
 
@@ -355,6 +393,7 @@ func (m *BasicKernelSessionManager) CreateFile(target string) error {
 	resp, err := client.Do(req)
 	if err != nil {
 		m.logger.Error("Received error when creating new file.", zap.String("target", target), zap.String("url", url), zap.Error(err))
+		m.tryCallErrorHandler("", "", err)
 		return err
 	}
 
@@ -369,18 +408,24 @@ func (m *BasicKernelSessionManager) CreateFile(target string) error {
 	case http.StatusBadRequest:
 		{
 			m.logger.Error("Received HTTP 400 'Bad Request' when creating file", zap.String("status", resp.Status), zap.Any("headers", resp.Header), zap.Any("body", string(body)))
-			return fmt.Errorf("ErrCreateFileBadRequest %w : %s", ErrCreateFileBadRequest, string(body))
+			err = fmt.Errorf("ErrCreateFileBadRequest %w : %s", ErrCreateFileBadRequest, string(body))
+			m.tryCallErrorHandler("", "", err)
+			return err
 		}
 	case http.StatusNotFound:
 		{
 			m.logger.Error("Received HTTP 400 'Bad Request' when creating file", zap.String("status", resp.Status), zap.Any("headers", resp.Header), zap.Any("body", string(body)))
-			return fmt.Errorf("ErrCreateFileBadRequest %w : %s", ErrCreateFileBadRequest, string(body))
+			err = fmt.Errorf("ErrCreateFileBadRequest %w : %s", ErrCreateFileBadRequest, string(body))
+			m.tryCallErrorHandler("", "", err)
+			return err
 		}
 	default:
 		m.logger.Warn("Unexpected respone status code when creating file.", zap.Int("status-code", resp.StatusCode), zap.String("status", resp.Status), zap.Any("headers", resp.Header), zap.Any("body", string(body)))
 
 		if resp.StatusCode >= 400 {
-			return fmt.Errorf("ErrCreateFileUnknownFailure %w: %s", ErrCreateFileUnknownFailure, string(body))
+			err = fmt.Errorf("ErrCreateFileUnknownFailure %w: %s", ErrCreateFileUnknownFailure, string(body))
+			m.tryCallErrorHandler("", "", err)
+			return err
 		}
 	}
 
@@ -444,24 +489,27 @@ func (m *BasicKernelSessionManager) GetMetrics() KernelManagerMetrics {
 // @returns a WebSocket-backed connection to the kernel.
 func (m *BasicKernelSessionManager) ConnectTo(kernelId string, sessionId string, username string) (KernelConnection, error) {
 	m.logger.Debug("Connecting to kernel now.", zap.String("kernel_id", kernelId), zap.String("session_id", sessionId))
-	conn, err := NewKernelConnection(kernelId, sessionId, username, m.jupyterServerAddress, m.atom, m.kernelMetricsManager.metricsConsumer)
+	conn, err := NewKernelConnection(kernelId, sessionId, username, m.jupyterServerAddress, m.atom, m.kernelMetricsManager.metricsConsumer, func(err error) { m.tryCallErrorHandler(kernelId, sessionId, err) })
 	if err != nil {
-		m.logger.Error("Failed to connect to kernel.", zap.String("kernel_id", kernelId), zap.String("session_id", sessionId))
+		m.logger.Error("Failed to connect to kernel.",
+			zap.String("kernel_id", kernelId), zap.String("session_id", sessionId))
+		m.tryCallErrorHandler(kernelId, sessionId, err)
 		return nil, err
-	} else {
-		m.logger.Debug("Successfully connected to kernel.", zap.String("kernel_id", kernelId), zap.String("session_id", sessionId))
-
-		// Add all the BasicKernelSessionManager's metadata to the new KernelConnection.
-		m.metadataMutex.Lock()
-		defer m.metadataMutex.Unlock()
-		for key, value := range m.metadata {
-			m.logger.Debug("Adding metadata to kernel.", zap.String("kernel_id", kernelId),
-				zap.String("metadata_key", key), zap.String("metadata_value", value))
-			conn.AddMetadata(key, value)
-		}
-
-		// On success, conn will be non-nil and err will be nil.
-		// If there is an error, then err will be non-nil and connection will be nil.
-		return conn, err
 	}
+
+	m.logger.Debug("Successfully connected to kernel.",
+		zap.String("kernel_id", kernelId), zap.String("session_id", sessionId))
+
+	// Add all the BasicKernelSessionManager's metadata to the new KernelConnection.
+	m.metadataMutex.Lock()
+	defer m.metadataMutex.Unlock()
+	for key, value := range m.metadata {
+		m.logger.Debug("Adding metadata to kernel.", zap.String("kernel_id", kernelId),
+			zap.String("metadata_key", key), zap.String("metadata_value", value))
+		conn.AddMetadata(key, value)
+	}
+
+	// On success, conn will be non-nil and err will be nil.
+	// If there is an error, then err will be non-nil and connection will be nil.
+	return conn, nil
 }

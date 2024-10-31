@@ -144,12 +144,16 @@ type SessionConnection struct {
 
 	// Used to record Prometheus metrics.
 	metricsConsumer MetricsConsumer
+
+	onError func(err error)
 }
 
 // NewSessionConnection creates a new SessionConnection.
 //
 // We do not return until we've successfully connected to the kernel.
-func NewSessionConnection(model *jupyterSession, username string, jupyterServerAddress string, atom *zap.AtomicLevel, metricsConsumer MetricsConsumer) (*SessionConnection, error) {
+func NewSessionConnection(model *jupyterSession, username string, jupyterServerAddress string, atom *zap.AtomicLevel,
+	metricsConsumer MetricsConsumer, onError func(err error)) (*SessionConnection, error) {
+
 	conn := &SessionConnection{
 		model:                model,
 		jupyterServerAddress: jupyterServerAddress,
@@ -157,6 +161,7 @@ func NewSessionConnection(model *jupyterSession, username string, jupyterServerA
 		createdAt:            time.Now(),
 		metadata:             make(map[string]string),
 		metricsConsumer:      metricsConsumer,
+		onError:              onError,
 	}
 
 	core := zapcore.NewCore(zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()), os.Stdout, atom)
@@ -218,7 +223,8 @@ func (conn *SessionConnection) connectToKernel(username string) error {
 	}
 
 	var err error
-	conn.kernel, err = NewKernelConnection(conn.model.JupyterKernel.Id, conn.model.JupyterSessionId, username, conn.jupyterServerAddress, conn.atom, conn.metricsConsumer)
+	conn.kernel, err = NewKernelConnection(conn.model.JupyterKernel.Id, conn.model.JupyterSessionId, username,
+		conn.jupyterServerAddress, conn.atom, conn.metricsConsumer, conn.onError)
 
 	// Add all the SessionConnection's metadata to the new KernelConnection.
 	conn.metadataMutex.Lock()

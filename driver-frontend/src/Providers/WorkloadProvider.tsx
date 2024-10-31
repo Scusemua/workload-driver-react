@@ -1,12 +1,14 @@
-import { PatchedWorkload, Workload, WorkloadResponse } from '@Data/Workload';
+import { ErrorResponse, PatchedWorkload, Workload, WorkloadResponse } from '@Data/Workload';
 import { AuthorizationContext } from '@Providers/AuthProvider';
 import { JoinPaths } from '@src/Utils/path_utils';
-import jsonmergepatch from 'json-merge-patch';
+import { DefaultDismiss, GetToastContentWithHeaderAndBody } from '@src/Utils/toast_utils';
 import { useContext, useRef } from 'react';
+import { Toast, toast } from 'react-hot-toast';
 import { MutatorCallback } from 'swr';
 import type { SWRSubscription } from 'swr/subscription';
 import useSWRSubscription from 'swr/subscription';
 import { v4 as uuidv4 } from 'uuid';
+import jsonmergepatch from 'json-merge-patch';
 
 const api_endpoint: string = JoinPaths(process.env.PUBLIC_PATH || '/', 'websocket', 'workload');
 
@@ -15,6 +17,75 @@ export const useWorkloads = () => {
 
     const subscriberSocket = useRef<WebSocket | null>(null);
     useRef<boolean>(false);
+
+    const handleStandardResponse = (
+        next: (
+            err?: Error | null | undefined,
+            data?: Map<string, Workload> | MutatorCallback<Map<string, Workload>> | undefined,
+        ) => void,
+        workloadResponse: WorkloadResponse,
+    ) => {
+        if (workloadResponse.op == "register_workload") {
+          toast.custom(
+            (t: Toast) =>
+              GetToastContentWithHeaderAndBody(
+                'Workload Registered Successfully',
+                `Successfully registered workload "${workloadResponse.new_workloads[0].name}"`,
+                'success',
+                () => toast.dismiss(t.id),
+              ),
+          );
+        }
+
+
+        next(null, (prev: Map<string, Workload> | undefined) => {
+            const newWorkloads: Workload[] | null | undefined = workloadResponse.new_workloads;
+            const modifiedWorkloads: Workload[] | null | undefined = workloadResponse.modified_workloads;
+            const deletedWorkloads: Workload[] | null | undefined = workloadResponse.deleted_workloads;
+            const patchedWorkloads: PatchedWorkload[] | null | undefined = workloadResponse.patched_workloads;
+
+            const nextData: Map<string, Workload> = new Map(prev);
+
+            newWorkloads?.forEach((workload: Workload) => {
+                if (workload === null || workload === undefined) {
+                    return;
+                }
+                nextData.set(workload.id, workload);
+            });
+            modifiedWorkloads?.forEach((workload: Workload) => {
+                if (workload === null || workload === undefined) {
+                    return;
+                }
+                nextData.set(workload.id, workload);
+            });
+            deletedWorkloads?.forEach((workload: Workload) => {
+                if (workload === null || workload === undefined) {
+                    return;
+                }
+                nextData.delete(workload.id);
+            });
+
+            patchedWorkloads?.forEach((patchedWorkload: PatchedWorkload) => {
+                const patch = JSON.parse(patchedWorkload.patch);
+                const workload: Workload | undefined = nextData.get(patchedWorkload.workloadId);
+
+                if (workload !== null && workload !== undefined) {
+                    // console.log(`Patched data: ${JSON.stringify(patch)}`)
+                    const mergedWorkload: Workload = jsonmergepatch.apply(workload, patch);
+                    // console.log(`Workload after patch: ${JSON.stringify(mergedWorkload)}\n`)
+                    nextData.set(patchedWorkload.workloadId, mergedWorkload);
+                } else {
+                    console.error(
+                        `Received patched workload with ID ${patchedWorkload.workloadId}; however, no workload found in previous workload data for that workload...`,
+                    );
+                    console.error(`Patched data: ${patch}`);
+                    console.error('Previous data contains the following keys: ', nextData.keys());
+                }
+            });
+
+            return nextData;
+        });
+    };
 
     const setupWebsocket = (
         hostname: string,
@@ -36,79 +107,60 @@ export const useWorkloads = () => {
                 );
             });
 
-            subscriberSocket.current.addEventListener('message', (event) => {
+            subscriberSocket.current.addEventListener('message', async (event) => {
+                const respText: string = await event.data.text();
+
+                let workloadResponse: WorkloadResponse | undefined = undefined;
                 try {
-                    event.data
-                        .text()
-                        .then((respText: string) => {
-                            const respJson: WorkloadResponse = JSON.parse(respText);
-                            // console.log(`Received JSON message from workload websocket: ${respText}`);
-                            console.log(respJson);
-                            return respJson;
-                        })
-                        .then((workloadResponse: WorkloadResponse) =>
-                            next(null, (prev: Map<string, Workload> | undefined) => {
-                                const newWorkloads: Workload[] | null | undefined = workloadResponse.new_workloads;
-                                const modifiedWorkloads: Workload[] | null | undefined =
-                                    workloadResponse.modified_workloads;
-                                const deletedWorkloads: Workload[] | null | undefined =
-                                    workloadResponse.deleted_workloads;
-                                const patchedWorkloads: PatchedWorkload[] | null | undefined =
-                                    workloadResponse.patched_workloads;
-
-                                const nextData: Map<string, Workload> = new Map(prev);
-
-                                // console.log(`NumNewWorkloads: ${newWorkloads?.length}`);
-                                // console.log(`NumModifiedWorkloads: ${modifiedWorkloads?.length}`);
-                                // console.log(`NumDeletedWorkloads: ${deletedWorkloads?.length}`);
-                                // console.log(`NumPatchedWorkloads: ${patchedWorkloads?.length}\n`);
-
-                                newWorkloads?.forEach((workload: Workload) => {
-                                    if (workload === null || workload === undefined) {
-                                        return;
-                                    }
-                                    nextData.set(workload.id, workload);
-                                });
-                                modifiedWorkloads?.forEach((workload: Workload) => {
-                                    if (workload === null || workload === undefined) {
-                                        return;
-                                    }
-                                    nextData.set(workload.id, workload);
-                                });
-                                deletedWorkloads?.forEach((workload: Workload) => {
-                                    if (workload === null || workload === undefined) {
-                                        return;
-                                    }
-                                    nextData.delete(workload.id);
-                                });
-
-                                patchedWorkloads?.forEach((patchedWorkload: PatchedWorkload) => {
-                                    // console.log("Processing patched workload: ", JSON.stringify(patchedWorkload))
-                                    const patch = JSON.parse(patchedWorkload.patch);
-                                    const workload: Workload | undefined = nextData.get(patchedWorkload.workloadId);
-
-                                    if (workload !== null && workload !== undefined) {
-                                        // console.log(`Patched data: ${JSON.stringify(patch)}`)
-                                        const mergedWorkload: Workload = jsonmergepatch.apply(workload, patch);
-                                        // console.log(`Workload after patch: ${JSON.stringify(mergedWorkload)}\n`)
-                                        nextData.set(patchedWorkload.workloadId, mergedWorkload);
-                                    } else {
-                                        console.error(
-                                            `Received patched workload with ID ${patchedWorkload.workloadId}; however, no workload found in previous workload data for that workload...`,
-                                        );
-                                        console.error(`Patched data: ${patch}`);
-                                        console.error('Previous data contains the following keys: ', nextData.keys());
-                                    }
-                                });
-
-                                return nextData;
-                            }),
-                        );
+                    workloadResponse = JSON.parse(respText);
+                    console.log(`Decoded WorkloadResponse: ${JSON.stringify(workloadResponse, null, 2)}`);
                 } catch (err) {
-                    const messageData = JSON.parse(event.data);
-                    console.log('Received workload-related WebSocket message:');
-                    console.log(messageData);
+                    console.error(`Failed to decode WorkloadResponse: "${respText}"`);
+                    toast.custom(
+                        GetToastContentWithHeaderAndBody(
+                            'Failed to Decode Workload Response from Workload WebSocket',
+                            'See console for details.',
+                            'danger',
+                            DefaultDismiss,
+                        ),
+                    );
+
+                    return;
                 }
+
+                if (workloadResponse?.status == 'OK') {
+                    return handleStandardResponse(next, workloadResponse);
+                }
+
+                let errorResponse: ErrorResponse;
+                try {
+                    errorResponse = JSON.parse(respText);
+                } catch (err) {
+                    console.error(`Failed to decode ErrorResponse: "${respText}"`);
+                    toast.custom(
+                        GetToastContentWithHeaderAndBody(
+                            'Failed to Decode ErrorResponse from Workload WebSocket',
+                            'See console for details.',
+                            'danger',
+                            DefaultDismiss,
+                        ),
+                    );
+
+                    return;
+                }
+
+                console.error(`Received ErrorResponse for "${errorResponse.op}" workload WebSocket request.`);
+                console.error(`ErrorMessage: ${errorResponse.ErrorMessage}`);
+                console.error(`Description: ${errorResponse.Description}`);
+
+                toast.custom(
+                    GetToastContentWithHeaderAndBody(
+                        `Received ErrorResponse for "${errorResponse.op}" workload WebSocket request`,
+                        [errorResponse.Description, errorResponse.ErrorMessage],
+                        'danger',
+                        DefaultDismiss,
+                    ),
+                );
             });
 
             subscriberSocket.current.addEventListener('close', (event: CloseEvent) => {
@@ -135,7 +187,7 @@ export const useWorkloads = () => {
                 `Cannot send workload-related message via websocket. Websocket is in state ${subscriberSocket.current?.readyState}`,
             );
 
-            return "WebSocket connection with backend is unavailable";
+            return 'WebSocket connection with backend is unavailable';
         }
 
         try {

@@ -64,6 +64,8 @@ type PatchedWorkload struct {
 
 type WorkloadResponse struct {
 	// MessageIndex      int32      `json:"message_index"`
+	Operation         string             `json:"op"`                 // The operation of the original request.
+	Status            string             `json:"status"`             // OK or ERROR.
 	MessageId         string             `json:"msg_id"`             // Unique ID of the message.
 	NewWorkloads      []Workload         `json:"new_workloads"`      // Workloads that are newly-created.
 	ModifiedWorkloads []Workload         `json:"modified_workloads"` // Modified workloads sent in their entirety.
