@@ -64,7 +64,7 @@ type Configuration struct {
 	Debug                        bool   `name:"debug" description:"Display debug logs."`
 	Verbose                      bool   `name:"v" description:"Display verbose logs."`
 	Seed                         int64  `name:"seed" description:"Random seed to reproduce simulation."`
-	LastTimestamp                int64  `name:"last-timestamp" description:"Epoch Unix Timestamp denotating the last timestamp for which events will be generated. Any events beyond that point will be discarded."`
+	LastTimestamp                int64  `name:"last-timestamp" description:"Epoch Unix Timestamp denoting the last timestamp for which events will be generated. Any events beyond that point will be discarded."`
 	EvictHostOnLastContainerStop int    `name:"evict-host-on-last-container-stop" description:"Override the default settings for whatever Scheduler you're using and force a value for this parameter. -1 to force false, 0 to leave as default for the particular scheduler, and 1 to force true."`
 	WorkloadPresetsFilepath      string `name:"workload-presets-file" description:"Path to a .YAML file containing the definitions of one or more Workload Presets."`
 	ExpectedOriginPort           int    `name:"expected-origin-port" description:"Port of the expected origin for messages from the frontend."`

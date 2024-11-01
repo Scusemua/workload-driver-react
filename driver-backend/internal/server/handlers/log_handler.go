@@ -21,7 +21,7 @@ type LogHttpHandler struct {
 	*BaseHandler
 }
 
-func NewLogHttpHandler(opts *domain.Configuration) domain.BackendHttpGetHandler {
+func NewLogHttpHandler(opts *domain.Configuration) *LogHttpHandler {
 	handler := &LogHttpHandler{
 		BaseHandler: newBaseHandler(opts),
 	}

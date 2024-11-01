@@ -91,7 +91,7 @@ func NewWorkloadFromPreset(baseWorkload Workload, workloadPreset *WorkloadPreset
 	}
 
 	baseWorkloadImpl.WorkloadType = PresetWorkload
-	baseWorkloadImpl.workload = workloadFromPreset
+	baseWorkloadImpl.workloadInstance = workloadFromPreset
 
 	return workloadFromPreset
 }

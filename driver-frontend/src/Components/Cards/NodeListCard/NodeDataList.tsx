@@ -46,6 +46,7 @@ import { useNodes } from '@Providers/NodeProvider';
 import { GpuIcon, GpuIconAlt2 } from '@src/Assets/Icons';
 import { GetPathForFetch } from '@src/Utils/path_utils';
 import { GetToastContentWithHeaderAndBody } from '@src/Utils/toast_utils';
+import { UnixDurationToString } from '@src/Utils/utils';
 import React, { useReducer } from 'react';
 import { toast } from 'react-hot-toast';
 
@@ -382,27 +383,7 @@ export const NodeDataList: React.FunctionComponent<NodeDataListProps> = (props: 
         if (formattedTime === '') {
             const nodeCreatedAt: number = clusterNode.CreatedAt * 1e3;
             const ageMilliseconds: number = Date.now() - nodeCreatedAt;
-            let runningAge: number = ageMilliseconds;
-
-            const hours: number = Math.floor(ageMilliseconds / 3.6e6);
-
-            if (hours > 0) {
-                formattedTime += hours + 'hr ';
-                runningAge -= hours * 3.6e6;
-            }
-
-            const minutes: number = Math.floor(runningAge / 6e4);
-            if (minutes > 0) {
-                formattedTime += minutes + 'min ';
-                runningAge -= minutes * 6e4;
-            }
-
-            const seconds: number = RoundToTwoDecimalPlaces(runningAge / 1e3);
-            if (seconds > 0) {
-                formattedTime += seconds + 'sec';
-            }
-
-            formattedTime = formattedTime.trimEnd();
+            formattedTime = UnixDurationToString(ageMilliseconds);
         }
 
         return (

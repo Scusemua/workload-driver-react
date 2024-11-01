@@ -15,7 +15,7 @@ type PingKernelHttpHandler struct {
 	grpcClient *ClusterDashboardHandler
 }
 
-func NewPingKernelHttpHandler(opts *domain.Configuration, grpcClient *ClusterDashboardHandler) domain.BackendHttpGetHandler {
+func NewPingKernelHttpHandler(opts *domain.Configuration, grpcClient *ClusterDashboardHandler) *PingKernelHttpHandler {
 	if grpcClient == nil {
 		panic("gRPC Client cannot be nil.")
 	}

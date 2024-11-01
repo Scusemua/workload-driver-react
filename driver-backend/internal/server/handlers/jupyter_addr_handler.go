@@ -12,7 +12,7 @@ type JupyterAddressHttpHandler struct {
 	frontendJupyterAddress string
 }
 
-func NewJupyterAddressHttpHandler(opts *domain.Configuration) domain.BackendHttpGetHandler {
+func NewJupyterAddressHttpHandler(opts *domain.Configuration) *JupyterAddressHttpHandler {
 	handler := &JupyterAddressHttpHandler{
 		BaseHandler:            newBaseHandler(opts),
 		frontendJupyterAddress: opts.FrontendJupyterServerAddress,

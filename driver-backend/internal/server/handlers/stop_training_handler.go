@@ -20,7 +20,7 @@ type StopTrainingHandler struct {
 	kernelConnections *hashmap.HashMap
 }
 
-func NewStopTrainingHandler(opts *domain.Configuration, atom *zap.AtomicLevel) domain.BackendHttpGetHandler {
+func NewStopTrainingHandler(opts *domain.Configuration, atom *zap.AtomicLevel) *StopTrainingHandler {
 	jupyterAddress := path.Join(opts.InternalJupyterServerAddress, opts.JupyterServerBasePath)
 
 	handler := &StopTrainingHandler{

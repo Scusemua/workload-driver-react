@@ -45,7 +45,7 @@ type WorkloadPresetHttpHandler struct {
 	workloadPresets    []*domain.WorkloadPreset
 }
 
-func NewWorkloadPresetHttpHandler(opts *domain.Configuration) domain.BackendHttpGetHandler {
+func NewWorkloadPresetHttpHandler(opts *domain.Configuration) *WorkloadPresetHttpHandler {
 	handler := &WorkloadPresetHttpHandler{
 		BaseHandler: newBaseHandler(opts),
 	}

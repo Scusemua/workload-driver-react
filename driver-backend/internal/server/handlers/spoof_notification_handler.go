@@ -14,7 +14,7 @@ type SpoofedNotificationHttpHandler struct {
 	grpcClient *ClusterDashboardHandler
 }
 
-func NewSpoofedNotificationHttpHandler(opts *domain.Configuration, grpcClient *ClusterDashboardHandler) domain.BackendHttpGetHandler {
+func NewSpoofedNotificationHttpHandler(opts *domain.Configuration, grpcClient *ClusterDashboardHandler) *SpoofedNotificationHttpHandler {
 	if grpcClient == nil {
 		panic("gRPC Client cannot be nil.")
 	}

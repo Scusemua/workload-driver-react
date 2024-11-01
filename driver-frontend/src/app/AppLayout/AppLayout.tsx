@@ -7,8 +7,9 @@ import { AuthorizationContext } from '@Providers/AuthProvider';
 import { Notification, WebSocketMessage } from '@src/Data/';
 import { DarkModeContext, NotificationContext, useNodes } from '@src/Providers';
 import { JoinPaths } from '@src/Utils/path_utils';
+import { UnixDurationToString } from '@src/Utils/utils';
 import * as React from 'react';
-import { ToastBar, Toaster } from 'react-hot-toast';
+import { toast, ToastBar, Toaster } from 'react-hot-toast';
 
 import useWebSocket from 'react-use-websocket';
 import { v4 as uuidv4 } from 'uuid';
@@ -20,7 +21,85 @@ const maxDisplayedAlerts: number = 3;
 const AppLayout: React.FunctionComponent = () => {
     const pageId = 'primary-app-container';
 
-    const { authenticated } = React.useContext(AuthorizationContext);
+    const firstRender = React.useRef<boolean>(true);
+
+    const { authenticated, setAuthenticated } = React.useContext(AuthorizationContext);
+
+    React.useEffect(() => {
+        if (!firstRender) {
+            console.log('Not first render.');
+            return;
+        }
+
+        firstRender.current = true;
+
+        // If the user is already authenticated, then don't bother with this.
+        if (authenticated) {
+            console.log("We're already authenticated.");
+            return;
+        }
+
+        const authToken: string = localStorage.getItem('token') || '';
+        const expiresAtStr: string = localStorage.getItem('token-expiration') || '';
+
+        if (authToken === '') {
+            console.debug('Could not recover valid auth token. User will have to log in.');
+            return;
+        }
+
+        const testAuth: RequestInit = {
+            method: 'GET',
+            headers: {
+                Authorization: 'Bearer ' + authToken,
+            },
+        };
+
+        fetch('api/config', testAuth)
+            .then((resp: Response) => {
+                if (resp.status === 200) {
+                    // Just make sure the token is not JUST about to expire.
+                    // If that's the case, then we'll just make the user log in again.
+                    if (!expiresAtStr || expiresAtStr === '') {
+                        console.warn(
+                            `Recovered valid auth token "${authToken}", but could not recover token's expiration (got string "${expiresAtStr}")... discarding.`,
+                        );
+                        return; // Not authenticated.
+                    }
+
+                    const expiresAt: number = Date.parse(expiresAtStr);
+                    const expiresIn: number = expiresAt - Date.now();
+
+                    if (expiresIn <= 60000) {
+                        console.warn('Recovered valid auth token, but it expires within 1 minute. Discarding.');
+
+                        // Clear the token and its expiration time from the local storage before returning.
+                        localStorage.removeItem('token');
+                        localStorage.removeItem('token-expiration');
+                        return;
+                    }
+
+                    console.log(
+                        `We're already authenticated. Token doesn't expire for another ${UnixDurationToString(expiresIn)} seconds at ${expiresAtStr}.`,
+                    );
+                    setAuthenticated(true);
+
+                    toast.success('Restored existing authenticated user session.', { style: { maxWidth: '500px' } });
+                } else if (resp.status == 401) {
+                    console.log(
+                        `Got response while testing auth: ${resp.status} ${resp.statusText}. User will have to log in.`,
+                    );
+                } else {
+                    console.error(
+                        `Unexpected response while testing authentication: ${resp.status} ${resp.statusText} - ${JSON.stringify(resp)}`,
+                    );
+                    // Assume we're not authenticated.
+                }
+            })
+            .catch((err: Error) => {
+                console.error(`Error while testing auth: ${err}`);
+                // Assume we're not authenticated.
+            });
+    }, [firstRender, authenticated, setAuthenticated]);
 
     const websocketUrl: string = JoinPaths(process.env.PUBLIC_PATH || '/', 'websocket', 'general');
     const { sendJsonMessage, lastJsonMessage } = useWebSocket(
@@ -157,7 +236,7 @@ const AppLayout: React.FunctionComponent = () => {
                 isNotificationDrawerExpanded={expanded}
                 notificationDrawer={authenticated && <DashboardNotificationDrawer />}
             >
-                {!authenticated && <DashboardLoginPage/>}
+                {!authenticated && <DashboardLoginPage />}
                 {authenticated && <Dashboard />}
                 <AlertGroup
                     isToast

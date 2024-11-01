@@ -14,7 +14,7 @@ type PanicHttpHandler struct {
 	grpcClient *ClusterDashboardHandler
 }
 
-func NewPanicHttpHandler(opts *domain.Configuration, grpcClient *ClusterDashboardHandler) domain.BackendHttpGetHandler {
+func NewPanicHttpHandler(opts *domain.Configuration, grpcClient *ClusterDashboardHandler) *PanicHttpHandler {
 	if grpcClient == nil {
 		panic("gRPC Client cannot be nil.")
 	}

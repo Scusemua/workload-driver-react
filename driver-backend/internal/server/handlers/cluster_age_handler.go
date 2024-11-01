@@ -16,7 +16,7 @@ type ClusterAgeHttpHandler struct {
 	grpcClient *ClusterDashboardHandler
 }
 
-func NewClusterAgeHttpHandler(opts *domain.Configuration, grpcClient *ClusterDashboardHandler) domain.BackendHttpGetHandler {
+func NewClusterAgeHttpHandler(opts *domain.Configuration, grpcClient *ClusterDashboardHandler) *ClusterAgeHttpHandler {
 	if grpcClient == nil {
 		panic("gRPC Client cannot be nil.")
 	}

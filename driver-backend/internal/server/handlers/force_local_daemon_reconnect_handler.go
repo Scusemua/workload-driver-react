@@ -15,7 +15,7 @@ type ForceLocalDaemonToReconnectHttpHandler struct {
 	grpcClient *ClusterDashboardHandler
 }
 
-func NewForceLocalDaemonToReconnectHttpHandler(opts *domain.Configuration, grpcClient *ClusterDashboardHandler) domain.BackendHttpGetHandler {
+func NewForceLocalDaemonToReconnectHttpHandler(opts *domain.Configuration, grpcClient *ClusterDashboardHandler) *ForceLocalDaemonToReconnectHttpHandler {
 	if grpcClient == nil {
 		panic("gRPC Client cannot be nil.")
 	}

@@ -15,7 +15,7 @@ type MessageQueryHttpHandler struct {
 	grpcClient *ClusterDashboardHandler
 }
 
-func NewMessageQueryHttpHandler(opts *domain.Configuration, grpcClient *ClusterDashboardHandler) domain.BackendHttpGetHandler {
+func NewMessageQueryHttpHandler(opts *domain.Configuration, grpcClient *ClusterDashboardHandler) *MessageQueryHttpHandler {
 	if grpcClient == nil {
 		panic("gRPC Client cannot be nil.")
 	}

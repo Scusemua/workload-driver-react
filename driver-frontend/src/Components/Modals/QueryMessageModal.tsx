@@ -96,7 +96,6 @@ export const QueryMessageModal: React.FunctionComponent<QueryMessageModalProps> 
             messageTypes.add(trace.messageType);
         });
 
-        console.log(`Possible message types: ${JSON.stringify(messageTypes)}`);
         setPossibleMessageTypes(messageTypes);
     }, [requestTraces]);
 

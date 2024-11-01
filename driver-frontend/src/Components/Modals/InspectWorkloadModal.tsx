@@ -23,6 +23,7 @@ import {
     CodeIcon,
     DiceIcon,
     ExclamationTriangleIcon,
+    ExportIcon,
     HourglassStartIcon,
     MonitoringIcon,
     PlayIcon,
@@ -51,6 +52,7 @@ export interface InspectWorkloadModalProps {
     children?: React.ReactNode;
     isOpen: boolean;
     onClose: () => void;
+    onExportClicked: () => void;
     onStartClicked: () => void;
     onStopClicked: () => void;
     workload: Workload | null;
@@ -174,6 +176,7 @@ export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalP
                 <Button
                     key="start-workload-button"
                     variant="primary"
+                    aria-label={'Start workload'}
                     icon={<PlayIcon />}
                     onClick={props.onStartClicked}
                     isDisabled={props.workload?.workload_state != WORKLOAD_STATE_READY || !authenticated}
@@ -183,13 +186,29 @@ export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalP
                 <Button
                     key="stop-workload-button"
                     variant="danger"
+                    aria-label={'Stop workload'}
                     icon={<StopIcon />}
                     onClick={props.onStopClicked}
                     isDisabled={props.workload?.workload_state != WORKLOAD_STATE_RUNNING || !authenticated}
                 >
                     Stop Workload
                 </Button>,
-                <Button key="close-inspect-workload-modal-button" variant="secondary" icon={<CloseIcon />} onClick={props.onClose}>
+                <Button
+                    key="export_workload_state_button"
+                    aria-label={'Export workload state'}
+                    variant="secondary"
+                    icon={<ExportIcon />}
+                    onClick={props.onExportClicked}
+                >
+                    Export
+                </Button>,
+                <Button
+                    key="close-inspect-workload-modal-button"
+                    variant="secondary"
+                    aria-label={'Inspect workload'}
+                    icon={<CloseIcon />}
+                    onClick={props.onClose}
+                >
                     Close Window
                 </Button>,
             ]}

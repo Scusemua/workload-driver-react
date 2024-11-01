@@ -87,10 +87,6 @@ async function tokenFetcher(
         abortController.abort(`The request timed-out after ${timeout} milliseconds.`);
     }, timeout);
 
-    if (endpoint == loginEndpoint) {
-        console.log(`Body of LOGIN request:\n${JSON.stringify(requestBody, null, 2)}`);
-    }
-
     const response: Response = await fetch(endpoint, init);
 
     return await handleResponse(response, username, password, endpoint, toastId);
@@ -164,8 +160,6 @@ async function handleJsonResponse(
         console.log(`Authenticate failed. Could not log in:\n${JSON.stringify(responseJSON, null, 2)}`);
         throw new Error(`HTTP ${response.status} ${response.statusText}: ${(responseJSON as Error).message}`);
     } else {
-        console.log(`Fetched JWT token:\n${JSON.stringify(responseJSON, null, 2)}`);
-
         const authResponse: AuthResponse = responseJSON as AuthResponse;
 
         authResponse.username = username;
@@ -201,7 +195,7 @@ const AuthProvider = (props: { children }) => {
         if (data && data.token && data.expire) {
             console.log(`Refreshed token: ${data.token}. Expires at: ${data.expire}.`);
             localStorage.setItem('token', data.token);
-            localStorage.setItem('token-expiration', (data.expire as number).toString());
+            localStorage.setItem('token-expiration', data.expire.toString());
 
             updateUsername(data.username);
             updatePassword(data.password);

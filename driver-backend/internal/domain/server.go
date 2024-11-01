@@ -97,6 +97,9 @@ const (
 	// VariablesEndpoint is queried by Grafana to query for values used to create Grafana variables that are then
 	// used to dynamically create a Grafana Dashboard.
 	VariablesEndpoint = "variables"
+
+	// NoOpEndpoint is essentially just used to test the validity of the current authentication token.
+	NoOpEndpoint = "no-op"
 )
 
 var (

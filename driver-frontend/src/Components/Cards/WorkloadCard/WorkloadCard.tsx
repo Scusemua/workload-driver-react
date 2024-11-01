@@ -143,19 +143,18 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
         const errorMessage: string | void = sendJsonMessage(workloadRegistrationRequest);
 
         if (errorMessage) {
-            toast.custom(
-                (t: Toast) =>
-                    GetToastContentWithHeaderAndBody(
-                        'Workload Registration Failed',
-                        [
-                            `Unable to register template-based workload "${workloadName}".`,
-                            <p key={'toast-content-row-2'}>
-                                <b>{'Reason:'}</b> {errorMessage}
-                            </p>,
-                        ],
-                        'danger',
-                        () => toast.dismiss(t.id),
-                    ),
+            toast.custom((t: Toast) =>
+                GetToastContentWithHeaderAndBody(
+                    'Workload Registration Failed',
+                    [
+                        `Unable to register template-based workload "${workloadName}".`,
+                        <p key={'toast-content-row-2'}>
+                            <b>{'Reason:'}</b> {errorMessage}
+                        </p>,
+                    ],
+                    'danger',
+                    () => toast.dismiss(t.id),
+                ),
             );
         }
     };
@@ -425,6 +424,10 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
         }
     };
 
+    const exportWorkloadClicked = (workload: Workload) => {
+        console.log(`Exporting workload ${workload.name} (ID=${workload.id}).`);
+    };
+
     const cardHeaderActions = (
         <React.Fragment>
             <ToolbarGroup variant="icon-button-group">
@@ -463,13 +466,6 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
             </ToolbarGroup>
         </React.Fragment>
     );
-
-    // console.log(`Workloads (${workloads.length}):`);
-    // for (let i = 0; i < workloads.length; i++) {
-    //   const workload: Workload = workloads[i];
-    //
-    //   console.log(`\tWorkload #${i}: ${JSON.stringify(workload)}`);
-    // }
 
     return (
         <React.Fragment>
@@ -1128,29 +1124,27 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                             />
                         </React.Fragment>
                     )}
-
-                    <RegisterWorkloadModal
-                        isOpen={isRegisterWorkloadModalOpen}
-                        onClose={onCancelStartWorkload}
-                        onConfirm={onConfirmRegisterWorkload}
-                        onRegisterWorkloadFromTemplateClicked={onRegisterWorkloadFromTemplateClicked}
-                    />
-                    <SessionTabsDataProvider>
-                        <NewWorkloadFromTemplateModal
-                            isOpen={isRegisterNewWorkloadFromTemplateModalOpen}
-                            onClose={onCancelStartWorkloadFromTemplate}
-                            onConfirm={onConfirmRegisterWorkloadFromTemplate}
-                        />
-                    </SessionTabsDataProvider>
                 </CardBody>
             </Card>
 
+            <RegisterWorkloadModal
+                isOpen={isRegisterWorkloadModalOpen}
+                onClose={onCancelStartWorkload}
+                onConfirm={onConfirmRegisterWorkload}
+                onRegisterWorkloadFromTemplateClicked={onRegisterWorkloadFromTemplateClicked}
+            />
+            <SessionTabsDataProvider>
+                <NewWorkloadFromTemplateModal
+                    isOpen={isRegisterNewWorkloadFromTemplateModalOpen}
+                    onClose={onCancelStartWorkloadFromTemplate}
+                    onConfirm={onConfirmRegisterWorkloadFromTemplate}
+                />
+            </SessionTabsDataProvider>
             <VisualizeWorkloadModal
                 isOpen={visualizeWorkloadModalOpen}
                 workload={workloadBeingVisualized}
                 onClose={onCloseVisualizeWorkloadModal}
             />
-
             <InspectWorkloadModal
                 isOpen={inspectWorkloadModalOpen}
                 workload={workloadBeingInspected}
@@ -1160,6 +1154,9 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                 }}
                 onStopClicked={() => {
                     if (workloadBeingInspected) onStopWorkloadClicked(workloadBeingInspected);
+                }}
+                onExportClicked={() => {
+                    if (workloadBeingInspected) exportWorkloadClicked(workloadBeingInspected);
                 }}
             />
         </React.Fragment>

@@ -12,7 +12,7 @@ type ConfigHttpHandler struct {
 	*BaseHandler
 }
 
-func NewConfigHttpHandler(opts *domain.Configuration) domain.BackendHttpGetHandler {
+func NewConfigHttpHandler(opts *domain.Configuration) *ConfigHttpHandler {
 	handler := &ConfigHttpHandler{
 		BaseHandler: newBaseHandler(opts),
 	}

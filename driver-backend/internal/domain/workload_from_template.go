@@ -131,7 +131,7 @@ func NewWorkloadFromTemplate(baseWorkload Workload, sourceSessions []*WorkloadTe
 	}
 
 	baseWorkloadImpl.WorkloadType = TemplateWorkload
-	baseWorkloadImpl.workload = workloadFromTemplate
+	baseWorkloadImpl.workloadInstance = workloadFromTemplate
 
 	return workloadFromTemplate
 }

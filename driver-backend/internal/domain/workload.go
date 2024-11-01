@@ -404,7 +404,7 @@ type workloadImpl struct {
 	// This is basically the child struct.
 	// So, if this is a preset workload, then this is the WorkloadFromPreset struct.
 	// We use this so we can delegate certain method calls to the child/derived struct.
-	workload             Workload
+	workloadInstance     Workload
 	workloadSource       interface{}
 	mu                   sync.RWMutex
 	sessionsMap          *hashmap.HashMap // Internal mapping of session ID to session.
@@ -528,7 +528,7 @@ func (w *workloadImpl) SetSource(source interface{}) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	w.workload.SetSource(source)
+	w.workloadInstance.SetSource(source)
 }
 
 // GetSessions returns the sessions involved in this workload.
@@ -573,7 +573,7 @@ func (w *workloadImpl) IsTraceWorkload() bool {
 func (w *workloadImpl) GetWorkloadSource() interface{} {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
-	return w.workload.GetWorkloadSource()
+	return w.workloadInstance.GetWorkloadSource()
 }
 
 // GetProcessedEvents returns the events processed during this workload (so far).
@@ -840,7 +840,7 @@ func (w *workloadImpl) SessionCreated(sessionId string) {
 
 	w.sessionsMap.Get(sessionId)
 
-	w.workload.SessionCreated(sessionId)
+	w.workloadInstance.SessionCreated(sessionId)
 }
 
 // SessionStopped is called when a Session is stopped for/in the Workload.
@@ -854,13 +854,13 @@ func (w *workloadImpl) SessionStopped(sessionId string) {
 		With(prometheus.Labels{"workload_id": w.Id}).
 		Sub(1)
 
-	w.workload.SessionStopped(sessionId)
+	w.workloadInstance.SessionStopped(sessionId)
 }
 
 // TrainingStarted is called when a training starts during/in the workload.
 // Just updates some internal metrics.
 func (w *workloadImpl) TrainingStarted(sessionId string) {
-	w.workload.TrainingStarted(sessionId)
+	w.workloadInstance.TrainingStarted(sessionId)
 
 	w.trainingStartedTimes.Set(sessionId, time.Now())
 
@@ -872,7 +872,7 @@ func (w *workloadImpl) TrainingStarted(sessionId string) {
 // TrainingStopped is called when a training stops during/in the workload.
 // Just updates some internal metrics.
 func (w *workloadImpl) TrainingStopped(sessionId string) {
-	w.workload.TrainingStopped(sessionId)
+	w.workloadInstance.TrainingStopped(sessionId)
 
 	metrics.PrometheusMetricsWrapperInstance.WorkloadTrainingEventsCompleted.
 		With(prometheus.Labels{"workload_id": w.Id}).
