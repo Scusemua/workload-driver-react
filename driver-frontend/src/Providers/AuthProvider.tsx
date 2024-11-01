@@ -1,4 +1,3 @@
-import { RoundToThreeDecimalPlaces } from '@Components/Modals';
 import { Alert, AlertActionCloseButton } from '@patternfly/react-core';
 import { SpinnerIcon } from '@patternfly/react-icons';
 import { GetPathForFetch } from '@src/Utils/path_utils';
@@ -258,15 +257,17 @@ const AuthProvider = (props: { children }) => {
                         expire = Date.parse(expire as string);
                     }
 
-                    console.log(`Token is set to expire at ${expire}.`);
-
                     const expireIn: number = (expire as number) - Date.now();
 
-                    console.log(
-                        `Will automatically refresh JWT token in ${RoundToThreeDecimalPlaces(expireIn / 1000.0)} seconds`,
-                    );
+                    console.log(`Token is set to expire in ${expireIn / 1.0e3}.`);
 
-                    return expireIn * 0.9;
+                    const expireInAdjusted: number = expireIn * 0.90;
+
+                    if (expireInAdjusted < 0) {
+                        return 10;
+                    }
+
+                    return expireInAdjusted;
                 }
 
                 return MAX_SAFE_INTEGER;

@@ -113,7 +113,7 @@ export const useWorkloads = () => {
                 let workloadResponse: WorkloadResponse | undefined = undefined;
                 try {
                     workloadResponse = JSON.parse(respText);
-                    console.log(`Decoded WorkloadResponse: ${JSON.stringify(workloadResponse, null, 2)}`);
+                    console.log(`Decoded WorkloadResponse:\n${JSON.stringify(workloadResponse, null, 2)}`);
                 } catch (err) {
                     console.error(`Failed to decode WorkloadResponse: "${respText}"`);
                     toast.custom(
