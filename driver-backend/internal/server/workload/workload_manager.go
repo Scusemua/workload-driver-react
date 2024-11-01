@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
+	"github.com/scusemua/workload-driver-react/m/v2/internal/server/api/proto"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -41,6 +42,9 @@ type BasicWorkloadManager struct {
 	// OnError is a callback passed to WorkloadDrivers (via the WorkloadManager).
 	// If a non-critical error occurs during the execution of the workload, then this handler is called.
 	onNonCriticalError domain.WorkloadErrorHandler
+
+	// notifyCallback is a thread-safe function used to send notifications directly to the frontend.
+	notifyCallback func(notification *proto.Notification)
 }
 
 func init() {
@@ -48,7 +52,7 @@ func init() {
 }
 
 func NewWorkloadManager(configuration *domain.Configuration, atom *zap.AtomicLevel, onCriticalError domain.WorkloadErrorHandler,
-	onNonCriticalError domain.WorkloadErrorHandler) *BasicWorkloadManager {
+	onNonCriticalError domain.WorkloadErrorHandler, notifyCallback func(notification *proto.Notification)) *BasicWorkloadManager {
 
 	manager := &BasicWorkloadManager{
 		atom:                atom,
@@ -60,6 +64,7 @@ func NewWorkloadManager(configuration *domain.Configuration, atom *zap.AtomicLev
 		pushUpdateInterval:  time.Second * time.Duration(configuration.PushUpdateInterval),
 		onCriticalError:     onCriticalError,
 		onNonCriticalError:  onNonCriticalError,
+		notifyCallback:      notifyCallback,
 	}
 
 	zapConfig := zap.NewDevelopmentEncoderConfig()
@@ -238,7 +243,7 @@ func (m *BasicWorkloadManager) RegisterWorkload(request *domain.WorkloadRegistra
 
 	// Create a new workload driver.
 	workloadDriver := NewBasicWorkloadDriver(m.configuration, true, request.TimescaleAdjustmentFactor,
-		ws, m.atom, criticalErrorHandler, nonCriticalErrorHandler)
+		ws, m.atom, criticalErrorHandler, nonCriticalErrorHandler, m.notifyCallback)
 
 	// Register a new workload with the workload driver.
 	workload, err := workloadDriver.RegisterWorkload(request)

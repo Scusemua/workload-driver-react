@@ -120,7 +120,8 @@ func NewServer(opts *domain.Configuration) domain.Server {
 		prometheusEndpoint:      opts.PrometheusEndpoint,
 	}
 
-	s.workloadManager = workload.NewWorkloadManager(opts, &atom, s.handleWorkloadError, s.handleCriticalWorkloadError)
+	s.workloadManager = workload.NewWorkloadManager(opts, &atom, s.handleWorkloadError,
+		s.handleCriticalWorkloadError, s.notifyFrontend)
 
 	// Default to "/"
 	if s.baseUrl == "" {

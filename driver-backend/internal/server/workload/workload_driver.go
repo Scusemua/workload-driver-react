@@ -5,7 +5,11 @@ import (
 	"errors"
 	"fmt"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/scusemua/workload-driver-react/m/v2/internal/server/api/proto"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/server/metrics"
+	"github.com/scusemua/workload-driver-react/m/v2/pkg/statistics"
+	"github.com/shopspring/decimal"
+	"math"
 	"math/rand"
 	"net/http"
 	"path"
@@ -125,8 +129,10 @@ type BasicWorkloadDriver struct {
 	sessions                           *hashmap.HashMap                      // Responsible for creating sessions and maintaining a collection of all the sessions active within the simulation.
 	stats                              *WorkloadStats                        // Metrics related to the workload's execution.
 	stopChan                           chan interface{}                      // Used to stop the workload early/prematurely (i.e., before all events have been processed).
-	tickDuration                       time.Duration                         // How long each tick is supposed to last. This is the tick interval/step rate of the simulation.
-	tickDurationSeconds                int64                                 // Cached total number of seconds of tickDuration
+	targetTickDuration                 time.Duration                         // How long each tick is supposed to last. This is the tick interval/step rate of the simulation.
+	targetTickDurationSeconds          int64                                 // Cached total number of seconds of targetTickDuration
+	tickDurationsSecondsMovingWindow   *statistics.MovingStat                // Moving average of observed tick durations in seconds.
+	tickDurationsAll                   []time.Duration                       // All tick durations from the entire workload.
 	ticker                             *clock.Ticker                         // Receive Tick events this way.
 	ticksHandled                       atomic.Int64                          // Incremented/accessed atomically.
 	timescaleAdjustmentFactor          float64                               // Adjusts the timescale of the simulation. Setting this to 1 means that each tick is simulated as a whole minute. Setting this to 0.5 means each tick will be simulated for half its real time. So, if ticks are 60 seconds, and this variable is set to 0.5, then each tick will be simulated for 30 seconds before continuing to the next tick.
@@ -140,6 +146,9 @@ type BasicWorkloadDriver struct {
 	workloadRegistrationRequest        *domain.WorkloadRegistrationRequest   // The request that registered the workload that is being driven by this driver.
 	workloadSessions                   []*domain.WorkloadTemplateSession     // The template used by the associated workload. Will only be non-nil if the associated workload is a template-based workload, rather than a preset-based workload.
 
+	// notifyCallback is a function used to send notifications related to this workload directly to the frontend.
+	notifyCallback func(notification *proto.Notification)
+
 	// onCriticalErrorOccurred is a handler that is called when a critical error occurs.
 	// The onCriticalErrorOccurred handler is called in its own goroutine.
 	onCriticalErrorOccurred domain.WorkloadErrorHandler
@@ -151,7 +160,7 @@ type BasicWorkloadDriver struct {
 
 func NewBasicWorkloadDriver(opts *domain.Configuration, performClockTicks bool, timescaleAdjustmentFactor float64,
 	websocket domain.ConcurrentWebSocket, atom *zap.AtomicLevel, criticalErrorHandler domain.WorkloadErrorHandler,
-	nonCriticalErrorHandler domain.WorkloadErrorHandler) *BasicWorkloadDriver {
+	nonCriticalErrorHandler domain.WorkloadErrorHandler, notifyCallback func(notification *proto.Notification)) *BasicWorkloadDriver {
 
 	jupyterAddress := path.Join(opts.InternalJupyterServerAddress, opts.JupyterServerBasePath)
 
@@ -165,8 +174,10 @@ func NewBasicWorkloadDriver(opts *domain.Configuration, performClockTicks bool, 
 		stopChan:                           make(chan interface{}, 1),
 		errorChan:                          make(chan error, 2),
 		atom:                               atom,
-		tickDuration:                       time.Second * time.Duration(opts.TraceStep),
-		tickDurationSeconds:                opts.TraceStep,
+		targetTickDuration:                 time.Second * time.Duration(opts.TraceStep),
+		targetTickDurationSeconds:          opts.TraceStep,
+		tickDurationsSecondsMovingWindow:   statistics.NewMovingStat(5),
+		tickDurationsAll:                   make([]time.Duration, 0),
 		driverTimescale:                    opts.DriverTimescale,
 		kernelManager:                      jupyter.NewKernelSessionManager(jupyterAddress, true, atom, metrics.PrometheusMetricsWrapperInstance),
 		sessionConnections:                 make(map[string]*jupyter.SessionConnection),
@@ -181,6 +192,7 @@ func NewBasicWorkloadDriver(opts *domain.Configuration, performClockTicks bool, 
 		clockTime:                          clock.NewSimulationClock(),
 		onCriticalErrorOccurred:            criticalErrorHandler,
 		onNonCriticalErrorOccurred:         nonCriticalErrorHandler,
+		notifyCallback:                     notifyCallback,
 	}
 
 	// Create the ticker for the workload.
@@ -586,7 +598,7 @@ func (d *BasicWorkloadDriver) DriveWorkload(wg *sync.WaitGroup) {
 		zap.String("workload_id", d.id),
 		zap.String("workload_name", d.workload.WorkloadName()))
 
-	nextTick := d.currentTick.GetClockTime().Add(d.tickDuration)
+	nextTick := d.currentTick.GetClockTime().Add(d.targetTickDuration)
 
 OUTER:
 	for {
@@ -617,7 +629,7 @@ OUTER:
 					d.handleCriticalError(err)
 					break OUTER
 				}
-				nextTick = d.currentTick.GetClockTime().Add(d.tickDuration)
+				nextTick = d.currentTick.GetClockTime().Add(d.targetTickDuration)
 				d.eventQueue.EnqueueEvent(evt)
 			}
 		case <-d.workloadEventGeneratorCompleteChan:
@@ -638,7 +650,7 @@ OUTER:
 					break OUTER
 				}
 
-				nextTick = d.currentTick.GetClockTime().Add(d.tickDuration)
+				nextTick = d.currentTick.GetClockTime().Add(d.targetTickDuration)
 			}
 
 			// Signal to the goroutine running the BasicWorkloadDriver::ProcessWorkload method that the workload has completed successfully.
@@ -667,13 +679,13 @@ func (d *BasicWorkloadDriver) IssueClockTicks(timestamp time.Time) error {
 	// We're going to issue clock ticks up until the specified timestamp.
 	// Calculate how many ticks that requires so we can perform a quick sanity
 	// check at the end to verify that we issued the correct number of ticks.
-	numTicksToIssue := int64((timestamp.Sub(currentTick)) / d.tickDuration)
+	numTicksToIssue := int64((timestamp.Sub(currentTick)) / d.targetTickDuration)
 
 	// This is just for debugging/logging purposes.
 	nextEventAtTime, errNoMoreEvents := d.eventQueue.GetTimestampOfNextReadyEvent()
 	if errNoMoreEvents == nil {
 		timeUntilNextEvent := nextEventAtTime.Sub(currentTick)
-		numTicksTilNextEvent := int64(timeUntilNextEvent / d.tickDuration)
+		numTicksTilNextEvent := int64(timeUntilNextEvent / d.targetTickDuration)
 		d.sugaredLogger.Debugf("Preparing to issue %d clock tick(s). Next event occurs at %v, which is in %v and will require %v ticks.", numTicksToIssue, nextEventAtTime, timeUntilNextEvent, numTicksTilNextEvent)
 	} else {
 		d.sugaredLogger.Debugf("Preparing to issue %d clock tick(s). There are no events currently enqueued.", numTicksToIssue)
@@ -685,17 +697,17 @@ func (d *BasicWorkloadDriver) IssueClockTicks(timestamp time.Time) error {
 		tickStart := time.Now()
 
 		// Increment the clock.
-		tick, err := d.currentTick.IncrementClockBy(d.tickDuration)
+		tick, err := d.currentTick.IncrementClockBy(d.targetTickDuration)
 		if err != nil {
 			d.logger.Error("Error while incrementing clock time.",
-				zap.Duration("tick-duration", d.tickDuration),
+				zap.Duration("tick-duration", d.targetTickDuration),
 				zap.String("workload_id", d.id),
 				zap.String("workload_name", d.workload.WorkloadName()),
 				zap.Error(err))
 			return err
 		}
 
-		tickNumber := int(tick.Unix() / d.tickDurationSeconds)
+		tickNumber := int(tick.Unix() / d.targetTickDurationSeconds)
 		d.logger.Debug("Issuing tick.",
 			zap.Int("tick_number", tickNumber),
 			zap.Time("tick_timestamp", tick),
@@ -719,8 +731,10 @@ func (d *BasicWorkloadDriver) IssueClockTicks(timestamp time.Time) error {
 			return nil
 		}
 
-		tickElapsed := time.Since(tickStart)
-		tickRemaining := time.Duration(d.timescaleAdjustmentFactor * float64(d.tickDuration-tickElapsed))
+		// How long the tick took to process.
+		// If it took less than the target amount of time, then we'll sleep for a bit.
+		tickElapsedBase := time.Since(tickStart)
+		tickRemaining := time.Duration(d.timescaleAdjustmentFactor * float64(d.targetTickDuration-tickElapsedBase))
 
 		// Verify that the issuing of the tick did not exceed the specified real-clock-time that a tick should last.
 		// TODO: Handle this more elegantly, such as by decreasing the length of subsequent ticks or something?
@@ -728,8 +742,8 @@ func (d *BasicWorkloadDriver) IssueClockTicks(timestamp time.Time) error {
 			d.logger.Error("Issuing clock tick lasted too long.",
 				zap.Int("tick_number", tickNumber),
 				zap.Time("tick_timestamp", tick),
-				zap.Duration("time_elapsed", tickElapsed),
-				zap.Duration("target_tick_duration", d.tickDuration),
+				zap.Duration("time_elapsed", tickElapsedBase),
+				zap.Duration("target_tick_duration", d.targetTickDuration),
 				zap.Float64("timescale_adjustment_factor", d.timescaleAdjustmentFactor),
 				zap.String("workload_id", d.id),
 				zap.String("workload_name", d.workload.WorkloadName()))
@@ -738,14 +752,22 @@ func (d *BasicWorkloadDriver) IssueClockTicks(timestamp time.Time) error {
 			d.logger.Debug("Sleeping to simulate remainder of tick.",
 				zap.Int("tick_number", tickNumber),
 				zap.Time("tick_timestamp", tick),
-				zap.Duration("time_elapsed", tickElapsed),
-				zap.Duration("target_tick_duration", d.tickDuration),
+				zap.Duration("time_elapsed", tickElapsedBase),
+				zap.Duration("target_tick_duration", d.targetTickDuration),
 				zap.Float64("timescale_adjustment_factor", d.timescaleAdjustmentFactor),
 				zap.Duration("sleep_time", tickRemaining),
 				zap.String("workload_id", d.id),
 				zap.String("workload_name", d.workload.WorkloadName()))
 			time.Sleep(tickRemaining)
 		}
+
+		tickDuration := time.Since(tickStart)
+		tickDurationSec := decimal.NewFromFloat(tickDuration.Seconds())
+		d.checkForLongTick(tickNumber, tickDurationSec)
+
+		// Update the average now, after we check if the tick was too long.
+		d.tickDurationsSecondsMovingWindow.Add(tickDurationSec)
+		d.tickDurationsAll = append(d.tickDurationsAll, tickDuration)
 	}
 
 	// Sanity check to ensure that we issued the correct/expected number of ticks.
@@ -754,6 +776,41 @@ func (d *BasicWorkloadDriver) IssueClockTicks(timestamp time.Time) error {
 	}
 
 	return nil
+}
+
+// checkForLongTick checks if the last tick's duration was notably longer than the average tick duration.
+// If so, then a warning notification is sent to the frontend to alert the user that the tick took a
+// long time to process, and that something may be wrong.
+func (d *BasicWorkloadDriver) checkForLongTick(tickNumber int, tickDurationSec decimal.Decimal) {
+	// If there's at least minN tick durations in the window, then we'll check if the last tick was unusually long.
+	// minN is either 3, or a smaller value if the window size is set to something smaller than 5.
+	minN := math.Min(float64(d.tickDurationsSecondsMovingWindow.Window()), 3)
+	if d.tickDurationsSecondsMovingWindow.N() < int64(minN) {
+		return // Insufficient entries for a meaningful comparison
+	}
+
+	avgTickDurationSec := d.tickDurationsSecondsMovingWindow.Avg()
+	stdDevTickDuration := d.tickDurationsSecondsMovingWindow.SampleStandardDeviation()
+
+	if tickDurationSec.GreaterThanOrEqual(avgTickDurationSec.Add(stdDevTickDuration)) {
+		d.logger.Warn("Last tick took longer than expected.",
+			zap.Int("tick_number", tickNumber),
+			zap.String("tick_duration_sec", tickDurationSec.StringFixed(4)),
+			zap.String("avg_tick_duration_sec", avgTickDurationSec.StringFixed(4)),
+			zap.String("sample_std_dev_tick_dur_sec", stdDevTickDuration.StringFixed(4)),
+			zap.Int64("moving_avg_window_size", d.tickDurationsSecondsMovingWindow.Window()))
+
+		if d.notifyCallback != nil {
+			d.notifyCallback(&proto.Notification{
+				Id:    uuid.NewString(),
+				Title: fmt.Sprintf("Tick #%d of Workload %s Took a Long Time", tickNumber, d.workload.GetId()),
+				Message: fmt.Sprintf("Tick duration: %s seconds. Average tick duration: %s seconds. Standard deviation (of tick duration in seconds): %s seconds.",
+					tickDurationSec.StringFixed(3), avgTickDurationSec.StringFixed(3), stdDevTickDuration.StringFixed(3)),
+				Panicked:         false,
+				NotificationType: domain.WarningNotification.Int32(),
+			})
+		}
+	}
 }
 
 // ProcessWorkload accepts a *sync.WaitGroup that is used to notify the caller when the workload has completed.
@@ -949,7 +1006,7 @@ func (d *BasicWorkloadDriver) handleTick(tick time.Time) error {
 
 	// If there are no events processed this tick, then we still need to increment the clock time so we're in-line with the simulation.
 	// Check if the current clock time is earlier than the start of the previous tick. If so, increment the clock time to the beginning of the tick.
-	prevTickStart := tick.Add(-d.tickDuration)
+	prevTickStart := tick.Add(-d.targetTickDuration)
 	if d.clockTime.GetClockTime().Before(prevTickStart) {
 		if _, _, err := d.incrementClockTime(prevTickStart); err != nil {
 			return nil
