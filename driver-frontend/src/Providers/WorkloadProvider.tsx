@@ -2,13 +2,13 @@ import { ErrorResponse, PatchedWorkload, Workload, WorkloadResponse } from '@Dat
 import { AuthorizationContext } from '@Providers/AuthProvider';
 import { JoinPaths } from '@src/Utils/path_utils';
 import { DefaultDismiss, GetToastContentWithHeaderAndBody } from '@src/Utils/toast_utils';
-import { useContext, useRef } from 'react';
+import jsonmergepatch from 'json-merge-patch';
+import React, { useContext, useRef } from 'react';
 import { Toast, toast } from 'react-hot-toast';
 import { MutatorCallback } from 'swr';
 import type { SWRSubscription } from 'swr/subscription';
 import useSWRSubscription from 'swr/subscription';
 import { v4 as uuidv4 } from 'uuid';
-import jsonmergepatch from 'json-merge-patch';
 
 const api_endpoint: string = JoinPaths(process.env.PUBLIC_PATH || '/', 'websocket', 'workload');
 
@@ -18,6 +18,10 @@ export const useWorkloads = () => {
     const subscriberSocket = useRef<WebSocket | null>(null);
     useRef<boolean>(false);
 
+    const callbackMap: React.MutableRefObject<Map<string, (resp: WorkloadResponse) => void>> = useRef<
+        Map<string, (resp: WorkloadResponse) => void>
+    >(new Map<string, (resp: WorkloadResponse) => void>());
+
     const handleStandardResponse = (
         next: (
             err?: Error | null | undefined,
@@ -25,18 +29,24 @@ export const useWorkloads = () => {
         ) => void,
         workloadResponse: WorkloadResponse,
     ) => {
-        if (workloadResponse.op == "register_workload") {
-          toast.custom(
-            (t: Toast) =>
-              GetToastContentWithHeaderAndBody(
-                'Workload Registered Successfully',
-                `Successfully registered workload "${workloadResponse.new_workloads[0].name}"`,
-                'success',
-                () => toast.dismiss(t.id),
-              ),
-          );
+        if (callbackMap.current) {
+            const callback = callbackMap.current.get(workloadResponse.msg_id);
+
+            if (callback) {
+                callback(workloadResponse);
+            }
         }
 
+        if (workloadResponse.op == 'register_workload') {
+            toast.custom((t: Toast) =>
+                GetToastContentWithHeaderAndBody(
+                    'Workload Registered Successfully',
+                    `Successfully registered workload "${workloadResponse.new_workloads[0].name}"`,
+                    'success',
+                    () => toast.dismiss(t.id),
+                ),
+            );
+        }
 
         next(null, (prev: Map<string, Workload> | undefined) => {
             const newWorkloads: Workload[] | null | undefined = workloadResponse.new_workloads;
@@ -176,18 +186,28 @@ export const useWorkloads = () => {
     /**
      * Send a message to the remote WebSocket.
      * @param msg the JSON-encoded message to send.
+     * @param msgId the ID of the message to use as a key for the callback in the callback-response map
+     * @param callback the callback to be executed (with the WorkloadResponse as the argument) when the response is received.
      *
      * If an error occurs, then that error will be converted to a string and returned.
      *
      * Returns nothing on success.
      */
-    const sendJsonMessage = (msg: string): string | void => {
+    const sendJsonMessage = (
+        msg: string,
+        msgId?: string | undefined,
+        callback?: (resp: WorkloadResponse) => void,
+    ): string | void => {
         if (subscriberSocket.current?.readyState !== WebSocket.OPEN) {
             console.error(
                 `Cannot send workload-related message via websocket. Websocket is in state ${subscriberSocket.current?.readyState}`,
             );
 
             return 'WebSocket connection with backend is unavailable';
+        }
+
+        if (callbackMap.current && msgId && callback) {
+            callbackMap.current.set(msgId, callback);
         }
 
         try {

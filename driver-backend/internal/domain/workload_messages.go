@@ -115,6 +115,21 @@ type PauseUnpauseWorkloadRequest struct {
 	WorkloadId string `json:"workload_id"` // ID of the workload to (un)pause.
 }
 
+// GetSpecificWorkloadRequest is used to request the latest version of a specific workload.
+type GetSpecificWorkloadRequest struct {
+	*BaseMessage
+	WorkloadId string `json:"workload_id"`
+}
+
+func (r *GetSpecificWorkloadRequest) String() string {
+	out, err := json.Marshal(r)
+	if err != nil {
+		panic(err)
+	}
+
+	return string(out)
+}
+
 // StartStopWorkloadRequest is a request for starting/stopping a workload. Whether this starts or stops a
 // workload depends on the value of the Operation field.
 type StartStopWorkloadRequest struct {

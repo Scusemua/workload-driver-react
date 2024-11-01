@@ -68,9 +68,10 @@ import {
     WORKLOAD_STATE_RUNNING,
     WORKLOAD_STATE_TERMINATED,
     WorkloadPreset,
+    WorkloadResponse,
 } from '@src/Data/Workload';
 import { SessionTabsDataProvider } from '@src/Providers';
-import { GetToastContentWithHeaderAndBody } from '@src/Utils/toast_utils';
+import { DefaultDismiss, GetToastContentWithHeaderAndBody } from '@src/Utils/toast_utils';
 import React, { useEffect } from 'react';
 import { Toast, toast } from 'react-hot-toast';
 import { v4 as uuidv4 } from 'uuid';
@@ -424,8 +425,119 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
         }
     };
 
-    const exportWorkloadClicked = (workload: Workload) => {
-        console.log(`Exporting workload ${workload.name} (ID=${workload.id}).`);
+    /**
+     * Export the workload to JSON.
+     *
+     * @param workload the workload to be exported.
+     * @param filename the filename to use, including the file extension. if unspecified,
+     *                 then filename will be set to a string of the form "workload_ID.json"
+     */
+    const exportWorkload = (workload: Workload, filename?: string | undefined) => {
+        const downloadElement: HTMLAnchorElement = document.createElement('a');
+        downloadElement.setAttribute(
+            'href',
+            'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(workload, null, 2)),
+        );
+
+        if (filename !== undefined && filename !== '') {
+            downloadElement.setAttribute('download', filename);
+        } else {
+            downloadElement.setAttribute('download', `workload_${workload.id}.json`);
+        }
+
+        downloadElement.style.display = 'none';
+        document.body.appendChild(downloadElement);
+
+        downloadElement.click();
+
+        document.body.removeChild(downloadElement);
+    };
+
+    /**
+     * Retrieve the latest version of the specified workload from the server and then download it as a JSON file.
+     */
+    const exportWorkloadClicked = (currentLocalWorkload: Workload) => {
+        console.log(`Exporting workload ${currentLocalWorkload.name} (ID=${currentLocalWorkload.id}).`);
+
+        const messageId: string = uuidv4();
+
+        // Wait up to 5 seconds before giving up and exporting the local copy instead.
+        const timeout = setTimeout(() => {
+            console.warn(
+                `Could not refresh workload ${currentLocalWorkload.id} after 5 seconds. Exporting local copy.`,
+            );
+            exportWorkload(currentLocalWorkload);
+        }, 5000);
+
+        const errorMessage: string | void = sendJsonMessage(
+            JSON.stringify({
+                op: 'get_workloads',
+                msg_id: messageId,
+            }),
+            messageId,
+            (workloadResponse: WorkloadResponse) => {
+                clearTimeout(timeout);
+                console.log(`Resp: ${JSON.stringify(workloadResponse, null, 2)}`);
+
+                if (workloadResponse.modified_workloads.length === 0) {
+                    // Server did not return any workloads. We'll just export our local copy...
+                    toast.custom(
+                        GetToastContentWithHeaderAndBody(
+                            `Could Not Find Workload on Server with ID="${currentLocalWorkload.id}"`,
+                            `Will export local copy of workload ${currentLocalWorkload.name} (ID=${currentLocalWorkload.id}) instead.`,
+                            'danger',
+                            DefaultDismiss,
+                        ),
+                    );
+                    exportWorkload(currentLocalWorkload, `workload_${currentLocalWorkload.id}_local.json`);
+                } else if (workloadResponse.modified_workloads.length > 1) {
+                    // The server returned multiple workloads despite us querying for only one ID.
+                    // We'll export all the remote workloads as well as the local copy, just to be safe.
+                    toast.custom(
+                        GetToastContentWithHeaderAndBody(
+                            `Server Returned ${workloadResponse.modified_workloads.length} Workloads for Query with WorkloadID="${currentLocalWorkload.id}"`,
+                            `Will export local copy of workload ${currentLocalWorkload.name} (ID=${currentLocalWorkload.id}) and all returned remote copies.`,
+                            'warning',
+                            DefaultDismiss,
+                        ),
+                    );
+
+                    exportWorkload(currentLocalWorkload, `workload_${currentLocalWorkload.id}_local.json`);
+                    for (let i = 0; i < workloadResponse.modified_workloads.length; i++) {
+                        const remoteWorkload: Workload = workloadResponse.modified_workloads[i];
+                        exportWorkload(remoteWorkload, `workload_${remoteWorkload.id}_remote_${i}.json`);
+                    }
+                } else {
+                    // The server only returned one remote workload. We'll just export the remote workload.
+                    const remoteWorkload: Workload = workloadResponse.modified_workloads[0];
+                    exportWorkload(remoteWorkload, `workload_${remoteWorkload.id}_remote.json`);
+                }
+            },
+        );
+
+        if (errorMessage) {
+            clearTimeout(timeout); // Don't need to bother with this; we'll just export the local copy immediately.
+            toast.custom(
+                GetToastContentWithHeaderAndBody(
+                    `Failed to Retrieve Latest Copy of Workload ${currentLocalWorkload.id} from Server`,
+                    <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsXs' }}>
+                        <FlexItem>
+                            <Text>
+                                <b>Error</b>: {errorMessage}
+                            </Text>
+                        </FlexItem>
+                        <FlexItem>
+                            <Text>Local copy of workload {currentLocalWorkload.id} will be exported instead.</Text>
+                        </FlexItem>
+                    </Flex>,
+                    'danger',
+                    DefaultDismiss,
+                ),
+            );
+
+            // Export the local copy.
+            exportWorkload(currentLocalWorkload, `workload_${currentLocalWorkload.id}_local.json`);
+        }
     };
 
     const cardHeaderActions = (

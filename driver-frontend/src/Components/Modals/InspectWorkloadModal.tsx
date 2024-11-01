@@ -37,12 +37,12 @@ import {
 import text from '@patternfly/react-styles/css/utilities/Text/text';
 import { AuthorizationContext } from '@Providers/AuthProvider';
 import {
-    Workload,
     WORKLOAD_STATE_ERRED,
     WORKLOAD_STATE_FINISHED,
     WORKLOAD_STATE_READY,
     WORKLOAD_STATE_RUNNING,
     WORKLOAD_STATE_TERMINATED,
+    Workload,
 } from '@src/Data/Workload';
 import { GetToastContentWithHeaderAndBody } from '@src/Utils/toast_utils';
 import React from 'react';
@@ -52,7 +52,7 @@ export interface InspectWorkloadModalProps {
     children?: React.ReactNode;
     isOpen: boolean;
     onClose: () => void;
-    onExportClicked: () => void;
+    onExportClicked: (currentLocalWorkload: Workload) => void;
     onStartClicked: () => void;
     onStopClicked: () => void;
     workload: Workload | null;
@@ -198,7 +198,11 @@ export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalP
                     aria-label={'Export workload state'}
                     variant="secondary"
                     icon={<ExportIcon />}
-                    onClick={props.onExportClicked}
+                    onClick={() => {
+                        if (props.workload) {
+                            props.onExportClicked(props.workload);
+                        }
+                    }}
                 >
                     Export
                 </Button>,
