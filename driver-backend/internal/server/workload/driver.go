@@ -1348,6 +1348,48 @@ func (d *BasicWorkloadDriver) handleUpdateGpuUtilizationEvent(evt domain.Event) 
 	return nil
 }
 
+// createExecuteRequestArguments creates the arguments for an "execute_request" from the given event.
+//
+// The event must be of type "training-started", or this will return nil.
+func (d *BasicWorkloadDriver) createExecuteRequestArguments(evt domain.Event) *jupyter.RequestExecuteArgs {
+	if evt.Name() != domain.EventSessionTrainingStarted {
+		d.logger.Error("Attempted to create \"execute_request\" arguments for event of invalid type.",
+			zap.String("event_type", evt.Name().String()),
+			zap.String("event_id", evt.Id()),
+			zap.String("session_id", evt.SessionID()),
+			zap.String("workload_id", d.workload.GetId()),
+			zap.String("workload_name", d.workload.WorkloadName()))
+
+		return nil
+	}
+
+	sessionMetadata := evt.Data().(*generator.SessionMeta)
+
+	gpus := sessionMetadata.CurrentTrainingMaxGPUs
+	if gpus == 0 && sessionMetadata.GPU.GPUs > 0 {
+		gpus = sessionMetadata.GPU.GPUs
+	}
+
+	resourceRequest := &domain.ResourceRequest{
+		Cpus:     sessionMetadata.CurrentTrainingMaxCPUs,
+		MemoryMB: sessionMetadata.CurrentTrainingMaxMemory,
+		VRAM:     sessionMetadata.VRAM,
+		Gpus:     gpus,
+	}
+
+	argsBuilder := jupyter.NewRequestExecuteArgsBuilder().
+		Code(TrainingCode).
+		Silent(false).
+		StoreHistory(true).
+		UserExpressions(nil).
+		AllowStdin(true).
+		StopOnError(false).
+		AwaitResponse(false).
+		AddMetadata("resource_request", resourceRequest)
+
+	return argsBuilder.Build()
+}
+
 // handleTrainingStartedEvent handles a 'training-started' event.
 func (d *BasicWorkloadDriver) handleTrainingStartedEvent(evt domain.Event) error {
 	traceSessionId := evt.Data().(domain.SessionMetadata).GetPod()
@@ -1380,17 +1422,7 @@ func (d *BasicWorkloadDriver) handleTrainingStartedEvent(evt domain.Event) error
 		return ErrNoKernelConnection
 	}
 
-	argsBuilder := jupyter.NewRequestExecuteArgsBuilder().
-		Code(TrainingCode).
-		Silent(false).
-		StoreHistory(true).
-		UserExpressions(nil).
-		AllowStdin(true).
-		StopOnError(false).
-		AwaitResponse(false).
-		AddMetadata("resources", evt.Data())
-	args := argsBuilder.Build()
-
+	args := d.createExecuteRequestArguments(evt)
 	err := kernelConnection.RequestExecute(args)
 
 	if err != nil {

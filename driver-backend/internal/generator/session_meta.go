@@ -84,6 +84,34 @@ type SessionMeta struct {
 	pending []domain.Event // For special cases, previous event will be saved here. See Transit implementation.
 }
 
+// GetCurrentTrainingMaxCPUs returns the maximum number of CPUs that this SessionMeta will use during its current training task.
+// This will only be set (i.e., have a non-zero/non-default value) when the SessionMeta is attached as data to a 'training-started' event.
+func (s *SessionMeta) GetCurrentTrainingMaxCPUs() float64 {
+	return s.CurrentTrainingMaxCPUs
+}
+
+// GetCurrentTrainingMaxMemory returns the maximum amount of memory (in GB) that this SessionMeta will use during its current training task.
+// This will only be set (i.e., have a non-zero/non-default value) when the SessionMeta is attached as data to a 'training-started' event.
+func (s *SessionMeta) GetCurrentTrainingMaxMemory() float64 {
+	return s.CurrentTrainingMaxMemory
+}
+
+// GetVRAM returns the VRAM.
+func (s *SessionMeta) GetVRAM() float64 {
+	return s.VRAM
+}
+
+// GetCurrentTrainingMaxGPUs returns the maximum number of GPUs that this SessionMeta will use during its current training task.
+// This will only be set (i.e., have a non-zero/non-default value) when the SessionMeta is attached as data to a 'training-started' event.
+func (s *SessionMeta) GetCurrentTrainingMaxGPUs() int {
+	return s.CurrentTrainingMaxGPUs
+}
+
+// GetGPUs returns the number of GPUs that this Session is configured to use.
+func (s *SessionMeta) GetGPUs() int {
+	return s.GPU.GPUs
+}
+
 // GetMaxSessionCPUs returns the maximum number of CPUs that this SessionMeta will ever use.
 // This is obtained by performing a "pre-run".
 func (s *SessionMeta) GetMaxSessionCPUs() float64 {

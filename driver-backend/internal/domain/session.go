@@ -24,17 +24,39 @@ var (
 type SessionMetadata interface {
 	// GetPod returns the pod/session ID of the session.
 	GetPod() string
+
 	// GetMaxSessionCPUs returns the maximum number of CPUs that this SessionMeta will ever use.
 	// This is obtained by performing a "pre-run".
 	GetMaxSessionCPUs() float64
+
 	// GetMaxSessionMemory returns t maximum amount of memory (in GB) that this SessionMeta will ever use.
 	// This is obtained by performing a "pre-run".
 	GetMaxSessionMemory() float64
+
 	// GetMaxSessionGPUs returns the maximum number of GPUs that this SessionMeta will ever use.
 	// This is obtained by performing a "pre-run".
 	GetMaxSessionGPUs() int
+
 	// GetMaxSessionVRAM returns the maximum VRAM (i.e. GPU memory) used by the Session at any point in gigabytes (GB).
 	GetMaxSessionVRAM() float64
+
+	// GetCurrentTrainingMaxCPUs returns the maximum number of CPUs that this SessionMetadata will use during its current training task.
+	// This will only be set (i.e., have a non-zero/non-default value) when the SessionMetadata is attached as data to a 'training-started' event.
+	GetCurrentTrainingMaxCPUs() int
+
+	// GetCurrentTrainingMaxMemory returns the maximum amount of memory (in GB) that this SessionMetadata will use during its current training task.
+	// This will only be set (i.e., have a non-zero/non-default value) when the SessionMetadata is attached as data to a 'training-started' event.
+	GetCurrentTrainingMaxMemory() int
+
+	// GetVRAM returns the VRAM.
+	GetVRAM() int
+
+	// GetCurrentTrainingMaxGPUs returns the maximum number of GPUs that this SessionMetadata will use during its current training task.
+	// This will only be set (i.e., have a non-zero/non-default value) when the SessionMetadata is attached as data to a 'training-started' event.
+	GetCurrentTrainingMaxGPUs() int
+
+	// GetGPUs returns the number of GPUs that this Session is configured to use.
+	GetGPUs() int
 }
 
 type SessionState string
