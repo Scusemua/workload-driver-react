@@ -52,20 +52,20 @@ type GPUUtil struct {
 	// prototype keeps track of the original object provisioned by the workload_generator.
 	prototype *GPUUtil
 
-	Timestamp time.Time // Time of the event triggered
-	Pod       string
-	GPUs      int
-	Value     float64
-	Max       float64
-	Status    GPUStatus
-	GPUName   string // TODO(Ben): Right now, we always use 'AnyGPU' for this. Eventually need a way to support a variety of different GPUs. Could do so randomly for now.
+	Timestamp time.Time `json:"timestamp"` // Time of the event triggered
+	Pod       string    `json:"pod"`
+	GPUs      int       `json:"num_gpus"`
+	Value     float64   `json:"gpu_utilization"`
+	Max       float64   `json:"max_gpu_utilization"`
+	Status    GPUStatus `json:"status"`
+	GPUName   string    `json:"GPUName"` // TODO(Ben): Right now, we always use 'AnyGPU' for this. Eventually need a way to support a variety of different GPUs. Could do so randomly for now.
 
 	// Repeat shows how many iterations the status holds.
-	Repeat       int
-	RawTimestamp time.Time // Time traced back to the start of the event (Repeat == 0) for delayed event.
+	Repeat       int       `json:"repeat"`
+	RawTimestamp time.Time `json:"rawTimestamp"` // Time traced back to the start of the event (Repeat == 0) for delayed event.
 
 	// LastUtil stores last committed GPU utilization.
-	LastUtil *GPUUtil
+	LastUtil *GPUUtil `json:"-"`
 }
 
 func (ed *GPUUtil) String() string {

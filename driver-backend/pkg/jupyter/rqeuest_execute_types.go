@@ -185,6 +185,10 @@ func (b *RequestExecuteArgsBuilder) StoreHistory(storeHistory bool) *RequestExec
 }
 
 func (b *RequestExecuteArgsBuilder) UserExpressions(userExpressions map[string]interface{}) *RequestExecuteArgsBuilder {
+	if userExpressions == nil {
+		userExpressions = make(map[string]interface{})
+	}
+
 	b.args.UserExpressions = userExpressions
 	return b
 }
@@ -212,15 +216,21 @@ func (b *RequestExecuteArgsBuilder) AwaitResponse(awaitResponse bool) *RequestEx
 	return b
 }
 
-// WithMetadata adds metadata with the given key and value to the RequestExecuteArgs.
+// AddMetadata adds metadata with the given key and value to the RequestExecuteArgs.
 //
 // If there already exists a metadata entry with the same key, then that entry is silently overwritten.
-func (b *RequestExecuteArgsBuilder) WithMetadata(key string, value interface{}) *RequestExecuteArgsBuilder {
+//
+// AddMetadata can be called multiple times to add multiple entries to the request's metadata.
+func (b *RequestExecuteArgsBuilder) AddMetadata(key string, value interface{}) *RequestExecuteArgsBuilder {
 	if b.args.ExtraArguments == nil {
 		b.args.ExtraArguments = &RequestExecuteArgsAdditionalArguments{
 			AwaitResponse:   true,
 			RequestMetadata: make(map[string]interface{}),
 		}
+	}
+
+	if b.args.ExtraArguments.RequestMetadata == nil {
+		b.args.ExtraArguments.RequestMetadata = make(map[string]interface{})
 	}
 
 	b.args.ExtraArguments.RequestMetadata[key] = value

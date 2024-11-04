@@ -60,6 +60,8 @@ type KernelConnection interface {
 	// - allowStdin (bool): Whether to allow stdin requests. The default is `true`.
 	//
 	// - stopOnError (bool): Whether to the abort execution queue on an error. The default is `false`.
+	//
+	// - waitForResponse (bool): Wait for response before returning.
 	RequestExecute(args *RequestExecuteArgs) error
 
 	// InterruptKernel interrupts a kernel.

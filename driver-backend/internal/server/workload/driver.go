@@ -1380,7 +1380,18 @@ func (d *BasicWorkloadDriver) handleTrainingStartedEvent(evt domain.Event) error
 		return ErrNoKernelConnection
 	}
 
-	err := kernelConnection.RequestExecute(TrainingCode, false, true, make(map[string]interface{}), true, false, false)
+	argsBuilder := jupyter.NewRequestExecuteArgsBuilder().
+		Code(TrainingCode).
+		Silent(false).
+		StoreHistory(true).
+		UserExpressions(nil).
+		AllowStdin(true).
+		StopOnError(false).
+		AwaitResponse(false).
+		AddMetadata("resources", evt.Data())
+	args := argsBuilder.Build()
+
+	err := kernelConnection.RequestExecute(args)
 
 	if err != nil {
 		d.logger.Error("Error while attempting to execute training code.",

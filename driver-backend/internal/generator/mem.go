@@ -46,18 +46,18 @@ const (
 // MemoryUtil is used as a buffer to track overall memory utilizations.
 // After updated memory readings of the same timestamp, buffered summary are committed to the "LastUtil".
 type MemoryUtil struct {
-	Timestamp time.Time
-	Pod       string
-	Value     float64
-	Max       float64
+	Timestamp time.Time `json:"timestamp"`
+	Pod       string    `json:"pod"`
+	Value     float64   `json:"value"`
+	Max       float64   `json:"max"`
 
 	// Status shows the current status of the memory.
-	Status MemoryStatus
+	Status MemoryStatus `json:"status"`
 
 	// LastUtil stores last committed memory utilization.
-	LastUtil *MemoryUtil
+	LastUtil *MemoryUtil `json:"lastUtil"`
 
-	NextUtil *MemoryUtil
+	NextUtil *MemoryUtil `json:"nextUtil"`
 
 	MaxSessionMemory float64
 	MaxTaskMemory    float64

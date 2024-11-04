@@ -50,24 +50,24 @@ const (
 // CPUUtil is used as a buffer to track overall CPU utilizations with the number of CPU cores used.
 // After updated CPU readings of the same timestamp, buffered summary are committed to the "LastUtil".
 type CPUUtil struct {
-	// prototype keeps track of the orginal object provisioned by the generator.
+	// prototype keeps track of the original object provisioned by the generator.
 	prototype *CPUUtil
 
-	Timestamp      time.Time
-	Pod            string
-	Value          float64
-	Max            float64
-	Status         CPUStatus
-	CurrentSession SessionMeta
+	Timestamp      time.Time   `json:"timestamp"`
+	Pod            string      `json:"pod"`
+	Value          float64     `json:"cpu_utilization"`
+	Max            float64     `json:"max"`
+	Status         CPUStatus   `json:"status"`
+	CurrentSession SessionMeta `json:"currentSession"`
 
-	MaxTaskCPU    float64
-	MaxSessionCPU float64
+	MaxTaskCPU    float64 `json:"maxTaskCPU"`
+	MaxSessionCPU float64 `json:"maxSessionCPU"`
 
 	// Repeat shows how many iterations the status holds.
-	Repeat int
+	Repeat int `json:"repeat"`
 
 	// LastUtil stores last committed CPU utilization.
-	LastUtil *CPUUtil
+	LastUtil *CPUUtil `json:"-"`
 }
 
 func (ed *CPUUtil) Debug_SetPrototypeSelf() {

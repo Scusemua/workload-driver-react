@@ -1231,7 +1231,8 @@ func (conn *BasicKernelConnection) getKernelModel() (*jupyterKernel, error) {
 			zap.Int("status-code", resp.StatusCode), zap.String("status", resp.Status), zap.String("message", string(associatedMessage)))
 		return nil, ErrNetworkIssue
 	} else if resp.StatusCode != http.StatusOK {
-		conn.logger.Error("Kernel died unexpectedly.", zap.String("kernel_id", conn.kernelId), zap.Int("http-status-code", resp.StatusCode), zap.String("http-status", resp.Status))
+		conn.logger.Error("Kernel died unexpectedly.", zap.String("kernel_id", conn.kernelId),
+			zap.Int("http-status-code", resp.StatusCode), zap.String("http-status", resp.Status))
 		originalStatus := conn.connectionStatus
 		err = conn.updateConnectionStatus(KernelDead)
 		if err != nil {
@@ -1247,7 +1248,16 @@ func (conn *BasicKernelConnection) getKernelModel() (*jupyterKernel, error) {
 		return nil, err
 	}
 
-	defer resp.Body.Close()
+	defer func() {
+		err = resp.Body.Close()
+		if err != nil {
+			conn.logger.Warn("Error while attempting to close body of HTTP response (for getting a kernel's model).",
+				zap.String("kernel_id", conn.kernelId),
+				zap.Int("resp_status_code", resp.StatusCode),
+				zap.String("resp_status", resp.Status),
+				zap.Error(err))
+		}
+	}()
 
 	body, _ := io.ReadAll(resp.Body)
 	var model *jupyterKernel

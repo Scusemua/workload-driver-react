@@ -25,30 +25,38 @@ func (s SessionStatus) String() string {
 
 type SessionMeta struct {
 	Timestamp time.Time
-	Pod       string
-	GPU       *GPUUtil
-	VRAM      float64
-	CPU       *CPUUtil
+	Pod       string   `json:"pod"`
+	GPU       *GPUUtil `json:"gpu"`
+	VRAM      float64  `json:"vram"`
+	CPU       *CPUUtil `json:"cpu"`
+
 	// The maximum number of CPUs that this SessionMeta will ever use.
 	// This is obtained by performing a "pre-run".
-	MaxSessionCPUs float64
+	MaxSessionCPUs float64 `json:"maxSessionCPUs"`
+
 	// The maximum amount of memory (in GB) that this SessionMeta will ever use.
 	// This is obtained by performing a "pre-run".
-	MaxSessionMemory float64
+	MaxSessionMemory float64 `json:"maxSessionMemory"`
+
 	// The maximum number of GPUs that this SessionMeta will ever use.
 	// This is obtained by performing a "pre-run".
-	MaxSessionGPUs int
+	MaxSessionGPUs int `json:"maxSessionGPUs"`
+
 	// MaxSessionVRAM is the maximum amount of VRAM (i.e., GPU memory) that the SessionMeta will ever use in GB.
-	MaxSessionVRAM float64
+	MaxSessionVRAM float64 `json:"maxSessionVRAM"`
+
 	// The maximum number of CPUs that this SessionMeta will use during its current training task.
 	// This will only be set (i.e., have a non-zero/non-default value) when the SessionMeta is attached as data to a 'training-started' event.
-	CurrentTrainingMaxCPUs float64
+	CurrentTrainingMaxCPUs float64 `json:"currentTrainingMaxCPUs"`
+
 	// The maximum amount of memory (in GB) that this SessionMeta will use during its current training task.
 	// This will only be set (i.e., have a non-zero/non-default value) when the SessionMeta is attached as data to a 'training-started' event.
-	CurrentTrainingMaxMemory float64
+	CurrentTrainingMaxMemory float64 `json:"currentTrainingMaxMemory"`
+
 	// The maximum number of GPUs that this SessionMeta will use during its current training task.
 	// This will only be set (i.e., have a non-zero/non-default value) when the SessionMeta is attached as data to a 'training-started' event.
-	CurrentTrainingMaxGPUs int
+	CurrentTrainingMaxGPUs int `json:"currentTrainingMaxGPUs"`
+
 	// If we're adjusting the MaxSessionGPUs value, then we also need to keep track of an "AdjustmentFactor".
 	// Consider a scenario in which session "ExampleSession1" originally had NUM_GPUS: 8 and MAX_GPU_UTIL: 50%.
 	// During the tick where ExampleSession1's utilization is reported as 50%, we would typically compute the "true" utilization (across all of its GPUs) as:
@@ -63,14 +71,14 @@ type SessionMeta struct {
 	//
 	// But to simply everything, we'll adjust the utilization values within the workload generator portion -- while we're processing the records with the drivers,
 	// rather than at the time when we're computing utilization in the workload simulator.
-	AdjustmentFactor float64
-	Memory           *MemoryUtil
-	MemoryQuerier    *MemoryUtilBuffer
-	Status           SessionStatus
-	StatusReadyFlags int // A flag that indicates which trace is ready.
+	AdjustmentFactor float64           `json:"adjustmentFactor"`
+	Memory           *MemoryUtil       `json:"memory"`
+	MemoryQuerier    *MemoryUtilBuffer `json:"-"`
+	Status           SessionStatus     `json:"status"`
+	StatusReadyFlags int               // A flag that indicates which trace is ready.
 
-	InitedAt  time.Time
-	InitDelay time.Duration
+	InitedAt  time.Time     `json:"initedAt"`
+	InitDelay time.Duration `json:"initDelay"`
 
 	last    domain.Event   // Track last event for debugging purpose.
 	pending []domain.Event // For special cases, previous event will be saved here. See Transit implementation.
