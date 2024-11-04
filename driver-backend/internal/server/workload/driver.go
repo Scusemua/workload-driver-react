@@ -77,6 +77,7 @@ var (
 	ErrWorkloadAlreadyRegistered           = errors.New("driver already has a workload registered with it")
 	ErrUnsupportedWorkloadType             = errors.New("unsupported workload type")
 	ErrWorkloadRegistrationMissingTemplate = errors.New("workload registration request for template-based workload is missing the template itself")
+	ErrUnknownEventType                    = errors.New("unknown or unsupported session/workload event type")
 
 	ErrUnknownSession      = errors.New("received 'training-started' or 'training-ended' event for unknown session")
 	ErrNoSessionConnection = errors.New("received 'training-started' or 'training-ended' event for session for which no session connection exists")
@@ -1331,105 +1332,194 @@ func (d *BasicWorkloadDriver) handleSessionReadyEvents(latestTick time.Time) {
 	d.sugaredLogger.Debugf("Finished processing %d events in %v.", len(sessionReadyEvents), time.Since(st))
 }
 
-// handleEvent processes a single domain.Event.
-func (d *BasicWorkloadDriver) handleEvent(evt domain.Event) error {
+// handleUpdateGpuUtilizationEvent handles a 'update-gpu-util' event.
+func (d *BasicWorkloadDriver) handleUpdateGpuUtilizationEvent(evt domain.Event) error {
 	traceSessionId := evt.Data().(domain.SessionMetadata).GetPod()
 	internalSessionId := d.getInternalSessionId(traceSessionId)
 
+	d.logger.Debug("Received UpdateGpuUtil event.",
+		zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
+		zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
+	// TODO: Update GPU utilization.
+	d.logger.Debug("Handled UpdateGpuUtil event.",
+		zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
+		zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
+
+	return nil
+}
+
+// handleTrainingStartedEvent handles a 'training-started' event.
+func (d *BasicWorkloadDriver) handleTrainingStartedEvent(evt domain.Event) error {
+	traceSessionId := evt.Data().(domain.SessionMetadata).GetPod()
+	internalSessionId := d.getInternalSessionId(traceSessionId)
+
+	d.logger.Debug("Received TrainingStarted event.",
+		zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
+		zap.String("internal-session-id", internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
+
+	if _, ok := d.seenSessions[internalSessionId]; !ok {
+		d.logger.Error("Received 'training-started' event for unknown session.",
+			zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
+		return ErrUnknownSession
+	}
+
+	sessionConnection, ok := d.sessionConnections[internalSessionId]
+	if !ok {
+		d.logger.Error("No session connection found for session upon receiving 'training-started' event.",
+			zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
+		return ErrNoSessionConnection
+	}
+
+	kernelConnection := sessionConnection.Kernel()
+	if kernelConnection == nil {
+		d.logger.Error("No kernel connection found for session connection.",
+			zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
+		return ErrNoKernelConnection
+	}
+
+	err := kernelConnection.RequestExecute(TrainingCode, false, true, make(map[string]interface{}), true, false, false)
+
+	if err != nil {
+		d.logger.Error("Error while attempting to execute training code.",
+			zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId), zap.Error(err))
+		return err
+	}
+
+	d.workload.TrainingStarted(traceSessionId)
+	d.logger.Debug("Handled TrainingStarted event.",
+		zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
+		zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
+
+	return nil
+}
+
+// handleTrainingEndedEvent handles a 'training-stopped' event.
+func (d *BasicWorkloadDriver) handleTrainingEndedEvent(evt domain.Event) error {
+	traceSessionId := evt.Data().(domain.SessionMetadata).GetPod()
+	internalSessionId := d.getInternalSessionId(traceSessionId)
+	d.logger.Debug("Received TrainingEnded event.",
+		zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
+		zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
+
+	if _, ok := d.seenSessions[internalSessionId]; !ok {
+		d.logger.Error("Received 'training-stopped' event for unknown session.",
+			zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
+		return ErrUnknownSession
+	}
+
+	if _, ok := d.seenSessions[internalSessionId]; !ok {
+		d.logger.Error("Received 'training-stopped' event for unknown session.",
+			zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
+		return ErrUnknownSession
+	}
+
+	sessionConnection, ok := d.sessionConnections[internalSessionId]
+	if !ok {
+		d.logger.Error("No session connection found for session upon receiving 'training-stopped' event.",
+			zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
+		return ErrNoSessionConnection
+	}
+
+	kernelConnection := sessionConnection.Kernel()
+	if kernelConnection == nil {
+		d.logger.Error("No kernel connection found for session connection.",
+			zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
+		return ErrNoKernelConnection
+	}
+
+	err := kernelConnection.StopRunningTrainingCode(true)
+	if err != nil {
+		d.logger.Error("Error while attempting to stop training.",
+			zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId), zap.Error(err))
+		return err
+	} else {
+		d.workload.TrainingStopped(traceSessionId)
+		d.logger.Debug("Successfully handled TrainingEnded event.",
+			zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
+	}
+
+	return nil
+}
+
+// handleSessionStoppedEvent handles a 'session-stopped' event.
+func (d *BasicWorkloadDriver) handleSessionStoppedEvent(evt domain.Event) error {
+	traceSessionId := evt.Data().(domain.SessionMetadata).GetPod()
+	internalSessionId := d.getInternalSessionId(traceSessionId)
+
+	d.logger.Debug("Received SessionStopped event.",
+		zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
+		zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
+
+	// TODO: Test that this actually works.
+	err := d.stopSession(d.getOriginalSessionIdFromInternalSessionId(internalSessionId))
+	if err != nil {
+		return err
+	} else {
+		d.logger.Debug("Successfully stopped session.",
+			zap.String("workload_id", d.workload.GetId()),
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String(ZapInternalSessionIDKey, internalSessionId),
+			zap.String(ZapTraceSessionIDKey, traceSessionId))
+	}
+
+	// Attempt to update the Prometheus metrics for Session lifetime duration (in seconds).
+	session := d.GetSession(internalSessionId)
+	if session == nil {
+		d.logger.Error("Could not find WorkloadSession with specified ID.",
+			zap.String("workload_id", d.workload.GetId()),
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String("session_id", internalSessionId))
+	} else {
+		sessionLifetimeDuration := time.Since(session.GetCreatedAt())
+		metrics.PrometheusMetricsWrapperInstance.WorkloadSessionLifetimeSeconds.
+			With(prometheus.Labels{"workload_id": d.workload.GetId()}).
+			Observe(sessionLifetimeDuration.Seconds())
+	}
+
+	d.workload.SessionStopped(traceSessionId)
+	d.logger.Debug("Handled SessionStopped event.",
+		zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
+		zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
+
+	return nil
+}
+
+// handleEvent processes a single domain.Event.
+func (d *BasicWorkloadDriver) handleEvent(evt domain.Event) error {
 	switch evt.Name() {
 	case domain.EventSessionStarted:
-		// d.logger.Debug("Received SessionStarted event.", zap.String(ZapInternalSessionIDKey, sessionId))
 		panic("Received SessionStarted event.")
 	case domain.EventSessionTrainingStarted:
-		d.logger.Debug("Received TrainingStarted event.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String("internal-session-id", internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
-
-		if _, ok := d.seenSessions[internalSessionId]; !ok {
-			d.logger.Error("Received 'training-started' event for unknown session.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
-			return ErrUnknownSession
-		}
-
-		sessionConnection, ok := d.sessionConnections[internalSessionId]
-		if !ok {
-			d.logger.Error("No session connection found for session upon receiving 'training-started' event.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
-			return ErrNoSessionConnection
-		}
-
-		kernelConnection := sessionConnection.Kernel()
-		if kernelConnection == nil {
-			d.logger.Error("No kernel connection found for session connection.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
-			return ErrNoKernelConnection
-		}
-
-		err := kernelConnection.RequestExecute(TrainingCode, false, true, make(map[string]interface{}), true, false, false)
-		if err != nil {
-			d.logger.Error("Error while attempting to execute training code.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId), zap.Error(err))
-			return err
-		}
-
-		d.workload.TrainingStarted(traceSessionId)
-		d.logger.Debug("Handled TrainingStarted event.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
+		return d.handleTrainingStartedEvent(evt)
 	case domain.EventSessionUpdateGpuUtil:
-		d.logger.Debug("Received UpdateGpuUtil event.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
-		// TODO: Update GPU utilization.
-		d.logger.Debug("Handled UpdateGpuUtil event.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
+		return d.handleUpdateGpuUtilizationEvent(evt)
 	case domain.EventSessionTrainingEnded:
-		d.logger.Debug("Received TrainingEnded event.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
-
-		if _, ok := d.seenSessions[internalSessionId]; !ok {
-			d.logger.Error("Received 'training-stopped' event for unknown session.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
-			return ErrUnknownSession
-		}
-
-		if _, ok := d.seenSessions[internalSessionId]; !ok {
-			d.logger.Error("Received 'training-stopped' event for unknown session.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
-			return ErrUnknownSession
-		}
-
-		sessionConnection, ok := d.sessionConnections[internalSessionId]
-		if !ok {
-			d.logger.Error("No session connection found for session upon receiving 'training-stopped' event.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
-			return ErrNoSessionConnection
-		}
-
-		kernelConnection := sessionConnection.Kernel()
-		if kernelConnection == nil {
-			d.logger.Error("No kernel connection found for session connection.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
-			return ErrNoKernelConnection
-		}
-
-		err := kernelConnection.StopRunningTrainingCode(true)
-		if err != nil {
-			d.logger.Error("Error while attempting to stop training.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId), zap.Error(err))
-			return err
-		} else {
-			d.workload.TrainingStopped(traceSessionId)
-			d.logger.Debug("Successfully handled TrainingEnded event.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
-		}
+		return d.handleTrainingEndedEvent(evt)
 	case domain.EventSessionStopped:
-		d.logger.Debug("Received SessionStopped event.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
-
-		// TODO: Test that this actually works.
-		err := d.stopSession(d.getOriginalSessionIdFromInternalSessionId(internalSessionId))
-		if err != nil {
-			return err
-		} else {
-			d.logger.Debug("Successfully stopped session.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
-		}
-
-		// Attempt to update the Prometheus metrics for Session lifetime duration (in seconds).
+		return d.handleSessionStoppedEvent(evt)
+	default:
+		traceSessionId := evt.Data().(domain.SessionMetadata).GetPod()
 		internalSessionId := d.getInternalSessionId(traceSessionId)
-		session := d.GetSession(internalSessionId)
-		if session == nil {
-			d.logger.Error("Could not find WorkloadSession with specified ID.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String("session_id", internalSessionId))
-		} else {
-			sessionLifetimeDuration := time.Since(session.GetCreatedAt())
-			metrics.PrometheusMetricsWrapperInstance.WorkloadSessionLifetimeSeconds.
-				With(prometheus.Labels{"workload_id": d.workload.GetId()}).
-				Observe(sessionLifetimeDuration.Seconds())
-		}
 
-		d.workload.SessionStopped(traceSessionId)
-		d.logger.Debug("Handled SessionStopped event.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
+		d.logger.Error("Received event of unknown type.",
+			zap.String("workload_id", d.workload.GetId()),
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String("event_name", evt.Name().String()),
+			zap.Time("event_timestamp", evt.Timestamp()),
+			zap.String("trace_session_id", traceSessionId),
+			zap.String("session_id", internalSessionId))
+
+		return fmt.Errorf("%w: \"%s\"", ErrUnknownEventType, evt.Name().String())
 	}
 
 	return nil

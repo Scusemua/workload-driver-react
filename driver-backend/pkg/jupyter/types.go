@@ -48,14 +48,19 @@ type KernelConnection interface {
 	// The future will resolve when this message is received and the `idle` IOPub status is received.
 	//
 	// Arguments:
+	//
 	// - code (string): The code to execute.
+	//
 	// - silent (bool): Whether to execute the code as quietly as possible. The default is `false`.
-	// - storeHistory (bool): Whether to store history of the execution. The default `true` if silent is False. It is forced to  `false ` if silent is `true`.
+	//
+	// - storeHistory (bool): Whether to store history of the execution. The default true if silent is false. It is forced to  false if silent is true.
+	//
 	// - userExpressions (map[string]interface{}): A mapping of names to expressions to be evaluated in the kernel's interactive namespace.
+	//
 	// - allowStdin (bool): Whether to allow stdin requests. The default is `true`.
+	//
 	// - stopOnError (bool): Whether to the abort execution queue on an error. The default is `false`.
-	// - waitForResponse (bool): Whether to wait for a response from the kernel, or just return immediately.
-	RequestExecute(code string, silent bool, storeHistory bool, userExpressions map[string]interface{}, allowStdin bool, stopOnError bool, waitForResponse bool) error
+	RequestExecute(args *RequestExecuteArgs) error
 
 	// InterruptKernel interrupts a kernel.
 	//

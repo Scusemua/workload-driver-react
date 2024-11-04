@@ -361,7 +361,7 @@ func (conn *BasicKernelConnection) sendAck(msg KernelMessage, channel KernelSock
 	content["sender-identity"] = fmt.Sprintf("GoJupyter-%s", conn.kernelId)
 
 	ackMessage, _ := conn.createKernelMessage(AckMessage, channel, content)
-	ackMessage.(*baseKernelMessage).ParentHeader = msg.GetParentHeader()
+	ackMessage.(*BaseKernelMessage).ParentHeader = msg.GetParentHeader()
 
 	firstPart := fmt.Sprintf(LightBlueStyle.Render("Sending ACK for %v \"%v\""), channel, msg.GetParentHeader().MessageType)
 	secondPart := fmt.Sprintf("(MsgId=%v)", LightPurpleStyle.Render(msg.GetParentHeader().MessageId))
@@ -413,17 +413,24 @@ func (conn *BasicKernelConnection) KernelId() string {
 // - allowStdin (bool): Whether to allow stdin requests. The default is `true`.
 // - stopOnError (bool): Whether to the abort execution queue on an error. The default is `false`.
 // - waitForResponse (bool): Whether to wait for a response from the kernel, or just return immediately.
-func (conn *BasicKernelConnection) RequestExecute(code string, silent bool, storeHistory bool, userExpressions map[string]interface{}, allowStdin bool, stopOnError bool, waitForResponse bool) error {
-	content := &executeRequestKernelMessageContent{
-		Code:            code,
-		Silent:          silent,
-		StoreHistory:    storeHistory,
-		UserExpressions: userExpressions,
-		AllowStdin:      allowStdin,
-		StopOnError:     stopOnError,
-	}
+func (conn *BasicKernelConnection) RequestExecute(args *RequestExecuteArgs) error {
+	//content := &executeRequestKernelMessageContent{
+	//	Code:            args.Code,
+	//	Silent:          args.Silent,
+	//	StoreHistory:    args.StoreHistory,
+	//	UserExpressions: args.UserExpressions,
+	//	AllowStdin:      args.AllowStdin,
+	//	StopOnError:     args.StopOnError,
+	//}
+	content := args.StripNonstandardArguments()
 
 	message, responseChan := conn.createKernelMessage(ExecuteRequest, ShellChannel, content)
+
+	if args.ExtraArguments != nil && args.ExtraArguments.RequestMetadata != nil {
+		for key, value := range args.ExtraArguments.RequestMetadata {
+			message.GetMetadata()[key] = value
+		}
+	}
 
 	sentAt := time.Now()
 	err := conn.sendMessage(message)
@@ -434,7 +441,7 @@ func (conn *BasicKernelConnection) RequestExecute(code string, silent bool, stor
 
 	conn.waitingForExecuteResponses.Add(1)
 
-	if waitForResponse {
+	if args.AwaitResponse() {
 		// We'll populate this either in the ticker or when we get the response.
 		var (
 			workloadId string
@@ -456,11 +463,8 @@ func (conn *BasicKernelConnection) RequestExecute(code string, silent bool, stor
 			conn.metricsConsumer.ObserveJupyterExecuteRequestE2ELatency(latencyMs, workloadId)
 			conn.metricsConsumer.AddJupyterRequestExecuteTime(latencyMs, conn.kernelId, workloadId)
 		}
-
-		// Wait until we receive the response.
-		//wg.Wait()
-		//clockTrigger.Stop(ticker) // Stop the ticker.
 	}
+
 	return nil
 }
 
@@ -585,7 +589,7 @@ func (conn *BasicKernelConnection) Username() string {
 // decoded result, or an error if one occurred.
 //
 // - WebSocket protocol: https://jupyter-server.readthedocs.io/en/latest/developers/websocket-protocols.html
-func (conn *BasicKernelConnection) decodeKernelMessage(buf []byte) (*baseKernelMessage, error) {
+func (conn *BasicKernelConnection) decodeKernelMessage(buf []byte) (*BaseKernelMessage, error) {
 	//conn.logger.Debug("Decoding message from kernel.",
 	//	zap.String("kernel_id", conn.kernelId),
 	//	zap.Int("size", len(buf)),
@@ -595,7 +599,7 @@ func (conn *BasicKernelConnection) decodeKernelMessage(buf []byte) (*baseKernelM
 
 	// Decode JSON from the buffer.
 	// This will usually work, but if the message has buffers attached to it, then it won't.
-	var msg *baseKernelMessage
+	var msg *BaseKernelMessage
 	if err := json.Unmarshal(buf, &msg); err == nil {
 		//conn.logger.Debug("Successfully deserialized Jupyter message without having to parse any of it as binary.",
 		//	zap.String("message_id", msg.Header.MessageId),
@@ -691,7 +695,7 @@ func (conn *BasicKernelConnection) serveMessages() {
 			continue
 		}
 
-		var kernelMessage *baseKernelMessage
+		var kernelMessage *BaseKernelMessage
 		kernelMessage, err = conn.decodeKernelMessage(data)
 
 		if err == io.EOF {
@@ -868,7 +872,7 @@ func (conn *BasicKernelConnection) createKernelMessage(messageType MessageType, 
 			zap.String("username", conn.username))
 	}
 
-	message := &baseKernelMessage{
+	message := &BaseKernelMessage{
 		Channel:      channel,
 		Header:       header,
 		Content:      content,

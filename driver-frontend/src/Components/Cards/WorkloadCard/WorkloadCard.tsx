@@ -72,6 +72,7 @@ import {
 } from '@src/Data/Workload';
 import { SessionTabsDataProvider } from '@src/Providers';
 import { DefaultDismiss, GetToastContentWithHeaderAndBody } from '@src/Utils/toast_utils';
+import { ExportWorkloadToJson } from '@src/Utils/utils';
 import React, { useEffect } from 'react';
 import { Toast, toast } from 'react-hot-toast';
 import { v4 as uuidv4 } from 'uuid';
@@ -426,34 +427,6 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
     };
 
     /**
-     * Export the workload to JSON.
-     *
-     * @param workload the workload to be exported.
-     * @param filename the filename to use, including the file extension. if unspecified,
-     *                 then filename will be set to a string of the form "workload_ID.json"
-     */
-    const exportWorkload = (workload: Workload, filename?: string | undefined) => {
-        const downloadElement: HTMLAnchorElement = document.createElement('a');
-        downloadElement.setAttribute(
-            'href',
-            'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(workload, null, 2)),
-        );
-
-        if (filename !== undefined && filename !== '') {
-            downloadElement.setAttribute('download', filename);
-        } else {
-            downloadElement.setAttribute('download', `workload_${workload.id}.json`);
-        }
-
-        downloadElement.style.display = 'none';
-        document.body.appendChild(downloadElement);
-
-        downloadElement.click();
-
-        document.body.removeChild(downloadElement);
-    };
-
-    /**
      * Retrieve the latest version of the specified workload from the server and then download it as a JSON file.
      */
     const exportWorkloadClicked = (currentLocalWorkload: Workload) => {
@@ -466,7 +439,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
             console.warn(
                 `Could not refresh workload ${currentLocalWorkload.id} after 5 seconds. Exporting local copy.`,
             );
-            exportWorkload(currentLocalWorkload);
+            ExportWorkloadToJson(currentLocalWorkload, `workload_${currentLocalWorkload.id}_local.json`);
         }, 5000);
 
         const errorMessage: string | void = sendJsonMessage(
@@ -476,6 +449,8 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
             }),
             messageId,
             (workloadResponse: WorkloadResponse) => {
+                // First, clear the timeout that we set. We don't need to export the local copy (unless the
+                // server didn't return a valid remote copy, but we'll handle that later).
                 clearTimeout(timeout);
                 console.log(`Resp: ${JSON.stringify(workloadResponse, null, 2)}`);
 
@@ -489,7 +464,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                             DefaultDismiss,
                         ),
                     );
-                    exportWorkload(currentLocalWorkload, `workload_${currentLocalWorkload.id}_local.json`);
+                    ExportWorkloadToJson(currentLocalWorkload, `workload_${currentLocalWorkload.id}_local.json`);
                 } else if (workloadResponse.modified_workloads.length > 1) {
                     // The server returned multiple workloads despite us querying for only one ID.
                     // We'll export all the remote workloads as well as the local copy, just to be safe.
@@ -502,15 +477,18 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                         ),
                     );
 
-                    exportWorkload(currentLocalWorkload, `workload_${currentLocalWorkload.id}_local.json`);
+                    // Export the local copy of the workload.
+                    ExportWorkloadToJson(currentLocalWorkload, `workload_${currentLocalWorkload.id}_local.json`);
+
+                    // Export the multiple remote copies (that we received for some... reason).
                     for (let i = 0; i < workloadResponse.modified_workloads.length; i++) {
                         const remoteWorkload: Workload = workloadResponse.modified_workloads[i];
-                        exportWorkload(remoteWorkload, `workload_${remoteWorkload.id}_remote_${i}.json`);
+                        ExportWorkloadToJson(remoteWorkload, `workload_${remoteWorkload.id}_remote_${i}.json`);
                     }
                 } else {
                     // The server only returned one remote workload. We'll just export the remote workload.
                     const remoteWorkload: Workload = workloadResponse.modified_workloads[0];
-                    exportWorkload(remoteWorkload, `workload_${remoteWorkload.id}_remote.json`);
+                    ExportWorkloadToJson(remoteWorkload, `workload_${remoteWorkload.id}_remote.json`);
                 }
             },
         );
@@ -536,7 +514,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
             );
 
             // Export the local copy.
-            exportWorkload(currentLocalWorkload, `workload_${currentLocalWorkload.id}_local.json`);
+            ExportWorkloadToJson(currentLocalWorkload, `workload_${currentLocalWorkload.id}_local.json`);
         }
     };
 

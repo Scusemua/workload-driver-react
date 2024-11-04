@@ -1,4 +1,5 @@
 import { RoundToTwoDecimalPlaces } from '@Components/Modals';
+import { Workload } from '@src/Data';
 
 export function GetRowspan(val: number) {
     if (val % 2 == 0) {
@@ -84,4 +85,32 @@ export function UnixTimestampToDateString(unixTimestamp: number): string {
     const min: number = date.getMinutes();
     const sec: number = date.getSeconds();
     return day + ' ' + month + ' ' + year + ' ' + hour + ':' + min + ':' + sec;
+}
+
+/**
+ * Export the workload to JSON.
+ *
+ * @param workload the workload to be exported.
+ * @param filename the filename to use, including the file extension. if unspecified,
+ *                 then filename will be set to a string of the form "workload_ID.json"
+ */
+export function ExportWorkloadToJson(workload: Workload, filename?: string | undefined) {
+  const downloadElement: HTMLAnchorElement = document.createElement('a');
+  downloadElement.setAttribute(
+    'href',
+    'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(workload, null, 2)),
+  );
+
+  if (filename !== undefined && filename !== '') {
+    downloadElement.setAttribute('download', filename);
+  } else {
+    downloadElement.setAttribute('download', `workload_${workload.id}.json`);
+  }
+
+  downloadElement.style.display = 'none';
+  document.body.appendChild(downloadElement);
+
+  downloadElement.click();
+
+  document.body.removeChild(downloadElement);
 }
