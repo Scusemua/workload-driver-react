@@ -346,7 +346,7 @@ func (conn *BasicKernelConnection) StopRunningTrainingCode(waitForResponse bool)
 // sendAck sends an ACK to the Jupyter Server (and subsequently the Cluster Gateway).
 // It returns the address of the Jupyter Server associated with this kernel.
 func (conn *BasicKernelConnection) sendAck(msg KernelMessage, channel KernelSocketChannel) error {
-	conn.logger.Debug("Attempting to ACK message.", zap.String("message-id", msg.GetHeader().MessageId), zap.String("channel", string(msg.GetChannel())), zap.String("kernel_id", conn.kernelId))
+	conn.logger.Debug("Attempting to ACK message.", zap.String("message_id", msg.GetHeader().MessageId), zap.String("channel", string(msg.GetChannel())), zap.String("kernel_id", conn.kernelId))
 
 	if channel != ShellChannel && channel != ControlChannel {
 		conn.sugaredLogger.Warnf("Cannot ACK message of type \"%s\"...", channel)
@@ -414,20 +414,18 @@ func (conn *BasicKernelConnection) KernelId() string {
 // - stopOnError (bool): Whether to the abort execution queue on an error. The default is `false`.
 // - waitForResponse (bool): Whether to wait for a response from the kernel, or just return immediately.
 func (conn *BasicKernelConnection) RequestExecute(args *RequestExecuteArgs) error {
-	//content := &executeRequestKernelMessageContent{
-	//	Code:            args.Code,
-	//	Silent:          args.Silent,
-	//	StoreHistory:    args.StoreHistory,
-	//	UserExpressions: args.UserExpressions,
-	//	AllowStdin:      args.AllowStdin,
-	//	StopOnError:     args.StopOnError,
-	//}
 	content := args.StripNonstandardArguments()
 
 	message, responseChan := conn.createKernelMessage(ExecuteRequest, ShellChannel, content)
 
 	if args.ExtraArguments != nil && args.ExtraArguments.RequestMetadata != nil {
 		for key, value := range args.ExtraArguments.RequestMetadata {
+			conn.logger.Debug("Adding metadata entry to \"execute_request\" message.",
+				zap.String("kernel_id", conn.kernelId),
+				zap.String("message_id", message.GetHeader().MessageId),
+				zap.String("metadata_key", key),
+				zap.Any("metadata_value", value))
+
 			message.GetMetadata()[key] = value
 		}
 	}
@@ -435,7 +433,10 @@ func (conn *BasicKernelConnection) RequestExecute(args *RequestExecuteArgs) erro
 	sentAt := time.Now()
 	err := conn.sendMessage(message)
 	if err != nil {
-		conn.logger.Error("Error while writing 'execute_request' message.", zap.String("kernel_id", conn.kernelId), zap.Error(err))
+		conn.logger.Error("Error while writing 'execute_request' message.",
+			zap.String("kernel_id", conn.kernelId),
+			zap.Error(err))
+
 		return err
 	}
 
@@ -449,7 +450,11 @@ func (conn *BasicKernelConnection) RequestExecute(args *RequestExecuteArgs) erro
 
 		response := <-responseChan
 		latency := time.Since(sentAt)
-		conn.logger.Debug("Received response to `execute_request` message.", zap.String("message_id", message.GetHeader().MessageId), zap.Duration("latency", latency), zap.Any("response", response))
+		conn.logger.Debug("Received response to `execute_request` message.",
+			zap.String("kernel_id", conn.kernelId),
+			zap.String("message_id", message.GetHeader().MessageId),
+			zap.Duration("latency", latency),
+			zap.Any("response", response))
 
 		conn.waitingForExecuteResponses.Add(-1)
 
@@ -474,7 +479,11 @@ func (conn *BasicKernelConnection) RequestKernelInfo() (KernelMessage, error) {
 
 	message, responseChan := conn.createKernelMessage(KernelInfoRequest, ShellChannel, content)
 
-	conn.logger.Debug("Sending 'request-info' message now.", zap.String("message-id", message.GetHeader().MessageId), zap.String("kernel_id", conn.kernelId), zap.String("session", message.GetHeader().Session), zap.String("message", message.String()))
+	conn.logger.Debug("Sending 'request-info' message now.",
+		zap.String("message_id", message.GetHeader().MessageId),
+		zap.String("kernel_id", conn.kernelId),
+		zap.String("session", message.GetHeader().Session),
+		zap.String("message", message.String()))
 
 	err := conn.sendMessage(message)
 	if err != nil {
@@ -489,12 +498,15 @@ func (conn *BasicKernelConnection) RequestKernelInfo() (KernelMessage, error) {
 	case <-ctx.Done():
 		{
 			conn.logger.Error("Request of type \"kernel_info_request\" has timed out.",
-				zap.String("kernel_id", conn.kernelId), zap.String("message-id", message.GetHeader().MessageId))
+				zap.String("kernel_id", conn.kernelId), zap.String("message_id", message.GetHeader().MessageId))
 			return nil, fmt.Errorf("ErrRequestTimedOut %w : %s", ErrRequestTimedOut, ctx.Err())
 		}
 	case resp := <-responseChan:
 		{
-			conn.logger.Debug("Received response to 'request-info' request.", zap.String("response", resp.String()))
+			conn.logger.Debug("Received response to 'request-info' request.",
+				zap.String("kernel_id", conn.kernelId),
+				zap.String("message_id", resp.GetHeader().MessageId),
+				zap.String("response", resp.String()))
 			return resp, nil
 		}
 	}
