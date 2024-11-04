@@ -1363,17 +1363,17 @@ func (d *BasicWorkloadDriver) createExecuteRequestArguments(evt domain.Event) *j
 		return nil
 	}
 
-	sessionMetadata := evt.Data().(*generator.SessionMeta)
+	sessionMetadata := evt.Data().(domain.SessionMetadata)
 
-	gpus := sessionMetadata.CurrentTrainingMaxGPUs
-	if gpus == 0 && sessionMetadata.GPU.GPUs > 0 {
-		gpus = sessionMetadata.GPU.GPUs
+	gpus := sessionMetadata.GetCurrentTrainingMaxGPUs()
+	if gpus == 0 && sessionMetadata.GetGPUs() > 0 {
+		gpus = sessionMetadata.GetGPUs()
 	}
 
 	resourceRequest := &domain.ResourceRequest{
-		Cpus:     sessionMetadata.CurrentTrainingMaxCPUs,
-		MemoryMB: sessionMetadata.CurrentTrainingMaxMemory,
-		VRAM:     sessionMetadata.VRAM,
+		Cpus:     sessionMetadata.GetCurrentTrainingMaxCPUs(),
+		MemoryMB: sessionMetadata.GetCurrentTrainingMaxMemory(),
+		VRAM:     sessionMetadata.GetVRAM(),
 		Gpus:     gpus,
 	}
 

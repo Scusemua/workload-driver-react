@@ -42,14 +42,14 @@ type SessionMetadata interface {
 
 	// GetCurrentTrainingMaxCPUs returns the maximum number of CPUs that this SessionMetadata will use during its current training task.
 	// This will only be set (i.e., have a non-zero/non-default value) when the SessionMetadata is attached as data to a 'training-started' event.
-	GetCurrentTrainingMaxCPUs() int
+	GetCurrentTrainingMaxCPUs() float64
 
 	// GetCurrentTrainingMaxMemory returns the maximum amount of memory (in GB) that this SessionMetadata will use during its current training task.
 	// This will only be set (i.e., have a non-zero/non-default value) when the SessionMetadata is attached as data to a 'training-started' event.
-	GetCurrentTrainingMaxMemory() int
+	GetCurrentTrainingMaxMemory() float64
 
 	// GetVRAM returns the VRAM.
-	GetVRAM() int
+	GetVRAM() float64
 
 	// GetCurrentTrainingMaxGPUs returns the maximum number of GPUs that this SessionMetadata will use during its current training task.
 	// This will only be set (i.e., have a non-zero/non-default value) when the SessionMetadata is attached as data to a 'training-started' event.
