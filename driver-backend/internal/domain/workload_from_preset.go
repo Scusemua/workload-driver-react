@@ -1,5 +1,9 @@
 package domain
 
+// WorkloadFromPreset is a struct representing a workload that is generated using the "preset" option
+// within the frontend dashboard.
+//
+// Presets are how we run workloads from trace data (among other things).
 type WorkloadFromPreset struct {
 	*workloadImpl
 

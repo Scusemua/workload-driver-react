@@ -637,7 +637,7 @@ func (d *GPUDriver) gc(ctx context.Context, ts time.Time, force bool) error {
 	var err error
 	for _, pod := range d.pods {
 		// if pod != nil && pod.Pod == "trainman-k8s-job-ccdd6414-980b-4a76-8b91-0937740e2b3b-24lx7" {
-		// 	log.Debug("check gc %v %v %v", pod.Timestamp, pod.Status, pod)
+		// 	log.Debug("check garbageCollect %v %v %v", pod.Timestamp, pod.Status, pod)
 		// 	if pod.LastUtil != nil {
 		// 		log.Debug("history %v %v %v", pod.Timestamp, pod.Status, pod)
 		// 	}
@@ -652,7 +652,7 @@ func (d *GPUDriver) gc(ctx context.Context, ts time.Time, force bool) error {
 		committed := pod.commit()
 		events, err = committed.transit(events, force)
 		if err != nil {
-			sugarLog.Warnf("Error on commiting last readings in gc: %v, %v", err, committed)
+			sugarLog.Warnf("Error on commiting last readings in garbageCollect: %v, %v", err, committed)
 		}
 		if err := d.triggerMulti(ctx, events, committed); err != nil {
 			return err
@@ -664,7 +664,7 @@ func (d *GPUDriver) gc(ctx context.Context, ts time.Time, force bool) error {
 		committed := pod.reset(ts)
 		events, err = committed.transit(events, force)
 		if err != nil {
-			sugarLog.Warnf("Error on commiting last readings in gc: %v, %v", err, committed)
+			sugarLog.Warnf("Error on commiting last readings in garbageCollect: %v, %v", err, committed)
 		}
 		if err := d.triggerMulti(ctx, events, committed); err != nil {
 			return err

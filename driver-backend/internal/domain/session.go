@@ -279,18 +279,6 @@ type WorkloadTemplateSession struct {
 	Trainings []*TrainingEvent `json:"trainings"`
 }
 
-// NewWorkloadTemplateSession creates a new WorkloadTemplateSession struct and returns a pointer to it.
-func NewWorkloadTemplateSession(id string, meta SessionMetadata, resourceRequest *ResourceRequest, createdAtTime time.Time, startTick int, stopTick int, atom *zap.AtomicLevel) WorkloadTemplateSession {
-	workloadSession := newWorkloadSession(id, meta, resourceRequest, createdAtTime, atom)
-
-	return WorkloadTemplateSession{
-		BasicWorkloadSession: workloadSession,
-		StartTick:            startTick,
-		StopTick:             stopTick,
-		Trainings:            make([]*TrainingEvent, 0),
-	}
-}
-
 func (t WorkloadTemplateSession) GetStartTick() int {
 	return t.StartTick
 }

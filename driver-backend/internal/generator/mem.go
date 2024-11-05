@@ -435,13 +435,13 @@ func (d *MemoryDriver) HandleRecord(ctx context.Context, r Record) {
 		down := d.IsDown()
 		if d.validateTick(rec.Timestamp.Time(), interval) {
 			if down {
-				sugarLog.Warnf("Detected memory trace server resumed since %v, resume gc...", rec.Timestamp.Time())
+				sugarLog.Warnf("Detected memory trace server resumed since %v, resume garbageCollect...", rec.Timestamp.Time())
 			}
 			d.gc(ctx, ts, false)
 			// Current implementation looks ahead of one interval and only generates events with timestamp of lastRead.Timestamp - interval.
 			d.FlushEvents(ctx, ts.Add(-interval))
 		} else if !down {
-			sugarLog.Warnf("Detected memory trace server down since %v, start to skip gc...", rec.Timestamp.Time())
+			sugarLog.Warnf("Detected memory trace server down since %v, start to skip garbageCollect...", rec.Timestamp.Time())
 		}
 	}
 	d.lastRead = rec.Timestamp.Time().Unix()
@@ -616,7 +616,7 @@ func (d *MemoryDriver) gc(ctx context.Context, ts time.Time, force bool) error {
 
 		events, err = pod.transit(events, force)
 		if err != nil {
-			sugarLog.Warnf("Error on commiting last readings in gc: %v, %v", err, committed)
+			sugarLog.Warnf("Error on commiting last readings in garbageCollect: %v, %v", err, committed)
 		}
 		if err := d.triggerMulti(ctx, events, pod); err != nil {
 			return err

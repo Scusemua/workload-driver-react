@@ -197,7 +197,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
             session.resource_request = {
                 cpus: max_millicpus,
                 gpus: max_num_gpus,
-                mem_mb: max_mem_mb,
+                memory_mb: max_mem_mb,
                 vram: max_vram_gb,
                 gpu_type: 'Any_GPU',
             };

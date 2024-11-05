@@ -157,7 +157,7 @@ export const WorkloadSessionTable: React.FunctionComponent<WorkloadSessionTableP
                                         <CpuIcon /> {session?.resource_request.cpus}
                                     </Td>
                                     <Td dataLabel={sessions_table_columns[6]}>
-                                        <MemoryIcon /> {session?.resource_request.mem_mb}{' '}
+                                        <MemoryIcon /> {session?.resource_request.memory_mb}{' '}
                                     </Td>
                                     <Td dataLabel={sessions_table_columns[7]}>
                                         <GpuIcon /> {session?.resource_request.gpus}

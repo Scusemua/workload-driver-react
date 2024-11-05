@@ -89,7 +89,7 @@ interface ResourceRequest {
     cpus: number; // millicpus (1/1000 CPU cores)
     gpus: number;
     vram: number; // GPU memory in gigabytes (GB)
-    mem_mb: number; // megabytes (MB)
+    memory_mb: number; // megabytes (MB)
     gpu_type: string;
 }
 

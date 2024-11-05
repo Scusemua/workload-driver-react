@@ -149,7 +149,7 @@ func (s *CustomEventSequencer) stepCpu(sessionId string, timestamp time.Time, cp
 		PodIdx:    podIdx,
 		Value:     cpuUtil,
 	}
-	committed := cpu.Debug_CommitAndInit(record)
+	committed := cpu.DebugCommitAndInit(record)
 	wrappedSession.session.CPU = committed
 }
 
@@ -348,6 +348,19 @@ func (s *CustomEventSequencer) submitWaitingEvent(sessionMeta *SessionMeta) {
 	delete(s.waitingEvents, sessionId)
 }
 
+// gpuUtilizationValuesAboveZero returns the number of entries in the slice of domain.GpuUtilization structs
+// such that the Utilization field of the domain.GpuUtilization is > 0.
+func gpuUtilizationValuesAboveZero(gpuUtil []domain.GpuUtilization) int {
+	num := 0
+	for _, util := range gpuUtil {
+		if util.Utilization > 0 {
+			num += 1
+		}
+	}
+
+	return num
+}
+
 // AddTrainingEvent registers a training event for a particular session.
 //
 // Parameters:
@@ -361,6 +374,11 @@ func (s *CustomEventSequencer) AddTrainingEvent(sessionId string, tickNumber int
 	s.stepCpu(sessionId, startTime, cpuUtil)
 	s.stepGpu(sessionId, startTime, gpuUtil)
 	s.stepMemory(sessionId, startTime, memUtil)
+
+	sessionMeta.CurrentTrainingMaxCPUs = cpuUtil
+	sessionMeta.CurrentTrainingMaxMemory = memUtil
+	sessionMeta.CurrentTrainingMaxGPUs = gpuUtilizationValuesAboveZero(gpuUtil)
+	sessionMeta.CurrentTrainingMaxVRAM = sessionMeta.CurrentTrainingMaxGPUs * 2 // TODO: Adjust this.
 
 	s.submitWaitingEvent(sessionMeta)
 

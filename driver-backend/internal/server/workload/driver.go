@@ -286,10 +286,6 @@ func (d *BasicWorkloadDriver) ToggleDebugLogging(enabled bool) domain.Workload {
 	return d.workload
 }
 
-func (d *BasicWorkloadDriver) GetEventQueue() domain.EventQueue {
-	return d.eventQueue
-}
-
 func (d *BasicWorkloadDriver) GetWorkload() domain.Workload {
 	return d.workload
 }
@@ -793,7 +789,7 @@ func (d *BasicWorkloadDriver) checkForLongTick(tickNumber int, tickDurationSec d
 	avgTickDurationSec := d.tickDurationsSecondsMovingWindow.Avg()
 	stdDevTickDuration := d.tickDurationsSecondsMovingWindow.SampleStandardDeviation()
 
-	if tickDurationSec.GreaterThanOrEqual(avgTickDurationSec.Add(stdDevTickDuration)) {
+	if tickDurationSec.GreaterThanOrEqual(avgTickDurationSec.Mul(decimal.NewFromFloat(1.5))) {
 		d.logger.Warn("Last tick took longer than expected.",
 			zap.Int("tick_number", tickNumber),
 			zap.String("tick_duration_sec", tickDurationSec.StringFixed(4)),

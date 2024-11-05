@@ -2,6 +2,8 @@ package domain
 
 import "go.uber.org/zap"
 
+// WorkloadFromTemplate is a struct representing a Workload that is generated using the "template" option
+// within the frontend dashboard.
 type WorkloadFromTemplate struct {
 	*workloadImpl
 

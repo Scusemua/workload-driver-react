@@ -34,7 +34,7 @@ type SessionMeta struct {
 	// This is obtained by performing a "pre-run".
 	MaxSessionCPUs float64 `json:"maxSessionCPUs"`
 
-	// The maximum amount of memory (in GB) that this SessionMeta will ever use.
+	// The maximum amount of memory (in MB) that this SessionMeta will ever use.
 	// This is obtained by performing a "pre-run".
 	MaxSessionMemory float64 `json:"maxSessionMemory"`
 
@@ -49,13 +49,17 @@ type SessionMeta struct {
 	// This will only be set (i.e., have a non-zero/non-default value) when the SessionMeta is attached as data to a 'training-started' event.
 	CurrentTrainingMaxCPUs float64 `json:"currentTrainingMaxCPUs"`
 
-	// The maximum amount of memory (in GB) that this SessionMeta will use during its current training task.
+	// The maximum amount of memory (in MB) that this SessionMeta will use during its current training task.
 	// This will only be set (i.e., have a non-zero/non-default value) when the SessionMeta is attached as data to a 'training-started' event.
 	CurrentTrainingMaxMemory float64 `json:"currentTrainingMaxMemory"`
 
 	// The maximum number of GPUs that this SessionMeta will use during its current training task.
 	// This will only be set (i.e., have a non-zero/non-default value) when the SessionMeta is attached as data to a 'training-started' event.
 	CurrentTrainingMaxGPUs int `json:"currentTrainingMaxGPUs"`
+
+	// The maximum amount of VRAM in GB that this SessionMeta will use during its current training task.
+	// This will only be set (i.e., have a non-zero/non-default value) when the SessionMeta is attached as data to a 'training-started' event.
+	CurrentTrainingMaxVRAM int `json:"currentTrainingMaxVRAM"`
 
 	// If we're adjusting the MaxSessionGPUs value, then we also need to keep track of an "AdjustmentFactor".
 	// Consider a scenario in which session "ExampleSession1" originally had NUM_GPUS: 8 and MAX_GPU_UTIL: 50%.

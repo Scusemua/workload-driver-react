@@ -214,58 +214,9 @@ func validateSessionArgumentsAgainstTrainingArguments(session *domain.WorkloadTe
 	return nil
 }
 
-// SingleSessionSingleTraining creates a training sequence involving a single Session that trains just once.
-//
-// The following quantities are configurable and are to be passed as arguments to this function (in this order):
-// - session start time (>= 0)
-// - training start time (> 'session start time')
-// - training duration (> 0)
-// - session terminate time (> 'training start time' + 'training duration')
-// - the number of GPUs to use while training (> 0)
-//
-// This will return nil and an ErrInvalidConfiguration error if the arguments are invalid.
-func SingleSessionSingleTraining(sessions []*domain.WorkloadTemplateSession) (SequencerFunction, error) {
-	if sessions == nil {
-		panic("Session arguments cannot be nil.")
-	}
-
-	if len(sessions) != 1 {
-		panic(fmt.Sprintf("Sessions has unexpected length: %d", len(sessions)))
-	}
-
-	var session = sessions[0]
-	if err := validateSession(session); err != nil {
-		return nil, err
-	}
-
-	if err := validateSessionArgumentsAgainstTrainingArguments(session); err != nil {
-		return nil, err
-	}
-
-	if len(session.GetTrainings()) != 1 {
-		return nil, fmt.Errorf("%w: session has illegal number of training events for this particular template (%d, expected 1)", ErrInvalidConfiguration, len(session.GetTrainings()))
-	}
-
-	trainingEvent := session.GetTrainings()[0]
-	if trainingEvent.DurationInTicks <= 0 {
-		return nil, fmt.Errorf("%w: invalid training duration specified: %d ticks. Must be strictly greater than 0", ErrInvalidConfiguration, trainingEvent.DurationInTicks)
-	}
-
-	return func(sequencer *CustomEventSequencer, log *zap.Logger) error {
-		sequencer.RegisterSession(session.GetId(), session.GetResourceRequest().Cpus, session.GetResourceRequest().MemoryMB, session.GetResourceRequest().Gpus, session.GetResourceRequest().VRAM, 0)
-
-		trainingEvent := session.GetTrainings()[0]
-
-		sequencer.AddSessionStartedEvent(session.GetId(), session.GetStartTick(), 0, 0, 0, 1)
-		sequencer.AddTrainingEvent(session.GetId(), trainingEvent.StartTick, trainingEvent.DurationInTicks, trainingEvent.Millicpus, trainingEvent.MemUsageMB, trainingEvent.GpuUtil) // TODO: Fix GPU util/num GPU specified here.
-		sequencer.AddSessionTerminatedEvent(session.GetId(), session.GetStopTick())
-
-		sequencer.SubmitEvents(sequencer.eventConsumer.WorkloadEventGeneratorCompleteChan())
-
-		return nil
-	}, nil
-}
-
+// ManySessionsManyTrainingEvents is the default "generator function" to produce a workload from a template.
+// There used to be a SingleSessionSingleTraining function, but it was removed as its use was eclipsed by
+// the ManySessionsManyTrainingEvents function.
 func ManySessionsManyTrainingEvents(sessions []*domain.WorkloadTemplateSession) (SequencerFunction, error) {
 	if sessions == nil {
 		panic("Session arguments cannot be nil.")

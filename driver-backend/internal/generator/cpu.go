@@ -155,7 +155,7 @@ func (ed *CPUUtil) reset(time time.Time) *CPUUtil {
 	return ed
 }
 
-func (ed *CPUUtil) Debug_CommitAndInit(rec *CPURecord) (committed *CPUUtil) {
+func (ed *CPUUtil) DebugCommitAndInit(rec *CPURecord) (committed *CPUUtil) {
 	return ed.commit(rec)
 }
 
@@ -331,11 +331,19 @@ func (d *CPUDriver) Teardown(ctx context.Context) {
 
 	sugarLog.Debugf("%v tearing down, last read %v", d, d.lastRead)
 	if d.lastRead != 0 {
-		d.gc(ctx, time.Unix(d.lastRead, 0), false)
+		err := d.garbageCollect(ctx, time.Unix(d.lastRead, 0), false)
+		if err != nil {
+			d.log.Error("Error while performing garbage collection.", zap.Time("timestamp", time.Unix(d.lastRead, int64(d.interval))), zap.Error(err))
+			return
+		}
 		if d.interval == time.Duration(0) {
 			d.interval = time.Second
 		}
-		d.gc(ctx, time.Unix(d.lastRead, int64(d.interval)), true)
+		err = d.garbageCollect(ctx, time.Unix(d.lastRead, int64(d.interval)), true)
+		if err != nil {
+			d.log.Error("Error while performing garbage collection.", zap.Time("timestamp", time.Unix(d.lastRead, int64(d.interval))), zap.Error(err))
+			return
+		}
 	}
 	d.pods = nil
 	d.podMap = nil
@@ -377,12 +385,18 @@ func (d *CPUDriver) HandleRecord(ctx context.Context, r Record) {
 		down := d.IsDown()
 		if d.validateTick(rec.Timestamp.Time(), interval) {
 			if down {
-				sugarLog.Warnf("Detected CPU trace server resumed since %v, resume gc...", rec.Timestamp.Time())
+				sugarLog.Warnf("Detected CPU trace server resumed since %v, resume garbageCollect...", rec.Timestamp.Time())
 			}
-			d.gc(ctx, ts, false)
-			d.FlushEvents(ctx, ts)
+			err := d.garbageCollect(ctx, ts, false)
+			if err != nil {
+				d.log.Error("Error while performing garbage collection.", zap.Time("timestamp", ts), zap.Error(err))
+			}
+			err = d.FlushEvents(ctx, ts)
+			if err != nil {
+				d.log.Error("Error while flushing events.", zap.Time("timestamp", ts), zap.Error(err))
+			}
 		} else if !down {
-			sugarLog.Warnf("Detected CPU trace server down since %v, start to skip gc...", rec.Timestamp.Time())
+			sugarLog.Warnf("Detected CPU trace server down since %v, start to skip garbageCollect...", rec.Timestamp.Time())
 		}
 	}
 	d.lastRead = rec.Timestamp.Time().Unix()
@@ -436,7 +450,10 @@ func (d *CPUDriver) HandleRecord(ctx context.Context, r Record) {
 	if err != nil {
 		sugarLog.Warnf("Error on handling records: %v", err)
 	}
-	d.triggerMulti(ctx, events, committed)
+	err = d.triggerMulti(ctx, events, committed)
+	if err != nil {
+		d.log.Error("Error after multi-triggering events.", zap.Any("events", events), zap.Error(err))
+	}
 
 	// logger.Debug("Finished processing CPU record: %v.", rec)
 }
@@ -452,30 +469,30 @@ func (d *CPUDriver) updateSessionMaxCPU(committed *CPUUtil) {
 		d.MaxesMutex.RLock()
 		// d.MaxesMutex.Lock()
 		// defer d.MaxesMutex.Unlock()
-		current_max, ok := d.SessionMaxes[committed.Pod]
+		currentMax, ok := d.SessionMaxes[committed.Pod]
 
 		if !ok {
 			d.MaxesMutex.RUnlock()
 			d.MaxesMutex.Lock()
 			d.SessionMaxes[committed.Pod] = committed.Value
 
-			current_training_maxes, ok2 := d.TrainingMaxes[committed.Pod]
+			currentTrainingMaxes, ok2 := d.TrainingMaxes[committed.Pod]
 
 			if !ok2 {
 				panic(fmt.Sprintf("Expected to find list of training maxes for session \"%s\".", committed.Pod))
 			}
 
-			n := len(current_training_maxes)
+			n := len(currentTrainingMaxes)
 			if d.SessionIsCurrentlyTraining[committed.Pod] {
-				current_training_maxes[n-1] = committed.Value
-				d.TrainingMaxes[committed.Pod] = current_training_maxes
+				currentTrainingMaxes[n-1] = committed.Value
+				d.TrainingMaxes[committed.Pod] = currentTrainingMaxes
 			}
 
 			d.MaxesMutex.Unlock()
 			return
 		}
 
-		if committed.Value > current_max {
+		if committed.Value > currentMax {
 			d.MaxesMutex.RUnlock()
 			d.MaxesMutex.Lock()
 			d.SessionMaxes[committed.Pod] = committed.Value
@@ -483,18 +500,18 @@ func (d *CPUDriver) updateSessionMaxCPU(committed *CPUUtil) {
 			d.MaxesMutex.RLock()
 		}
 
-		current_training_maxes, ok2 := d.TrainingMaxes[committed.Pod]
+		currentTrainingMaxes, ok2 := d.TrainingMaxes[committed.Pod]
 
 		if !ok2 {
 			panic(fmt.Sprintf("Expected to find list of training maxes for session \"%s\".", committed.Pod))
 		}
 
-		n := len(current_training_maxes)
-		if d.SessionIsCurrentlyTraining[committed.Pod] && committed.Value > current_training_maxes[n-1] {
+		n := len(currentTrainingMaxes)
+		if d.SessionIsCurrentlyTraining[committed.Pod] && committed.Value > currentTrainingMaxes[n-1] {
 			d.MaxesMutex.RUnlock()
 			d.MaxesMutex.Lock()
-			current_training_maxes[n-1] = committed.Value
-			d.TrainingMaxes[committed.Pod] = current_training_maxes
+			currentTrainingMaxes[n-1] = committed.Value
+			d.TrainingMaxes[committed.Pod] = currentTrainingMaxes
 			d.MaxesMutex.Unlock()
 		} else {
 			d.MaxesMutex.RUnlock()
@@ -549,8 +566,8 @@ func (d *CPUDriver) triggerMulti(ctx context.Context, names []CPUEvent, data *CP
 	return nil
 }
 
-// gc handles pods have no reading at specified time.
-func (d *CPUDriver) gc(ctx context.Context, ts time.Time, force bool) error {
+// garbageCollect handles pods have no reading at specified time.
+func (d *CPUDriver) garbageCollect(ctx context.Context, ts time.Time, force bool) error {
 	events := make([]CPUEvent, 0, 2) // events buffer
 	var err error
 	for _, pod := range d.pods {
@@ -563,7 +580,7 @@ func (d *CPUDriver) gc(ctx context.Context, ts time.Time, force bool) error {
 		committed := pod.reset(ts)
 		events, err = committed.transit(events, force)
 		if err != nil {
-			sugarLog.Warnf("Error on commiting last readings in gc: %v, %v", err, committed)
+			sugarLog.Warnf("Error on commiting last readings in garbageCollect: %v, %v", err, committed)
 		}
 		if err := d.triggerMulti(ctx, events, committed); err != nil {
 			return err
