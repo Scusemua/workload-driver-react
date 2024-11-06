@@ -551,7 +551,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
             const initialRequestTimestamp: number = Date.now();
             const future = kernelConnection.requestExecute({ code: code }, undefined, {
                 target_replica: targetReplicaId,
-                'send-timestamp-unix-milli': Date.now(),
+                'send_timestamp_unix_milli': Date.now(),
             });
 
             // Handle iopub messages

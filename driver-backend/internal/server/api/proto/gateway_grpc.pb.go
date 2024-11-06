@@ -1643,7 +1643,7 @@ type LocalGatewayClient interface {
 	PrepareToMigrate(ctx context.Context, in *ReplicaInfo, opts ...grpc.CallOption) (*PrepareToMigrateResponse, error)
 	// ResourcesSnapshot returns a NodeResourcesSnapshot struct encoding a snapshot of
 	// the current resource quantities on the node.
-	ResourcesSnapshot(ctx context.Context, in *Void, opts ...grpc.CallOption) (*NodeResourcesSnapshot, error)
+	ResourcesSnapshot(ctx context.Context, in *Void, opts ...grpc.CallOption) (*NodeResourcesSnapshotWithContainers, error)
 	// Return the current GPU resource metrics on the node.
 	// @Deprecated: this should eventually be merged with the updated/unified ModifyClusterNodes API.
 	GetActualGpuInfo(ctx context.Context, in *Void, opts ...grpc.CallOption) (*GpuInfo, error)
@@ -1782,8 +1782,8 @@ func (c *localGatewayClient) PrepareToMigrate(ctx context.Context, in *ReplicaIn
 	return out, nil
 }
 
-func (c *localGatewayClient) ResourcesSnapshot(ctx context.Context, in *Void, opts ...grpc.CallOption) (*NodeResourcesSnapshot, error) {
-	out := new(NodeResourcesSnapshot)
+func (c *localGatewayClient) ResourcesSnapshot(ctx context.Context, in *Void, opts ...grpc.CallOption) (*NodeResourcesSnapshotWithContainers, error) {
+	out := new(NodeResourcesSnapshotWithContainers)
 	err := c.cc.Invoke(ctx, LocalGateway_ResourcesSnapshot_FullMethodName, in, out, opts...)
 	if err != nil {
 		return nil, err
@@ -1879,7 +1879,7 @@ type LocalGatewayServer interface {
 	PrepareToMigrate(context.Context, *ReplicaInfo) (*PrepareToMigrateResponse, error)
 	// ResourcesSnapshot returns a NodeResourcesSnapshot struct encoding a snapshot of
 	// the current resource quantities on the node.
-	ResourcesSnapshot(context.Context, *Void) (*NodeResourcesSnapshot, error)
+	ResourcesSnapshot(context.Context, *Void) (*NodeResourcesSnapshotWithContainers, error)
 	// Return the current GPU resource metrics on the node.
 	// @Deprecated: this should eventually be merged with the updated/unified ModifyClusterNodes API.
 	GetActualGpuInfo(context.Context, *Void) (*GpuInfo, error)
@@ -1943,7 +1943,7 @@ func (UnimplementedLocalGatewayServer) UpdateReplicaAddr(context.Context, *Repli
 func (UnimplementedLocalGatewayServer) PrepareToMigrate(context.Context, *ReplicaInfo) (*PrepareToMigrateResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method PrepareToMigrate not implemented")
 }
-func (UnimplementedLocalGatewayServer) ResourcesSnapshot(context.Context, *Void) (*NodeResourcesSnapshot, error) {
+func (UnimplementedLocalGatewayServer) ResourcesSnapshot(context.Context, *Void) (*NodeResourcesSnapshotWithContainers, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ResourcesSnapshot not implemented")
 }
 func (UnimplementedLocalGatewayServer) GetActualGpuInfo(context.Context, *Void) (*GpuInfo, error) {

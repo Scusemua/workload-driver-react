@@ -871,8 +871,8 @@ func (conn *BasicKernelConnection) createKernelMessage(messageType MessageType, 
 	}
 
 	metadata := make(map[string]interface{})
-	metadata["kernel-id"] = conn.kernelId
-	metadata["send-timestamp-unix-milli"] = time.Now().UnixMilli()
+	metadata["kernel_id"] = conn.kernelId
+	metadata["send_timestamp_unix_milli"] = time.Now().UnixMilli()
 
 	workloadId, loaded := conn.GetMetadata(WorkloadIdMetadataKey)
 	if loaded {
