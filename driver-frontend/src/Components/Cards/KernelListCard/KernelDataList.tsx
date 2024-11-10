@@ -26,11 +26,12 @@ export interface KernelDataListProps {
     onInterruptKernelClicked: (kernel: DistributedJupyterKernel) => void;
     onTerminateKernelClicked: (kernel: DistributedJupyterKernel) => void;
     onStopTrainingClicked: (kernel: DistributedJupyterKernel) => void;
+    onSelectKernel: (kernelId: string) => void;
+    selectedKernels: string[];
 }
 
 export const KernelDataList: React.FunctionComponent<KernelDataListProps> = (props: KernelDataListProps) => {
     const [expandedKernels, setExpandedKernels] = React.useState<string[]>([]);
-    const [selectedKernels, setSelectedKernels] = React.useState<string[]>([]);
 
     const numKernelsCreating = useRef(0); // Used to display "pending" entries in the kernel list.
 
@@ -57,14 +58,8 @@ export const KernelDataList: React.FunctionComponent<KernelDataListProps> = (pro
         _checked: boolean,
         kernelId: string | undefined,
     ) => {
-        const item = kernelId as string;
-
-        // console.log('onSelectKernel: ' + item);
-
-        if (selectedKernels.includes(item)) {
-            setSelectedKernels(selectedKernels.filter((id) => id !== item));
-        } else {
-            setSelectedKernels([...selectedKernels, item]);
+        if (kernelId) {
+          props.onSelectKernel(kernelId);
         }
     };
 
@@ -139,7 +134,7 @@ export const KernelDataList: React.FunctionComponent<KernelDataListProps> = (pro
                             onSelectKernel(event, checked, kernel?.kernelId)
                         }
                         isDisabled={kernel == null}
-                        defaultChecked={kernel != null && kernel.kernelId in selectedKernels}
+                        defaultChecked={kernel != null && kernel.kernelId in props.selectedKernels}
                     />
                     <DataListToggle
                         onClick={() => {

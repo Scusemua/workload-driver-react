@@ -769,7 +769,21 @@ func (d *BasicWorkloadDriver) IssueClockTicks(timestamp time.Time) error {
 
 	// Sanity check to ensure that we issued the correct/expected number of ticks.
 	if numTicksIssued != numTicksToIssue {
-		panic(fmt.Sprintf("Expected to issue %d tick(s); instead, issued %d.", numTicksToIssue, numTicksIssued))
+		time.Sleep(time.Second * 5)
+
+		if d.workload.IsRunning() {
+			d.logger.Error("Issued incorrect number of ticks, and workload is still running.",
+				zap.Int64("expected_ticks", numTicksToIssue),
+				zap.Int64("ticks_issued", numTicksIssued),
+				zap.String("workload_id", d.id),
+				zap.String("workload_name", d.workload.WorkloadName()))
+		} else {
+			d.logger.Warn("Issued incorrect number of ticks, but workload is no longer running, so that's probably why.",
+				zap.Int64("expected_ticks", numTicksToIssue),
+				zap.Int64("ticks_issued", numTicksIssued),
+				zap.String("workload_id", d.id),
+				zap.String("workload_name", d.workload.WorkloadName()))
+		}
 	}
 
 	return nil

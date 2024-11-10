@@ -10,10 +10,10 @@ websocket-proxy-port: 8077
 base-url: "/"
 
 # The address of the Jupyter Server.
-frontend-jupyter-server-address: localhost:8888
+frontend-jupyter-server-address: http://127.0.0.1:8888
 
 # The address of the Jupyter Server to use internally.
-internal-jupyter-server-address: localhost:8888
+internal-jupyter-server-address: 127.0.0.1:8888
 
 # The base path that the Jupyter Server is listening on.
 jupyter-server-base-path: /

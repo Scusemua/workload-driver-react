@@ -24,6 +24,7 @@ const devServer = {
                 'http://127.0.0.1:8000': 'http://jupyter:8888',
             },
             target: 'http://jupyter:8888',
+            "timeout": 60000,
         },
         {
             context: ['/api', '/authenticate', '/refresh_token'],
@@ -31,6 +32,7 @@ const devServer = {
             port: PORT,
             scheme: 'http',
             target: 'http://dashboard_backend:8000',
+            "timeout": 300000,
         },
         {
             context: ['/ws'],
@@ -39,6 +41,7 @@ const devServer = {
             ws: true,
             scheme: 'ws',
             target: 'ws://dashboard_backend:8000',
+            "timeout": 300000,
         },
         {
             context: ['/kubernetes'],
@@ -49,6 +52,7 @@ const devServer = {
             port: PORT,
             scheme: 'http',
             target: 'http://dashboard_backend:8889',
+            "timeout": 300000,
         },
     ],
     host: HOST,

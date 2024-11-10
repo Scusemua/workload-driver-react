@@ -558,7 +558,9 @@ export const KernelListCard: React.FunctionComponent<KernelListProps> = (props: 
         });
 
         if (session === null) {
-
+            console.error(`Failed to connect to Jupyter session ${sessionId}.`);
+            toast.error(`Failed to connect to Jupyter session ${sessionId}.`);
+            return;
         }
 
         console.log(
@@ -665,6 +667,18 @@ export const KernelListCard: React.FunctionComponent<KernelListProps> = (props: 
         setKernelToDelete('');
     };
 
+    const onSelectKernel = (
+        kernelId: string,
+    ) => {
+        const item = kernelId as string;
+
+        if (selectedKernels.includes(item)) {
+            setSelectedKernels(selectedKernels.filter((id) => id !== item));
+        } else {
+            setSelectedKernels([...selectedKernels, item]);
+        }
+    };
+
     const onConfirmCreateKernelClicked = (
         numKernelsToCreate: number,
         kernelIds: string[],
@@ -693,7 +707,9 @@ export const KernelListCard: React.FunctionComponent<KernelListProps> = (props: 
             return;
         } else if (!sessionManager.current.isReady) {
             console.warn("Session Manager isn't ready yet!");
-            toast.error("Cannot create kernel: Session Manager isn't ready yet. Please try again in a few seconds.", { style: { maxWidth: 750}});
+            toast.error("Cannot create kernel: Session Manager isn't ready yet. Please try again in a few seconds.", {
+                style: { maxWidth: 750 },
+            });
             return;
         }
 
@@ -859,6 +875,8 @@ export const KernelListCard: React.FunctionComponent<KernelListProps> = (props: 
                     onInterruptKernelClicked={onInterruptKernelClicked}
                     onTerminateKernelClicked={onTerminateKernelClicked}
                     onStopTrainingClicked={onStopTrainingClicked}
+                    onSelectKernel={onSelectKernel}
+                    selectedKernels={selectedKernels}
                 />
                 {kernels.length == 0 && pendingKernelArr.length == 0 && (
                     <Text component={TextVariants.h2}>There are no active kernels.</Text>
