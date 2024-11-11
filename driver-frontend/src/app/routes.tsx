@@ -41,14 +41,6 @@ export type AppRouteConfig = IAppRoute | IAppRouteGroup;
 
 const routes: AppRouteConfig[] = [
     {
-        component: Dashboard,
-        exact: true,
-        label: 'Dashboard',
-        path: '/',
-        title: 'Main Dashboard',
-        isPrivate: true,
-    },
-    {
         component: DashboardLoginPage,
         exact: true,
         path: '/login',
@@ -56,28 +48,41 @@ const routes: AppRouteConfig[] = [
         isPrivate: false,
     },
     {
-        component: WorkloadsPage,
+        component: Dashboard,
         exact: true,
-        label: 'Workloads',
-        path: '/workloads',
-        title: 'Workloads',
+        label: 'Main Dashboard',
+        path: '/',
+        title: 'Main Dashboard',
         isPrivate: true,
     },
     {
-        component: KernelsPage,
-        exact: true,
-        label: 'Kernels',
-        path: '/kernels',
-        title: 'Kernels',
-        isPrivate: true,
-    },
-    {
-        component: NodesPage,
-        exact: true,
-        label: 'Nodes',
-        path: '/nodes',
-        title: 'Nodes',
-        isPrivate: true,
+        label: 'Specific Pages',
+        routes: [
+            {
+                component: WorkloadsPage,
+                exact: true,
+                label: 'Workloads',
+                path: '/workloads',
+                title: 'Workloads',
+                isPrivate: true,
+            },
+            {
+                component: KernelsPage,
+                exact: true,
+                label: 'Kernels',
+                path: '/kernels',
+                title: 'Kernels',
+                isPrivate: true,
+            },
+            {
+                component: NodesPage,
+                exact: true,
+                label: 'Nodes',
+                path: '/nodes',
+                title: 'Nodes',
+                isPrivate: true,
+            },
+        ],
     },
 ];
 

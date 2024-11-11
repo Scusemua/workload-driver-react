@@ -246,7 +246,7 @@ let WorkloadsDataList: React.FunctionComponent<IWorkloadsDataListProps> = (props
                                                                             </Button>
                                                                         </Tooltip>
                                                                     </FlexItem>
-                                                                    {/* The element below is only meant to be visile for preset-based workloads, not template-based workloads. */}
+                                                                    {/* The element below is only meant to be visible for preset-based workloads, not template-based workloads. */}
                                                                     {workload.workload_preset && (
                                                                         <FlexItem>
                                                                             <Tooltip
