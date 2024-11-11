@@ -370,6 +370,8 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
     const onResetFormButtonClicked = () => {
         console.log('Resetting form to default values.');
         form.reset(GetDefaultFormValues());
+
+        setSessionTabs(['Session 1']);
     };
 
     const getActions = () => {
