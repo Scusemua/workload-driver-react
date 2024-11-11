@@ -1,11 +1,13 @@
 import math
 import uuid
+import random
+
 from typing import Any
 
 import numpy as np
 
 from util import get_truncated_normal
-
+from training_event import TrainingEvent
 
 class Session(object):
   def __init__(
@@ -66,6 +68,9 @@ class Session(object):
     last_training_event: TrainingEvent = self.training_events[len(self.training_events) - 1]
     self.end_tick: int = last_training_event.ending_tick + 2
 
+    # The session will randomly start sometime before its first training event
+    self.start_tick:int = random.randint(1, first_training_event.starting_tick)
+
   def to_dict(self) -> dict[str, Any]:
     """
     Convert the Session to a dictionary representation that can be output as JSON.
@@ -76,46 +81,8 @@ class Session(object):
 
     return {
       "id": self.id,
-      "start_tick": 1,
+      "start_tick": self.start_tick,
       "stop_tick": self.end_tick,
       "num_training_events": self.num_training_events,
       "trainings": trainings
     }
-
-
-class TrainingEvent(object):
-  def __init__(
-    self,
-    start_time: float,
-    duration: float,
-    millicpus: float = 100,
-    mem_mb: float = 5,
-    gpu_utilizations=None
-  ):
-    """
-    :param start_time: the time at which the event begins (in ticks).
-    :param duration: the duration of the event (in ticks).
-    """
-    if gpu_utilizations is None:
-      gpu_utilizations = [{"utilization": 50.0}]
-    self.starting_tick: int = int(math.ceil(start_time))
-    self.duration: int = int(math.ceil(duration))
-    self.ending_tick: int = self.starting_tick + self.duration
-    self.millicpus: float = millicpus
-    self.mem_mb: float = mem_mb
-    self.gpu_utilizations: list[dict[str, float]] = gpu_utilizations
-
-  def to_dict(self) -> dict[str, Any]:
-    """
-    Convert the TrainingEvent to a dictionary representation that can be output as JSON.
-    """
-    outer_dict: dict[str, Any] = {
-      "start_tick": self.starting_tick,
-      "duration_in_ticks": self.duration,
-      "millicpus": self.millicpus,
-      "mem_usage_mb": self.mem_mb,
-      "num_gpus": len(self.gpu_utilizations),
-      "gpu_utilizations": self.gpu_utilizations,
-    }
-
-    return outer_dict
