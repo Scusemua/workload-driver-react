@@ -19,7 +19,7 @@ import { JoinPaths } from '@src/Utils/path_utils';
 import { UnixDurationToString } from '@src/Utils/utils';
 import * as React from 'react';
 import { toast, ToastBar, Toaster } from 'react-hot-toast';
-import { NavLink } from 'react-router-dom';
+import { NavLink, useLocation } from 'react-router-dom';
 
 import useWebSocket from 'react-use-websocket';
 import { v4 as uuidv4 } from 'uuid';
@@ -40,6 +40,8 @@ const AppLayout: React.FunctionComponent<IAppLayout> = ({ children }) => {
     const firstRender = React.useRef<boolean>(true);
 
     const { authenticated, setAuthenticated } = React.useContext(AuthorizationContext);
+
+    const location = useLocation();
 
     React.useEffect(() => {
         if (!firstRender) {
