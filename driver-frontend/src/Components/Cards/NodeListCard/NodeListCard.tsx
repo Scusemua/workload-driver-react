@@ -44,7 +44,7 @@ export interface NodeListProps {
     displayNodeToggleSwitch: boolean; // If true, show the Switch that is used to enable/disable the node.
 }
 
-export const NodeList: React.FunctionComponent<NodeListProps> = (props: NodeListProps) => {
+export const NodeListCard: React.FunctionComponent<NodeListProps> = (props: NodeListProps) => {
     const [searchValue, setSearchValue] = React.useState('');
     const [selectedNode, setSelectedNode] = React.useState('');
     const [resourceModeToggled, setResourceModeToggled] = React.useState<boolean>(false);

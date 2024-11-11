@@ -15,25 +15,25 @@ import { KernelManager, ServerConnection, SessionManager } from '@jupyterlab/ser
 import { IKernelConnection } from '@jupyterlab/services/lib/kernel/kernel';
 import { IModel as ISessionModel, ISessionConnection } from '@jupyterlab/services/lib/session/session';
 import {
-    Alert,
-    AlertActionCloseButton,
-    Button,
-    Card,
-    CardBody,
-    CardHeader,
-    CardTitle,
-    Flex,
-    FlexItem,
-    InputGroup,
-    InputGroupItem,
-    SearchInput,
-    Text,
-    TextVariants,
-    Title,
-    ToolbarGroup,
-    ToolbarItem,
-    ToolbarToggleGroup,
-    Tooltip,
+  Alert,
+  AlertActionCloseButton,
+  Button,
+  Card,
+  CardBody,
+  CardHeader,
+  CardTitle,
+  Flex,
+  FlexItem,
+  InputGroup,
+  InputGroupItem, PerPageOptions,
+  SearchInput,
+  Text,
+  TextVariants,
+  Title,
+  ToolbarGroup,
+  ToolbarItem,
+  ToolbarToggleGroup,
+  Tooltip
 } from '@patternfly/react-core';
 
 import { FilterIcon, PlusIcon, SpinnerIcon, SyncIcon, TrashIcon } from '@patternfly/react-icons';
@@ -52,6 +52,7 @@ import toast, { Toast } from 'react-hot-toast';
 export interface KernelListProps {
     openMigrationModal: (kernel: DistributedJupyterKernel, replica: JupyterKernelReplica) => void;
     kernelsPerPage: number;
+    perPageOption: PerPageOptions[];
 }
 
 export const KernelListCard: React.FunctionComponent<KernelListProps> = (props: KernelListProps) => {
@@ -868,6 +869,7 @@ export const KernelListCard: React.FunctionComponent<KernelListProps> = (props: 
                 <KernelDataList
                     openMigrationModal={props.openMigrationModal}
                     kernelsPerPage={props.kernelsPerPage}
+                    perPageOption={props.perPageOption}
                     searchValue={searchValue}
                     statusSelections={statusSelections}
                     onExecuteCodeClicked={onExecuteCodeClicked}

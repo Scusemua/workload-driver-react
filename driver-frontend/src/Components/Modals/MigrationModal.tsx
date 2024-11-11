@@ -1,4 +1,4 @@
-import { NodeList } from '@Cards/NodeListCard/NodeList';
+import { NodeListCard } from '@Cards/NodeListCard/NodeListCard';
 import { DistributedJupyterKernel, JupyterKernelReplica } from '@Data/Kernel';
 import { Button, Modal, ModalVariant, Text, TextContent, TextVariants } from '@patternfly/react-core';
 import { AuthorizationContext } from '@Providers/AuthProvider';
@@ -57,7 +57,7 @@ export const MigrationModal: React.FunctionComponent<MigrationModalProps> = (pro
                 </Text>
             </TextContent>
             <br />
-            <NodeList
+            <NodeListCard
                 isDashboardList={false}
                 hideAdjustVirtualGPUsButton={true}
                 displayNodeToggleSwitch={false}

@@ -1,5 +1,4 @@
 import { HeightFactorContext, NodeHeightFactorContext } from '@App/Dashboard';
-import { RoundToTwoDecimalPlaces } from '@Components/Modals';
 import {
     ClusterNode,
     GetNodeAllocatedResource,

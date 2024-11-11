@@ -7,6 +7,7 @@ import { AuthorizationContext } from '@Providers/AuthProvider';
 import logo_greyscale from '@src/app/bgimages/icon_greyscale.svg';
 import logo from '@src/app/bgimages/WorkloadDriver-Logo.svg';
 import React from 'react';
+import { useLocation, useNavigate } from 'react-router-dom';
 
 export const DashboardLoginPage: React.FunctionComponent = () => {
     const [showHelperText, setShowHelperText] = React.useState<boolean>(false);
@@ -17,6 +18,27 @@ export const DashboardLoginPage: React.FunctionComponent = () => {
 
     // username, setUsername, password, setPassword,
     const { mutateToken, error } = React.useContext(AuthorizationContext);
+
+    const navigate = useNavigate();
+    const location = useLocation();
+
+    const { authenticated } = React.useContext(AuthorizationContext);
+
+    React.useEffect(() => {
+      if (authenticated) {
+        let nextPath: string | null = null;
+
+        if (location !== null && location.state !== null) {
+          nextPath = location.state.nextPath;
+        }
+
+        if (nextPath === null || nextPath === "") {
+          nextPath = "/";
+        }
+
+        navigate(nextPath);
+      }
+    }, [authenticated, location, location.state, navigate])
 
     React.useEffect(() => {
         if (error) {

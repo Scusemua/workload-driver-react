@@ -1,3 +1,4 @@
+import { RoundToThreeDecimalPlaces } from '@Components/Modals';
 import { DistributedJupyterKernel } from '@Data/Kernel';
 import {
     Button,
@@ -96,7 +97,7 @@ export const KernelDataListCells: React.FunctionComponent<KernelDataListCellsPro
                                 <FlexItem>
                                     {(props.kernel != null &&
                                         props.kernel.kernelSpec.resourceSpec.cpu != null &&
-                                        props.kernel.kernelSpec.resourceSpec.cpu / 1000.0) ||
+                                        RoundToThreeDecimalPlaces(props.kernel.kernelSpec.resourceSpec.cpu / 1000.0)) ||
                                         '0'}
                                 </FlexItem>
                             </Flex>
@@ -109,7 +110,9 @@ export const KernelDataListCells: React.FunctionComponent<KernelDataListCellsPro
                                 <FlexItem>
                                     {(props.kernel != null &&
                                         props.kernel.kernelSpec.resourceSpec.memory != null &&
-                                        props.kernel.kernelSpec.resourceSpec.memory / 1000.0) ||
+                                        RoundToThreeDecimalPlaces(
+                                            props.kernel.kernelSpec.resourceSpec.memory / 1000.0,
+                                        )) ||
                                         '0'}
                                 </FlexItem>
                             </Flex>

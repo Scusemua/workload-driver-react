@@ -2,14 +2,14 @@ import { HeightFactorContext, KernelHeightFactorContext } from '@App/Dashboard';
 import { KernelDataListCells } from '@Cards/KernelListCard/KernelDataListCells';
 import { DistributedJupyterKernel, JupyterKernelReplica } from '@Data/Kernel';
 import {
-    DataList,
-    DataListCheck,
-    DataListContent,
-    DataListItem,
-    DataListItemRow,
-    DataListToggle,
-    Pagination,
-    PaginationVariant,
+  DataList,
+  DataListCheck,
+  DataListContent,
+  DataListItem,
+  DataListItemRow,
+  DataListToggle,
+  Pagination,
+  PaginationVariant, PerPageOptions
 } from '@patternfly/react-core';
 import { useKernels } from '@Providers/KernelProvider';
 import { KernelReplicaTable } from '@src/Components';
@@ -19,6 +19,7 @@ import React, { useRef } from 'react';
 export interface KernelDataListProps {
     openMigrationModal: (kernel: DistributedJupyterKernel, replica: JupyterKernelReplica) => void;
     kernelsPerPage: number;
+    perPageOption: PerPageOptions[];
     searchValue: string;
     statusSelections: string[];
     onExecuteCodeClicked: (kernel: DistributedJupyterKernel | null, replicaIdx?: number | undefined) => void;
@@ -59,7 +60,7 @@ export const KernelDataList: React.FunctionComponent<KernelDataListProps> = (pro
         kernelId: string | undefined,
     ) => {
         if (kernelId) {
-          props.onSelectKernel(kernelId);
+            props.onSelectKernel(kernelId);
         }
     };
 
@@ -199,20 +200,7 @@ export const KernelDataList: React.FunctionComponent<KernelDataListProps> = (pro
                 perPage={perPage}
                 page={page}
                 variant={PaginationVariant.bottom}
-                perPageOptions={[
-                    {
-                        title: '1 kernels',
-                        value: 1,
-                    },
-                    {
-                        title: '2 kernels',
-                        value: 2,
-                    },
-                    {
-                        title: '3 kernels',
-                        value: 3,
-                    },
-                ]}
+                perPageOptions={props.perPageOption}
                 onSetPage={onSetPage}
                 onPerPageSelect={onPerPageSelect}
             />

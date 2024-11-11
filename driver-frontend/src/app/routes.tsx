@@ -1,113 +1,114 @@
-// import * as React from 'react';
-// import {RouteComponentProps} from "react-router";
-// import { Route, useLocation } from 'react-router-dom';
-// import { Dashboard } from '@App/Dashboard';
-// import { NotFound } from '@app/NotFound/NotFound';
-// import { useDocumentTitle } from '@src/Utils/useDocumentTitle';
-// import { Switch } from 'react-router-dom';
-//
-// let routeFocusTimer: number;
-// export interface IAppRoute {
-//     label?: string; // Excluding the label will exclude the route from the nav sidebar in AppLayout
-//     /* eslint-disable @typescript-eslint/no-explicit-any */
-//     component: React.ComponentType<RouteComponentProps<any>> | React.ComponentType<any>;
-//     /* eslint-enable @typescript-eslint/no-explicit-any */
-//     exact?: boolean;
-//     path: string;
-//     title: string;
-//     routes?: undefined;
-// }
-//
-// export interface IAppRouteGroup {
-//     label: string;
-//     routes: IAppRoute[];
-// }
-//
-// export type AppRouteConfig = IAppRoute | IAppRouteGroup;
-//
-// const routes: AppRouteConfig[] = [
-//     {
-//         component: Dashboard,
-//         exact: true,
-//         label: 'Dashboard',
-//         path: '/',
-//         title: 'Workload Driver | Main Dashboard',
-//     },
-//     // {
-//     //   component: Support,
-//     //   exact: true,
-//     //   label: 'Support',
-//     //   path: '/support',
-//     //   title: 'Workload Driver | Support Page',
-//     // },
-//     // {
-//     //   label: 'Settings',
-//     //   routes: [
-//     //     {
-//     //       component: GeneralSettings,
-//     //       exact: true,
-//     //       label: 'General',
-//     //       path: '/settings/general',
-//     //       title: 'Workload Driver | General Settings',
-//     //     },
-//     //     {
-//     //       component: ProfileSettings,
-//     //       exact: true,
-//     //       label: 'Profile',
-//     //       path: '/settings/profile',
-//     //       title: 'Workload Driver | Profile Settings',
-//     //     },
-//     //   ],
-//     // },
-// ];
-//
-// // a custom hook for sending focus to the primary content container
-// // after a view has loaded so that subsequent press of tab key
-// // sends focus directly to relevant content
-// // may not be necessary if https://github.com/ReactTraining/react-router/issues/5210 is resolved
-// const useA11yRouteChange = () => {
-//     const { pathname } = useLocation();
-//     React.useEffect(() => {
-//         routeFocusTimer = window.setTimeout(() => {
-//             const mainContainer = document.getElementById('primary-app-container');
-//             if (mainContainer) {
-//                 mainContainer.focus();
-//             }
-//         }, 50);
-//         return () => {
-//             window.clearTimeout(routeFocusTimer);
-//         };
-//     }, [pathname]);
-// };
-//
-// const RouteWithTitleUpdates = ({ component: Component, title, ...rest }: IAppRoute) => {
-//     useA11yRouteChange();
-//     useDocumentTitle(title);
-//
-//     function routeWithTitle(routeProps: RouteComponentProps) {
-//         return <Component {...rest} {...routeProps} />;
-//     }
-//
-//     return <Route render={routeWithTitle} {...rest} />;
-// };
-//
-// const PageNotFound = ({ title }: { title: string }) => {
-//     useDocumentTitle(title);
-//     return <Route component={NotFound} />;
-// };
-//
-// const flattenedRoutes: IAppRoute[] = routes.reduce(
-//     (flattened, route) => [...flattened, ...(route.routes ? route.routes : [route])],
-//     [] as IAppRoute[],
-// );
-//
-// const AppRoutes = (): React.ReactElement => (
-//     <Switch>
-//         {flattenedRoutes.map(({ path, exact, component, title }, idx) => (
-//             <RouteWithTitleUpdates path={path} exact={exact} component={component} key={idx} title={title} />
-//         ))}
-//         <PageNotFound title="404 Page Not Found" />
-//     </Switch>
-// );
-//
-// export { AppRoutes, routes };
+import { DashboardLoginPage } from '@App/DashboardLoginPage';
+import { KernelsPage } from '@App/KernelsPage/KernelsPage';
+import { NodesPage } from '@App/NodesPage/NodesPage';
+import PrivateRoute from '@App/PrivateRoute/PrivateRoute';
+import { Dashboard } from '@src/app/Dashboard/Dashboard';
+import { NotFound } from '@src/app/NotFound/NotFound';
+import { WorkloadsPage } from '@src/app/WorkloadsPage/WorkloadsPage';
+import * as React from 'react';
+import { Route, Routes } from 'react-router-dom';
+
+// a custom hook for setting the page title
+export function useDocumentTitle(title: string) {
+    React.useEffect(() => {
+        const originalTitle = document.title;
+        document.title = title;
+
+        return () => {
+            document.title = originalTitle;
+        };
+    }, [title]);
+}
+
+export interface IAppRoute {
+    label?: string; // Excluding the label will exclude the route from the nav sidebar in AppLayout
+    /* eslint-disable @typescript-eslint/no-explicit-any */
+    component: React.ComponentType<any>;
+    /* eslint-enable @typescript-eslint/no-explicit-any */
+    exact?: boolean;
+    path: string;
+    title: string;
+    routes?: undefined;
+    isPrivate?: boolean;
+}
+
+export interface IAppRouteGroup {
+    label: string;
+    routes: IAppRoute[];
+}
+
+export type AppRouteConfig = IAppRoute | IAppRouteGroup;
+
+const routes: AppRouteConfig[] = [
+    {
+        component: Dashboard,
+        exact: true,
+        label: 'Dashboard',
+        path: '/',
+        title: 'Main Dashboard',
+        isPrivate: true,
+    },
+    {
+        component: DashboardLoginPage,
+        exact: true,
+        path: '/login',
+        title: 'Login page',
+        isPrivate: false,
+    },
+    {
+        component: WorkloadsPage,
+        exact: true,
+        label: 'Workloads',
+        path: '/workloads',
+        title: 'Workloads',
+        isPrivate: true,
+    },
+    {
+        component: KernelsPage,
+        exact: true,
+        label: 'Kernels',
+        path: '/kernels',
+        title: 'Kernels',
+        isPrivate: true,
+    },
+    {
+        component: NodesPage,
+        exact: true,
+        label: 'Nodes',
+        path: '/nodes',
+        title: 'Nodes',
+        isPrivate: true,
+    },
+];
+
+const getRoute = (props: IAppRoute) => {
+    if (props.isPrivate) {
+        return (
+            <Route
+                key={`private-route-${props.path}`}
+                path={props.path}
+                element={
+                    <PrivateRoute nextPath={props.path}>
+                        <props.component />
+                    </PrivateRoute>
+                }
+            />
+        );
+    } else {
+        return <Route key={`route-${props.path}`} path={props.path} element={<props.component />} />;
+    }
+};
+
+const flattenedRoutes: IAppRoute[] = routes.reduce(
+    (flattened, route) => [...flattened, ...(route.routes ? route.routes : [route])],
+    [] as IAppRoute[],
+);
+
+const AppRoutes = (): React.ReactElement => (
+    <Routes>
+        {flattenedRoutes.map((props: IAppRoute) => getRoute(props))}
+        <Route key={'route-not-found'} element={<NotFound />} />
+    </Routes>
+);
+
+export { AppRoutes, routes };

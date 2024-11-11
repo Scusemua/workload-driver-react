@@ -7,7 +7,7 @@
   "sessions": [
     {
       "id": "77360742-cc95-46ac-8466-8a05706bd885",
-      "start_tick": 1,
+      "start_tick": 25,
       "stop_tick": 856,
       "num_training_events": 28,
       "trainings": [
@@ -519,7 +519,7 @@
     },
     {
       "id": "b8218bce-d9fc-4bf7-8e68-10e0bd5cd2ba",
-      "start_tick": 2,
+      "start_tick": 8,
       "stop_tick": 865,
       "num_training_events": 30,
       "trainings": [
@@ -1067,7 +1067,7 @@
     },
     {
       "id": "a2a23424-2ce7-453f-9217-8cb4938a9647",
-      "start_tick": 12,
+      "start_tick": 15,
       "stop_tick": 661,
       "num_training_events": 24,
       "trainings": [
@@ -1363,7 +1363,7 @@
     },
     {
       "id": "f00147f8-719d-49b0-8dd4-5d8da5b69acf",
-      "start_tick": 4,
+      "start_tick": 3,
       "stop_tick": 796,
       "num_training_events": 29,
       "trainings": [
@@ -2186,7 +2186,7 @@
     },
     {
       "id": "68b5fd05-1440-4363-8fc1-59cfa22637ce",
-      "start_tick": 6,
+      "start_tick": 13,
       "stop_tick": 908,
       "num_training_events": 33,
       "trainings": [
@@ -2689,7 +2689,7 @@
     },
     {
       "id": "5f0d9a72-43eb-4ee6-af3b-f88468ae39fb",
-      "start_tick": 7,
+      "start_tick": 3,
       "stop_tick": 1024,
       "num_training_events": 29,
       "trainings": [
@@ -3132,7 +3132,7 @@
     },
     {
       "id": "33fe43e6-7ac2-4450-9976-8fca495de21b",
-      "start_tick": 3,
+      "start_tick": 2,
       "stop_tick": 1000,
       "num_training_events": 33,
       "trainings": [

@@ -1,29 +1,30 @@
 import {
-    Brand,
-    Button,
-    Flex,
-    FlexItem,
-    Icon,
-    Label,
-    Masthead,
-    MastheadBrand,
-    MastheadContent,
-    MastheadMain,
-    NotificationBadge,
-    NotificationBadgeVariant,
-    ToggleGroup,
-    ToggleGroupItem,
-    ToolbarItem,
-    Tooltip,
+  Brand,
+  Button,
+  Flex,
+  FlexItem,
+  Icon,
+  Label,
+  Masthead,
+  MastheadBrand,
+  MastheadContent,
+  MastheadMain, MastheadToggle,
+  NotificationBadge,
+  NotificationBadgeVariant,
+  ToggleGroup,
+  ToggleGroupItem,
+  ToolbarItem,
+  Tooltip
 } from '@patternfly/react-core';
 import {
-    CheckCircleIcon,
-    ClockIcon,
-    ErrorCircleOIcon,
-    InfoAltIcon,
-    MoonIcon,
-    SunIcon,
-    WarningTriangleIcon,
+  BarsIcon,
+  CheckCircleIcon,
+  ClockIcon,
+  ErrorCircleOIcon,
+  InfoAltIcon,
+  MoonIcon,
+  SunIcon,
+  WarningTriangleIcon
 } from '@patternfly/react-icons';
 import { AuthorizationContext } from '@Providers/AuthProvider';
 import { useClusterAge } from '@Providers/ClusterAgeProvider';
@@ -89,6 +90,7 @@ const connectionStatusColors: statusColor = {
 
 interface AppHeaderProps {
     isLoggedIn: boolean;
+    onMastheadToggleClicked: () => void;
 }
 
 const toastIdFailedToConnect: string = '__TOAST_ERROR_FAILED_TO_CONNECT__';
@@ -280,6 +282,11 @@ export const AppHeader: React.FunctionComponent<AppHeaderProps> = (props: AppHea
     return (
         <Masthead>
             <MastheadMain>
+                <MastheadToggle>
+                    <Button variant="plain" onClick={() => props.onMastheadToggleClicked()} aria-label="Global navigation">
+                        <BarsIcon />
+                    </Button>
+                </MastheadToggle>
                 <MastheadBrand>
                     <Brand src={logo} alt="Workload Driver Logo" heights={{ default: '36px' }} />
                 </MastheadBrand>

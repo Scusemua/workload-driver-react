@@ -526,7 +526,7 @@ func (conn *BasicKernelConnection) RequestKernelInfo() (KernelMessage, error) {
 func (conn *BasicKernelConnection) InterruptKernel() error {
 	if conn.connectionStatus == KernelDead {
 		// Cannot interrupt a dead kernel.
-		return ErrKernelIsDead
+		return fmt.Errorf("%w: no connection to kernel \"%s\"", ErrKernelIsDead, conn.kernelId)
 	}
 
 	conn.logger.Debug("Attempting to Interrupt kernel.", zap.String("kernel_id", conn.kernelId))
@@ -1275,7 +1275,7 @@ func (conn *BasicKernelConnection) getKernelModel() (*jupyterKernel, error) {
 func (conn *BasicKernelConnection) sendMessage(message KernelMessage) error {
 	if conn.connectionStatus == KernelDead {
 		conn.logger.Error("Cannot send message. Kernel is dead.", zap.String("kernel_id", conn.kernelId))
-		return ErrKernelIsDead
+		return fmt.Errorf("%w: no connection to kernel \"%s\"", ErrKernelIsDead, conn.kernelId)
 	}
 
 	if conn.connectionStatus == KernelConnected {
@@ -1289,7 +1289,7 @@ func (conn *BasicKernelConnection) sendMessage(message KernelMessage) error {
 		}
 	} else {
 		conn.sugaredLogger.Errorf("Could not send %s message (ID=%s) of type '%s' now to kernel %s. Kernel is not connected.", message.GetChannel(), message.GetHeader().MessageId, message.GetHeader().MessageType, conn.kernelId)
-		return ErrNotConnected
+		return fmt.Errorf("%w: no connection to kernel \"%s\"", ErrNotConnected, conn.kernelId)
 	}
 
 	conn.sugaredLogger.Debugf("Successfully sent %s message %s of type %s to kernel %s.", message.GetChannel(), message.GetHeader().MessageId, message.GetHeader().MessageType, conn.kernelId)

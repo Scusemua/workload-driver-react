@@ -327,7 +327,8 @@ func (m *BasicKernelSessionManager) InterruptKernel(sessionId string) error {
 	conn := sess.kernel
 	if conn.ConnectionStatus() == KernelDead {
 		// Cannot interrupt a dead kernel.
-		return ErrKernelIsDead
+		return fmt.Errorf("%w: no connection to kernel \"%s\" (session ID = \"%s\")",
+			ErrKernelIsDead, conn.KernelId(), sessionId)
 	}
 
 	var requestBody = make(map[string]interface{})

@@ -1,7 +1,16 @@
-import { Dashboard } from '@App/Dashboard';
-import { DashboardLoginPage } from '@App/DashboardLoginPage';
+import { IAppRoute, IAppRouteGroup, routes } from '@App/routes';
 import { DashboardNotificationDrawer } from '@Components/DashboardNotificationDrawer';
-import { AlertGroup, Page, SkipToContent } from '@patternfly/react-core';
+import {
+    AlertGroup,
+    Nav,
+    NavExpandable,
+    NavItem,
+    NavList,
+    Page,
+    PageSidebar,
+    PageSidebarBody,
+    SkipToContent,
+} from '@patternfly/react-core';
 import { AuthorizationContext } from '@Providers/AuthProvider';
 
 import { Notification, WebSocketMessage } from '@src/Data/';
@@ -10,6 +19,7 @@ import { JoinPaths } from '@src/Utils/path_utils';
 import { UnixDurationToString } from '@src/Utils/utils';
 import * as React from 'react';
 import { toast, ToastBar, Toaster } from 'react-hot-toast';
+import { NavLink } from 'react-router-dom';
 
 import useWebSocket from 'react-use-websocket';
 import { v4 as uuidv4 } from 'uuid';
@@ -18,8 +28,14 @@ import { AppHeader } from './AppHeader';
 
 const maxDisplayedAlerts: number = 3;
 
-const AppLayout: React.FunctionComponent = () => {
+interface IAppLayout {
+    children: React.ReactNode;
+}
+
+const AppLayout: React.FunctionComponent<IAppLayout> = ({ children }) => {
     const pageId = 'primary-app-container';
+
+    const [sidebarOpen, setSidebarOpen] = React.useState<boolean>(false);
 
     const firstRender = React.useRef<boolean>(true);
 
@@ -207,6 +223,49 @@ const AppLayout: React.FunctionComponent = () => {
         }
     };
 
+    const renderNavItem = (route: IAppRoute, index: number) => (
+        <NavItem
+            key={`${route.label}-${index}`}
+            id={`${route.label}-${index}`}
+            isActive={route.path === location.pathname}
+        >
+            <NavLink to={route.path}>{route.label}</NavLink>
+        </NavItem>
+    );
+
+    const renderNavGroup = (group: IAppRouteGroup, groupIndex: number) => (
+        <NavExpandable
+            key={`${group.label}-${groupIndex}`}
+            id={`${group.label}-${groupIndex}`}
+            title={group.label}
+            isActive={group.routes.some((route) => route.path === location.pathname)}
+        >
+            {group.routes.map((route, idx) => route.label && renderNavItem(route, idx))}
+        </NavExpandable>
+    );
+
+    const Navigation = (
+        <Nav id="nav-primary-simple">
+            <NavList id="nav-list-simple">
+                {routes.map(
+                    (route, idx) =>
+                        route.label && (!route.routes ? renderNavItem(route, idx) : renderNavGroup(route, idx)),
+                )}
+            </NavList>
+        </Nav>
+    );
+
+    const Sidebar = (
+        <PageSidebar>
+            <PageSidebarBody>{Navigation}</PageSidebarBody>
+        </PageSidebar>
+    );
+
+    const onMastheadToggleClicked = () => {
+        console.log("onMastheadToggleClicked called");
+        setSidebarOpen(curr => !curr);
+    };
+
     return (
         <React.Fragment>
             <Toaster
@@ -231,24 +290,28 @@ const AppLayout: React.FunctionComponent = () => {
             </Toaster>
             <Page
                 mainContainerId={pageId}
-                header={<AppHeader isLoggedIn={authenticated} />}
+                header={<AppHeader isLoggedIn={authenticated} onMastheadToggleClicked={() => onMastheadToggleClicked()} />}
                 skipToContent={PageSkipToContent}
+                sidebar={sidebarOpen && Sidebar}
                 isNotificationDrawerExpanded={expanded}
                 notificationDrawer={authenticated && <DashboardNotificationDrawer />}
             >
-                {!authenticated && <DashboardLoginPage />}
-                {authenticated && <Dashboard />}
-                <AlertGroup
-                    isToast
-                    isLiveRegion
-                    onOverflowClick={() => {
-                        setAlerts([]);
-                        toggleExpansion(true);
-                    }}
-                    overflowMessage={overflowMessage}
-                >
-                    {alerts.slice(0, maxDisplayedAlerts)}
-                </AlertGroup>
+                {/*{!authenticated && <DashboardLoginPage />}*/}
+                {/*{authenticated && <Dashboard />}*/}
+                {authenticated && (
+                    <AlertGroup
+                        isToast
+                        isLiveRegion
+                        onOverflowClick={() => {
+                            setAlerts([]);
+                            toggleExpansion(true);
+                        }}
+                        overflowMessage={overflowMessage}
+                    >
+                        {alerts.slice(0, maxDisplayedAlerts)}
+                    </AlertGroup>
+                )}
+                {children}
             </Page>
         </React.Fragment>
     );

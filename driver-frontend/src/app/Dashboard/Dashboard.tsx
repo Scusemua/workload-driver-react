@@ -1,15 +1,14 @@
 import '@patternfly/react-core/dist/styles/base.css';
 
-import { KernelListCard, KernelSpecList, NodeList, UtilizationCard, WorkloadCard } from '@Components/Cards/';
+import { KernelListCard, KernelSpecList, NodeListCard, UtilizationCard, WorkloadCard } from '@Components/Cards/';
 import { MigrationModal } from '@Components/Modals';
+import { Grid, GridItem, gridSpans, PageSection } from '@patternfly/react-core';
 import { GetPathForFetch } from '@src/Utils/path_utils';
-import { DistributedJupyterKernel, JupyterKernelReplica } from 'src/Data';
-import { DockerLogViewCard } from '@Cards/LogViewCard/DockerLogViewCard';
-import { Grid, GridItem, PageSection, gridSpans } from '@patternfly/react-core';
 
 import React, { createContext } from 'react';
 
 import toast from 'react-hot-toast';
+import { DistributedJupyterKernel, JupyterKernelReplica } from 'src/Data';
 
 export interface DashboardProps {}
 
@@ -49,7 +48,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
             method: 'POST',
             headers: {
                 'Content-Type': 'application/json',
-                 Authorization: 'Bearer ' + localStorage.getItem("token"),
+                Authorization: 'Bearer ' + localStorage.getItem('token'),
                 // 'Cache-Control': 'no-cache, no-transform, no-store',
             },
             body: JSON.stringify({
@@ -136,7 +135,28 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
                             setHeightFactor: (newHeight: number) => setKernelHeightFactor(newHeight),
                         }}
                     >
-                        <KernelListCard kernelsPerPage={3} openMigrationModal={openMigrationModal} />
+                        <KernelListCard
+                            kernelsPerPage={3}
+                            openMigrationModal={openMigrationModal}
+                            perPageOption={[
+                                {
+                                    title: '1 kernels',
+                                    value: 1,
+                                },
+                                {
+                                    title: '2 kernels',
+                                    value: 2,
+                                },
+                                {
+                                    title: '3 kernels',
+                                    value: 3,
+                                },
+                                {
+                                    title: '5 kernels',
+                                    value: 5,
+                                },
+                            ]}
+                        />
                     </KernelHeightFactorContext.Provider>
                 </GridItem>
                 <GridItem span={6} rowSpan={getWorkloadCardRowspan()}>
@@ -162,7 +182,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
                             setHeightFactor: (value: number) => setKubeNodeHeightFactor(value),
                         }}
                     >
-                        <NodeList
+                        <NodeListCard
                             isDashboardList={true}
                             hideAdjustVirtualGPUsButton={false}
                             hideControlPlaneNode={true}
