@@ -166,7 +166,23 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
                             setHeightFactor: (value: number) => setWorkloadHeightFactor(value),
                         }}
                     >
-                        <WorkloadCard workloadsPerPage={3} />
+                        <WorkloadCard
+                          workloadsPerPage={3}
+                          perPageOption={[
+                            {
+                              title: '1 workloads',
+                              value: 1,
+                            },
+                            {
+                              title: '2 workloads',
+                              value: 2,
+                            },
+                            {
+                              title: '3 workloads',
+                              value: 3,
+                            },
+                          ]}
+                        />
                     </WorkloadsHeightFactorContext.Provider>
                 </GridItem>
                 <GridItem span={6} rowSpan={1}>

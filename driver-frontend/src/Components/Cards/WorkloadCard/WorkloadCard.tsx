@@ -6,18 +6,18 @@ import {
     VisualizeWorkloadModal,
 } from '@Components/Modals';
 import {
-    Button,
-    Card,
-    CardBody,
-    CardHeader,
-    Flex,
-    FlexItem,
-    Text,
-    TextVariants,
-    Title,
-    ToolbarGroup,
-    ToolbarItem,
-    Tooltip,
+  Button,
+  Card,
+  CardBody,
+  CardHeader,
+  Flex,
+  FlexItem, PerPageOptions,
+  Text,
+  TextVariants,
+  Title,
+  ToolbarGroup,
+  ToolbarItem,
+  Tooltip
 } from '@patternfly/react-core';
 
 import { PlusIcon, StopCircleIcon } from '@patternfly/react-icons';
@@ -34,6 +34,7 @@ import { v4 as uuidv4 } from 'uuid';
 
 export interface WorkloadCardProps {
     workloadsPerPage: number;
+    perPageOption: PerPageOptions[];
 }
 
 export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: WorkloadCardProps) => {
@@ -512,6 +513,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                             onStopWorkloadClicked={onStopWorkloadClicked}
                             workloadsPerPage={props.workloadsPerPage}
                             selectedWorkloadListId={selectedWorkloadListId}
+                            perPageOption={props.perPageOption}
                         />
                     )}
                 </CardBody>

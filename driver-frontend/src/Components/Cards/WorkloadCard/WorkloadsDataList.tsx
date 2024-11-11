@@ -3,19 +3,19 @@ import WorkloadDescriptiveIcons from '@Cards/WorkloadCard/WorkloadDescriptiveIco
 
 import { WorkloadRuntimeMetrics } from '@Cards/WorkloadCard/WorkloadRuntimeMetrics';
 import {
-    Button,
-    DataList,
-    DataListCell,
-    DataListItem,
-    DataListItemCells,
-    DataListItemRow,
-    Flex,
-    FlexItem,
-    Pagination,
-    PaginationVariant,
-    Text,
-    TextVariants,
-    Tooltip,
+  Button,
+  DataList,
+  DataListCell,
+  DataListItem,
+  DataListItemCells,
+  DataListItemRow,
+  Flex,
+  FlexItem,
+  Pagination,
+  PaginationVariant, PerPageOptions,
+  Text,
+  TextVariants,
+  Tooltip
 } from '@patternfly/react-core';
 
 import { PauseIcon, PlayIcon, SearchIcon, StopIcon } from '@patternfly/react-icons';
@@ -36,6 +36,7 @@ export interface IWorkloadsDataListProps {
     onStopWorkloadClicked: (workload: Workload) => void;
     workloadsPerPage?: number;
     selectedWorkloadListId: string;
+    perPageOption: PerPageOptions[];
 }
 
 // eslint-disable-next-line prefer-const
@@ -311,20 +312,7 @@ let WorkloadsDataList: React.FunctionComponent<IWorkloadsDataListProps> = (props
                 perPage={perPage}
                 page={page}
                 variant={PaginationVariant.bottom}
-                perPageOptions={[
-                    {
-                        title: '1 workloads',
-                        value: 1,
-                    },
-                    {
-                        title: '2 workloads',
-                        value: 2,
-                    },
-                    {
-                        title: '3 workloads',
-                        value: 3,
-                    },
-                ]}
+                perPageOptions={props.perPageOption}
                 onSetPage={onSetPage}
                 onPerPageSelect={onPerPageSelect}
             />
