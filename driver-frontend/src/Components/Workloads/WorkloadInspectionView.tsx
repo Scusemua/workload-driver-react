@@ -35,6 +35,24 @@ export const WorkloadInspectionView: React.FunctionComponent<IWorkloadInspection
     const tickStartTime = React.useRef<Map<string, number>>(new Map<string, number>());
     const tickDurations = React.useRef<Map<string, number[]>>(new Map<string, number[]>());
 
+    // Map from workload ID to the largest tick for which we've shown a toast notification
+    // about the workload being incremented to that tick.
+    const showedTickNotifications = React.useRef<Map<string, number>>(new Map<string, number>());
+
+    const shouldShowTickNotification = (workloadId: string, tick: number): boolean => {
+        if (
+            !showedTickNotifications ||
+            !showedTickNotifications.current ||
+            !showedTickNotifications.current.has(workloadId)
+        ) {
+            return false;
+        }
+
+        const lastTickNotification: number = showedTickNotifications.current.get(workloadId) || -1;
+
+        return tick > lastTickNotification;
+    };
+
     React.useEffect(() => {
         if (props.workload && props.workload?.current_tick > currentTick) {
             if (!tickStartTime.current.has(props.workload.id)) {
@@ -48,19 +66,24 @@ export const WorkloadInspectionView: React.FunctionComponent<IWorkloadInspection
                 tickStartTime.current.set(props.workload.id, performance.now());
             }
 
-            setCurrentTick(props.workload?.current_tick);
-            toast.custom(
-                (t) =>
-                    GetToastContentWithHeaderAndBody(
-                        'Tick Incremented',
-                        `Workload ${props.workload?.name} has progressed to Tick #${props.workload?.current_tick}.`,
-                        'info',
-                        () => {
-                            toast.dismiss(t.id);
-                        },
-                    ),
-                { icon: '⏱️', style: { maxWidth: 700 } },
-            );
+            setCurrentTick(props.workload.current_tick);
+
+            if (shouldShowTickNotification(props.workload.id, props.workload.current_tick)) {
+                toast.custom(
+                    (t) =>
+                        GetToastContentWithHeaderAndBody(
+                            'Tick Incremented',
+                            `Workload ${props.workload?.name} has progressed to Tick #${props.workload?.current_tick}.`,
+                            'info',
+                            () => {
+                                toast.dismiss(t.id);
+                            },
+                        ),
+                    { icon: '⏱️', style: { maxWidth: 700 } },
+                );
+
+                showedTickNotifications.current.set(props.workload.id, props.workload.current_tick);
+            }
         }
     }, [currentTick, props.workload, props.workload?.current_tick]);
 
