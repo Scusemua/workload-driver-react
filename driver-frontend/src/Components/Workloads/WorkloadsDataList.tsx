@@ -1,14 +1,15 @@
 import { HeightFactorContext, WorkloadsHeightFactorContext } from '@App/Dashboard';
 import {
-  DataList,
-  DataListCell,
-  DataListItem,
-  DataListItemCells,
-  DataListItemRow,
-  Pagination,
-  PaginationVariant, PerPageOptions,
+    DataList,
+    DataListCell,
+    DataListItem,
+    DataListItemCells,
+    DataListItemRow,
+    Pagination,
+    PaginationVariant,
+    PerPageOptions,
 } from '@patternfly/react-core';
-import { WorkloadDataListCell } from '@src/Components';
+import { WorkloadDataListCell } from '@src/Components/Workloads/WorkloadDataListCell';
 
 import { Workload } from '@src/Data/Workload';
 import React from 'react';
@@ -77,17 +78,12 @@ let WorkloadsDataList: React.FunctionComponent<IWorkloadsDataListProps> = (props
                                     dataListCells={[
                                         <DataListCell key={'workload-primary-content-' + idx} isFilled={true} width={4}>
                                             <WorkloadDataListCell
-                                              onPauseWorkloadClicked={props.onPauseWorkloadClicked}
-                                              toggleDebugLogs={props.toggleDebugLogs}
-                                              onSelectWorkload={props.onSelectWorkload}
-                                              onClickWorkload={props.onClickWorkload}
-                                              onVisualizeWorkloadClicked={props.onVisualizeWorkloadClicked}
-                                              onStartWorkloadClicked={props.onStartWorkloadClicked}
-                                              onStopWorkloadClicked={props.onStopWorkloadClicked}
-                                              workloadsPerPage={props.workloadsPerPage}
-                                              selectedWorkloadListId={props.selectedWorkloadListId}
-                                              perPageOption={props.perPageOption}
-                                              workload={workload}
+                                                onPauseWorkloadClicked={props.onPauseWorkloadClicked}
+                                                toggleDebugLogs={props.toggleDebugLogs}
+                                                onVisualizeWorkloadClicked={props.onVisualizeWorkloadClicked}
+                                                onStartWorkloadClicked={props.onStartWorkloadClicked}
+                                                onStopWorkloadClicked={props.onStopWorkloadClicked}
+                                                workload={workload}
                                             />
                                         </DataListCell>,
                                     ]}

@@ -1,23 +1,18 @@
-import WorkloadDescriptiveIcons from '@Cards/WorkloadCard/WorkloadDescriptiveIcons';
-import { Button, Flex, FlexItem, PerPageOptions, Text, TextVariants, Tooltip } from '@patternfly/react-core';
+import WorkloadDescriptiveIcons from '@src/Components/Workloads/WorkloadDescriptiveIcons';
+import { Button, Flex, FlexItem, Text, TextVariants, Tooltip } from '@patternfly/react-core';
 import { PauseIcon, PlayIcon, SearchIcon, StopIcon } from '@patternfly/react-icons';
 import { CsvFileIcon, TemplateIcon, XmlFileIcon } from '@src/Assets/Icons';
-import { WorkloadRuntimeMetrics } from '@src/Components';
-import { Workload, WORKLOAD_STATE_READY, WORKLOAD_STATE_RUNNING } from '@src/Data';
+import { WorkloadRuntimeMetrics } from '@src/Components/Workloads/WorkloadRuntimeMetrics';
+import { WORKLOAD_STATE_READY, WORKLOAD_STATE_RUNNING, Workload } from '@src/Data';
 import React from 'react';
 
 interface IWorkloadDataListCellProps {
     workload: Workload;
     onPauseWorkloadClicked: (workload: Workload) => void;
     toggleDebugLogs: (workloadId: string, enabled: boolean) => void;
-    onSelectWorkload: (event: React.MouseEvent | React.KeyboardEvent, id: string) => void;
-    onClickWorkload: (workload: Workload) => void;
     onVisualizeWorkloadClicked: (workload: Workload) => void;
     onStartWorkloadClicked: (workload: Workload) => void;
     onStopWorkloadClicked: (workload: Workload) => void;
-    workloadsPerPage?: number;
-    selectedWorkloadListId: string;
-    perPageOption: PerPageOptions[];
 }
 
 export const WorkloadDataListCell: React.FunctionComponent<IWorkloadDataListCellProps> = (

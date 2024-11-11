@@ -2,6 +2,7 @@ import { DashboardLoginPage } from '@App/DashboardLoginPage';
 import { KernelsPage } from '@App/KernelsPage/KernelsPage';
 import { NodesPage } from '@App/NodesPage/NodesPage';
 import PrivateRoute from '@App/PrivateRoute/PrivateRoute';
+import IndividualWorkloadPage from '@App/WorkloadsPage/IndividualWorkloadPage';
 import { Dashboard } from '@src/app/Dashboard/Dashboard';
 import { NotFound } from '@src/app/NotFound/NotFound';
 import { WorkloadsPage } from '@src/app/WorkloadsPage/WorkloadsPage';
@@ -83,6 +84,13 @@ const routes: AppRouteConfig[] = [
                 isPrivate: true,
             },
         ],
+    },
+    {
+        component: IndividualWorkloadPage,
+        exact: true,
+        path: '/workload/:workload_id',
+        title: 'Workload',
+        isPrivate: true,
     },
 ];
 

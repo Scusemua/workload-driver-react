@@ -13,6 +13,7 @@ let WorkloadsPage: React.FunctionComponent<IWorkloadsPageProps> = () => (
   <PageSection>
     <WorkloadCard
       workloadsPerPage={3}
+      inspectInModal={false}
       perPageOption={[
         {
           title: '1 workloads',

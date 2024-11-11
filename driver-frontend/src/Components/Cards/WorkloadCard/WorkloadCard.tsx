@@ -1,4 +1,4 @@
-import { WorkloadsDataList } from '@Cards/WorkloadCard/WorkloadsDataList';
+import { WorkloadsDataList } from '@Components/Workloads/WorkloadsDataList';
 import {
     InspectWorkloadModal,
     NewWorkloadFromTemplateModal,
@@ -24,17 +24,19 @@ import { PlusIcon, StopCircleIcon } from '@patternfly/react-icons';
 
 import { useWorkloads } from '@Providers/WorkloadProvider';
 
-import { Workload, WORKLOAD_STATE_RUNNING, WorkloadPreset, WorkloadResponse } from '@src/Data/Workload';
+import { WORKLOAD_STATE_RUNNING, Workload, WorkloadPreset, WorkloadResponse } from '@src/Data/Workload';
 import { SessionTabsDataProvider } from '@src/Providers';
 import { DefaultDismiss, GetToastContentWithHeaderAndBody } from '@src/Utils/toast_utils';
 import { ExportWorkloadToJson } from '@src/Utils/utils';
 import React, { useEffect } from 'react';
 import { Toast, toast } from 'react-hot-toast';
+import { useNavigate } from 'react-router-dom';
 import { v4 as uuidv4 } from 'uuid';
 
 export interface WorkloadCardProps {
     workloadsPerPage: number;
     perPageOption: PerPageOptions[];
+    inspectInModal: boolean;
 }
 
 export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: WorkloadCardProps) => {
@@ -50,6 +52,8 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
     const [workloadBeingInspected, setWorkloadBeingInspected] = React.useState<Workload | null>(null);
 
     const { workloads, workloadsMap, sendJsonMessage } = useWorkloads();
+
+    const navigate = useNavigate();
 
     useEffect(() => {
         if (workloadBeingInspected !== null && inspectWorkloadModalOpen) {
@@ -74,7 +78,12 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
 
     const onClickWorkload = (workload: Workload) => {
         setWorkloadBeingInspected(workload);
-        setInspectWorkloadModalOpen(true);
+
+        if (props.inspectInModal) {
+          setInspectWorkloadModalOpen(true);
+        } else {
+          navigate('/workload/' + workload.id);
+        }
     };
 
     const onConfirmRegisterWorkloadFromTemplate = (workloadName: string, workloadRegistrationRequest: string) => {

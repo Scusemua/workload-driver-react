@@ -168,6 +168,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
                     >
                         <WorkloadCard
                           workloadsPerPage={3}
+                          inspectInModal={true}
                           perPageOption={[
                             {
                               title: '1 workloads',
