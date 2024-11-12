@@ -21,13 +21,15 @@ export const IndividualWorkloadPage: React.FunctionComponent<IndividualWorkloadP
 
     const navigate = useNavigate();
 
-    const [targetWorload, setTargetWorkload] = React.useState<Workload | undefined>(undefined);
+    const [targetWorkload, setTargetWorkload] = React.useState<Workload | undefined>(undefined);
 
     React.useEffect(() => {
         const workloadId: string | undefined = params.workload_id;
 
         if (workloadId && workloadId !== '' && workloadId !== ':workload_id') {
             const workload: Workload | undefined = workloadsMap.get(workloadId);
+
+            console.log(`workload ${workloadId} tick durations: ${workload?.tick_durations_milliseconds}`)
 
             setTargetWorkload(workload);
         } else {
@@ -40,7 +42,7 @@ export const IndividualWorkloadPage: React.FunctionComponent<IndividualWorkloadP
      * Return the content to be rendered on the page.
      */
     const getPageContent = (): React.ReactNode => {
-        if (targetWorload) {
+        if (targetWorkload) {
             return (
                 <PageSection>
                     <Card isFullHeight isRounded>
@@ -48,7 +50,7 @@ export const IndividualWorkloadPage: React.FunctionComponent<IndividualWorkloadP
                             <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsLg' }}>
                                 <FlexItem>
                                     <WorkloadDataListCell
-                                        workload={targetWorload}
+                                        workload={targetWorkload}
                                         onVisualizeWorkloadClicked={props.onVisualizeWorkloadClicked}
                                     />
                                 </FlexItem>
@@ -56,7 +58,7 @@ export const IndividualWorkloadPage: React.FunctionComponent<IndividualWorkloadP
                                     <Divider />
                                 </FlexItem>
                                 <FlexItem>
-                                    <WorkloadInspectionView workload={targetWorload} showTickDurationChart={true} />
+                                    <WorkloadInspectionView workload={targetWorkload} showTickDurationChart={true} />
                                 </FlexItem>
                             </Flex>
                         </CardBody>
