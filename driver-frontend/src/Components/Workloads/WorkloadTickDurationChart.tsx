@@ -33,6 +33,10 @@ export const WorkloadTickDurationChart: React.FunctionComponent<IWorkloadTickDur
     };
 
     const getMaxDomainY = (): number => {
+        if (props.workload.tick_durations_milliseconds.length == 0) {
+          return 5000;
+        }
+
         let max: number = 0;
 
         props.workload.tick_durations_milliseconds.forEach((dur: number) => {

@@ -89,7 +89,7 @@ export function IsActivelyRunning(workload: Workload) {
 }
 
 export function IsTerminated(workload: Workload) {
-    return workload.workload_state == WorkloadStateFinished;
+    return workload.workload_state == WorkloadStateTerminated;
 }
 
 /**
