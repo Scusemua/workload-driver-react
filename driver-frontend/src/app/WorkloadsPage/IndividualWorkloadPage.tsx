@@ -8,7 +8,13 @@ import React from 'react';
 import { useParams } from 'react-router';
 import { useNavigate } from 'react-router-dom';
 
-interface IndividualWorkloadPageProps {}
+interface IndividualWorkloadPageProps {
+  onPauseWorkloadClicked: (workload: Workload) => void;
+  toggleDebugLogs: (workloadId: string, enabled: boolean) => void;
+  onVisualizeWorkloadClicked: (workload: Workload) => void;
+  onStartWorkloadClicked: (workload: Workload) => void;
+  onStopWorkloadClicked: (workload: Workload) => void;
+}
 
 export const IndividualWorkloadPage: React.FunctionComponent<IndividualWorkloadPageProps> = (
     props: IndividualWorkloadPageProps,

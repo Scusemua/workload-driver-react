@@ -1,14 +1,5 @@
 import { RoundToThreeDecimalPlaces } from '@Components/Modals';
-import {
-    Chart,
-    ChartAxis,
-    ChartGroup,
-    ChartLine,
-    ChartThemeColor,
-    ChartThemeDefinitionInterface,
-    ChartVoronoiContainer,
-    getCustomTheme,
-} from '@patternfly/react-charts';
+import { Chart, ChartAxis, ChartGroup, ChartLine, ChartVoronoiContainer } from '@patternfly/react-charts';
 import { Workload } from '@src/Data';
 import { DarkModeContext } from '@src/Providers';
 import React from 'react';
@@ -25,44 +16,19 @@ export const WorkloadTickDurationChart: React.FunctionComponent<IWorkloadTickDur
 ) => {
     const { darkMode } = React.useContext(DarkModeContext);
 
-    const getTickDurationChartTheme = () => {
+    const getStyle = () => {
         if (darkMode) {
-            const theme: ChartThemeDefinitionInterface = getCustomTheme(ChartThemeColor.default, {
+            return {
                 axis: {
-                    style: {
-                        tickLabels: {
-                            fill: 'white',
-                        },
-                        axisLabel: {
-                            fill: 'white',
-                        },
-                        ticks: {
-                            fill: 'white',
-                        },
-                    },
+                    stroke: 'white',
                 },
-            });
-
-            return theme;
-        } else {
-            const theme: ChartThemeDefinitionInterface = getCustomTheme(ChartThemeColor.default, {
-                axis: {
-                    style: {
-                        tickLabels: {
-                            fill: 'white',
-                        },
-                        axisLabel: {
-                            fill: 'white',
-                        },
-                        ticks: {
-                            fill: 'white',
-                        },
-                    },
+                tickLabels: {
+                    fill: 'white',
                 },
-            });
-
-            return theme;
+            };
         }
+
+        return {};
     };
 
     return (
@@ -83,11 +49,10 @@ export const WorkloadTickDurationChart: React.FunctionComponent<IWorkloadTickDur
                 right: 25, // Adjusted to accommodate legend
                 top: 75,
             }}
-            width={900}
-            theme={getTickDurationChartTheme()}
+            width={950}
         >
-            <ChartAxis name={'Tick'} label={'Tick'} showGrid />
-            <ChartAxis dependentAxis showGrid />
+            <ChartAxis name={'Tick'} label={'Tick'} showGrid style={getStyle()} />
+            <ChartAxis dependentAxis showGrid style={getStyle()} />
             <ChartGroup>
                 <ChartLine
                     data={props.workload.tick_durations_milliseconds?.map((tickDurationMs: number, index: number) => {

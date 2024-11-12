@@ -31,7 +31,6 @@ import {
 } from '@patternfly/react-icons';
 import { WorkloadEventTable, WorkloadSessionTable } from '@src/Components';
 import { Workload } from '@src/Data';
-import { DarkModeContext } from '@src/Providers';
 import { GetToastContentWithHeaderAndBody } from '@src/Utils/toast_utils';
 import React from 'react';
 import toast from 'react-hot-toast';
