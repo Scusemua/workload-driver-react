@@ -140,7 +140,7 @@ export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalP
                 </Button>,
             ]}
         >
-            <WorkloadInspectionView workload={props.workload} />
+            <WorkloadInspectionView workload={props.workload} showTickDurationChart={false}/>
         </Modal>
     );
 };

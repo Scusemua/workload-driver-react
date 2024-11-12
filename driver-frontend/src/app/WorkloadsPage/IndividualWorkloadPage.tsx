@@ -58,7 +58,7 @@ export const IndividualWorkloadPage: React.FunctionComponent<IndividualWorkloadP
                                     <Divider />
                                 </FlexItem>
                                 <FlexItem>
-                                    <WorkloadInspectionView workload={targetWorload} />
+                                    <WorkloadInspectionView workload={targetWorload} showTickDurationChart={true} />
                                 </FlexItem>
                             </Flex>
                         </CardBody>
