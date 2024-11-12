@@ -40,11 +40,7 @@ export const WorkloadInspectionView: React.FunctionComponent<IWorkloadInspection
     const showedTickNotifications = React.useRef<Map<string, number>>(new Map<string, number>());
 
     const shouldShowTickNotification = (workloadId: string, tick: number): boolean => {
-        if (
-            !showedTickNotifications ||
-            !showedTickNotifications.current ||
-            !showedTickNotifications.current.has(workloadId)
-        ) {
+        if (!showedTickNotifications || !showedTickNotifications.current) {
             return false;
         }
 
@@ -55,16 +51,20 @@ export const WorkloadInspectionView: React.FunctionComponent<IWorkloadInspection
 
     React.useEffect(() => {
         if (props.workload && props.workload?.current_tick > currentTick) {
-            if (!tickStartTime.current.has(props.workload.id)) {
-                tickStartTime.current.set(props.workload.id, performance.now());
-            } else {
-                const tickDuration: number = performance.now() - tickStartTime.current[props.workload.id];
+            const tickStart: number | undefined = tickStartTime.current.get(props.workload.id);
 
-                const durations: number[] | undefined = tickDurations.current.get(props.workload.id) || [];
-                durations.push(tickDuration);
-                tickDurations.current.set(props.workload.id, durations);
-                tickStartTime.current.set(props.workload.id, performance.now());
+            if (tickStart) {
+                const tickDuration: number = performance.now() - tickStart;
+
+                // If we get something very small, then it's a bug. So, only keep values larger than 250ms.
+                if (tickDuration > 250) {
+                    const durations: number[] | undefined = tickDurations.current.get(props.workload.id) || [];
+                    durations.push(tickDuration);
+                    tickDurations.current.set(props.workload.id, durations);
+                }
             }
+
+            tickStartTime.current.set(props.workload.id, performance.now());
 
             setCurrentTick(props.workload.current_tick);
 
@@ -96,21 +96,23 @@ export const WorkloadInspectionView: React.FunctionComponent<IWorkloadInspection
     };
 
     const getLastTickDuration = () => {
-        if (!tickDurations || !tickDurations.current) {
+        if (!tickDurations || !tickDurations.current || !tickDurations.current.has(props.workload.id)) {
             return 'N/A';
         }
 
         const durations: number[] | undefined = tickDurations.current.get(props.workload.id);
 
-        if (!durations) {
+        if (!durations || durations.length === 0) {
             return 'N/A';
         }
+
+        console.log(`durations for workload ${props.workload.id}: ${durations}`);
 
         return RoundToThreeDecimalPlaces(durations[durations.length - 1]);
     };
 
     const getAverageTickDuration = () => {
-        if (!tickDurations || !tickDurations.current) {
+        if (!tickDurations || !tickDurations.current || !tickDurations.current.has(props.workload.id)) {
             return 'N/A';
         }
 

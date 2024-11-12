@@ -1,30 +1,31 @@
-import { WorkloadsDataList } from '@Components/Workloads/WorkloadsDataList';
 import {
     InspectWorkloadModal,
     NewWorkloadFromTemplateModal,
     RegisterWorkloadModal,
     VisualizeWorkloadModal,
 } from '@Components/Modals';
+import { WorkloadsDataList } from '@Components/Workloads/WorkloadsDataList';
 import {
-  Button,
-  Card,
-  CardBody,
-  CardHeader,
-  Flex,
-  FlexItem, PerPageOptions,
-  Text,
-  TextVariants,
-  Title,
-  ToolbarGroup,
-  ToolbarItem,
-  Tooltip
+    Button,
+    Card,
+    CardBody,
+    CardHeader,
+    Flex,
+    FlexItem,
+    PerPageOptions,
+    Text,
+    TextVariants,
+    Title,
+    ToolbarGroup,
+    ToolbarItem,
+    Tooltip,
 } from '@patternfly/react-core';
 
 import { PlusIcon, StopCircleIcon } from '@patternfly/react-icons';
 
 import { useWorkloads } from '@Providers/WorkloadProvider';
 
-import { WORKLOAD_STATE_RUNNING, Workload, WorkloadPreset, WorkloadResponse } from '@src/Data/Workload';
+import { Workload, WORKLOAD_STATE_RUNNING, WorkloadPreset, WorkloadResponse } from '@src/Data/Workload';
 import { SessionTabsDataProvider } from '@src/Providers';
 import { JoinPaths } from '@src/Utils/path_utils';
 import { DefaultDismiss, GetToastContentWithHeaderAndBody } from '@src/Utils/toast_utils';
@@ -81,9 +82,9 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
         setWorkloadBeingInspected(workload);
 
         if (props.inspectInModal) {
-          setInspectWorkloadModalOpen(true);
+            setInspectWorkloadModalOpen(true);
         } else {
-          navigate(JoinPaths(process.env.PUBLIC_PATH || '/', '/workload/' + workload.id));
+            navigate(JoinPaths(process.env.PUBLIC_PATH || '/', '/workload/' + workload.id));
         }
     };
 
@@ -547,20 +548,22 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                 workload={workloadBeingVisualized}
                 onClose={onCloseVisualizeWorkloadModal}
             />
-            <InspectWorkloadModal
-                isOpen={inspectWorkloadModalOpen}
-                workload={workloadBeingInspected}
-                onClose={onCloseInspectWorkloadModal}
-                onStartClicked={() => {
-                    if (workloadBeingInspected) onStartWorkloadClicked(workloadBeingInspected);
-                }}
-                onStopClicked={() => {
-                    if (workloadBeingInspected) onStopWorkloadClicked(workloadBeingInspected);
-                }}
-                onExportClicked={() => {
-                    if (workloadBeingInspected) exportWorkloadClicked(workloadBeingInspected);
-                }}
-            />
+            {workloadBeingInspected !== null && (
+                <InspectWorkloadModal
+                    isOpen={inspectWorkloadModalOpen}
+                    workload={workloadBeingInspected}
+                    onClose={onCloseInspectWorkloadModal}
+                    onStartClicked={() => {
+                        if (workloadBeingInspected) onStartWorkloadClicked(workloadBeingInspected);
+                    }}
+                    onStopClicked={() => {
+                        if (workloadBeingInspected) onStopWorkloadClicked(workloadBeingInspected);
+                    }}
+                    onExportClicked={() => {
+                        if (workloadBeingInspected) exportWorkloadClicked(workloadBeingInspected);
+                    }}
+                />
+            )}
         </React.Fragment>
     );
 };
