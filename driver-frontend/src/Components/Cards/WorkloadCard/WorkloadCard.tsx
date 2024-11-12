@@ -26,6 +26,7 @@ import { useWorkloads } from '@Providers/WorkloadProvider';
 
 import { WORKLOAD_STATE_RUNNING, Workload, WorkloadPreset, WorkloadResponse } from '@src/Data/Workload';
 import { SessionTabsDataProvider } from '@src/Providers';
+import { JoinPaths } from '@src/Utils/path_utils';
 import { DefaultDismiss, GetToastContentWithHeaderAndBody } from '@src/Utils/toast_utils';
 import { ExportWorkloadToJson } from '@src/Utils/utils';
 import React, { useEffect } from 'react';
@@ -82,7 +83,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
         if (props.inspectInModal) {
           setInspectWorkloadModalOpen(true);
         } else {
-          navigate('/workload/' + workload.id);
+          navigate(JoinPaths(process.env.PUBLIC_PATH || '/', '/workload/' + workload.id));
         }
     };
 

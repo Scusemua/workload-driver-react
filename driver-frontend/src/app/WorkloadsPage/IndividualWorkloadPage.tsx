@@ -3,6 +3,7 @@ import { Card, CardBody, Divider, Flex, FlexItem, PageSection, Text } from '@pat
 import { WorkloadDataListCell } from '@src/Components/Workloads/WorkloadDataListCell';
 import { Workload } from '@src/Data';
 import { useWorkloads } from '@src/Providers';
+import { JoinPaths } from '@src/Utils/path_utils';
 import React from 'react';
 import { useParams } from 'react-router';
 import { useNavigate } from 'react-router-dom';
@@ -29,7 +30,7 @@ export const IndividualWorkloadPage: React.FunctionComponent<IndividualWorkloadP
             setTargetWorkload(workload);
         } else {
             // If there is no query parameter for the workload ID, then just redirect back to the workloads page.
-            navigate('/workloads');
+            navigate(JoinPaths(process.env.PUBLIC_PATH || '/', '/workloads'));
         }
     }, [navigate, params, workloadsMap]);
 

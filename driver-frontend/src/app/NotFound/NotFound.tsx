@@ -1,3 +1,4 @@
+import { JoinPaths } from '@src/Utils/path_utils';
 import * as React from 'react';
 import { ExclamationTriangleIcon } from '@patternfly/react-icons';
 import {
@@ -15,7 +16,7 @@ const NotFound: React.FunctionComponent = () => {
     function GoHomeBtn() {
         const navigate = useNavigate();
         function handleClick() {
-            navigate('/');
+            navigate(JoinPaths(process.env.PUBLIC_PATH || '/'));
         }
         return <Button onClick={handleClick}>Take me home</Button>;
     }

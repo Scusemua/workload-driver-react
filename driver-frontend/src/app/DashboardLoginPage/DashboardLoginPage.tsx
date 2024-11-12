@@ -6,6 +6,7 @@ import { css } from '@patternfly/react-styles';
 import { AuthorizationContext } from '@Providers/AuthProvider';
 import logo_greyscale from '@src/app/bgimages/icon_greyscale.svg';
 import logo from '@src/app/bgimages/WorkloadDriver-Logo.svg';
+import { JoinPaths } from '@src/Utils/path_utils';
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';
 
@@ -33,7 +34,7 @@ export const DashboardLoginPage: React.FunctionComponent = () => {
         }
 
         if (nextPath === null || nextPath === "") {
-          nextPath = "/";
+          nextPath = JoinPaths(process.env.PUBLIC_PATH || '/');
         }
 
         navigate(nextPath);

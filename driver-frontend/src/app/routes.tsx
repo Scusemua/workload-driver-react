@@ -6,6 +6,7 @@ import IndividualWorkloadPage from '@App/WorkloadsPage/IndividualWorkloadPage';
 import { Dashboard } from '@src/app/Dashboard/Dashboard';
 import { NotFound } from '@src/app/NotFound/NotFound';
 import { WorkloadsPage } from '@src/app/WorkloadsPage/WorkloadsPage';
+import { JoinPaths } from '@src/Utils/path_utils';
 import * as React from 'react';
 import { Route, Routes } from 'react-router-dom';
 
@@ -44,7 +45,7 @@ const routes: AppRouteConfig[] = [
     {
         component: DashboardLoginPage,
         exact: true,
-        path: '/login',
+        path: JoinPaths(process.env.PUBLIC_PATH || '/', 'login'),
         title: 'Login page',
         isPrivate: false,
     },
@@ -52,7 +53,7 @@ const routes: AppRouteConfig[] = [
         component: Dashboard,
         exact: true,
         label: 'Main Dashboard',
-        path: '/',
+        path: JoinPaths(process.env.PUBLIC_PATH || '/'),
         title: 'Main Dashboard',
         isPrivate: true,
     },
@@ -63,7 +64,7 @@ const routes: AppRouteConfig[] = [
                 component: WorkloadsPage,
                 exact: true,
                 label: 'Workloads',
-                path: '/workloads',
+                path: JoinPaths(process.env.PUBLIC_PATH || '/', 'workloads'),
                 title: 'Workloads',
                 isPrivate: true,
             },
@@ -71,7 +72,7 @@ const routes: AppRouteConfig[] = [
                 component: KernelsPage,
                 exact: true,
                 label: 'Kernels',
-                path: '/kernels',
+                path: JoinPaths(process.env.PUBLIC_PATH || '/', '/kernels'),
                 title: 'Kernels',
                 isPrivate: true,
             },
@@ -79,7 +80,7 @@ const routes: AppRouteConfig[] = [
                 component: NodesPage,
                 exact: true,
                 label: 'Nodes',
-                path: '/nodes',
+                path: JoinPaths(process.env.PUBLIC_PATH || '/', '/nodes'),
                 title: 'Nodes',
                 isPrivate: true,
             },
@@ -88,7 +89,7 @@ const routes: AppRouteConfig[] = [
     {
         component: IndividualWorkloadPage,
         exact: true,
-        path: '/workload/:workload_id',
+        path: JoinPaths(process.env.PUBLIC_PATH || '/',  '/workload/:workload_id'),
         title: 'Workload',
         isPrivate: true,
     },
