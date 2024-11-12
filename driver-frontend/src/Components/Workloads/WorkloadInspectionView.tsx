@@ -49,6 +49,9 @@ export const WorkloadInspectionView: React.FunctionComponent<IWorkloadInspection
         return tick > lastTickNotification;
     };
 
+    // TODO: This will miscount the first tick as being smaller, basically whenever we first open the workload
+    //       preview to when the next tick begins, it'll count that block as the duration of the first tick,
+    //       which is wrong.
     React.useEffect(() => {
         if (props.workload && props.workload?.current_tick > currentTick) {
             const tickStart: number | undefined = tickStartTime.current.get(props.workload.id);
