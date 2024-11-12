@@ -6,6 +6,7 @@ if (environment.trim().toLowerCase() === 'production') {
 import App from '@App/index';
 import { DarkModeProvider } from '@Providers/DarkModeProvider';
 import { NotificationProvider } from '@Providers/NotificationProvider';
+import { WorkloadProvider } from '@src/Providers';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
@@ -31,7 +32,9 @@ root.render(
         <BrowserRouter>
             <NotificationProvider>
                 <DarkModeProvider>
-                    <App />
+                    <WorkloadProvider>
+                        <App />
+                    </WorkloadProvider>
                 </DarkModeProvider>
             </NotificationProvider>
         </BrowserRouter>

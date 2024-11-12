@@ -24,7 +24,7 @@ import {
     WORKLOAD_STATE_RUNNING,
     WORKLOAD_STATE_TERMINATED,
 } from '@src/Data';
-import { useWorkloads } from '@src/Providers';
+import { useWorkloads, WorkloadContext } from '@src/Providers';
 import React from 'react';
 
 interface IWorkloadDescriptiveIcons {
@@ -34,7 +34,7 @@ interface IWorkloadDescriptiveIcons {
 export const WorkloadDescriptiveIcons: React.FunctionComponent<IWorkloadDescriptiveIcons> = (
     props: IWorkloadDescriptiveIcons,
 ) => {
-    const { toggleDebugLogs, isError } = useWorkloads();
+    const { toggleDebugLogs } = React.useContext(WorkloadContext);
 
     const getStatusLabel = () => {
         if (props.workload.workload_state == WORKLOAD_STATE_READY) {

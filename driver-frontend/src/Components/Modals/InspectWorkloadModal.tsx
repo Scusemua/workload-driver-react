@@ -21,7 +21,7 @@ import {
     WORKLOAD_STATE_TERMINATED,
     Workload,
 } from '@src/Data/Workload';
-import { useWorkloads } from '@src/Providers';
+import { useWorkloads, WorkloadContext } from '@src/Providers';
 import React from 'react';
 
 export interface InspectWorkloadModalProps {
@@ -34,7 +34,7 @@ export interface InspectWorkloadModalProps {
 export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalProps> = (props) => {
     const { authenticated } = React.useContext(AuthorizationContext);
 
-    const { exportWorkload, startWorkload, stopWorkload, isError } = useWorkloads();
+    const { exportWorkload, startWorkload, stopWorkload } = React.useContext(WorkloadContext);
 
     React.useEffect(() => {
         // Automatically close the modal of we are logged out.

@@ -12,19 +12,60 @@ import { JoinPaths } from '@src/Utils/path_utils';
 import { DefaultDismiss, GetToastContentWithHeaderAndBody } from '@src/Utils/toast_utils';
 import { ExportWorkloadToJson } from '@src/Utils/utils';
 import jsonmergepatch from 'json-merge-patch';
-import React, { useContext, useRef } from 'react';
+import React, { createContext, useContext, useRef } from 'react';
 import { Toast, toast } from 'react-hot-toast';
-import { MutatorCallback } from 'swr';
-import type { SWRSubscription } from 'swr/subscription';
-import useSWRSubscription from 'swr/subscription';
+import useWebSocket from 'react-use-websocket';
+import { WebSocketLike } from 'react-use-websocket/src/lib/types';
 import { v4 as uuidv4 } from 'uuid';
 
 const api_endpoint: string = JoinPaths(process.env.PUBLIC_PATH || '/', 'websocket', 'workload');
 
-export const useWorkloads = () => {
-    const { authenticated } = useContext(AuthorizationContext);
+type WorkloadContextData = {
+    pauseWorkload: (workload: Workload) => void;
+    toggleDebugLogs: (workloadId: string, enabled: boolean) => void;
+    stopAllWorkloads: () => void;
+    registerWorkloadFromPreset: (
+        workloadName: string,
+        selectedPreset: WorkloadPreset,
+        workloadSeedString: string,
+        debugLoggingEnabled: boolean,
+        timescaleAdjustmentFactor: number,
+    ) => void;
+    exportWorkload: (currentLocalWorkload: Workload) => void;
+    stopWorkload: (workload: Workload) => void;
+    workloads: Workload[];
+    sendJsonMessage: (
+        msg: string,
+        msgId?: string | undefined,
+        callback?: (resp?: WorkloadResponse, error?: ErrorResponse) => void,
+    ) => string | void;
+    registerWorkloadFromTemplate: (workloadName: string, workloadRegistrationRequest: string) => void;
+    workloadsMap: Map<string, Workload>;
+    startWorkload: (workload: Workload) => void;
+    refreshWorkloads: () => void;
+};
 
-    const subscriberSocket = useRef<WebSocket | null>(null);
+const initialState: WorkloadContextData = {
+    pauseWorkload: () => {},
+    toggleDebugLogs: () => {},
+    stopAllWorkloads: () => {},
+    registerWorkloadFromPreset: () => {},
+    exportWorkload: () => {},
+    stopWorkload: () => {},
+    workloads: [],
+    sendJsonMessage: () => {},
+    registerWorkloadFromTemplate: () => {},
+    workloadsMap: new Map<string, Workload>(),
+    startWorkload: () => {},
+    refreshWorkloads: () => {},
+};
+
+const WorkloadContext: React.Context<WorkloadContextData> = createContext(initialState);
+
+function WorkloadProvider({ children }: { children: React.ReactNode }) {
+    const { authenticated } = useContext(AuthorizationContext);
+    const [workloadsMap, setWorkloadsMap] = React.useState<Map<string, Workload>>(new Map<string, Workload>());
+    const [workloads, setWorkloads] = React.useState<Workload[]>([]);
 
     // Keep track of sent messages by their ID so that we can call the response handler upon receiving a response.
     const callbackMap: React.MutableRefObject<Map<string, (resp?: WorkloadResponse, error?: ErrorResponse) => void>> =
@@ -32,14 +73,61 @@ export const useWorkloads = () => {
             new Map<string, (resp?: WorkloadResponse, error?: ErrorResponse) => void>(),
         );
 
-    const handleWebSocketResponse = (
-        next: (
-            err?: Error | null | undefined,
-            data?: Map<string, Workload> | MutatorCallback<Map<string, Workload>> | undefined,
-        ) => void,
-        workloadResponse?: WorkloadResponse,
-        error?: ErrorResponse,
-    ) => {
+    // const subscriberSocket = useRef<WebSocket | null>(null);
+    const { sendMessage, lastMessage, getWebSocket } = useWebSocket(
+        api_endpoint,
+        {
+            onOpen: () => {
+                console.log("Connected to workload websocket. Sending 'subscribe' message now.");
+                sendMessage(
+                    JSON.stringify({
+                        op: 'subscribe',
+                        msg_id: uuidv4(),
+                    }),
+                );
+            },
+            onError: (event) => {
+                console.error(`Workloads Subscriber WebSocket encountered an error: ${JSON.stringify(event)}`);
+            },
+            onClose: (event) => {
+                console.error(`Workloads Subscriber WebSocket closed: ${JSON.stringify(event)}`);
+            },
+            share: true,
+        },
+        authenticated,
+    );
+    /**
+     * Send a message to the remote WebSocket.
+     * @param msg the JSON-encoded message to send.
+     * @param msgId the ID of the message to use as a key for the callback in the callback-response map
+     * @param callback the callback to be executed (with the WorkloadResponse as the argument) when the response is received.
+     *
+     * If an error occurs, then that error will be converted to a string and returned.
+     *
+     * Returns nothing on success.
+     */
+    const sendJsonMessageDirectly = React.useCallback(
+        (
+            msg: string,
+            msgId?: string | undefined,
+            callback?: (resp?: WorkloadResponse, error?: ErrorResponse) => void,
+        ): string | void => {
+            if (callbackMap.current && msgId && callback) {
+                callbackMap.current.set(msgId, callback);
+            }
+
+            try {
+                sendMessage(msg);
+            } catch (err) {
+                console.error(`Failed to send workload-related message via websocket. Error: ${err}`);
+
+                return JSON.stringify(err);
+            }
+        },
+        [sendMessage],
+    );
+
+    const handleWebSocketResponse = React.useCallback((workloadResponse?: WorkloadResponse, error?: ErrorResponse) => {
         if (!error && !workloadResponse) {
             return;
         }
@@ -74,13 +162,13 @@ export const useWorkloads = () => {
             );
         }
 
-        next(null, (prev: Map<string, Workload> | undefined) => {
-            const newWorkloads: Workload[] | null | undefined = workloadResponse.new_workloads;
-            const modifiedWorkloads: Workload[] | null | undefined = workloadResponse.modified_workloads;
-            const deletedWorkloads: Workload[] | null | undefined = workloadResponse.deleted_workloads;
-            const patchedWorkloads: PatchedWorkload[] | null | undefined = workloadResponse.patched_workloads;
+        const newWorkloads: Workload[] | null | undefined = workloadResponse.new_workloads;
+        const modifiedWorkloads: Workload[] | null | undefined = workloadResponse.modified_workloads;
+        const deletedWorkloads: Workload[] | null | undefined = workloadResponse.deleted_workloads;
+        const patchedWorkloads: PatchedWorkload[] | null | undefined = workloadResponse.patched_workloads;
 
-            const nextData: Map<string, Workload> = new Map(prev);
+        setWorkloadsMap((prev: Map<string, Workload>) => {
+            const nextData: Map<string, Workload> = new Map<string, Workload>(prev);
 
             newWorkloads?.forEach((workload: Workload) => {
                 if (workload === null || workload === undefined) {
@@ -121,135 +209,78 @@ export const useWorkloads = () => {
 
             return nextData;
         });
-    };
+    }, []);
 
-    const setupWebsocket = (
-        hostname: string,
-        next: (
-            err?: Error | null | undefined,
-            data?: Map<string, Workload> | MutatorCallback<Map<string, Workload>> | undefined,
-        ) => void,
-    ) => {
-        if (subscriberSocket.current == null) {
-            console.log(`Attempting to connect Workload WebSocket to hostname "${hostname}"`);
-            subscriberSocket.current = new WebSocket(hostname);
-            subscriberSocket.current.addEventListener('open', () => {
-                console.log("Connected to workload websocket. Sending 'subscribe' message now.");
-                subscriberSocket.current?.send(
-                    JSON.stringify({
-                        op: 'subscribe',
-                        msg_id: uuidv4(),
-                    }),
-                );
-            });
-
-            subscriberSocket.current.addEventListener('message', async (event) => {
-                const respText: string = await event.data.text();
-
-                let workloadResponse: WorkloadResponse | undefined = undefined;
-                try {
-                    workloadResponse = JSON.parse(respText);
-                } catch (err) {
-                    console.error(`Failed to decode WorkloadResponse: "${respText}"`);
-                    toast.custom(
-                        GetToastContentWithHeaderAndBody(
-                            'Failed to Decode Workload Response from Workload WebSocket',
-                            'See console for details.',
-                            'danger',
-                            DefaultDismiss,
-                        ),
-                    );
-
-                    return;
-                }
-
-                if (workloadResponse?.status == 'OK') {
-                    return handleWebSocketResponse(next, workloadResponse, undefined);
-                }
-
-                let errorResponse: ErrorResponse;
-                try {
-                    errorResponse = JSON.parse(respText);
-                } catch (err) {
-                    console.error(`Failed to decode ErrorResponse: "${respText}"`);
-                    toast.custom(
-                        GetToastContentWithHeaderAndBody(
-                            'Failed to Decode ErrorResponse from Workload WebSocket',
-                            'See console for details.',
-                            'danger',
-                            DefaultDismiss,
-                        ),
-                    );
-
-                    return;
-                }
-
-                console.error(`Received ErrorResponse for "${errorResponse.op}" workload WebSocket request.`);
-                console.error(`ErrorMessage: ${errorResponse.ErrorMessage}`);
-                console.error(`Description: ${errorResponse.Description}`);
-
-                if (callbackMap.current) {
-                    return handleWebSocketResponse(next, undefined, errorResponse);
-                }
-
-                // toast.custom(
-                //     GetToastContentWithHeaderAndBody(
-                //         `Received ErrorResponse for "${errorResponse.op}" workload WebSocket request`,
-                //         [errorResponse.Description, errorResponse.ErrorMessage],
-                //         'danger',
-                //         DefaultDismiss,
-                //     ),
-                // );
-            });
-
-            subscriberSocket.current.addEventListener('close', (event: CloseEvent) => {
-                console.error(`Workloads Subscriber WebSocket closed: ${JSON.stringify(event)}`);
-            });
-
-            subscriberSocket.current.addEventListener('error', (event: Event) => {
-                console.log(`Workloads Subscriber WebSocket encountered error: ${JSON.stringify(event)}`);
-            });
+    React.useEffect(() => {
+        if (!lastMessage) {
+            return;
         }
-    };
 
-    /**
-     * Send a message to the remote WebSocket.
-     * @param msg the JSON-encoded message to send.
-     * @param msgId the ID of the message to use as a key for the callback in the callback-response map
-     * @param callback the callback to be executed (with the WorkloadResponse as the argument) when the response is received.
-     *
-     * If an error occurs, then that error will be converted to a string and returned.
-     *
-     * Returns nothing on success.
-     */
-    const sendJsonMessage = (
-        msg: string,
-        msgId?: string | undefined,
-        callback?: (resp?: WorkloadResponse, error?: ErrorResponse) => void,
-    ): string | void => {
-        if (subscriberSocket.current?.readyState !== WebSocket.OPEN) {
-            console.error(
-                `Cannot send workload-related message via websocket. Websocket is in state ${subscriberSocket.current?.readyState}`,
+        const message: string = new TextDecoder('utf-8').decode(lastMessage.data);
+
+        let workloadResponse: WorkloadResponse | undefined = undefined;
+        try {
+            workloadResponse = JSON.parse(message);
+        } catch (err) {
+            console.error(`Failed to decode WorkloadResponse: "${message}"`);
+            toast.custom(
+                GetToastContentWithHeaderAndBody(
+                    'Failed to Decode Workload Response from Workload WebSocket',
+                    'See console for details.',
+                    'danger',
+                    DefaultDismiss,
+                ),
             );
 
-            return 'WebSocket connection with backend is unavailable';
+            return;
         }
 
-        if (callbackMap.current && msgId && callback) {
-            callbackMap.current.set(msgId, callback);
+        if (workloadResponse?.status == 'OK') {
+            return handleWebSocketResponse(workloadResponse, undefined);
         }
 
+        let errorResponse: ErrorResponse;
         try {
-            subscriberSocket.current?.send(msg);
+            errorResponse = JSON.parse(message);
         } catch (err) {
-            console.error(`Failed to send workload-related message via websocket. Error: ${err}`);
+            console.error(`Failed to decode ErrorResponse: "${message}"`);
+            toast.custom(
+                GetToastContentWithHeaderAndBody(
+                    'Failed to Decode ErrorResponse from Workload WebSocket',
+                    'See console for details.',
+                    'danger',
+                    DefaultDismiss,
+                ),
+            );
 
-            return JSON.stringify(err);
+            return;
         }
-    };
+
+        console.error(`Received ErrorResponse for "${errorResponse.op}" workload WebSocket request.`);
+        console.error(`ErrorMessage: ${errorResponse.ErrorMessage}`);
+        console.error(`Description: ${errorResponse.Description}`);
+
+        if (callbackMap.current) {
+            return handleWebSocketResponse(undefined, errorResponse);
+        }
+    }, [handleWebSocketResponse, lastMessage]);
+
+    React.useEffect(() => {
+        setWorkloads(Array.from(workloadsMap.values()));
+    }, [workloadsMap]);
+
+    React.useEffect(() => {
+        const webSocket: WebSocketLike | null = getWebSocket();
+
+        if (webSocket !== null) {
+            if ('binaryType' in webSocket) {
+                webSocket.binaryType = 'arraybuffer';
+            }
+        }
+    });
 
     function refreshWorkloads() {
-        sendJsonMessage(
+        sendJsonMessageDirectly(
             JSON.stringify({
                 op: 'get_workloads',
             }),
@@ -274,15 +305,46 @@ export const useWorkloads = () => {
         console.log(`Starting workload '${workload.name}' (ID=${workload.id})`);
 
         const messageId: string = uuidv4();
-        const sendErrorMessage: string | void = sendJsonMessage(
-            JSON.stringify({
-                op: 'start_workload',
-                msg_id: messageId,
-                workload_id: workload.id,
-            }),
-        );
-
-        if (sendErrorMessage) {
+        try {
+            sendJsonMessageDirectly(
+                JSON.stringify({
+                    op: 'start_workload',
+                    msg_id: messageId,
+                    workload_id: workload.id,
+                }),
+                messageId,
+                (resp?: WorkloadResponse, errResp?: ErrorResponse) => {
+                    if (resp !== undefined) {
+                        toast.custom(
+                            (t: Toast) =>
+                                GetToastContentWithHeaderAndBody(
+                                    'Workload Started',
+                                    `Workload "${workload.name}" (ID="${workload.id}") has been started successfully.`,
+                                    'success',
+                                    () => toast.dismiss(t.id),
+                                ),
+                            { id: toastId },
+                        );
+                    } else {
+                        toast.custom(
+                            (t: Toast) =>
+                                GetToastContentWithHeaderAndBody(
+                                    'Failed to Start Workload',
+                                    [
+                                        `Workload "${workload.name}" (ID="${workload.id}") could not be started.`,
+                                        <p key={'toast-content-row-2'}>
+                                            <b>{'Reason:'}</b> {JSON.stringify(errResp)}
+                                        </p>,
+                                    ],
+                                    'danger',
+                                    () => toast.dismiss(t.id),
+                                ),
+                            { id: toastId },
+                        );
+                    }
+                },
+            );
+        } catch (err) {
             toast.custom(
                 (t: Toast) =>
                     GetToastContentWithHeaderAndBody(
@@ -290,21 +352,10 @@ export const useWorkloads = () => {
                         [
                             `Workload "${workload.name}" (ID="${workload.id}") could not be started.`,
                             <p key={'toast-content-row-2'}>
-                                <b>{'Reason:'}</b> {sendErrorMessage}
+                                <b>{'Reason:'}</b> {JSON.stringify(err)}
                             </p>,
                         ],
                         'danger',
-                        () => toast.dismiss(t.id),
-                    ),
-                { id: toastId },
-            );
-        } else {
-            toast.custom(
-                (t: Toast) =>
-                    GetToastContentWithHeaderAndBody(
-                        'Workload Started',
-                        `Workload "${workload.name}" (ID="${workload.id}") has been started successfully.`,
-                        'success',
                         () => toast.dismiss(t.id),
                     ),
                 { id: toastId },
@@ -329,7 +380,7 @@ export const useWorkloads = () => {
         console.log("Stopping workload '%s' (ID=%s)", workload.name, workload.id);
 
         const messageId: string = uuidv4();
-        const sendErrorMessage: string | void = sendJsonMessage(
+        const sendErrorMessage: string | void = sendJsonMessageDirectly(
             JSON.stringify({
                 op: 'stop_workload',
                 msg_id: messageId,
@@ -378,7 +429,7 @@ export const useWorkloads = () => {
         });
 
         const messageId: string = uuidv4();
-        sendJsonMessage(
+        sendJsonMessageDirectly(
             JSON.stringify({
                 op: 'stop_workloads',
                 msg_id: messageId,
@@ -406,7 +457,7 @@ export const useWorkloads = () => {
         }
 
         const messageId: string = uuidv4();
-        const sendErrorMessage: string | void = sendJsonMessage(
+        const sendErrorMessage: string | void = sendJsonMessageDirectly(
             JSON.stringify({
                 op: 'register_workload',
                 msg_id: messageId,
@@ -454,7 +505,7 @@ export const useWorkloads = () => {
 
     const registerWorkloadFromTemplate = (workloadName: string, workloadRegistrationRequest: string) => {
         console.log(`Sending WorkloadRegistrationRequest: ${workloadRegistrationRequest}`);
-        const sendErrorMessage: string | void = sendJsonMessage(workloadRegistrationRequest);
+        const sendErrorMessage: string | void = sendJsonMessageDirectly(workloadRegistrationRequest);
 
         if (sendErrorMessage) {
             toast.custom((t: Toast) =>
@@ -481,7 +532,7 @@ export const useWorkloads = () => {
         }
 
         const messageId: string = uuidv4();
-        const sendErrorMessage: string | void = sendJsonMessage(
+        const sendErrorMessage: string | void = sendJsonMessageDirectly(
             JSON.stringify({
                 op: 'toggle_debug_logs',
                 msg_id: messageId,
@@ -515,7 +566,7 @@ export const useWorkloads = () => {
             ExportWorkloadToJson(currentLocalWorkload, `workload_${currentLocalWorkload.id}_local.json`);
         }, 5000);
 
-        const errorMessageFromSending: string | void = sendJsonMessage(
+        const errorMessageFromSending: string | void = sendJsonMessageDirectly(
             JSON.stringify({
                 op: 'get_workloads',
                 msg_id: messageId,
@@ -632,7 +683,7 @@ export const useWorkloads = () => {
         }
 
         const messageId: string = uuidv4();
-        const sendErrorMessage: string | void = sendJsonMessage(
+        const sendErrorMessage: string | void = sendJsonMessageDirectly(
             JSON.stringify({
                 op: operation,
                 msg_id: messageId,
@@ -690,34 +741,41 @@ export const useWorkloads = () => {
         }
     };
 
-    const subscribe: SWRSubscription<string, Map<string, Workload>, Error> = (key: string, { next }) => {
-        // Don't establish any WebSocket connections until we've been authenticated...
-        if (!authenticated) {
-            return null;
-        }
+    // const foo = {
+    //     workloads: workloads,
+    //     workloadsMap: workloadsMap,
+    //     sendJsonMessage: sendJsonMessageDirectly,
+    //     toggleDebugLogs: toggleDebugLogs,
+    //     exportWorkload: exportWorkload,
+    //     pauseWorkload: pauseWorkload,
+    //     registerWorkloadFromPreset: registerWorkloadFromPreset,
+    //     registerWorkloadFromTemplate: registerWorkloadFromTemplate,
+    //     stopAllWorkloads: stopAllWorkloads,
+    //     startWorkload: startWorkload,
+    //     stopWorkload: stopWorkload,
+    //     refreshWorkloads: refreshWorkloads,
+    // };
 
-        console.log(`Connecting to Websocket server at '${key}'`);
-        setupWebsocket(key, next);
-        return () => {};
-    };
+    return (
+        <WorkloadContext.Provider
+            value={{
+                workloads: workloads,
+                workloadsMap: workloadsMap,
+                sendJsonMessage: sendJsonMessageDirectly,
+                toggleDebugLogs: toggleDebugLogs,
+                exportWorkload: exportWorkload,
+                pauseWorkload: pauseWorkload,
+                registerWorkloadFromPreset: registerWorkloadFromPreset,
+                registerWorkloadFromTemplate: registerWorkloadFromTemplate,
+                stopAllWorkloads: stopAllWorkloads,
+                startWorkload: startWorkload,
+                stopWorkload: stopWorkload,
+                refreshWorkloads: refreshWorkloads,
+            }}
+        >
+            {children}
+        </WorkloadContext.Provider>
+    );
+}
 
-    const { data, error } = useSWRSubscription(api_endpoint, subscribe);
-    const workloadsMap: Map<string, Workload> = data || new Map();
-    const workloads: Workload[] = Array.from(workloadsMap.values());
-
-    return {
-        workloads: workloads,
-        workloadsMap: workloadsMap,
-        isError: error,
-        sendJsonMessage: sendJsonMessage,
-        toggleDebugLogs: toggleDebugLogs,
-        exportWorkload: exportWorkload,
-        pauseWorkload: pauseWorkload,
-        registerWorkloadFromPreset: registerWorkloadFromPreset,
-        registerWorkloadFromTemplate: registerWorkloadFromTemplate,
-        stopAllWorkloads: stopAllWorkloads,
-        startWorkload: startWorkload,
-        stopWorkload: stopWorkload,
-        refreshWorkloads: refreshWorkloads,
-    };
-};
+export { WorkloadContext, WorkloadContextData, WorkloadProvider };

@@ -21,7 +21,7 @@ import {
 
 import { PlusIcon, StopCircleIcon } from '@patternfly/react-icons';
 
-import { useWorkloads } from '@Providers/WorkloadProvider';
+import { useWorkloads, WorkloadContext } from '@Providers/WorkloadProvider';
 
 import { WORKLOAD_STATE_RUNNING, Workload, WorkloadPreset } from '@src/Data/Workload';
 import { SessionTabsDataProvider } from '@src/Providers';
@@ -53,7 +53,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
         registerWorkloadFromPreset,
         registerWorkloadFromTemplate,
         stopAllWorkloads,
-    } = useWorkloads();
+    } = React.useContext(WorkloadContext);
 
     const navigate = useNavigate();
 

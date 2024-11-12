@@ -12,7 +12,7 @@ const initialState: ThemeContext = {
 
 const DarkModeContext = createContext(initialState);
 
-function DarkModeProvider(props) {
+function DarkModeProvider({ children }) {
     const root: Element = document.getElementsByTagName('html')[0] as Element;
     const [darkMode, setDarkMode] = useState(initialState.darkMode);
 
@@ -32,7 +32,7 @@ function DarkModeProvider(props) {
             root.className = '';
         }
     };
-    return <DarkModeContext.Provider value={{ darkMode, toggleDarkMode }}>{props.children}</DarkModeContext.Provider>;
+    return <DarkModeContext.Provider value={{ darkMode, toggleDarkMode }}>{children}</DarkModeContext.Provider>;
 }
 
 export { DarkModeContext, DarkModeProvider };

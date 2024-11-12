@@ -2,18 +2,14 @@ import { WorkloadInspectionView } from '@Components/Workloads/WorkloadInspection
 import { Card, CardBody, Divider, Flex, FlexItem, PageSection, Text } from '@patternfly/react-core';
 import { WorkloadDataListCell } from '@src/Components/Workloads/WorkloadDataListCell';
 import { Workload } from '@src/Data';
-import { useWorkloads } from '@src/Providers';
+import { useWorkloads, WorkloadContext } from '@src/Providers';
 import { JoinPaths } from '@src/Utils/path_utils';
 import React from 'react';
 import { useParams } from 'react-router';
 import { useNavigate } from 'react-router-dom';
 
 interface IndividualWorkloadPageProps {
-  onPauseWorkloadClicked: (workload: Workload) => void;
-  toggleDebugLogs: (workloadId: string, enabled: boolean) => void;
   onVisualizeWorkloadClicked: (workload: Workload) => void;
-  onStartWorkloadClicked: (workload: Workload) => void;
-  onStopWorkloadClicked: (workload: Workload) => void;
 }
 
 export const IndividualWorkloadPage: React.FunctionComponent<IndividualWorkloadPageProps> = (
@@ -21,7 +17,7 @@ export const IndividualWorkloadPage: React.FunctionComponent<IndividualWorkloadP
 ) => {
     const params = useParams();
 
-    const { workloadsMap, isError } = useWorkloads();
+    const { workloadsMap } = React.useContext(WorkloadContext);
 
     const navigate = useNavigate();
 
@@ -53,11 +49,7 @@ export const IndividualWorkloadPage: React.FunctionComponent<IndividualWorkloadP
                                 <FlexItem>
                                     <WorkloadDataListCell
                                         workload={targetWorload}
-                                        onPauseWorkloadClicked={() => {}}
-                                        toggleDebugLogs={() => {}}
-                                        onVisualizeWorkloadClicked={() => {}}
-                                        onStartWorkloadClicked={() => {}}
-                                        onStopWorkloadClicked={() => {}}
+                                        onVisualizeWorkloadClicked={props.onVisualizeWorkloadClicked}
                                     />
                                 </FlexItem>
                                 <FlexItem>
