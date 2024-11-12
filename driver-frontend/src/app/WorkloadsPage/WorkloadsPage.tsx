@@ -4,12 +4,9 @@ import {
   PageSection,
 } from '@patternfly/react-core';
 
-export interface IWorkloadsPageProps {
-  sampleProp?: string;
-}
 
 // eslint-disable-next-line prefer-const
-let WorkloadsPage: React.FunctionComponent<IWorkloadsPageProps> = () => (
+const WorkloadsPage: React.FunctionComponent = () => (
   <PageSection>
     <WorkloadCard
       workloadsPerPage={3}

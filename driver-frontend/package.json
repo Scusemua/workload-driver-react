@@ -108,6 +108,7 @@
     "string-width": "^6.1.0",
     "swr": "^2.2.5",
     "uuid": "^10.0.0",
+    "victory": "^37.3.2",
     "webpack-require-from": "^1.8.6"
   },
   "browser": {

@@ -1,12 +1,21 @@
 import { RoundToThreeDecimalPlaces } from '@Components/Modals';
-import { Chart, ChartAxis, ChartGroup, ChartLine, ChartScatter, ChartTooltip } from '@patternfly/react-charts';
 import { Workload } from '@src/Data';
 import { DarkModeContext } from '@src/Providers';
 import React from 'react';
+import { VictoryAxis } from 'victory-axis';
+import { VictoryChart } from 'victory-chart';
+import { VictoryLine } from 'victory-line';
+import { VictoryTooltip } from 'victory-tooltip';
 import { VictoryZoomContainer } from 'victory-zoom-container';
 
 interface IWorkloadTickDurationChartProps {
     workload: Workload;
+}
+
+interface Datapoint {
+    x: number;
+    y: number;
+    label: string;
 }
 
 /**
@@ -17,6 +26,41 @@ export const WorkloadTickDurationChart: React.FunctionComponent<IWorkloadTickDur
 ) => {
     const { darkMode } = React.useContext(DarkModeContext);
 
+    const [threshold, setThreshold] = React.useState<number>(0);
+
+    const [data, setData] = React.useState<Datapoint[]>([]);
+
+    React.useEffect(() => {
+        if (props.workload.tick_durations_milliseconds.length == 0) {
+            return;
+        }
+
+        const averageDuration: number =
+            props.workload.sum_tick_durations_millis / props.workload.tick_durations_milliseconds.length;
+        console.log(`averageDuration * 1.5: ${averageDuration * 1.5}`);
+        setThreshold(averageDuration * 1.5);
+    }, [props.workload.sum_tick_durations_millis, props.workload.tick_durations_milliseconds.length]);
+
+    React.useEffect(() => {
+        const datapoints: Datapoint[] = [];
+
+        for (let i: number = 0; i < props.workload.tick_durations_milliseconds.length; i++) {
+            const tickDurationRounded: number = RoundToThreeDecimalPlaces(
+                props.workload.tick_durations_milliseconds[i],
+            );
+
+            const datapoint: Datapoint = {
+                x: i,
+                y: tickDurationRounded,
+                label: `${tickDurationRounded} ms`,
+            };
+
+            datapoints.push(datapoint);
+        }
+
+        setData(datapoints);
+    }, [props.workload]);
+
     const getStyle = () => {
         if (darkMode) {
             return {
@@ -26,15 +70,18 @@ export const WorkloadTickDurationChart: React.FunctionComponent<IWorkloadTickDur
                 tickLabels: {
                     fill: 'white',
                 },
+                grid: { stroke: '#F4F5F7', strokeWidth: 0.5 },
+            };
+        } else {
+            return {
+                grid: { stroke: '#646464', strokeWidth: 0.5 },
             };
         }
-
-        return {};
     };
 
     const getMaxDomainY = (): number => {
         if (props.workload.tick_durations_milliseconds.length == 0) {
-          return 5000;
+            return 5000;
         }
 
         let max: number = 0;
@@ -49,13 +96,8 @@ export const WorkloadTickDurationChart: React.FunctionComponent<IWorkloadTickDur
     };
 
     return (
-        <Chart
-            ariaDesc={'Line chart of tick durations'}
-            ariaTitle={'Line chart of tick durations'}
-            containerComponent={<VictoryZoomContainer allowPan allowZoom minimumZoom={{ x: 0.5, y: 0.5 }} />}
-            legendOrientation="vertical"
-            legendPosition="right"
-            height={300}
+        <VictoryChart
+            containerComponent={<VictoryZoomContainer />}
             minDomain={{
                 x: 0,
                 y: 0,
@@ -64,54 +106,29 @@ export const WorkloadTickDurationChart: React.FunctionComponent<IWorkloadTickDur
                 x: props.workload.tick_durations_milliseconds.length,
                 y: getMaxDomainY(),
             }}
-            name="tickDurations"
-            title={'Tick Durations (Milliseconds)'}
             padding={{
                 bottom: 100,
                 left: 100,
                 right: 25, // Adjusted to accommodate legend
                 top: 75,
             }}
+            height={300}
             width={950}
         >
-            <ChartAxis name={'Tick'} label={'Tick'} showGrid style={getStyle()} />
-            <ChartAxis dependentAxis showGrid style={getStyle()} />
-            <ChartGroup>
-                <ChartLine
-                    style={{
-                        data: {
-                            strokeWidth: 5,
-                        },
-                    }}
-                    interpolation={'natural'}
-                    data={props.workload.tick_durations_milliseconds?.map((tickDurationMs: number, index: number) => {
-                        const tickDurationRounded: number = RoundToThreeDecimalPlaces(tickDurationMs);
-
-                        return {
-                            name: 'Tick Duration',
-                            x: index,
-                            y: tickDurationRounded,
-                            label: `${tickDurationRounded} ms`,
-                        };
-                    })}
-                    labelComponent={<ChartTooltip />}
-                />
-                <ChartScatter
-                    data={props.workload.tick_durations_milliseconds?.map((tickDurationMs: number, index: number) => {
-                        const tickDurationRounded: number = RoundToThreeDecimalPlaces(tickDurationMs);
-
-                        return {
-                            name: 'Tick Duration',
-                            x: index,
-                            y: tickDurationRounded,
-                            label: `${tickDurationRounded} ms`,
-                        };
-                    })}
-                    size={6}
-                    labelComponent={<ChartTooltip />}
-                />
-            </ChartGroup>
-        </Chart>
+            <VictoryAxis style={getStyle()} />
+            <VictoryAxis dependentAxis style={getStyle()} />
+            <VictoryLine
+                style={{
+                    data: {
+                        stroke: '#007dff',
+                        strokeWidth: 3,
+                    },
+                }}
+                interpolation={'natural'}
+                data={data}
+                labelComponent={<VictoryTooltip />}
+            />
+        </VictoryChart>
     );
 };
 

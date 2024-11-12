@@ -97,9 +97,9 @@ export const NodeResourceUsageTable: React.FunctionComponent<NodeResourceUsageTa
         sortedNodes = sortedNodes.sort((a: ClusterNode, b: ClusterNode) => {
             const aValue = getSortableRowValues(a)[activeSortIndex];
             const bValue = getSortableRowValues(b)[activeSortIndex];
-            console.log(
-                `Sorting ${aValue} and ${bValue} (activeSortIndex = ${activeSortIndex}, activeSortDirection = '${activeSortDirection}')`,
-            );
+            // console.log(
+            //     `Sorting ${aValue} and ${bValue} (activeSortIndex = ${activeSortIndex}, activeSortDirection = '${activeSortDirection}')`,
+            // );
             if (typeof aValue === 'number') {
                 // Numeric sort
                 if (activeSortDirection === 'asc') {

@@ -1,16 +1,6 @@
 import { RoundToThreeDecimalPlaces } from '@Components/Modals';
 import WorkloadTickDurationChart from '@Components/Workloads/WorkloadTickDurationChart';
 import {
-    Chart,
-    ChartAxis,
-    ChartGroup,
-    ChartLine,
-    ChartThemeColor,
-    ChartThemeDefinitionInterface,
-    ChartVoronoiContainer,
-    getCustomTheme,
-} from '@patternfly/react-charts';
-import {
     DescriptionList,
     DescriptionListDescription,
     DescriptionListGroup,
@@ -205,9 +195,11 @@ export const WorkloadInspectionView: React.FunctionComponent<IWorkloadInspection
                         </DescriptionListGroup>
                     </DescriptionList>
                 </FlexItem>
-                <FlexItem hidden={!props.showTickDurationChart}>
-                    <WorkloadTickDurationChart workload={props.workload}/>
-                </FlexItem>
+                {props.showTickDurationChart && (
+                    <FlexItem>
+                        <WorkloadTickDurationChart workload={props.workload} />
+                    </FlexItem>
+                )}
             </Flex>
             <FlexItem>
                 <ClipboardCheckIcon /> {<strong>Events Processed:</strong>} {props.workload?.num_events_processed}

@@ -3,6 +3,7 @@ import { KernelsPage } from '@App/KernelsPage/KernelsPage';
 import { NodesPage } from '@App/NodesPage/NodesPage';
 import PrivateRoute from '@App/PrivateRoute/PrivateRoute';
 import IndividualWorkloadPage from '@App/WorkloadsPage/IndividualWorkloadPage';
+import { RegisterWorkloadPage } from '@App/WorkloadsPage/RegisterWorkloadPage';
 import { Dashboard } from '@src/app/Dashboard/Dashboard';
 import { NotFound } from '@src/app/NotFound/NotFound';
 import { WorkloadsPage } from '@src/app/WorkloadsPage/WorkloadsPage';
@@ -89,8 +90,15 @@ const routes: AppRouteConfig[] = [
     {
         component: IndividualWorkloadPage,
         exact: true,
-        path: JoinPaths(process.env.PUBLIC_PATH || '/',  '/workload/:workload_id'),
+        path: JoinPaths(process.env.PUBLIC_PATH || '/', '/workload/:workload_id'),
         title: 'Workload',
+        isPrivate: true,
+    },
+    {
+        component: RegisterWorkloadPage,
+        exact: true,
+        path: JoinPaths(process.env.PUBLIC_PATH || '/', '/register_workload'),
+        title: 'Register a New Workload',
         isPrivate: true,
     },
 ];

@@ -29,7 +29,7 @@ export const IndividualWorkloadPage: React.FunctionComponent<IndividualWorkloadP
         if (workloadId && workloadId !== '' && workloadId !== ':workload_id') {
             const workload: Workload | undefined = workloadsMap.get(workloadId);
 
-            console.log(`workload ${workloadId} tick durations: ${workload?.tick_durations_milliseconds}`)
+            // console.log(`workload ${workloadId} tick durations: ${workload?.tick_durations_milliseconds}`)
 
             setTargetWorkload(workload);
         } else {

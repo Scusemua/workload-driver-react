@@ -31,7 +31,7 @@ export const WorkloadEventTable: React.FunctionComponent<WorkloadEventTableProps
         const timestamp_adjusted: string = timestamp.substring(0, timestamp.length - 10);
         const processed_at_adjusted: string = processed_at.substring(0, 27);
 
-        console.log(`Timestamp Adjusted: ${timestamp_adjusted}, Processed-At Adjusted: ${processed_at_adjusted}`)
+        // console.log(`Timestamp Adjusted: ${timestamp_adjusted}, Processed-At Adjusted: ${processed_at_adjusted}`)
 
         // Note: We're omitting the event's "id" and "error_message" fields here.
         return [idx, name, session, Date.parse(timestamp_adjusted), Date.parse(processed_at_adjusted), processed_successfully ? 1 : 0];

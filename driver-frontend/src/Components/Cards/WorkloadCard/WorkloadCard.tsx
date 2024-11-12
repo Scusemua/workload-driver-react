@@ -210,7 +210,6 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                     )}
                 </CardBody>
             </Card>
-
             <RegisterWorkloadModal
                 isOpen={isRegisterWorkloadModalOpen}
                 onClose={onCancelStartWorkload}
