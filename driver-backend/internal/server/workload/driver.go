@@ -707,7 +707,7 @@ func (d *BasicWorkloadDriver) UnpauseWorkload() error {
 		zap.String("workload_id", d.id),
 		zap.String("workload_name", d.workload.WorkloadName()))
 
-	d.paused = true
+	d.paused = false
 	d.workload.SetPaused(false)
 	d.pauseCond.Broadcast()
 	return nil
@@ -744,6 +744,9 @@ func (d *BasicWorkloadDriver) IssueClockTicks(timestamp time.Time) error {
 	for timestamp.After(currentTick) && d.workload.IsRunning() {
 		d.pauseMutex.Lock()
 		for d.paused {
+			d.logger.Debug("Workload is paused. Waiting to issue next tick.",
+				zap.String("workload_id", d.id),
+				zap.String("workload_name", d.workload.WorkloadName()))
 			d.pauseCond.Wait()
 		}
 		d.pauseMutex.Unlock()

@@ -18,23 +18,38 @@ export const useWorkloads = () => {
     const subscriberSocket = useRef<WebSocket | null>(null);
     useRef<boolean>(false);
 
-    const callbackMap: React.MutableRefObject<Map<string, (resp: WorkloadResponse) => void>> = useRef<
-        Map<string, (resp: WorkloadResponse) => void>
-    >(new Map<string, (resp: WorkloadResponse) => void>());
+    const callbackMap: React.MutableRefObject<Map<string, (resp?: WorkloadResponse, error?: ErrorResponse) => void>> =
+        useRef<Map<string, (resp?: WorkloadResponse, error?: ErrorResponse) => void>>(new Map<string, (resp?: WorkloadResponse, error?: ErrorResponse) => void>());
 
     const handleStandardResponse = (
         next: (
             err?: Error | null | undefined,
             data?: Map<string, Workload> | MutatorCallback<Map<string, Workload>> | undefined,
         ) => void,
-        workloadResponse: WorkloadResponse,
+        workloadResponse?: WorkloadResponse,
+        error?: ErrorResponse,
     ) => {
+        if (!error && !workloadResponse) {
+          return;
+        }
+
+        let msg_id: string;
+        if (workloadResponse) {
+          msg_id = workloadResponse.msg_id;
+        } else {
+          msg_id = error!.msg_id;
+        }
+
         if (callbackMap.current) {
-            const callback = callbackMap.current.get(workloadResponse.msg_id);
+            const callback = callbackMap.current.get(msg_id);
 
             if (callback) {
-                callback(workloadResponse);
+                callback(workloadResponse, error);
             }
+        }
+
+        if (workloadResponse === undefined) {
+          return;
         }
 
         if (workloadResponse.op == 'register_workload') {
@@ -138,7 +153,7 @@ export const useWorkloads = () => {
                 }
 
                 if (workloadResponse?.status == 'OK') {
-                    return handleStandardResponse(next, workloadResponse);
+                    return handleStandardResponse(next, workloadResponse, undefined);
                 }
 
                 let errorResponse: ErrorResponse;
@@ -162,14 +177,18 @@ export const useWorkloads = () => {
                 console.error(`ErrorMessage: ${errorResponse.ErrorMessage}`);
                 console.error(`Description: ${errorResponse.Description}`);
 
-                toast.custom(
-                    GetToastContentWithHeaderAndBody(
-                        `Received ErrorResponse for "${errorResponse.op}" workload WebSocket request`,
-                        [errorResponse.Description, errorResponse.ErrorMessage],
-                        'danger',
-                        DefaultDismiss,
-                    ),
-                );
+                if (callbackMap.current) {
+                    return handleStandardResponse(next, undefined, errorResponse);
+                }
+
+                // toast.custom(
+                //     GetToastContentWithHeaderAndBody(
+                //         `Received ErrorResponse for "${errorResponse.op}" workload WebSocket request`,
+                //         [errorResponse.Description, errorResponse.ErrorMessage],
+                //         'danger',
+                //         DefaultDismiss,
+                //     ),
+                // );
             });
 
             subscriberSocket.current.addEventListener('close', (event: CloseEvent) => {
@@ -195,7 +214,7 @@ export const useWorkloads = () => {
     const sendJsonMessage = (
         msg: string,
         msgId?: string | undefined,
-        callback?: (resp: WorkloadResponse) => void,
+        callback?: (resp?: WorkloadResponse, error?: ErrorResponse) => void,
     ): string | void => {
         if (subscriberSocket.current?.readyState !== WebSocket.OPEN) {
             console.error(

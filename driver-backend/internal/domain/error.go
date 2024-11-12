@@ -23,6 +23,7 @@ type ErrorMessage struct {
 	Valid        bool   `json:"Valid"`        // Used to determine if the struct was sent/received correctly over the network.
 	Operation    string `json:"op"`           // The original operation of the request to which this error is being sent as a response.
 	Status       string `json:"status"`       // ERROR.
+	MessageId    string `json:"msg_id"`       // Corresponding MessageId, if applicable (such as when sending/receiving JSON WebSocket messages).
 }
 
 func (m *ErrorMessage) Encode() []byte {

@@ -25,7 +25,7 @@ import { PlusIcon, StopCircleIcon } from '@patternfly/react-icons';
 
 import { useWorkloads } from '@Providers/WorkloadProvider';
 
-import { Workload, WORKLOAD_STATE_RUNNING, WorkloadPreset, WorkloadResponse } from '@src/Data/Workload';
+import { ErrorResponse, Workload, WORKLOAD_STATE_RUNNING, WorkloadPreset, WorkloadResponse } from '@src/Data/Workload';
 import { SessionTabsDataProvider } from '@src/Providers';
 import { JoinPaths } from '@src/Utils/path_utils';
 import { DefaultDismiss, GetToastContentWithHeaderAndBody } from '@src/Utils/toast_utils';
@@ -96,16 +96,16 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
         setIsRegisterWorkloadModalOpen(false);
         setIsRegisterNewWorkloadFromTemplateModalOpen(false);
         console.log(`Sending WorkloadRegistrationRequest: ${workloadRegistrationRequest}`);
-        const errorMessage: string | void = sendJsonMessage(workloadRegistrationRequest);
+        const sendErrorMessage: string | void = sendJsonMessage(workloadRegistrationRequest);
 
-        if (errorMessage) {
+        if (sendErrorMessage) {
             toast.custom((t: Toast) =>
                 GetToastContentWithHeaderAndBody(
                     'Workload Registration Failed',
                     [
                         `Unable to register template-based workload "${workloadName}".`,
                         <p key={'toast-content-row-2'}>
-                            <b>{'Reason:'}</b> {errorMessage}
+                            <b>{'Reason:'}</b> {sendErrorMessage}
                         </p>,
                     ],
                     'danger',
@@ -140,7 +140,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
         }
 
         const messageId: string = uuidv4();
-        const errorMessage: string | void = sendJsonMessage(
+        const sendErrorMessage: string | void = sendJsonMessage(
             JSON.stringify({
                 op: 'register_workload',
                 msg_id: messageId,
@@ -156,7 +156,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
             }),
         );
 
-        if (errorMessage) {
+        if (sendErrorMessage) {
             toast.custom(
                 (t: Toast) =>
                     GetToastContentWithHeaderAndBody(
@@ -164,7 +164,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                         [
                             `Unable to register workload "${workloadName}" with preset "${selectedPreset.name}" at this time.`,
                             <p key={'toast-content-row-2'}>
-                                <b>{'Reason:'}</b> {errorMessage}
+                                <b>{'Reason:'}</b> {sendErrorMessage}
                             </p>,
                         ],
                         'danger',
@@ -272,7 +272,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
         console.log(`Starting workload '${workload.name}' (ID=${workload.id})`);
 
         const messageId: string = uuidv4();
-        const errorMessage: string | void = sendJsonMessage(
+        const sendErrorMessage: string | void = sendJsonMessage(
             JSON.stringify({
                 op: 'start_workload',
                 msg_id: messageId,
@@ -280,7 +280,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
             }),
         );
 
-        if (errorMessage) {
+        if (sendErrorMessage) {
             toast.custom(
                 (t: Toast) =>
                     GetToastContentWithHeaderAndBody(
@@ -288,7 +288,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                         [
                             `Workload "${workload.name}" (ID="${workload.id}") could not be started.`,
                             <p key={'toast-content-row-2'}>
-                                <b>{'Reason:'}</b> {errorMessage}
+                                <b>{'Reason:'}</b> {sendErrorMessage}
                             </p>,
                         ],
                         'danger',
@@ -311,7 +311,85 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
     };
 
     const onPauseWorkloadClicked = (workload: Workload) => {
-        toast(`Pausing workload ${workload.name} (ID=${workload.id}) now...`);
+        const toastId: string = toast(
+            (t: Toast) =>
+                GetToastContentWithHeaderAndBody(
+                    `Pausing workload ${workload.name} (ID = ${workload.id}).`,
+                    [],
+                    'info',
+                    () => toast.dismiss(t.id),
+                ),
+            {
+                style: { maxWidth: 650 },
+            },
+        );
+
+        let operation: string;
+        if (workload.paused) {
+          console.log("Resuming workload '%s' (ID=%s)", workload.name, workload.id);
+          operation = 'unpause_workload';
+        } else {
+          console.log("Pausing workload '%s' (ID=%s)", workload.name, workload.id);
+          operation = 'pause_workload';
+        }
+
+        const messageId: string = uuidv4();
+        const sendErrorMessage: string | void = sendJsonMessage(
+            JSON.stringify({
+                op: operation,
+                msg_id: messageId,
+                workload_id: workload.id,
+            }),
+            messageId,
+            (resp?: WorkloadResponse, error?: ErrorResponse) => {
+              if (resp) {
+                toast.custom(
+                  (t: Toast) =>
+                    GetToastContentWithHeaderAndBody(
+                      'Workload Paused',
+                      `Workload "${workload.name}" (ID="${workload.id}") has been paused successfully.`,
+                      'success',
+                      () => toast.dismiss(t.id),
+                    ),
+                  { id: toastId },
+                );
+              } else {
+                toast.custom(
+                  (t: Toast) =>
+                    GetToastContentWithHeaderAndBody(
+                      'Failed to Pause Workload',
+                      [
+                        `Workload "${workload.name}" (ID="${workload.id}") could not be paused.`,
+                        <p key={'toast-content-row-2'}>
+                          <b>{'Reason:'}</b> {error?.ErrorMessage} {error?.Description}
+                        </p>,
+                      ],
+                      'danger',
+                      () => toast.dismiss(t.id),
+                    ),
+                  { id: toastId },
+                );
+              }
+            },
+        );
+
+        if (sendErrorMessage) {
+            toast.custom(
+                (t: Toast) =>
+                    GetToastContentWithHeaderAndBody(
+                        'Failed to Pause Workload',
+                        [
+                            `Workload "${workload.name}" (ID="${workload.id}") could not be paused.`,
+                            <p key={'toast-content-row-2'}>
+                                <b>{'Reason:'}</b> {sendErrorMessage}
+                            </p>,
+                        ],
+                        'danger',
+                        () => toast.dismiss(t.id),
+                    ),
+                { id: toastId },
+            );
+        }
     };
 
     const onStopWorkloadClicked = (workload: Workload) => {
@@ -331,7 +409,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
         console.log("Stopping workload '%s' (ID=%s)", workload.name, workload.id);
 
         const messageId: string = uuidv4();
-        const errorMessage: string | void = sendJsonMessage(
+        const sendErrorMessage: string | void = sendJsonMessage(
             JSON.stringify({
                 op: 'stop_workload',
                 msg_id: messageId,
@@ -339,7 +417,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
             }),
         );
 
-        if (errorMessage) {
+        if (sendErrorMessage) {
             toast.custom(
                 (t: Toast) =>
                     GetToastContentWithHeaderAndBody(
@@ -347,7 +425,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                         [
                             `Workload "${workload.name}" (ID="${workload.id}") could not be stopped.`,
                             <p key={'toast-content-row-2'}>
-                                <b>{'Reason:'}</b> {errorMessage}
+                                <b>{'Reason:'}</b> {sendErrorMessage}
                             </p>,
                         ],
                         'danger',
@@ -385,58 +463,75 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
             ExportWorkloadToJson(currentLocalWorkload, `workload_${currentLocalWorkload.id}_local.json`);
         }, 5000);
 
-        const errorMessage: string | void = sendJsonMessage(
+        const sendErrorMessage: string | void = sendJsonMessage(
             JSON.stringify({
                 op: 'get_workloads',
                 msg_id: messageId,
             }),
             messageId,
-            (workloadResponse: WorkloadResponse) => {
+            (workloadResponse?: WorkloadResponse, errorResponse?: ErrorResponse) => {
                 // First, clear the timeout that we set. We don't need to export the local copy (unless the
                 // server didn't return a valid remote copy, but we'll handle that later).
                 clearTimeout(timeout);
-                console.log(`Resp: ${JSON.stringify(workloadResponse, null, 2)}`);
 
-                if (workloadResponse.modified_workloads.length === 0) {
-                    // Server did not return any workloads. We'll just export our local copy...
+                if (workloadResponse) {
+                    console.log(`Resp: ${JSON.stringify(workloadResponse, null, 2)}`);
+
+                    if (workloadResponse.modified_workloads.length === 0) {
+                        // Server did not return any workloads. We'll just export our local copy...
+                        toast.custom(
+                            GetToastContentWithHeaderAndBody(
+                                `Could Not Find Workload on Server with ID="${currentLocalWorkload.id}"`,
+                                `Will export local copy of workload ${currentLocalWorkload.name} (ID=${currentLocalWorkload.id}) instead.`,
+                                'danger',
+                                DefaultDismiss,
+                            ),
+                        );
+                        ExportWorkloadToJson(currentLocalWorkload, `workload_${currentLocalWorkload.id}_local.json`);
+                    } else if (workloadResponse.modified_workloads.length > 1) {
+                        // The server returned multiple workloads despite us querying for only one ID.
+                        // We'll export all the remote workloads as well as the local copy, just to be safe.
+                        toast.custom(
+                            GetToastContentWithHeaderAndBody(
+                                `Server Returned ${workloadResponse.modified_workloads.length} Workloads for Query with WorkloadID="${currentLocalWorkload.id}"`,
+                                `Will export local copy of workload ${currentLocalWorkload.name} (ID=${currentLocalWorkload.id}) and all returned remote copies.`,
+                                'warning',
+                                DefaultDismiss,
+                            ),
+                        );
+
+                        // Export the local copy of the workload.
+                        ExportWorkloadToJson(currentLocalWorkload, `workload_${currentLocalWorkload.id}_local.json`);
+
+                        // Export the multiple remote copies (that we received for some... reason).
+                        for (let i = 0; i < workloadResponse.modified_workloads.length; i++) {
+                            const remoteWorkload: Workload = workloadResponse.modified_workloads[i];
+                            ExportWorkloadToJson(remoteWorkload, `workload_${remoteWorkload.id}_remote_${i}.json`);
+                        }
+                    } else {
+                        // The server only returned one remote workload. We'll just export the remote workload.
+                        const remoteWorkload: Workload = workloadResponse.modified_workloads[0];
+                        ExportWorkloadToJson(remoteWorkload, `workload_${remoteWorkload.id}_remote.json`);
+                    }
+                } else if (errorResponse !== undefined) {
                     toast.custom(
                         GetToastContentWithHeaderAndBody(
-                            `Could Not Find Workload on Server with ID="${currentLocalWorkload.id}"`,
-                            `Will export local copy of workload ${currentLocalWorkload.name} (ID=${currentLocalWorkload.id}) instead.`,
+                            `Error from Server While Exporting Workload "${currentLocalWorkload.id}"`,
+                            [
+                                `Will export local copy of workload ${currentLocalWorkload.name} (ID=${currentLocalWorkload.id}) instead.`,
+                                errorResponse.ErrorMessage,
+                                errorResponse.Description,
+                            ],
                             'danger',
                             DefaultDismiss,
                         ),
                     );
-                    ExportWorkloadToJson(currentLocalWorkload, `workload_${currentLocalWorkload.id}_local.json`);
-                } else if (workloadResponse.modified_workloads.length > 1) {
-                    // The server returned multiple workloads despite us querying for only one ID.
-                    // We'll export all the remote workloads as well as the local copy, just to be safe.
-                    toast.custom(
-                        GetToastContentWithHeaderAndBody(
-                            `Server Returned ${workloadResponse.modified_workloads.length} Workloads for Query with WorkloadID="${currentLocalWorkload.id}"`,
-                            `Will export local copy of workload ${currentLocalWorkload.name} (ID=${currentLocalWorkload.id}) and all returned remote copies.`,
-                            'warning',
-                            DefaultDismiss,
-                        ),
-                    );
-
-                    // Export the local copy of the workload.
-                    ExportWorkloadToJson(currentLocalWorkload, `workload_${currentLocalWorkload.id}_local.json`);
-
-                    // Export the multiple remote copies (that we received for some... reason).
-                    for (let i = 0; i < workloadResponse.modified_workloads.length; i++) {
-                        const remoteWorkload: Workload = workloadResponse.modified_workloads[i];
-                        ExportWorkloadToJson(remoteWorkload, `workload_${remoteWorkload.id}_remote_${i}.json`);
-                    }
-                } else {
-                    // The server only returned one remote workload. We'll just export the remote workload.
-                    const remoteWorkload: Workload = workloadResponse.modified_workloads[0];
-                    ExportWorkloadToJson(remoteWorkload, `workload_${remoteWorkload.id}_remote.json`);
                 }
             },
         );
 
-        if (errorMessage) {
+        // This would be an error that occurs on sending the WebSocket message.
+        if (sendErrorMessage) {
             clearTimeout(timeout); // Don't need to bother with this; we'll just export the local copy immediately.
             toast.custom(
                 GetToastContentWithHeaderAndBody(
@@ -444,7 +539,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                     <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsXs' }}>
                         <FlexItem>
                             <Text>
-                                <b>Error</b>: {errorMessage}
+                                <b>Error</b>: {sendErrorMessage}
                             </Text>
                         </FlexItem>
                         <FlexItem>

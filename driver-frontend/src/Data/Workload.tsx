@@ -58,6 +58,7 @@ interface Workload {
     current_tick: number;
     tick_durations_milliseconds: number[];
     sum_tick_durations_millis: number;
+    paused: boolean;
 }
 
 /**
@@ -140,6 +141,7 @@ interface ErrorResponse {
   Valid: boolean;
   op: string;
   status: string;
+  msg_id: string;
 }
 
 // Response for a 'get workloads' request.

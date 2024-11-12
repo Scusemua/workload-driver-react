@@ -208,7 +208,7 @@ func (h *WebsocketHandler) dispatchRequest(message []byte, ws domain.ConcurrentW
 // Arguments:
 // - err (error): The error for which we're generating an error payload.
 // - description(string): Optional text that may provide additional context or information concerning what went wrong. This is to be written by us.
-func (h *WebsocketHandler) generateErrorPayload(err error, op string, description string) *domain.ErrorMessage {
+func (h *WebsocketHandler) generateErrorPayload(err error, op string, description string, msgId string) *domain.ErrorMessage {
 	if err == nil {
 		panic("The provided error should not be nil when generating an error payload.")
 	}
@@ -219,6 +219,7 @@ func (h *WebsocketHandler) generateErrorPayload(err error, op string, descriptio
 		Valid:        true,
 		Operation:    op,
 		Status:       domain.ResponseStatusError,
+		MessageId:    msgId,
 	}
 }
 
@@ -243,7 +244,7 @@ func (h *WebsocketHandler) getResponsePayload(msgId string, op string, response 
 	if err != nil {
 		// Error was non-nil, so we'll send back an error message.
 		// Overwrite the value of the 'payload' variable with an encoded error message.
-		errorMessage := h.generateErrorPayload(err, op, "")
+		errorMessage := h.generateErrorPayload(err, op, "", msgId)
 		payload = errorMessage.Encode()
 
 		h.logger.Debug("Returning error response payload for WebSocket message.",

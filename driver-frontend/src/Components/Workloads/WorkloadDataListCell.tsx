@@ -1,9 +1,9 @@
-import WorkloadDescriptiveIcons from '@src/Components/Workloads/WorkloadDescriptiveIcons';
 import { Button, Flex, FlexItem, Text, TextVariants, Tooltip } from '@patternfly/react-core';
 import { PauseIcon, PlayIcon, SearchIcon, StopIcon } from '@patternfly/react-icons';
 import { CsvFileIcon, TemplateIcon, XmlFileIcon } from '@src/Assets/Icons';
+import WorkloadDescriptiveIcons from '@src/Components/Workloads/WorkloadDescriptiveIcons';
 import { WorkloadRuntimeMetrics } from '@src/Components/Workloads/WorkloadRuntimeMetrics';
-import { WORKLOAD_STATE_READY, WORKLOAD_STATE_RUNNING, Workload } from '@src/Data';
+import { Workload, WORKLOAD_STATE_READY, WORKLOAD_STATE_RUNNING } from '@src/Data';
 import React from 'react';
 
 interface IWorkloadDataListCellProps {
@@ -99,15 +99,15 @@ export const WorkloadDataListCell: React.FunctionComponent<IWorkloadDataListCell
                                             isDisabled={props.workload.workload_state != WORKLOAD_STATE_RUNNING}
                                             id={`pause-props.workload-${props.workload.id}-button`}
                                             variant="link"
-                                            isDanger
-                                            icon={<PauseIcon />}
+                                            isDanger={!props.workload.paused}
+                                            icon={props.workload.paused ? <PlayIcon /> : <PauseIcon />}
                                             onClick={(event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
                                                 props.onPauseWorkloadClicked(props.workload);
 
                                                 event.stopPropagation();
                                             }}
                                         >
-                                            Pause
+                                            {props.workload.paused ? 'Resume' : 'Pause'}
                                         </Button>
                                     </Tooltip>
                                 </FlexItem>
