@@ -57,11 +57,12 @@ export const WorkloadInspectionView: React.FunctionComponent<IWorkloadInspection
             setCurrentTick(props.workload.current_tick);
 
             if (shouldShowTickNotification(props.workload.id, props.workload.current_tick)) {
+                const tick: number = props.workload?.current_tick;
                 toast.custom(
                     (t) =>
                         GetToastContentWithHeaderAndBody(
                             'Tick Incremented',
-                            `Workload ${props.workload?.name} has progressed to Tick #${props.workload?.current_tick}.`,
+                            `Workload ${props.workload?.name} has progressed to Tick #${tick}.`,
                             'info',
                             () => {
                                 toast.dismiss(t.id);
@@ -70,7 +71,7 @@ export const WorkloadInspectionView: React.FunctionComponent<IWorkloadInspection
                     { icon: '⏱️', style: { maxWidth: 700 }, duration: 5000 },
                 );
 
-                showedTickNotifications.current.set(props.workload.id, props.workload.current_tick);
+                showedTickNotifications.current.set(props.workload.id, tick);
             }
         }
     }, [currentTick, props.workload, props.workload?.current_tick]);
