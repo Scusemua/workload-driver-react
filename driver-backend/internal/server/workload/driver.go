@@ -747,8 +747,11 @@ func (d *BasicWorkloadDriver) IssueClockTicks(timestamp time.Time) error {
 			d.logger.Debug("Workload is paused. Waiting to issue next tick.",
 				zap.String("workload_id", d.id),
 				zap.String("workload_name", d.workload.WorkloadName()))
+
+			d.workload.PauseWaitBeginning()
 			d.pauseCond.Wait()
 		}
+		d.workload.PauseWaitEnd() // This is a no-op if the Workload wasn't just paused.
 		d.pauseMutex.Unlock()
 
 		tickStart := time.Now()

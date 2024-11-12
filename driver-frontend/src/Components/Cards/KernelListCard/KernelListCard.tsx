@@ -15,25 +15,26 @@ import { KernelManager, ServerConnection, SessionManager } from '@jupyterlab/ser
 import { IKernelConnection } from '@jupyterlab/services/lib/kernel/kernel';
 import { IModel as ISessionModel, ISessionConnection } from '@jupyterlab/services/lib/session/session';
 import {
-  Alert,
-  AlertActionCloseButton,
-  Button,
-  Card,
-  CardBody,
-  CardHeader,
-  CardTitle,
-  Flex,
-  FlexItem,
-  InputGroup,
-  InputGroupItem, PerPageOptions,
-  SearchInput,
-  Text,
-  TextVariants,
-  Title,
-  ToolbarGroup,
-  ToolbarItem,
-  ToolbarToggleGroup,
-  Tooltip
+    Alert,
+    AlertActionCloseButton,
+    Button,
+    Card,
+    CardBody,
+    CardHeader,
+    CardTitle,
+    Flex,
+    FlexItem,
+    InputGroup,
+    InputGroupItem,
+    PerPageOptions,
+    SearchInput,
+    Text,
+    TextVariants,
+    Title,
+    ToolbarGroup,
+    ToolbarItem,
+    ToolbarToggleGroup,
+    Tooltip,
 } from '@patternfly/react-core';
 
 import { FilterIcon, PlusIcon, SpinnerIcon, SyncIcon, TrashIcon } from '@patternfly/react-icons';
@@ -83,23 +84,25 @@ export const KernelListCard: React.FunctionComponent<KernelListProps> = (props: 
     const sessionManager = useRef<SessionManager | null>(null);
 
     // If there are any new kernels, decrement `numKernelsCreating`.
-    kernels.forEach((kernel: DistributedJupyterKernel) => {
-        if (kernel === null || kernel === undefined) {
-            return;
-        }
-
-        if (!kernelIdSet.current.has(kernel.kernelId)) {
-            kernelIdSet.current.add(kernel.kernelId);
-            numKernelsCreating.current -= 1;
-
-            if (numKernelsCreating.current < 0) {
-                // TODO: Need to keep track of how many kernels we're actually waiting on.
-                // If we're not waiting on any kernels, then we shouldn't try to decrement 'numKernelsCreating'.
-                console.warn(`Tried to decrement 'numKernelsCreating' below 0 (kernelID: ${kernel.kernelId})...`);
-                numKernelsCreating.current = 0;
+    React.useEffect(() => {
+        kernels.forEach((kernel: DistributedJupyterKernel) => {
+            if (kernel === null || kernel === undefined) {
+                return;
             }
-        }
-    });
+
+            if (!kernelIdSet.current.has(kernel.kernelId)) {
+                kernelIdSet.current.add(kernel.kernelId);
+                numKernelsCreating.current -= 1;
+
+                if (numKernelsCreating.current < 0) {
+                    // TODO: Need to keep track of how many kernels we're actually waiting on.
+                    // If we're not waiting on any kernels, then we shouldn't try to decrement 'numKernelsCreating'.
+                    console.warn(`Tried to decrement 'numKernelsCreating' below 0 (kernelID: ${kernel.kernelId})...`);
+                    numKernelsCreating.current = 0;
+                }
+            }
+        });
+    }, [kernels]);
 
     const initializeKernelManagers = useCallback(async () => {
         if (kernelManager.current === null) {
@@ -668,9 +671,7 @@ export const KernelListCard: React.FunctionComponent<KernelListProps> = (props: 
         setKernelToDelete('');
     };
 
-    const onSelectKernel = (
-        kernelId: string,
-    ) => {
+    const onSelectKernel = (kernelId: string) => {
         const item = kernelId as string;
 
         if (selectedKernels.includes(item)) {

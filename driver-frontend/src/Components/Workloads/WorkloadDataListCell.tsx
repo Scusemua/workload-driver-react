@@ -4,7 +4,7 @@ import { CsvFileIcon, TemplateIcon, XmlFileIcon } from '@src/Assets/Icons';
 import WorkloadDescriptiveIcons from '@src/Components/Workloads/WorkloadDescriptiveIcons';
 import { WorkloadRuntimeMetrics } from '@src/Components/Workloads/WorkloadRuntimeMetrics';
 import { WORKLOAD_STATE_READY, WORKLOAD_STATE_RUNNING, Workload } from '@src/Data';
-import { useWorkloads, WorkloadContext } from '@src/Providers';
+import { WorkloadContext } from '@src/Providers';
 import React from 'react';
 
 interface IWorkloadDataListCellProps {

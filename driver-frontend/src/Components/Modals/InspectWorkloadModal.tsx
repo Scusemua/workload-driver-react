@@ -21,7 +21,7 @@ import {
     WORKLOAD_STATE_TERMINATED,
     Workload,
 } from '@src/Data/Workload';
-import { useWorkloads, WorkloadContext } from '@src/Providers';
+import { WorkloadContext } from '@src/Providers';
 import React from 'react';
 
 export interface InspectWorkloadModalProps {

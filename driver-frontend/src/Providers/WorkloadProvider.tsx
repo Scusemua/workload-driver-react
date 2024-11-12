@@ -1,8 +1,8 @@
 import {
     ErrorResponse,
     PatchedWorkload,
-    WORKLOAD_STATE_RUNNING,
     Workload,
+    WORKLOAD_STATE_RUNNING,
     WorkloadPreset,
     WorkloadResponse,
 } from '@Data/Workload';
@@ -96,6 +96,7 @@ function WorkloadProvider({ children }: { children: React.ReactNode }) {
         },
         authenticated,
     );
+
     /**
      * Send a message to the remote WebSocket.
      * @param msg the JSON-encoded message to send.
@@ -194,9 +195,10 @@ function WorkloadProvider({ children }: { children: React.ReactNode }) {
                 const workload: Workload | undefined = nextData.get(patchedWorkload.workloadId);
 
                 if (workload !== null && workload !== undefined) {
-                    // console.log(`Patched data: ${JSON.stringify(patch)}`)
+                    console.log(`\n\nPatched data:\n${JSON.stringify(patch, null, 2)}`);
+                    console.log(`\nWorkload before patch:${JSON.stringify(workload, null, 2)}\n\n`);
                     const mergedWorkload: Workload = jsonmergepatch.apply(workload, patch);
-                    // console.log(`Workload after patch: ${JSON.stringify(mergedWorkload)}\n`)
+                    console.log(`Workload after patch:\n${JSON.stringify(mergedWorkload, null, 2)}\n\n`);
                     nextData.set(patchedWorkload.workloadId, mergedWorkload);
                 } else {
                     console.error(
@@ -218,6 +220,8 @@ function WorkloadProvider({ children }: { children: React.ReactNode }) {
 
         const message: string = new TextDecoder('utf-8').decode(lastMessage.data);
 
+        console.log(`Received workload-related WebSocket message: ${message}`);
+
         let workloadResponse: WorkloadResponse | undefined = undefined;
         try {
             workloadResponse = JSON.parse(message);
@@ -236,6 +240,7 @@ function WorkloadProvider({ children }: { children: React.ReactNode }) {
         }
 
         if (workloadResponse?.status == 'OK') {
+            console.log(`Received valid WorkloadResponse:\n${JSON.stringify(workloadResponse, null, 2)}`);
             return handleWebSocketResponse(workloadResponse, undefined);
         }
 
@@ -740,21 +745,6 @@ function WorkloadProvider({ children }: { children: React.ReactNode }) {
             );
         }
     };
-
-    // const foo = {
-    //     workloads: workloads,
-    //     workloadsMap: workloadsMap,
-    //     sendJsonMessage: sendJsonMessageDirectly,
-    //     toggleDebugLogs: toggleDebugLogs,
-    //     exportWorkload: exportWorkload,
-    //     pauseWorkload: pauseWorkload,
-    //     registerWorkloadFromPreset: registerWorkloadFromPreset,
-    //     registerWorkloadFromTemplate: registerWorkloadFromTemplate,
-    //     stopAllWorkloads: stopAllWorkloads,
-    //     startWorkload: startWorkload,
-    //     stopWorkload: stopWorkload,
-    //     refreshWorkloads: refreshWorkloads,
-    // };
 
     return (
         <WorkloadContext.Provider

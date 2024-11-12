@@ -4,9 +4,6 @@ if (environment.trim().toLowerCase() === 'production') {
 }
 
 import App from '@App/index';
-import { DarkModeProvider } from '@Providers/DarkModeProvider';
-import { NotificationProvider } from '@Providers/NotificationProvider';
-import { WorkloadProvider } from '@src/Providers';
 import React from 'react';
 import ReactDOM from 'react-dom/client';
 import { BrowserRouter } from 'react-router-dom';
@@ -30,13 +27,7 @@ const root = ReactDOM.createRoot(document.getElementById('root') as Element);
 root.render(
     <React.StrictMode>
         <BrowserRouter>
-            <NotificationProvider>
-                <DarkModeProvider>
-                    <WorkloadProvider>
-                        <App />
-                    </WorkloadProvider>
-                </DarkModeProvider>
-            </NotificationProvider>
+            <App />
         </BrowserRouter>
     </React.StrictMode>,
 );

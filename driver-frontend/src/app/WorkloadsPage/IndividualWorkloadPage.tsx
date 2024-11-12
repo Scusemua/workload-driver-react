@@ -2,7 +2,7 @@ import { WorkloadInspectionView } from '@Components/Workloads/WorkloadInspection
 import { Card, CardBody, Divider, Flex, FlexItem, PageSection, Text } from '@patternfly/react-core';
 import { WorkloadDataListCell } from '@src/Components/Workloads/WorkloadDataListCell';
 import { Workload } from '@src/Data';
-import { useWorkloads, WorkloadContext } from '@src/Providers';
+import { WorkloadContext } from '@src/Providers';
 import { JoinPaths } from '@src/Utils/path_utils';
 import React from 'react';
 import { useParams } from 'react-router';

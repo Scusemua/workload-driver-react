@@ -210,6 +210,15 @@ type Workload interface {
 	// This flag is purely cosmetic; it doesn't do anything. It's just used to reflect
 	// the status of the workload as far as the workload driver is concerned.
 	SetPaused(paused bool)
+	// PauseWaitBeginning should be called by the WorkloadDriver if it finds that the workload is paused, and it
+	// actually begins waiting. This will prevent any of the time during which the workload was paused from being
+	// counted towards the workload's runtime.
+	PauseWaitBeginning()
+	// PauseWaitEnd should be called by the WorkloadDriver when the pause is over and the workload resumes executing.
+	// This will cause the Workload to begin counting elapsed time again.
+	//
+	// This is a no-op if the Workload wasn't just paused.
+	PauseWaitEnd()
 }
 
 // GetWorkloadStateAsString will panic if an invalid workload state is specified.
@@ -412,6 +421,9 @@ type workloadImpl struct {
 	WorkloadType              WorkloadType      `json:"workload_type"`
 	TickDurationsMillis       []int64           `json:"tick_durations_milliseconds"`
 	Paused                    bool              `json:"paused"`
+	TimeSpentPausedMillis     int64             `json:"time_spent_paused_milliseconds"`
+	timeSpentPaused           time.Duration     `json:"-"`
+	pauseWaitBegin            time.Time
 
 	// SumTickDurationsMillis is the sum of all tick durations in milliseconds, to make it easier
 	// to compute the average tick duration.
@@ -478,6 +490,38 @@ func NewWorkload(id string, workloadName string, seed int64, debugLoggingEnabled
 	workload.sugaredLogger = logger.Sugar()
 
 	return workload
+}
+
+// PauseWaitBeginning should be called by the WorkloadDriver if it finds that the workload is paused, and it
+// actually begins waiting. This will prevent any of the time during which the workload was paused from being
+// counted towards the workload's runtime.
+func (w *workloadImpl) PauseWaitBeginning() {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	w.pauseWaitBegin = time.Now()
+}
+
+// PauseWaitEnd should be called by the WorkloadDriver when the pause is over and the workload resumes executing.
+// This will cause the Workload to begin counting elapsed time again.
+//
+// This is a no-op if the Workload wasn't just paused.
+func (w *workloadImpl) PauseWaitEnd() {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	// pauseWaitBegin is set to zero after being processed.
+	// So, if it is currently zero, then we're not paused, and we should do nothing.
+	if w.pauseWaitBegin.IsZero() {
+		return
+	}
+
+	// Compute how long we were paused, increment the counters, and then zero out the pauseWaitBegin field.
+	pauseDuration := time.Since(w.pauseWaitBegin)
+	w.timeSpentPaused += pauseDuration
+	w.TimeSpentPausedMillis = w.timeSpentPaused.Milliseconds()
+
+	w.pauseWaitBegin = time.Time{} // Zero it out.
 }
 
 // RegisterOnCriticalErrorHandler registers a critical error handler for the target workload.
@@ -827,7 +871,16 @@ func (w *workloadImpl) UpdateTimeElapsed() {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	w.TimeElapsed = time.Since(w.StartTime)
+	// If we're currently waiting in a paused state, then don't update the time at all.
+	if !w.pauseWaitBegin.IsZero() {
+		return
+	}
+
+	// First, compute the total time elapsed.
+	timeElapsed := time.Since(w.StartTime)
+
+	// Second, subtract the time we have spent paused.
+	w.TimeElapsed = timeElapsed - w.timeSpentPaused
 	w.TimeElapsedStr = w.TimeElapsed.String()
 }
 

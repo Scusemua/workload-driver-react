@@ -21,7 +21,7 @@ import {
 
 import { PlusIcon, StopCircleIcon } from '@patternfly/react-icons';
 
-import { useWorkloads, WorkloadContext } from '@Providers/WorkloadProvider';
+import { WorkloadContext } from '@Providers/WorkloadProvider';
 
 import { WORKLOAD_STATE_RUNNING, Workload, WorkloadPreset } from '@src/Data/Workload';
 import { SessionTabsDataProvider } from '@src/Providers';

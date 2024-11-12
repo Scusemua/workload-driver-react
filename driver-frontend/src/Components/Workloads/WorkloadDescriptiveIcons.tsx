@@ -24,7 +24,7 @@ import {
     WORKLOAD_STATE_RUNNING,
     WORKLOAD_STATE_TERMINATED,
 } from '@src/Data';
-import { useWorkloads, WorkloadContext } from '@src/Providers';
+import { WorkloadContext } from '@src/Providers';
 import React from 'react';
 
 interface IWorkloadDescriptiveIcons {
