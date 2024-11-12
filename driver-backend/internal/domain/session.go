@@ -82,7 +82,7 @@ type WorkloadSession interface {
 	GetAndIncrementTrainingsCompleted() int
 }
 
-// BasicWorkloadSession corresponds to the `Session` struct defined in `web/app/Data/workloadImpl.tsx`.
+// BasicWorkloadSession corresponds to the `Session` struct defined in `web/app/Data/BasicWorkload.tsx`.
 // Used by the frontend when submitting workloads created from templates (as opposed to presets).
 type BasicWorkloadSession struct {
 	logger        *zap.Logger
@@ -291,7 +291,7 @@ func (t WorkloadTemplateSession) GetTrainings() []*TrainingEvent {
 	return t.Trainings
 }
 
-// TrainingEvent corresponds to the `TrainingEvent` struct defined in `web/app/Data/workloadImpl.tsx`.
+// TrainingEvent corresponds to the `TrainingEvent` struct defined in `web/app/Data/BasicWorkload.tsx`.
 // Used by the frontend when submitting workloads created from templates (as opposed to presets).
 type TrainingEvent struct {
 	TrainingIndex   int              `json:"training_index"`

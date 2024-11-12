@@ -479,7 +479,7 @@ func (d *BasicWorkloadDriver) StopWorkload() error {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
-	if !d.workload.IsRunning() {
+	if !d.workload.IsInProgress() {
 		return domain.ErrWorkloadNotRunning
 	}
 
@@ -611,7 +611,7 @@ OUTER:
 		// These events are then enqueued in the EventQueue.
 		select {
 		case evt := <-d.eventChan:
-			if !d.workload.IsRunning() {
+			if !d.workload.IsInProgress() {
 				d.logger.Warn("Workload is no longer running. Aborting drive procedure.",
 					zap.String("workload_name", d.workload.WorkloadName()),
 					zap.String("workload_id", d.workload.GetId()),
@@ -687,8 +687,7 @@ func (d *BasicWorkloadDriver) PauseWorkload() error {
 		zap.String("workload_name", d.workload.WorkloadName()))
 
 	d.paused = true
-	d.workload.SetPaused(true)
-	return nil
+	return d.workload.SetPausing()
 }
 
 func (d *BasicWorkloadDriver) UnpauseWorkload() error {
@@ -707,9 +706,84 @@ func (d *BasicWorkloadDriver) UnpauseWorkload() error {
 		zap.String("workload_id", d.id),
 		zap.String("workload_name", d.workload.WorkloadName()))
 
+	// We'll actually call d.workload.Unpause() later, in the goroutine triggering the clock ticks.
 	d.paused = false
-	d.workload.SetPaused(false)
 	d.pauseCond.Broadcast()
+	return nil
+}
+
+// handlePause is called to check if the workload is paused and, if so, then block until we're unpaused.
+func (d *BasicWorkloadDriver) handlePause() error {
+	d.pauseMutex.Lock()
+	defer d.pauseMutex.Unlock()
+
+	pausedWorkload := false
+	for d.paused {
+		// If we haven't transitioned the workload from 'pausing' to 'paused' yet, then do so now.
+		if !pausedWorkload {
+			// Transition the workload from 'pausing' to 'paused'.
+			// If this fails, then we'll just unpause and continue onwards.
+			err := d.workload.SetPaused()
+			if err != nil {
+				d.logger.Error("Failed to transition workload to 'paused' state.",
+					zap.String("workload_id", d.id),
+					zap.String("workload_name", d.workload.WorkloadName()),
+					zap.String("workload_state", d.workload.GetWorkloadState().String()),
+					zap.Error(err))
+
+				// We failed to pause the workload, so unpause ourselves and just continue.
+				_ = d.workload.Unpause() // We don't care if this fails, as long as the workload is running.
+				d.paused = false
+
+				// Make sure that the workload is actively running.
+				if !d.workload.IsRunning() {
+					d.logger.Error("Workload is not actively running anymore. We're stuck.",
+						zap.String("workload_id", d.id),
+						zap.String("workload_name", d.workload.WorkloadName()),
+						zap.String("workload_state", d.workload.GetWorkloadState().String()),
+						zap.Error(err))
+					return err
+				}
+
+				// Just return. We failed to pause the workload. Just try to keep going.
+				return nil
+			}
+
+			pausedWorkload = true
+		}
+
+		d.logger.Debug("Workload is paused. Waiting to issue next tick.",
+			zap.String("workload_id", d.id),
+			zap.String("workload_name", d.workload.WorkloadName()))
+
+		d.workload.PauseWaitBeginning()
+		d.pauseCond.Wait()
+	}
+
+	// If we paused the workload, then let's unpause it before returning.
+	if pausedWorkload {
+		err := d.workload.Unpause()
+		if err != nil {
+			d.logger.Error("Failed to unpause workload.",
+				zap.String("workload_id", d.id),
+				zap.String("workload_name", d.workload.WorkloadName()),
+				zap.Error(err))
+
+			// If the workload is not actively running, then it's in an unexpected state, so we'll return an error.
+			// Otherwise, we'll just return nil and ignore the fact that we failed to unpause the workload.
+			if !d.workload.IsRunning() {
+				d.logger.Error("Workload is not actively running anymore. We're stuck.",
+					zap.String("workload_id", d.id),
+					zap.String("workload_name", d.workload.WorkloadName()),
+					zap.String("workload_state", d.workload.GetWorkloadState().String()),
+					zap.Error(err))
+
+				// Return the error.
+				return err
+			}
+		}
+	}
+
 	return nil
 }
 
@@ -741,18 +815,10 @@ func (d *BasicWorkloadDriver) IssueClockTicks(timestamp time.Time) error {
 
 	// Issue clock ticks.
 	var numTicksIssued int64 = 0
-	for timestamp.After(currentTick) && d.workload.IsRunning() {
-		d.pauseMutex.Lock()
-		for d.paused {
-			d.logger.Debug("Workload is paused. Waiting to issue next tick.",
-				zap.String("workload_id", d.id),
-				zap.String("workload_name", d.workload.WorkloadName()))
-
-			d.workload.PauseWaitBeginning()
-			d.pauseCond.Wait()
+	for timestamp.After(currentTick) && d.workload.IsInProgress() {
+		if err := d.handlePause(); err != nil {
+			return err
 		}
-		d.workload.PauseWaitEnd() // This is a no-op if the Workload wasn't just paused.
-		d.pauseMutex.Unlock()
 
 		tickStart := time.Now()
 
@@ -782,7 +848,7 @@ func (d *BasicWorkloadDriver) IssueClockTicks(timestamp time.Time) error {
 
 		// If the workload is no longer running, then we'll just return.
 		// This can happen if the user manually stopped the workload, or if the workload encountered a critical error.
-		if !d.workload.IsRunning() {
+		if !d.workload.IsInProgress() {
 			d.logger.Warn("Workload is no longer running. Aborting post-issue-clock-tick procedure early.",
 				zap.String("workload_name", d.workload.WorkloadName()),
 				zap.String("workload_id", d.workload.GetId()),
@@ -806,7 +872,8 @@ func (d *BasicWorkloadDriver) IssueClockTicks(timestamp time.Time) error {
 				zap.Duration("target_tick_duration", d.targetTickDuration),
 				zap.Float64("timescale_adjustment_factor", d.timescaleAdjustmentFactor),
 				zap.String("workload_id", d.id),
-				zap.String("workload_name", d.workload.WorkloadName()))
+				zap.String("workload_name", d.workload.WorkloadName()),
+				zap.String("workload_state", d.workload.GetWorkloadState().String()))
 		} else {
 			// Simulate the remainder of the tick -- however much time is left.
 			d.logger.Debug("Sleeping to simulate remainder of tick.",
@@ -817,7 +884,8 @@ func (d *BasicWorkloadDriver) IssueClockTicks(timestamp time.Time) error {
 				zap.Float64("timescale_adjustment_factor", d.timescaleAdjustmentFactor),
 				zap.Duration("sleep_time", tickRemaining),
 				zap.String("workload_id", d.id),
-				zap.String("workload_name", d.workload.WorkloadName()))
+				zap.String("workload_name", d.workload.WorkloadName()),
+				zap.String("workload_state", d.workload.GetWorkloadState().String()))
 			time.Sleep(tickRemaining)
 		}
 
@@ -835,7 +903,7 @@ func (d *BasicWorkloadDriver) IssueClockTicks(timestamp time.Time) error {
 	if numTicksIssued != numTicksToIssue {
 		time.Sleep(time.Second * 5)
 
-		if d.workload.IsRunning() {
+		if d.workload.IsInProgress() {
 			d.logger.Error("Issued incorrect number of ticks, and workload is still running.",
 				zap.Int64("expected_ticks", numTicksToIssue),
 				zap.Int64("ticks_issued", numTicksIssued),
@@ -940,7 +1008,7 @@ func (d *BasicWorkloadDriver) ProcessWorkload(wg *sync.WaitGroup) error {
 
 	numTicksServed := 0
 	d.servingTicks.Store(true)
-	for d.workload.IsRunning() {
+	for d.workload.IsInProgress() {
 		select {
 		case tick := <-d.ticker.TickDelivery:
 			{

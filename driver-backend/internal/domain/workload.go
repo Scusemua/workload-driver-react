@@ -17,11 +17,13 @@ import (
 )
 
 const (
-	WorkloadReady      WorkloadState = "WorkloadReady"      // workloadImpl is registered and ready to be started.
-	WorkloadRunning    WorkloadState = "WorkloadRunning"    // workloadImpl is actively running/in-progress.
-	WorkloadFinished   WorkloadState = "WorkloadFinished"   // workloadImpl stopped naturally/successfully after processing all events.
-	WorkloadErred      WorkloadState = "WorkloadErred"      // workloadImpl stopped due to an error.
-	WorkloadTerminated WorkloadState = "WorkloadTerminated" // workloadImpl stopped because it was explicitly terminated early/premature.
+	WorkloadReady      WorkloadState = "WorkloadReady"      // BasicWorkload is registered and ready to be started.
+	WorkloadRunning    WorkloadState = "WorkloadRunning"    // BasicWorkload is actively running/in-progress.
+	WorkloadPausing    WorkloadState = "WorkloadPausing"    // BasicWorkload is actively running/in-progress.
+	WorkloadPaused     WorkloadState = "WorkloadPaused"     // BasicWorkload is actively running/in-progress.
+	WorkloadFinished   WorkloadState = "WorkloadFinished"   // BasicWorkload stopped naturally/successfully after processing all events.
+	WorkloadErred      WorkloadState = "WorkloadErred"      // BasicWorkload stopped due to an error.
+	WorkloadTerminated WorkloadState = "WorkloadTerminated" // BasicWorkload stopped because it was explicitly terminated early/premature.
 
 	UnspecifiedWorkload WorkloadType = "UnspecifiedWorkloadType" // Default value, before it is set.
 	PresetWorkload      WorkloadType = "WorkloadFromPreset"
@@ -35,6 +37,7 @@ var (
 	ErrWorkloadNotRunning = errors.New("the workload is currently not running")
 	ErrInvalidState       = errors.New("workload is in invalid state for the specified operation")
 	ErrWorkloadNotFound   = errors.New("could not find workload with the specified ID")
+	ErrWorkloadNotPaused  = errors.New("the workload is currently not paused")
 )
 
 type WorkloadErrorHandler func(workloadId string, err error)
@@ -80,8 +83,15 @@ type Workload interface {
 	IsReady() bool
 	// IsErred Returns true if the workload stopped due to an error.
 	IsErred() bool
-	// IsRunning Returns true if the workload is actively running/in-progress.
+	// IsRunning returns true if the workload is actively running (i.e., not paused).
 	IsRunning() bool
+	// IsPausing returns true if the workload is pausing, meaning that it is finishing the processing
+	// of its current tick before halting until it is un-paused.
+	IsPausing() bool
+	// IsPaused returns true if the workload is paused.
+	IsPaused() bool
+	// IsInProgress returns true if the workload is actively running, pausing, or paused.
+	IsInProgress() bool
 	// IsFinished Returns true if the workload finished in any capacity (i.e., either successfully or due to an error).
 	IsFinished() bool
 	// DidCompleteSuccessfully Returns true if the workload stopped naturally/successfully after processing all events.
@@ -206,19 +216,17 @@ type Workload interface {
 	// AddFullTickDuration is called to record how long a tick lasted, including the "artificial" sleep that is performed
 	// by the WorkloadDriver in order to fully simulate ticks that otherwise have no work/events to be processed.
 	AddFullTickDuration(timeElapsed time.Duration)
-	// SetPaused will change the value of the workloadImpl's Paused flag.
-	// This flag is purely cosmetic; it doesn't do anything. It's just used to reflect
-	// the status of the workload as far as the workload driver is concerned.
-	SetPaused(paused bool)
 	// PauseWaitBeginning should be called by the WorkloadDriver if it finds that the workload is paused, and it
 	// actually begins waiting. This will prevent any of the time during which the workload was paused from being
 	// counted towards the workload's runtime.
 	PauseWaitBeginning()
-	// PauseWaitEnd should be called by the WorkloadDriver when the pause is over and the workload resumes executing.
-	// This will cause the Workload to begin counting elapsed time again.
-	//
-	// This is a no-op if the Workload wasn't just paused.
-	PauseWaitEnd()
+	// SetPausing will set the workload to the pausing state, which means that it is finishing
+	// the processing of its current tick before halting until being unpaused.
+	SetPausing() error
+	// SetPaused will set the workload to the paused state.
+	SetPaused() error
+	// Unpause will set the workload to the unpaused state.
+	Unpause() error
 }
 
 // GetWorkloadStateAsString will panic if an invalid workload state is specified.
@@ -391,7 +399,7 @@ func (evt *WorkloadEvent) String() string {
 	return string(out)
 }
 
-type workloadImpl struct {
+type BasicWorkload struct {
 	logger        *zap.Logger
 	sugaredLogger *zap.SugaredLogger
 	atom          *zap.AtomicLevel
@@ -420,9 +428,8 @@ type workloadImpl struct {
 	SimulationClockTimeStr    string            `json:"simulation_clock_time"`
 	WorkloadType              WorkloadType      `json:"workload_type"`
 	TickDurationsMillis       []int64           `json:"tick_durations_milliseconds"`
-	Paused                    bool              `json:"paused"`
 	TimeSpentPausedMillis     int64             `json:"time_spent_paused_milliseconds"`
-	timeSpentPaused           time.Duration     `json:"-"`
+	timeSpentPaused           time.Duration
 	pauseWaitBegin            time.Time
 
 	// SumTickDurationsMillis is the sum of all tick durations in milliseconds, to make it easier
@@ -450,9 +457,9 @@ type workloadImpl struct {
 }
 
 func NewWorkload(id string, workloadName string, seed int64, debugLoggingEnabled bool, timescaleAdjustmentFactor float64,
-	atom *zap.AtomicLevel) Workload {
+	atom *zap.AtomicLevel) *BasicWorkload {
 
-	workload := &workloadImpl{
+	workload := &BasicWorkload{
 		Id:                        id, // Same ID as the driver.
 		Name:                      workloadName,
 		WorkloadState:             WorkloadReady,
@@ -475,7 +482,6 @@ func NewWorkload(id string, workloadName string, seed int64, debugLoggingEnabled
 		Sessions:                  make([]WorkloadSession, 0), // For template workloads, this will be overwritten.
 		SumTickDurationsMillis:    0,
 		TickDurationsMillis:       make([]int64, 0),
-		Paused:                    false,
 	}
 
 	zapConfig := zap.NewDevelopmentEncoderConfig()
@@ -495,25 +501,89 @@ func NewWorkload(id string, workloadName string, seed int64, debugLoggingEnabled
 // PauseWaitBeginning should be called by the WorkloadDriver if it finds that the workload is paused, and it
 // actually begins waiting. This will prevent any of the time during which the workload was paused from being
 // counted towards the workload's runtime.
-func (w *workloadImpl) PauseWaitBeginning() {
+func (w *BasicWorkload) PauseWaitBeginning() {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
 	w.pauseWaitBegin = time.Now()
 }
 
-// PauseWaitEnd should be called by the WorkloadDriver when the pause is over and the workload resumes executing.
-// This will cause the Workload to begin counting elapsed time again.
+// RegisterOnCriticalErrorHandler registers a critical error handler for the target workload.
 //
-// This is a no-op if the Workload wasn't just paused.
-func (w *workloadImpl) PauseWaitEnd() {
+// If there is already a critical handler error registered for the target workload, then the existing
+// critical error handler is overwritten.
+func (w *BasicWorkload) RegisterOnCriticalErrorHandler(handler WorkloadErrorHandler) {
+	w.onCriticalError = handler
+}
+
+// RegisterOnNonCriticalErrorHandler registers a non-critical error handler for the target workload.
+//
+// If there is already a non-critical handler error registered for the target workload, then the existing
+// non-critical error handler is overwritten.
+func (w *BasicWorkload) RegisterOnNonCriticalErrorHandler(handler WorkloadErrorHandler) {
+	w.onNonCriticalError = handler
+}
+
+// GetTickDurationsMillis returns a slice containing the clock time that elapsed for each tick
+// of the workload in order, in milliseconds.
+func (w *BasicWorkload) GetTickDurationsMillis() []int64 {
+	return w.TickDurationsMillis
+}
+
+// SetPausing will set the workload to the pausing state, which means that it is finishing
+// the processing of its current tick before halting until being unpaused.
+func (w *BasicWorkload) SetPausing() error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
+
+	if w.WorkloadState != WorkloadRunning {
+		w.logger.Error("Cannot transition workload to 'pausing' state. Workload is not running.",
+			zap.String("workload_state", w.WorkloadState.String()),
+			zap.String("workload_id", w.Id),
+			zap.String("workload-state", string(w.WorkloadState)))
+		return ErrWorkloadNotPaused
+	}
+
+	w.WorkloadState = WorkloadPausing
+	return nil
+}
+
+// SetPaused will set the workload to the paused state.
+func (w *BasicWorkload) SetPaused() error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	if w.WorkloadState != WorkloadPausing {
+		w.logger.Error("Cannot transition workload to 'paused' state. Workload is not in 'pausing' state.",
+			zap.String("workload_state", w.WorkloadState.String()),
+			zap.String("workload_id", w.Id),
+			zap.String("workload-state", string(w.WorkloadState)))
+		return ErrWorkloadNotPaused
+	}
+
+	w.WorkloadState = WorkloadPaused
+	return nil
+}
+
+// Unpause will set the workload to the unpaused state.
+func (w *BasicWorkload) Unpause() error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	if w.WorkloadState != WorkloadPaused && w.WorkloadState != WorkloadPausing {
+		w.logger.Error("Cannot unpause workload. Workload is not paused.",
+			zap.String("workload_state", w.WorkloadState.String()),
+			zap.String("workload_id", w.Id),
+			zap.String("workload-state", string(w.WorkloadState)))
+		return ErrWorkloadNotPaused
+	}
+
+	w.WorkloadState = WorkloadRunning
 
 	// pauseWaitBegin is set to zero after being processed.
 	// So, if it is currently zero, then we're not paused, and we should do nothing.
 	if w.pauseWaitBegin.IsZero() {
-		return
+		return nil
 	}
 
 	// Compute how long we were paused, increment the counters, and then zero out the pauseWaitBegin field.
@@ -522,43 +592,12 @@ func (w *workloadImpl) PauseWaitEnd() {
 	w.TimeSpentPausedMillis = w.timeSpentPaused.Milliseconds()
 
 	w.pauseWaitBegin = time.Time{} // Zero it out.
-}
-
-// RegisterOnCriticalErrorHandler registers a critical error handler for the target workload.
-//
-// If there is already a critical handler error registered for the target workload, then the existing
-// critical error handler is overwritten.
-func (w *workloadImpl) RegisterOnCriticalErrorHandler(handler WorkloadErrorHandler) {
-	w.onCriticalError = handler
-}
-
-// RegisterOnNonCriticalErrorHandler registers a non-critical error handler for the target workload.
-//
-// If there is already a non-critical handler error registered for the target workload, then the existing
-// non-critical error handler is overwritten.
-func (w *workloadImpl) RegisterOnNonCriticalErrorHandler(handler WorkloadErrorHandler) {
-	w.onNonCriticalError = handler
-}
-
-// GetTickDurationsMillis returns a slice containing the clock time that elapsed for each tick
-// of the workload in order, in milliseconds.
-func (w *workloadImpl) GetTickDurationsMillis() []int64 {
-	return w.TickDurationsMillis
-}
-
-// SetPaused will change the value of the workloadImpl's Paused flag.
-// This flag is purely cosmetic; it doesn't do anything. It's just used to reflect
-// the status of the workload as far as the workload driver is concerned.
-func (w *workloadImpl) SetPaused(paused bool) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-
-	w.Paused = paused
+	return nil
 }
 
 // TickCompleted is called by the driver after each tick.
 // Updates the time elapsed, current tick, and simulation clock time.
-func (w *workloadImpl) TickCompleted(tick int64, simClock time.Time) {
+func (w *BasicWorkload) TickCompleted(tick int64, simClock time.Time) {
 	w.mu.Lock()
 	w.CurrentTick = tick
 	w.SimulationClockTimeStr = simClock.String()
@@ -569,21 +608,21 @@ func (w *workloadImpl) TickCompleted(tick int64, simClock time.Time) {
 
 // AddFullTickDuration is called to record how long a tick lasted, including the "artificial" sleep that is performed
 // by the WorkloadDriver in order to fully simulate ticks that otherwise have no work/events to be processed.
-func (w *workloadImpl) AddFullTickDuration(timeElapsed time.Duration) {
+func (w *BasicWorkload) AddFullTickDuration(timeElapsed time.Duration) {
 	timeElapsedMs := timeElapsed.Milliseconds()
 	w.TickDurationsMillis = append(w.TickDurationsMillis, timeElapsedMs)
 	w.SumTickDurationsMillis += timeElapsedMs
 }
 
 // GetCurrentTick returns the current tick.
-func (w *workloadImpl) GetCurrentTick() int64 {
+func (w *BasicWorkload) GetCurrentTick() int64 {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 	return w.CurrentTick
 }
 
 // GetSimulationClockTimeStr returns the simulation clock time.
-func (w *workloadImpl) GetSimulationClockTimeStr() string {
+func (w *BasicWorkload) GetSimulationClockTimeStr() string {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 	return w.SimulationClockTimeStr
@@ -592,7 +631,7 @@ func (w *workloadImpl) GetSimulationClockTimeStr() string {
 // SetSessions sets the sessions that will be involved in this workload.
 //
 // IMPORTANT: This can only be set once per workload. If it is called more than once, it will panic.
-func (w *workloadImpl) SetSessions(sessions []WorkloadSession) {
+func (w *BasicWorkload) SetSessions(sessions []WorkloadSession) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
@@ -610,8 +649,8 @@ func (w *workloadImpl) SetSessions(sessions []WorkloadSession) {
 }
 
 // SetSource sets the source of the workload, namely a template or a preset.
-// This defers the execution of the method to the `workloadImpl::workload` field.
-func (w *workloadImpl) SetSource(source interface{}) {
+// This defers the execution of the method to the `BasicWorkload::workload` field.
+func (w *BasicWorkload) SetSource(source interface{}) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
@@ -619,35 +658,35 @@ func (w *workloadImpl) SetSource(source interface{}) {
 }
 
 // GetSessions returns the sessions involved in this workload.
-func (w *workloadImpl) GetSessions() []WorkloadSession {
+func (w *BasicWorkload) GetSessions() []WorkloadSession {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 	return w.Sessions
 }
 
 // GetWorkloadType gets the type of workload (TRACE, PRESET, or TEMPLATE).
-func (w *workloadImpl) GetWorkloadType() WorkloadType {
+func (w *BasicWorkload) GetWorkloadType() WorkloadType {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 	return w.WorkloadType
 }
 
 // IsPresetWorkload returns true if this workload was created using a preset.
-func (w *workloadImpl) IsPresetWorkload() bool {
+func (w *BasicWorkload) IsPresetWorkload() bool {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 	return w.WorkloadType == PresetWorkload
 }
 
 // IsTemplateWorkload returns true if this workload was created using a template.
-func (w *workloadImpl) IsTemplateWorkload() bool {
+func (w *BasicWorkload) IsTemplateWorkload() bool {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 	return w.WorkloadType == TemplateWorkload
 }
 
 // IsTraceWorkload returns true if this workload was created using the trace data.
-func (w *workloadImpl) IsTraceWorkload() bool {
+func (w *BasicWorkload) IsTraceWorkload() bool {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 	return w.WorkloadType == TraceWorkload
@@ -657,22 +696,22 @@ func (w *workloadImpl) IsTraceWorkload() bool {
 // If this is a preset workload, return the name of the preset.
 // If this is a trace workload, return the trace information.
 // If this is a template workload, return the template information.
-func (w *workloadImpl) GetWorkloadSource() interface{} {
+func (w *BasicWorkload) GetWorkloadSource() interface{} {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 	return w.workloadInstance.GetWorkloadSource()
 }
 
 // GetProcessedEvents returns the events processed during this workload (so far).
-func (w *workloadImpl) GetProcessedEvents() []*WorkloadEvent {
+func (w *BasicWorkload) GetProcessedEvents() []*WorkloadEvent {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 	return w.EventsProcessed
 }
 
 // TerminateWorkloadPrematurely stops the workload.
-func (w *workloadImpl) TerminateWorkloadPrematurely(simulationTimestamp time.Time) (time.Time, error) {
-	if !w.IsRunning() {
+func (w *BasicWorkload) TerminateWorkloadPrematurely(simulationTimestamp time.Time) (time.Time, error) {
+	if !w.IsInProgress() {
 		w.logger.Error("Cannot stop as I am not running.", zap.String("workload_id", w.Id), zap.String("workload-state", string(w.WorkloadState)))
 		return time.Now(), ErrWorkloadNotRunning
 	}
@@ -717,7 +756,7 @@ func (w *workloadImpl) TerminateWorkloadPrematurely(simulationTimestamp time.Tim
 //
 // If the workload is already running, then an error is returned.
 // Likewise, if the workload was previously running but has already stopped, then an error is returned.
-func (w *workloadImpl) StartWorkload() error {
+func (w *BasicWorkload) StartWorkload() error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
@@ -731,7 +770,7 @@ func (w *workloadImpl) StartWorkload() error {
 	return nil
 }
 
-func (w *workloadImpl) GetTimescaleAdjustmentFactor() float64 {
+func (w *BasicWorkload) GetTimescaleAdjustmentFactor() float64 {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 
@@ -739,7 +778,7 @@ func (w *workloadImpl) GetTimescaleAdjustmentFactor() float64 {
 }
 
 // SetWorkloadCompleted marks the workload as having completed successfully.
-func (w *workloadImpl) SetWorkloadCompleted() {
+func (w *BasicWorkload) SetWorkloadCompleted() {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
@@ -751,7 +790,7 @@ func (w *workloadImpl) SetWorkloadCompleted() {
 // GetErrorMessage gets the error message associated with the workload.
 // If the workload is not in an ERROR state, then this returns the empty string and false.
 // If the workload is in an ERROR state, then the boolean returned will be true.
-func (w *workloadImpl) GetErrorMessage() (string, bool) {
+func (w *BasicWorkload) GetErrorMessage() (string, bool) {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 
@@ -763,7 +802,7 @@ func (w *workloadImpl) GetErrorMessage() (string, bool) {
 }
 
 // SetErrorMessage sets the error message for the workload.
-func (w *workloadImpl) SetErrorMessage(errorMessage string) {
+func (w *BasicWorkload) SetErrorMessage(errorMessage string) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
@@ -771,12 +810,12 @@ func (w *workloadImpl) SetErrorMessage(errorMessage string) {
 }
 
 // IsDebugLoggingEnabled returns a flag indicating whether debug logging is enabled.
-func (w *workloadImpl) IsDebugLoggingEnabled() bool {
+func (w *BasicWorkload) IsDebugLoggingEnabled() bool {
 	return w.DebugLoggingEnabled
 }
 
 // SetDebugLoggingEnabled enables or disables debug logging for the workload.
-func (w *workloadImpl) SetDebugLoggingEnabled(enabled bool) {
+func (w *BasicWorkload) SetDebugLoggingEnabled(enabled bool) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
@@ -784,7 +823,7 @@ func (w *workloadImpl) SetDebugLoggingEnabled(enabled bool) {
 }
 
 // SetSeed sets the workload's seed. Can only be performed once. If attempted again, this will panic.
-func (w *workloadImpl) SetSeed(seed int64) {
+func (w *BasicWorkload) SetSeed(seed int64) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
@@ -797,12 +836,12 @@ func (w *workloadImpl) SetSeed(seed int64) {
 }
 
 // GetSeed returns the workload's seed.
-func (w *workloadImpl) GetSeed() int64 {
+func (w *BasicWorkload) GetSeed() int64 {
 	return w.Seed
 }
 
 // GetWorkloadState returns the current state of the workload.
-func (w *workloadImpl) GetWorkloadState() WorkloadState {
+func (w *BasicWorkload) GetWorkloadState() WorkloadState {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
@@ -810,7 +849,7 @@ func (w *workloadImpl) GetWorkloadState() WorkloadState {
 }
 
 // SetWorkloadState sets the state of the workload.
-func (w *workloadImpl) SetWorkloadState(state WorkloadState) {
+func (w *BasicWorkload) SetWorkloadState(state WorkloadState) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
@@ -818,7 +857,7 @@ func (w *workloadImpl) SetWorkloadState(state WorkloadState) {
 }
 
 // GetStartTime returns the time that the workload was started.
-func (w *workloadImpl) GetStartTime() time.Time {
+func (w *BasicWorkload) GetStartTime() time.Time {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
@@ -828,7 +867,7 @@ func (w *workloadImpl) GetStartTime() time.Time {
 // GetEndTime returns the time at which the workload finished.
 // If the workload hasn't finished yet, the returned boolean will be false.
 // If the workload has finished, then the returned boolean will be true.
-func (w *workloadImpl) GetEndTime() (time.Time, bool) {
+func (w *BasicWorkload) GetEndTime() (time.Time, bool) {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 
@@ -840,25 +879,25 @@ func (w *workloadImpl) GetEndTime() (time.Time, bool) {
 }
 
 // GetRegisteredTime returns the time that the workload was registered.
-func (w *workloadImpl) GetRegisteredTime() time.Time {
+func (w *BasicWorkload) GetRegisteredTime() time.Time {
 	return w.RegisteredTime
 }
 
 // GetTimeElapsed returns the time elapsed, which is computed at the time that data is requested by the user.
-func (w *workloadImpl) GetTimeElapsed() time.Duration {
+func (w *BasicWorkload) GetTimeElapsed() time.Duration {
 	return w.TimeElapsed
 }
 
 // GetTimeElapsedAsString returns the time elapsed as a string, which is computed at the time that data is requested by the user.
 //
 // IMPORTANT: This updates the w.TimeElapsedStr field (setting it to w.TimeElapsed.String()) before returning it.
-func (w *workloadImpl) GetTimeElapsedAsString() string {
+func (w *BasicWorkload) GetTimeElapsedAsString() string {
 	w.TimeElapsedStr = w.TimeElapsed.String()
 	return w.TimeElapsed.String()
 }
 
 // SetTimeElapsed updates the time elapsed.
-func (w *workloadImpl) SetTimeElapsed(timeElapsed time.Duration) {
+func (w *BasicWorkload) SetTimeElapsed(timeElapsed time.Duration) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
@@ -867,7 +906,7 @@ func (w *workloadImpl) SetTimeElapsed(timeElapsed time.Duration) {
 }
 
 // UpdateTimeElapsed instructs the Workload to recompute its 'time elapsed' field.
-func (w *workloadImpl) UpdateTimeElapsed() {
+func (w *BasicWorkload) UpdateTimeElapsed() {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
@@ -885,7 +924,7 @@ func (w *workloadImpl) UpdateTimeElapsed() {
 }
 
 // GetNumEventsProcessed returns the number of events processed by the workload.
-func (w *workloadImpl) GetNumEventsProcessed() int64 {
+func (w *BasicWorkload) GetNumEventsProcessed() int64 {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 	return w.NumEventsProcessed
@@ -893,7 +932,7 @@ func (w *workloadImpl) GetNumEventsProcessed() int64 {
 
 // WorkloadName returns the name of the workload.
 // The name is not necessarily unique and is meant to be descriptive, whereas the ID is unique.
-func (w *workloadImpl) WorkloadName() string {
+func (w *BasicWorkload) WorkloadName() string {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 	return w.Name
@@ -903,7 +942,7 @@ func (w *workloadImpl) WorkloadName() string {
 // Just updates some internal metrics.
 //
 // This method is thread safe.
-func (w *workloadImpl) ProcessedEvent(evt *WorkloadEvent) {
+func (w *BasicWorkload) ProcessedEvent(evt *WorkloadEvent) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
@@ -920,7 +959,7 @@ func (w *workloadImpl) ProcessedEvent(evt *WorkloadEvent) {
 
 // SessionCreated is called when a Session is created for/in the Workload.
 // Just updates some internal metrics.
-func (w *workloadImpl) SessionCreated(sessionId string) {
+func (w *BasicWorkload) SessionCreated(sessionId string) {
 	w.mu.Lock()
 	w.NumActiveSessions += 1
 	w.NumSessionsCreated += 1
@@ -941,7 +980,7 @@ func (w *workloadImpl) SessionCreated(sessionId string) {
 
 // SessionStopped is called when a Session is stopped for/in the Workload.
 // Just updates some internal metrics.
-func (w *workloadImpl) SessionStopped(sessionId string) {
+func (w *BasicWorkload) SessionStopped(sessionId string) {
 	w.mu.Lock()
 	w.NumActiveSessions -= 1
 	w.mu.Unlock()
@@ -955,7 +994,7 @@ func (w *workloadImpl) SessionStopped(sessionId string) {
 
 // TrainingStarted is called when a training starts during/in the workload.
 // Just updates some internal metrics.
-func (w *workloadImpl) TrainingStarted(sessionId string) {
+func (w *BasicWorkload) TrainingStarted(sessionId string) {
 	w.workloadInstance.TrainingStarted(sessionId)
 
 	w.trainingStartedTimes.Set(sessionId, time.Now())
@@ -967,7 +1006,7 @@ func (w *workloadImpl) TrainingStarted(sessionId string) {
 
 // TrainingStopped is called when a training stops during/in the workload.
 // Just updates some internal metrics.
-func (w *workloadImpl) TrainingStopped(sessionId string) {
+func (w *BasicWorkload) TrainingStopped(sessionId string) {
 	w.workloadInstance.TrainingStopped(sessionId)
 
 	metrics.PrometheusMetricsWrapperInstance.WorkloadTrainingEventsCompleted.
@@ -992,42 +1031,65 @@ func (w *workloadImpl) TrainingStopped(sessionId string) {
 }
 
 // GetId returns the unique ID of the workload.
-func (w *workloadImpl) GetId() string {
+func (w *BasicWorkload) GetId() string {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 	return w.Id
 }
 
 // IsTerminated returns true if the workload stopped because it was explicitly terminated early/premature.
-func (w *workloadImpl) IsTerminated() bool {
+func (w *BasicWorkload) IsTerminated() bool {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 	return w.WorkloadState == WorkloadTerminated
 }
 
 // IsReady returns true if the workload is registered and ready to be started.
-func (w *workloadImpl) IsReady() bool {
+func (w *BasicWorkload) IsReady() bool {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 	return w.WorkloadState == WorkloadReady
 }
 
 // IsErred returns true if the workload stopped due to an error.
-func (w *workloadImpl) IsErred() bool {
+func (w *BasicWorkload) IsErred() bool {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 	return w.WorkloadState == WorkloadErred
 }
 
-// IsRunning returns true if the workload is actively running/in-progress.
-func (w *workloadImpl) IsRunning() bool {
+// IsRunning returns true if the workload is actively running (i.e., not paused).
+func (w *BasicWorkload) IsRunning() bool {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 	return w.WorkloadState == WorkloadRunning
 }
 
+// IsPausing returns true if the workload is pausing, meaning that it is finishing the processing
+// of its current tick before halting until it is un-paused.
+func (w *BasicWorkload) IsPausing() bool {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return w.WorkloadState == WorkloadPausing
+}
+
+// IsPaused returns true if the workload is paused.
+func (w *BasicWorkload) IsPaused() bool {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+	return w.WorkloadState == WorkloadPaused
+}
+
+// IsInProgress returns true if the workload is actively running, pausing, or paused.
+func (w *BasicWorkload) IsInProgress() bool {
+	w.mu.RLock()
+	defer w.mu.RUnlock()
+
+	return w.IsRunning() || w.IsPausing() || w.IsPausing()
+}
+
 // IsFinished returns true if the workload stopped naturally/successfully after processing all events.
-func (w *workloadImpl) IsFinished() bool {
+func (w *BasicWorkload) IsFinished() bool {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 
@@ -1036,13 +1098,13 @@ func (w *workloadImpl) IsFinished() bool {
 
 // DidCompleteSuccessfully returns true if the workload stopped naturally/successfully
 // after processing all events.
-func (w *workloadImpl) DidCompleteSuccessfully() bool {
+func (w *BasicWorkload) DidCompleteSuccessfully() bool {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 	return w.WorkloadState == WorkloadFinished
 }
 
-func (w *workloadImpl) String() string {
+func (w *BasicWorkload) String() string {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 

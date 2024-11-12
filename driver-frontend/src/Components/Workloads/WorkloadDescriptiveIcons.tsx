@@ -1,17 +1,17 @@
 import { Flex, FlexItem, Label, Switch, Tooltip } from '@patternfly/react-core';
 import {
-    BlueprintIcon,
-    CheckCircleIcon,
-    ClockIcon,
-    CubeIcon,
-    DiceIcon,
-    ExclamationTriangleIcon,
-    HourglassStartIcon,
-    OutlinedCalendarAltIcon,
-    PausedIcon,
-    QuestionIcon,
-    SpinnerIcon,
-    TimesCircleIcon,
+  BlueprintIcon,
+  CheckCircleIcon,
+  ClockIcon,
+  CubeIcon,
+  DiceIcon,
+  ExclamationTriangleIcon,
+  HourglassStartIcon,
+  OutlinedCalendarAltIcon,
+  PausedIcon, PendingIcon,
+  QuestionIcon,
+  SpinnerIcon,
+  TimesCircleIcon
 } from '@patternfly/react-icons';
 import text from '@patternfly/react-styles/css/utilities/Text/text';
 import {
@@ -20,6 +20,8 @@ import {
     Workload,
     WORKLOAD_STATE_ERRED,
     WORKLOAD_STATE_FINISHED,
+    WORKLOAD_STATE_PAUSED,
+    WORKLOAD_STATE_PAUSING,
     WORKLOAD_STATE_READY,
     WORKLOAD_STATE_RUNNING,
     WORKLOAD_STATE_TERMINATED,
@@ -46,22 +48,27 @@ export const WorkloadDescriptiveIcons: React.FunctionComponent<IWorkloadDescript
         }
 
         if (props.workload.workload_state == WORKLOAD_STATE_RUNNING) {
-            if (props.workload.paused) {
-                return (
-                    <Label icon={<PausedIcon />} color="cyan">
-                        Paused
-                    </Label>
-                );
-            } else {
-                return (
-                    <Label
-                        icon={<SpinnerIcon className={'loading-icon-spin ' + text.successColor_100} />}
-                        color="green"
-                    >
-                        Running
-                    </Label>
-                );
-            }
+            return (
+                <Label icon={<SpinnerIcon className={'loading-icon-spin ' + text.successColor_100} />} color="green">
+                    Running
+                </Label>
+            );
+        }
+
+        if (props.workload.workload_state == WORKLOAD_STATE_PAUSING) {
+            return (
+                <Label icon={<PendingIcon/>} color="cyan">
+                    Pausing
+                </Label>
+            );
+        }
+
+        if (props.workload.workload_state == WORKLOAD_STATE_PAUSED) {
+            return (
+                <Label icon={<PausedIcon />} color="cyan">
+                    Paused
+                </Label>
+            );
         }
 
         if (props.workload.workload_state == WORKLOAD_STATE_FINISHED) {

@@ -5,7 +5,7 @@ import "go.uber.org/zap"
 // WorkloadFromTemplate is a struct representing a Workload that is generated using the "template" option
 // within the frontend dashboard.
 type WorkloadFromTemplate struct {
-	*workloadImpl
+	*BasicWorkload
 
 	Sessions []*WorkloadTemplateSession `json:"workload_template"`
 }
@@ -120,16 +120,16 @@ func NewWorkloadFromTemplate(baseWorkload Workload, sourceSessions []*WorkloadTe
 	}
 
 	var (
-		baseWorkloadImpl *workloadImpl
+		baseWorkloadImpl *BasicWorkload
 		ok               bool
 	)
-	if baseWorkloadImpl, ok = baseWorkload.(*workloadImpl); !ok {
+	if baseWorkloadImpl, ok = baseWorkload.(*BasicWorkload); !ok {
 		panic("The provided workload is not a base workload, or it is not a pointer type.")
 	}
 
 	workloadFromTemplate := &WorkloadFromTemplate{
-		workloadImpl: baseWorkloadImpl,
-		Sessions:     sourceSessions,
+		BasicWorkload: baseWorkloadImpl,
+		Sessions:      sourceSessions,
 	}
 
 	baseWorkloadImpl.WorkloadType = TemplateWorkload

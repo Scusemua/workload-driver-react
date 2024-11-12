@@ -1,5 +1,7 @@
 const WORKLOAD_STATE_READY: string = 'WorkloadReady'; // Workload is registered and ready to be started.
 const WORKLOAD_STATE_RUNNING: string = 'WorkloadRunning'; // Workload is actively running/in-progress.
+const WORKLOAD_STATE_PAUSING: string = 'WorkloadPausing'; // Workload is finishing processing the current tick and then will pause.
+const WORKLOAD_STATE_PAUSED: string = 'WorkloadUnpaused'; // Workload is paused.
 const WORKLOAD_STATE_FINISHED: string = 'WorkloadFinished'; // Workload stopped naturally/successfully after processing all events.
 const WORKLOAD_STATE_ERRED: string = 'WorkloadErred'; // Workload stopped due to an error.
 const WORKLOAD_STATE_TERMINATED: string = 'WorkloadTerminated'; // Workload stopped because it was explicitly terminated early/premature.
@@ -58,7 +60,6 @@ interface Workload {
     current_tick: number;
     tick_durations_milliseconds: number[];
     sum_tick_durations_millis: number;
-    paused: boolean;
 }
 
 /**
@@ -66,15 +67,15 @@ interface Workload {
  * sessions from the given workload.
  */
 export function GetNumActiveSessionsInWorkload(workload: Workload): number {
-  let num_active_sessions: number = 0
+    let num_active_sessions: number = 0;
 
-  workload.sessions.forEach(function(session: Session) {
-    if (session.state == "idle" || session.state == "training") {
-      num_active_sessions += 1;
-    }
-  })
+    workload.sessions.forEach(function (session: Session) {
+        if (session.state == 'idle' || session.state == 'training') {
+            num_active_sessions += 1;
+        }
+    });
 
-  return num_active_sessions
+    return num_active_sessions;
 }
 
 interface WorkloadEvent {
@@ -125,23 +126,23 @@ interface GpuUtilization {
 }
 
 interface PatchedWorkload {
-  workloadId: string;
-  patch: string;
+    workloadId: string;
+    patch: string;
 }
 
 interface BaseWorkloadResponse {
-  msg_id: string;
-  op: string;
-  status: string;
+    msg_id: string;
+    op: string;
+    status: string;
 }
 
 interface ErrorResponse {
-  Description: string;
-  ErrorMessage: string;
-  Valid: boolean;
-  op: string;
-  status: string;
-  msg_id: string;
+    Description: string;
+    ErrorMessage: string;
+    Valid: boolean;
+    op: string;
+    status: string;
+    msg_id: string;
 }
 
 // Response for a 'get workloads' request.
@@ -188,6 +189,8 @@ function GetWorkloadStatusTooltip(workload: Workload | null) {
 
 export { WORKLOAD_STATE_READY as WORKLOAD_STATE_READY };
 export { WORKLOAD_STATE_RUNNING as WORKLOAD_STATE_RUNNING };
+export { WORKLOAD_STATE_PAUSING as WORKLOAD_STATE_PAUSING };
+export { WORKLOAD_STATE_PAUSED as WORKLOAD_STATE_PAUSED };
 export { WORKLOAD_STATE_FINISHED as WORKLOAD_STATE_FINISHED };
 export { WORKLOAD_STATE_ERRED as WORKLOAD_STATE_ERRED };
 export { WORKLOAD_STATE_TERMINATED as WORKLOAD_STATE_TERMINATED };

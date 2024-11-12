@@ -113,7 +113,7 @@ func (m *BasicWorkloadManager) GetActiveWorkloads() map[string]domain.Workload {
 	activeWorkloads := make(map[string]domain.Workload)
 
 	for _, workload := range m.workloads {
-		if workload.IsRunning() {
+		if workload.IsInProgress() {
 			activeWorkloads[workload.GetId()] = workload
 		}
 	}
@@ -371,7 +371,7 @@ func (m *BasicWorkloadManager) serverPushRoutine( /* doneChan chan struct{} */ )
 			for _, workload := range activeWorkloads {
 				// If the workload is no longer active, then make a note to remove it after this next update.
 				// (We need to include it in the update so the frontend knows it's no longer active.)
-				if !workload.IsRunning() {
+				if !workload.IsInProgress() {
 					// This workload is no longer active. We'll push it to the frontend one last time,
 					// and then we'll stop pushing updates for this workload.
 					noLongerActivelyRunning = append(noLongerActivelyRunning, workload.GetId())

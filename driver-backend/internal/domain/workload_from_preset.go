@@ -5,7 +5,7 @@ package domain
 //
 // Presets are how we run workloads from trace data (among other things).
 type WorkloadFromPreset struct {
-	*workloadImpl
+	*BasicWorkload
 
 	WorkloadPreset     *WorkloadPreset `json:"workload_preset"`
 	WorkloadPresetName string          `json:"workload_preset_name"`
@@ -80,15 +80,15 @@ func NewWorkloadFromPreset(baseWorkload Workload, workloadPreset *WorkloadPreset
 	}
 
 	var (
-		baseWorkloadImpl *workloadImpl
+		baseWorkloadImpl *BasicWorkload
 		ok               bool
 	)
-	if baseWorkloadImpl, ok = baseWorkload.(*workloadImpl); !ok {
+	if baseWorkloadImpl, ok = baseWorkload.(*BasicWorkload); !ok {
 		panic("The provided workload is not a base workload, or it is not a pointer type.")
 	}
 
 	workloadFromPreset := &WorkloadFromPreset{
-		workloadImpl:       baseWorkloadImpl,
+		BasicWorkload:      baseWorkloadImpl,
 		WorkloadPreset:     workloadPreset,
 		WorkloadPresetName: workloadPreset.GetName(),
 		WorkloadPresetKey:  workloadPreset.GetKey(),
