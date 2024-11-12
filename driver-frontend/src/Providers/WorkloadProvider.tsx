@@ -1,10 +1,12 @@
 import {
-  ErrorResponse, IsPaused, IsPausing,
-  PatchedWorkload,
-  Workload,
-  WORKLOAD_STATE_RUNNING,
-  WorkloadPreset,
-  WorkloadResponse
+    ErrorResponse,
+    IsPaused,
+    IsPausing,
+    PatchedWorkload,
+    Workload,
+    WORKLOAD_STATE_RUNNING,
+    WorkloadPreset,
+    WorkloadResponse,
 } from '@Data/Workload';
 import { Flex, FlexItem, Text, TextVariants } from '@patternfly/react-core';
 import { AuthorizationContext } from '@Providers/AuthProvider';
@@ -391,6 +393,37 @@ function WorkloadProvider({ children }: { children: React.ReactNode }) {
                 msg_id: messageId,
                 workload_id: workload.id,
             }),
+            messageId,
+            (workloadResponse?: WorkloadResponse, errorResponse?: ErrorResponse) => {
+                if (workloadResponse) {
+                    toast.custom(
+                        (t: Toast) =>
+                            GetToastContentWithHeaderAndBody(
+                                'Workload Stopped',
+                                `Workload "${workload.name}" (ID="${workload.id}") has been stopped successfully.`,
+                                'success',
+                                () => toast.dismiss(t.id),
+                            ),
+                        { id: toastId },
+                    );
+                } else {
+                    toast.custom(
+                        (t: Toast) =>
+                            GetToastContentWithHeaderAndBody(
+                                'Failed to Stop Workload',
+                                [
+                                    `Workload "${workload.name}" (ID="${workload.id}") could not be stopped.`,
+                                    <p key={'toast-content-row-2'}>
+                                        <b>{'Reason:'}</b> {errorResponse?.ErrorMessage || 'unknown error occurred.'}
+                                    </p>,
+                                ],
+                                'danger',
+                                () => toast.dismiss(t.id),
+                            ),
+                        { id: toastId },
+                    );
+                }
+            },
         );
 
         if (sendErrorMessage) {
@@ -405,17 +438,6 @@ function WorkloadProvider({ children }: { children: React.ReactNode }) {
                             </p>,
                         ],
                         'danger',
-                        () => toast.dismiss(t.id),
-                    ),
-                { id: toastId },
-            );
-        } else {
-            toast.custom(
-                (t: Toast) =>
-                    GetToastContentWithHeaderAndBody(
-                        'Workload Stopped',
-                        `Workload "${workload.name}" (ID="${workload.id}") has been stopped successfully.`,
-                        'success',
                         () => toast.dismiss(t.id),
                     ),
                 { id: toastId },
