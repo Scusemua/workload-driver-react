@@ -1,43 +1,45 @@
 import { RoundToThreeDecimalPlaces } from '@Components/Modals/NewWorkloadFromTemplateModal';
 import { QueryMessageResponse, RequestTrace } from '@Data/Message';
 import {
-    Badge,
-    Button,
-    Card,
-    CardBody,
-    CardHeader,
-    Flex,
-    FlexItem,
-    Form,
-    FormGroup,
-    FormHelperText,
-    Grid,
-    GridItem,
-    HelperText,
-    HelperTextItem,
-    Label,
-    MenuToggle,
-    MenuToggleElement,
-    Modal,
-    ModalVariant,
-    Pagination,
-    PaginationVariant,
-    SearchInput,
-    Select,
-    SelectList,
-    SelectOption,
-    Skeleton,
-    TextInput,
-    Toolbar,
-    ToolbarContent,
-    ToolbarFilter,
-    ToolbarGroup,
-    ToolbarItem,
-    ToolbarToggleGroup,
+	Badge,
+	Button,
+	Card,
+	CardBody,
+	CardHeader,
+	Flex,
+	FlexItem,
+	Form,
+	FormGroup,
+	FormHelperText,
+	Grid,
+	GridItem,
+	HelperText,
+	HelperTextItem,
+	Label,
+	MenuToggle,
+	MenuToggleElement,
+	Pagination,
+	PaginationVariant,
+	SearchInput,
+	Select,
+	SelectList,
+	SelectOption,
+	Skeleton,
+	TextInput,
+	Toolbar,
+	ToolbarContent,
+	ToolbarFilter,
+	ToolbarGroup,
+	ToolbarItem,
+	ToolbarToggleGroup
 } from '@patternfly/react-core';
+import {
+	Modal,
+	ModalVariant
+} from '@patternfly/react-core/deprecated';
 import { CheckCircleIcon, FilterIcon, SearchIcon, TimesCircleIcon } from '@patternfly/react-icons';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
-import { global_BackgroundColor_150 } from '@patternfly/react-tokens';
+import { t_temp_dev_tbd as global_BackgroundColor_150 /* CODEMODS: you should update this color token */ } from '@patternfly/react-tokens';
 import { AuthorizationContext } from '@Providers/AuthProvider';
 import { GetPathForFetch } from '@src/Utils/path_utils';
 import { GetToastContentWithHeaderAndBody } from '@src/Utils/toast_utils';
@@ -437,7 +439,7 @@ export const QueryMessageModal: React.FunctionComponent<QueryMessageModalProps> 
     };
 
     const filterByKernelIdSearchBar = (
-        <ToolbarItem variant="search-filter">
+        <ToolbarItem >
             <SearchInput
                 aria-label="Filter query results by kernel ID"
                 placeholder={'Filter by kernel ID'}
@@ -451,7 +453,7 @@ export const QueryMessageModal: React.FunctionComponent<QueryMessageModalProps> 
     );
 
     const filterByMessageIdSearchBar = (
-        <ToolbarItem variant="search-filter">
+        <ToolbarItem >
             <SearchInput
                 aria-label="Filter query results by message ID"
                 placeholder={'Filter by message ID'}
@@ -467,9 +469,9 @@ export const QueryMessageModal: React.FunctionComponent<QueryMessageModalProps> 
     const filterByMessageTypeSelection = (
         <ToolbarGroup variant="filter-group">
             <ToolbarFilter
-                chips={filters.messageType}
-                deleteChip={(category, chip) => onDeleteFilter(category as string, chip as string)}
-                deleteChipGroup={(category) => onDeleteGroup(category as string)}
+                labels={filters.messageType}
+                deleteLabel={(category, chip) => onDeleteFilter(category as string, chip as string)}
+                deleteLabelGroup={(category) => onDeleteGroup(category as string)}
                 categoryName={'Message Type'}
             >
                 <Select
@@ -686,7 +688,7 @@ export const QueryMessageModal: React.FunctionComponent<QueryMessageModalProps> 
     );
 
     const queryResultTable = (
-        <Card isRounded isCompact>
+        <Card  isCompact>
             <CardHeader>{queryTableActions}</CardHeader>
             <CardBody>
                 <Table variant={'compact'} aria-label={'Message query result table'}>

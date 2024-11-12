@@ -1,19 +1,21 @@
 import {
-    Button,
-    Divider,
-    Form,
-    FormGroup,
-    FormSection,
-    FormSelect,
-    FormSelectOption,
-    Grid,
-    GridItem,
-    Modal,
-    ModalVariant,
-    TextInput,
-    TextInputGroup,
-    TextInputProps,
+	Button,
+	Divider,
+	Form,
+	FormGroup,
+	FormSection,
+	FormSelect,
+	FormSelectOption,
+	Grid,
+	GridItem,
+	TextInput,
+	TextInputGroup,
+	TextInputProps
 } from '@patternfly/react-core';
+import {
+	Modal,
+	ModalVariant
+} from '@patternfly/react-core/deprecated';
 import { AuthorizationContext } from '@Providers/AuthProvider';
 import { ResourceSpec } from '@src/Data';
 import React from 'react';

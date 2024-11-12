@@ -26,8 +26,8 @@ import {
     Radio,
     Skeleton,
     Switch,
-    Text,
-    TextVariants,
+    Content,
+    ContentVariants,
     Tooltip,
 } from '@patternfly/react-core';
 import {
@@ -349,17 +349,11 @@ export const NodeDataList: React.FunctionComponent<NodeDataListProps> = (props: 
                             label={
                                 <React.Fragment>
                                     <Flex direction={{ default: 'row' }} spaceItems={{ default: 'spaceItemsXs' }}>
-                                        <Text component={TextVariants.h2}>Enabled</Text>
+                                        <Content component={ContentVariants.h2}>Enabled</Content>
                                     </Flex>
                                 </React.Fragment>
                             }
-                            labelOff={
-                                <React.Fragment>
-                                    <Flex direction={{ default: 'row' }} spaceItems={{ default: 'spaceItemsXs' }}>
-                                        <Text component={TextVariants.h2}>Disabled</Text>
-                                    </Flex>
-                                </React.Fragment>
-                            }
+                            
                             aria-label="node-scheduling-switch"
                             isChecked={true}
                             ouiaId="node-scheduling-switch"

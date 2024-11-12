@@ -7,7 +7,7 @@ import {
 
 // eslint-disable-next-line prefer-const
 const WorkloadsPage: React.FunctionComponent = () => (
-  <PageSection>
+  <PageSection hasBodyWrapper={false}>
     <WorkloadCard
       workloadsPerPage={3}
       inspectInModal={false}

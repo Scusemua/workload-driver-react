@@ -12,29 +12,31 @@ import {
 } from '@Components/Modals';
 import { Language } from '@patternfly/react-code-editor';
 import {
-    Button,
-    Flex,
-    FlexItem,
-    Form,
-    FormGroup,
-    FormHelperText,
-    FormSection,
-    Grid,
-    GridItem,
-    HelperText,
-    HelperTextItem,
-    Modal,
-    ModalVariant,
-    MultipleFileUpload,
-    MultipleFileUploadMain,
-    MultipleFileUploadStatus,
-    MultipleFileUploadStatusItem,
-    NumberInput,
-    Popover,
-    Switch,
-    TextInput,
-    Tooltip,
+	Button,
+	Flex,
+	FlexItem,
+	Form,
+	FormGroup,
+	FormHelperText,
+	FormSection,
+	Grid,
+	GridItem,
+	HelperText,
+	HelperTextItem,
+	MultipleFileUpload,
+	MultipleFileUploadMain,
+	MultipleFileUploadStatus,
+	MultipleFileUploadStatusItem,
+	NumberInput,
+	Popover,
+	Switch,
+	TextInput,
+	Tooltip
 } from '@patternfly/react-core';
+import {
+	Modal,
+	ModalVariant
+} from '@patternfly/react-core/deprecated';
 import { DropEvent } from '@patternfly/react-core/src/helpers/typeUtils';
 import { CodeIcon, DownloadIcon, PencilAltIcon, SaveAltIcon, TrashAltIcon, UploadIcon } from '@patternfly/react-icons';
 import HelpIcon from '@patternfly/react-icons/dist/esm/icons/help-icon';
@@ -511,9 +513,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                                     </div>
                                 }
                             >
-                                <Button variant="plain" aria-label="Create New Workload From Template Helper">
-                                    <HelpIcon />
-                                </Button>
+                                <Button icon={<HelpIcon />} variant="plain" aria-label="Create New Workload From Template Helper" />
                             </Popover>
                         </FlexItem>
                         {!jsonModeActive && (
@@ -561,7 +561,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                                                 isRequired
                                                 label="Workload name:"
                                                 labelInfo="Required length: 1-36 characters"
-                                                labelIcon={
+                                                labelHelp={
                                                     <Popover
                                                         aria-label="workload-title-popover"
                                                         headerContent={<div>Workload Title</div>}
@@ -631,7 +631,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                                         <GridItem span={3}>
                                             <FormGroup
                                                 label={'Verbose Server-Side Log Output'}
-                                                labelIcon={
+                                                labelHelp={
                                                     <Popover
                                                         aria-label="workload-debug-logging-header"
                                                         headerContent={<div>Verbose Server-Side Log Output</div>}
@@ -661,7 +661,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                                                         <Switch
                                                             id="debug-logging-switch-template"
                                                             label="Debug logging enabled"
-                                                            labelOff="Debug logging disabled"
+                                                            
                                                             aria-label="debug-logging-switch-template"
                                                             isChecked={field.value === true}
                                                             ouiaId="DebugLoggingSwitchTemplate"
@@ -679,7 +679,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                                         <GridItem span={3}>
                                             <FormGroup
                                                 label="Workload Seed:"
-                                                labelIcon={
+                                                labelHelp={
                                                     <Popover
                                                         aria-label="workload-seed-popover"
                                                         headerContent={<div>Workload Title</div>}
@@ -745,7 +745,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                                         <GridItem span={3}>
                                             <FormGroup
                                                 label={'Timescale Adjustment Factor'}
-                                                labelIcon={
+                                                labelHelp={
                                                     <Popover
                                                         aria-label="timescale-adjustment-factor-header"
                                                         headerContent={<div>Timescale Adjustment Factor</div>}

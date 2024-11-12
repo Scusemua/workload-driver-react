@@ -306,7 +306,7 @@ export const NodeListCard: React.FunctionComponent<NodeListProps> = (props: Node
                     </FlexItem>
                 </Flex>
             </ToolbarToggleGroup>
-            <ToolbarGroup variant="icon-button-group">
+            <ToolbarGroup variant="action-group-plain">
                 <ToolbarItem>
                     <Tooltip content="Adjust the number of vGPUs available on ALL nodes.">
                         <Button
@@ -378,7 +378,7 @@ export const NodeListCard: React.FunctionComponent<NodeListProps> = (props: Node
         <div>
             <Card
                 isFullHeight
-                isRounded
+                
                 id={props.isDashboardList ? 'primary-node-list-card' : 'migration-node-list-card'}
                 style={{ minHeight: '30em' }}
             >

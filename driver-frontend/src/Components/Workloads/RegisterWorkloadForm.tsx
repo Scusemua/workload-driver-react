@@ -20,7 +20,7 @@ import {
     NumberInput,
     Popover,
     Switch,
-    Text,
+    Content,
     TextInput,
     ValidatedOptions,
 } from '@patternfly/react-core';
@@ -212,16 +212,16 @@ export const RegisterWorkloadForm: React.FunctionComponent<IRegisterWorkloadForm
     return (
         <Card>
             <CardBody>
-                <Text>
+                <Content component="p">
                     You can also create new workloads using templates by clicking the + button in the top-right of this
                     modal.
-                </Text>
+                </Content>
                 <Form>
                     <Grid hasGutter md={6}>
                         <GridItem span={12}>
                             <FormGroup
                                 label="Workload name:"
-                                labelIcon={
+                                labelHelp={
                                     <Popover
                                         aria-label="workload-title-popover"
                                         headerContent={<div>Workload Title</div>}
@@ -282,7 +282,7 @@ export const RegisterWorkloadForm: React.FunctionComponent<IRegisterWorkloadForm
                         <GridItem span={6}>
                             <FormGroup
                                 label="Workload Seed:"
-                                labelIcon={
+                                labelHelp={
                                     <Popover
                                         aria-label="workload-seed-popover"
                                         headerContent={<div>Workload Title</div>}
@@ -342,7 +342,7 @@ export const RegisterWorkloadForm: React.FunctionComponent<IRegisterWorkloadForm
                         <GridItem span={6}>
                             <FormGroup
                                 label="Workload preset:"
-                                labelIcon={
+                                labelHelp={
                                     <Popover
                                         aria-label="workload-preset-text-header"
                                         headerContent={<div>Workload Preset</div>}
@@ -432,7 +432,7 @@ export const RegisterWorkloadForm: React.FunctionComponent<IRegisterWorkloadForm
                         <GridItem span={6}>
                             <FormGroup
                                 label={'Timescale Adjustment Factor'}
-                                labelIcon={
+                                labelHelp={
                                     <Popover
                                         aria-label="timescale-adjustment-factor-header"
                                         headerContent={<div>Timescale Adjustment Factor</div>}
@@ -483,7 +483,7 @@ export const RegisterWorkloadForm: React.FunctionComponent<IRegisterWorkloadForm
                         <GridItem span={6}>
                             <FormGroup
                                 label={'Verbose Server-Side Log Output'}
-                                labelIcon={
+                                labelHelp={
                                     <Popover
                                         aria-label="workload-debug-logging-header"
                                         headerContent={<div>Verbose Server-Side Log Output</div>}
@@ -508,7 +508,7 @@ export const RegisterWorkloadForm: React.FunctionComponent<IRegisterWorkloadForm
                                 <Switch
                                     id="debug-logging-switch-preset"
                                     label="Debug logging enabled"
-                                    labelOff="Debug logging disabled"
+                                    
                                     aria-label="debug-logging-switch-preset"
                                     isChecked={debugLoggingEnabled}
                                     ouiaId="DebugLoggingSwitchPreset"

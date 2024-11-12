@@ -133,7 +133,7 @@ export const DockerLogViewCard: React.FunctionComponent = () => {
 
     return (
         <DockerLogHeightContext.Provider value={dockerLogHeight}>
-            <Card isRounded isFullHeight style={{ height: dockerLogHeight, overflow: 'auto' }}>
+            <Card  isFullHeight style={{ height: dockerLogHeight, overflow: 'auto' }}>
                 <CardHeader actions={{ actions: cardHeaderActions, hasNoOffset: false }}>
                     <CardTitle>
                         <Title headingLevel="h1" size="xl">

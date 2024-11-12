@@ -80,12 +80,10 @@ export const ExecutionOutputTabContent: React.FunctionComponent<ExecutionOutputT
 
     const rightAlignedOutputToolbarGroup = (
         <React.Fragment>
-            <ToolbarGroup variant="icon-button-group">
+            <ToolbarGroup variant="action-group-plain">
                 <ToolbarItem>
                     <Tooltip position="top" content={<div>Download</div>}>
-                        <Button onClick={onDownloadLogsClick} variant="plain" aria-label="Download current logs">
-                            <DownloadIcon />
-                        </Button>
+                        <Button icon={<DownloadIcon />} onClick={onDownloadLogsClick} variant="plain" aria-label="Download current logs" />
                     </Tooltip>
                 </ToolbarItem>
             </ToolbarGroup>
@@ -93,7 +91,7 @@ export const ExecutionOutputTabContent: React.FunctionComponent<ExecutionOutputT
     );
 
     return (
-        <Card isCompact isRounded isFlat hidden={props.output.length == 0}>
+        <Card isCompact   hidden={props.output.length == 0}>
             <CardBody>
                 <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsMd' }}>
                     <FlexItem>
@@ -109,10 +107,10 @@ export const ExecutionOutputTabContent: React.FunctionComponent<ExecutionOutputT
                             toolbar={
                                 <Toolbar>
                                     <ToolbarContent>
-                                        <ToolbarGroup align={{ default: 'alignLeft' }}>
+                                        <ToolbarGroup align={{ default: "alignStart" }}>
                                             {leftAlignedOutputToolbarGroup}
                                         </ToolbarGroup>
-                                        <ToolbarGroup align={{ default: 'alignRight' }}>
+                                        <ToolbarGroup align={{ default: "alignEnd" }}>
                                             {rightAlignedOutputToolbarGroup}
                                         </ToolbarGroup>
                                     </ToolbarContent>

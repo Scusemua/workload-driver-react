@@ -99,11 +99,11 @@ export const WorkloadEventTable: React.FunctionComponent<WorkloadEventTableProps
     const getEventLabel = (event_name: string) => {
         switch (event_name) {
             case "workload-started":
-                return (<Label color='gold' icon={<StarIcon />}>{event_name}</Label>)
+                return (<Label color="yellow" icon={<StarIcon />}>{event_name}</Label>)
             case "workload-complete":
                 return (<Label color='purple' icon={<CheckCircleIcon />}>{event_name}</Label>)
             case "session-started":
-                return (<Label color='cyan' icon={<MigrationIcon />}>{event_name}</Label>)
+                return (<Label color="teal" icon={<MigrationIcon />}>{event_name}</Label>)
             case "session-ready":
                 return (<Label color='grey' icon={<PendingIcon />}>{event_name}</Label>)
             case "training-started":
@@ -133,7 +133,7 @@ export const WorkloadEventTable: React.FunctionComponent<WorkloadEventTableProps
     const filteredEvents: WorkloadEvent[] | undefined = sortedEvents?.slice(perPage * (page - 1), perPage * (page - 1) + perPage);
 
     return (
-        <Card isCompact isRounded isFlat>
+        <Card isCompact  >
             <CardBody>
                 <Table variant="compact" isStriped>
                     <Thead noWrap>

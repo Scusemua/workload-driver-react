@@ -36,7 +36,7 @@ export const KernelSpecList: React.FunctionComponent = () => {
     };
 
     const cardHeaderActions = (
-        <ToolbarGroup variant="icon-button-group">
+        <ToolbarGroup variant="action-group-plain">
             <ToolbarItem>
                 <Tooltip exitDelay={75} content={<div>Refresh kernel specs.</div>}>
                     <Button
@@ -64,7 +64,7 @@ export const KernelSpecList: React.FunctionComponent = () => {
     );
 
     return (
-        <Card isFullHeight isRounded id="kernel-spec-list-card">
+        <Card isFullHeight  id="kernel-spec-list-card">
             <CardHeader actions={{ actions: cardHeaderActions, hasNoOffset: false }}>
                 <CardTitle>
                     <Title headingLevel="h1" size="xl">

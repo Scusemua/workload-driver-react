@@ -5,7 +5,7 @@ import * as React from 'react';
 // eslint-disable-next-line prefer-const
 const NodesPage: React.FunctionComponent = () => {
     return (
-        <PageSection>
+        <PageSection hasBodyWrapper={false}>
             <NodeListCard
                 isDashboardList={false}
                 hideAdjustVirtualGPUsButton={false}

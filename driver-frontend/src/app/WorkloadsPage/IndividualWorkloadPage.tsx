@@ -1,5 +1,5 @@
 import { WorkloadInspectionView } from '@Components/Workloads/WorkloadInspectionView';
-import { Card, CardBody, Divider, Flex, FlexItem, PageSection, Text } from '@patternfly/react-core';
+import { Card, CardBody, Divider, Flex, FlexItem, PageSection, Content } from '@patternfly/react-core';
 import { WorkloadDataListCell } from '@src/Components/Workloads/WorkloadDataListCell';
 import { Workload } from '@src/Data';
 import { WorkloadContext } from '@src/Providers';
@@ -44,8 +44,8 @@ export const IndividualWorkloadPage: React.FunctionComponent<IndividualWorkloadP
     const getPageContent = (): React.ReactNode => {
         if (targetWorkload) {
             return (
-                <PageSection>
-                    <Card isFullHeight isRounded>
+                <PageSection hasBodyWrapper={false}>
+                    <Card isFullHeight >
                         <CardBody>
                             <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsLg' }}>
                                 <FlexItem>
@@ -67,8 +67,8 @@ export const IndividualWorkloadPage: React.FunctionComponent<IndividualWorkloadP
             );
         } else {
             return (
-                <PageSection>
-                    <Text>Unknown workload: &quot;{params.workload_id}&quot;</Text>
+                <PageSection hasBodyWrapper={false}>
+                    <Content component="p">Unknown workload: &quot;{params.workload_id}&quot;</Content>
                 </PageSection>
             );
         }

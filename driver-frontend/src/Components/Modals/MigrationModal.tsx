@@ -1,6 +1,14 @@
 import { NodeListCard } from '@Cards/NodeListCard/NodeListCard';
 import { DistributedJupyterKernel, JupyterKernelReplica } from '@Data/Kernel';
-import { Button, Modal, ModalVariant, Text, TextContent, TextVariants } from '@patternfly/react-core';
+import {
+	Button,
+	Content,
+	ContentVariants
+} from '@patternfly/react-core';
+import {
+	Modal,
+	ModalVariant
+} from '@patternfly/react-core/deprecated';
 import { AuthorizationContext } from '@Providers/AuthProvider';
 import React from 'react';
 
@@ -50,12 +58,12 @@ export const MigrationModal: React.FunctionComponent<MigrationModalProps> = (pro
                 </Button>,
             ]}
         >
-            <TextContent>
-                <Text component={TextVariants.p}>
+            <Content>
+                <Content component={ContentVariants.p}>
                     If desired, you may specify a target node. If no target node is specified, then the system will
                     select one automatically.
-                </Text>
-            </TextContent>
+                </Content>
+            </Content>
             <br />
             <NodeListCard
                 isDashboardList={false}
@@ -70,14 +78,14 @@ export const MigrationModal: React.FunctionComponent<MigrationModalProps> = (pro
                 }}
             />
             <br />
-            <TextContent>
-                <Text component={TextVariants.p} hidden={targetNodeID == ''}>
+            <Content>
+                <Content component={ContentVariants.p} hidden={targetNodeID == ''}>
                     <strong>Selected Node:</strong> {targetNodeID}
-                </Text>
-                <Text component={TextVariants.p} hidden={targetNodeID != ''}>
+                </Content>
+                <Content component={ContentVariants.p} hidden={targetNodeID != ''}>
                     <strong>Selected Node:</strong> None
-                </Text>
-            </TextContent>
+                </Content>
+            </Content>
         </Modal>
     );
 };

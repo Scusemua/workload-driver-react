@@ -11,8 +11,8 @@ import {
     CardBody,
     CardHeader,
     PerPageOptions,
-    Text,
-    TextVariants,
+    Content,
+    ContentVariants,
     Title,
     ToolbarGroup,
     ToolbarItem,
@@ -148,10 +148,10 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
 
     const cardHeaderActions = (
         <React.Fragment>
-            <ToolbarGroup variant="icon-button-group">
+            <ToolbarGroup variant="action-group-plain">
                 <ToolbarItem>
                     <Tooltip exitDelay={75} content={<div>Register a new workload.</div>}>
-                        <Button
+                        <Button icon={<PlusIcon />}
                             label="launch-workload-button"
                             aria-label="launch-workload-button"
                             id="launch-workload-button"
@@ -159,12 +159,10 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                             onClick={() => {
                                 setIsRegisterWorkloadModalOpen(true);
                             }}
-                        >
-                            <PlusIcon />
-                        </Button>
+                         />
                     </Tooltip>
                     <Tooltip exitDelay={75} content={<div>Stop all running workloads.</div>}>
-                        <Button
+                        <Button icon={<StopCircleIcon />}
                             label="stop-workloads-button"
                             aria-label="stop-workloads-button"
                             id="stop-workloads-button"
@@ -176,9 +174,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                                 }).length == 0
                             }
                             onClick={onStopAllWorkloadsClicked} // () => setIsConfirmDeleteKernelsModalOpen(true)
-                        >
-                            <StopCircleIcon />
-                        </Button>
+                         />
                     </Tooltip>
                 </ToolbarItem>
             </ToolbarGroup>
@@ -187,7 +183,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
 
     return (
         <React.Fragment>
-            <Card isRounded isFullHeight id="workload-card">
+            <Card  isFullHeight id="workload-card">
                 <CardHeader actions={{ actions: cardHeaderActions, hasNoOffset: false }}>
                     <Title headingLevel="h1" size="xl">
                         Workloads
@@ -195,7 +191,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                 </CardHeader>
                 <CardBody>
                     {workloads.length == 0 && (
-                        <Text component={TextVariants.h2}>There are no registered workloads.</Text>
+                        <Content component={ContentVariants.h2}>There are no registered workloads.</Content>
                     )}
                     {workloads.length >= 1 && (
                         <WorkloadsDataList

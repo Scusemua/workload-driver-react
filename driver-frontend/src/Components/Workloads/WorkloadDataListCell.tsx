@@ -1,4 +1,4 @@
-import { Button, Flex, FlexItem, Text, TextVariants, Tooltip } from '@patternfly/react-core';
+import { Button, Flex, FlexItem, Content, ContentVariants, Tooltip } from '@patternfly/react-core';
 import { PauseIcon, PlayIcon, SearchIcon, StopIcon } from '@patternfly/react-icons';
 import { CsvFileIcon, TemplateIcon, XmlFileIcon } from '@src/Assets/Icons';
 import WorkloadDescriptiveIcons from '@src/Components/Workloads/WorkloadDescriptiveIcons';
@@ -30,9 +30,9 @@ export const WorkloadDataListCell: React.FunctionComponent<IWorkloadDataListCell
                     <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
                         <Flex direction={{ default: 'row' }} spaceItems={{ default: 'spaceItemsMd' }}>
                             <FlexItem>
-                                <Text component={TextVariants.h2}>
+                                <Content component={ContentVariants.h2}>
                                     <strong>{props.workload.name}</strong>
-                                </Text>
+                                </Content>
                             </FlexItem>
                             {props.workload.workload_preset && (
                                 <FlexItem>
@@ -65,10 +65,10 @@ export const WorkloadDataListCell: React.FunctionComponent<IWorkloadDataListCell
                             )}
                         </Flex>
                         <FlexItem>
-                            <Text component={TextVariants.small}>
+                            <Content component={ContentVariants.small}>
                                 <strong>ID: </strong>
-                            </Text>
-                            <Text component={TextVariants.small}>{props.workload.id}</Text>
+                            </Content>
+                            <Content component={ContentVariants.small}>{props.workload.id}</Content>
                         </FlexItem>
                     </Flex>
                 </FlexItem>

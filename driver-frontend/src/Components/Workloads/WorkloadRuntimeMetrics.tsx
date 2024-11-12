@@ -1,4 +1,4 @@
-import { Flex, FlexItem, Label, Text, TextVariants, Tooltip } from '@patternfly/react-core';
+import { Flex, FlexItem, Label, Content, ContentVariants, Tooltip } from '@patternfly/react-core';
 import {
     CodeIcon,
     CubeIcon,
@@ -23,9 +23,9 @@ export const WorkloadRuntimeMetrics: React.FunctionComponent<IWorkloadRuntimeMet
             spaceItems={{ default: 'spaceItemsNone' }}
         >
             <FlexItem>
-                <Text component={TextVariants.small}>
+                <Content component={ContentVariants.small}>
                     <strong>Runtime Metrics</strong>
-                </Text>
+                </Content>
             </FlexItem>
             <FlexItem>
                 <Label>

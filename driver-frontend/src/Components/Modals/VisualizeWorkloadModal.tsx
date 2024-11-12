@@ -1,4 +1,10 @@
-import { Button, Modal, ModalVariant } from '@patternfly/react-core';
+import {
+	Button
+} from '@patternfly/react-core';
+import {
+	Modal,
+	ModalVariant
+} from '@patternfly/react-core/deprecated';
 import { AuthorizationContext } from '@Providers/AuthProvider';
 import { Workload } from '@src/Data/Workload';
 import React from 'react';

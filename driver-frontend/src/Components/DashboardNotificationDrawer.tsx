@@ -4,8 +4,6 @@ import {
     DropdownList,
     EmptyState,
     EmptyStateBody,
-    EmptyStateHeader,
-    EmptyStateIcon,
     EmptyStateVariant,
     MenuToggle,
     MenuToggleElement,
@@ -154,12 +152,7 @@ export const DashboardNotificationDrawer: React.FunctionComponent = () => {
                     </NotificationDrawerList>
                 )}
                 {notifications.length === 0 && (
-                    <EmptyState variant={EmptyStateVariant.full}>
-                        <EmptyStateHeader
-                            headingLevel="h2"
-                            titleText="No notifications found"
-                            icon={<EmptyStateIcon icon={SearchIcon} />}
-                        />
+                    <EmptyState  headingLevel="h2" icon={SearchIcon}  titleText="No notifications found" variant={EmptyStateVariant.full}>
                         <EmptyStateBody>There are currently no notifications.</EmptyStateBody>
                     </EmptyState>
                 )}

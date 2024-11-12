@@ -88,7 +88,7 @@ export const RequestTraceSplitTable: React.FunctionComponent<RequestTraceSplitTa
     };
 
     return (
-        <Card isCompact isRounded isFlat>
+        <Card isCompact  >
             <CardBody>
                 <Toolbar id={`request-${props.messageId}-trace-split-table-toolbar`}>
                     <ToolbarContent>
@@ -104,7 +104,7 @@ export const RequestTraceSplitTable: React.FunctionComponent<RequestTraceSplitTa
                             />
                         </ToolbarItem>
                         {/* We only display the ToggleGroup if there are 2 or more individual traces to display. */}
-                        <ToolbarItem variant={'chip-group'} hidden={props.traces.length <= 1}>
+                        <ToolbarItem variant="label-group" hidden={props.traces.length <= 1}>
                             <ToggleGroup aria-label={'Specify which request trace to view'}>
                                 {props.traces.map((trace: RequestTrace, idx: number) => {
                                     return (

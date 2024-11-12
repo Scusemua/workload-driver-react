@@ -4,7 +4,7 @@ import * as React from 'react';
 
 // eslint-disable-next-line prefer-const
 let KernelsPage: React.FunctionComponent = () => (
-    <PageSection>
+    <PageSection hasBodyWrapper={false}>
         <KernelListCard
             kernelsPerPage={10}
             openMigrationModal={() => {}}

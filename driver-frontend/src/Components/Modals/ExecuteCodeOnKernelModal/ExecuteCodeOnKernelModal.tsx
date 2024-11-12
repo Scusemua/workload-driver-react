@@ -10,29 +10,31 @@ import {
 } from '@jupyterlab/services/lib/kernel/messages';
 import { Language } from '@patternfly/react-code-editor';
 import {
-    Alert,
-    AlertActionCloseButton,
-    Button,
-    Card,
-    CardBody,
-    Checkbox,
-    ClipboardCopy,
-    Flex,
-    FlexItem,
-    FormSelect,
-    FormSelectOption,
-    Grid,
-    GridItem,
-    Label,
-    Modal,
-    Tab,
-    TabTitleText,
-    Tabs,
-    Text,
-    TextVariants,
-    Title,
-    Tooltip,
+	Alert,
+	AlertActionCloseButton,
+	Button,
+	Card,
+	CardBody,
+	Checkbox,
+	ClipboardCopy,
+	Flex,
+	FlexItem,
+	FormSelect,
+	FormSelectOption,
+	Grid,
+	GridItem,
+	Label,
+	Tab,
+	TabTitleText,
+	Tabs,
+	Content,
+	ContentVariants,
+	Title,
+	Tooltip
 } from '@patternfly/react-core';
+import {
+	Modal
+} from '@patternfly/react-core/deprecated';
 import { CheckCircleIcon, SpinnerIcon, TimesCircleIcon, TimesIcon } from '@patternfly/react-icons';
 import { AuthorizationContext } from '@Providers/AuthProvider';
 import { useJupyterAddress } from '@Providers/JupyterAddressProvider';
@@ -377,9 +379,9 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                     >
                         <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsMd' }}>
                             <FlexItem>
-                                <Text component={TextVariants.p}>
+                                <Content component={ContentVariants.p}>
                                     {`Execution on Kernel ${kernelId} failed to complete after ${latencyRounded} ${latencyUnits}.`}
-                                </Text>
+                                </Content>
                             </FlexItem>
                             {/* The error message associated with the failed execution. */}
                             <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsSm' }}>
@@ -767,7 +769,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
     // When I included it explicitly as the tab content, the tab content wouldn't update properly
     // when changing tabs. You'd have to click the "wrap text" button to get it to work.
     const executionOutputArea = (
-        <Card isCompact isFlat>
+        <Card isCompact >
             <CardBody>
                 <Tabs
                     hidden={executionMap.size == 0}
@@ -800,9 +802,9 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                                                 spaceItems={{ default: 'spaceItemsXs' }}
                                             >
                                                 <FlexItem align={{ default: 'alignLeft' }}>
-                                                    <Text component={'small'}>
+                                                    <Content component={'small'}>
                                                         <b>ExecID: </b> {execId.substring(0, 8)}
-                                                    </Text>
+                                                    </Content>
                                                 </FlexItem>
                                                 <FlexItem align={{ default: 'alignRight' }}>
                                                     {getExecutionLabel(exec)}
@@ -812,9 +814,9 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                                                 align={{ default: 'alignLeft' }}
                                                 alignSelf={{ default: 'alignSelfFlexStart' }}
                                             >
-                                                <Text component={'small'}>
+                                                <Content component={'small'}>
                                                     <b>KernelID: </b> {getShortenedKernelId(execId)}
-                                                </Text>
+                                                </Content>
                                             </FlexItem>
                                         </Flex>
                                     </TabTitleText>
@@ -903,10 +905,10 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
         >
             <Flex direction={{ default: 'column' }}>
                 <FlexItem>
-                    <Text component={TextVariants.h3}>
+                    <Content component={ContentVariants.h3}>
                         Enter the code to be executed below. Once you&apos;re ready, press &apos;Submit&apos; to submit
                         the code to the kernel for execution.
-                    </Text>
+                    </Content>
                 </FlexItem>
                 <FlexItem>
                     <CodeContext.Provider value={{ code: code, setCode: setCode }}>
@@ -933,7 +935,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                             </Tooltip>
                         </GridItem>
                         <GridItem rowSpan={5} colSpan={1}>
-                            <Text component={TextVariants.p}>Target replica:</Text>
+                            <Content component={ContentVariants.p}>Target replica:</Content>
                             <Tooltip content="Specify the replica that should execute the code. This will fail (initially) if the target replica does not have enough resources, but may eventually succeed depending on the configured scheduling policy.">
                                 <FormSelect
                                     isDisabled={forceFailure}

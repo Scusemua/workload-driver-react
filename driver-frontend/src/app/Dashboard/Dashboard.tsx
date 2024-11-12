@@ -126,7 +126,7 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
     };
 
     return (
-        <PageSection>
+        <PageSection hasBodyWrapper={false}>
             <Grid hasGutter>
                 <GridItem span={6} rowSpan={getKernelCardRowspan()}>
                     <KernelHeightFactorContext.Provider

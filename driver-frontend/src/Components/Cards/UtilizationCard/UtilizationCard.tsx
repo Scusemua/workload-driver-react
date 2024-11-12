@@ -34,8 +34,8 @@ export const UtilizationCard: React.FunctionComponent<UtilizationCardProps> = (p
 
     const toolbar = (
         <React.Fragment>
-            <ToolbarGroup variant="button-group">
-                <ToolbarItem variant="search-filter">
+            <ToolbarGroup variant="action-group">
+                <ToolbarItem >
                     <Checkbox
                         label="Randomize utilizations"
                         id={'randomized-utilizations-checkbox'}
@@ -74,7 +74,7 @@ export const UtilizationCard: React.FunctionComponent<UtilizationCardProps> = (p
                     </ToggleGroup>
                 </ToolbarItem>
             </ToolbarGroup>
-            <ToolbarGroup variant="icon-button-group">
+            <ToolbarGroup variant="action-group-plain">
                 <ToolbarItem>
                     <Tooltip exitDelay={75} content={<div>Refresh cluster resource utilization data.</div>}>
                         <Button
@@ -98,7 +98,7 @@ export const UtilizationCard: React.FunctionComponent<UtilizationCardProps> = (p
     );
 
     return (
-        <Card isFullHeight isRounded id="utilization-card" component="div">
+        <Card isFullHeight  id="utilization-card" component="div">
             <CardHeader actions={{ actions: toolbar, hasNoOffset: false }}>
                 <CardTitle>
                     <Title headingLevel="h1" size="xl">

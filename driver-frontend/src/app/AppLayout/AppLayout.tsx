@@ -292,7 +292,7 @@ const AppLayout: React.FunctionComponent<IAppLayout> = ({ children }) => {
             </Toaster>
             <Page
                 mainContainerId={pageId}
-                header={<AppHeader isLoggedIn={authenticated} onMastheadToggleClicked={() => onMastheadToggleClicked()} />}
+                masthead={<AppHeader isLoggedIn={authenticated} onMastheadToggleClicked={() => onMastheadToggleClicked()} />}
                 skipToContent={PageSkipToContent}
                 sidebar={sidebarOpen && Sidebar}
                 isNotificationDrawerExpanded={expanded}

@@ -8,7 +8,7 @@ const RegisterWorkloadPage: React.FunctionComponent = () => {
     const navigate = useNavigate();
 
     return (
-        <PageSection>
+        <PageSection hasBodyWrapper={false}>
             <RegisterWorkloadForm
                 onRegisterWorkloadFromTemplateClicked={() => {}}
                 onConfirm={() => {}}

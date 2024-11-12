@@ -157,7 +157,7 @@ export const GetWorkloadStatusLabel = (workload: Workload) => {
 
     if (IsPausing(workload)) {
         return (
-            <Label icon={<PendingIcon />} color="cyan">
+            <Label icon={<PendingIcon />} color="teal">
                 Pausing
             </Label>
         );
@@ -165,7 +165,7 @@ export const GetWorkloadStatusLabel = (workload: Workload) => {
 
     if (IsPaused(workload)) {
         return (
-            <Label icon={<PausedIcon />} color="cyan">
+            <Label icon={<PausedIcon />} color="teal">
                 Paused
             </Label>
         );

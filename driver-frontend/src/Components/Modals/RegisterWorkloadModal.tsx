@@ -1,27 +1,29 @@
 import {
-    Button,
-    Dropdown,
-    DropdownItem,
-    DropdownList,
-    Form,
-    FormGroup,
-    FormHelperText,
-    Grid,
-    GridItem,
-    HelperText,
-    HelperTextItem,
-    MenuToggle,
-    MenuToggleElement,
-    Modal,
-    ModalVariant,
-    NumberInput,
-    Popover,
-    Switch,
-    Text,
-    TextInput,
-    Tooltip,
-    ValidatedOptions,
+	Button,
+	Dropdown,
+	DropdownItem,
+	DropdownList,
+	Form,
+	FormGroup,
+	FormHelperText,
+	Grid,
+	GridItem,
+	HelperText,
+	HelperTextItem,
+	MenuToggle,
+	MenuToggleElement,
+	NumberInput,
+	Popover,
+	Switch,
+	Content,
+	TextInput,
+	Tooltip,
+	ValidatedOptions
 } from '@patternfly/react-core';
+import {
+	Modal,
+	ModalVariant
+} from '@patternfly/react-core/deprecated';
 import { EditIcon } from '@patternfly/react-icons';
 import HelpIcon from '@patternfly/react-icons/dist/esm/icons/help-icon';
 import styles from '@patternfly/react-styles/css/components/Form/form';
@@ -215,13 +217,11 @@ export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalPr
             onClose={props.onClose}
             help={
                 <Tooltip exitDelay={75} content={<div>Create new workload from template.</div>}>
-                    <Button
+                    <Button icon={<EditIcon />}
                         variant="plain"
                         aria-label="Create New Workload From Template"
                         onClick={props.onRegisterWorkloadFromTemplateClicked}
-                    >
-                        <EditIcon />
-                    </Button>
+                     />
                 </Tooltip>
             }
             actions={[
@@ -233,16 +233,16 @@ export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalPr
                 </Button>,
             ]}
         >
-            <Text>
+            <Content component="p">
                 You can also create new workloads using templates by clicking the + button in the top-right of this
                 modal.
-            </Text>
+            </Content>
             <Form>
                 <Grid hasGutter md={6}>
                     <GridItem span={12}>
                         <FormGroup
                             label="Workload name:"
-                            labelIcon={
+                            labelHelp={
                                 <Popover
                                     aria-label="workload-title-popover"
                                     headerContent={<div>Workload Title</div>}
@@ -301,7 +301,7 @@ export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalPr
                     <GridItem span={6}>
                         <FormGroup
                             label="Workload Seed:"
-                            labelIcon={
+                            labelHelp={
                                 <Popover
                                     aria-label="workload-seed-popover"
                                     headerContent={<div>Workload Title</div>}
@@ -361,7 +361,7 @@ export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalPr
                     <GridItem span={6}>
                         <FormGroup
                             label="Workload preset:"
-                            labelIcon={
+                            labelHelp={
                                 <Popover
                                     aria-label="workload-preset-text-header"
                                     headerContent={<div>Workload Preset</div>}
@@ -450,7 +450,7 @@ export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalPr
                     <GridItem span={6}>
                         <FormGroup
                             label={'Timescale Adjustment Factor'}
-                            labelIcon={
+                            labelHelp={
                                 <Popover
                                     aria-label="timescale-adjustment-factor-header"
                                     headerContent={<div>Timescale Adjustment Factor</div>}
@@ -498,7 +498,7 @@ export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalPr
                     <GridItem span={6}>
                         <FormGroup
                             label={'Verbose Server-Side Log Output'}
-                            labelIcon={
+                            labelHelp={
                                 <Popover
                                     aria-label="workload-debug-logging-header"
                                     headerContent={<div>Verbose Server-Side Log Output</div>}
@@ -523,7 +523,7 @@ export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalPr
                             <Switch
                                 id="debug-logging-switch-preset"
                                 label="Debug logging enabled"
-                                labelOff="Debug logging disabled"
+                                
                                 aria-label="debug-logging-switch-preset"
                                 isChecked={debugLoggingEnabled}
                                 ouiaId="DebugLoggingSwitchPreset"

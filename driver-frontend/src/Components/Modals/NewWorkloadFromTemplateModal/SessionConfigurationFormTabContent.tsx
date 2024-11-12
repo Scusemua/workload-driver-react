@@ -145,7 +145,7 @@ export const SessionConfigurationFormTabContent: React.FunctionComponent<Session
     };
 
     return (
-        <Card isCompact isRounded isFlat>
+        <Card isCompact  >
             <CardBody>
                 <FormFieldGroup
                     header={

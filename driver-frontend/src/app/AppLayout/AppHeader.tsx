@@ -6,9 +6,9 @@ import {
   Icon,
   Label,
   Masthead,
-  MastheadBrand,
+  MastheadLogo,
   MastheadContent,
-  MastheadMain, MastheadToggle,
+  MastheadMain, MastheadToggle, MastheadBrand,
   NotificationBadge,
   NotificationBadgeVariant,
   ToggleGroup,
@@ -283,13 +283,11 @@ export const AppHeader: React.FunctionComponent<AppHeaderProps> = (props: AppHea
         <Masthead>
             <MastheadMain>
                 <MastheadToggle>
-                    <Button variant="plain" onClick={() => props.onMastheadToggleClicked()} aria-label="Global navigation">
-                        <BarsIcon />
-                    </Button>
+                    <Button icon={<BarsIcon />} variant="plain" onClick={() => props.onMastheadToggleClicked()} aria-label="Global navigation" />
                 </MastheadToggle>
-                <MastheadBrand>
+                <MastheadBrand data-codemods><MastheadLogo data-codemods>
                     <Brand src={logo} alt="Workload Driver Logo" heights={{ default: '36px' }} />
-                </MastheadBrand>
+                </MastheadLogo></MastheadBrand>
                 <MastheadContent>
                     <Flex direction={{ default: 'row' }}>
                         <FlexItem>

@@ -8,7 +8,7 @@ import {
   WorkloadResponse,
   WorkloadStateRunning
 } from '@Data/Workload';
-import { Flex, FlexItem, Text, TextVariants } from '@patternfly/react-core';
+import { Flex, FlexItem, Content, ContentVariants } from '@patternfly/react-core';
 import { AuthorizationContext } from '@Providers/AuthProvider';
 import { JoinPaths } from '@src/Utils/path_utils';
 import { DefaultDismiss, GetToastContentWithHeaderAndBody } from '@src/Utils/toast_utils';
@@ -294,10 +294,10 @@ function WorkloadProvider({ children }: { children: React.ReactNode }) {
             GetToastContentWithHeaderAndBody(
                 `Starting workload ${workload.name}`,
                 [
-                    <Text key={`toast-content-start-workload-${workload.id}`} component={TextVariants.small}>
+                    <Content key={`toast-content-start-workload-${workload.id}`} component={ContentVariants.small}>
                         <b>Workload ID: </b>
                         {workload.id}
-                    </Text>,
+                    </Content>,
                 ],
                 'info',
                 () => toast.dismiss(t.id),
@@ -663,12 +663,12 @@ function WorkloadProvider({ children }: { children: React.ReactNode }) {
                     `Failed to Retrieve Latest Copy of Workload ${currentLocalWorkload.id} from Server`,
                     <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsXs' }}>
                         <FlexItem>
-                            <Text>
+                            <Content component="p">
                                 <b>Error</b>: {errorMessageFromSending}
-                            </Text>
+                            </Content>
                         </FlexItem>
                         <FlexItem>
-                            <Text>Local copy of workload {currentLocalWorkload.id} will be exported instead.</Text>
+                            <Content component="p">Local copy of workload {currentLocalWorkload.id} will be exported instead.</Content>
                         </FlexItem>
                     </Flex>,
                     'danger',

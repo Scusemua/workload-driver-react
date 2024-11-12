@@ -1,4 +1,12 @@
-import { Button, Modal, ModalVariant, Text, TextContent, TextVariants } from '@patternfly/react-core';
+import {
+	Button,
+	Content,
+	ContentVariants
+} from '@patternfly/react-core';
+import {
+	Modal,
+	ModalVariant
+} from '@patternfly/react-core/deprecated';
 import React from 'react';
 
 export interface InformationModalProps {
@@ -25,12 +33,12 @@ export const InformationModal: React.FunctionComponent<InformationModalProps> = 
                 </Button>,
             ]}
         >
-            <TextContent>
-                <Text component={TextVariants.p}>
+            <Content>
+                <Content component={ContentVariants.p}>
                     <b>{props.message1 || ''}</b>
-                </Text>
-                <Text component={TextVariants.p}>{props.message2 || ''}</Text>
-            </TextContent>
+                </Content>
+                <Content component={ContentVariants.p}>{props.message2 || ''}</Content>
+            </Content>
         </Modal>
     );
 };
