@@ -5,7 +5,7 @@ import ExclamationCircleIcon from '@patternfly/react-icons/dist/esm/icons/exclam
 import { css } from '@patternfly/react-styles';
 import { AuthorizationContext } from '@Providers/AuthProvider';
 import logo_greyscale from '@src/app/bgimages/icon_greyscale.svg';
-import logo from '@src/app/bgimages/WorkloadDriver-Logo.svg';
+import logo from "@src/app/bgimages/WorkloadDriver-Logo.svg";
 import { JoinPaths } from '@src/Utils/path_utils';
 import React from 'react';
 import { useLocation, useNavigate } from 'react-router-dom';

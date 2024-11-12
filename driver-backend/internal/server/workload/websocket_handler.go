@@ -465,7 +465,7 @@ func (h *WebsocketHandler) handleStopWorkloads(msgId string, message []byte, ws 
 // Handle a request to pause (i.e., temporarily suspend/halt the execution of) an actively-running workload.
 //
 // This is presently not supported/implemented.
-func (h *WebsocketHandler) handlePauseWorkload(_ string, message []byte, _ domain.ConcurrentWebSocket) ([]byte, error) {
+func (h *WebsocketHandler) handlePauseWorkload(msgId string, message []byte, _ domain.ConcurrentWebSocket) ([]byte, error) {
 	req, err := domain.UnmarshalRequestPayload[*domain.PauseUnpauseWorkloadRequest](message)
 	if err != nil {
 		h.logger.Error("Failed to unmarshal PauseUnpauseWorkloadRequest.", zap.Error(err))
@@ -476,7 +476,18 @@ func (h *WebsocketHandler) handlePauseWorkload(_ string, message []byte, _ domai
 		panic(fmt.Sprintf("Unexpected operation field in PauseUnpauseWorkloadRequest: \"%s\"", req.Operation))
 	}
 
-	panic("Not implemented yet.")
+	h.logger.Debug("Pausing workload.", zap.String("workload_id", req.WorkloadId))
+	pausedWorkload, err := h.workloadManager.PauseWorkload(req.WorkloadId)
+	if err != nil {
+		h.logger.Error("Failed to pause workload.", zap.String("workload_id", req.WorkloadId), zap.Error(err))
+		return nil, err
+	}
+
+	// TODO: Consider broadcasting the response?
+	pausedWorkload.UpdateTimeElapsed()
+	responseBuilder := newResponseBuilder(msgId, OpStopWorkload)
+	response := responseBuilder.WithModifiedWorkload(pausedWorkload).BuildResponse()
+	return response.Encode()
 }
 
 // Handle a request to unpause (i.e., resume the execution of) a active workload that has previously been paused.
@@ -493,7 +504,18 @@ func (h *WebsocketHandler) handleUnpauseWorkload(msgId string, message []byte, w
 		panic(fmt.Sprintf("Unexpected operation field in PauseUnpauseWorkloadRequest: \"%s\"", req.Operation))
 	}
 
-	panic("Not implemented yet.")
+	h.logger.Debug("Unpausing workload.", zap.String("workload_id", req.WorkloadId))
+	unpausedWorkload, err := h.workloadManager.UnpauseWorkload(req.WorkloadId)
+	if err != nil {
+		h.logger.Error("Failed to unpause workload.", zap.String("workload_id", req.WorkloadId), zap.Error(err))
+		return nil, err
+	}
+
+	// TODO: Consider broadcasting the response?
+	unpausedWorkload.UpdateTimeElapsed()
+	responseBuilder := newResponseBuilder(msgId, OpStopWorkload)
+	response := responseBuilder.WithModifiedWorkload(unpausedWorkload).BuildResponse()
+	return response.Encode()
 }
 
 // Handle a request to register a new workload.

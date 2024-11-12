@@ -75,7 +75,7 @@ module.exports = (development_environment) => {
                     },
                 },
                 {
-                    test: /\.(jpg|jpeg|png|gif)$/i,
+                    test: /\.(jpg|jpeg|png|gif|webp)$/i,
                     include: [
                         path.resolve(__dirname, 'src'),
                         path.resolve(__dirname, 'node_modules/patternfly'),

@@ -233,6 +233,43 @@ func (m *BasicWorkloadManager) StopWorkload(workloadId string) (domain.Workload,
 	return workloadDriver.GetWorkload(), nil
 }
 
+// PauseWorkload attempts to pause the specified workload.
+//
+// Whatever tick is currently being processed will process to its end. Then, the next tick will not be
+// processed until the workload is unpaused.
+func (m *BasicWorkloadManager) PauseWorkload(workloadId string) (domain.Workload, error) {
+	workloadDriver := m.GetWorkloadDriver(workloadId)
+	if workloadDriver == nil {
+		m.logger.Error("Could not find workload driver with specified workload ID.", zap.String("workload_id", workloadId))
+		return nil, fmt.Errorf("%w: \"%s\"", domain.ErrWorkloadNotFound, workloadId)
+	}
+
+	// Pause the workload.
+	err := workloadDriver.PauseWorkload()
+	if err != nil {
+		return nil, err
+	}
+
+	return workloadDriver.GetWorkload(), nil
+}
+
+// UnpauseWorkload attempts to pause the specified workload.
+func (m *BasicWorkloadManager) UnpauseWorkload(workloadId string) (domain.Workload, error) {
+	workloadDriver := m.GetWorkloadDriver(workloadId)
+	if workloadDriver == nil {
+		m.logger.Error("Could not find workload driver with specified workload ID.", zap.String("workload_id", workloadId))
+		return nil, fmt.Errorf("%w: \"%s\"", domain.ErrWorkloadNotFound, workloadId)
+	}
+
+	// Unpause the workload.
+	err := workloadDriver.UnpauseWorkload()
+	if err != nil {
+		return nil, err
+	}
+
+	return workloadDriver.GetWorkload(), nil
+}
+
 // RegisterWorkload registers a new workload.
 func (m *BasicWorkloadManager) RegisterWorkload(request *domain.WorkloadRegistrationRequest,
 	ws domain.ConcurrentWebSocket, criticalErrorHandler domain.WorkloadErrorHandler,

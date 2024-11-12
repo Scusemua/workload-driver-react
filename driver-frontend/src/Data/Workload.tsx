@@ -56,6 +56,8 @@ interface Workload {
     sessions: Session[];
     simulation_clock_time: string;
     current_tick: number;
+    tick_durations_milliseconds: number[];
+    sum_tick_durations_millis: number;
 }
 
 /**

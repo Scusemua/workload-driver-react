@@ -40,17 +40,10 @@ interface IWorkloadInspectionViewProps {
     showTickDurationChart: boolean;
 }
 
-interface TickDuration {
-    tickNumber: number;
-    durationMilliseconds: number;
-}
-
 export const WorkloadInspectionView: React.FunctionComponent<IWorkloadInspectionViewProps> = (
     props: IWorkloadInspectionViewProps,
 ) => {
     const [currentTick, setCurrentTick] = React.useState<number>(0);
-    const tickStartTime = React.useRef<Map<string, number>>(new Map<string, number>());
-    const tickDurations = React.useRef<Map<string, TickDuration[]>>(new Map<string, TickDuration[]>());
     const { darkMode } = React.useContext(DarkModeContext);
 
     // Map from workload ID to the largest tick for which we've shown a toast notification
@@ -96,24 +89,6 @@ export const WorkloadInspectionView: React.FunctionComponent<IWorkloadInspection
     //       which is wrong.
     React.useEffect(() => {
         if (props.workload && props.workload?.current_tick > currentTick) {
-            const tickStart: number | undefined = tickStartTime.current.get(props.workload.id);
-
-            if (tickStart) {
-                const tickDuration: number = performance.now() - tickStart;
-
-                // If we get something very small, then it's a bug. So, only keep values larger than 250ms.
-                if (tickDuration > 250) {
-                    const durations: TickDuration[] | undefined = tickDurations.current.get(props.workload.id) || [];
-                    durations.push({
-                        tickNumber: props.workload.current_tick,
-                        durationMilliseconds: tickDuration,
-                    });
-                    tickDurations.current.set(props.workload.id, durations);
-                }
-            }
-
-            tickStartTime.current.set(props.workload.id, performance.now());
-
             setCurrentTick(props.workload.current_tick);
 
             if (shouldShowTickNotification(props.workload.id, props.workload.current_tick)) {
@@ -127,7 +102,7 @@ export const WorkloadInspectionView: React.FunctionComponent<IWorkloadInspection
                                 toast.dismiss(t.id);
                             },
                         ),
-                    { icon: '⏱️', style: { maxWidth: 700 } },
+                    { icon: '⏱️', style: { maxWidth: 700 }, duration: 5000 },
                 );
 
                 showedTickNotifications.current.set(props.workload.id, props.workload.current_tick);
@@ -144,37 +119,23 @@ export const WorkloadInspectionView: React.FunctionComponent<IWorkloadInspection
     };
 
     const getLastTickDuration = () => {
-        if (!tickDurations || !tickDurations.current || !tickDurations.current.has(props.workload.id)) {
+        if (props.workload.tick_durations_milliseconds.length === 0) {
             return 'N/A';
         }
 
-        const durations: TickDuration[] | undefined = tickDurations.current.get(props.workload.id);
-
-        if (!durations || durations.length === 0) {
-            return 'N/A';
-        }
-
-        console.log(`durations for workload ${props.workload.id}: ${durations}`);
-
-        return RoundToThreeDecimalPlaces(durations[durations.length - 1].durationMilliseconds);
+        return RoundToThreeDecimalPlaces(
+            props.workload.tick_durations_milliseconds[props.workload.tick_durations_milliseconds.length - 1],
+        );
     };
 
     const getAverageTickDuration = () => {
-        if (!tickDurations || !tickDurations.current || !tickDurations.current.has(props.workload.id)) {
+        if (props.workload.tick_durations_milliseconds.length === 0) {
             return 'N/A';
         }
 
-        const durations: TickDuration[] | undefined = tickDurations.current.get(props.workload.id);
-
-        if (!durations || durations.length === 0) {
-            return 'N/A';
-        }
-
-        let sum: number = 0.0;
-        durations.forEach((tickDuration: TickDuration) => {
-            sum = sum + tickDuration.durationMilliseconds;
-        });
-        return RoundToThreeDecimalPlaces(sum / durations.length);
+        return RoundToThreeDecimalPlaces(
+            props.workload.sum_tick_durations_millis / props.workload.tick_durations_milliseconds.length,
+        );
     };
 
     return (
@@ -293,26 +254,19 @@ export const WorkloadInspectionView: React.FunctionComponent<IWorkloadInspection
                         width={900}
                         theme={getTickDurationChartTheme()}
                     >
-                        <ChartAxis name={'Tick'} label={'Tick'} showGrid/>
+                        <ChartAxis name={'Tick'} label={'Tick'} showGrid />
                         <ChartAxis dependentAxis showGrid />
                         <ChartGroup>
                             <ChartLine
-                                data={tickDurations.current
-                                    .get(props.workload.id)
-                                    ?.map((tickDuration: TickDuration) => {
+                                data={props.workload.tick_durations_milliseconds?.map(
+                                    (tickDurationMs: number, index: number) => {
                                         return {
                                             name: 'Tick Duration',
-                                            x: tickDuration.tickNumber,
-                                            y: tickDuration.durationMilliseconds,
+                                            x: index,
+                                            y: RoundToThreeDecimalPlaces(tickDurationMs),
                                         };
-                                    })}
-                                // data={[
-                                //     { name: 'Tick Duration', x: 0, y: 6500 },
-                                //     { name: 'Tick Duration', x: 1, y: 6450 },
-                                //     { name: 'Tick Duration', x: 2, y: 6623 },
-                                //     { name: 'Tick Duration', x: 3, y: 6717 },
-                                //     { name: 'Tick Duration', x: 4, y: 6220 },
-                                // ]}
+                                    },
+                                )}
                             />
                         </ChartGroup>
                     </Chart>

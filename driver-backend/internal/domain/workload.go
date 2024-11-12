@@ -72,7 +72,7 @@ type NamedEvent interface {
 // Workload encapsulates a workload submitted by a user to be orchestrated and executed by the backend server.
 //
 // Most methods of the Workload interface are intended to be thread-safe, even if they aren't explicitly
-// indicated as such in the method's documenation.
+// indicated as such in the method's documentation.
 type Workload interface {
 	// IsTerminated Returns true if the workload stopped because it was explicitly terminated early/premature.
 	IsTerminated() bool
@@ -188,7 +188,7 @@ type Workload interface {
 	// GetSimulationClockTimeStr Returns the simulation clock time.
 	GetSimulationClockTimeStr() string
 	// TickCompleted is Called by the driver after each tick.
-	// Updates the time elapsed, current tick, and simulation clock time.
+	// Updates the time elapsed, current tick, and the simulation clock time.
 	TickCompleted(int64, time.Time)
 	// RegisterOnNonCriticalErrorHandler registers a non-critical error handler for the target workload.
 	//
@@ -200,6 +200,16 @@ type Workload interface {
 	// If there is already a critical handler error registered for the target workload, then the existing
 	// critical error handler is overwritten.
 	RegisterOnCriticalErrorHandler(handler WorkloadErrorHandler)
+	// GetTickDurationsMillis returns a slice containing the clock time that elapsed for each tick
+	// of the workload in order, in milliseconds.
+	GetTickDurationsMillis() []int64
+	// AddFullTickDuration is called to record how long a tick lasted, including the "artificial" sleep that is performed
+	// by the WorkloadDriver in order to fully simulate ticks that otherwise have no work/events to be processed.
+	AddFullTickDuration(timeElapsed time.Duration)
+	// SetPaused will change the value of the workloadImpl's Paused flag.
+	// This flag is purely cosmetic; it doesn't do anything. It's just used to reflect
+	// the status of the workload as far as the workload driver is concerned.
+	SetPaused(paused bool)
 }
 
 // GetWorkloadStateAsString will panic if an invalid workload state is specified.
@@ -400,6 +410,12 @@ type workloadImpl struct {
 	TimescaleAdjustmentFactor float64           `json:"timescale_adjustment_factor"`
 	SimulationClockTimeStr    string            `json:"simulation_clock_time"`
 	WorkloadType              WorkloadType      `json:"workload_type"`
+	TickDurationsMillis       []int64           `json:"tick_durations_milliseconds"`
+	Paused                    bool              `json:"paused"`
+
+	// SumTickDurationsMillis is the sum of all tick durations in milliseconds, to make it easier
+	// to compute the average tick duration.
+	SumTickDurationsMillis int64 `json:"sum_tick_durations_millis"`
 
 	// This is basically the child struct.
 	// So, if this is a preset workload, then this is the WorkloadFromPreset struct.
@@ -445,6 +461,9 @@ func NewWorkload(id string, workloadName string, seed int64, debugLoggingEnabled
 		trainingStartedTimes:      hashmap.New(32),
 		CurrentTick:               0,
 		Sessions:                  make([]WorkloadSession, 0), // For template workloads, this will be overwritten.
+		SumTickDurationsMillis:    0,
+		TickDurationsMillis:       make([]int64, 0),
+		Paused:                    false,
 	}
 
 	zapConfig := zap.NewDevelopmentEncoderConfig()
@@ -477,6 +496,22 @@ func (w *workloadImpl) RegisterOnNonCriticalErrorHandler(handler WorkloadErrorHa
 	w.onNonCriticalError = handler
 }
 
+// GetTickDurationsMillis returns a slice containing the clock time that elapsed for each tick
+// of the workload in order, in milliseconds.
+func (w *workloadImpl) GetTickDurationsMillis() []int64 {
+	return w.TickDurationsMillis
+}
+
+// SetPaused will change the value of the workloadImpl's Paused flag.
+// This flag is purely cosmetic; it doesn't do anything. It's just used to reflect
+// the status of the workload as far as the workload driver is concerned.
+func (w *workloadImpl) SetPaused(paused bool) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	w.Paused = paused
+}
+
 // TickCompleted is called by the driver after each tick.
 // Updates the time elapsed, current tick, and simulation clock time.
 func (w *workloadImpl) TickCompleted(tick int64, simClock time.Time) {
@@ -486,6 +521,14 @@ func (w *workloadImpl) TickCompleted(tick int64, simClock time.Time) {
 	w.mu.Unlock()
 
 	w.UpdateTimeElapsed()
+}
+
+// AddFullTickDuration is called to record how long a tick lasted, including the "artificial" sleep that is performed
+// by the WorkloadDriver in order to fully simulate ticks that otherwise have no work/events to be processed.
+func (w *workloadImpl) AddFullTickDuration(timeElapsed time.Duration) {
+	timeElapsedMs := timeElapsed.Milliseconds()
+	w.TickDurationsMillis = append(w.TickDurationsMillis, timeElapsedMs)
+	w.SumTickDurationsMillis += timeElapsedMs
 }
 
 // GetCurrentTick returns the current tick.
