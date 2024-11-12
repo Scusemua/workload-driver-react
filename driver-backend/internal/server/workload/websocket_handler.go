@@ -173,9 +173,6 @@ func (h *WebsocketHandler) dispatchRequest(message []byte, ws domain.ConcurrentW
 		return "", "", nil, err
 	}
 
-	formatted, _ := json.MarshalIndent(request, "", "  ")
-	h.sugaredLogger.Debugf("Received workload-related WebSocket message: %v", string(formatted))
-
 	var (
 		opVal    interface{}
 		msgIdVal interface{}
