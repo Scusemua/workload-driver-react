@@ -1,4 +1,5 @@
 import { RoundToThreeDecimalPlaces } from '@Components/Modals';
+import WorkloadTickDurationChart from '@Components/Workloads/WorkloadTickDurationChart';
 import {
     Chart,
     ChartAxis,
@@ -44,7 +45,6 @@ export const WorkloadInspectionView: React.FunctionComponent<IWorkloadInspection
     props: IWorkloadInspectionViewProps,
 ) => {
     const [currentTick, setCurrentTick] = React.useState<number>(0);
-    const { darkMode } = React.useContext(DarkModeContext);
 
     // Map from workload ID to the largest tick for which we've shown a toast notification
     // about the workload being incremented to that tick.
@@ -58,30 +58,6 @@ export const WorkloadInspectionView: React.FunctionComponent<IWorkloadInspection
         const lastTickNotification: number = showedTickNotifications.current.get(workloadId) || -1;
 
         return tick > lastTickNotification;
-    };
-
-    const getTickDurationChartTheme = () => {
-        if (darkMode) {
-            const theme: ChartThemeDefinitionInterface = getCustomTheme(ChartThemeColor.default, {
-                axis: {
-                    style: {
-                        tickLabels: {
-                            fill: 'white',
-                        },
-                        axisLabel: {
-                            fill: 'white',
-                        },
-                        ticks: {
-                            fill: 'white',
-                        },
-                    },
-                },
-            });
-
-            return theme;
-        } else {
-            return undefined;
-        }
     };
 
     // TODO: This will miscount the first tick as being smaller, basically whenever we first open the workload
@@ -231,45 +207,7 @@ export const WorkloadInspectionView: React.FunctionComponent<IWorkloadInspection
                     </DescriptionList>
                 </FlexItem>
                 <FlexItem hidden={!props.showTickDurationChart}>
-                    <Chart
-                        ariaDesc={'Line chart of tick durations'}
-                        ariaTitle={'Line chart of tick durations'}
-                        containerComponent={
-                            <ChartVoronoiContainer
-                                labels={({ datum }) => `${datum.name}: ${datum.y}`}
-                                constrainToVisibleArea
-                            />
-                        }
-                        legendOrientation="vertical"
-                        legendPosition="right"
-                        height={300}
-                        name="tickDurations"
-                        title={'Tick Durations (Milliseconds)'}
-                        padding={{
-                            bottom: 100,
-                            left: 100,
-                            right: 25, // Adjusted to accommodate legend
-                            top: 75,
-                        }}
-                        width={900}
-                        theme={getTickDurationChartTheme()}
-                    >
-                        <ChartAxis name={'Tick'} label={'Tick'} showGrid />
-                        <ChartAxis dependentAxis showGrid />
-                        <ChartGroup>
-                            <ChartLine
-                                data={props.workload.tick_durations_milliseconds?.map(
-                                    (tickDurationMs: number, index: number) => {
-                                        return {
-                                            name: 'Tick Duration',
-                                            x: index,
-                                            y: RoundToThreeDecimalPlaces(tickDurationMs),
-                                        };
-                                    },
-                                )}
-                            />
-                        </ChartGroup>
-                    </Chart>
+                    <WorkloadTickDurationChart workload={props.workload}/>
                 </FlexItem>
             </Flex>
             <FlexItem>
