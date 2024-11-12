@@ -1,10 +1,10 @@
 import {
-    ErrorResponse,
-    PatchedWorkload,
-    Workload,
-    WORKLOAD_STATE_RUNNING,
-    WorkloadPreset,
-    WorkloadResponse,
+  ErrorResponse, IsPaused, IsPausing,
+  PatchedWorkload,
+  Workload,
+  WORKLOAD_STATE_RUNNING,
+  WorkloadPreset,
+  WorkloadResponse
 } from '@Data/Workload';
 import { Flex, FlexItem, Text, TextVariants } from '@patternfly/react-core';
 import { AuthorizationContext } from '@Providers/AuthProvider';
@@ -679,7 +679,7 @@ function WorkloadProvider({ children }: { children: React.ReactNode }) {
         );
 
         let operation: string;
-        if (workload.paused) {
+        if (IsPaused(workload) || IsPausing(workload)) {
             console.log("Resuming workload '%s' (ID=%s)", workload.name, workload.id);
             operation = 'unpause_workload';
         } else {

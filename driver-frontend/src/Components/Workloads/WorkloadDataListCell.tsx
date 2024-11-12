@@ -3,7 +3,17 @@ import { PauseIcon, PlayIcon, SearchIcon, StopIcon } from '@patternfly/react-ico
 import { CsvFileIcon, TemplateIcon, XmlFileIcon } from '@src/Assets/Icons';
 import WorkloadDescriptiveIcons from '@src/Components/Workloads/WorkloadDescriptiveIcons';
 import { WorkloadRuntimeMetrics } from '@src/Components/Workloads/WorkloadRuntimeMetrics';
-import { WORKLOAD_STATE_READY, WORKLOAD_STATE_RUNNING, Workload } from '@src/Data';
+import {
+  IsActivelyRunning,
+  IsInProgress,
+  IsPaused,
+  IsPausing,
+  Workload,
+  WORKLOAD_STATE_PAUSED,
+  WORKLOAD_STATE_PAUSING,
+  WORKLOAD_STATE_READY,
+  WORKLOAD_STATE_RUNNING
+} from '@src/Data';
 import { WorkloadContext } from '@src/Providers';
 import React from 'react';
 
@@ -15,11 +25,7 @@ interface IWorkloadDataListCellProps {
 export const WorkloadDataListCell: React.FunctionComponent<IWorkloadDataListCellProps> = (
     props: IWorkloadDataListCellProps,
 ) => {
-    const {
-      pauseWorkload,
-      startWorkload,
-      stopWorkload,
-    } = React.useContext(WorkloadContext);
+    const { pauseWorkload, startWorkload, stopWorkload } = React.useContext(WorkloadContext);
 
     return (
         <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
@@ -99,25 +105,37 @@ export const WorkloadDataListCell: React.FunctionComponent<IWorkloadDataListCell
                                 <FlexItem>
                                     <Tooltip content={'Pause the props.workload.'}>
                                         <Button
-                                            isDisabled={props.workload.workload_state != WORKLOAD_STATE_RUNNING}
+                                            isDisabled={
+                                                !IsInProgress(props.workload) &&
+                                                !IsPausing(props.workload) &&
+                                                !IsPaused(props.workload)
+                                            }
                                             id={`pause-props.workload-${props.workload.id}-button`}
                                             variant="link"
-                                            isDanger={!props.workload.paused}
-                                            icon={props.workload.paused ? <PlayIcon /> : <PauseIcon />}
+                                            isDanger={IsActivelyRunning(props.workload)}
+                                            icon={
+                                                IsPaused(props.workload) || IsPausing(props.workload) ? (
+                                                    <PlayIcon />
+                                                ) : (
+                                                    <PauseIcon />
+                                                )
+                                            }
                                             onClick={(event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
-                                                pauseWorkload(props.workload);
-
                                                 event.stopPropagation();
+                                                pauseWorkload(props.workload);
                                             }}
                                         >
-                                            {props.workload.paused ? 'Resume' : 'Pause'}
+                                            {IsPaused(props.workload) ||
+                                            IsPausing(props.workload)
+                                                ? 'Resume'
+                                                : 'Pause'}
                                         </Button>
                                     </Tooltip>
                                 </FlexItem>
                                 <FlexItem>
                                     <Tooltip content={'Stop the props.workload.'}>
                                         <Button
-                                            isDisabled={props.workload.workload_state != WORKLOAD_STATE_RUNNING}
+                                            isDisabled={!IsInProgress(props.workload)}
                                             id={`stop-props.workload-${props.workload.id}-button`}
                                             variant="link"
                                             isDanger

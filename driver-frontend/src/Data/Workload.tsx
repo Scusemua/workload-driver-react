@@ -1,10 +1,10 @@
-const WORKLOAD_STATE_READY: string = 'WorkloadReady'; // Workload is registered and ready to be started.
-const WORKLOAD_STATE_RUNNING: string = 'WorkloadRunning'; // Workload is actively running/in-progress.
-const WORKLOAD_STATE_PAUSING: string = 'WorkloadPausing'; // Workload is finishing processing the current tick and then will pause.
-const WORKLOAD_STATE_PAUSED: string = 'WorkloadUnpaused'; // Workload is paused.
-const WORKLOAD_STATE_FINISHED: string = 'WorkloadFinished'; // Workload stopped naturally/successfully after processing all events.
-const WORKLOAD_STATE_ERRED: string = 'WorkloadErred'; // Workload stopped due to an error.
-const WORKLOAD_STATE_TERMINATED: string = 'WorkloadTerminated'; // Workload stopped because it was explicitly terminated early/premature.
+const WorkloadStateReady: string = 'WorkloadReady'; // Workload is registered and ready to be started.
+const WorkloadStateRunning: string = 'WorkloadRunning'; // Workload is actively running/in-progress.
+const WorkloadStatePausing: string = 'WorkloadPausing'; // Workload is finishing processing the current tick and then will pause.
+const WorkloadStatePaused: string = 'WorkloadPaused'; // Workload is paused.
+const WorkloadStateFinished: string = 'WorkloadFinished'; // Workload stopped naturally/successfully after processing all events.
+const WorkloadStateErred: string = 'WorkloadErred'; // Workload stopped due to an error.
+const WorkloadStateTerminated: string = 'WorkloadTerminated'; // Workload stopped because it was explicitly terminated early/premature.
 
 interface WorkloadPreset {
     name: string; // Human-readable name for this particular workload preset.
@@ -27,9 +27,9 @@ interface WorkloadPreset {
 // Return true if the workload is in the 'finished', 'erred', or 'terminated' states.
 function IsWorkloadFinished(workload: Workload) {
     return (
-        workload.workload_state == WORKLOAD_STATE_FINISHED ||
-        workload.workload_state == WORKLOAD_STATE_ERRED ||
-        workload.workload_state == WORKLOAD_STATE_TERMINATED
+        workload.workload_state == WorkloadStateFinished ||
+        workload.workload_state == WorkloadStateErred ||
+        workload.workload_state == WorkloadStateTerminated
     );
 }
 
@@ -60,6 +60,22 @@ interface Workload {
     current_tick: number;
     tick_durations_milliseconds: number[];
     sum_tick_durations_millis: number;
+}
+
+export function IsPaused(workload: Workload) {
+  return workload.workload_state == WorkloadStatePaused
+}
+
+export function IsPausing(workload: Workload) {
+  return workload.workload_state == WorkloadStatePausing
+}
+
+export function IsActivelyRunning(workload: Workload) {
+  return workload.workload_state == WorkloadStateRunning
+}
+
+export function IsInProgress(workload: Workload) {
+  return IsPaused(workload) || IsPausing(workload) || IsActivelyRunning(workload);
 }
 
 /**
@@ -169,31 +185,31 @@ function GetWorkloadStatusTooltip(workload: Workload | null) {
     }
 
     switch (workload.workload_state) {
-        case WORKLOAD_STATE_READY:
+        case WorkloadStateReady:
             return 'The workload has been registered and is ready to begin.';
-        case WORKLOAD_STATE_RUNNING:
+        case WorkloadStateRunning:
             return 'The workload is actively-running.';
-        case WORKLOAD_STATE_FINISHED:
+        case WorkloadStateFinished:
             return 'The workload has completed successfully.';
-        case WORKLOAD_STATE_ERRED:
+        case WorkloadStateErred:
             return 'The workload has been aborted due to a critical error: ' + workload.error_message;
-        case WORKLOAD_STATE_TERMINATED:
+        case WorkloadStateTerminated:
             return 'The workload has been explicitly/manually terminated.';
     }
 
     console.error(
-        `Workload ${workload.name} (ID=${workload.id}) is in an unsupported/unknown state: ${workload.workload_state}`,
+        `Workload ${workload.name} (ID=${workload.id}) is in an unsupported/unknown state: "${workload.workload_state}"`,
     );
-    return 'The workload is currently in an unknown/unsupported state.';
+    return `The workload is currently in an unknown/unsupported state: "${workload.workload_state}"`;
 }
 
-export { WORKLOAD_STATE_READY as WORKLOAD_STATE_READY };
-export { WORKLOAD_STATE_RUNNING as WORKLOAD_STATE_RUNNING };
-export { WORKLOAD_STATE_PAUSING as WORKLOAD_STATE_PAUSING };
-export { WORKLOAD_STATE_PAUSED as WORKLOAD_STATE_PAUSED };
-export { WORKLOAD_STATE_FINISHED as WORKLOAD_STATE_FINISHED };
-export { WORKLOAD_STATE_ERRED as WORKLOAD_STATE_ERRED };
-export { WORKLOAD_STATE_TERMINATED as WORKLOAD_STATE_TERMINATED };
+export { WorkloadStateReady as WORKLOAD_STATE_READY };
+export { WorkloadStateRunning as WORKLOAD_STATE_RUNNING };
+export { WorkloadStatePausing as WORKLOAD_STATE_PAUSING };
+export { WorkloadStatePaused as WORKLOAD_STATE_PAUSED };
+export { WorkloadStateFinished as WORKLOAD_STATE_FINISHED };
+export { WorkloadStateErred as WORKLOAD_STATE_ERRED };
+export { WorkloadStateTerminated as WORKLOAD_STATE_TERMINATED };
 
 export { IsWorkloadFinished as IsWorkloadFinished };
 
