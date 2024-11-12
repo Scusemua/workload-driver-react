@@ -1,26 +1,8 @@
 import { WorkloadInspectionView } from '@Components/Workloads/WorkloadInspectionView';
-import { Button, Label, Modal, ModalVariant, Title, TitleSizes } from '@patternfly/react-core';
-import {
-    CheckCircleIcon,
-    CloseIcon,
-    ExclamationTriangleIcon,
-    ExportIcon,
-    HourglassStartIcon,
-    PlayIcon,
-    SpinnerIcon,
-    StopIcon,
-    TimesCircleIcon,
-} from '@patternfly/react-icons';
-import text from '@patternfly/react-styles/css/utilities/Text/text';
+import { Button, Modal, ModalVariant, Title, TitleSizes } from '@patternfly/react-core';
+import { CloseIcon, ExportIcon, PlayIcon, StopIcon } from '@patternfly/react-icons';
 import { AuthorizationContext } from '@Providers/AuthProvider';
-import {
-    WORKLOAD_STATE_ERRED,
-    WORKLOAD_STATE_FINISHED,
-    WORKLOAD_STATE_READY,
-    WORKLOAD_STATE_RUNNING,
-    WORKLOAD_STATE_TERMINATED,
-    Workload,
-} from '@src/Data/Workload';
+import { GetWorkloadStatusLabel, IsInProgress, IsReadyAndWaiting, Workload } from '@src/Data/Workload';
 import { WorkloadContext } from '@src/Providers';
 import React from 'react';
 
@@ -43,42 +25,12 @@ export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalP
         }
     }, [props, authenticated]);
 
-    const workloadStatus = (
-        <React.Fragment>
-            {props.workload?.workload_state == WORKLOAD_STATE_READY && (
-                <Label icon={<HourglassStartIcon className={text.infoColor_100} />} color="blue">
-                    Ready
-                </Label>
-            )}
-            {props.workload?.workload_state == WORKLOAD_STATE_RUNNING && (
-                <Label icon={<SpinnerIcon className={'loading-icon-spin ' + text.successColor_100} />} color="green">
-                    Running
-                </Label>
-            )}
-            {props.workload?.workload_state == WORKLOAD_STATE_FINISHED && (
-                <Label icon={<CheckCircleIcon className={text.successColor_100} />} color="green">
-                    Complete
-                </Label>
-            )}
-            {props.workload?.workload_state == WORKLOAD_STATE_ERRED && (
-                <Label icon={<TimesCircleIcon className={text.dangerColor_100} />} color="red">
-                    Erred
-                </Label>
-            )}
-            {props.workload?.workload_state == WORKLOAD_STATE_TERMINATED && (
-                <Label icon={<ExclamationTriangleIcon className={text.warningColor_100} />} color="orange">
-                    Terminated
-                </Label>
-            )}
-        </React.Fragment>
-    );
-
     const header = (
         <React.Fragment>
             <Title headingLevel="h1" size={TitleSizes['2xl']}>
                 {`Workload ${props.workload?.name} `}
 
-                {workloadStatus}
+                {GetWorkloadStatusLabel(props.workload)}
             </Title>
         </React.Fragment>
     );
@@ -104,7 +56,7 @@ export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalP
                             startWorkload(props.workload);
                         }
                     }}
-                    isDisabled={props.workload?.workload_state != WORKLOAD_STATE_READY || !authenticated}
+                    isDisabled={!IsReadyAndWaiting(props.workload) || !authenticated}
                 >
                     Start Workload
                 </Button>,
@@ -118,7 +70,7 @@ export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalP
                             stopWorkload(props.workload);
                         }
                     }}
-                    isDisabled={props.workload?.workload_state != WORKLOAD_STATE_RUNNING || !authenticated}
+                    isDisabled={!IsInProgress(props.workload) || !authenticated}
                 >
                     Stop Workload
                 </Button>,

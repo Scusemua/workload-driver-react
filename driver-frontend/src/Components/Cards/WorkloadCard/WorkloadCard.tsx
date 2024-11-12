@@ -23,7 +23,7 @@ import { PlusIcon, StopCircleIcon } from '@patternfly/react-icons';
 
 import { WorkloadContext } from '@Providers/WorkloadProvider';
 
-import { WORKLOAD_STATE_RUNNING, Workload, WorkloadPreset } from '@src/Data/Workload';
+import { IsInProgress, Workload, WorkloadPreset } from '@src/Data/Workload';
 import { SessionTabsDataProvider } from '@src/Providers';
 import { JoinPaths } from '@src/Utils/path_utils';
 import React, { useEffect } from 'react';
@@ -47,13 +47,8 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
     const [inspectWorkloadModalOpen, setInspectWorkloadModalOpen] = React.useState(false);
     const [workloadBeingInspected, setWorkloadBeingInspected] = React.useState<Workload | null>(null);
 
-    const {
-        workloads,
-        workloadsMap,
-        registerWorkloadFromPreset,
-        registerWorkloadFromTemplate,
-        stopAllWorkloads,
-    } = React.useContext(WorkloadContext);
+    const { workloads, workloadsMap, registerWorkloadFromPreset, registerWorkloadFromTemplate, stopAllWorkloads } =
+        React.useContext(WorkloadContext);
 
     const navigate = useNavigate();
 
@@ -177,7 +172,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                             isDanger
                             isDisabled={
                                 Object.values(workloads).filter((workload: Workload) => {
-                                    return workload.workload_state == WORKLOAD_STATE_RUNNING;
+                                    return IsInProgress(workload);
                                 }).length == 0
                             }
                             onClick={onStopAllWorkloadsClicked} // () => setIsConfirmDeleteKernelsModalOpen(true)

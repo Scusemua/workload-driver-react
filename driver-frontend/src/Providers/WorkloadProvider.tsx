@@ -1,12 +1,12 @@
 import {
-    ErrorResponse,
-    IsPaused,
-    IsPausing,
-    PatchedWorkload,
-    Workload,
-    WORKLOAD_STATE_RUNNING,
-    WorkloadPreset,
-    WorkloadResponse,
+  ErrorResponse,
+  IsPaused,
+  IsPausing,
+  PatchedWorkload,
+  Workload,
+  WorkloadPreset,
+  WorkloadResponse,
+  WorkloadStateRunning
 } from '@Data/Workload';
 import { Flex, FlexItem, Text, TextVariants } from '@patternfly/react-core';
 import { AuthorizationContext } from '@Providers/AuthProvider';
@@ -450,7 +450,7 @@ function WorkloadProvider({ children }: { children: React.ReactNode }) {
 
         const activeWorkloadsIDs: string[] = [];
         workloads.forEach((workload: Workload) => {
-            if (workload.workload_state == WORKLOAD_STATE_RUNNING) {
+            if (workload.workload_state == WorkloadStateRunning) {
                 activeWorkloadsIDs.push(workload.id);
             }
         });

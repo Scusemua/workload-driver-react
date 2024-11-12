@@ -7,12 +7,8 @@ import {
   IsActivelyRunning,
   IsInProgress,
   IsPaused,
-  IsPausing,
+  IsPausing, IsReadyAndWaiting,
   Workload,
-  WORKLOAD_STATE_PAUSED,
-  WORKLOAD_STATE_PAUSING,
-  WORKLOAD_STATE_READY,
-  WORKLOAD_STATE_RUNNING
 } from '@src/Data';
 import { WorkloadContext } from '@src/Providers';
 import React from 'react';
@@ -89,7 +85,7 @@ export const WorkloadDataListCell: React.FunctionComponent<IWorkloadDataListCell
                                     <Tooltip content={'Start the props.workload'}>
                                         <Button
                                             id={`start-props.workload-${props.workload.id}-button`}
-                                            isDisabled={props.workload.workload_state != WORKLOAD_STATE_READY}
+                                            isDisabled={!IsReadyAndWaiting(props.workload)}
                                             variant="link"
                                             icon={<PlayIcon />}
                                             onClick={(event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {

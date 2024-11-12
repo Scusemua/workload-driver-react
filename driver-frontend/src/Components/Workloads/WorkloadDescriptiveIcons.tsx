@@ -1,31 +1,6 @@
-import { Flex, FlexItem, Label, Switch, Tooltip } from '@patternfly/react-core';
-import {
-  BlueprintIcon,
-  CheckCircleIcon,
-  ClockIcon,
-  CubeIcon,
-  DiceIcon,
-  ExclamationTriangleIcon,
-  HourglassStartIcon,
-  OutlinedCalendarAltIcon,
-  PausedIcon, PendingIcon,
-  QuestionIcon,
-  SpinnerIcon,
-  TimesCircleIcon
-} from '@patternfly/react-icons';
-import text from '@patternfly/react-styles/css/utilities/Text/text';
-import {
-    GetWorkloadStatusTooltip,
-    IsWorkloadFinished,
-    Workload,
-    WORKLOAD_STATE_ERRED,
-    WORKLOAD_STATE_FINISHED,
-    WORKLOAD_STATE_PAUSED,
-    WORKLOAD_STATE_PAUSING,
-    WORKLOAD_STATE_READY,
-    WORKLOAD_STATE_RUNNING,
-    WORKLOAD_STATE_TERMINATED,
-} from '@src/Data';
+import { Flex, FlexItem, Switch, Tooltip } from '@patternfly/react-core';
+import { BlueprintIcon, ClockIcon, CubeIcon, DiceIcon, OutlinedCalendarAltIcon } from '@patternfly/react-icons';
+import { GetWorkloadStatusLabel, GetWorkloadStatusTooltip, IsWorkloadFinished, Workload } from '@src/Data';
 import { WorkloadContext } from '@src/Providers';
 import React from 'react';
 
@@ -38,75 +13,11 @@ export const WorkloadDescriptiveIcons: React.FunctionComponent<IWorkloadDescript
 ) => {
     const { toggleDebugLogs } = React.useContext(WorkloadContext);
 
-    const getStatusLabel = () => {
-        if (props.workload.workload_state == WORKLOAD_STATE_READY) {
-            return (
-                <Label icon={<HourglassStartIcon className={text.infoColor_100} />} color="blue">
-                    Ready
-                </Label>
-            );
-        }
-
-        if (props.workload.workload_state == WORKLOAD_STATE_RUNNING) {
-            return (
-                <Label icon={<SpinnerIcon className={'loading-icon-spin ' + text.successColor_100} />} color="green">
-                    Running
-                </Label>
-            );
-        }
-
-        if (props.workload.workload_state == WORKLOAD_STATE_PAUSING) {
-            return (
-                <Label icon={<PendingIcon/>} color="cyan">
-                    Pausing
-                </Label>
-            );
-        }
-
-        if (props.workload.workload_state == WORKLOAD_STATE_PAUSED) {
-            return (
-                <Label icon={<PausedIcon />} color="cyan">
-                    Paused
-                </Label>
-            );
-        }
-
-        if (props.workload.workload_state == WORKLOAD_STATE_FINISHED) {
-            return (
-                <Label icon={<CheckCircleIcon className={text.successColor_100} />} color="green">
-                    Complete
-                </Label>
-            );
-        }
-
-        if (props.workload.workload_state == WORKLOAD_STATE_ERRED) {
-            return (
-                <Label icon={<TimesCircleIcon className={text.dangerColor_100} />} color="red">
-                    Erred
-                </Label>
-            );
-        }
-
-        if (props.workload.workload_state == WORKLOAD_STATE_TERMINATED) {
-            return (
-                <Label icon={<ExclamationTriangleIcon className={text.warningColor_100} />} color="orange">
-                    Terminated
-                </Label>
-            );
-        }
-
-        return (
-            <Label icon={<QuestionIcon className={text.warningColor_100} />} color="orange">
-                Unknown
-            </Label>
-        );
-    };
-
     return (
         <Flex className="props.workload-descriptive-icons" spaceItems={{ default: 'spaceItemsMd' }}>
             <FlexItem>
                 <Tooltip content={GetWorkloadStatusTooltip(props.workload)} position="bottom">
-                    <React.Fragment>{getStatusLabel()}</React.Fragment>
+                    <React.Fragment>{GetWorkloadStatusLabel(props.workload)}</React.Fragment>
                 </Tooltip>
             </FlexItem>
             {props.workload.workload_preset && (

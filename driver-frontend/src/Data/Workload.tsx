@@ -1,10 +1,24 @@
-const WorkloadStateReady: string = 'WorkloadReady'; // Workload is registered and ready to be started.
-const WorkloadStateRunning: string = 'WorkloadRunning'; // Workload is actively running/in-progress.
-const WorkloadStatePausing: string = 'WorkloadPausing'; // Workload is finishing processing the current tick and then will pause.
-const WorkloadStatePaused: string = 'WorkloadPaused'; // Workload is paused.
-const WorkloadStateFinished: string = 'WorkloadFinished'; // Workload stopped naturally/successfully after processing all events.
-const WorkloadStateErred: string = 'WorkloadErred'; // Workload stopped due to an error.
-const WorkloadStateTerminated: string = 'WorkloadTerminated'; // Workload stopped because it was explicitly terminated early/premature.
+import { Label } from '@patternfly/react-core';
+import {
+    CheckCircleIcon,
+    ExclamationTriangleIcon,
+    HourglassStartIcon,
+    PausedIcon,
+    PendingIcon,
+    QuestionIcon,
+    SpinnerIcon,
+    TimesCircleIcon,
+} from '@patternfly/react-icons';
+import text from '@patternfly/react-styles/css/utilities/Text/text';
+import React from 'react';
+
+export const WorkloadStateReady: string = 'WorkloadReady'; // Workload is registered and ready to be started.
+export const WorkloadStateRunning: string = 'WorkloadRunning'; // Workload is actively running/in-progress.
+export const WorkloadStatePausing: string = 'WorkloadPausing'; // Workload is finishing processing the current tick and then will pause.
+export const WorkloadStatePaused: string = 'WorkloadPaused'; // Workload is paused.
+export const WorkloadStateFinished: string = 'WorkloadFinished'; // Workload stopped naturally/successfully after processing all events.
+export const WorkloadStateErred: string = 'WorkloadErred'; // Workload stopped due to an error.
+export const WorkloadStateTerminated: string = 'WorkloadTerminated'; // Workload stopped because it was explicitly terminated early/premature.
 
 interface WorkloadPreset {
     name: string; // Human-readable name for this particular workload preset.
@@ -63,19 +77,49 @@ interface Workload {
 }
 
 export function IsPaused(workload: Workload) {
-  return workload.workload_state == WorkloadStatePaused
+    return workload.workload_state == WorkloadStatePaused;
 }
 
 export function IsPausing(workload: Workload) {
-  return workload.workload_state == WorkloadStatePausing
+    return workload.workload_state == WorkloadStatePausing;
 }
 
 export function IsActivelyRunning(workload: Workload) {
-  return workload.workload_state == WorkloadStateRunning
+    return workload.workload_state == WorkloadStateRunning;
+}
+
+export function IsTerminated(workload: Workload) {
+    return workload.workload_state == WorkloadStateFinished;
+}
+
+/**
+ * Alias for IsFinished.
+ *
+ * Returns true if the workload finished successfully.
+ */
+export function IsComplete(workload: Workload) {
+    return workload.workload_state == WorkloadStateFinished;
+}
+
+/**
+ * Alias for IsComplete.
+ *
+ * Returns true if the workload finished successfully.
+ */
+export function IsFinished(workload: Workload) {
+    return workload.workload_state == WorkloadStateFinished;
+}
+
+export function IsReadyAndWaiting(workload: Workload) {
+    return workload.workload_state == WorkloadStateReady;
+}
+
+export function IsErred(workload: Workload) {
+    return workload.workload_state == WorkloadStateErred;
 }
 
 export function IsInProgress(workload: Workload) {
-  return IsPaused(workload) || IsPausing(workload) || IsActivelyRunning(workload);
+    return IsPaused(workload) || IsPausing(workload) || IsActivelyRunning(workload);
 }
 
 /**
@@ -93,6 +137,70 @@ export function GetNumActiveSessionsInWorkload(workload: Workload): number {
 
     return num_active_sessions;
 }
+
+export const GetWorkloadStatusLabel = (workload: Workload) => {
+    if (IsReadyAndWaiting(workload)) {
+        return (
+            <Label icon={<HourglassStartIcon className={text.infoColor_100} />} color="blue">
+                Ready
+            </Label>
+        );
+    }
+
+    if (IsActivelyRunning(workload)) {
+        return (
+            <Label icon={<SpinnerIcon className={'loading-icon-spin ' + text.successColor_100} />} color="green">
+                Running
+            </Label>
+        );
+    }
+
+    if (IsPausing(workload)) {
+        return (
+            <Label icon={<PendingIcon />} color="cyan">
+                Pausing
+            </Label>
+        );
+    }
+
+    if (IsPaused(workload)) {
+        return (
+            <Label icon={<PausedIcon />} color="cyan">
+                Paused
+            </Label>
+        );
+    }
+
+    if (IsFinished(workload)) {
+        return (
+            <Label icon={<CheckCircleIcon className={text.successColor_100} />} color="green">
+                Complete
+            </Label>
+        );
+    }
+
+    if (IsErred(workload)) {
+        return (
+            <Label icon={<TimesCircleIcon className={text.dangerColor_100} />} color="red">
+                Erred
+            </Label>
+        );
+    }
+
+    if (IsTerminated(workload)) {
+        return (
+            <Label icon={<ExclamationTriangleIcon className={text.warningColor_100} />} color="orange">
+                Terminated
+            </Label>
+        );
+    }
+
+    return (
+        <Label icon={<QuestionIcon className={text.warningColor_100} />} color="orange">
+            Unknown
+        </Label>
+    );
+};
 
 interface WorkloadEvent {
     idx: number;
@@ -202,14 +310,6 @@ function GetWorkloadStatusTooltip(workload: Workload | null) {
     );
     return `The workload is currently in an unknown/unsupported state: "${workload.workload_state}"`;
 }
-
-export { WorkloadStateReady as WORKLOAD_STATE_READY };
-export { WorkloadStateRunning as WORKLOAD_STATE_RUNNING };
-export { WorkloadStatePausing as WORKLOAD_STATE_PAUSING };
-export { WorkloadStatePaused as WORKLOAD_STATE_PAUSED };
-export { WorkloadStateFinished as WORKLOAD_STATE_FINISHED };
-export { WorkloadStateErred as WORKLOAD_STATE_ERRED };
-export { WorkloadStateTerminated as WORKLOAD_STATE_TERMINATED };
 
 export { IsWorkloadFinished as IsWorkloadFinished };
 

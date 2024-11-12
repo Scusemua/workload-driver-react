@@ -3,6 +3,7 @@ import { Chart, ChartAxis, ChartGroup, ChartLine, ChartVoronoiContainer } from '
 import { Workload } from '@src/Data';
 import { DarkModeContext } from '@src/Providers';
 import React from 'react';
+import { VictoryZoomContainer } from 'victory-zoom-container';
 
 interface IWorkloadTickDurationChartProps {
     workload: Workload;
@@ -36,7 +37,7 @@ export const WorkloadTickDurationChart: React.FunctionComponent<IWorkloadTickDur
             ariaDesc={'Line chart of tick durations'}
             ariaTitle={'Line chart of tick durations'}
             containerComponent={
-                <ChartVoronoiContainer labels={({ datum }) => `${datum.name}: ${datum.y}`} constrainToVisibleArea />
+                <VictoryZoomContainer />
             }
             legendOrientation="vertical"
             legendPosition="right"
