@@ -2,6 +2,7 @@ import { RoundToThreeDecimalPlaces } from '@Components/Modals';
 import { Workload } from '@src/Data';
 import { DarkModeContext } from '@src/Providers';
 import React from 'react';
+import { VictoryLabel } from 'victory';
 import { VictoryAxis } from 'victory-axis';
 import { VictoryChart } from 'victory-chart';
 import { VictoryLine } from 'victory-line';
@@ -115,6 +116,16 @@ export const WorkloadTickDurationChart: React.FunctionComponent<IWorkloadTickDur
             height={300}
             width={950}
         >
+            <VictoryLabel
+                text="Tick Durations (milliseconds)"
+                x={475}
+                y={50}
+                textAnchor="middle"
+                style={{
+                    fill: darkMode ? "#ffffff" : "#383838",
+                    fontSize: 20,
+                }}
+            />
             <VictoryAxis style={getStyle()} />
             <VictoryAxis dependentAxis style={getStyle()} />
             <VictoryLine
