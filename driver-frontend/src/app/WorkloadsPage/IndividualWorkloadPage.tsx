@@ -21,7 +21,7 @@ export const IndividualWorkloadPage: React.FunctionComponent<IndividualWorkloadP
 ) => {
     const params = useParams();
 
-    const { workloadsMap } = useWorkloads();
+    const { workloadsMap, isError } = useWorkloads();
 
     const navigate = useNavigate();
 

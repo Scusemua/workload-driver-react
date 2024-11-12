@@ -16,13 +16,9 @@ import React from 'react';
 
 export interface IWorkloadsDataListProps {
     workloads: Workload[];
-    onPauseWorkloadClicked: (workload: Workload) => void;
-    toggleDebugLogs: (workloadId: string, enabled: boolean) => void;
     onSelectWorkload: (event: React.MouseEvent | React.KeyboardEvent, id: string) => void;
     onClickWorkload: (workload: Workload) => void;
     onVisualizeWorkloadClicked: (workload: Workload) => void;
-    onStartWorkloadClicked: (workload: Workload) => void;
-    onStopWorkloadClicked: (workload: Workload) => void;
     workloadsPerPage?: number;
     selectedWorkloadListId: string;
     perPageOption: PerPageOptions[];
@@ -78,11 +74,7 @@ let WorkloadsDataList: React.FunctionComponent<IWorkloadsDataListProps> = (props
                                     dataListCells={[
                                         <DataListCell key={'workload-primary-content-' + idx} isFilled={true} width={4}>
                                             <WorkloadDataListCell
-                                                onPauseWorkloadClicked={props.onPauseWorkloadClicked}
-                                                toggleDebugLogs={props.toggleDebugLogs}
                                                 onVisualizeWorkloadClicked={props.onVisualizeWorkloadClicked}
-                                                onStartWorkloadClicked={props.onStartWorkloadClicked}
-                                                onStopWorkloadClicked={props.onStopWorkloadClicked}
                                                 workload={workload}
                                             />
                                         </DataListCell>,

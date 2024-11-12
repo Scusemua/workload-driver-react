@@ -3,21 +3,25 @@ import { PauseIcon, PlayIcon, SearchIcon, StopIcon } from '@patternfly/react-ico
 import { CsvFileIcon, TemplateIcon, XmlFileIcon } from '@src/Assets/Icons';
 import WorkloadDescriptiveIcons from '@src/Components/Workloads/WorkloadDescriptiveIcons';
 import { WorkloadRuntimeMetrics } from '@src/Components/Workloads/WorkloadRuntimeMetrics';
-import { Workload, WORKLOAD_STATE_READY, WORKLOAD_STATE_RUNNING } from '@src/Data';
+import { WORKLOAD_STATE_READY, WORKLOAD_STATE_RUNNING, Workload } from '@src/Data';
+import { useWorkloads } from '@src/Providers';
 import React from 'react';
 
 interface IWorkloadDataListCellProps {
     workload: Workload;
-    onPauseWorkloadClicked: (workload: Workload) => void;
-    toggleDebugLogs: (workloadId: string, enabled: boolean) => void;
     onVisualizeWorkloadClicked: (workload: Workload) => void;
-    onStartWorkloadClicked: (workload: Workload) => void;
-    onStopWorkloadClicked: (workload: Workload) => void;
 }
 
 export const WorkloadDataListCell: React.FunctionComponent<IWorkloadDataListCellProps> = (
     props: IWorkloadDataListCellProps,
 ) => {
+    const {
+      pauseWorkload,
+      startWorkload,
+      stopWorkload,
+      isError,
+    } = useWorkloads();
+
     return (
         <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
             <Flex direction={{ default: 'row' }} spaceItems={{ default: 'spaceItemsNone' }}>
@@ -84,7 +88,7 @@ export const WorkloadDataListCell: React.FunctionComponent<IWorkloadDataListCell
                                             variant="link"
                                             icon={<PlayIcon />}
                                             onClick={(event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
-                                                props.onStartWorkloadClicked(props.workload);
+                                                startWorkload(props.workload);
 
                                                 event.stopPropagation();
                                             }}
@@ -102,7 +106,7 @@ export const WorkloadDataListCell: React.FunctionComponent<IWorkloadDataListCell
                                             isDanger={!props.workload.paused}
                                             icon={props.workload.paused ? <PlayIcon /> : <PauseIcon />}
                                             onClick={(event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
-                                                props.onPauseWorkloadClicked(props.workload);
+                                                pauseWorkload(props.workload);
 
                                                 event.stopPropagation();
                                             }}
@@ -120,7 +124,7 @@ export const WorkloadDataListCell: React.FunctionComponent<IWorkloadDataListCell
                                             isDanger
                                             icon={<StopIcon />}
                                             onClick={(event: React.MouseEvent<HTMLButtonElement, MouseEvent>) => {
-                                                props.onStopWorkloadClicked(props.workload);
+                                                stopWorkload(props.workload);
 
                                                 event.stopPropagation();
                                             }}
@@ -157,7 +161,7 @@ export const WorkloadDataListCell: React.FunctionComponent<IWorkloadDataListCell
                     </Flex>
                 </FlexItem>
             </Flex>
-            <WorkloadDescriptiveIcons workload={props.workload} toggleDebugLogs={props.toggleDebugLogs} />
+            <WorkloadDescriptiveIcons workload={props.workload} />
             <WorkloadRuntimeMetrics workload={props.workload} />
         </Flex>
     );

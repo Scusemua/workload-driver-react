@@ -2,7 +2,6 @@ import { Alert, AlertActionCloseButton } from '@patternfly/react-core';
 import { SpinnerIcon } from '@patternfly/react-icons';
 import { GetPathForFetch } from '@src/Utils/path_utils';
 import { GetToastContentWithHeaderAndBody } from '@src/Utils/toast_utils';
-import { MAX_SAFE_INTEGER } from 'lib0/number';
 import React from 'react';
 import { Toast, toast } from 'react-hot-toast';
 import useSWR from 'swr';
@@ -244,8 +243,14 @@ const AuthProvider = (props: { children }) => {
             revalidateIfStale: false,
             onSuccess: onSuccess,
             refreshInterval: (latestData) => {
-                if (latestData && latestData.expire) {
-                    let expire: string | number = latestData.expire;
+                if ((latestData && latestData.expire) || authenticated) {
+                    let expire: string | number;
+
+                    if (latestData && latestData.expire) {
+                        expire = latestData.expire;
+                    } else {
+                        expire = localStorage.getItem('token-expiration') || '';
+                    }
 
                     if (!isNumber(expire)) {
                         expire = Date.parse(expire as string);
@@ -253,18 +258,18 @@ const AuthProvider = (props: { children }) => {
 
                     const expireIn: number = (expire as number) - Date.now();
 
-                    console.log(`Token is set to expire in ${expireIn / 1.0e3}.`);
+                    console.log(`Token is set to expire at ${expire}, which is in ${expireIn / 1.0e3} seconds.`);
 
-                    const expireInAdjusted: number = expireIn * 0.90;
+                    const expireInAdjusted: number = expireIn * 0.9;
 
                     if (expireInAdjusted < 0) {
-                        return 10;
+                        return 10; // Almost immediate.
                     }
 
                     return expireInAdjusted;
                 }
 
-                return MAX_SAFE_INTEGER;
+                return 1000; // Refresh once a second.
             },
         },
     );

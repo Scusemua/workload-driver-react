@@ -14,29 +14,27 @@ import {
 import text from '@patternfly/react-styles/css/utilities/Text/text';
 import { AuthorizationContext } from '@Providers/AuthProvider';
 import {
-    Workload,
     WORKLOAD_STATE_ERRED,
     WORKLOAD_STATE_FINISHED,
     WORKLOAD_STATE_READY,
     WORKLOAD_STATE_RUNNING,
     WORKLOAD_STATE_TERMINATED,
+    Workload,
 } from '@src/Data/Workload';
-import { GetToastContentWithHeaderAndBody } from '@src/Utils/toast_utils';
+import { useWorkloads } from '@src/Providers';
 import React from 'react';
-import toast from 'react-hot-toast';
 
 export interface InspectWorkloadModalProps {
     children?: React.ReactNode;
     isOpen: boolean;
     onClose: () => void;
-    onExportClicked: (currentLocalWorkload: Workload) => void;
-    onStartClicked: () => void;
-    onStopClicked: () => void;
     workload: Workload;
 }
 
 export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalProps> = (props) => {
     const { authenticated } = React.useContext(AuthorizationContext);
+
+    const { exportWorkload, startWorkload, stopWorkload, isError } = useWorkloads();
 
     React.useEffect(() => {
         // Automatically close the modal of we are logged out.
@@ -101,7 +99,11 @@ export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalP
                     variant="primary"
                     aria-label={'Start workload'}
                     icon={<PlayIcon />}
-                    onClick={props.onStartClicked}
+                    onClick={() => {
+                        if (props.workload) {
+                            startWorkload(props.workload);
+                        }
+                    }}
                     isDisabled={props.workload?.workload_state != WORKLOAD_STATE_READY || !authenticated}
                 >
                     Start Workload
@@ -111,7 +113,11 @@ export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalP
                     variant="danger"
                     aria-label={'Stop workload'}
                     icon={<StopIcon />}
-                    onClick={props.onStopClicked}
+                    onClick={() => {
+                        if (props.workload) {
+                            stopWorkload(props.workload);
+                        }
+                    }}
                     isDisabled={props.workload?.workload_state != WORKLOAD_STATE_RUNNING || !authenticated}
                 >
                     Stop Workload
@@ -123,7 +129,7 @@ export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalP
                     icon={<ExportIcon />}
                     onClick={() => {
                         if (props.workload) {
-                            props.onExportClicked(props.workload);
+                            exportWorkload(props.workload);
                         }
                     }}
                 >
@@ -140,7 +146,7 @@ export const InspectWorkloadModal: React.FunctionComponent<InspectWorkloadModalP
                 </Button>,
             ]}
         >
-            <WorkloadInspectionView workload={props.workload} showTickDurationChart={false}/>
+            <WorkloadInspectionView workload={props.workload} showTickDurationChart={false} />
         </Modal>
     );
 };

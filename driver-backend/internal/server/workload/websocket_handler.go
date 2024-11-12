@@ -61,6 +61,8 @@ type WebsocketHandler struct {
 	expectedOriginPort      int                                   // The origin port expected for incoming WebSocket connections.
 	expectedOriginAddresses []string
 
+	numActiveWsConnections atomic.Int32
+
 	// OnError is a callback passed to WorkloadDrivers (via the WorkloadManager).
 	// If a critical error occurs during the execution of the workload, then this handler is called.
 	onCriticalError domain.WorkloadErrorHandler
@@ -269,6 +271,10 @@ func (h *WebsocketHandler) serveWorkloadWebsocket(c *gin.Context) {
 		return
 	}
 
+	numConnects := h.numActiveWsConnections.Add(1)
+	h.logger.Debug("Upgraded new workload-related WebSocket connection.",
+		zap.Int32("num_active_workload_websocket_connections", numConnects))
+
 	// Process messages until the remote client disconnects or an irrecoverable error occurs.
 	for {
 		// Read the next message from the WebSocket.
@@ -278,6 +284,8 @@ func (h *WebsocketHandler) serveWorkloadWebsocket(c *gin.Context) {
 		if err != nil {
 			h.logger.Error("Error while reading message from websocket.", zap.Error(err))
 			_ = c.AbortWithError(http.StatusInternalServerError, err)
+			_ = ws.Close() // May already be closed.
+			h.numActiveWsConnections.Add(-1)
 			return
 		}
 
@@ -304,6 +312,8 @@ func (h *WebsocketHandler) serveWorkloadWebsocket(c *gin.Context) {
 				zap.ByteString("response", payload),
 				zap.Error(err))
 			_ = c.AbortWithError(http.StatusInternalServerError, err)
+			_ = ws.Close() // May already be closed.
+			h.numActiveWsConnections.Add(-1)
 			return
 		}
 

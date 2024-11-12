@@ -35,6 +35,10 @@ export function GetToastContentWithHeaderAndBody(
             return <p>{body}</p>;
         }
 
+        if (React.isValidElement(body)) {
+          return body as ReactElement;
+        }
+
         if (Array.isArray(body)) {
             return (
                 <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsXs' }}>
@@ -53,7 +57,7 @@ export function GetToastContentWithHeaderAndBody(
             );
         }
 
-        throw new Error(`Unexpected type for body parameter: ${body}`);
+        throw new Error(`Unexpected type for body parameter (${typeof body}): ${body}`);
     };
 
     return (
