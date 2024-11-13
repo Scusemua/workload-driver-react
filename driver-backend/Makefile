@@ -62,7 +62,11 @@ run-server:
 
 run-server-prebuilt:
 	@echo Running pre-built server now.
-	.\server --yaml ./configs/config.yaml
+ifeq ($(detected_OS),Windows)
+	server --yaml ./configs/config.yaml
+else
+	server-linux-amd64 --yaml ./configs/config.yaml
+endif
 
 # NOTE: MUST update version number here prior to running 'make release' and edit this file!
 VERS=v0.0.1
