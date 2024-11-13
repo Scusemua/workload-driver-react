@@ -1,9 +1,5 @@
-//go:build !linux
-// +build !linux
-
 /*
- *
- * Copyright 2018 gRPC authors.
+ * Copyright 2024 gRPC authors.
  *
  * Licensed under the Apache License, Version 2.0 (the "License");
  * you may not use this file except in compliance with the License.
@@ -19,9 +15,10 @@
  *
  */
 
-package channelz
+// Package internal contains code internal to the pickfirst package.
+package internal
 
-// GetSocketOption gets the socket option info of the conn.
-func GetSocketOption(c any) *SocketOptionData {
-	return nil
-}
+import "math/rand"
+
+// RandShuffle pseudo-randomizes the order of addresses.
+var RandShuffle = rand.Shuffle

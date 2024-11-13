@@ -1,6 +1,3 @@
-//go:build !linux
-// +build !linux
-
 /*
  *
  * Copyright 2018 gRPC authors.
@@ -22,22 +19,47 @@
 package channelz
 
 import (
-	"sync"
-)
+	"syscall"
 
-var once sync.Once
+	"golang.org/x/sys/unix"
+)
 
 // SocketOptionData defines the struct to hold socket option data, and related
 // getter function to obtain info from fd.
-// Windows OS doesn't support Socket Option
 type SocketOptionData struct {
+	Linger      *unix.Linger
+	RecvTimeout *unix.Timeval
+	SendTimeout *unix.Timeval
+	TCPInfo     *unix.TCPInfo
 }
 
 // Getsockopt defines the function to get socket options requested by channelz.
 // It is to be passed to syscall.RawConn.Control().
-// Windows OS doesn't support Socket Option
 func (s *SocketOptionData) Getsockopt(fd uintptr) {
-	once.Do(func() {
-		logger.Warning("Channelz: socket options are not supported on non-linux environments")
-	})
+	if v, err := unix.GetsockoptLinger(int(fd), syscall.SOL_SOCKET, syscall.SO_LINGER); err == nil {
+		s.Linger = v
+	}
+	if v, err := unix.GetsockoptTimeval(int(fd), syscall.SOL_SOCKET, syscall.SO_RCVTIMEO); err == nil {
+		s.RecvTimeout = v
+	}
+	if v, err := unix.GetsockoptTimeval(int(fd), syscall.SOL_SOCKET, syscall.SO_SNDTIMEO); err == nil {
+		s.SendTimeout = v
+	}
+	if v, err := unix.GetsockoptTCPInfo(int(fd), syscall.SOL_TCP, syscall.TCP_INFO); err == nil {
+		s.TCPInfo = v
+	}
+}
+
+// GetSocketOption gets the socket option info of the conn.
+func GetSocketOption(socket any) *SocketOptionData {
+	c, ok := socket.(syscall.Conn)
+	if !ok {
+		return nil
+	}
+	data := &SocketOptionData{}
+	if rawConn, err := c.SyscallConn(); err == nil {
+		rawConn.Control(data.Getsockopt)
+		return data
+	}
+	return nil
 }
