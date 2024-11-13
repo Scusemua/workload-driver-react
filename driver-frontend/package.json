@@ -20,7 +20,7 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "eslint": "eslint --ext .tsx,.js ./src/",
+    "eslint": "eslint ./src/",
     "lint": "npm run eslint",
     "format": "prettier --check --write ./src/**/*.{tsx,ts}",
     "type-check": "tsc --noEmit",
@@ -32,6 +32,7 @@
     "build:storybook": "build-storybook"
   },
   "devDependencies": {
+    "@eslint/eslintrc": "^3.1.0",
     "@testing-library/jest-dom": "^6.4.6",
     "@testing-library/react": "^16.0.0",
     "@testing-library/user-event": "14.5.2",
@@ -54,7 +55,7 @@
     "jest-environment-jsdom": "^29.7.0",
     "mini-css-extract-plugin": "^2.9.0",
     "postcss": "^8.4.38",
-    "prettier": "^3.3.2",
+    "prettier": "^3.3.3",
     "prop-types": "^15.8.1",
     "raw-loader": "^4.0.2",
     "react-axe": "^3.5.4",
@@ -78,6 +79,8 @@
     "webpack-merge": "^5.10.0"
   },
   "dependencies": {
+    "@eslint/compat": "^1.2.2",
+    "@eslint/js": "^9.14.0",
     "@gatsbyjs/reach-router": "^2.0.1",
     "@jupyterlab/services": "^7.2.2",
     "@patternfly/react-charts": "^7.3.0",
@@ -90,8 +93,11 @@
     "@typescript-eslint/typescript-estree": "^8.14.0",
     "ansi_up": "^6.0.2",
     "console-feed": "^3.6.0",
+    "eslint-plugin-prettier": "^5.2.1",
+    "eslint-plugin-rulesdir": "^0.2.2",
     "fast-json-patch": "^3.1.1",
     "font-awesome": "^4.7.0",
+    "globals": "^15.12.0",
     "jest-fetch-mock": "^3.0.3",
     "json-merge-patch": "^1.0.2",
     "patch-package": "^8.0.0",
