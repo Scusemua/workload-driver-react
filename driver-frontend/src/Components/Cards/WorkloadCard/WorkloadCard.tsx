@@ -151,7 +151,8 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
             <ToolbarGroup variant="action-group-plain">
                 <ToolbarItem>
                     <Tooltip exitDelay={75} content={<div>Register a new workload.</div>}>
-                        <Button icon={<PlusIcon />}
+                        <Button
+                            icon={<PlusIcon />}
                             label="launch-workload-button"
                             aria-label="launch-workload-button"
                             id="launch-workload-button"
@@ -159,10 +160,11 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                             onClick={() => {
                                 setIsRegisterWorkloadModalOpen(true);
                             }}
-                         />
+                        />
                     </Tooltip>
                     <Tooltip exitDelay={75} content={<div>Stop all running workloads.</div>}>
-                        <Button icon={<StopCircleIcon />}
+                        <Button
+                            icon={<StopCircleIcon />}
                             label="stop-workloads-button"
                             aria-label="stop-workloads-button"
                             id="stop-workloads-button"
@@ -174,7 +176,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                                 }).length == 0
                             }
                             onClick={onStopAllWorkloadsClicked} // () => setIsConfirmDeleteKernelsModalOpen(true)
-                         />
+                        />
                     </Tooltip>
                 </ToolbarItem>
             </ToolbarGroup>
@@ -183,7 +185,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
 
     return (
         <React.Fragment>
-            <Card  isFullHeight id="workload-card">
+            <Card isFullHeight id="workload-card">
                 <CardHeader actions={{ actions: cardHeaderActions, hasNoOffset: false }}>
                     <Title headingLevel="h1" size="xl">
                         Workloads

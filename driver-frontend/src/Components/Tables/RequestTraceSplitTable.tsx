@@ -88,7 +88,7 @@ export const RequestTraceSplitTable: React.FunctionComponent<RequestTraceSplitTa
     };
 
     return (
-        <Card isCompact  >
+        <Card isCompact>
             <CardBody>
                 <Toolbar id={`request-${props.messageId}-trace-split-table-toolbar`}>
                     <ToolbarContent>

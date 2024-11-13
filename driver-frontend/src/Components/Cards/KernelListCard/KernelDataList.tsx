@@ -2,14 +2,15 @@ import { HeightFactorContext, KernelHeightFactorContext } from '@App/Dashboard';
 import { KernelDataListCells } from '@Cards/KernelListCard/KernelDataListCells';
 import { DistributedJupyterKernel, JupyterKernelReplica } from '@Data/Kernel';
 import {
-  DataList,
-  DataListCheck,
-  DataListContent,
-  DataListItem,
-  DataListItemRow,
-  DataListToggle,
-  Pagination,
-  PaginationVariant, PerPageOptions
+    DataList,
+    DataListCheck,
+    DataListContent,
+    DataListItem,
+    DataListItemRow,
+    DataListToggle,
+    Pagination,
+    PaginationVariant,
+    PerPageOptions,
 } from '@patternfly/react-core';
 import { useKernels } from '@Providers/KernelProvider';
 import { KernelReplicaTable } from '@src/Components';

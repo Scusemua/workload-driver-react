@@ -378,7 +378,6 @@ export const NodeListCard: React.FunctionComponent<NodeListProps> = (props: Node
         <div>
             <Card
                 isFullHeight
-                
                 id={props.isDashboardList ? 'primary-node-list-card' : 'migration-node-list-card'}
                 style={{ minHeight: '30em' }}
             >

@@ -12,31 +12,28 @@ import {
 } from '@Components/Modals';
 import { Language } from '@patternfly/react-code-editor';
 import {
-	Button,
-	Flex,
-	FlexItem,
-	Form,
-	FormGroup,
-	FormHelperText,
-	FormSection,
-	Grid,
-	GridItem,
-	HelperText,
-	HelperTextItem,
-	MultipleFileUpload,
-	MultipleFileUploadMain,
-	MultipleFileUploadStatus,
-	MultipleFileUploadStatusItem,
-	NumberInput,
-	Popover,
-	Switch,
-	TextInput,
-	Tooltip
+    Button,
+    Flex,
+    FlexItem,
+    Form,
+    FormGroup,
+    FormHelperText,
+    FormSection,
+    Grid,
+    GridItem,
+    HelperText,
+    HelperTextItem,
+    MultipleFileUpload,
+    MultipleFileUploadMain,
+    MultipleFileUploadStatus,
+    MultipleFileUploadStatusItem,
+    NumberInput,
+    Popover,
+    Switch,
+    TextInput,
+    Tooltip,
 } from '@patternfly/react-core';
-import {
-	Modal,
-	ModalVariant
-} from '@patternfly/react-core/deprecated';
+import { Modal, ModalVariant } from '@patternfly/react-core/deprecated';
 import { DropEvent } from '@patternfly/react-core/src/helpers/typeUtils';
 import { CodeIcon, DownloadIcon, PencilAltIcon, SaveAltIcon, TrashAltIcon, UploadIcon } from '@patternfly/react-icons';
 import HelpIcon from '@patternfly/react-icons/dist/esm/icons/help-icon';
@@ -187,7 +184,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                 }
 
                 if (training.vram_usage_gb > max_vram_gb) {
-                  max_vram_gb = training.vram_usage_gb;
+                    max_vram_gb = training.vram_usage_gb;
                 }
 
                 if (training.gpu_utilizations.length > max_num_gpus) {
@@ -513,7 +510,11 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                                     </div>
                                 }
                             >
-                                <Button icon={<HelpIcon />} variant="plain" aria-label="Create New Workload From Template Helper" />
+                                <Button
+                                    icon={<HelpIcon />}
+                                    variant="plain"
+                                    aria-label="Create New Workload From Template Helper"
+                                />
                             </Popover>
                         </FlexItem>
                         {!jsonModeActive && (
@@ -661,7 +662,6 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                                                         <Switch
                                                             id="debug-logging-switch-template"
                                                             label="Debug logging enabled"
-                                                            
                                                             aria-label="debug-logging-switch-template"
                                                             isChecked={field.value === true}
                                                             ouiaId="DebugLoggingSwitchTemplate"

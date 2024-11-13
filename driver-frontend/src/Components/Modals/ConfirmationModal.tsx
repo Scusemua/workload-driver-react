@@ -1,13 +1,6 @@
 import React from 'react';
-import {
-	Button,
-	TextInputGroup,
-	TextInputGroupMain
-} from '@patternfly/react-core';
-import {
-	Modal,
-	ModalVariant
-} from '@patternfly/react-core/deprecated';
+import { Button, TextInputGroup, TextInputGroupMain } from '@patternfly/react-core';
+import { Modal, ModalVariant } from '@patternfly/react-core/deprecated';
 
 export interface ConfirmationModalProps {
     children?: React.ReactNode;

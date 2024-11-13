@@ -121,7 +121,7 @@ export const NodeResourceUsageTable: React.FunctionComponent<NodeResourceUsageTa
     );
 
     return (
-        <Card isCompact   isFullHeight>
+        <Card isCompact isFullHeight>
             <CardBody>
                 <Table variant="compact" isStriped>
                     <Thead noWrap>

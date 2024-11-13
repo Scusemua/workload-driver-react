@@ -129,7 +129,7 @@ export const WorkloadSessionTable: React.FunctionComponent<WorkloadSessionTableP
     };
 
     return (
-        <Card isCompact  >
+        <Card isCompact>
             <CardBody>
                 <Table variant="compact" borders={true} isStriped>
                     <Thead noWrap>

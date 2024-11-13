@@ -1,19 +1,16 @@
 import {
-	Button,
-	Divider,
-	Flex,
-	FlexItem,
-	Form,
-	FormGroup,
-	FormHelperText,
-	HelperText,
-	HelperTextItem,
-	TextInput
+    Button,
+    Divider,
+    Flex,
+    FlexItem,
+    Form,
+    FormGroup,
+    FormHelperText,
+    HelperText,
+    HelperTextItem,
+    TextInput,
 } from '@patternfly/react-core';
-import {
-	Modal,
-	ModalVariant
-} from '@patternfly/react-core/deprecated';
+import { Modal, ModalVariant } from '@patternfly/react-core/deprecated';
 import { ExclamationCircleIcon, MinusIcon, PlusIcon } from '@patternfly/react-icons';
 import { AuthorizationContext } from '@Providers/AuthProvider';
 import { useNodes } from '@src/Providers';

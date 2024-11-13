@@ -1,5 +1,5 @@
 import { RegisterWorkloadForm } from '@Components/Workloads';
-import { PageSection } from '@patternfly/react-core';
+import { PageSection } from '@patternfly/react-core/dist/dynamic/components/Page';
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
 

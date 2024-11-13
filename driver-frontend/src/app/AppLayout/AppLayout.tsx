@@ -1,16 +1,13 @@
 import { IAppRoute, IAppRouteGroup, routes } from '@App/routes';
 import { DashboardNotificationDrawer } from '@Components/DashboardNotificationDrawer';
-import {
-    AlertGroup,
-    Nav,
-    NavExpandable,
-    NavItem,
-    NavList,
-    Page,
-    PageSidebar,
-    PageSidebarBody,
-    SkipToContent,
-} from '@patternfly/react-core';
+import { Nav } from '@patternfly/react-core/dist/dynamic/components/Nav'
+import { NavExpandable } from '@patternfly/react-core/dist/dynamic/components/Nav'
+import { NavItem } from '@patternfly/react-core/dist/dynamic/components/Nav'
+import { NavList } from '@patternfly/react-core/dist/dynamic/components/Nav'
+import { Page } from '@patternfly/react-core/dist/dynamic/components/Page'
+import { PageSidebar } from '@patternfly/react-core/dist/dynamic/components/Page'
+import { PageSidebarBody } from '@patternfly/react-core/dist/dynamic/components/Page'
+import { SkipToContent } from '@patternfly/react-core/dist/dynamic/components/SkipToContent'
 import { AuthorizationContext } from '@Providers/AuthProvider';
 
 import { Notification, WebSocketMessage } from '@src/Data/';
@@ -264,8 +261,8 @@ const AppLayout: React.FunctionComponent<IAppLayout> = ({ children }) => {
     );
 
     const onMastheadToggleClicked = () => {
-        console.log("onMastheadToggleClicked called");
-        setSidebarOpen(curr => !curr);
+        console.log('onMastheadToggleClicked called');
+        setSidebarOpen((curr) => !curr);
     };
 
     return (
@@ -292,7 +289,9 @@ const AppLayout: React.FunctionComponent<IAppLayout> = ({ children }) => {
             </Toaster>
             <Page
                 mainContainerId={pageId}
-                masthead={<AppHeader isLoggedIn={authenticated} onMastheadToggleClicked={() => onMastheadToggleClicked()} />}
+                masthead={
+                    <AppHeader isLoggedIn={authenticated} onMastheadToggleClicked={() => onMastheadToggleClicked()} />
+                }
                 skipToContent={PageSkipToContent}
                 sidebar={sidebarOpen && Sidebar}
                 isNotificationDrawerExpanded={expanded}

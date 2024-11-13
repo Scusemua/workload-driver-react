@@ -1,12 +1,19 @@
 import React from 'react';
 import { Card, CardBody, Label, Pagination, Tooltip } from '@patternfly/react-core';
 import { Table, Tbody, Td, Th, Thead, ThProps, Tr } from '@patternfly/react-table';
-import { CheckCircleIcon, CheckIcon, ErrorCircleOIcon, ExclamationCircleIcon, MigrationIcon, MonitoringIcon, OffIcon, PendingIcon, StarIcon } from '@patternfly/react-icons';
-
 import {
-    Workload,
-    WorkloadEvent,
-} from '@Data/Workload';
+    CheckCircleIcon,
+    CheckIcon,
+    ErrorCircleOIcon,
+    ExclamationCircleIcon,
+    MigrationIcon,
+    MonitoringIcon,
+    OffIcon,
+    PendingIcon,
+    StarIcon,
+} from '@patternfly/react-icons';
+
+import { Workload, WorkloadEvent } from '@Data/Workload';
 
 export interface WorkloadEventTableProps {
     children?: React.ReactNode;
@@ -34,7 +41,14 @@ export const WorkloadEventTable: React.FunctionComponent<WorkloadEventTableProps
         // console.log(`Timestamp Adjusted: ${timestamp_adjusted}, Processed-At Adjusted: ${processed_at_adjusted}`)
 
         // Note: We're omitting the event's "id" and "error_message" fields here.
-        return [idx, name, session, Date.parse(timestamp_adjusted), Date.parse(processed_at_adjusted), processed_successfully ? 1 : 0];
+        return [
+            idx,
+            name,
+            session,
+            Date.parse(timestamp_adjusted),
+            Date.parse(processed_at_adjusted),
+            processed_successfully ? 1 : 0,
+        ];
     };
 
     // Note that we perform the sort as part of the component's render logic and not in onSort.
@@ -44,7 +58,9 @@ export const WorkloadEventTable: React.FunctionComponent<WorkloadEventTableProps
         sortedEvents = props.workload?.events_processed.sort((a, b) => {
             const aValue = getSortableRowValues(a)[activeSortIndex];
             const bValue = getSortableRowValues(b)[activeSortIndex];
-            console.log(`Sorting ${aValue} and ${bValue} (activeSortIndex = ${activeSortIndex}, activeSortDirection = '${activeSortDirection}')`);
+            console.log(
+                `Sorting ${aValue} and ${bValue} (activeSortIndex = ${activeSortIndex}, activeSortDirection = '${activeSortDirection}')`,
+            );
             if (typeof aValue === 'number') {
                 // Numeric sort
                 if (activeSortDirection === 'asc') {
@@ -72,13 +88,13 @@ export const WorkloadEventTable: React.FunctionComponent<WorkloadEventTableProps
         sortBy: {
             index: activeSortIndex!,
             direction: activeSortDirection!,
-            defaultDirection: 'asc' // starting sort direction when first sorting a column. Defaults to 'asc'
+            defaultDirection: 'asc', // starting sort direction when first sorting a column. Defaults to 'asc'
         },
         onSort: (_event, index, direction) => {
             setActiveSortIndex(index);
             setActiveSortDirection(direction);
         },
-        columnIndex
+        columnIndex,
     });
 
     const onSetPage = (_event: React.MouseEvent | React.KeyboardEvent | MouseEvent, newPage: number) => {
@@ -88,58 +104,125 @@ export const WorkloadEventTable: React.FunctionComponent<WorkloadEventTableProps
     const onPerPageSelect = (
         _event: React.MouseEvent | React.KeyboardEvent | MouseEvent,
         newPerPage: number,
-        newPage: number
+        newPage: number,
     ) => {
         setPerPage(newPerPage);
         setPage(newPage);
     };
 
-    const events_table_columns: string[] = ["Index", "Name", "Target Session", "Event Timestamp", "IRL Timestamp", "Status"];
+    const events_table_columns: string[] = [
+        'Index',
+        'Name',
+        'Target Session',
+        'Event Timestamp',
+        'IRL Timestamp',
+        'Status',
+    ];
 
     const getEventLabel = (event_name: string) => {
         switch (event_name) {
-            case "workload-started":
-                return (<Label color="yellow" icon={<StarIcon />}>{event_name}</Label>)
-            case "workload-complete":
-                return (<Label color='purple' icon={<CheckCircleIcon />}>{event_name}</Label>)
-            case "session-started":
-                return (<Label color="teal" icon={<MigrationIcon />}>{event_name}</Label>)
-            case "session-ready":
-                return (<Label color='grey' icon={<PendingIcon />}>{event_name}</Label>)
-            case "training-started":
-                return (<Label color='green' icon={<MonitoringIcon />}>{event_name}</Label>)
-            case "training-ended":
-                return (<Label color='blue' icon={<CheckIcon />}>{event_name}</Label>)
-            case "session-stopped":
-                return (<Label color='orange' icon={<OffIcon />}>{event_name}</Label>)
-            case "update-gpu-util":
-                return (<Label color='grey'>{event_name}</Label>)
-            case "workload-terminated":
-                return (<Label color='orange' icon={<ExclamationCircleIcon />}>{event_name}</Label>)
+            case 'workload-started':
+                return (
+                    <Label color="yellow" icon={<StarIcon />}>
+                        {event_name}
+                    </Label>
+                );
+            case 'workload-complete':
+                return (
+                    <Label color="purple" icon={<CheckCircleIcon />}>
+                        {event_name}
+                    </Label>
+                );
+            case 'session-started':
+                return (
+                    <Label color="teal" icon={<MigrationIcon />}>
+                        {event_name}
+                    </Label>
+                );
+            case 'session-ready':
+                return (
+                    <Label color="grey" icon={<PendingIcon />}>
+                        {event_name}
+                    </Label>
+                );
+            case 'training-started':
+                return (
+                    <Label color="green" icon={<MonitoringIcon />}>
+                        {event_name}
+                    </Label>
+                );
+            case 'training-ended':
+                return (
+                    <Label color="blue" icon={<CheckIcon />}>
+                        {event_name}
+                    </Label>
+                );
+            case 'session-stopped':
+                return (
+                    <Label color="orange" icon={<OffIcon />}>
+                        {event_name}
+                    </Label>
+                );
+            case 'update-gpu-util':
+                return <Label color="grey">{event_name}</Label>;
+            case 'workload-terminated':
+                return (
+                    <Label color="orange" icon={<ExclamationCircleIcon />}>
+                        {event_name}
+                    </Label>
+                );
             default:
                 console.error(`Unexpected event name: "${event_name}"`);
-                return (<Label color='red' icon={<ErrorCircleOIcon />}>{event_name}</Label>)
+                return (
+                    <Label color="red" icon={<ErrorCircleOIcon />}>
+                        {event_name}
+                    </Label>
+                );
         }
-    }
+    };
 
     const getStatusLabel = (evt: WorkloadEvent) => {
         if (evt.processed_successfully) {
-            return (<Tooltip position='left-start' content={"The event was processed successfully."}><Label color="green" icon={<CheckCircleIcon />}>Processed</Label></Tooltip>)
+            return (
+                <Tooltip position="left-start" content={'The event was processed successfully.'}>
+                    <Label color="green" icon={<CheckCircleIcon />}>
+                        Processed
+                    </Label>
+                </Tooltip>
+            );
         } else {
-            return (<Tooltip position='left-start' content={`The event was NOT processed successfully. Reason: ${evt.error_message !== undefined ? evt.error_message : "N/A"}`}><Label color="red" icon={<ErrorCircleOIcon />}>Error</Label></Tooltip>)
+            return (
+                <Tooltip
+                    position="left-start"
+                    content={`The event was NOT processed successfully. Reason: ${evt.error_message !== undefined ? evt.error_message : 'N/A'}`}
+                >
+                    <Label color="red" icon={<ErrorCircleOIcon />}>
+                        Error
+                    </Label>
+                </Tooltip>
+            );
         }
-    }
+    };
 
-    const filteredEvents: WorkloadEvent[] | undefined = sortedEvents?.slice(perPage * (page - 1), perPage * (page - 1) + perPage);
+    const filteredEvents: WorkloadEvent[] | undefined = sortedEvents?.slice(
+        perPage * (page - 1),
+        perPage * (page - 1) + perPage,
+    );
 
     return (
-        <Card isCompact  >
+        <Card isCompact>
             <CardBody>
                 <Table variant="compact" isStriped>
                     <Thead noWrap>
                         <Tr>
                             {events_table_columns.map((column, columnIndex) => (
-                                <Th key={`workload-${props.workload?.id}-column-${columnIndex}`} sort={getSortParams(columnIndex)} aria-label={`${column}-column`}>{column}</Th>
+                                <Th
+                                    key={`workload-${props.workload?.id}-column-${columnIndex}`}
+                                    sort={getSortParams(columnIndex)}
+                                    aria-label={`${column}-column`}
+                                >
+                                    {column}
+                                </Th>
                             ))}
                         </Tr>
                     </Thead>
@@ -150,11 +233,13 @@ export const WorkloadEventTable: React.FunctionComponent<WorkloadEventTableProps
                                     <Td dataLabel={events_table_columns[0]}>{evt?.idx}</Td>
                                     <Td dataLabel={events_table_columns[1]}>{getEventLabel(evt?.name)}</Td>
                                     <Td dataLabel={events_table_columns[2]}>{evt?.session}</Td>
-                                    <Td dataLabel={events_table_columns[3]}>{evt?.timestamp.substring(0, evt?.timestamp.length - 10)}</Td>
+                                    <Td dataLabel={events_table_columns[3]}>
+                                        {evt?.timestamp.substring(0, evt?.timestamp.length - 10)}
+                                    </Td>
                                     <Td dataLabel={events_table_columns[4]}>{evt?.processed_at.substring(0, 27)}</Td>
                                     <Td dataLabel={events_table_columns[5]}>{getStatusLabel(evt)}</Td>
                                 </Tr>
-                            )
+                            );
                         })}
                     </Tbody>
                 </Table>
@@ -163,7 +248,17 @@ export const WorkloadEventTable: React.FunctionComponent<WorkloadEventTableProps
                     isDisabled={sortedEvents?.length == 0}
                     perPage={perPage}
                     page={page}
-                    perPageOptions={[{ title: "1 event", value: 1 }, { title: "2 events", value: 2 }, { title: "3 events", value: 3 }, { title: "4 events", value: 4 }, { title: "5 events", value: 5 }, { title: "10 events", value: 10 }, { title: "25 events", value: 25 }, { title: "50 events", value: 50 }, { title: "100 events", value: 100 }]}
+                    perPageOptions={[
+                        { title: '1 event', value: 1 },
+                        { title: '2 events', value: 2 },
+                        { title: '3 events', value: 3 },
+                        { title: '4 events', value: 4 },
+                        { title: '5 events', value: 5 },
+                        { title: '10 events', value: 10 },
+                        { title: '25 events', value: 25 },
+                        { title: '50 events', value: 50 },
+                        { title: '100 events', value: 100 },
+                    ]}
                     onSetPage={onSetPage}
                     onPerPageSelect={onPerPageSelect}
                     ouiaId="WorkloadEventsPagination"
@@ -171,4 +266,4 @@ export const WorkloadEventTable: React.FunctionComponent<WorkloadEventTableProps
             </CardBody>
         </Card>
     );
-}
+};

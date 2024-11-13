@@ -794,16 +794,18 @@ export const KernelListCard: React.FunctionComponent<KernelListProps> = (props: 
             <ToolbarGroup variant="action-group-plain">
                 <ToolbarItem>
                     <Tooltip exitDelay={75} content={<div>Create a new kernel.</div>}>
-                        <Button icon={<PlusIcon />}
+                        <Button
+                            icon={<PlusIcon />}
                             label="create-kernels-button"
                             aria-label="create-kernels-button"
                             id="create-kernel-button"
                             variant="plain"
                             onClick={() => setIsConfirmCreateModalOpen(!isConfirmCreateModalOpen)}
-                         />
+                        />
                     </Tooltip>
                     <Tooltip exitDelay={75} content={<div>Terminate selected kernels.</div>}>
-                        <Button icon={<TrashIcon />}
+                        <Button
+                            icon={<TrashIcon />}
                             label="delete-kernels-button"
                             aria-label="delete-kernels-button"
                             id="delete-kernels-button"
@@ -811,10 +813,11 @@ export const KernelListCard: React.FunctionComponent<KernelListProps> = (props: 
                             isDanger
                             isDisabled={kernels.length == 0 || selectedKernels.length == 0}
                             onClick={() => setIsConfirmDeleteKernelsModalOpen(true)}
-                         />
+                        />
                     </Tooltip>
                     <Tooltip exitDelay={75} content={<div>Refresh kernels.</div>}>
-                        <Button icon={<SyncIcon />}
+                        <Button
+                            icon={<SyncIcon />}
                             label="refresh-kernels-button"
                             aria-label="refresh-kernels-button"
                             id="refresh-kernels-button"
@@ -832,7 +835,7 @@ export const KernelListCard: React.FunctionComponent<KernelListProps> = (props: 
                                     'Refreshed kernels',
                                 );
                             }}
-                         />
+                        />
                     </Tooltip>
                 </ToolbarItem>
             </ToolbarGroup>
@@ -852,7 +855,7 @@ export const KernelListCard: React.FunctionComponent<KernelListProps> = (props: 
     const pendingKernelArr = numberArrayFromRange(0, numKernelsCreating.current);
 
     return (
-        <Card  isFullHeight id="kernel-list-card">
+        <Card isFullHeight id="kernel-list-card">
             <CardHeader actions={{ actions: cardHeaderActions, hasNoOffset: false }}>
                 <CardTitle>
                     <Title headingLevel="h1" size="xl">

@@ -1,12 +1,12 @@
 import {
-  ErrorResponse,
-  IsPaused,
-  IsPausing,
-  PatchedWorkload,
-  Workload,
-  WorkloadPreset,
-  WorkloadResponse,
-  WorkloadStateRunning
+    ErrorResponse,
+    IsPaused,
+    IsPausing,
+    PatchedWorkload,
+    Workload,
+    WorkloadPreset,
+    WorkloadResponse,
+    WorkloadStateRunning,
 } from '@Data/Workload';
 import { Flex, FlexItem, Content, ContentVariants } from '@patternfly/react-core';
 import { AuthorizationContext } from '@Providers/AuthProvider';
@@ -668,7 +668,9 @@ function WorkloadProvider({ children }: { children: React.ReactNode }) {
                             </Content>
                         </FlexItem>
                         <FlexItem>
-                            <Content component="p">Local copy of workload {currentLocalWorkload.id} will be exported instead.</Content>
+                            <Content component="p">
+                                Local copy of workload {currentLocalWorkload.id} will be exported instead.
+                            </Content>
                         </FlexItem>
                     </Flex>,
                     'danger',

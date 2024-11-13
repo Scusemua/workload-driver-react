@@ -353,7 +353,6 @@ export const NodeDataList: React.FunctionComponent<NodeDataListProps> = (props: 
                                     </Flex>
                                 </React.Fragment>
                             }
-                            
                             aria-label="node-scheduling-switch"
                             isChecked={true}
                             ouiaId="node-scheduling-switch"

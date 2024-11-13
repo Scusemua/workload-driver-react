@@ -508,7 +508,6 @@ export const RegisterWorkloadForm: React.FunctionComponent<IRegisterWorkloadForm
                                 <Switch
                                     id="debug-logging-switch-preset"
                                     label="Debug logging enabled"
-                                    
                                     aria-label="debug-logging-switch-preset"
                                     isChecked={debugLoggingEnabled}
                                     ouiaId="DebugLoggingSwitchPreset"

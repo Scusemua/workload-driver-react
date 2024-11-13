@@ -1,12 +1,6 @@
 import { Monaco } from '@monaco-editor/react';
 import { CodeEditor, CodeEditorControl, Language } from '@patternfly/react-code-editor';
-import {
-	Label, Button,
-	Grid,
-	GridItem,
-	Switch,
-	TextInput
-} from '@patternfly/react-core';
+import { Label, Button, Grid, GridItem, Switch, TextInput } from '@patternfly/react-core';
 
 import { ClockIcon, CodeIcon, DiceIcon } from '@patternfly/react-icons';
 import { DarkModeContext } from '@src/Providers';
@@ -68,7 +62,7 @@ export const CodeEditorComponent: React.FunctionComponent<CodeEditorComponentPro
                         <GridItem style={{ textAlign: 'right', marginRight: '1em' }}>
                             {shortcut.keys
                                 .map((key) => (
-                                    <Label variant="outline" key={key} >
+                                    <Label variant="outline" key={key}>
                                         {key}
                                     </Label>
                                 ))
@@ -135,7 +129,6 @@ export const CodeEditorComponent: React.FunctionComponent<CodeEditorComponentPro
                     id="code-editor-darkmode-switch"
                     aria-label="darkmode-switch"
                     label="Switch to Light Theme"
-                    
                     isChecked={isEditorDarkMode}
                     onChange={(_event: React.FormEvent<HTMLInputElement>, checked: boolean) => {
                         setIsEditorDarkMode(checked);

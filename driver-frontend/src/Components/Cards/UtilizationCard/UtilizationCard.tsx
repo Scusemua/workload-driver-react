@@ -35,7 +35,7 @@ export const UtilizationCard: React.FunctionComponent<UtilizationCardProps> = (p
     const toolbar = (
         <React.Fragment>
             <ToolbarGroup variant="action-group">
-                <ToolbarItem >
+                <ToolbarItem>
                     <Checkbox
                         label="Randomize utilizations"
                         id={'randomized-utilizations-checkbox'}
@@ -98,7 +98,7 @@ export const UtilizationCard: React.FunctionComponent<UtilizationCardProps> = (p
     );
 
     return (
-        <Card isFullHeight  id="utilization-card" component="div">
+        <Card isFullHeight id="utilization-card" component="div">
             <CardHeader actions={{ actions: toolbar, hasNoOffset: false }}>
                 <CardTitle>
                     <Title headingLevel="h1" size="xl">

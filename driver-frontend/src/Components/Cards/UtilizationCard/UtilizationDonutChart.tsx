@@ -1,17 +1,19 @@
 import {
-  ClusterNode,
-  GetNodeAllocatedResource, GetNodeId,
-  GetNodeIdleResource,
-  GetNodePendingResource,
-  GetNodeSpecResource
+    ClusterNode,
+    GetNodeAllocatedResource,
+    GetNodeId,
+    GetNodeIdleResource,
+    GetNodePendingResource,
+    GetNodeSpecResource,
 } from '@src/Data';
 import { DarkModeContext, useNodes } from '@src/Providers';
 import {
-  ChartDonutThreshold,
-  ChartDonutUtilization,
-  ChartLabel,
-  ChartThemeColor, ChartThemeDefinitionInterface,
-  getCustomTheme
+    ChartDonutThreshold,
+    ChartDonutUtilization,
+    ChartLabel,
+    ChartThemeColor,
+    ChartThemeDefinitionInterface,
+    getCustomTheme,
 } from '@patternfly/react-charts/victory';
 import React from 'react';
 

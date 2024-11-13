@@ -20,9 +20,9 @@
     "test": "jest",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "eslint": "eslint --ext .tsx,.js ./web/",
+    "eslint": "eslint --ext .tsx,.js ./src/",
     "lint": "npm run eslint",
-    "format": "prettier --check --write ./web/**/*.{tsx,ts}",
+    "format": "prettier --check --write ./src/**/*.{tsx,ts}",
     "type-check": "tsc --noEmit",
     "ci-checks": "npm run type-check && npm run lint && npm run test:coverage",
     "build:bundle-profile": "webpack --config webpack.prod.js --profile --json > stats.json",
@@ -79,6 +79,7 @@
     "webpack-merge": "^5.10.0"
   },
   "dependencies": {
+    "@babel/eslint-parser": "^7.25.9",
     "@gatsbyjs/reach-router": "^2.0.1",
     "@jupyterlab/services": "^7.2.2",
     "@patternfly/pf-codemods": "^2.3.2",
@@ -108,6 +109,7 @@
     "stable-hash": "^0.0.4",
     "string-width": "^6.1.0",
     "swr": "^2.2.5",
+    "typescript-eslint": "^8.14.0",
     "uuid": "^10.0.0",
     "victory": "^37.3.2",
     "webpack-require-from": "^1.8.6"

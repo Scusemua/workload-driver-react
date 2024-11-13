@@ -7,13 +7,14 @@ import {
     Checkbox,
     ClipboardCopy,
     Flex,
-    FlexItem, Title,
+    FlexItem,
+    Title,
     Toolbar,
     ToolbarContent,
     ToolbarGroup,
     ToolbarItem,
     ToolbarToggleGroup,
-    Tooltip
+    Tooltip,
 } from '@patternfly/react-core';
 import { DownloadIcon, EllipsisVIcon } from '@patternfly/react-icons';
 import { LogViewer, LogViewerSearch } from '@patternfly/react-log-viewer';
@@ -83,7 +84,12 @@ export const ExecutionOutputTabContent: React.FunctionComponent<ExecutionOutputT
             <ToolbarGroup variant="action-group-plain">
                 <ToolbarItem>
                     <Tooltip position="top" content={<div>Download</div>}>
-                        <Button icon={<DownloadIcon />} onClick={onDownloadLogsClick} variant="plain" aria-label="Download current logs" />
+                        <Button
+                            icon={<DownloadIcon />}
+                            onClick={onDownloadLogsClick}
+                            variant="plain"
+                            aria-label="Download current logs"
+                        />
                     </Tooltip>
                 </ToolbarItem>
             </ToolbarGroup>
@@ -91,7 +97,7 @@ export const ExecutionOutputTabContent: React.FunctionComponent<ExecutionOutputT
     );
 
     return (
-        <Card isCompact   hidden={props.output.length == 0}>
+        <Card isCompact hidden={props.output.length == 0}>
             <CardBody>
                 <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsMd' }}>
                     <FlexItem>
@@ -107,10 +113,10 @@ export const ExecutionOutputTabContent: React.FunctionComponent<ExecutionOutputT
                             toolbar={
                                 <Toolbar>
                                     <ToolbarContent>
-                                        <ToolbarGroup align={{ default: "alignStart" }}>
+                                        <ToolbarGroup align={{ default: 'alignStart' }}>
                                             {leftAlignedOutputToolbarGroup}
                                         </ToolbarGroup>
-                                        <ToolbarGroup align={{ default: "alignEnd" }}>
+                                        <ToolbarGroup align={{ default: 'alignEnd' }}>
                                             {rightAlignedOutputToolbarGroup}
                                         </ToolbarGroup>
                                     </ToolbarContent>

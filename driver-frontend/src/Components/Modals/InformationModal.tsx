@@ -1,12 +1,5 @@
-import {
-	Button,
-	Content,
-	ContentVariants
-} from '@patternfly/react-core';
-import {
-	Modal,
-	ModalVariant
-} from '@patternfly/react-core/deprecated';
+import { Button, Content, ContentVariants } from '@patternfly/react-core';
+import { Modal, ModalVariant } from '@patternfly/react-core/deprecated';
 import React from 'react';
 
 export interface InformationModalProps {

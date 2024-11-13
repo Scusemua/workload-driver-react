@@ -3,38 +3,32 @@ import { ExecutionOutputTabContent } from '@Components/Modals/ExecuteCodeOnKerne
 import { RoundToNDecimalPlaces } from '@Components/Modals/NewWorkloadFromTemplateModal';
 import { KernelManager, ServerConnection } from '@jupyterlab/services';
 import { IKernelConnection, IShellFuture } from '@jupyterlab/services/lib/kernel/kernel';
-import {
-    IExecuteReplyMsg,
-    IExecuteRequestMsg,
-    IIOPubMessage,
-} from '@jupyterlab/services/lib/kernel/messages';
+import { IExecuteReplyMsg, IExecuteRequestMsg, IIOPubMessage } from '@jupyterlab/services/lib/kernel/messages';
 import { Language } from '@patternfly/react-code-editor';
 import {
-	Alert,
-	AlertActionCloseButton,
-	Button,
-	Card,
-	CardBody,
-	Checkbox,
-	ClipboardCopy,
-	Flex,
-	FlexItem,
-	FormSelect,
-	FormSelectOption,
-	Grid,
-	GridItem,
-	Label,
-	Tab,
-	TabTitleText,
-	Tabs,
-	Content,
-	ContentVariants,
-	Title,
-	Tooltip
+    Alert,
+    AlertActionCloseButton,
+    Button,
+    Card,
+    CardBody,
+    Checkbox,
+    ClipboardCopy,
+    Flex,
+    FlexItem,
+    FormSelect,
+    FormSelectOption,
+    Grid,
+    GridItem,
+    Label,
+    Tab,
+    TabTitleText,
+    Tabs,
+    Content,
+    ContentVariants,
+    Title,
+    Tooltip,
 } from '@patternfly/react-core';
-import {
-	Modal
-} from '@patternfly/react-core/deprecated';
+import { Modal } from '@patternfly/react-core/deprecated';
 import { CheckCircleIcon, SpinnerIcon, TimesCircleIcon, TimesIcon } from '@patternfly/react-icons';
 import { AuthorizationContext } from '@Providers/AuthProvider';
 import { useJupyterAddress } from '@Providers/JupyterAddressProvider';
@@ -553,7 +547,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
             const initialRequestTimestamp: number = Date.now();
             const future = kernelConnection.requestExecute({ code: code }, undefined, {
                 target_replica: targetReplicaId,
-                'send_timestamp_unix_milli': Date.now(),
+                send_timestamp_unix_milli: Date.now(),
             });
 
             // Handle iopub messages
@@ -769,7 +763,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
     // When I included it explicitly as the tab content, the tab content wouldn't update properly
     // when changing tabs. You'd have to click the "wrap text" button to get it to work.
     const executionOutputArea = (
-        <Card isCompact >
+        <Card isCompact>
             <CardBody>
                 <Tabs
                     hidden={executionMap.size == 0}
@@ -860,11 +854,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                             setExecutionState('idle');
                         }
                     }}
-                    isDisabled={
-                        code.trim().length == 0 ||
-                        !authenticated ||
-                        jupyterAddress === undefined
-                    }
+                    isDisabled={code.trim().length == 0 || !authenticated || jupyterAddress === undefined}
                     isLoading={executionState === 'busy'}
                     icon={executionState === 'done' ? <CheckCircleIcon /> : null}
                     spinnerAriaValueText="Loading..."

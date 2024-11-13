@@ -6,9 +6,11 @@ module.exports = {
     "tsx": true,
     "jsx": true,
     "js": true,
+    "ts": true,
     "useJSXTextNode": true,
     "project": "./tsconfig.json",
-    "tsconfigRootDir": "."
+    "tsconfigRootDir": ".",
+    "ecmaVersion": 2020
   },
   // we want to use the recommended rules provided from the typescript plugin
   "extends": [

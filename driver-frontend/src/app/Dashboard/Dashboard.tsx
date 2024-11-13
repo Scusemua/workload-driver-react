@@ -2,7 +2,8 @@ import '@patternfly/react-core/dist/styles/base.css';
 
 import { KernelListCard, KernelSpecList, NodeListCard, UtilizationCard, WorkloadCard } from '@Components/Cards/';
 import { MigrationModal } from '@Components/Modals';
-import { Grid, GridItem, gridSpans, PageSection } from '@patternfly/react-core';
+import { GridItem } from '@patternfly/react-core/dist/dynamic/layouts/Grid'
+import { PageSection } from '@patternfly/react-core/dist/dynamic/components/Page'
 import { GetPathForFetch } from '@src/Utils/path_utils';
 
 import React, { createContext } from 'react';
@@ -167,22 +168,22 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
                         }}
                     >
                         <WorkloadCard
-                          workloadsPerPage={3}
-                          inspectInModal={true}
-                          perPageOption={[
-                            {
-                              title: '1 workloads',
-                              value: 1,
-                            },
-                            {
-                              title: '2 workloads',
-                              value: 2,
-                            },
-                            {
-                              title: '3 workloads',
-                              value: 3,
-                            },
-                          ]}
+                            workloadsPerPage={3}
+                            inspectInModal={true}
+                            perPageOption={[
+                                {
+                                    title: '1 workloads',
+                                    value: 1,
+                                },
+                                {
+                                    title: '2 workloads',
+                                    value: 2,
+                                },
+                                {
+                                    title: '3 workloads',
+                                    value: 3,
+                                },
+                            ]}
                         />
                     </WorkloadsHeightFactorContext.Provider>
                 </GridItem>

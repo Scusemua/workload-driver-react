@@ -59,7 +59,8 @@ export const KernelReplicaTableRow: React.FunctionComponent<KernelReplicaTableRo
                                 position={'left'}
                                 content={
                                     <div>
-                                        Execute Python code on replica {props.kernel.replicas[props.replicaIdx].replicaId}.
+                                        Execute Python code on replica{' '}
+                                        {props.kernel.replicas[props.replicaIdx].replicaId}.
                                     </div>
                                 }
                             >
@@ -100,7 +101,9 @@ export const KernelReplicaTableRow: React.FunctionComponent<KernelReplicaTableRo
                             onSelect={() => {
                                 onToggleOrSelectReplicaDropdown(props.replica);
                             }}
-                            isOpen={props.openReplicaDropdownMenu === `${props.replica.kernelId}-${props.replica.replicaId}`}
+                            isOpen={
+                                props.openReplicaDropdownMenu === `${props.replica.kernelId}-${props.replica.replicaId}`
+                            }
                             toggle={(toggleRef) => (
                                 <MenuToggle
                                     ref={toggleRef}
@@ -110,7 +113,8 @@ export const KernelReplicaTableRow: React.FunctionComponent<KernelReplicaTableRo
                                         onToggleOrSelectReplicaDropdown(props.replica);
                                     }}
                                     isExpanded={
-                                        props.openReplicaDropdownMenu === `${props.replica.kernelId}-${props.replica.replicaId}`
+                                        props.openReplicaDropdownMenu ===
+                                        `${props.replica.kernelId}-${props.replica.replicaId}`
                                     }
                                 >
                                     <EllipsisVIcon />

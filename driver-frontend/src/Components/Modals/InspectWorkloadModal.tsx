@@ -1,13 +1,6 @@
 import { WorkloadInspectionView } from '@Components/Workloads/WorkloadInspectionView';
-import {
-	Button,
-	Title,
-	TitleSizes
-} from '@patternfly/react-core';
-import {
-	Modal,
-	ModalVariant
-} from '@patternfly/react-core/deprecated';
+import { Button, Title, TitleSizes } from '@patternfly/react-core';
+import { Modal, ModalVariant } from '@patternfly/react-core/deprecated';
 import { CloseIcon, ExportIcon, PlayIcon, StopIcon } from '@patternfly/react-icons';
 import { AuthorizationContext } from '@Providers/AuthProvider';
 import { GetWorkloadStatusLabel, IsInProgress, IsReadyAndWaiting, Workload } from '@src/Data/Workload';

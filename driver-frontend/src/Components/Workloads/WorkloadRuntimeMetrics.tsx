@@ -15,7 +15,9 @@ interface IWorkloadRuntimeMetrics {
     workload: Workload;
 }
 
-export const WorkloadRuntimeMetrics: React.FunctionComponent<IWorkloadRuntimeMetrics> = (props: IWorkloadRuntimeMetrics) => {
+export const WorkloadRuntimeMetrics: React.FunctionComponent<IWorkloadRuntimeMetrics> = (
+    props: IWorkloadRuntimeMetrics,
+) => {
     return (
         <Flex
             className="props.workload-descriptive-icons"

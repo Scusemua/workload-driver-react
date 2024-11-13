@@ -1,30 +1,32 @@
 import {
-  Brand,
-  Button,
-  Flex,
-  FlexItem,
-  Icon,
-  Label,
-  Masthead,
-  MastheadLogo,
-  MastheadContent,
-  MastheadMain, MastheadToggle, MastheadBrand,
-  NotificationBadge,
-  NotificationBadgeVariant,
-  ToggleGroup,
-  ToggleGroupItem,
-  ToolbarItem,
-  Tooltip
+    Brand,
+    Button,
+    Flex,
+    FlexItem,
+    Icon,
+    Label,
+    Masthead,
+    MastheadLogo,
+    MastheadContent,
+    MastheadMain,
+    MastheadToggle,
+    MastheadBrand,
+    NotificationBadge,
+    NotificationBadgeVariant,
+    ToggleGroup,
+    ToggleGroupItem,
+    ToolbarItem,
+    Tooltip,
 } from '@patternfly/react-core';
 import {
-  BarsIcon,
-  CheckCircleIcon,
-  ClockIcon,
-  ErrorCircleOIcon,
-  InfoAltIcon,
-  MoonIcon,
-  SunIcon,
-  WarningTriangleIcon
+    BarsIcon,
+    CheckCircleIcon,
+    ClockIcon,
+    ErrorCircleOIcon,
+    InfoAltIcon,
+    MoonIcon,
+    SunIcon,
+    WarningTriangleIcon,
 } from '@patternfly/react-icons';
 import { AuthorizationContext } from '@Providers/AuthProvider';
 import { useClusterAge } from '@Providers/ClusterAgeProvider';
@@ -77,7 +79,17 @@ const connectionStatusIcons = {
 };
 
 type statusColor = {
-    [key in ReadyState]: "blue" | "teal" | "green" | "orange" | "purple" | "red" | "orangered" | "grey" | "yellow" | undefined;
+    [key in ReadyState]:
+        | 'blue'
+        | 'teal'
+        | 'green'
+        | 'orange'
+        | 'purple'
+        | 'red'
+        | 'orangered'
+        | 'grey'
+        | 'yellow'
+        | undefined;
 };
 
 const connectionStatusColors: statusColor = {
@@ -231,8 +243,17 @@ export const AppHeader: React.FunctionComponent<AppHeaderProps> = (props: AppHea
 
     const connectionStatus = connectionStatuses[readyState];
     const connectionStatusIcon = connectionStatusIcons[readyState];
-    const connectionStatusColor: "blue" | "teal" | "green" | "orange" | "purple" | "red" | "orangered" | "grey" | "yellow" | undefined =
-        connectionStatusColors[readyState];
+    const connectionStatusColor:
+        | 'blue'
+        | 'teal'
+        | 'green'
+        | 'orange'
+        | 'purple'
+        | 'red'
+        | 'orangered'
+        | 'grey'
+        | 'yellow'
+        | undefined = connectionStatusColors[readyState];
 
     const handleThemeToggleClick = (event) => {
         const id = event.currentTarget.id;
@@ -283,11 +304,18 @@ export const AppHeader: React.FunctionComponent<AppHeaderProps> = (props: AppHea
         <Masthead>
             <MastheadMain>
                 <MastheadToggle>
-                    <Button icon={<BarsIcon />} variant="plain" onClick={() => props.onMastheadToggleClicked()} aria-label="Global navigation" />
+                    <Button
+                        icon={<BarsIcon />}
+                        variant="plain"
+                        onClick={() => props.onMastheadToggleClicked()}
+                        aria-label="Global navigation"
+                    />
                 </MastheadToggle>
-                <MastheadBrand data-codemods><MastheadLogo data-codemods>
-                    <Brand src={logo} alt="Workload Driver Logo" heights={{ default: '36px' }} />
-                </MastheadLogo></MastheadBrand>
+                <MastheadBrand data-codemods>
+                    <MastheadLogo data-codemods>
+                        <Brand src={logo} alt="Workload Driver Logo" heights={{ default: '36px' }} />
+                    </MastheadLogo>
+                </MastheadBrand>
                 <MastheadContent>
                     <Flex direction={{ default: 'row' }}>
                         <FlexItem>

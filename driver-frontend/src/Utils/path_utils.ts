@@ -9,8 +9,8 @@
  * @param path The base with no "base path" prefix.
  */
 export function GetPathForFetch(path: string): string {
-  const basePath: string = process.env.PUBLIC_PATH || "/";
-  return JoinPaths(basePath, path);
+    const basePath: string = process.env.PUBLIC_PATH || '/';
+    return JoinPaths(basePath, path);
 }
 
 /**

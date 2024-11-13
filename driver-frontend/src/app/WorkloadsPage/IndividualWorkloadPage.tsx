@@ -1,5 +1,9 @@
 import { WorkloadInspectionView } from '@Components/Workloads/WorkloadInspectionView';
-import { Card, CardBody, Divider, Flex, FlexItem, PageSection, Content } from '@patternfly/react-core';
+import { CardBody } from '@patternfly/react-core/dist/dynamic/components/Card';
+import { Content } from '@patternfly/react-core/dist/dynamic/components/Content';
+import { Divider } from '@patternfly/react-core/dist/dynamic/components/Divider';
+import { PageSection } from '@patternfly/react-core/dist/dynamic/components/Page';
+import { Flex, FlexItem } from '@patternfly/react-core/dist/dynamic/layouts/Flex';
 import { WorkloadDataListCell } from '@src/Components/Workloads/WorkloadDataListCell';
 import { Workload } from '@src/Data';
 import { WorkloadContext } from '@src/Providers';
@@ -13,68 +17,68 @@ interface IndividualWorkloadPageProps {
 }
 
 export const IndividualWorkloadPage: React.FunctionComponent<IndividualWorkloadPageProps> = (
-    props: IndividualWorkloadPageProps,
+  props: IndividualWorkloadPageProps
 ) => {
-    const params = useParams();
+  const params = useParams();
 
-    const { workloadsMap } = React.useContext(WorkloadContext);
+  const { workloadsMap } = React.useContext(WorkloadContext);
 
-    const navigate = useNavigate();
+  const navigate = useNavigate();
 
-    const [targetWorkload, setTargetWorkload] = React.useState<Workload | undefined>(undefined);
+  const [targetWorkload, setTargetWorkload] = React.useState<Workload | undefined>(undefined);
 
-    React.useEffect(() => {
-        const workloadId: string | undefined = params.workload_id;
+  React.useEffect(() => {
+    const workloadId: string | undefined = params.workload_id;
 
-        if (workloadId && workloadId !== '' && workloadId !== ':workload_id') {
-            const workload: Workload | undefined = workloadsMap.get(workloadId);
+    if (workloadId && workloadId !== '' && workloadId !== ':workload_id') {
+      const workload: Workload | undefined = workloadsMap.get(workloadId);
 
-            // console.log(`workload ${workloadId} tick durations: ${workload?.tick_durations_milliseconds}`)
+      // console.log(`workload ${workloadId} tick durations: ${workload?.tick_durations_milliseconds}`)
 
-            setTargetWorkload(workload);
-        } else {
-            // If there is no query parameter for the workload ID, then just redirect back to the workloads page.
-            navigate(JoinPaths(process.env.PUBLIC_PATH || '/', '/workloads'));
-        }
-    }, [navigate, params, workloadsMap]);
+      setTargetWorkload(workload);
+    } else {
+      // If there is no query parameter for the workload ID, then just redirect back to the workloads page.
+      navigate(JoinPaths(process.env.PUBLIC_PATH || '/', '/workloads'));
+    }
+  }, [navigate, params, workloadsMap]);
 
-    /**
-     * Return the content to be rendered on the page.
-     */
-    const getPageContent = (): React.ReactNode => {
-        if (targetWorkload) {
-            return (
-                <PageSection hasBodyWrapper={false}>
-                    <Card isFullHeight >
-                        <CardBody>
-                            <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsLg' }}>
-                                <FlexItem>
-                                    <WorkloadDataListCell
-                                        workload={targetWorkload}
-                                        onVisualizeWorkloadClicked={props.onVisualizeWorkloadClicked}
-                                    />
-                                </FlexItem>
-                                <FlexItem>
-                                    <Divider />
-                                </FlexItem>
-                                <FlexItem>
-                                    <WorkloadInspectionView workload={targetWorkload} showTickDurationChart={true} />
-                                </FlexItem>
-                            </Flex>
-                        </CardBody>
-                    </Card>
-                </PageSection>
-            );
-        } else {
-            return (
-                <PageSection hasBodyWrapper={false}>
-                    <Content component="p">Unknown workload: &quot;{params.workload_id}&quot;</Content>
-                </PageSection>
-            );
-        }
-    };
+  /**
+   * Return the content to be rendered on the page.
+   */
+  const getPageContent = (): React.ReactNode => {
+    if (targetWorkload) {
+      return (
+        <PageSection hasBodyWrapper={false}>
+          <Card isFullHeight>
+            <CardBody>
+              <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsLg' }}>
+                <FlexItem>
+                  <WorkloadDataListCell
+                    workload={targetWorkload}
+                    onVisualizeWorkloadClicked={props.onVisualizeWorkloadClicked}
+                  />
+                </FlexItem>
+                <FlexItem>
+                  <Divider />
+                </FlexItem>
+                <FlexItem>
+                  <WorkloadInspectionView workload={targetWorkload} showTickDurationChart={true} />
+                </FlexItem>
+              </Flex>
+            </CardBody>
+          </Card>
+        </PageSection>
+      );
+    } else {
+      return (
+        <PageSection hasBodyWrapper={false}>
+          <Content component="p">Unknown workload: &quot;{params.workload_id}&quot;</Content>
+        </PageSection>
+      );
+    }
+  };
 
-    return getPageContent();
+  return getPageContent();
 };
 
 export default IndividualWorkloadPage;

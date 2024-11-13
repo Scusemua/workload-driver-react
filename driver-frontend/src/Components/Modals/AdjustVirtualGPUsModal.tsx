@@ -1,14 +1,5 @@
-import {
-	Button,
-	Form,
-	FormGroup,
-	TextInput,
-	ValidatedOptions
-} from '@patternfly/react-core';
-import {
-	Modal,
-	ModalVariant
-} from '@patternfly/react-core/deprecated';
+import { Button, Form, FormGroup, TextInput, ValidatedOptions } from '@patternfly/react-core';
+import { Modal, ModalVariant } from '@patternfly/react-core/deprecated';
 import { CheckCircleIcon } from '@patternfly/react-icons';
 import { AuthorizationContext } from '@Providers/AuthProvider';
 import { ClusterNode } from '@src/Data';

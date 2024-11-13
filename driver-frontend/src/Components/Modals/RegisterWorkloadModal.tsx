@@ -1,29 +1,26 @@
 import {
-	Button,
-	Dropdown,
-	DropdownItem,
-	DropdownList,
-	Form,
-	FormGroup,
-	FormHelperText,
-	Grid,
-	GridItem,
-	HelperText,
-	HelperTextItem,
-	MenuToggle,
-	MenuToggleElement,
-	NumberInput,
-	Popover,
-	Switch,
-	Content,
-	TextInput,
-	Tooltip,
-	ValidatedOptions
+    Button,
+    Dropdown,
+    DropdownItem,
+    DropdownList,
+    Form,
+    FormGroup,
+    FormHelperText,
+    Grid,
+    GridItem,
+    HelperText,
+    HelperTextItem,
+    MenuToggle,
+    MenuToggleElement,
+    NumberInput,
+    Popover,
+    Switch,
+    Content,
+    TextInput,
+    Tooltip,
+    ValidatedOptions,
 } from '@patternfly/react-core';
-import {
-	Modal,
-	ModalVariant
-} from '@patternfly/react-core/deprecated';
+import { Modal, ModalVariant } from '@patternfly/react-core/deprecated';
 import { EditIcon } from '@patternfly/react-icons';
 import HelpIcon from '@patternfly/react-icons/dist/esm/icons/help-icon';
 import styles from '@patternfly/react-styles/css/components/Form/form';
@@ -217,11 +214,12 @@ export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalPr
             onClose={props.onClose}
             help={
                 <Tooltip exitDelay={75} content={<div>Create new workload from template.</div>}>
-                    <Button icon={<EditIcon />}
+                    <Button
+                        icon={<EditIcon />}
                         variant="plain"
                         aria-label="Create New Workload From Template"
                         onClick={props.onRegisterWorkloadFromTemplateClicked}
-                     />
+                    />
                 </Tooltip>
             }
             actions={[
@@ -523,7 +521,6 @@ export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalPr
                             <Switch
                                 id="debug-logging-switch-preset"
                                 label="Debug logging enabled"
-                                
                                 aria-label="debug-logging-switch-preset"
                                 isChecked={debugLoggingEnabled}
                                 ouiaId="DebugLoggingSwitchPreset"

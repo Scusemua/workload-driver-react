@@ -1,4 +1,4 @@
-import { PageSection } from '@patternfly/react-core';
+import { PageSection } from '@patternfly/react-core/dist/dynamic/components/Page'
 import { NodeListCard } from '@src/Components';
 import * as React from 'react';
 

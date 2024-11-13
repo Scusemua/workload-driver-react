@@ -141,7 +141,7 @@ export function GetNumActiveSessionsInWorkload(workload: Workload): number {
 export const GetWorkloadStatusLabel = (workload: Workload) => {
     if (IsReadyAndWaiting(workload)) {
         return (
-            <Label icon={<HourglassStartIcon className={"pf-v6-u-text-color-status-info"} />} color="blue">
+            <Label icon={<HourglassStartIcon className={'pf-v6-u-text-color-status-info'} />} color="blue">
                 Ready
             </Label>
         );
@@ -149,7 +149,10 @@ export const GetWorkloadStatusLabel = (workload: Workload) => {
 
     if (IsActivelyRunning(workload)) {
         return (
-            <Label icon={<SpinnerIcon className={'loading-icon-spin pf-v6-u-text-color-status-success'} />} color="green">
+            <Label
+                icon={<SpinnerIcon className={'loading-icon-spin pf-v6-u-text-color-status-success'} />}
+                color="green"
+            >
                 Running
             </Label>
         );
@@ -181,7 +184,7 @@ export const GetWorkloadStatusLabel = (workload: Workload) => {
 
     if (IsErred(workload)) {
         return (
-            <Label icon={<TimesCircleIcon/>} status={"danger"} color="red">
+            <Label icon={<TimesCircleIcon />} status={'danger'} color="red">
                 Erred
             </Label>
         );
@@ -189,14 +192,14 @@ export const GetWorkloadStatusLabel = (workload: Workload) => {
 
     if (IsTerminated(workload)) {
         return (
-            <Label icon={<ExclamationTriangleIcon />} status={"warning"} color="orange">
+            <Label icon={<ExclamationTriangleIcon />} status={'warning'} color="orange">
                 Terminated
             </Label>
         );
     }
 
     return (
-        <Label icon={<QuestionIcon />} status={"warning"}  color="orange">
+        <Label icon={<QuestionIcon />} status={'warning'} color="orange">
             Unknown
         </Label>
     );

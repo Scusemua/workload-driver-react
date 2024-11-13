@@ -152,7 +152,12 @@ export const DashboardNotificationDrawer: React.FunctionComponent = () => {
                     </NotificationDrawerList>
                 )}
                 {notifications.length === 0 && (
-                    <EmptyState  headingLevel="h2" icon={SearchIcon}  titleText="No notifications found" variant={EmptyStateVariant.full}>
+                    <EmptyState
+                        headingLevel="h2"
+                        icon={SearchIcon}
+                        titleText="No notifications found"
+                        variant={EmptyStateVariant.full}
+                    >
                         <EmptyStateBody>There are currently no notifications.</EmptyStateBody>
                     </EmptyState>
                 )}
