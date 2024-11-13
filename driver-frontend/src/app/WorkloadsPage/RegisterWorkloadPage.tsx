@@ -3,7 +3,6 @@ import { PageSection } from '@patternfly/react-core';
 import * as React from 'react';
 import { useNavigate } from 'react-router-dom';
 
-// eslint-disable-next-line prefer-const
 const RegisterWorkloadPage: React.FunctionComponent = () => {
     const navigate = useNavigate();
 

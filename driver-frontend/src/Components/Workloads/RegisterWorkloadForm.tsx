@@ -124,9 +124,6 @@ export const RegisterWorkloadForm: React.FunctionComponent<IRegisterWorkloadForm
         _event: React.MouseEvent<Element, MouseEvent> | undefined,
         value: string | number | undefined,
     ) => {
-        // eslint-disable-next-line no-console
-        console.log('selected', value);
-
         if (value != undefined) {
             setSelectedWorkloadPreset(workloadPresets[value]);
         } else {

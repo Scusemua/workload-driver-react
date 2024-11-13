@@ -2,7 +2,6 @@ import { PageSection } from '@patternfly/react-core';
 import { NodeListCard } from '@src/Components';
 import * as React from 'react';
 
-// eslint-disable-next-line prefer-const
 const NodesPage: React.FunctionComponent = () => {
     return (
         <PageSection>

@@ -223,7 +223,7 @@ function WorkloadProvider({ children }: { children: React.ReactNode }) {
         try {
             workloadResponse = JSON.parse(message);
         } catch (err) {
-            console.error(`Failed to decode WorkloadResponse: "${message}"`);
+            console.error(`Failed to decode WorkloadResponse: "${message}". Error: ${err}`);
             toast.custom(
                 GetToastContentWithHeaderAndBody(
                     'Failed to Decode Workload Response from Workload WebSocket',
@@ -245,7 +245,7 @@ function WorkloadProvider({ children }: { children: React.ReactNode }) {
         try {
             errorResponse = JSON.parse(message);
         } catch (err) {
-            console.error(`Failed to decode ErrorResponse: "${message}"`);
+            console.error(`Failed to decode ErrorResponse: "${message}". Error: ${err}`);
             toast.custom(
                 GetToastContentWithHeaderAndBody(
                     'Failed to Decode ErrorResponse from Workload WebSocket',

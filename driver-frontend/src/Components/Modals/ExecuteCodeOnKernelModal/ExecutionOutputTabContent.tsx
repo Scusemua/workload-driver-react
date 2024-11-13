@@ -1,5 +1,3 @@
-/* eslint-disable camelcase */
-import { DarkModeContext } from '@src/Providers';
 import {
     Button,
     Card,
@@ -18,6 +16,7 @@ import {
 } from '@patternfly/react-core';
 import { DownloadIcon, EllipsisVIcon } from '@patternfly/react-icons';
 import { LogViewer, LogViewerSearch } from '@patternfly/react-log-viewer';
+import { DarkModeContext } from '@src/Providers';
 import React from 'react';
 
 export interface ExecutionOutputTabContentProps {

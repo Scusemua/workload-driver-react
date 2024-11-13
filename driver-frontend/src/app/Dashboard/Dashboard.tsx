@@ -2,15 +2,13 @@ import '@patternfly/react-core/dist/styles/base.css';
 
 import { KernelListCard, KernelSpecList, NodeListCard, UtilizationCard, WorkloadCard } from '@Components/Cards/';
 import { MigrationModal } from '@Components/Modals';
-import { Grid, GridItem, gridSpans, PageSection } from '@patternfly/react-core';
+import { Grid, GridItem, PageSection, gridSpans } from '@patternfly/react-core';
 import { GetPathForFetch } from '@src/Utils/path_utils';
 
 import React, { createContext } from 'react';
 
 import toast from 'react-hot-toast';
 import { DistributedJupyterKernel, JupyterKernelReplica } from 'src/Data';
-
-export interface DashboardProps {}
 
 export type HeightFactorContext = {
     heightFactor: number;
@@ -30,7 +28,7 @@ export const WorkloadsHeightFactorContext = createContext<HeightFactorContext>({
     setHeightFactor: () => {},
 });
 
-const Dashboard: React.FunctionComponent<DashboardProps> = () => {
+const Dashboard: React.FunctionComponent = () => {
     const [isMigrateModalOpen, setIsMigrateModalOpen] = React.useState(false);
     const [migrateKernel, setMigrateKernel] = React.useState<DistributedJupyterKernel | null>(null);
     const [migrateReplica, setMigrateReplica] = React.useState<JupyterKernelReplica | null>(null);

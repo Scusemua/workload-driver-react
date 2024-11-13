@@ -2,7 +2,6 @@ import { WorkloadCard } from '@src/Components';
 import * as React from 'react';
 import { PageSection } from '@patternfly/react-core';
 
-// eslint-disable-next-line prefer-const
 const WorkloadsPage: React.FunctionComponent = () => (
     <PageSection>
         <WorkloadCard

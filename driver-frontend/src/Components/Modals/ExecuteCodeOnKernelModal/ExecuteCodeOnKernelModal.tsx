@@ -22,8 +22,8 @@ import {
     Label,
     Modal,
     Tab,
-    TabTitleText,
     Tabs,
+    TabTitleText,
     Text,
     TextVariants,
     Title,
@@ -52,10 +52,8 @@ export type CodeContext = {
     setCode: (newCode: string) => void;
 };
 
-/* eslint-disable-next-line @typescript-eslint/no-unused-vars */
 export const CodeContext = React.createContext({
     code: '',
-    // eslint-disable-next-line @typescript-eslint/no-unused-vars
     setCode: (_: string) => {},
 });
 

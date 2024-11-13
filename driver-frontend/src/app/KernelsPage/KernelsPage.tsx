@@ -2,8 +2,7 @@ import { PageSection } from '@patternfly/react-core';
 import { KernelListCard } from '@src/Components';
 import * as React from 'react';
 
-// eslint-disable-next-line prefer-const
-let KernelsPage: React.FunctionComponent = () => (
+export const KernelsPage: React.FunctionComponent = () => (
     <PageSection>
         <KernelListCard
             kernelsPerPage={10}
@@ -46,4 +45,4 @@ let KernelsPage: React.FunctionComponent = () => (
     </PageSection>
 );
 
-export { KernelsPage };
+export default KernelsPage;
