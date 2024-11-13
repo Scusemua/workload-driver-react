@@ -3,13 +3,7 @@ import { PauseIcon, PlayIcon, SearchIcon, StopIcon } from '@patternfly/react-ico
 import { CsvFileIcon, TemplateIcon, XmlFileIcon } from '@src/Assets/Icons';
 import WorkloadDescriptiveIcons from '@src/Components/Workloads/WorkloadDescriptiveIcons';
 import { WorkloadRuntimeMetrics } from '@src/Components/Workloads/WorkloadRuntimeMetrics';
-import {
-  IsActivelyRunning,
-  IsInProgress,
-  IsPaused,
-  IsPausing, IsReadyAndWaiting,
-  Workload,
-} from '@src/Data';
+import { IsActivelyRunning, IsInProgress, IsPaused, IsPausing, IsReadyAndWaiting, Workload } from '@src/Data';
 import { WorkloadContext } from '@src/Providers';
 import React from 'react';
 
@@ -121,10 +115,7 @@ export const WorkloadDataListCell: React.FunctionComponent<IWorkloadDataListCell
                                                 pauseWorkload(props.workload);
                                             }}
                                         >
-                                            {IsPaused(props.workload) ||
-                                            IsPausing(props.workload)
-                                                ? 'Resume'
-                                                : 'Pause'}
+                                            {IsPaused(props.workload) || IsPausing(props.workload) ? 'Resume' : 'Pause'}
                                         </Button>
                                     </Tooltip>
                                 </FlexItem>

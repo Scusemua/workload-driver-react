@@ -9,7 +9,7 @@ import { useParams } from 'react-router';
 import { useNavigate } from 'react-router-dom';
 
 interface IndividualWorkloadPageProps {
-  onVisualizeWorkloadClicked: (workload: Workload) => void;
+    onVisualizeWorkloadClicked: (workload: Workload) => void;
 }
 
 export const IndividualWorkloadPage: React.FunctionComponent<IndividualWorkloadPageProps> = (

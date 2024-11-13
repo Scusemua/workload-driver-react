@@ -1,30 +1,30 @@
 import {
-  Brand,
-  Button,
-  Flex,
-  FlexItem,
-  Icon,
-  Label,
-  Masthead,
-  MastheadBrand,
-  MastheadContent,
-  MastheadMain, MastheadToggle,
-  NotificationBadge,
-  NotificationBadgeVariant,
-  ToggleGroup,
-  ToggleGroupItem,
-  ToolbarItem,
-  Tooltip
+    Brand,
+    Button,
+    Flex,
+    FlexItem,
+    Icon,
+    Label,
+    Masthead,
+    MastheadBrand,
+    MastheadContent,
+    MastheadMain,
+    MastheadToggle,
+    ToggleGroup,
+    ToggleGroupItem,
+    ToolbarItem,
+    Tooltip,
 } from '@patternfly/react-core';
 import {
-  BarsIcon,
-  CheckCircleIcon,
-  ClockIcon,
-  ErrorCircleOIcon,
-  InfoAltIcon,
-  MoonIcon,
-  SunIcon,
-  WarningTriangleIcon
+    AttentionBellIcon,
+    BarsIcon,
+    CheckCircleIcon,
+    ClockIcon,
+    ErrorCircleOIcon,
+    InfoAltIcon,
+    MoonIcon,
+    SunIcon,
+    WarningTriangleIcon,
 } from '@patternfly/react-icons';
 import { AuthorizationContext } from '@Providers/AuthProvider';
 import { useClusterAge } from '@Providers/ClusterAgeProvider';
@@ -251,31 +251,52 @@ export const AppHeader: React.FunctionComponent<AppHeaderProps> = (props: AppHea
     const getUnreadNotificationsNumber = () =>
         notifications.filter((notification) => !notification.isNotificationRead).length;
 
-    const containsUnreadAlertNotification = () =>
-        notifications.filter(
-            (notification) =>
-                !notification.isNotificationRead &&
-                (notification.variant === 'danger' || notification.variant === 'warning'),
-        ).length > 0;
+    const containsUnreadErrorNotifications = () =>
+        notifications.filter((notification) => !notification.isNotificationRead && notification.variant === 'danger')
+            .length > 0;
 
-    const getNotificationBadgeVariant = () => {
+    const containsUnreadWarningNotifications = () =>
+        notifications.filter((notification) => !notification.isNotificationRead && notification.variant === 'warning')
+            .length > 0;
+
+    const getNotificationBadgeClassName = (): string => {
         if (getUnreadNotificationsNumber() === 0) {
-            return NotificationBadgeVariant.read;
+            return '';
         }
-        if (containsUnreadAlertNotification()) {
-            return NotificationBadgeVariant.attention;
+
+        if (containsUnreadWarningNotifications()) {
+            return 'pf-m-warning';
         }
-        return NotificationBadgeVariant.unread;
+
+        if (containsUnreadErrorNotifications()) {
+            return 'pf-m-danger';
+        }
+
+        return 'pf-m-info';
     };
+
+    // const getNotificationBadgeButtonOptions = ():BadgeCountObject => {
+    //   const numUnreadNotifications: number = getUnreadNotificationsNumber();
+    //
+    //   return {
+    //     isRead: numUnreadNotifications === 0,
+    //     count: numUnreadNotifications,
+    //     className: (numUnreadNotifications === 0) ? "custom-badge-read" : "custom-badge-unread"
+    //   }
+    // }
 
     const notificationBadge = (
         <ToolbarItem>
-            <NotificationBadge
-                variant={getNotificationBadgeVariant()}
+            <Button
                 onClick={onNotificationBadgeClick}
+                variant={'primary'}
                 aria-label="Notifications"
-                count={getUnreadNotificationsNumber()}
-            ></NotificationBadge>
+                icon={<AttentionBellIcon />}
+                // badgeCountObjectRead={getNotificationBadgeButtonOptions()}
+                className={getNotificationBadgeClassName()}
+            >
+                {getUnreadNotificationsNumber()}
+            </Button>
         </ToolbarItem>
     );
 
@@ -283,7 +304,11 @@ export const AppHeader: React.FunctionComponent<AppHeaderProps> = (props: AppHea
         <Masthead>
             <MastheadMain>
                 <MastheadToggle>
-                    <Button variant="plain" onClick={() => props.onMastheadToggleClicked()} aria-label="Global navigation">
+                    <Button
+                        variant="plain"
+                        onClick={() => props.onMastheadToggleClicked()}
+                        aria-label="Global navigation"
+                    >
                         <BarsIcon />
                     </Button>
                 </MastheadToggle>

@@ -1,9 +1,10 @@
 import {
-  ClusterNode,
-  GetNodeAllocatedResource, GetNodeId,
-  GetNodeIdleResource,
-  GetNodePendingResource,
-  GetNodeSpecResource
+    ClusterNode,
+    GetNodeAllocatedResource,
+    GetNodeId,
+    GetNodeIdleResource,
+    GetNodePendingResource,
+    GetNodeSpecResource,
 } from '@src/Data';
 import { DarkModeContext, useNodes } from '@src/Providers';
 import {

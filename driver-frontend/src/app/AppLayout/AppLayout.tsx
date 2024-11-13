@@ -264,8 +264,8 @@ const AppLayout: React.FunctionComponent<IAppLayout> = ({ children }) => {
     );
 
     const onMastheadToggleClicked = () => {
-        console.log("onMastheadToggleClicked called");
-        setSidebarOpen(curr => !curr);
+        console.log('onMastheadToggleClicked called');
+        setSidebarOpen((curr) => !curr);
     };
 
     return (
@@ -292,7 +292,9 @@ const AppLayout: React.FunctionComponent<IAppLayout> = ({ children }) => {
             </Toaster>
             <Page
                 mainContainerId={pageId}
-                header={<AppHeader isLoggedIn={authenticated} onMastheadToggleClicked={() => onMastheadToggleClicked()} />}
+                header={
+                    <AppHeader isLoggedIn={authenticated} onMastheadToggleClicked={() => onMastheadToggleClicked()} />
+                }
                 skipToContent={PageSkipToContent}
                 sidebar={sidebarOpen && Sidebar}
                 isNotificationDrawerExpanded={expanded}

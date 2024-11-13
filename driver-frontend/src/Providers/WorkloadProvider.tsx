@@ -1,12 +1,12 @@
 import {
-  ErrorResponse,
-  IsPaused,
-  IsPausing,
-  PatchedWorkload,
-  Workload,
-  WorkloadPreset,
-  WorkloadResponse,
-  WorkloadStateRunning
+    ErrorResponse,
+    IsPaused,
+    IsPausing,
+    PatchedWorkload,
+    Workload,
+    WorkloadPreset,
+    WorkloadResponse,
+    WorkloadStateRunning,
 } from '@Data/Workload';
 import { Flex, FlexItem, Text, TextVariants } from '@patternfly/react-core';
 import { AuthorizationContext } from '@Providers/AuthProvider';

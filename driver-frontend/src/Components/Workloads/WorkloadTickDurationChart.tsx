@@ -122,7 +122,7 @@ export const WorkloadTickDurationChart: React.FunctionComponent<IWorkloadTickDur
                 y={50}
                 textAnchor="middle"
                 style={{
-                    fill: darkMode ? "#ffffff" : "#383838",
+                    fill: darkMode ? '#ffffff' : '#383838',
                     fontSize: 20,
                 }}
             />

@@ -167,22 +167,22 @@ const Dashboard: React.FunctionComponent<DashboardProps> = () => {
                         }}
                     >
                         <WorkloadCard
-                          workloadsPerPage={3}
-                          inspectInModal={true}
-                          perPageOption={[
-                            {
-                              title: '1 workloads',
-                              value: 1,
-                            },
-                            {
-                              title: '2 workloads',
-                              value: 2,
-                            },
-                            {
-                              title: '3 workloads',
-                              value: 3,
-                            },
-                          ]}
+                            workloadsPerPage={3}
+                            inspectInModal={true}
+                            perPageOption={[
+                                {
+                                    title: '1 workloads',
+                                    value: 1,
+                                },
+                                {
+                                    title: '2 workloads',
+                                    value: 2,
+                                },
+                                {
+                                    title: '3 workloads',
+                                    value: 3,
+                                },
+                            ]}
                         />
                     </WorkloadsHeightFactorContext.Provider>
                 </GridItem>

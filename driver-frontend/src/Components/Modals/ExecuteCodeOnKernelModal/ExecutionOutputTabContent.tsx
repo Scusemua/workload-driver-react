@@ -7,13 +7,14 @@ import {
     Checkbox,
     ClipboardCopy,
     Flex,
-    FlexItem, Title,
+    FlexItem,
+    Title,
     Toolbar,
     ToolbarContent,
     ToolbarGroup,
     ToolbarItem,
     ToolbarToggleGroup,
-    Tooltip
+    Tooltip,
 } from '@patternfly/react-core';
 import { DownloadIcon, EllipsisVIcon } from '@patternfly/react-icons';
 import { LogViewer, LogViewerSearch } from '@patternfly/react-log-viewer';

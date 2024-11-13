@@ -95,22 +95,22 @@ export function UnixTimestampToDateString(unixTimestamp: number): string {
  *                 then filename will be set to a string of the form "workload_ID.json"
  */
 export function ExportWorkloadToJson(workload: Workload, filename?: string | undefined) {
-  const downloadElement: HTMLAnchorElement = document.createElement('a');
-  downloadElement.setAttribute(
-    'href',
-    'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(workload, null, 2)),
-  );
+    const downloadElement: HTMLAnchorElement = document.createElement('a');
+    downloadElement.setAttribute(
+        'href',
+        'data:text/json;charset=utf-8,' + encodeURIComponent(JSON.stringify(workload, null, 2)),
+    );
 
-  if (filename !== undefined && filename !== '') {
-    downloadElement.setAttribute('download', filename);
-  } else {
-    downloadElement.setAttribute('download', `workload_${workload.id}.json`);
-  }
+    if (filename !== undefined && filename !== '') {
+        downloadElement.setAttribute('download', filename);
+    } else {
+        downloadElement.setAttribute('download', `workload_${workload.id}.json`);
+    }
 
-  downloadElement.style.display = 'none';
-  document.body.appendChild(downloadElement);
+    downloadElement.style.display = 'none';
+    document.body.appendChild(downloadElement);
 
-  downloadElement.click();
+    downloadElement.click();
 
-  document.body.removeChild(downloadElement);
+    document.body.removeChild(downloadElement);
 }

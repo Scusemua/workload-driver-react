@@ -185,7 +185,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                 }
 
                 if (training.vram_usage_gb > max_vram_gb) {
-                  max_vram_gb = training.vram_usage_gb;
+                    max_vram_gb = training.vram_usage_gb;
                 }
 
                 if (training.gpu_utilizations.length > max_num_gpus) {

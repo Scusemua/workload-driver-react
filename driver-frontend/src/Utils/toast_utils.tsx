@@ -36,7 +36,7 @@ export function GetToastContentWithHeaderAndBody(
         }
 
         if (React.isValidElement(body)) {
-          return body as ReactElement;
+            return body as ReactElement;
         }
 
         if (Array.isArray(body)) {
