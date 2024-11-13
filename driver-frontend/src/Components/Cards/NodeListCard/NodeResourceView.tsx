@@ -217,7 +217,7 @@ export const NodeResourceView: React.FunctionComponent = () => {
                     }}
                 >
                     <CardTitle id={'node-resource-view-cpu-section-title'}>
-                        <span className="pf-v5-u-font-weight-light">
+                        <span className="pf-v6-u-font-weight-light">
                             <CpuIcon /> CPU Usage
                         </span>
                     </CardTitle>
@@ -259,7 +259,7 @@ export const NodeResourceView: React.FunctionComponent = () => {
                     }}
                 >
                     <CardTitle id={'node-resource-view-memory-section-title'}>
-                        <span className="pf-v5-u-font-weight-light">
+                        <span className="pf-v6-u-font-weight-light">
                             <MemoryIcon /> Memory Usage
                         </span>
                     </CardTitle>
@@ -301,7 +301,7 @@ export const NodeResourceView: React.FunctionComponent = () => {
                     }}
                 >
                     <CardTitle id={'node-resource-view-gpu-section-title'}>
-                        <span className="pf-v5-u-font-weight-light">
+                        <span className="pf-v6-u-font-weight-light">
                             <GpuIcon /> GPU Usage
                         </span>
                     </CardTitle>
@@ -343,7 +343,7 @@ export const NodeResourceView: React.FunctionComponent = () => {
                     }}
                 >
                     <CardTitle id={'node-resource-view-vram-section-title'}>
-                        <span className="pf-v5-u-font-weight-light">
+                        <span className="pf-v6-u-font-weight-light">
                             <GpuIcon /> VRAM Usage
                         </span>
                     </CardTitle>

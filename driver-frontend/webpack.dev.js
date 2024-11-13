@@ -74,9 +74,9 @@ module.exports = (env) => {
         module: {
             rules: [
                 {
-                    test: /\.css$/,
-                    include: [...stylePaths],
-                    use: ['style-loader', 'css-loader'],
+                  test: /\.css$/,
+                  include: [...stylePaths],
+                  use: ['style-loader', 'css-loader'],
                 },
             ],
         },

@@ -17,7 +17,7 @@ export class SchedulerIcon extends React.Component<SchedulerIconProps> {
         }
 
         const { title, className, ...props } = this.props;
-        const classes = className ? `pf-v5-svg ${className}` : 'pf-v5-svg';
+        const classes = className ? `pf-v6-svg ${className}` : 'pf-v6-svg';
 
         const hasTitle = Boolean(title);
         const viewBox = [0, 0, 100, 100].join(' ');

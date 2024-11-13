@@ -17,7 +17,7 @@ function DarkModeProvider({ children }) {
     const [darkMode, setDarkMode] = useState(initialState.darkMode);
 
     if (darkMode) {
-        root.className = 'pf-v5-theme-dark';
+        root.className = 'pf-v6-theme-dark';
     } else {
         root.className = '';
     }
@@ -27,7 +27,7 @@ function DarkModeProvider({ children }) {
         setDarkMode(!darkMode);
 
         if (nextMode) {
-            root.className = 'pf-v5-theme-dark';
+            root.className = 'pf-v6-theme-dark';
         } else {
             root.className = '';
         }

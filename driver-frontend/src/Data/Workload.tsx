@@ -141,7 +141,7 @@ export function GetNumActiveSessionsInWorkload(workload: Workload): number {
 export const GetWorkloadStatusLabel = (workload: Workload) => {
     if (IsReadyAndWaiting(workload)) {
         return (
-            <Label icon={<HourglassStartIcon className={text.infoColor_100} />} color="blue">
+            <Label icon={<HourglassStartIcon className={"pf-v6-u-text-color-status-info"} />} color="blue">
                 Ready
             </Label>
         );
@@ -149,7 +149,7 @@ export const GetWorkloadStatusLabel = (workload: Workload) => {
 
     if (IsActivelyRunning(workload)) {
         return (
-            <Label icon={<SpinnerIcon className={'loading-icon-spin ' + text.successColor_100} />} color="green">
+            <Label icon={<SpinnerIcon className={'loading-icon-spin pf-v6-u-text-color-status-success'} />} color="green">
                 Running
             </Label>
         );
@@ -173,7 +173,7 @@ export const GetWorkloadStatusLabel = (workload: Workload) => {
 
     if (IsFinished(workload)) {
         return (
-            <Label icon={<CheckCircleIcon className={text.successColor_100} />} color="green">
+            <Label icon={<CheckCircleIcon />} status="success" color="green">
                 Complete
             </Label>
         );
@@ -181,7 +181,7 @@ export const GetWorkloadStatusLabel = (workload: Workload) => {
 
     if (IsErred(workload)) {
         return (
-            <Label icon={<TimesCircleIcon className={text.dangerColor_100} />} color="red">
+            <Label icon={<TimesCircleIcon/>} status={"danger"} color="red">
                 Erred
             </Label>
         );
@@ -189,14 +189,14 @@ export const GetWorkloadStatusLabel = (workload: Workload) => {
 
     if (IsTerminated(workload)) {
         return (
-            <Label icon={<ExclamationTriangleIcon className={text.warningColor_100} />} color="orange">
+            <Label icon={<ExclamationTriangleIcon />} status={"warning"} color="orange">
                 Terminated
             </Label>
         );
     }
 
     return (
-        <Label icon={<QuestionIcon className={text.warningColor_100} />} color="orange">
+        <Label icon={<QuestionIcon />} status={"warning"}  color="orange">
             Unknown
         </Label>
     );

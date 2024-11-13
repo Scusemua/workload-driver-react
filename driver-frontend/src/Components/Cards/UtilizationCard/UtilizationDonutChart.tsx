@@ -7,14 +7,11 @@ import {
 } from '@src/Data';
 import { DarkModeContext, useNodes } from '@src/Providers';
 import {
-	ChartThemeDefinitionInterface
-} from '@patternfly/react-charts';
-import {
-	ChartDonutThreshold,
-	ChartDonutUtilization,
-	ChartLabel,
-	ChartThemeColor,
-	getCustomTheme
+  ChartDonutThreshold,
+  ChartDonutUtilization,
+  ChartLabel,
+  ChartThemeColor, ChartThemeDefinitionInterface,
+  getCustomTheme
 } from '@patternfly/react-charts/victory';
 import React from 'react';
 

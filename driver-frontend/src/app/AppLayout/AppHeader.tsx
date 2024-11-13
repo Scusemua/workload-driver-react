@@ -77,7 +77,7 @@ const connectionStatusIcons = {
 };
 
 type statusColor = {
-    [key in ReadyState]: 'green' | 'red' | 'blue' | 'cyan' | 'orange' | 'purple' | 'grey' | 'gold' | undefined;
+    [key in ReadyState]: "blue" | "teal" | "green" | "orange" | "purple" | "red" | "orangered" | "grey" | "yellow" | undefined;
 };
 
 const connectionStatusColors: statusColor = {
@@ -231,7 +231,7 @@ export const AppHeader: React.FunctionComponent<AppHeaderProps> = (props: AppHea
 
     const connectionStatus = connectionStatuses[readyState];
     const connectionStatusIcon = connectionStatusIcons[readyState];
-    const connectionStatusColor: 'green' | 'red' | 'blue' | 'cyan' | 'orange' | 'purple' | 'grey' | 'gold' | undefined =
+    const connectionStatusColor: "blue" | "teal" | "green" | "orange" | "purple" | "red" | "orangered" | "grey" | "yellow" | undefined =
         connectionStatusColors[readyState];
 
     const handleThemeToggleClick = (event) => {
@@ -291,7 +291,7 @@ export const AppHeader: React.FunctionComponent<AppHeaderProps> = (props: AppHea
                 <MastheadContent>
                     <Flex direction={{ default: 'row' }}>
                         <FlexItem>
-                            <div className="pf-v5-theme-dark">
+                            <div className="pf-v6-theme-dark">
                                 <ToggleGroup>
                                     <ToggleGroupItem
                                         aria-label={lightModeId}

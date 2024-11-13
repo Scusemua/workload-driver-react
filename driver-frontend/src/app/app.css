@@ -2,18 +2,18 @@
   height: 100%;
 }
 
-.pf-v5-c-content {
-  --pf-v5-c-content--small--Color: red;
-  /* changes all <small> color to red */
-  --pf-v5-c-content--blockquote--BorderLeftColor: purple;
-  /* changes all <blockquote> left border color to purple */
-  --pf-v5-c-content--hr--BackgroundColor: lemonchiffon;
-  /* changes a <hr> color to lemonchiffon */
-}
+/*.pf-v6-c-content {*/
+/*  --pf-v6-c-content--small--Color: red;*/
+/*  !* changes all <small> color to red *!*/
+/*  --pf-v6-c-content--blockquote--BorderLeftColor: purple;*/
+/*  !* changes all <blockquote> left border color to purple *!*/
+/*  --pf-v6-c-content--hr--BackgroundColor: lemonchiffon;*/
+/*  !* changes a <hr> color to lemonchiffon *!*/
+/*}*/
 
-.remove-nodes-text-input {
-  --pf-v5-c-form-control: 25px;
-}
+/*.remove-nodes-text-input {*/
+/*  --pf-v6-c-form-control: 25px;*/
+/*}*/
 
 .login_container {
   width: 100%;
@@ -122,9 +122,9 @@
   content: '';
 }
 
-.code-panel {
-  --pf-v5-c-panel--BackgroundColor: "#eb7a34";
-}
+/*.code-panel {*/
+/*  --pf-v6-c-panel--BackgroundColor: "#eb7a34";*/
+/*}*/
 
 @keyframes dotty {
   0% {
@@ -206,9 +206,9 @@
   margin-top: -12px
 }
 
-.pf-v5-c-description-list__description {
-  margin-top: -8px
-}
+/*.pf-v6-c-description-list__description {*/
+/*  margin-top: -8px*/
+/*}*/
 
 @import url("https://cdnjs.cloudflare.com/ajax/libs/normalize/3.0.3/normalize.min.css");
 

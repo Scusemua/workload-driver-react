@@ -121,7 +121,7 @@ export const ExecutionOutputTabContent: React.FunctionComponent<ExecutionOutputT
                     <FlexItem hidden={props.errorMessage === undefined}>
                         <Title headingLevel="h3">Error Message</Title>
                         <ClipboardCopy isReadOnly hoverTip="Copy" clickTip="Copied">
-                            {props.errorMessage}
+                            {props.errorMessage!}
                         </ClipboardCopy>
                     </FlexItem>
                 </Flex>
