@@ -54,7 +54,8 @@ export type CodeContext = {
 
 export const CodeContext = React.createContext({
     code: '',
-    setCode: () => {},
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    setCode: (_: string) => {},
 });
 
 // Execution encapsulates the submission of code to be executed on a kernel.
@@ -899,7 +900,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                     </Text>
                 </FlexItem>
                 <FlexItem>
-                    <CodeContext.Provider value={{ code: code, setCode: setCode }}>
+                    <CodeContext.Provider value={{ code: code, setCode: (code: string) => setCode(code) }}>
                         <CodeEditorComponent
                             showCodeTemplates={true}
                             height={400}
