@@ -259,9 +259,17 @@ export const AppHeader: React.FunctionComponent<AppHeaderProps> = (props: AppHea
         notifications.filter((notification) => !notification.isNotificationRead && notification.variant === 'warning')
             .length > 0;
 
+    const getNotificationBadgeIconClassName = (): string => {
+        if (getUnreadNotificationsNumber() === 0) {
+            return 'notification-badge-icon-no-notifications';
+        }
+
+        return '';
+    };
+
     const getNotificationBadgeClassName = (): string => {
         if (getUnreadNotificationsNumber() === 0) {
-            return '';
+            return 'notification-badge-no-notifications';
         }
 
         if (containsUnreadWarningNotifications()) {
@@ -288,11 +296,16 @@ export const AppHeader: React.FunctionComponent<AppHeaderProps> = (props: AppHea
     const notificationBadge = (
         <ToolbarItem>
             <Button
+                id={'notification-badge-button'}
                 onClick={onNotificationBadgeClick}
                 variant={'primary'}
                 aria-label="Notifications"
-                icon={<AttentionBellIcon />}
-                // badgeCountObjectRead={getNotificationBadgeButtonOptions()}
+                icon={
+                    <AttentionBellIcon
+                        id={'notification-badge-button-icon'}
+                        className={getNotificationBadgeIconClassName()}
+                    />
+                }
                 className={getNotificationBadgeClassName()}
             >
                 {getUnreadNotificationsNumber()}

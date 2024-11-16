@@ -22,8 +22,8 @@ import {
     Label,
     Modal,
     Tab,
-    Tabs,
     TabTitleText,
+    Tabs,
     Text,
     TextVariants,
     Title,
@@ -54,7 +54,7 @@ export type CodeContext = {
 
 export const CodeContext = React.createContext({
     code: '',
-    setCode: (_: string) => {},
+    setCode: () => {},
 });
 
 // Execution encapsulates the submission of code to be executed on a kernel.

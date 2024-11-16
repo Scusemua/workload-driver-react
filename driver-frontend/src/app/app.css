@@ -24,6 +24,14 @@
   scrollbar-width: none; /* Firefox */
 }
 
+#notification-badge-button-icon.notification-badge-icon-no-notifications {
+  color: #d7d7d7
+}
+
+#notification-badge-button.notification-badge-no-notifications {
+  --pf-v5-c-button--m-primary--BackgroundColor: #444548
+}
+
 .login_container::-webkit-scrollbar {
   display: none; /* Safari and Chrome */
 }
