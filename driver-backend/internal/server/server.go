@@ -400,7 +400,9 @@ func (s *serverImpl) getPath(relativePath string) string {
 func (s *serverImpl) setupRoutes() error {
 	s.app = proxy.NewJupyterProxyRouter(s.engine, s.opts, s.atom)
 
-	s.nodeHandler = handlers.NewNodeHttpHandler(s.opts)
+	atom := zap.NewAtomicLevelAt(zap.DebugLevel)
+
+	s.nodeHandler = handlers.NewNodeHttpHandler(s.opts, &atom)
 
 	s.app.ForwardedByClientIP = true
 	if err := s.app.SetTrustedProxies([]string{"127.0.0.1"}); err != nil {
@@ -484,59 +486,59 @@ func (s *serverImpl) setupRoutes() error {
 		apiGroup.PATCH(domain.NodesEndpoint, s.nodeHandler.HandlePatchRequest)
 
 		// Adjust vGPUs available on a particular Kubernetes node.
-		apiGroup.PATCH(domain.AdjustVgpusEndpoint, handlers.NewAdjustVirtualGpusHandler(s.opts, s.gatewayRpcClient).HandlePatchRequest)
+		apiGroup.PATCH(domain.AdjustVgpusEndpoint, handlers.NewAdjustVirtualGpusHandler(s.opts, s.gatewayRpcClient, &atom).HandlePatchRequest)
 
 		// Used internally (by the frontend) to get the system config from the backend  (i.e., the backend).
-		apiGroup.GET(domain.SystemConfigEndpoint, handlers.NewConfigHttpHandler(s.opts).HandleRequest)
+		apiGroup.GET(domain.SystemConfigEndpoint, handlers.NewConfigHttpHandler(s.opts, &atom).HandleRequest)
 
 		// Used internally (by the frontend) to get the current set of Jupyter kernels from us (i.e., the backend).
-		apiGroup.GET(domain.GetKernelsEndpoint, handlers.NewKernelHttpHandler(s.opts, s.gatewayRpcClient).HandleRequest)
+		apiGroup.GET(domain.GetKernelsEndpoint, handlers.NewKernelHttpHandler(s.opts, s.gatewayRpcClient, &atom).HandleRequest)
 
 		// Used by the frontend to query the status of particular ZMQ messages.
-		apiGroup.POST(domain.QueryMessageEndpoint, handlers.NewMessageQueryHttpHandler(s.opts, s.gatewayRpcClient).HandleRequest)
+		apiGroup.POST(domain.QueryMessageEndpoint, handlers.NewMessageQueryHttpHandler(s.opts, s.gatewayRpcClient, &atom).HandleRequest)
 
 		// Used internally (by the frontend) to get the list of available workload presets from the backend.
-		apiGroup.GET(domain.WorkloadPresetEndpoint, handlers.NewWorkloadPresetHttpHandler(s.opts).HandleRequest)
+		apiGroup.GET(domain.WorkloadPresetEndpoint, handlers.NewWorkloadPresetHttpHandler(s.opts, &atom).HandleRequest)
 
 		// Used internally (by the frontend) to trigger kernel replica migrations.
-		apiGroup.POST(domain.MigrationEndpoint, handlers.NewMigrationHttpHandler(s.opts, s.gatewayRpcClient).HandleRequest)
+		apiGroup.POST(domain.MigrationEndpoint, handlers.NewMigrationHttpHandler(s.opts, s.gatewayRpcClient, &atom).HandleRequest)
 
 		// Used to stream logs from Kubernetes.
-		apiGroup.GET(fmt.Sprintf("%s/pods/:pod", domain.LogsEndpoint), handlers.NewLogHttpHandler(s.opts).HandleRequest)
+		apiGroup.GET(fmt.Sprintf("%s/pods/:pod", domain.LogsEndpoint), handlers.NewLogHttpHandler(s.opts, &atom).HandleRequest)
 
 		// Queried by Grafana to query for values used to create Grafana variables that are then used to
 		// dynamically create a Grafana Dashboard.
-		apiGroup.GET(path.Join(domain.VariablesEndpoint, ":variable_name"), handlers.NewVariablesHttpHandler(s.opts, s.gatewayRpcClient).HandleRequest)
+		apiGroup.GET(path.Join(domain.VariablesEndpoint, ":variable_name"), handlers.NewVariablesHttpHandler(s.opts, s.gatewayRpcClient, &atom).HandleRequest)
 
 		// Used by the frontend to tell a kernel to stop training.
 		apiGroup.POST(domain.StopTrainingEndpoint, handlers.NewStopTrainingHandler(s.opts, s.atom).HandleRequest)
 
 		// Used by the frontend to upload/share Prometheus metrics.
-		apiGroup.PATCH(domain.MetricsEndpoint, handlers.NewMetricsHttpHandler(s.opts).HandlePatchRequest)
+		apiGroup.PATCH(domain.MetricsEndpoint, handlers.NewMetricsHttpHandler(s.opts, &atom).HandlePatchRequest)
 
 		// Used by the frontend to retrieve the UnixMillisecond timestamp at which the Cluster was created.
-		apiGroup.GET(domain.ClusterAgeEndpoint, handlers.NewClusterAgeHttpHandler(s.opts, s.gatewayRpcClient).HandleRequest)
+		apiGroup.GET(domain.ClusterAgeEndpoint, handlers.NewClusterAgeHttpHandler(s.opts, s.gatewayRpcClient, &atom).HandleRequest)
 
 		// Used to tell the frontend what the address of Jupyter is.
-		apiGroup.GET(domain.JupyterAddressEndpoint, handlers.NewJupyterAddressHttpHandler(s.opts).HandleRequest)
+		apiGroup.GET(domain.JupyterAddressEndpoint, handlers.NewJupyterAddressHttpHandler(s.opts, &atom).HandleRequest)
 
 		// Used by the frontend to instruct a Local Daemon to reconnect to the Cluster Gateway.
-		apiGroup.POST(domain.InstructLocalDaemonReconnect, handlers.NewForceLocalDaemonToReconnectHttpHandler(s.opts, s.gatewayRpcClient).HandleRequest)
+		apiGroup.POST(domain.InstructLocalDaemonReconnect, handlers.NewForceLocalDaemonToReconnectHttpHandler(s.opts, s.gatewayRpcClient, &atom).HandleRequest)
 	}
 
 	///////////////////////////
 	// Debugging and Testing //
 	///////////////////////////
 	{
-		apiGroup.POST(domain.YieldNextRequestEndpoint, handlers.NewYieldNextExecuteHandler(s.opts, s.gatewayRpcClient).HandleRequest)
+		apiGroup.POST(domain.YieldNextRequestEndpoint, handlers.NewYieldNextExecuteHandler(s.opts, s.gatewayRpcClient, &atom).HandleRequest)
 
-		apiGroup.POST(domain.PanicEndpoint, handlers.NewPanicHttpHandler(s.opts, s.gatewayRpcClient).HandleRequest)
+		apiGroup.POST(domain.PanicEndpoint, handlers.NewPanicHttpHandler(s.opts, s.gatewayRpcClient, &atom).HandleRequest)
 
 		apiGroup.POST(domain.SpoofNotificationsEndpoint, s.handleSpoofedNotifications)
 
 		apiGroup.POST(domain.SpoofErrorEndpoint, s.handleSpoofedError)
 
-		apiGroup.POST(domain.PingKernelEndpoint, handlers.NewPingKernelHttpHandler(s.opts, s.gatewayRpcClient).HandleRequest)
+		apiGroup.POST(domain.PingKernelEndpoint, handlers.NewPingKernelHttpHandler(s.opts, s.gatewayRpcClient, &atom).HandleRequest)
 	}
 
 	/////////////////////
@@ -545,7 +547,7 @@ func (s *serverImpl) setupRoutes() error {
 	//if s.opts.SpoofKernelSpecs {
 	//jupyterGroup := s.app.Group(s.getPath(domain.JupyterGroupEndpoint))
 	//{
-	//	jupyterGroup.GET(domain.BaseApiGroupEndpoint+domain.KernelSpecEndpoint, handlers.NewJupyterAPIHandler(s.opts).HandleGetKernelSpecRequest)
+	//	jupyterGroup.GET(domain.BaseApiGroupEndpoint+domain.KernelSpecEndpoint, handlers.NewJupyterAPIHandler(s.otps, &atom).HandleGetKernelSpecRequest)
 	//}
 	//}
 

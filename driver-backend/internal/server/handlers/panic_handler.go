@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"go.uber.org/zap"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -14,13 +15,13 @@ type PanicHttpHandler struct {
 	grpcClient *ClusterDashboardHandler
 }
 
-func NewPanicHttpHandler(opts *domain.Configuration, grpcClient *ClusterDashboardHandler) *PanicHttpHandler {
+func NewPanicHttpHandler(opts *domain.Configuration, grpcClient *ClusterDashboardHandler, atom *zap.AtomicLevel) *PanicHttpHandler {
 	if grpcClient == nil {
 		panic("gRPC Client cannot be nil.")
 	}
 
 	handler := &PanicHttpHandler{
-		BaseHandler: newBaseHandler(opts),
+		BaseHandler: newBaseHandler(opts, atom),
 		grpcClient:  grpcClient,
 	}
 	handler.BackendHttpGetHandler = handler

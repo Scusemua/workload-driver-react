@@ -2,7 +2,9 @@ package handlers
 
 import (
 	"fmt"
+	"go.uber.org/zap/zapcore"
 	"net/http"
+	"os"
 
 	"github.com/gin-gonic/gin"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
@@ -14,21 +16,21 @@ type BaseHandler struct {
 
 	logger        *zap.Logger
 	sugaredLogger *zap.SugaredLogger
-	opts          *domain.Configuration
+	atom          *zap.AtomicLevel
+
+	opts *domain.Configuration
 
 	BackendHttpGetHandler domain.BackendHttpGetHandler
 }
 
-func newBaseHandler(opts *domain.Configuration) *BaseHandler {
+func newBaseHandler(opts *domain.Configuration, atom *zap.AtomicLevel) *BaseHandler {
 	handler := &BaseHandler{
 		opts: opts,
+		atom: atom,
 	}
 
-	var err error
-	handler.logger, err = zap.NewDevelopment()
-	if err != nil {
-		panic(err)
-	}
+	core := zapcore.NewCore(zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()), os.Stdout, atom)
+	handler.logger = zap.New(core, zap.Development())
 
 	handler.sugaredLogger = handler.logger.Sugar()
 

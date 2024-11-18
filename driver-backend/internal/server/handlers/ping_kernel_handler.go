@@ -15,13 +15,13 @@ type PingKernelHttpHandler struct {
 	grpcClient *ClusterDashboardHandler
 }
 
-func NewPingKernelHttpHandler(opts *domain.Configuration, grpcClient *ClusterDashboardHandler) *PingKernelHttpHandler {
+func NewPingKernelHttpHandler(opts *domain.Configuration, grpcClient *ClusterDashboardHandler, atom *zap.AtomicLevel) *PingKernelHttpHandler {
 	if grpcClient == nil {
 		panic("gRPC Client cannot be nil.")
 	}
 
 	handler := &PingKernelHttpHandler{
-		BaseHandler: newBaseHandler(opts),
+		BaseHandler: newBaseHandler(opts, atom),
 		grpcClient:  grpcClient,
 	}
 	handler.BackendHttpGetHandler = handler

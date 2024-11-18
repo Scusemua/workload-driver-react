@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"go.uber.org/zap"
 	"net/http"
 
 	"github.com/gin-gonic/gin"
@@ -14,13 +15,13 @@ type SpoofedNotificationHttpHandler struct {
 	grpcClient *ClusterDashboardHandler
 }
 
-func NewSpoofedNotificationHttpHandler(opts *domain.Configuration, grpcClient *ClusterDashboardHandler) *SpoofedNotificationHttpHandler {
+func NewSpoofedNotificationHttpHandler(opts *domain.Configuration, grpcClient *ClusterDashboardHandler, atom *zap.AtomicLevel) *SpoofedNotificationHttpHandler {
 	if grpcClient == nil {
 		panic("gRPC Client cannot be nil.")
 	}
 
 	handler := &SpoofedNotificationHttpHandler{
-		BaseHandler: newBaseHandler(opts),
+		BaseHandler: newBaseHandler(opts, atom),
 		grpcClient:  grpcClient,
 	}
 	handler.BackendHttpGetHandler = handler

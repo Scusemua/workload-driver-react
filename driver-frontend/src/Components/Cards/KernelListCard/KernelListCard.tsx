@@ -613,7 +613,7 @@ export const KernelListCard: React.FunctionComponent<KernelListProps> = (props: 
         await refreshKernels().catch((err: Error) => console.log(`Kernel refresh failed: ${err}`));
     }
 
-    const onConfirmDeleteKernelsClicked = (kernelIds: string[]) => {
+    const onConfirmDeleteKernelsClicked = async (kernelIds: string[]) => {
         // Close the confirmation dialogue.
         setIsConfirmDeleteKernelsModalOpen(false);
         setIsConfirmDeleteKernelModalOpen(false);
@@ -628,16 +628,63 @@ export const KernelListCard: React.FunctionComponent<KernelListProps> = (props: 
         /**
          * Delete the specified kernel.
          *
-         * @param id The ID of the kernel to be deleted.
+         * @param kernelId The ID of the kernel to be deleted.
+         * @param toastId ID of associated Toast notification
          */
-        async function delete_kernel(id: string) {
-            console.log('Deleting Kernel ' + id + ' now.');
+        async function delete_kernel(kernelId: string, toastId?: string) {
+            console.log('Deleting Kernel ' + kernelId + ' now.');
             const startTime: number = performance.now();
 
-            await kernelManager.current?.shutdown(id).then(() => {
-                console.log('Successfully deleted Kernel ' + id + ' now.');
-                refreshKernels().catch((err: Error) => console.log(`Kernel refresh failed: ${err}`));
-            });
+            const req: RequestInit = {
+                method: 'DELETE',
+            };
+
+            let resp: Response;
+            try {
+                resp = await fetch(`jupyter/api/kernels/${kernelId}`, req);
+            } catch (err) {
+                toast.custom(
+                    GetToastContentWithHeaderAndBody(
+                        `Failed to Delete Kernel ${kernelId}`,
+                        [`Error: ${err}`],
+                        'danger',
+                        DefaultDismiss,
+                    ),
+                    { id: toastId },
+                );
+                return;
+            }
+
+            if (resp.ok && resp.status == 204) {
+                console.log(`Successfully deleted kernel ${kernelId}`);
+                toast.custom(
+                    GetToastContentWithHeaderAndBody(
+                        `Successfully Deleted Kernel ${kernelId}`,
+                        null,
+                        'danger',
+                        DefaultDismiss,
+                    ),
+                    { id: toastId },
+                );
+            } else {
+                console.error(
+                    `Received HTTP ${resp.status} ${resp.statusText} when trying to delete kernel ${kernelId}.`,
+                );
+
+                const respText: string = await resp.text();
+
+                toast.custom(
+                    GetToastContentWithHeaderAndBody(
+                        'Failed to Delete Kernel',
+                        [`Failed to delete kernel ${kernelId}`, `HTTP ${resp.status} ${resp.statusText}: ${respText}`],
+                        'danger',
+                        DefaultDismiss,
+                    ),
+                    { id: toastId },
+                );
+
+                return;
+            }
 
             await fetch(GetPathForFetch('api/metrics'), {
                 method: 'PATCH',
@@ -650,7 +697,7 @@ export const KernelListCard: React.FunctionComponent<KernelListProps> = (props: 
                     name: 'distributed_cluster_jupyter_session_termination_latency_seconds',
                     value: performance.now() - startTime,
                     metadata: {
-                        kernel_id: id,
+                        kernel_id: kernelId,
                     },
                 }),
             });
@@ -658,13 +705,15 @@ export const KernelListCard: React.FunctionComponent<KernelListProps> = (props: 
 
         for (let i: number = 0; i < kernelIds.length; i++) {
             const kernelId: string = kernelIds[i];
-            toast
-                .promise(delete_kernel(kernelId), {
-                    loading: <b>Deleting kernel {kernelId}</b>,
-                    success: <b>Successfully deleted kernel {kernelId}</b>,
-                    error: <b>Failed to delete kernel {kernelId}</b>,
-                })
-                .then(() => {});
+            const toastId: string = toast.custom(
+                GetToastContentWithHeaderAndBody(
+                    'Deleting Kernel',
+                    `Deleting kernel ${kernelId}`,
+                    'info',
+                    DefaultDismiss,
+                ),
+            );
+            await delete_kernel(kernelId, toastId);
         }
 
         setSelectedKernels([]);

@@ -31,13 +31,13 @@ type DockerSwarmNodeHttpHandler struct {
 }
 
 // NewDockerSwarmNodeHttpHandler creates a new DockerSwarmNodeHttpHandler struct and return a pointer to it.
-func NewDockerSwarmNodeHttpHandler(opts *domain.Configuration, grpcClient *ClusterDashboardHandler) *DockerSwarmNodeHttpHandler {
+func NewDockerSwarmNodeHttpHandler(opts *domain.Configuration, grpcClient *ClusterDashboardHandler, atom *zap.AtomicLevel) *DockerSwarmNodeHttpHandler {
 	if grpcClient == nil {
 		panic("gRPC Client cannot be nil.")
 	}
 
 	handler := &DockerSwarmNodeHttpHandler{
-		BaseHandler:        newBaseHandler(opts),
+		BaseHandler:        newBaseHandler(opts, atom),
 		grpcClient:         grpcClient,
 		nodeTypeRegistered: false,
 	}

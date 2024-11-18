@@ -22,13 +22,13 @@ type KernelHttpHandler struct {
 	//spoofedKernels *cmap.ConcurrentMap[string, *gateway.DistributedJupyterKernel] // Latest spoofedKernels.
 }
 
-func NewKernelHttpHandler(opts *domain.Configuration, grpcClient *ClusterDashboardHandler) *KernelHttpHandler {
+func NewKernelHttpHandler(opts *domain.Configuration, grpcClient *ClusterDashboardHandler, atom *zap.AtomicLevel) *KernelHttpHandler {
 	if grpcClient == nil {
 		panic("gRPC Client cannot be nil.")
 	}
 
 	handler := &KernelHttpHandler{
-		BaseHandler: newBaseHandler(opts),
+		BaseHandler: newBaseHandler(opts, atom),
 		//spoofKernels: opts.SpoofKernels,
 		grpcClient: grpcClient,
 	}

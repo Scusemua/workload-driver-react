@@ -21,7 +21,7 @@ type VariablesHttpHandler struct {
 	cachedNodeIds []string
 }
 
-func NewVariablesHttpHandler(opts *domain.Configuration, grpcClient *ClusterDashboardHandler) *VariablesHttpHandler {
+func NewVariablesHttpHandler(opts *domain.Configuration, grpcClient *ClusterDashboardHandler, atom *zap.AtomicLevel) *VariablesHttpHandler {
 	if opts == nil {
 		panic("opts cannot be nil.")
 	}
@@ -31,7 +31,7 @@ func NewVariablesHttpHandler(opts *domain.Configuration, grpcClient *ClusterDash
 	}
 
 	handler := &VariablesHttpHandler{
-		BaseHandler: newBaseHandler(opts),
+		BaseHandler: newBaseHandler(opts, atom),
 		grpcClient:  grpcClient,
 	}
 

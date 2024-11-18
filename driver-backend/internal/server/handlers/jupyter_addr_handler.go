@@ -3,6 +3,7 @@ package handlers
 import (
 	"github.com/gin-gonic/gin"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
+	"go.uber.org/zap"
 	"net/http"
 )
 
@@ -12,9 +13,9 @@ type JupyterAddressHttpHandler struct {
 	frontendJupyterAddress string
 }
 
-func NewJupyterAddressHttpHandler(opts *domain.Configuration) *JupyterAddressHttpHandler {
+func NewJupyterAddressHttpHandler(opts *domain.Configuration, atom *zap.AtomicLevel) *JupyterAddressHttpHandler {
 	handler := &JupyterAddressHttpHandler{
-		BaseHandler:            newBaseHandler(opts),
+		BaseHandler:            newBaseHandler(opts, atom),
 		frontendJupyterAddress: opts.FrontendJupyterServerAddress,
 	}
 	handler.BackendHttpGetHandler = handler

@@ -15,13 +15,13 @@ type ForceLocalDaemonToReconnectHttpHandler struct {
 	grpcClient *ClusterDashboardHandler
 }
 
-func NewForceLocalDaemonToReconnectHttpHandler(opts *domain.Configuration, grpcClient *ClusterDashboardHandler) *ForceLocalDaemonToReconnectHttpHandler {
+func NewForceLocalDaemonToReconnectHttpHandler(opts *domain.Configuration, grpcClient *ClusterDashboardHandler, atom *zap.AtomicLevel) *ForceLocalDaemonToReconnectHttpHandler {
 	if grpcClient == nil {
 		panic("gRPC Client cannot be nil.")
 	}
 
 	handler := &ForceLocalDaemonToReconnectHttpHandler{
-		BaseHandler: newBaseHandler(opts),
+		BaseHandler: newBaseHandler(opts, atom),
 		grpcClient:  grpcClient,
 	}
 	handler.BackendHttpGetHandler = handler

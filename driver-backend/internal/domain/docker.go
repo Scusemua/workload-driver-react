@@ -184,7 +184,7 @@ func VirtualDockerNodeFromProtoVirtualDockerNode(protoNode *proto.VirtualDockerN
 		CreatedAt:          protoNode.CreatedAt.Seconds,
 		Age:                fmt.Sprintf("%v", timex.Round(time.Now().Sub(protoNode.CreatedAt.AsTime()), 3)),
 		age:                time.Now().Sub(protoNode.CreatedAt.AsTime()),
-		Enabled:            true,
+		Enabled:            protoNode.Enabled,
 		Containers:         containers,
 		AllocatedResources: allocatedResources,
 		CapacityResources:  capacityResources,

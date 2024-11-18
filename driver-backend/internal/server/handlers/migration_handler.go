@@ -16,13 +16,13 @@ type MigrationHttpHandler struct {
 	grpcClient *ClusterDashboardHandler
 }
 
-func NewMigrationHttpHandler(opts *domain.Configuration, grpcClient *ClusterDashboardHandler) *MigrationHttpHandler {
+func NewMigrationHttpHandler(opts *domain.Configuration, grpcClient *ClusterDashboardHandler, atom *zap.AtomicLevel) *MigrationHttpHandler {
 	if grpcClient == nil {
 		panic("gRPC Client cannot be nil.")
 	}
 
 	handler := &MigrationHttpHandler{
-		BaseHandler: newBaseHandler(opts),
+		BaseHandler: newBaseHandler(opts, atom),
 		grpcClient:  grpcClient,
 	}
 	handler.BackendHttpGetHandler = handler

@@ -21,9 +21,9 @@ type LogHttpHandler struct {
 	*BaseHandler
 }
 
-func NewLogHttpHandler(opts *domain.Configuration) *LogHttpHandler {
+func NewLogHttpHandler(opts *domain.Configuration, atom *zap.AtomicLevel) *LogHttpHandler {
 	handler := &LogHttpHandler{
-		BaseHandler: newBaseHandler(opts),
+		BaseHandler: newBaseHandler(opts, atom),
 	}
 	handler.BackendHttpGetHandler = handler
 
@@ -46,11 +46,11 @@ func (h *LogHttpHandler) HandleRequest(c *gin.Context) {
 
 	if pod == "" {
 		h.logger.Error("Log request is missing the pod argument.")
-		c.AbortWithError(http.StatusBadRequest, ErrMissingPod)
+		_ = c.AbortWithError(http.StatusBadRequest, ErrMissingPod)
 		return
 	} else if container == "" {
 		h.logger.Error("Log request is missing the container argument.", zap.String("pod", pod))
-		c.AbortWithError(http.StatusBadRequest, ErrMissingContainer)
+		_ = c.AbortWithError(http.StatusBadRequest, ErrMissingContainer)
 		return
 	}
 
@@ -59,7 +59,7 @@ func (h *LogHttpHandler) HandleRequest(c *gin.Context) {
 	resp, err := http.Get(url)
 	if err != nil {
 		h.logger.Error("Failed to get logs.", zap.String("pod", pod), zap.String("container", container), zap.Error(err))
-		c.AbortWithError(http.StatusBadRequest, err)
+		_ = c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
 
@@ -67,10 +67,10 @@ func (h *LogHttpHandler) HandleRequest(c *gin.Context) {
 		h.logger.Error("Failed to retrieve logs.", zap.Int("status-code", resp.StatusCode), zap.String("status", resp.Status))
 		payload, err := io.ReadAll(resp.Body)
 		if err != nil {
-			c.AbortWithError(resp.StatusCode, fmt.Errorf("failed to retrieve logs: received HTTP %d %s", resp.StatusCode, resp.Status))
+			_ = c.AbortWithError(resp.StatusCode, fmt.Errorf("failed to retrieve logs: received HTTP %d %s", resp.StatusCode, resp.Status))
 			return
 		} else {
-			c.AbortWithError(resp.StatusCode, fmt.Errorf("failed to retrieve logs (received HTTP %d %s): %s", resp.StatusCode, resp.Status, payload))
+			_ = c.AbortWithError(resp.StatusCode, fmt.Errorf("failed to retrieve logs (received HTTP %d %s): %s", resp.StatusCode, resp.Status, payload))
 			return
 		}
 	}
@@ -81,7 +81,7 @@ func (h *LogHttpHandler) HandleRequest(c *gin.Context) {
 		h.logger.Debug("Sending all logs back to client at once (i.e., not streaming them).", zap.String("pod", pod), zap.String("container", container))
 		resp, err := io.ReadAll(resp.Body)
 		if err != nil {
-			c.AbortWithError(http.StatusInternalServerError, err)
+			_ = c.AbortWithError(http.StatusInternalServerError, err)
 			return
 		}
 		c.Status(http.StatusOK)
@@ -105,7 +105,7 @@ func (h *LogHttpHandler) streamLogs(c *gin.Context, resp *http.Response, pod str
 		for {
 			line, err := reader.ReadBytes('\n')
 			if err != nil {
-				c.AbortWithError(http.StatusInternalServerError, err)
+				_ = c.AbortWithError(http.StatusInternalServerError, err)
 				return
 			}
 

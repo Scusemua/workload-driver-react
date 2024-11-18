@@ -24,7 +24,7 @@ func NewStopTrainingHandler(opts *domain.Configuration, atom *zap.AtomicLevel) *
 	jupyterAddress := path.Join(opts.InternalJupyterServerAddress, opts.JupyterServerBasePath)
 
 	handler := &StopTrainingHandler{
-		BaseHandler:       newBaseHandler(opts),
+		BaseHandler:       newBaseHandler(opts, atom),
 		manager:           jupyter.NewKernelSessionManager(jupyterAddress, true, atom, metrics.PrometheusMetricsWrapperInstance),
 		kernelConnections: hashmap.New(8),
 	}

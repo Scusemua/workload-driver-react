@@ -12,9 +12,9 @@ type ConfigHttpHandler struct {
 	*BaseHandler
 }
 
-func NewConfigHttpHandler(opts *domain.Configuration) *ConfigHttpHandler {
+func NewConfigHttpHandler(opts *domain.Configuration, atom *zap.AtomicLevel) *ConfigHttpHandler {
 	handler := &ConfigHttpHandler{
-		BaseHandler: newBaseHandler(opts),
+		BaseHandler: newBaseHandler(opts, atom),
 	}
 	handler.BackendHttpGetHandler = handler
 

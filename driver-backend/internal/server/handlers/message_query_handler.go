@@ -15,13 +15,13 @@ type MessageQueryHttpHandler struct {
 	grpcClient *ClusterDashboardHandler
 }
 
-func NewMessageQueryHttpHandler(opts *domain.Configuration, grpcClient *ClusterDashboardHandler) *MessageQueryHttpHandler {
+func NewMessageQueryHttpHandler(opts *domain.Configuration, grpcClient *ClusterDashboardHandler, atom *zap.AtomicLevel) *MessageQueryHttpHandler {
 	if grpcClient == nil {
 		panic("gRPC Client cannot be nil.")
 	}
 
 	handler := &MessageQueryHttpHandler{
-		BaseHandler: newBaseHandler(opts),
+		BaseHandler: newBaseHandler(opts, atom),
 		grpcClient:  grpcClient,
 	}
 	handler.BackendHttpGetHandler = handler

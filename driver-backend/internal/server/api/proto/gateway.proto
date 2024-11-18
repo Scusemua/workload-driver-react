@@ -2,9 +2,9 @@ syntax = "proto3";
 
 import "google/protobuf/timestamp.proto";
 
-option go_package = "github.com/zhangjyr/distributed-notebook/common/proto";
+option go_package = "github.com/scusemua/distributed-notebook/common/proto";
 option java_multiple_files = true;
-option java_package = "com.github.zhangjyr.distributed-notebook.common.proto";
+option java_package = "com.github.scusemua.distributed-notebook.common.proto";
 option java_outer_classname = "GatewayProto";
 
 package gateway;
@@ -358,6 +358,8 @@ message VirtualDockerNode {
   string address = 16;
   // CreatedAt is the time that the node was created.
   google.protobuf.Timestamp createdAt = 17;
+  // Enabled indicates whether the Host is enabled or disabled.
+  bool enabled = 18;
 }
 
 // DockerContainer describes a Docker container.
@@ -536,8 +538,8 @@ service LocalGateway {
   rpc UpdateReplicaAddr(ReplicaInfoWithAddr) returns (Void) {}
 
   // Used to instruct a specific kernel replica to prepare to be migrated to a new node.
-  // This involves writing the contents of the etcd-raft data directory to HDFS so that
-  // it can be read back from HDFS by the new replica.
+  // This involves writing the contents of the etcd-raft data directory to remote storage so that
+  // it can be read back from make build-linux-amd64 by the new replica.
   rpc PrepareToMigrate(ReplicaInfo) returns (PrepareToMigrateResponse) {}
 
   // ResourcesSnapshot returns a NodeResourcesSnapshot struct encoding a snapshot of
@@ -788,7 +790,7 @@ message KernelRegistrationNotificationResponse {
   map<int32, string> replicas = 2;
   int32 smrPort = 3;
   ResourceSpec resourceSpec = 4;
-  bool shouldReadDataFromHdfs = 5;
+  bool shouldReadDataFromRemoteStorage = 5;
   optional string persistentId = 6;
   // optional string dataDirectory = 6;
   // int32 dockerKernelDebugPort = 7;

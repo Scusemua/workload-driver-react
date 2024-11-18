@@ -26,13 +26,13 @@ type NodeHttpHandler struct {
 }
 
 func NewNodeHttpHandler(
-	opts *domain.Configuration) *NodeHttpHandler {
+	opts *domain.Configuration, atom *zap.AtomicLevel) *NodeHttpHandler {
 	if opts == nil {
 		panic("opts cannot be nil.")
 	}
 
 	handler := &NodeHttpHandler{
-		BaseHandler:        newBaseHandler(opts),
+		BaseHandler:        newBaseHandler(opts, atom),
 		nodeTypeRegistered: false,
 	}
 	handler.BackendHttpGetHandler = handler
@@ -144,7 +144,7 @@ func (h *NodeHttpHandler) createKubeNodeHandler() {
 		panic(fmt.Sprintf("cannot create Kubernetes Node Handler; our node type is incompatible: \"%s\"", h.nodeType))
 	}
 
-	h.internalNodeHandler = NewKubeNodeHttpHandler(h.opts, h.grpcClient)
+	h.internalNodeHandler = NewKubeNodeHttpHandler(h.opts, h.grpcClient, h.atom)
 
 	h.logger.Debug("Created and assigned KubeNodeHttpHandler as internal handler of NodeHttpHandler.")
 }
@@ -161,7 +161,7 @@ func (h *NodeHttpHandler) createDockerSwarmNodeHandler() {
 		panic(fmt.Sprintf("cannot create Docker Swarm Node Handler; our node type is incompatible: \"%s\"", h.nodeType))
 	}
 
-	h.internalNodeHandler = NewDockerSwarmNodeHttpHandler(h.opts, h.grpcClient)
+	h.internalNodeHandler = NewDockerSwarmNodeHttpHandler(h.opts, h.grpcClient, h.atom)
 
 	h.logger.Debug("Created and assigned DockerSwarmNodeHttpHandler as internal handler of NodeHttpHandler.")
 }

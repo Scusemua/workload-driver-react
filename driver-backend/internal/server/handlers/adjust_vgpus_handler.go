@@ -17,13 +17,13 @@ type AdjustVirtualGpusHandler struct {
 	grpcClient *ClusterDashboardHandler
 }
 
-func NewAdjustVirtualGpusHandler(opts *domain.Configuration, grpcClient *ClusterDashboardHandler) domain.BackendHttpGetPatchHandler {
+func NewAdjustVirtualGpusHandler(opts *domain.Configuration, grpcClient *ClusterDashboardHandler, atom *zap.AtomicLevel) domain.BackendHttpGetPatchHandler {
 	if grpcClient == nil {
 		panic("gRPC Client cannot be nil.")
 	}
 
 	handler := &AdjustVirtualGpusHandler{
-		BaseHandler: newBaseHandler(opts),
+		BaseHandler: newBaseHandler(opts, atom),
 		grpcClient:  grpcClient,
 	}
 	handler.BackendHttpGetHandler = handler

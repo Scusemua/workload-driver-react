@@ -42,13 +42,13 @@ type KubeNodeHttpHandler struct {
 }
 
 // NewKubeNodeHttpHandler creates a new NewKubeNodeHttpHandler struct and return a pointer to it.
-func NewKubeNodeHttpHandler(opts *domain.Configuration, grpcClient *ClusterDashboardHandler) *KubeNodeHttpHandler {
+func NewKubeNodeHttpHandler(opts *domain.Configuration, grpcClient *ClusterDashboardHandler, atom *zap.AtomicLevel) *KubeNodeHttpHandler {
 	if grpcClient == nil {
 		panic("gRPC Client cannot be nil.")
 	}
 
 	handler := &KubeNodeHttpHandler{
-		BaseHandler: newBaseHandler(opts),
+		BaseHandler: newBaseHandler(opts, atom),
 		grpcClient:  grpcClient,
 		//spoof:              opts.SpoofKubeNodes,
 		nodeTypeRegistered: false,

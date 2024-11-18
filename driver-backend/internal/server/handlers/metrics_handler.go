@@ -21,9 +21,9 @@ type metricsRequest struct {
 	Metadata map[string]interface{} `json:"metadata"`
 }
 
-func NewMetricsHttpHandler(opts *domain.Configuration) *MetricsHttpHandler {
+func NewMetricsHttpHandler(opts *domain.Configuration, atom *zap.AtomicLevel) *MetricsHttpHandler {
 	handler := &MetricsHttpHandler{
-		BaseHandler: newBaseHandler(opts),
+		BaseHandler: newBaseHandler(opts, atom),
 	}
 	handler.BackendHttpGetHandler = handler
 

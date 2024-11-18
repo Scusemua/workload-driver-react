@@ -16,13 +16,13 @@ type YieldNextExecuteHandler struct {
 	grpcClient *ClusterDashboardHandler
 }
 
-func NewYieldNextExecuteHandler(opts *domain.Configuration, grpcClient *ClusterDashboardHandler) domain.BackendHttpPostHandler {
+func NewYieldNextExecuteHandler(opts *domain.Configuration, grpcClient *ClusterDashboardHandler, atom *zap.AtomicLevel) domain.BackendHttpPostHandler {
 	if grpcClient == nil {
 		panic("gRPC Client cannot be nil.")
 	}
 
 	handler := &YieldNextExecuteHandler{
-		BaseHandler: newBaseHandler(opts),
+		BaseHandler: newBaseHandler(opts, atom),
 		grpcClient:  grpcClient,
 	}
 	handler.BackendHttpGetHandler = handler
