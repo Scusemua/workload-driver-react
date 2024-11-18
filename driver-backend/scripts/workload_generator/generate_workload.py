@@ -89,8 +89,47 @@ def plot_aggregate_session_histograms(
         show_visualization: bool = False,
         rate: float = -1
 ):
-    height = int(len(sessions) * 1.25)
-    fig, axs = plt.subplots(nrows=1, ncols=3, figsize=(20, height), dpi=256)
+    height = int(len(sessions) * 1.2)
+
+    fig = plt.figure(constrained_layout=True, figsize = (20, height))
+    gs = plt.GridSpec(2, 3, figure=fig)
+
+    # fig, axs = plt.subplots(nrows=1, ncols=3, figsize=(20, height), dpi=256)
+
+    # Larger subplot on the left (spanning 2 rows and 1 column)
+    ax1 = fig.add_subplot(gs[:, 0])
+    ax1.set_xlabel('Time')
+    ax1.set_ylabel('Event Number')
+    ax1.set_title(f'Poisson Process Event Times (λ = {rate})')
+    ax1.grid(True)
+
+    # IATs, histogram
+    ax2 = fig.add_subplot(gs[0, 1])
+    ax2.set_xlabel('Inter-Arrival Time')
+    ax2.set_ylabel('Frequency')
+    ax2.set_title('Histogram of Inter-Arrival Times')
+    ax2.grid(True, alpha=0.5)
+
+    # Durations, histogram
+    ax3 = fig.add_subplot(gs[0, 2])
+    ax3.set_xlabel('Inter-Arrival Time')
+    ax3.set_ylabel('Frequency')
+    ax3.set_title('Histogram of Inter-Arrival Times')
+    ax3.grid(True, alpha=0.5)
+
+    # IATs, CDF
+    ax4 = fig.add_subplot(gs[1, 1])
+    ax4.set_xlabel('Inter-Arrival Time')
+    ax4.set_ylabel('CDF')
+    ax4.set_title('CDF of Inter-Arrival Times')
+    ax4.grid(True, alpha=0.5)
+
+    # Durations, CDF
+    ax5 = fig.add_subplot(gs[1, 2])
+    ax5.set_xlabel('Inter-Arrival Time')
+    ax5.set_ylabel('CDF')
+    ax5.set_title('CDF of Inter-Arrival Times')
+    ax5.grid(True, alpha=0.5)
 
     if isinstance(rate, list):
         if len(rate) == 0:
@@ -99,25 +138,6 @@ def plot_aggregate_session_histograms(
 
     raw_data_dir: str = os.path.join(output_directory, "raw_data")
     os.makedirs(raw_data_dir, exist_ok=True)
-
-    # Events, step
-    axs[0].set_xlabel('Time')
-    axs[0].set_ylabel('Event Number')
-    axs[0].set_title(f'Poisson Process Event Times (λ = {rate})')
-    axs[0].grid(True)
-
-    # IATs, histogram
-    axs[1].set_xlabel('Inter-Arrival Time')
-    axs[1].set_ylabel('Frequency')
-    axs[1].set_title('Histogram of Inter-Arrival Times')
-    axs[1].grid(True, alpha=0.5)
-
-    # Durations, histogram
-    axs[2].set_ylabel('Frequency')
-    axs[2].set_xlabel('Duration (seconds)')
-    axs[2].set_title(
-        f'Histogram of Event Durations')
-    axs[2].grid(True, alpha=0.5)
 
     num_events: int = 0
     inter_arrival_times: list[int] = []
@@ -146,7 +166,7 @@ def plot_aggregate_session_histograms(
         all_event_times.extend(session.event_times)
 
         tick, label = plot_session_gantt(
-            axs[0],
+            ax1,
             y=1 + i,
             event_durations=session.event_durations,
             inter_arrival_times=session.inter_arrival_times,
@@ -157,17 +177,37 @@ def plot_aggregate_session_histograms(
         #axs[0].step(session.event_times, [0] + session.inter_arrival_times, where='post', color=colors[i], alpha=0.75,
         #            label=f'Session #{i}, Total Events: {len(session.training_events)}')
 
-    axs[0].set_yticks(ticks=ticks, labels=labels)
-    axs[0].set_ylim(0, len(sessions) + 1)
+    ax1.set_yticks(ticks=ticks, labels=labels)
+    ax1.set_ylim(0, len(sessions) + 1)
 
-    axs[1].hist(inter_arrival_times, bins=20, color="tab:green", alpha=0.5,
+    ax2.hist(inter_arrival_times, bins=20, color="tab:green", alpha=0.5,
                 label=f'λ = {rate}, MEAN: {np.mean(inter_arrival_times):.2f} sec, STD: {np.std(inter_arrival_times):.2f} sec')
-    axs[2].hist(event_durations, bins=20, color='tab:red', alpha=0.65,
+    ax3.hist(event_durations, bins=20, color='tab:red', alpha=0.65,
                 label=f'Mean: {np.mean(event_durations):.2f} sec | STD: {np.std(event_durations):.2f} sec')
 
-    axs[0].legend(prop={'size': 16})
-    axs[1].legend()
-    axs[2].legend()
+    inter_arrival_times_xs = sorted(inter_arrival_times)
+    inter_arrival_times_dy = 1.0 / len(inter_arrival_times_xs)
+    inter_arrival_times_ys = [inter_arrival_times_dy]
+    for i in range(1, len(inter_arrival_times_xs)):
+        inter_arrival_times_ys.append(inter_arrival_times_ys[i-1] + inter_arrival_times_dy)
+
+    ax4.plot(inter_arrival_times_xs, inter_arrival_times_ys, color="tab:green", alpha=0.5,
+             label=f'λ = {rate}, MEAN: {np.mean(inter_arrival_times):.2f} sec, STD: {np.std(inter_arrival_times):.2f} sec')
+
+    event_durations_xs = sorted(event_durations)
+    event_durations_dy = 1.0 / len(event_durations_xs)
+    event_durations_ys = [event_durations_dy]
+    for i in range(1, len(event_durations_xs)):
+        event_durations_ys.append(event_durations_ys[i-1] + event_durations_dy)
+
+    ax5.plot(event_durations_xs, event_durations_ys, color='tab:red', alpha=0.65,
+             label=f'Mean: {np.mean(event_durations):.2f} sec | STD: {np.std(event_durations):.2f} sec')
+
+    ax1.legend(prop={'size': 16})
+    ax2.legend()
+    ax3.legend()
+    ax4.legend()
+    ax5.legend()
 
     plt.tight_layout()
 
