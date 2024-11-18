@@ -105,30 +105,30 @@ def plot_aggregate_session_histograms(
 
     # IATs, histogram
     ax2 = fig.add_subplot(gs[0, 1])
-    ax2.set_xlabel('Inter-Arrival Time')
+    ax2.set_xlabel('Inter-Arrival Time (seconds)')
     ax2.set_ylabel('Frequency')
-    ax2.set_title('Histogram of Inter-Arrival Times')
+    ax2.set_title('Histogram of Inter-Arrival Times (seconds)')
     ax2.grid(True, alpha=0.5)
 
     # Durations, histogram
     ax3 = fig.add_subplot(gs[0, 2])
-    ax3.set_xlabel('Inter-Arrival Time')
+    ax3.set_xlabel('Event Duration (seconds)')
     ax3.set_ylabel('Frequency')
-    ax3.set_title('Histogram of Inter-Arrival Times')
+    ax3.set_title('Histogram of Event Duration (seconds)')
     ax3.grid(True, alpha=0.5)
 
     # IATs, CDF
     ax4 = fig.add_subplot(gs[1, 1])
     ax4.set_xlabel('Inter-Arrival Time')
     ax4.set_ylabel('CDF')
-    ax4.set_title('CDF of Inter-Arrival Times')
+    ax4.set_title('CDF of Inter-Arrival Times (seconds)')
     ax4.grid(True, alpha=0.5)
 
     # Durations, CDF
     ax5 = fig.add_subplot(gs[1, 2])
-    ax5.set_xlabel('Inter-Arrival Time')
+    ax5.set_xlabel('Event Duration (seconds)')
     ax5.set_ylabel('CDF')
-    ax5.set_title('CDF of Inter-Arrival Times')
+    ax5.set_title('CDF of Event Duration (seconds)')
     ax5.grid(True, alpha=0.5)
 
     if isinstance(rate, list):
