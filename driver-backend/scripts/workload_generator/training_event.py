@@ -9,7 +9,8 @@ class TrainingEvent(object):
             duration: float,
             millicpus: float = 100,
             mem_mb: float = 5,
-            gpu_utilizations=None
+            gpu_utilizations=None,
+            vram_gb: float = 1.0,
     ):
         """
         :param start_time: the time at which the event begins (in ticks).

@@ -661,7 +661,7 @@ export const KernelListCard: React.FunctionComponent<KernelListProps> = (props: 
                     GetToastContentWithHeaderAndBody(
                         `Successfully Deleted Kernel ${kernelId}`,
                         null,
-                        'danger',
+                        'success',
                         DefaultDismiss,
                     ),
                     { id: toastId },
@@ -711,6 +711,8 @@ export const KernelListCard: React.FunctionComponent<KernelListProps> = (props: 
                     `Deleting kernel ${kernelId}`,
                     'info',
                     DefaultDismiss,
+                    undefined,
+                    <SpinnerIcon className={'loading-icon-spin-pulse'} />,
                 ),
             );
             await delete_kernel(kernelId, toastId);

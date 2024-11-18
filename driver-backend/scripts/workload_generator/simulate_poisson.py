@@ -220,15 +220,15 @@ def plot_sequential_poisson(
 
 
 def poisson_simulation(
-  rate: list[float] | float,
-  iat: list[float] | float,
+  rate: List[float] | float,
+  iat: List[float] | float,
   time_duration: float,
   shape: float,
   scale: float,
   show_visualization: bool = True,
   output_directory: str = "",
   session_index: int = -1,
-) -> tuple[list[int], list[list[ndarray[Any, Any]]], list[ndarray], list[ndarray]]:
+) -> Tuple[List[int], List[List[ndarray[Any, Any]]], List[ndarray], List[ndarray]]:
   if not isinstance(rate, list):
     rate = [rate]
 
@@ -243,14 +243,6 @@ def poisson_simulation(
     assert len(rate) > 0
 
   print(f"Simulating Poisson Process with rate={rate} and time duration={time_duration}")
-  # if isinstance(rate, int):
-  #   num_events, event_times, inter_arrival_times, event_durations = generate_poisson_events(rate, time_duration, shape, scale)
-  #
-  #   if show_visualization:
-  #     plot_non_sequential_poisson(num_events, event_times, inter_arrival_times, event_durations, rate, time_duration)
-  #     return num_events, event_times, inter_arrival_times, event_durations
-  #   else:
-  #     return num_events, event_times, inter_arrival_times, event_durations
 
   if isinstance(rate, list):
     num_events_list = []
