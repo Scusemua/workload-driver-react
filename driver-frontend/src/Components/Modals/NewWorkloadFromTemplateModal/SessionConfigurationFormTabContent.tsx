@@ -123,13 +123,10 @@ export const SessionConfigurationFormTabContent: React.FunctionComponent<Session
     };
 
     const isVramValidated = () => {
-        if (getFieldState(trainingVramUsageGbFieldId).invalid) {
-            return 'error';
-        }
-
         const numGPUs: number = (getValues(numGpusFieldId) as number) || 1;
         const vram: number = getValues(trainingVramUsageGbFieldId) as number;
-        if (vram > numGPUs * 4) {
+
+        if (vram < 0 || vram > numGPUs * 4) {
             return 'error';
         }
 
