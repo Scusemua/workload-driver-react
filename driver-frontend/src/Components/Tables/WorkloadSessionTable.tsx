@@ -11,7 +11,7 @@ import {
     UnknownIcon,
 } from '@patternfly/react-icons';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
-import { GpuIcon, GpuIconAlt, GpuIconAlt2 } from '@src/Assets/Icons';
+import { GpuIcon, GpuIconAlt2 } from '@src/Assets/Icons';
 import React from 'react';
 
 export interface WorkloadSessionTableProps {
@@ -43,10 +43,10 @@ export const WorkloadSessionTable: React.FunctionComponent<WorkloadSessionTableP
         'Status',
         'Executions Completed',
         'Executions Remaining',
-        'Max mCPUs',
-        'Max Memory (MB)',
-        'Max vGPUs',
-        'Max VRAM (GB)',
+        'milliCPUs',
+        'Memory (MB)',
+        'vGPUs',
+        'VRAM (GB)',
     ];
 
     const getSessionStatusLabel = (session: Session) => {
@@ -155,16 +155,24 @@ export const WorkloadSessionTable: React.FunctionComponent<WorkloadSessionTableP
                                     <Td dataLabel={sessions_table_columns[3]}>{session.trainings_completed || '0'}</Td>
                                     <Td dataLabel={sessions_table_columns[4]}>{getRemainingTrainings(session)}</Td>
                                     <Td dataLabel={sessions_table_columns[5]}>
-                                        <CpuIcon /> {session?.resource_request.cpus}
+                                        <CpuIcon /> {session?.current_resource_request.cpus}
+                                        {'/'}
+                                        {session?.max_resource_request.cpus}
                                     </Td>
                                     <Td dataLabel={sessions_table_columns[6]}>
-                                        <MemoryIcon /> {session?.resource_request.memory_mb}{' '}
+                                        <MemoryIcon /> {session?.current_resource_request.memory_mb}
+                                        {'/'}
+                                        {session?.max_resource_request.memory_mb}
                                     </Td>
                                     <Td dataLabel={sessions_table_columns[7]}>
-                                        <GpuIcon /> {session?.resource_request.gpus}
+                                        <GpuIcon /> {session?.current_resource_request.gpus}
+                                        {'/'}
+                                        {session?.max_resource_request.gpus}
                                     </Td>
                                     <Td dataLabel={sessions_table_columns[8]}>
-                                        <GpuIconAlt2 /> {session?.resource_request.vram}
+                                        <GpuIconAlt2 /> {session?.current_resource_request.vram}
+                                        {'/'}
+                                        {session?.max_resource_request.vram}
                                     </Td>
                                 </Tr>
                             );

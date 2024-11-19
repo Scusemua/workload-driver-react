@@ -234,7 +234,8 @@ interface RemoteStorageDefinition {
 interface Session {
     form_id: string;
     id: string;
-    resource_request: ResourceRequest;
+    max_resource_request: ResourceRequest;
+    current_resource_request: ResourceRequest;
     start_tick: number;
     stop_tick: number;
     trainings: TrainingEvent[];
