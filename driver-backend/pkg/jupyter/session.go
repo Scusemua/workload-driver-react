@@ -135,7 +135,7 @@ type SessionConnection struct {
 	createdAt time.Time
 
 	// metadata is a map containing basic metadata used for labeling kernelMetricsManager.
-	metadata      map[string]string
+	metadata      map[string]interface{}
 	metadataMutex sync.Mutex
 
 	logger        *zap.Logger
@@ -159,7 +159,7 @@ func NewSessionConnection(model *jupyterSession, username string, jupyterServerA
 		jupyterServerAddress: jupyterServerAddress,
 		atom:                 atom,
 		createdAt:            time.Now(),
-		metadata:             make(map[string]string),
+		metadata:             make(map[string]interface{}),
 		metricsConsumer:      metricsConsumer,
 		onError:              onError,
 	}
@@ -188,23 +188,25 @@ func NewSessionConnection(model *jupyterSession, username string, jupyterServerA
 // that metadata will be overwritten.
 //
 // This particular implementation of AddMetadata is thread-safe.
-func (conn *SessionConnection) AddMetadata(key string, value string, addToKernelConnection bool) {
+func (conn *SessionConnection) AddMetadata(key string, value interface{}, addToKernelConnection bool) error {
 	conn.metadataMutex.Lock()
 	defer conn.metadataMutex.Unlock()
 
+	conn.metadata[key] = value
+
 	if addToKernelConnection && conn.kernel != nil {
 		conn.logger.Debug("Adding metadata to kernel.", zap.String("kernel_id", conn.model.JupyterKernel.Id),
-			zap.String("metadata_key", key), zap.String("metadata_value", value))
-		conn.kernel.AddMetadata(key, value)
+			zap.String("metadata_key", key), zap.Any("metadata_value", value))
+		return conn.kernel.AddMetadata(key, value)
 	}
 
-	conn.metadata[key] = value
+	return nil
 }
 
 // GetMetadata retrieves a piece of metadata that may be attached to the SessionConnection.
 //
 // This particular implementation of GetMetadata is thread-safe.
-func (conn *SessionConnection) GetMetadata(key string) (string, bool) {
+func (conn *SessionConnection) GetMetadata(key string) (interface{}, bool) {
 	conn.metadataMutex.Lock()
 	defer conn.metadataMutex.Unlock()
 
@@ -222,17 +224,32 @@ func (conn *SessionConnection) connectToKernel(username string) error {
 		return ErrAlreadyConnectedToKernel
 	}
 
-	var err error
-	conn.kernel, err = NewKernelConnection(conn.model.JupyterKernel.Id, conn.model.JupyterSessionId, username,
+	kernel, err := NewKernelConnection(conn.model.JupyterKernel.Id, conn.model.JupyterSessionId, username,
 		conn.jupyterServerAddress, conn.atom, conn.metricsConsumer, conn.onError)
+
+	if err != nil {
+		return err
+	}
+
+	conn.kernel = kernel
 
 	// Add all the SessionConnection's metadata to the new KernelConnection.
 	conn.metadataMutex.Lock()
 	defer conn.metadataMutex.Unlock()
+
+	var metadataErrors []error
 	for key, value := range conn.metadata {
 		conn.logger.Debug("Adding metadata to kernel.", zap.String("kernel_id", conn.model.JupyterKernel.Id),
-			zap.String("metadata_key", key), zap.String("metadata_value", value))
-		conn.kernel.AddMetadata(key, value)
+			zap.String("metadata_key", key), zap.Any("metadata_value", value))
+		metadataError := conn.kernel.AddMetadata(key, value)
+
+		if metadataError != nil {
+			conn.logger.Error("Could not add metadata to kernel.",
+				zap.String("kernel_id", conn.model.JupyterKernel.Id),
+				zap.String("metadata_key", key),
+				zap.Any("metadata_value", value))
+			metadataErrors = append(metadataErrors, metadataError)
+		}
 	}
 
 	return err // Will be nil if everything went OK.

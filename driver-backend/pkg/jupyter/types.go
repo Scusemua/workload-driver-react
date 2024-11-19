@@ -93,11 +93,11 @@ type KernelConnection interface {
 
 	// AddMetadata attaches some metadata to the KernelConnection.
 	// This metadata is primarily used for attaching labels to Prometheus kernelMetricsManager.
-	AddMetadata(key, value string)
+	AddMetadata(key string, value interface{}) error
 
 	// GetMetadata retrieves a piece of metadata that may be attached to the KernelConnection.
 	// This metadata is primarily used for attaching labels to Prometheus kernelMetricsManager.
-	GetMetadata(key string) (string, bool)
+	GetMetadata(key string) (interface{}, bool)
 }
 
 type ErrorHandler func(sessionId string, kernelId string, err error)
@@ -146,7 +146,7 @@ type KernelSessionManager interface {
 	// creates. Metadata added to the KernelSessionManager after a SessionConnection or
 	// KernelConnection is created will not be added to any existing SessionConnection or
 	// KernelConnection instances.
-	AddMetadata(key, value string)
+	AddMetadata(key string, value interface{})
 
 	// GetMetadata retrieves a piece of metadata that may be attached to the KernelSessionManager.
 	//
@@ -155,7 +155,7 @@ type KernelSessionManager interface {
 	//
 	// If there is no metadata attached to the KernelSessionManager at the given key, then the empty
 	// string is returned, along with a boolean equal to false.
-	GetMetadata(key string) (string, bool)
+	GetMetadata(key string) (interface{}, bool)
 
 	// RegisterOnErrorHandler registers an error handler to be called if the kernel manager encounters an error.
 	//

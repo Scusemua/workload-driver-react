@@ -12,25 +12,25 @@ type BasicConcurrentWebSocket struct {
 	wlock sync.Mutex
 	conn  *websocket.Conn
 
-	metadata      map[string]string
+	metadata      map[string]interface{}
 	metadataMutex sync.Mutex
 }
 
 func NewConcurrentWebSocket(conn *websocket.Conn) *BasicConcurrentWebSocket {
 	return &BasicConcurrentWebSocket{
 		conn:     conn,
-		metadata: map[string]string{},
+		metadata: map[string]interface{}{},
 	}
 }
 
-func (w *BasicConcurrentWebSocket) AddMetadata(key, value string) {
+func (w *BasicConcurrentWebSocket) AddMetadata(key string, value interface{}) {
 	w.metadataMutex.Lock()
 	defer w.metadataMutex.Unlock()
 
 	w.metadata[key] = value
 }
 
-func (w *BasicConcurrentWebSocket) GetMetadata(key string) (string, bool) {
+func (w *BasicConcurrentWebSocket) GetMetadata(key string) (interface{}, bool) {
 	w.metadataMutex.Lock()
 	defer w.metadataMutex.Unlock()
 

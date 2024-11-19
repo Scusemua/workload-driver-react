@@ -41,6 +41,14 @@ const (
 	DummyMessage            MessageType = "dummy_message_request"
 	AckMessage              MessageType = "ACK"
 	CommCloseMessage        MessageType = "comm_close"
+
+	// KernelIdMetadataKey is a reserved metadata key, meaning it cannot be overwritten in the kernel's
+	// metadata dictionary.
+	KernelIdMetadataKey = "kernel_id"
+
+	// SendTimestampMetadataKey is a reserved metadata key, meaning it cannot be overwritten in the kernel's
+	// metadata dictionary.
+	SendTimestampMetadataKey = "send_timestamp_unix_milli"
 )
 
 var (
@@ -54,6 +62,7 @@ var (
 	ErrCantAckNotRegistered    = errors.New("cannot ACK message as registration for associated channel has not yet completed")
 	ErrInitialConnectCompleted = errors.New("the initial connection attempt has already completed successfully for the target kernel")
 	ErrSetupInProgress         = errors.New("cannot perform websocket connection setup as another setup procedure is already underway")
+	ErrReservedMetadataKey     = errors.New("cannot add metadata using specified key as key is reserved")
 
 	errReconnectionInProgress = errors.New("cannot reconnect to kernel as another reconnection attempt is already underway")
 )
@@ -121,7 +130,12 @@ type BasicKernelConnection struct {
 	reconnectionInProgress atomic.Int32
 
 	// metadata is a map containing basic metadata used for labeling kernelMetricsManager.
-	metadata      map[string]string
+	metadata map[string]interface{}
+	// serializedMetadata contains the same mapping as the metadata mapping, except that the values are serialized
+	// to JSON before being added to serializedMetadata. This is so we don't have to perform the serialization step
+	// every time we want to embed the metadata in a kernel message.
+	serializedMetadata map[string]string
+	// metadataMutex ensures atomic access to the metadata and serializedMetadata mappings.
 	metadataMutex sync.Mutex
 
 	// Gorilla Websockets support 1 concurrent reader and 1 concurrent writer on the same websocket.
@@ -163,7 +177,8 @@ func NewKernelConnection(kernelId string, clientId string, username string, jupy
 		kernelStdout:         make([]string, 0),
 		kernelStderr:         make([]string, 0),
 		iopubMessageHandlers: make(map[string]IOPubMessageHandler),
-		metadata:             make(map[string]string),
+		metadata:             make(map[string]interface{}),
+		serializedMetadata:   make(map[string]string),
 		metricsConsumer:      metricsConsumer,
 		onError:              onError,
 	}
@@ -202,17 +217,56 @@ func (conn *BasicKernelConnection) SetOnError(onError func(err error)) {
 // AddMetadata attaches some metadata to the BasicKernelConnection.
 //
 // This particular implementation of AddMetadata is thread-safe.
-func (conn *BasicKernelConnection) AddMetadata(key, value string) {
+func (conn *BasicKernelConnection) AddMetadata(key string, value interface{}) error {
 	conn.metadataMutex.Lock()
 	defer conn.metadataMutex.Unlock()
 
+	if key == KernelIdMetadataKey || key == SendTimestampMetadataKey {
+		conn.logger.Error("Cannot add requested entry to kernel connection metadata. Key is reserved.",
+			zap.String("key", key),
+			zap.Any("value", value))
+
+		return fmt.Errorf("%w: \"%s\"", ErrReservedMetadataKey, key)
+	}
+
 	conn.metadata[key] = value
+
+	serializedValue, err := json.Marshal(value)
+	if err != nil {
+		conn.logger.Error("Failed to serialize new metadata added to kernel connection.",
+			zap.String("kernel_id", conn.kernelId),
+			zap.String("metadata_key", key),
+			zap.Any("metadata_value", value),
+			zap.Error(err))
+
+		return err
+	}
+
+	conn.serializedMetadata[key] = string(serializedValue)
+
+	return nil
+}
+
+// GetSerializedMetadata retrieves a piece of serialized metadata that may be attached to the BasicKernelConnection.
+//
+// This particular implementation of GetSerializedMetadata is thread-safe.
+func (conn *BasicKernelConnection) GetSerializedMetadata(key string) (interface{}, bool) {
+	conn.metadataMutex.Lock()
+	defer conn.metadataMutex.Unlock()
+
+	value, ok := conn.serializedMetadata[key]
+	if !ok {
+		conn.logger.Warn("Could not find metadata with specified key attached to BasicKernelConnection.",
+			zap.String("kernel_id", conn.kernelId),
+			zap.String("key", key))
+	}
+	return value, ok
 }
 
 // GetMetadata retrieves a piece of metadata that may be attached to the BasicKernelConnection.
 //
 // This particular implementation of GetMetadata is thread-safe.
-func (conn *BasicKernelConnection) GetMetadata(key string) (string, bool) {
+func (conn *BasicKernelConnection) GetMetadata(key string) (interface{}, bool) {
 	conn.metadataMutex.Lock()
 	defer conn.metadataMutex.Unlock()
 
@@ -444,10 +498,6 @@ func (conn *BasicKernelConnection) RequestExecute(args *RequestExecuteArgs) erro
 
 	if args.AwaitResponse() {
 		// We'll populate this either in the ticker or when we get the response.
-		var (
-			workloadId string
-		)
-
 		response := <-responseChan
 		latency := time.Since(sentAt)
 		conn.logger.Debug("Received response to `execute_request` message.",
@@ -459,11 +509,18 @@ func (conn *BasicKernelConnection) RequestExecute(args *RequestExecuteArgs) erro
 		conn.waitingForExecuteResponses.Add(-1)
 
 		// If we haven't populated the workloadId variable with a value yet, then attempt to do so.
-		if len(workloadId) == 0 {
-			workloadId, _ = conn.GetMetadata(WorkloadIdMetadataKey)
+		var workloadId string
+		val, loaded := conn.GetMetadata(WorkloadIdMetadataKey)
+
+		if loaded {
+			workloadId = val.(string)
+		} else {
+			conn.logger.Warn("Could not load WorkloadId metadata from KernelConnection.",
+				zap.String("kernel_id", conn.kernelId),
+				zap.Int("num_metadata_entries", len(conn.metadata)))
 		}
 
-		if conn.metricsConsumer != nil {
+		if conn.metricsConsumer != nil && workloadId != "" {
 			latencyMs := latency.Milliseconds()
 			conn.metricsConsumer.ObserveJupyterExecuteRequestE2ELatency(latencyMs, workloadId)
 			conn.metricsConsumer.AddJupyterRequestExecuteTime(latencyMs, conn.kernelId, workloadId)
@@ -855,6 +912,40 @@ func (conn *BasicKernelConnection) defaultHandleIOPubMessage(kernelMessage Kerne
 	return
 }
 
+// RangeOverMetadata atomically iterates over the BasicKernelConnection's metadata mapping, calling the provided
+// function for each key-value pair in the metadata mapping.
+//
+// If the provided function returns false, then the iteration will stop, and RangeOverMetadata will return.
+func (conn *BasicKernelConnection) RangeOverMetadata(f func(key string, value interface{}) bool) {
+	conn.metadataMutex.Lock()
+	defer conn.metadataMutex.Unlock()
+
+	for key, value := range conn.metadata {
+		shouldContinue := f(key, value)
+
+		if !shouldContinue {
+			return
+		}
+	}
+}
+
+// RangeOverSerializedMetadata atomically iterates over the BasicKernelConnection's serialized metadata mapping, calling
+// the provided function for each key-value pair in the metadata mapping.
+//
+// If the provided function returns false, then the iteration will stop, and RangeOverMetadata will return.
+func (conn *BasicKernelConnection) RangeOverSerializedMetadata(f func(key string, value interface{}) bool) {
+	conn.metadataMutex.Lock()
+	defer conn.metadataMutex.Unlock()
+
+	for key, value := range conn.serializedMetadata {
+		shouldContinue := f(key, value)
+
+		if !shouldContinue {
+			return
+		}
+	}
+}
+
 func (conn *BasicKernelConnection) createKernelMessage(messageType MessageType, channel KernelSocketChannel, content interface{}) (KernelMessage, chan KernelMessage) {
 	messageId := conn.getNextMessageId()
 	header := &KernelMessageHeader{
@@ -870,19 +961,43 @@ func (conn *BasicKernelConnection) createKernelMessage(messageType MessageType, 
 		content = make(map[string]interface{})
 	}
 
-	metadata := make(map[string]interface{})
-	metadata["kernel_id"] = conn.kernelId
-	metadata["send_timestamp_unix_milli"] = time.Now().UnixMilli()
+	//workloadId, loaded := conn.GetMetadata(WorkloadIdMetadataKey)
+	//if loaded {
+	//	metadata["workload_id"] = workloadId
+	//} else {
+	//	conn.logger.Warn("Could not embed workload ID in kernel message.",
+	//		zap.String("message_id", messageId), zap.String("message_type", messageType.String()),
+	//		zap.String("channel", channel.String()), zap.String("client_id", conn.clientId),
+	//		zap.String("username", conn.username))
+	//}
 
-	workloadId, loaded := conn.GetMetadata(WorkloadIdMetadataKey)
-	if loaded {
-		metadata["workload_id"] = workloadId
-	} else {
-		conn.logger.Warn("Could not embed workload ID in kernel message.",
-			zap.String("message_id", messageId), zap.String("message_type", messageType.String()),
-			zap.String("channel", channel.String()), zap.String("client_id", conn.clientId),
-			zap.String("username", conn.username))
-	}
+	metadata := make(map[string]interface{})
+	// Add all the registered metadata to the dictionary.
+	conn.RangeOverSerializedMetadata(func(key string, value interface{}) bool {
+		marshalledValue, err := json.Marshal(value)
+
+		if err != nil {
+			conn.logger.Error("Failed to serialize piece of metadata while creating kernel message.",
+				zap.String("message_id", messageId),
+				zap.String("message_type", messageType.String()),
+				zap.String("metadata_key", key),
+				zap.Any("metadata_value", value),
+				zap.Error(err))
+			return true
+		}
+
+		metadata[key] = string(marshalledValue)
+		conn.logger.Debug("Added metadata to Jupyter kernel message.",
+			zap.String("message_id", messageId),
+			zap.String("message_type", messageType.String()),
+			zap.String("metadata_key", key),
+			zap.Any("metadata_value", value))
+
+		return true
+	})
+
+	metadata[KernelIdMetadataKey] = conn.kernelId
+	metadata[SendTimestampMetadataKey] = time.Now().UnixMilli()
 
 	message := &BaseKernelMessage{
 		Channel:      channel,

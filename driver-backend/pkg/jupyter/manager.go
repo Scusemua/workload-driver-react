@@ -21,6 +21,12 @@ import (
 const (
 	ZapSessionIDKey       = "session_id"
 	WorkloadIdMetadataKey = "workload-id"
+
+	// RemoteStorageDefinitionMetadataKey is used to register a proto.RemoteStorageDefinition with a
+	// KernelSessionManager so that the proto.RemoteStorageDefinition can be embedded in the metadata
+	// of "execute_request" and "yield_request" messages to instruct the kernel how to simulate
+	// remote storage reads and writes.
+	RemoteStorageDefinitionMetadataKey = "remote_storage_definition"
 )
 
 var (
@@ -91,7 +97,7 @@ type BasicKernelSessionManager struct {
 	localSessionIdToJupyterSessionId map[string]string             // Map from "local" (provided by us) Session IDs to the Jupyter-provided Session IDs.
 	kernelIdToJupyterSessionId       map[string]string             // Map from Kernel IDs to "local" Session IDs. Jupyter provides both the Session IDs and the Kernel IDs.
 	sessionMap                       map[string]*SessionConnection // Map from Session ID to Session. The keys are the Session IDs supplied by us/the trace data.
-	metadata                         map[string]string             // Metadata is miscellaneous metadata attached to the BasicKernelSessionManager that is mostly used for kernelMetricsManager
+	metadata                         map[string]interface{}        // Metadata is miscellaneous metadata attached to the BasicKernelSessionManager that is mostly used for kernelMetricsManager
 	metadataMutex                    sync.Mutex                    // Synchronizes access to the metadata map.
 	adjustSessionNames               bool                          // If true, ensure all session names are 36 characters in length. For now, this should be true. Setting it to false causes problems for some reason...
 
@@ -110,7 +116,7 @@ func NewKernelSessionManager(jupyterServerAddress string, adjustSessionNames boo
 		kernelIdToJupyterSessionId:       make(map[string]string),
 		kernelIdToLocalSessionId:         make(map[string]string),
 		sessionMap:                       make(map[string]*SessionConnection),
-		metadata:                         make(map[string]string),
+		metadata:                         make(map[string]interface{}),
 		adjustSessionNames:               adjustSessionNames,
 		atom:                             atom,
 	}
@@ -147,7 +153,7 @@ func (m *BasicKernelSessionManager) tryCallErrorHandler(kernelId string, session
 // KernelConnection instances.
 //
 // This particular implementation of AddMetadata is thread-safe.
-func (m *BasicKernelSessionManager) AddMetadata(key, value string) {
+func (m *BasicKernelSessionManager) AddMetadata(key string, value interface{}) {
 	m.metadataMutex.Lock()
 	defer m.metadataMutex.Unlock()
 
@@ -163,7 +169,7 @@ func (m *BasicKernelSessionManager) AddMetadata(key, value string) {
 // string is returned, along with a boolean equal to false.
 //
 // This particular implementation of GetMetadata is thread-safe.
-func (m *BasicKernelSessionManager) GetMetadata(key string) (string, bool) {
+func (m *BasicKernelSessionManager) GetMetadata(key string) (interface{}, bool) {
 	m.metadataMutex.Lock()
 	defer m.metadataMutex.Unlock()
 
@@ -289,13 +295,19 @@ func (m *BasicKernelSessionManager) CreateSession(sessionId string, sessionPath 
 		}
 	}
 
-	workloadId, _ := m.GetMetadata(WorkloadIdMetadataKey)
+	workloadId, loaded := m.GetMetadata(WorkloadIdMetadataKey)
 
-	m.mu.Lock()
-	m.kernelMetricsManager.SessionCreated(time.Since(sentAt), workloadId)
-	m.mu.Unlock()
+	if loaded {
+		m.mu.Lock()
+		m.kernelMetricsManager.SessionCreated(time.Since(sentAt), workloadId.(string))
+		m.mu.Unlock()
 
-	sessionConnection.AddMetadata(WorkloadIdMetadataKey, workloadId, true)
+		sessionConnection.AddMetadata(WorkloadIdMetadataKey, workloadId.(string), true)
+	} else {
+		m.logger.Warn("Could not load WorkloadID metadata from KernelSessionManager while creating session.",
+			zap.String("session_id", sessionId),
+			zap.Int("num_metadata_entries", len(m.metadata)))
+	}
 
 	// TODO(Ben): Does this also create a new kernel?
 	return sessionConnection, nil
@@ -471,8 +483,16 @@ func (m *BasicKernelSessionManager) StopKernel(id string) error {
 		m.logger.Warn("Unexpected response status code when stopping session.", zap.Int("status-code", resp.StatusCode), zap.String("status", resp.Status), zap.Any("headers", resp.Header), zap.Any("body", string(body)))
 	}
 
-	workloadId, _ := m.GetMetadata(WorkloadIdMetadataKey)
-	m.kernelMetricsManager.SessionTerminated(time.Since(sentAt), workloadId)
+	workloadId, loaded := m.GetMetadata(WorkloadIdMetadataKey)
+
+	if loaded {
+		m.kernelMetricsManager.SessionTerminated(time.Since(sentAt), workloadId.(string))
+	} else {
+		m.logger.Warn("Could not load WorkloadId from KernelSessionManager metadata while stopping kernel.",
+			zap.String("kernel_id", id),
+			zap.Int("num_metadata_entries", len(m.metadata)))
+	}
+
 	// TODO(Ben): Does this also terminate the kernel?
 	return nil
 }
@@ -506,7 +526,7 @@ func (m *BasicKernelSessionManager) ConnectTo(kernelId string, sessionId string,
 	defer m.metadataMutex.Unlock()
 	for key, value := range m.metadata {
 		m.logger.Debug("Adding metadata to kernel.", zap.String("kernel_id", kernelId),
-			zap.String("metadata_key", key), zap.String("metadata_value", value))
+			zap.String("metadata_key", key), zap.Any("metadata_value", value))
 		conn.AddMetadata(key, value)
 	}
 

@@ -316,14 +316,24 @@ func (d *BasicWorkloadDriver) createWorkloadFromPreset(workloadRegistrationReque
 		return nil, ErrWorkloadPresetNotFound
 	}
 
-	d.logger.Debug("Creating new workload from preset.", zap.String("workload_name", workloadRegistrationRequest.WorkloadName), zap.String("workload-preset-name", d.workloadPreset.GetName()))
-	workload := domain.NewWorkloadFromPreset(
-		domain.NewWorkload(d.id, workloadRegistrationRequest.WorkloadName,
-			d.workloadRegistrationRequest.Seed, workloadRegistrationRequest.DebugLogging, workloadRegistrationRequest.TimescaleAdjustmentFactor, d.atom), d.workloadPreset)
+	d.logger.Debug("Creating new workload from preset.",
+		zap.String("workload_name", workloadRegistrationRequest.WorkloadName),
+		zap.String("workload-preset-name", d.workloadPreset.GetName()))
 
-	workload.SetSource(d.workloadPreset)
+	basicWorkload := domain.NewWorkloadBuilder().
+		SetID(d.id).
+		SetWorkloadName(workloadRegistrationRequest.WorkloadName).
+		SetSeed(workloadRegistrationRequest.Seed).
+		EnableDebugLogging(workloadRegistrationRequest.DebugLogging).
+		SetTimescaleAdjustmentFactor(workloadRegistrationRequest.TimescaleAdjustmentFactor).
+		SetRemoteStorageDefinition(workloadRegistrationRequest.RemoteStorageDefinition).
+		SetAtom(d.atom).
+		Build()
 
-	return workload, nil
+	workloadFromPreset := domain.NewWorkloadFromPreset(basicWorkload, d.workloadPreset)
+	workloadFromPreset.SetSource(d.workloadPreset)
+
+	return workloadFromPreset, nil
 }
 
 // Create a workload that was created using a template.
@@ -338,14 +348,21 @@ func (d *BasicWorkloadDriver) createWorkloadFromTemplate(workloadRegistrationReq
 
 	d.workloadSessions = workloadRegistrationRequest.Sessions
 	d.logger.Debug("Creating new workload from template.", zap.String("workload_name", workloadRegistrationRequest.WorkloadName))
-	workload := domain.NewWorkloadFromTemplate(
-		domain.NewWorkload(d.id, workloadRegistrationRequest.WorkloadName,
-			d.workloadRegistrationRequest.Seed, workloadRegistrationRequest.DebugLogging, workloadRegistrationRequest.TimescaleAdjustmentFactor, d.atom), d.workloadRegistrationRequest.Sessions,
-	)
 
-	workload.SetSource(workloadRegistrationRequest.Sessions)
+	basicWorkload := domain.NewWorkloadBuilder().
+		SetID(d.id).
+		SetWorkloadName(workloadRegistrationRequest.WorkloadName).
+		SetSeed(workloadRegistrationRequest.Seed).
+		EnableDebugLogging(workloadRegistrationRequest.DebugLogging).
+		SetTimescaleAdjustmentFactor(workloadRegistrationRequest.TimescaleAdjustmentFactor).
+		SetRemoteStorageDefinition(workloadRegistrationRequest.RemoteStorageDefinition).
+		SetAtom(d.atom).
+		Build()
 
-	return workload, nil
+	workloadFromTemplate := domain.NewWorkloadFromTemplate(basicWorkload, d.workloadRegistrationRequest.Sessions)
+	workloadFromTemplate.SetSource(workloadRegistrationRequest.Sessions)
+
+	return workloadFromTemplate, nil
 }
 
 // RegisterWorkload registers a workload with the driver.
@@ -449,6 +466,7 @@ func (d *BasicWorkloadDriver) RegisterWorkload(workloadRegistrationRequest *doma
 
 	d.workload = workload
 	d.kernelManager.AddMetadata(jupyter.WorkloadIdMetadataKey, d.workload.GetId())
+	d.kernelManager.AddMetadata(jupyter.RemoteStorageDefinitionMetadataKey, d.workload.GetRemoteStorageDefinition())
 	return d.workload, nil
 }
 

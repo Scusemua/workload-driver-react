@@ -1,6 +1,9 @@
 package domain
 
-import "encoding/json"
+import (
+	"encoding/json"
+	"github.com/scusemua/workload-driver-react/m/v2/internal/server/api/proto"
+)
 
 type WorkloadWebsocketMessage interface {
 	GetOperation() string
@@ -167,14 +170,15 @@ type WorkloadRegistrationRequest struct {
 
 	// By default, sessions reserve 'NUM_GPUS' GPUs when being scheduled. If this property is enabled, then sessions will instead reserve 'NUM_GPUs' * 'MAX_GPU_UTIL'.
 	// This will lead to many sessions reserving fewer GPUs than when this property is disabled (default).
-	AdjustGpuReservations     bool                       `name:"adjust_gpu_reservations" json:"adjust_gpu_reservations" description:"By default, sessions reserve 'NUM_GPUS' GPUs when being scheduled. If this property is enabled, then sessions will instead reserve 'NUM_GPUs' * 'MAX_GPU_UTIL'. This will lead to many sessions reserving fewer GPUs than when this property is disabled (default)."`
-	WorkloadName              string                     `name:"name" json:"name" yaml:"name" description:"Non-unique identifier of the workload created/specified by the user when launching the workload."`
-	DebugLogging              bool                       `name:"debug_logging" json:"debug_logging" yaml:"debug_logging" description:"Flag indicating whether debug-level logging should be enabled."`
-	Sessions                  []*WorkloadTemplateSession `name:"sessions" json:"sessions" yaml:"sessions" description:"The sessions defined by the template. These are used to construct the workload."`
-	Type                      string                     `name:"type" json:"type"`
-	Key                       string                     `name:"key" yaml:"key" json:"key" description:"Key for code-use only (i.e., we don't intend to display this to the user for the most part)."` // Key for code-use only (i.e., we don't intend to display this to the user for the most part).
-	Seed                      int64                      `name:"seed" yaml:"seed" json:"seed" description:"RNG seed for the workload."`
-	TimescaleAdjustmentFactor float64                    `name:"timescale_adjustment_factor" json:"timescale_adjustment_factor" description:"Adjusts how long ticks are simulated for."`
+	AdjustGpuReservations     bool                           `name:"adjust_gpu_reservations" json:"adjust_gpu_reservations" description:"By default, sessions reserve 'NUM_GPUS' GPUs when being scheduled. If this property is enabled, then sessions will instead reserve 'NUM_GPUs' * 'MAX_GPU_UTIL'. This will lead to many sessions reserving fewer GPUs than when this property is disabled (default)."`
+	WorkloadName              string                         `name:"name" json:"name" yaml:"name" description:"Non-unique identifier of the workload created/specified by the user when launching the workload."`
+	DebugLogging              bool                           `name:"debug_logging" json:"debug_logging" yaml:"debug_logging" description:"Flag indicating whether debug-level logging should be enabled."`
+	Sessions                  []*WorkloadTemplateSession     `name:"sessions" json:"sessions" yaml:"sessions" description:"The sessions defined by the template. These are used to construct the workload."`
+	Type                      string                         `name:"type" json:"type"`
+	Key                       string                         `name:"key" yaml:"key" json:"key" description:"Key for code-use only (i.e., we don't intend to display this to the user for the most part)."` // Key for code-use only (i.e., we don't intend to display this to the user for the most part).
+	Seed                      int64                          `name:"seed" yaml:"seed" json:"seed" description:"RNG seed for the workload."`
+	TimescaleAdjustmentFactor float64                        `name:"timescale_adjustment_factor" json:"timescale_adjustment_factor" description:"Adjusts how long ticks are simulated for."`
+	RemoteStorageDefinition   *proto.RemoteStorageDefinition `name:"remote_storage_definition" json:"remote_storage_definition" yaml:"remote_storage_definition" mapstructure:"remote_storage_definition" description:"Defines a simulated remote storage to be used during the workload."`
 }
 
 func (r *WorkloadRegistrationRequest) String() string {
