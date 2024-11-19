@@ -1,7 +1,7 @@
 import { AppLayout } from '@App/AppLayout/AppLayout';
 import { AppRoutes } from '@App/routes';
 import { AuthProvider } from '@Providers/AuthProvider';
-import { DarkModeProvider, NotificationProvider, WorkloadProvider } from '@src/Providers';
+import { DarkModeProvider, NotificationProvider, SessionTabsDataProvider, WorkloadProvider } from '@src/Providers';
 import * as React from 'react';
 import '@patternfly/react-core/dist/styles/base.css';
 import '@src/app/app.css';
@@ -12,9 +12,11 @@ const App: React.FunctionComponent = () => {
             <DarkModeProvider>
                 <NotificationProvider>
                     <WorkloadProvider>
-                        <AppLayout>
-                            <AppRoutes />
-                        </AppLayout>
+                        <SessionTabsDataProvider>
+                            <AppLayout>
+                                <AppRoutes />
+                            </AppLayout>
+                        </SessionTabsDataProvider>
                     </WorkloadProvider>
                 </NotificationProvider>
             </DarkModeProvider>

@@ -25,7 +25,6 @@ import useNavigation from '@Providers/NavigationProvider';
 import { WorkloadContext } from '@Providers/WorkloadProvider';
 
 import { IsInProgress, Workload, WorkloadPreset } from '@src/Data/Workload';
-import { SessionTabsDataProvider } from '@src/Providers';
 import React, { useEffect } from 'react';
 
 export interface WorkloadCardProps {
@@ -220,13 +219,11 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                 onConfirm={onConfirmRegisterWorkload}
                 onRegisterWorkloadFromTemplateClicked={onRegisterWorkloadFromTemplateClicked}
             />
-            <SessionTabsDataProvider>
-                <NewWorkloadFromTemplateModal
-                    isOpen={isRegisterNewWorkloadFromTemplateModalOpen}
-                    onClose={onCancelStartWorkloadFromTemplate}
-                    onConfirm={onConfirmRegisterWorkloadFromTemplate}
-                />
-            </SessionTabsDataProvider>
+            <NewWorkloadFromTemplateModal
+                isOpen={isRegisterNewWorkloadFromTemplateModalOpen}
+                onClose={onCancelStartWorkloadFromTemplate}
+                onConfirm={onConfirmRegisterWorkloadFromTemplate}
+            />
             <VisualizeWorkloadModal
                 isOpen={visualizeWorkloadModalOpen}
                 workload={workloadBeingVisualized}
