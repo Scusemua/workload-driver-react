@@ -112,6 +112,13 @@ export function useKernels(forLogging: boolean) {
     );
 
     const kernels: DistributedJupyterKernel[] = data || [];
+    const kernelsMap: Map<string, DistributedJupyterKernel> = new Map<string, DistributedJupyterKernel>();
+
+    if (kernels.length > 0) {
+        kernels.forEach((kernel: DistributedJupyterKernel) => {
+            kernelsMap.set(kernel.kernelId, kernel);
+        });
+    }
 
     async function refreshKernels() {
         try {
@@ -130,6 +137,7 @@ export function useKernels(forLogging: boolean) {
 
     return {
         kernels: kernels,
+        kernelsMap: kernelsMap,
         kernelsAreLoading: isLoading,
         refreshKernels: refreshKernels,
         isError: error,

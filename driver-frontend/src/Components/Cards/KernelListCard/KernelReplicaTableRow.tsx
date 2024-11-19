@@ -20,7 +20,7 @@ interface KernelReplicaTableRowProps {
     kernel: DistributedJupyterKernel;
     openMigrationModal: (kernel: DistributedJupyterKernel, replica: JupyterKernelReplica) => void;
     openReplicaDropdownMenu: string;
-    onExecuteCodeClicked: (kernel: DistributedJupyterKernel | null, replicaIdx?: number | undefined) => void;
+    onExecuteCodeClicked: (kernel?: DistributedJupyterKernel, replicaIdx?: number | undefined) => void;
     setOpenReplicaDropdownMenu: (replicaId: string) => void;
     setOpenKernelDropdownMenu: (kernelId: string) => void;
     replica: JupyterKernelReplica;

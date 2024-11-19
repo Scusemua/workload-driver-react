@@ -54,6 +54,7 @@ export interface KernelListProps {
     openMigrationModal: (kernel: DistributedJupyterKernel, replica: JupyterKernelReplica) => void;
     kernelsPerPage: number;
     perPageOption: PerPageOptions[];
+    kernelsNotClickable?: boolean;
 }
 
 export const KernelListCard: React.FunctionComponent<KernelListProps> = (props: KernelListProps) => {
@@ -305,8 +306,8 @@ export const KernelListCard: React.FunctionComponent<KernelListProps> = (props: 
             });
     };
 
-    const onExecuteCodeClicked = (kernel: DistributedJupyterKernel | null, replicaIdx?: number | undefined) => {
-        if (kernel == null) {
+    const onExecuteCodeClicked = (kernel?: DistributedJupyterKernel, replicaIdx?: number | undefined) => {
+        if (!kernel) {
             return;
         }
 
@@ -931,6 +932,7 @@ export const KernelListCard: React.FunctionComponent<KernelListProps> = (props: 
                     onStopTrainingClicked={onStopTrainingClicked}
                     onSelectKernel={onSelectKernel}
                     selectedKernels={selectedKernels}
+                    kernelsNotClickable={props.kernelsNotClickable}
                 />
                 {kernels.length == 0 && pendingKernelArr.length == 0 && (
                     <Text component={TextVariants.h2}>There are no active kernels.</Text>

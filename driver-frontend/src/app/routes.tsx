@@ -1,4 +1,5 @@
 import { DashboardLoginPage } from '@App/DashboardLoginPage';
+import { IndividualKernelsPage } from '@App/KernelsPage';
 import { KernelsPage } from '@App/KernelsPage/KernelsPage';
 import { NodesPage } from '@App/NodesPage/NodesPage';
 import PrivateRoute from '@App/PrivateRoute/PrivateRoute';
@@ -92,6 +93,13 @@ const routes: AppRouteConfig[] = [
         exact: true,
         path: JoinPaths(process.env.PUBLIC_PATH || '/', '/workload/:workload_id'),
         title: 'Workload',
+        isPrivate: true,
+    },
+    {
+        component: IndividualKernelsPage,
+        exact: true,
+        path: JoinPaths(process.env.PUBLIC_PATH || '/', '/kernels/:kernel_id'),
+        title: 'Kernel',
         isPrivate: true,
     },
     {
