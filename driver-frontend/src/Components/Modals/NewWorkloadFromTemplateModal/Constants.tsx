@@ -59,8 +59,8 @@ const DefaultRemoteStorageDefinition = {
     name: 'AWS S3',
     download_rate: 200e6,
     upload_rate: 125e6,
-    download_rate_variance_percent: 5,
-    upload_rate_variance_percent: 5,
+    download_rate_variance_percentage: 5,
+    upload_rate_variance_percentage: 5,
     read_failure_chance_percentage: 0.0,
     write_failure_chance_percentage: 0.0,
 };

@@ -38,7 +38,7 @@ const RemoteStorageDefinitionForm: React.FunctionComponent = () => {
                         <Controller
                             name="remoteStorageName"
                             control={control}
-                            defaultValue={'My Remote Storage'}
+                            defaultValue={'AWS S3'}
                             render={({ field }) => (
                                 <TextInput
                                     id="remote-storage-name-input"

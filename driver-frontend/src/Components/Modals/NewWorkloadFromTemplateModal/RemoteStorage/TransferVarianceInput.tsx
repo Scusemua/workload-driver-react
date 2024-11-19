@@ -34,14 +34,14 @@ const TransferVarianceInput: React.FunctionComponent<ITransferVarianceInputProps
             }
         >
             <Controller
-                name={`${props.rateName.toLowerCase()}_rate_variance_percent`}
+                name={`${props.rateName.toLowerCase()}_rate_variance_percentage`}
                 control={control}
                 defaultValue={5}
                 rules={{ min: 0, max: 100 }}
                 render={({ field }) => (
                     <NumberInput
-                        inputName={`${props.rateName.toLowerCase()}-rate-variance-percent-input`}
-                        id={`${props.rateName.toLowerCase()}-rate-variance-percent-input`}
+                        inputName={`${props.rateName.toLowerCase()}-rate-variance-percentage-input`}
+                        id={`${props.rateName.toLowerCase()}-rate-variance-percentage-input`}
                         type="number"
                         min={0}
                         max={100}
@@ -52,7 +52,8 @@ const TransferVarianceInput: React.FunctionComponent<ITransferVarianceInputProps
                         widthChars={10}
                         aria-label={`Text input for the remote storage ${props.rateName} rate variance percentage`}
                         onPlus={() => {
-                            const curr: number = getValues(`${props.rateName.toLowerCase()}Rate`) || 0;
+                            const curr: number =
+                                (getValues(`${props.rateName.toLowerCase()}_rate_variance_percentage`) as number) || 0;
                             let next: number = curr + 1;
 
                             if (next < 0) {
@@ -66,7 +67,8 @@ const TransferVarianceInput: React.FunctionComponent<ITransferVarianceInputProps
                             setValue(`${props.rateName.toLowerCase()}_rate_variance_percentage`, next);
                         }}
                         onMinus={() => {
-                            const curr: number = getValues(`${props.rateName.toLowerCase()}Rate`) || 0;
+                            const curr: number =
+                                (getValues(`${props.rateName.toLowerCase()}_rate_variance_percentage`) as number) || 0;
                             let next: number = curr - 1;
 
                             if (next < 0) {

@@ -50,7 +50,7 @@ const TransferRateInput: React.FunctionComponent<ITransferRateInputProps> = (pro
                         widthChars={10}
                         aria-label={`Text input for the remote storage ${props.rateName} rate`}
                         onPlus={() => {
-                            const curr: number = getValues(`${props.rateName.toLowerCase()}Rate`) || 0;
+                            const curr: number = (getValues(`${props.rateName.toLowerCase()}_rate`) as number) || 0;
                             let next: number = curr + 1e6;
 
                             if (next < 0) {
@@ -60,7 +60,7 @@ const TransferRateInput: React.FunctionComponent<ITransferRateInputProps> = (pro
                             setValue(`${props.rateName.toLowerCase()}_rate`, next);
                         }}
                         onMinus={() => {
-                            const curr: number = getValues(`${props.rateName.toLowerCase()}Rate`) || 0;
+                            const curr: number = (getValues(`${props.rateName.toLowerCase()}_rate`) as number) || 0;
                             let next: number = curr - 1e6;
 
                             if (next < 0) {

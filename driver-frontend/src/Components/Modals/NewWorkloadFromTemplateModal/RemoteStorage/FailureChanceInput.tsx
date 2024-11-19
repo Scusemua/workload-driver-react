@@ -50,7 +50,10 @@ const FailureChanceInput: React.FunctionComponent<IFailureChanceInputProps> = (p
                         widthChars={10}
                         aria-label={`Text input for the remote storage ${props.operationName} rate`}
                         onPlus={() => {
-                            const curr: number = getValues(`${props.operationName.toLowerCase()}Rate`) || 0;
+                            const curr: number =
+                                (getValues(
+                                    `${props.operationName.toLowerCase()}_failure_chance_percentage`,
+                                ) as number) || 0;
                             let next: number = curr + 1;
 
                             if (next < 0) {
@@ -64,7 +67,10 @@ const FailureChanceInput: React.FunctionComponent<IFailureChanceInputProps> = (p
                             setValue(`${props.operationName.toLowerCase()}_failure_chance_percentage`, next);
                         }}
                         onMinus={() => {
-                            const curr: number = getValues(`${props.operationName.toLowerCase()}Rate`) || 0;
+                            const curr: number =
+                                (getValues(
+                                    `${props.operationName.toLowerCase()}_failure_chance_percentage`,
+                                ) as number) || 0;
                             let next: number = curr - 1;
 
                             if (next < 0) {
