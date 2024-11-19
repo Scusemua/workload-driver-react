@@ -11,7 +11,7 @@ import {
     UnknownIcon,
 } from '@patternfly/react-icons';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
-import { GpuIcon } from '@src/Assets/Icons';
+import { GpuIcon, GpuIconAlt, GpuIconAlt2 } from '@src/Assets/Icons';
 import React from 'react';
 
 export interface WorkloadSessionTableProps {
@@ -46,6 +46,7 @@ export const WorkloadSessionTable: React.FunctionComponent<WorkloadSessionTableP
         'Max mCPUs',
         'Max Memory (MB)',
         'Max vGPUs',
+        'Max VRAM (GB)',
     ];
 
     const getSessionStatusLabel = (session: Session) => {
@@ -161,6 +162,9 @@ export const WorkloadSessionTable: React.FunctionComponent<WorkloadSessionTableP
                                     </Td>
                                     <Td dataLabel={sessions_table_columns[7]}>
                                         <GpuIcon /> {session?.resource_request.gpus}
+                                    </Td>
+                                    <Td dataLabel={sessions_table_columns[8]}>
+                                        <GpuIconAlt2 /> {session?.resource_request.vram}
                                     </Td>
                                 </Tr>
                             );
