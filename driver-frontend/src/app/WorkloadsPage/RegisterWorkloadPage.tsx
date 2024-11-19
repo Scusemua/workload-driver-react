@@ -1,14 +1,17 @@
 import { RegisterWorkloadFromPresetForm } from '@Components/Workloads';
 import { RegisterWorkloadFromTemplateForm } from '@Components/Workloads/RegisterWorkloadFromTemplateForm';
 import { Button, Card, CardBody, CardHeader, Flex, FlexItem, PageSection, Tooltip } from '@patternfly/react-core';
-import { EditIcon, PencilAltIcon } from '@patternfly/react-icons';
+import { EditIcon, ListIcon } from '@patternfly/react-icons';
+import useNavigation from '@Providers/NavigationProvider';
+import { WorkloadContext } from '@src/Providers';
 import * as React from 'react';
-import { useNavigate } from 'react-router-dom';
 
 const RegisterWorkloadPage: React.FunctionComponent = () => {
-    const navigate = useNavigate();
+    const { navigate } = useNavigation();
 
-    const [registeringFromPreset, setRegisteringFromPreset] = React.useState<boolean>(false);
+    const [registeringFromPreset, setRegisteringFromPreset] = React.useState<boolean>(true);
+
+    const { registerWorkloadFromPreset, registerWorkloadFromTemplate } = React.useContext(WorkloadContext);
 
     const cardHeaderActions = (
         <React.Fragment>
@@ -16,9 +19,9 @@ const RegisterWorkloadPage: React.FunctionComponent = () => {
                 <Button
                     variant="plain"
                     aria-label="Create New Workload From Template"
-                    onClick={() => setRegisteringFromPreset(true)}
+                    onClick={() => setRegisteringFromPreset((curr: boolean) => !curr)}
                 >
-                    <EditIcon />
+                    {registeringFromPreset ? <EditIcon /> : <ListIcon />}
                 </Button>
             </Tooltip>
         </React.Fragment>
@@ -35,10 +38,9 @@ const RegisterWorkloadPage: React.FunctionComponent = () => {
                         {registeringFromPreset && (
                             <FlexItem>
                                 <RegisterWorkloadFromPresetForm
-                                    onRegisterWorkloadFromTemplateClicked={() => {}}
-                                    onConfirm={() => {}}
+                                    onConfirm={registerWorkloadFromPreset}
                                     onCancel={() => {
-                                        navigate(-1);
+                                        navigate('workloads');
                                     }}
                                     hideActions={false}
                                 />
@@ -47,16 +49,13 @@ const RegisterWorkloadPage: React.FunctionComponent = () => {
                         {!registeringFromPreset && (
                             <FlexItem>
                                 <RegisterWorkloadFromTemplateForm
-                                    onConfirm={() => {}}
+                                    onConfirm={registerWorkloadFromTemplate}
                                     onCancel={() => {
-                                        navigate(-1);
+                                        navigate('workloads');
                                     }}
                                 />
                             </FlexItem>
                         )}
-                        <FlexItem>
-                            <Button icon={<PencilAltIcon />}>Create from Template</Button>
-                        </FlexItem>
                     </Flex>
                 </CardBody>
             </Card>

@@ -25,7 +25,7 @@ import {
     TextInput,
 } from '@patternfly/react-core';
 import { DropEvent } from '@patternfly/react-core/src/helpers/typeUtils';
-import { CodeIcon, SaveAltIcon, TrashAltIcon, UploadIcon } from '@patternfly/react-icons';
+import { CodeIcon, DownloadIcon, SaveAltIcon, TrashAltIcon, UploadIcon } from '@patternfly/react-icons';
 import HelpIcon from '@patternfly/react-icons/dist/esm/icons/help-icon';
 import styles from '@patternfly/react-styles/css/components/Form/form';
 import { RemoteStorageDefinition, Session, TrainingEvent, WorkloadTemplate } from '@src/Data';
@@ -395,10 +395,21 @@ export const RegisterWorkloadFromTemplateForm: React.FunctionComponent<IRegister
                     <FlexItem>{getSubmitButton()}</FlexItem>
                     <FlexItem>
                         <Button
+                            key={'download-workload-template-as-json-button'}
+                            id={'download-workload-template-as-json-button'}
+                            icon={<DownloadIcon />}
+                            variant={'secondary'}
+                            onClick={downloadTemplateAsJson}
+                        >
+                            Download Template
+                        </Button>
+                    </FlexItem>
+                    <FlexItem>
+                        <Button
                             key={'switch-to-json-button'}
                             id={'switch-to-json-button'}
                             icon={<CodeIcon />}
-                            variant={'primary'}
+                            variant={'secondary'}
                             onClick={enableJsonEditorMode}
                         >
                             Switch to JSON Editor

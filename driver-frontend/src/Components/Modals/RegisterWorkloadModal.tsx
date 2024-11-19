@@ -6,7 +6,7 @@ import { RegisterWorkloadFromPresetForm } from '@src/Components';
 import { WorkloadPreset } from '@src/Data';
 import React from 'react';
 
-export interface StartWorkloadModalProps {
+export interface IRegisterWorkloadModalProps {
     children?: React.ReactNode;
     isOpen: boolean;
     onClose: () => void;
@@ -20,7 +20,7 @@ export interface StartWorkloadModalProps {
     ) => void;
 }
 
-export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalProps> = (props) => {
+export const RegisterWorkloadModal: React.FunctionComponent<IRegisterWorkloadModalProps> = (props) => {
     const { authenticated } = React.useContext(AuthorizationContext);
 
     React.useEffect(() => {
@@ -54,12 +54,7 @@ export const RegisterWorkloadModal: React.FunctionComponent<StartWorkloadModalPr
                 You can also create new workloads using templates by clicking the + button in the top-right of this
                 modal.
             </Text>
-            <RegisterWorkloadFromPresetForm
-                onRegisterWorkloadFromTemplateClicked={props.onRegisterWorkloadFromTemplateClicked}
-                onConfirm={props.onConfirm}
-                onCancel={props.onClose}
-                hideActions={false}
-            />
+            <RegisterWorkloadFromPresetForm onConfirm={props.onConfirm} onCancel={props.onClose} hideActions={false} />
         </Modal>
     );
 };

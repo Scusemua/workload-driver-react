@@ -1,5 +1,6 @@
 import { WorkloadInspectionView } from '@Components/Workloads/WorkloadInspectionView';
-import { Card, CardBody, Divider, Flex, FlexItem, PageSection, Text } from '@patternfly/react-core';
+import { Button, Card, CardBody, CardFooter, Divider, Flex, FlexItem, PageSection, Text } from '@patternfly/react-core';
+import { BackwardIcon } from '@patternfly/react-icons';
 import useNavigation from '@Providers/NavigationProvider';
 import { WorkloadDataListCell } from '@src/Components/Workloads/WorkloadDataListCell';
 import { Workload } from '@src/Data';
@@ -61,6 +62,11 @@ export const IndividualWorkloadPage: React.FunctionComponent<IndividualWorkloadP
                                 </FlexItem>
                             </Flex>
                         </CardBody>
+                        <CardFooter>
+                            <Button icon={<BackwardIcon />} onClick={() => navigate(-1)}>
+                                Go Back
+                            </Button>
+                        </CardFooter>
                     </Card>
                 </PageSection>
             );
