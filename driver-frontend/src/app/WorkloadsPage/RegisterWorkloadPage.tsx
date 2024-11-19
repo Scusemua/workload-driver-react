@@ -1,5 +1,5 @@
 import { RegisterWorkloadFromPresetForm } from '@Components/Workloads';
-import { RegisterWorkloadFromTemplateForm } from '@Components/Workloads/RegisterWorkloadFromTemplateForm';
+import { RegisterWorkloadFromTemplateForm } from '@Components/Workloads/RegistrationForms/RegisterWorkloadFromTemplateForm';
 import { Button, Card, CardBody, CardHeader, Flex, FlexItem, PageSection, Tooltip } from '@patternfly/react-core';
 import { EditIcon, ListIcon } from '@patternfly/react-icons';
 import useNavigation from '@Providers/NavigationProvider';

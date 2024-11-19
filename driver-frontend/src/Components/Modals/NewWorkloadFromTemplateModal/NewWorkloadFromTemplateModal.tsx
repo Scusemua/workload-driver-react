@@ -1,6 +1,6 @@
-import { RegisterWorkloadFromTemplateForm } from '@Components/Workloads/RegisterWorkloadFromTemplateForm';
-import { Button, Flex, FlexItem, Modal, ModalVariant, Popover, Tooltip } from '@patternfly/react-core';
-import { DownloadIcon, PencilAltIcon } from '@patternfly/react-icons';
+import { RegisterWorkloadFromTemplateForm } from '@Components/Workloads/RegistrationForms/RegisterWorkloadFromTemplateForm';
+import { Button, Flex, FlexItem, Modal, ModalVariant, Popover } from '@patternfly/react-core';
+import { PencilAltIcon } from '@patternfly/react-icons';
 import HelpIcon from '@patternfly/react-icons/dist/esm/icons/help-icon';
 import React from 'react';
 
@@ -9,18 +9,6 @@ export interface NewWorkloadFromTemplateModalProps {
     isOpen: boolean;
     onClose: () => void;
     onConfirm: (workloadName: string, workloadRegistrationRequestJson: string) => void;
-}
-
-// Clamp a value between two extremes.
-function clamp(value: number, min: number, max: number) {
-    return Math.max(Math.min(value, max), min);
-}
-
-interface readFile {
-    fileName: string;
-    data?: string;
-    loadResult?: 'danger' | 'success';
-    loadError?: DOMException;
 }
 
 // Important: this component must be wrapped in a <SessionTabsDataProvider></SessionTabsDataProvider>!

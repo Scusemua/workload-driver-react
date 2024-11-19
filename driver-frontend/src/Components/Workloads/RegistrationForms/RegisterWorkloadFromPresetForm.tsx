@@ -511,10 +511,7 @@ export const RegisterWorkloadFromPresetForm: React.FunctionComponent<IRegisterWo
                 </Form>
             </FlexItem>
             {!props.hideActions && (
-                <Flex
-                    justifyContent={{ default: 'justifyContentFlexStart' }}
-                    alignItems={{ default: 'alignItemsFlexStart' }}
-                >
+                <Flex spaceItems={{ default: 'spaceItemsLg' }}>
                     <FlexItem>
                         <Button
                             key="submit"

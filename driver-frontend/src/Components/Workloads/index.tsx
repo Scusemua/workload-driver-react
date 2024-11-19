@@ -4,5 +4,5 @@ export * from './WorkloadDescriptiveIcons';
 export * from './WorkloadDataListCell';
 export * from './WorkloadInspectionView';
 export * from './WorkloadTickDurationChart';
-export * from './RegisterWorkloadFromPresetForm';
 export * from './Constants';
+export * from './RegistrationForms';
