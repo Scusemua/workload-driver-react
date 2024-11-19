@@ -47,7 +47,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                 </Flex>
             }
         >
-            <RegisterWorkloadFromTemplateForm onCancel={props.onClose} onConfirm={() => {}} />
+            <RegisterWorkloadFromTemplateForm onCancel={props.onClose} onConfirm={props.onConfirm} />
         </Modal>
     );
 };
