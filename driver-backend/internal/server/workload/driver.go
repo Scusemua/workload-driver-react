@@ -321,18 +321,20 @@ func (d *BasicWorkloadDriver) createWorkloadFromPreset(workloadRegistrationReque
 		zap.String("workload_name", workloadRegistrationRequest.WorkloadName),
 		zap.String("workload-preset-name", d.workloadPreset.GetName()))
 
-	basicWorkload := domain.NewWorkloadBuilder().
+	basicWorkload := domain.NewWorkloadBuilder(d.atom).
 		SetID(d.id).
 		SetWorkloadName(workloadRegistrationRequest.WorkloadName).
 		SetSeed(workloadRegistrationRequest.Seed).
 		EnableDebugLogging(workloadRegistrationRequest.DebugLogging).
 		SetTimescaleAdjustmentFactor(workloadRegistrationRequest.TimescaleAdjustmentFactor).
 		SetRemoteStorageDefinition(workloadRegistrationRequest.RemoteStorageDefinition).
-		SetAtom(d.atom).
 		Build()
 
 	workloadFromPreset := domain.NewWorkloadFromPreset(basicWorkload, d.workloadPreset)
-	workloadFromPreset.SetSource(d.workloadPreset)
+	err := workloadFromPreset.SetSource(d.workloadPreset)
+	if err != nil {
+		return nil, err
+	}
 
 	return workloadFromPreset, nil
 }
@@ -350,18 +352,20 @@ func (d *BasicWorkloadDriver) createWorkloadFromTemplate(workloadRegistrationReq
 	d.workloadSessions = workloadRegistrationRequest.Sessions
 	d.logger.Debug("Creating new workload from template.", zap.String("workload_name", workloadRegistrationRequest.WorkloadName))
 
-	basicWorkload := domain.NewWorkloadBuilder().
+	basicWorkload := domain.NewWorkloadBuilder(d.atom).
 		SetID(d.id).
 		SetWorkloadName(workloadRegistrationRequest.WorkloadName).
 		SetSeed(workloadRegistrationRequest.Seed).
 		EnableDebugLogging(workloadRegistrationRequest.DebugLogging).
 		SetTimescaleAdjustmentFactor(workloadRegistrationRequest.TimescaleAdjustmentFactor).
 		SetRemoteStorageDefinition(workloadRegistrationRequest.RemoteStorageDefinition).
-		SetAtom(d.atom).
 		Build()
 
 	workloadFromTemplate := domain.NewWorkloadFromTemplate(basicWorkload, d.workloadRegistrationRequest.Sessions)
-	workloadFromTemplate.SetSource(workloadRegistrationRequest.Sessions)
+	err := workloadFromTemplate.SetSource(workloadRegistrationRequest.Sessions)
+	if err != nil {
+		return nil, err
+	}
 
 	return workloadFromTemplate, nil
 }

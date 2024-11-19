@@ -16,7 +16,7 @@ func (w *WorkloadFromPreset) GetWorkloadSource() interface{} {
 	return w.WorkloadPreset
 }
 
-func (w *WorkloadFromPreset) SetSource(source interface{}) {
+func (w *WorkloadFromPreset) SetSource(source interface{}) error {
 	if source == nil {
 		panic("Cannot use nil source for WorkloadFromPreset")
 	}
@@ -30,6 +30,8 @@ func (w *WorkloadFromPreset) SetSource(source interface{}) {
 	}
 
 	w.workloadSource = preset
+
+	return nil
 }
 
 // SessionCreated is called when a Session is created for/in the Workload.

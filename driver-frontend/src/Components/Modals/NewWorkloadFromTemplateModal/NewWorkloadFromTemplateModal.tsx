@@ -202,7 +202,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                 gpus: max_num_gpus,
                 memory_mb: max_mem_mb,
                 vram: max_vram_gb,
-                gpu_type: 'Any_GPU',
+                gpu_type: 'ANY_GPU',
             };
 
             session.current_resource_request = {
@@ -210,7 +210,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                 gpus: 0,
                 memory_mb: 0,
                 vram: 0,
-                gpu_type: 'Any_GPU',
+                gpu_type: 'ANY_GPU',
             };
         }
 

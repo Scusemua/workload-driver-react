@@ -35,10 +35,11 @@ const (
 )
 
 var (
-	ErrWorkloadNotRunning = errors.New("the workload is currently not running")
-	ErrInvalidState       = errors.New("workload is in invalid state for the specified operation")
-	ErrWorkloadNotFound   = errors.New("could not find workload with the specified ID")
-	ErrWorkloadNotPaused  = errors.New("the workload is currently not paused")
+	ErrWorkloadNotRunning        = errors.New("the workload is currently not running")
+	ErrInvalidState              = errors.New("workload is in invalid state for the specified operation")
+	ErrWorkloadNotFound          = errors.New("could not find workload with the specified ID")
+	ErrWorkloadNotPaused         = errors.New("the workload is currently not paused")
+	ErrMissingMaxResourceRequest = errors.New("session does not have a \"max\" resource request")
 )
 
 type WorkloadErrorHandler func(workloadId string, err error)
@@ -191,9 +192,9 @@ type Workload interface {
 	// SetSessions Sets the sessions that will be involved in this workload.
 	//
 	// IMPORTANT: This can only be set once per workload. If it is called more than once, it will panic.
-	SetSessions([]*WorkloadTemplateSession)
+	SetSessions([]*WorkloadTemplateSession) error
 	// SetSource Sets the source of the workload, namely a template or a preset.
-	SetSource(interface{})
+	SetSource(interface{}) error
 	// GetCurrentTick Returns the current tick.
 	GetCurrentTick() int64
 	// GetSimulationClockTimeStr Returns the simulation clock time.
@@ -331,8 +332,10 @@ type WorkloadBuilder struct {
 }
 
 // NewWorkloadBuilder creates a new WorkloadBuilder instance.
-func NewWorkloadBuilder() *WorkloadBuilder {
-	return &WorkloadBuilder{}
+func NewWorkloadBuilder(atom *zap.AtomicLevel) *WorkloadBuilder {
+	return &WorkloadBuilder{
+		atom: atom,
+	}
 }
 
 // SetID sets the ID for the workload.
@@ -371,12 +374,6 @@ func (b *WorkloadBuilder) SetRemoteStorageDefinition(def *proto.RemoteStorageDef
 	return b
 }
 
-// SetAtom sets the zap.AtomicLevel value.
-func (b *WorkloadBuilder) SetAtom(atom *zap.AtomicLevel) *WorkloadBuilder {
-	b.atom = atom
-	return b
-}
-
 // Build creates a Workload instance with the specified values.
 func (b *WorkloadBuilder) Build() *BasicWorkload {
 	workload := &BasicWorkload{
@@ -407,7 +404,7 @@ func (b *WorkloadBuilder) Build() *BasicWorkload {
 
 	zapConfig := zap.NewDevelopmentEncoderConfig()
 	zapConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
-	core := zapcore.NewCore(zapcore.NewConsoleEncoder(zapConfig), zapcore.AddSync(colorable.NewColorableStdout()), atom)
+	core := zapcore.NewCore(zapcore.NewConsoleEncoder(zapConfig), zapcore.AddSync(colorable.NewColorableStdout()), b.atom)
 	logger := zap.New(core, zap.Development())
 	if logger == nil {
 		panic("failed to create logger for workload driver")
@@ -600,7 +597,7 @@ func (w *BasicWorkload) GetSimulationClockTimeStr() string {
 // SetSessions sets the sessions that will be involved in this workload.
 //
 // IMPORTANT: This can only be set once per workload. If it is called more than once, it will panic.
-func (w *BasicWorkload) SetSessions(sessions []*WorkloadTemplateSession) {
+func (w *BasicWorkload) SetSessions(sessions []*WorkloadTemplateSession) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
@@ -613,17 +610,32 @@ func (w *BasicWorkload) SetSessions(sessions []*WorkloadTemplateSession) {
 			w.logger.Error("Failed to set session state.", zap.String("session_id", session.GetId()), zap.Error(err))
 		}
 
+		if session.CurrentResourceRequest == nil {
+			session.SetCurrentResourceRequest(NewResourceRequest(0, 0, 0, 0, "ANY_GPU"))
+		}
+
+		if session.MaxResourceRequest == nil {
+			w.logger.Error("Session does not have a 'max' resource request.",
+				zap.String("session_id", session.GetId()),
+				zap.String("workload_id", w.Id),
+				zap.String("workload_name", w.Name))
+
+			return ErrMissingMaxResourceRequest
+		}
+
 		w.sessionsMap.Set(session.GetId(), session)
 	}
+
+	return nil
 }
 
 // SetSource sets the source of the workload, namely a template or a preset.
 // This defers the execution of the method to the `BasicWorkload::workload` field.
-func (w *BasicWorkload) SetSource(source interface{}) {
+func (w *BasicWorkload) SetSource(source interface{}) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	w.workloadInstance.SetSource(source)
+	return w.workloadInstance.SetSource(source)
 }
 
 // GetSessions returns the sessions involved in this workload.

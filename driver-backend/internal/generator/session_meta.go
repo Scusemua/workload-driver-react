@@ -106,20 +106,20 @@ func (s *SessionMeta) GetVRAM() float64 {
 	return s.VRAM
 }
 
+func (s *SessionMeta) GetNumGPUs() int {
+	if s.GPU == nil {
+		return 0
+	}
+
+	return s.GPU.GPUs
+}
+
 func (s *SessionMeta) GetCpuUtilization() float64 {
 	if s.CPU == nil {
 		return 0
 	}
 
 	return s.CPU.Value
-}
-
-func (s *SessionMeta) GetNumGPUs() float64 {
-	if s.GPU == nil {
-		return 0
-	}
-
-	return s.GPU.Value
 }
 
 func (s *SessionMeta) GetGpuUtilization() float64 {

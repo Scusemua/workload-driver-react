@@ -14,7 +14,7 @@ func (w *WorkloadFromTemplate) GetWorkloadSource() interface{} {
 	return w.Sessions
 }
 
-func (w *WorkloadFromTemplate) SetSource(source interface{}) {
+func (w *WorkloadFromTemplate) SetSource(source interface{}) error {
 	if source == nil {
 		panic("Cannot use nil source for WorkloadFromTemplate")
 	}
@@ -28,7 +28,7 @@ func (w *WorkloadFromTemplate) SetSource(source interface{}) {
 	}
 
 	w.workloadSource = sourceSessions
-	w.SetSessions(sourceSessions)
+	return w.SetSessions(sourceSessions)
 }
 
 // SessionCreated is called when a Session is created for/in the Workload.
