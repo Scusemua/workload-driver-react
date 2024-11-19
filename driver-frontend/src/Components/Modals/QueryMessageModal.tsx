@@ -1,4 +1,4 @@
-import { RoundToThreeDecimalPlaces } from '@Components/Modals/NewWorkloadFromTemplateModal';
+import { RoundToThreeDecimalPlaces } from '@Utils/utils';
 import { QueryMessageResponse, RequestTrace } from '@Data/Message';
 import {
     Badge,

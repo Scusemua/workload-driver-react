@@ -1,12 +1,11 @@
 import { WorkloadInspectionView } from '@Components/Workloads/WorkloadInspectionView';
 import { Card, CardBody, Divider, Flex, FlexItem, PageSection, Text } from '@patternfly/react-core';
+import useNavigation from '@Providers/NavigationProvider';
 import { WorkloadDataListCell } from '@src/Components/Workloads/WorkloadDataListCell';
 import { Workload } from '@src/Data';
 import { WorkloadContext } from '@src/Providers';
-import { JoinPaths } from '@src/Utils/path_utils';
 import React from 'react';
 import { useParams } from 'react-router';
-import { useNavigate } from 'react-router-dom';
 
 interface IndividualWorkloadPageProps {
     onVisualizeWorkloadClicked: (workload: Workload) => void;
@@ -19,7 +18,7 @@ export const IndividualWorkloadPage: React.FunctionComponent<IndividualWorkloadP
 
     const { workloadsMap } = React.useContext(WorkloadContext);
 
-    const navigate = useNavigate();
+    const { navigate } = useNavigation();
 
     const [targetWorkload, setTargetWorkload] = React.useState<Workload | undefined>(undefined);
 
@@ -34,7 +33,7 @@ export const IndividualWorkloadPage: React.FunctionComponent<IndividualWorkloadP
             setTargetWorkload(workload);
         } else {
             // If there is no query parameter for the workload ID, then just redirect back to the workloads page.
-            navigate(JoinPaths(process.env.PUBLIC_PATH || '/', '/workloads'));
+            navigate('/workloads');
         }
     }, [navigate, params, workloadsMap]);
 

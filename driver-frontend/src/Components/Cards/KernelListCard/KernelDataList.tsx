@@ -13,6 +13,7 @@ import {
     PerPageOptions,
 } from '@patternfly/react-core';
 import { useKernels } from '@Providers/KernelProvider';
+import useNavigation from '@Providers/NavigationProvider';
 import { KernelReplicaTable } from '@src/Components';
 import { JoinPaths } from '@src/Utils/path_utils';
 import { numberArrayFromRange } from '@src/Utils/utils';
@@ -44,7 +45,7 @@ export const KernelDataList: React.FunctionComponent<KernelDataListProps> = (pro
     const [perPage, setPerPage] = React.useState(props.kernelsPerPage);
     const { kernels } = useKernels(false);
 
-    const navigate = useNavigate();
+    const { navigate } = useNavigation();
 
     const [openReplicaDropdownMenu, setOpenReplicaDropdownMenu] = React.useState<string>('');
     const [openKernelDropdownMenu, setOpenKernelDropdownMenu] = React.useState<string>('');
@@ -138,7 +139,7 @@ export const KernelDataList: React.FunctionComponent<KernelDataListProps> = (pro
 
         console.log(`Clicked kernel ${kernel.kernelId}.`);
 
-        navigate(JoinPaths(process.env.PUBLIC_PATH || '/', 'kernels', kernel.kernelId));
+        navigate(['kernels', kernel.kernelId]);
     };
 
     const getKernelDataListRow = (kernel?: DistributedJupyterKernel, idx?: number) => {

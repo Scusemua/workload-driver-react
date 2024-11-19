@@ -1,5 +1,17 @@
 import { ClampValue } from '@Components/Modals';
 import {
+    DefaultTrainingEventField,
+    NumberOfGpusDefault,
+    SessionStartTickDefault,
+    SessionStopTickDefault,
+    TrainingCpuUsageDefault,
+    TrainingDurationInTicksDefault,
+    TrainingGpuPercentUtilDefault,
+    TrainingMemUsageGbDefault,
+    TrainingStartTickDefault,
+    TrainingVRamUsageGbDefault,
+} from '@Components/Workloads/Constants';
+import {
     Button,
     Card,
     CardBody,
@@ -18,22 +30,11 @@ import {
     TextInput,
 } from '@patternfly/react-core';
 import { DiceD20Icon } from '@patternfly/react-icons';
+
+import { RoundToThreeDecimalPlaces } from '@src/Utils/utils';
 import React from 'react';
 
 import { Controller, useFieldArray, useFormContext, useWatch } from 'react-hook-form';
-import {
-    DefaultTrainingEventField,
-    NumberOfGpusDefault,
-    RoundToThreeDecimalPlaces,
-    SessionStartTickDefault,
-    SessionStopTickDefault,
-    TrainingCpuUsageDefault,
-    TrainingDurationInTicksDefault,
-    TrainingGpuPercentUtilDefault,
-    TrainingMemUsageGbDefault,
-    TrainingStartTickDefault,
-    TrainingVRamUsageGbDefault,
-} from './Constants';
 
 export interface SessionConfigurationFormTabContentProps {
     children?: React.ReactNode;

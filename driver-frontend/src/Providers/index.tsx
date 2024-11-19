@@ -8,3 +8,4 @@ export * from './PodNameProvider';
 export * from './NotificationProvider';
 export * from './SessionTabsDataProvider';
 export * from './ClusterAgeProvider';
+export * from './NavigationProvider';

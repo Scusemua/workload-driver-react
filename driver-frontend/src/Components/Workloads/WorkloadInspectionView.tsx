@@ -1,4 +1,4 @@
-import { RoundToThreeDecimalPlaces } from '@Components/Modals';
+import { RoundToThreeDecimalPlaces } from '@Utils/utils';
 import WorkloadTickDurationChart from '@Components/Workloads/WorkloadTickDurationChart';
 import {
     DescriptionList,

@@ -1,3 +1,4 @@
+import useNavigation from '@Providers/NavigationProvider';
 import { JoinPaths } from '@src/Utils/path_utils';
 import * as React from 'react';
 import { ExclamationTriangleIcon } from '@patternfly/react-icons';
@@ -10,13 +11,12 @@ import {
     EmptyStateIcon,
     PageSection,
 } from '@patternfly/react-core';
-import { useNavigate } from 'react-router-dom';
 
 const NotFound: React.FunctionComponent = () => {
     function GoHomeBtn() {
-        const navigate = useNavigate();
+        const { navigate } = useNavigation();
         function handleClick() {
-            navigate(JoinPaths(process.env.PUBLIC_PATH || '/'));
+            navigate();
         }
         return <Button onClick={handleClick}>Take me home</Button>;
     }

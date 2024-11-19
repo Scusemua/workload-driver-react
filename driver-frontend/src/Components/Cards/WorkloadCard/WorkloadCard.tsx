@@ -20,19 +20,19 @@ import {
 } from '@patternfly/react-core';
 
 import { PlusIcon, StopCircleIcon } from '@patternfly/react-icons';
+import useNavigation from '@Providers/NavigationProvider';
 
 import { WorkloadContext } from '@Providers/WorkloadProvider';
 
 import { IsInProgress, Workload, WorkloadPreset } from '@src/Data/Workload';
 import { SessionTabsDataProvider } from '@src/Providers';
-import { JoinPaths } from '@src/Utils/path_utils';
 import React, { useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
 
 export interface WorkloadCardProps {
     workloadsPerPage: number;
     perPageOption: PerPageOptions[];
     inspectInModal: boolean;
+    useCreationModal: boolean;
 }
 
 export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: WorkloadCardProps) => {
@@ -50,7 +50,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
     const { workloads, workloadsMap, registerWorkloadFromPreset, registerWorkloadFromTemplate, stopAllWorkloads } =
         React.useContext(WorkloadContext);
 
-    const navigate = useNavigate();
+    const { navigate } = useNavigation();
 
     useEffect(() => {
         if (workloadBeingInspected !== null && inspectWorkloadModalOpen) {
@@ -79,7 +79,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
         if (props.inspectInModal) {
             setInspectWorkloadModalOpen(true);
         } else {
-            navigate(JoinPaths(process.env.PUBLIC_PATH || '/', '/workload/' + workload.id));
+            navigate('/workload/' + workload.id);
         }
     };
 
@@ -157,7 +157,11 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                             id="launch-workload-button"
                             variant="plain"
                             onClick={() => {
-                                setIsRegisterWorkloadModalOpen(true);
+                                if (props.useCreationModal) {
+                                    setIsRegisterWorkloadModalOpen(true);
+                                } else {
+                                    navigate('/register_workload');
+                                }
                             }}
                         >
                             <PlusIcon />

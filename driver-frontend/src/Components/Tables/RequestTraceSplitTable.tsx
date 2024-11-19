@@ -1,5 +1,5 @@
 import { AdjustedSplitNames, GetSplitsFromRequestTrace, RequestTrace, RequestTraceSplit } from '@src/Data';
-import { RoundToTwoDecimalPlaces } from '@Components/Modals';
+import { RoundToTwoDecimalPlaces } from '@Utils/utils';
 import {
     Card,
     CardBody,

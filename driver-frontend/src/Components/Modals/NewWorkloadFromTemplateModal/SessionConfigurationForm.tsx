@@ -1,3 +1,4 @@
+import { GetDefaultSessionFieldValue } from '@Components/Workloads/Constants';
 import { SessionTabsDataContext } from '@src/Providers';
 import { FormSection, Tab, TabTitleText, Tabs } from '@patternfly/react-core';
 import React from 'react';
@@ -5,7 +6,6 @@ import React from 'react';
 import { useFieldArray, useFormContext } from 'react-hook-form';
 
 import { v4 as uuidv4 } from 'uuid';
-import { GetDefaultSessionFieldValue } from './Constants';
 import { SessionConfigurationFormTabContent } from '@Components/Modals';
 
 export interface SessionConfigurationFormProps {

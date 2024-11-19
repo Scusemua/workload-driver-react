@@ -165,6 +165,7 @@ const Dashboard: React.FunctionComponent = () => {
                         }}
                     >
                         <WorkloadCard
+                            useCreationModal={true}
                             workloadsPerPage={3}
                             inspectInModal={true}
                             perPageOption={[

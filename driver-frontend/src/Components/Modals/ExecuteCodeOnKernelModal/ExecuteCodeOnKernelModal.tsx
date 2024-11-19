@@ -1,6 +1,6 @@
 import { CodeEditorComponent } from '@Components/CodeEditor';
 import { ExecutionOutputTabContent } from '@Components/Modals/ExecuteCodeOnKernelModal/ExecutionOutputTabContent';
-import { RoundToNDecimalPlaces } from '@Components/Modals/NewWorkloadFromTemplateModal';
+import { RoundToNDecimalPlaces } from '@Utils/utils';
 import { KernelManager, ServerConnection } from '@jupyterlab/services';
 import { IKernelConnection, IShellFuture } from '@jupyterlab/services/lib/kernel/kernel';
 import { IExecuteReplyMsg, IExecuteRequestMsg, IIOPubMessage } from '@jupyterlab/services/lib/kernel/messages';

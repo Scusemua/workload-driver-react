@@ -1,6 +1,6 @@
-import { RoundToThreeDecimalPlaces } from '@Components/Modals';
 import { Alert, AlertActionCloseButton, Flex, FlexItem } from '@patternfly/react-core';
 import { SpinnerIcon } from '@patternfly/react-icons';
+import { RoundToThreeDecimalPlaces } from '@Utils/utils';
 import React, { ReactElement, ReactNode } from 'react';
 import { Toast, toast } from 'react-hot-toast';
 import { DefaultToastOptions, Renderable } from 'react-hot-toast/src/core/types';

@@ -1,4 +1,4 @@
-import { RoundToThreeDecimalPlaces } from '@Components/Modals';
+import { RoundToThreeDecimalPlaces } from '@Utils/utils';
 import { Workload } from '@src/Data';
 import { DarkModeContext } from '@src/Providers';
 import React from 'react';
@@ -27,7 +27,7 @@ export const WorkloadTickDurationChart: React.FunctionComponent<IWorkloadTickDur
 ) => {
     const { darkMode } = React.useContext(DarkModeContext);
 
-    const [threshold, setThreshold] = React.useState<number>(0);
+    const [, setThreshold] = React.useState<number>(0);
 
     const [data, setData] = React.useState<Datapoint[]>([]);
 

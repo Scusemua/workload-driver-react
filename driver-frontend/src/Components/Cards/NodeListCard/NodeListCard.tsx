@@ -29,9 +29,10 @@ import {
     GetToastContentWithHeaderAndBody,
     ToastFetch,
 } from '@src/Utils/toast_utils';
+import { RoundToTwoDecimalPlaces } from '@Utils/utils';
 import React from 'react';
 import toast from 'react-hot-toast';
-import { AdjustVirtualGPUsModal, RoundToTwoDecimalPlaces } from '../../Modals';
+import { AdjustVirtualGPUsModal } from '../../Modals';
 
 export interface NodeListProps {
     selectableViaCheckboxes: boolean;
@@ -244,7 +245,7 @@ export const NodeListCard: React.FunctionComponent<NodeListProps> = (props: Node
             requestOptions,
         );
 
-        refreshNodes(false);
+        await refreshNodes(false);
     }
 
     // Handler for when the user filters by node name.

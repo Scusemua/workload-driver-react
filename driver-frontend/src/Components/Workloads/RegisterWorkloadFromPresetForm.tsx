@@ -23,11 +23,11 @@ import {
 import HelpIcon from '@patternfly/react-icons/dist/esm/icons/help-icon';
 import styles from '@patternfly/react-styles/css/components/Form/form';
 import { AuthorizationContext } from '@Providers/AuthProvider';
+import useNavigation from '@Providers/NavigationProvider';
 import { useWorkloadPresets } from '@Providers/WorkloadPresetProvider';
 
 import { WorkloadPreset } from '@src/Data';
 import React from 'react';
-import { useNavigate } from 'react-router-dom';
 
 import { v4 as uuidv4 } from 'uuid';
 
@@ -41,6 +41,7 @@ export interface IRegisterWorkloadFormProps {
         timescaleAdjustmentFactor: number,
     ) => void;
     onCancel: () => void;
+    hideActions: boolean;
 }
 
 function assertIsNumber(value: number | ''): asserts value is number {
@@ -49,7 +50,7 @@ function assertIsNumber(value: number | ''): asserts value is number {
     }
 }
 
-export const RegisterWorkloadForm: React.FunctionComponent<IRegisterWorkloadFormProps> = (
+export const RegisterWorkloadFromPresetForm: React.FunctionComponent<IRegisterWorkloadFormProps> = (
     props: IRegisterWorkloadFormProps,
 ) => {
     const [workloadTitle, setWorkloadTitle] = React.useState<string>('');
@@ -67,12 +68,12 @@ export const RegisterWorkloadForm: React.FunctionComponent<IRegisterWorkloadForm
 
     const { authenticated } = React.useContext(AuthorizationContext);
 
-    const navigate = useNavigate();
+    const { navigate } = useNavigation();
 
     React.useEffect(() => {
         // Automatically close the modal of we are logged out.
         if (!authenticated) {
-            navigate('/login');
+            navigate('login');
         }
     }, [authenticated, navigate]);
 
@@ -510,26 +511,28 @@ export const RegisterWorkloadForm: React.FunctionComponent<IRegisterWorkloadForm
                     </Grid>
                 </Form>
             </FlexItem>
-            <Flex
-                justifyContent={{ default: 'justifyContentFlexStart' }}
-                alignItems={{ default: 'alignItemsFlexStart' }}
-            >
-                <FlexItem>
-                    <Button
-                        key="submit"
-                        variant="primary"
-                        onClick={onSubmitWorkload}
-                        isDisabled={isSubmitButtonDisabled()}
-                    >
-                        Submit
-                    </Button>
-                </FlexItem>
-                <FlexItem>
-                    <Button key="cancel" variant="link" onClick={props.onCancel}>
-                        Cancel
-                    </Button>
-                </FlexItem>
-            </Flex>
+            {!props.hideActions && (
+                <Flex
+                    justifyContent={{ default: 'justifyContentFlexStart' }}
+                    alignItems={{ default: 'alignItemsFlexStart' }}
+                >
+                    <FlexItem>
+                        <Button
+                            key="submit"
+                            variant="primary"
+                            onClick={onSubmitWorkload}
+                            isDisabled={isSubmitButtonDisabled()}
+                        >
+                            Submit
+                        </Button>
+                    </FlexItem>
+                    <FlexItem>
+                        <Button key="cancel" variant="link" onClick={props.onCancel}>
+                            Cancel
+                        </Button>
+                    </FlexItem>
+                </Flex>
+            )}
         </Flex>
     );
 };

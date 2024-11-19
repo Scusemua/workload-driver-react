@@ -4,8 +4,6 @@ import {
     ExecuteCodeOnKernelModal,
     InformationModal,
     PingKernelModal,
-    RoundToNDecimalPlaces,
-    RoundToThreeDecimalPlaces,
 } from '@Components/Modals';
 import { RequestTraceSplitTable } from '@Components/Tables';
 import { DistributedJupyterKernel, JupyterKernelReplica, ResourceSpec } from '@Data/Kernel';
@@ -45,7 +43,7 @@ import { KernelDataList } from '@src/Components';
 import { useNodes } from '@src/Providers';
 import { GetPathForFetch, JoinPaths } from '@src/Utils/path_utils';
 import { DefaultDismiss, GetToastContentWithHeaderAndBody, ToastPromise, ToastRefresh } from '@src/Utils/toast_utils';
-import { numberArrayFromRange } from '@src/Utils/utils';
+import { numberArrayFromRange, RoundToNDecimalPlaces, RoundToThreeDecimalPlaces } from '@src/Utils/utils';
 import React, { useCallback, useEffect, useReducer, useRef } from 'react';
 
 import toast, { Toast } from 'react-hot-toast';

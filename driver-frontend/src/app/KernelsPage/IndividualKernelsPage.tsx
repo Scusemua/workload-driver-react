@@ -1,22 +1,17 @@
 import KernelInfoBar from '@Cards/KernelListCard/KernelInfoBar';
 import { Card, CardBody, Flex, FlexItem, PageSection, Text } from '@patternfly/react-core';
+import useNavigation from '@Providers/NavigationProvider';
 import { DistributedJupyterKernel } from '@src/Data';
 import { useKernels } from '@src/Providers';
-import { JoinPaths } from '@src/Utils/path_utils';
 import React from 'react';
 import { useParams } from 'react-router';
-import { useNavigate } from 'react-router-dom';
 
-interface IndividualKernelsPageProps {}
-
-export const IndividualKernelsPage: React.FunctionComponent<IndividualKernelsPageProps> = (
-    props: IndividualKernelsPageProps,
-) => {
+export const IndividualKernelsPage: React.FunctionComponent = () => {
     const params = useParams();
 
     const { kernelsMap } = useKernels(false);
 
-    const navigate = useNavigate();
+    const { navigate } = useNavigation();
 
     const [targetKernel, setTargetKernel] = React.useState<DistributedJupyterKernel | undefined>(undefined);
 
@@ -31,7 +26,7 @@ export const IndividualKernelsPage: React.FunctionComponent<IndividualKernelsPag
             setTargetKernel(kernel);
         } else {
             // If there is no query parameter for the workload ID, then just redirect back to the workloads page.
-            navigate(JoinPaths(process.env.PUBLIC_PATH || '/', '/kernels'));
+            navigate('/kernels');
         }
     }, [navigate, params, kernelsMap]);
 

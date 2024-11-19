@@ -1,4 +1,3 @@
-import { RoundToTwoDecimalPlaces } from '@Components/Modals';
 import { Workload } from '@src/Data';
 
 export function GetRowspan(val: number) {
@@ -114,3 +113,19 @@ export function ExportWorkloadToJson(workload: Workload, filename?: string | und
 
     document.body.removeChild(downloadElement);
 }
+
+function RoundToTwoDecimalPlaces(num: number) {
+    return +(Math.round(Number.parseFloat(num.toString() + 'e+2')).toString() + 'e-2');
+}
+
+function RoundToThreeDecimalPlaces(num: number) {
+    return +(Math.round(Number.parseFloat(num.toString() + 'e+3')).toString() + 'e-3');
+}
+
+function RoundToNDecimalPlaces(num: number, n: number) {
+    return +(Math.round(Number.parseFloat(num.toString() + `e+${n}`)).toString() + `e-${n}`);
+}
+
+export { RoundToTwoDecimalPlaces as RoundToTwoDecimalPlaces };
+export { RoundToThreeDecimalPlaces as RoundToThreeDecimalPlaces };
+export { RoundToNDecimalPlaces as RoundToNDecimalPlaces };

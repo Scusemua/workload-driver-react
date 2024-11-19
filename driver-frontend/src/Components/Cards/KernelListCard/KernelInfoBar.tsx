@@ -1,4 +1,4 @@
-import { RoundToThreeDecimalPlaces } from '@Components/Modals';
+import { RoundToThreeDecimalPlaces } from '@Utils/utils';
 import { GpuIcon } from '@Icons/GpuIcon';
 import { Flex, FlexItem, Tooltip } from '@patternfly/react-core';
 import {

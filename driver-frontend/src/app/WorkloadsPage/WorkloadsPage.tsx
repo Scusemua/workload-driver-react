@@ -7,6 +7,7 @@ const WorkloadsPage: React.FunctionComponent = () => (
         <WorkloadCard
             workloadsPerPage={3}
             inspectInModal={false}
+            useCreationModal={false}
             perPageOption={[
                 {
                     title: '1 workloads',
