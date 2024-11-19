@@ -1,6 +1,6 @@
 import { RegisterWorkloadFromPresetForm } from '@Components/Workloads';
 import { RegisterWorkloadFromTemplateForm } from '@Components/Workloads/RegistrationForms/RegisterWorkloadFromTemplateForm';
-import { Button, Card, CardBody, CardHeader, Flex, FlexItem, PageSection, Tooltip } from '@patternfly/react-core';
+import { Button, Card, CardBody, CardHeader, PageSection, Tooltip } from '@patternfly/react-core';
 import { EditIcon, ListIcon } from '@patternfly/react-icons';
 import useNavigation from '@Providers/NavigationProvider';
 import { WorkloadContext } from '@src/Providers';
@@ -34,29 +34,23 @@ const RegisterWorkloadPage: React.FunctionComponent = () => {
                     Register a New Workload
                 </CardHeader>
                 <CardBody>
-                    <Flex>
-                        {registeringFromPreset && (
-                            <FlexItem>
-                                <RegisterWorkloadFromPresetForm
-                                    onConfirm={registerWorkloadFromPreset}
-                                    onCancel={() => {
-                                        navigate('workloads');
-                                    }}
-                                    hideActions={false}
-                                />
-                            </FlexItem>
-                        )}
-                        {!registeringFromPreset && (
-                            <FlexItem>
-                                <RegisterWorkloadFromTemplateForm
-                                    onConfirm={registerWorkloadFromTemplate}
-                                    onCancel={() => {
-                                        navigate('workloads');
-                                    }}
-                                />
-                            </FlexItem>
-                        )}
-                    </Flex>
+                    {registeringFromPreset && (
+                        <RegisterWorkloadFromPresetForm
+                            onConfirm={registerWorkloadFromPreset}
+                            onCancel={() => {
+                                navigate('workloads');
+                            }}
+                            hideActions={false}
+                        />
+                    )}
+                    {!registeringFromPreset && (
+                        <RegisterWorkloadFromTemplateForm
+                            onConfirm={registerWorkloadFromTemplate}
+                            onCancel={() => {
+                                navigate('workloads');
+                            }}
+                        />
+                    )}
                 </CardBody>
             </Card>
         </PageSection>

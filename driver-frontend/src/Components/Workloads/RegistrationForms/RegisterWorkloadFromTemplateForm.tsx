@@ -892,33 +892,31 @@ export const RegisterWorkloadFromTemplateForm: React.FunctionComponent<IRegister
     );
 
     return (
-        <div style={{ margin: '0 auto' }}>
-            <FormProvider {...form}>
-                <Flex
-                    direction={{ default: 'column' }}
-                    alignItems={{ default: 'alignItemsCenter' }}
-                    alignContent={{ default: 'alignContentCenter' }}
-                    alignSelf={{ default: 'alignSelfCenter' }}
-                    justifyContent={{ default: 'justifyContentCenter' }}
-                >
-                    <FlexItem>
-                        {jsonModeActive && jsonEditor}
-                        {!jsonModeActive && nonJsonForm}
-                    </FlexItem>
-                    <FlexItem>{getActions()}</FlexItem>
-                </Flex>
-                <Modal
-                    isOpen={isFailedUploadModalOpen}
-                    variant={'small'}
-                    title={failedUploadModalTitleText}
-                    titleIconVariant="warning"
-                    showClose
-                    aria-label="Failed to parse the uploaded JSON Template"
-                    onClose={() => setFailedUploadModalOpen(false)}
-                >
-                    {failedUploadModalBodyText}
-                </Modal>
-            </FormProvider>
-        </div>
+        <FormProvider {...form}>
+            <Flex
+                direction={{ default: 'column' }}
+                alignItems={{ default: 'alignItemsCenter' }}
+                alignContent={{ default: 'alignContentCenter' }}
+                alignSelf={{ default: 'alignSelfCenter' }}
+                justifyContent={{ default: 'justifyContentCenter' }}
+            >
+                <FlexItem>
+                    {jsonModeActive && jsonEditor}
+                    {!jsonModeActive && nonJsonForm}
+                </FlexItem>
+                <FlexItem>{getActions()}</FlexItem>
+            </Flex>
+            <Modal
+                isOpen={isFailedUploadModalOpen}
+                variant={'small'}
+                title={failedUploadModalTitleText}
+                titleIconVariant="warning"
+                showClose
+                aria-label="Failed to parse the uploaded JSON Template"
+                onClose={() => setFailedUploadModalOpen(false)}
+            >
+                {failedUploadModalBodyText}
+            </Modal>
+        </FormProvider>
     );
 };

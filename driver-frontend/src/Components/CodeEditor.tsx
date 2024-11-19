@@ -285,6 +285,7 @@ print(f"counter={counter}")`);
             language={props.language}
             onEditorDidMount={onEditorDidMount}
             height={`${props.height}px`}
+            width={'100%'}
         />
     );
 };
