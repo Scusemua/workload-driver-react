@@ -1,5 +1,6 @@
 import { RegisterWorkloadFromPresetForm } from '@Components/Workloads';
 import { RegisterWorkloadFromTemplateForm } from '@Components/Workloads/RegistrationForms/RegisterWorkloadFromTemplateForm';
+import { WorkloadPreset } from '@Data/Workload';
 import { Button, Card, CardBody, CardHeader, PageSection, Tooltip } from '@patternfly/react-core';
 import { EditIcon, ListIcon } from '@patternfly/react-icons';
 import useNavigation from '@Providers/NavigationProvider';
@@ -27,6 +28,28 @@ const RegisterWorkloadPage: React.FunctionComponent = () => {
         </React.Fragment>
     );
 
+    const onConfirmRegisterWorkloadFromPreset = (
+        workloadName: string,
+        selectedPreset: WorkloadPreset,
+        workloadSeedString: string,
+        debugLoggingEnabled: boolean,
+        timescaleAdjustmentFactor: number,
+    ) => {
+        registerWorkloadFromPreset(
+            workloadName,
+            selectedPreset,
+            workloadSeedString,
+            debugLoggingEnabled,
+            timescaleAdjustmentFactor,
+        );
+        navigate('workloads');
+    };
+
+    const onConfirmRegisterWorkloadFromTemplate = (workloadName: string, workloadRegistrationRequest: string) => {
+        registerWorkloadFromTemplate(workloadName, workloadRegistrationRequest);
+        navigate('workloads');
+    };
+
     return (
         <PageSection>
             <Card>
@@ -36,7 +59,7 @@ const RegisterWorkloadPage: React.FunctionComponent = () => {
                 <CardBody>
                     {registeringFromPreset && (
                         <RegisterWorkloadFromPresetForm
-                            onConfirm={registerWorkloadFromPreset}
+                            onConfirm={onConfirmRegisterWorkloadFromPreset}
                             onCancel={() => {
                                 navigate('workloads');
                             }}
@@ -45,7 +68,7 @@ const RegisterWorkloadPage: React.FunctionComponent = () => {
                     )}
                     {!registeringFromPreset && (
                         <RegisterWorkloadFromTemplateForm
-                            onConfirm={registerWorkloadFromTemplate}
+                            onConfirm={onConfirmRegisterWorkloadFromTemplate}
                             onCancel={() => {
                                 navigate('workloads');
                             }}
