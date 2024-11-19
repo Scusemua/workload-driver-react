@@ -1,8 +1,5 @@
 import {
     Button,
-    Card,
-    CardBody,
-    CardFooter,
     Dropdown,
     DropdownItem,
     DropdownList,
@@ -20,7 +17,6 @@ import {
     NumberInput,
     Popover,
     Switch,
-    Text,
     TextInput,
     ValidatedOptions,
 } from '@patternfly/react-core';
@@ -56,13 +52,13 @@ function assertIsNumber(value: number | ''): asserts value is number {
 export const RegisterWorkloadForm: React.FunctionComponent<IRegisterWorkloadFormProps> = (
     props: IRegisterWorkloadFormProps,
 ) => {
-    const [workloadTitle, setWorkloadTitle] = React.useState('');
-    const [workloadTitleIsValid, setWorkloadTitleIsValid] = React.useState(true);
-    const [workloadSeed, setWorkloadSeed] = React.useState('');
-    const [workloadSeedIsValid, setWorkloadSeedIsValid] = React.useState(true);
-    const [isWorkloadDataDropdownOpen, setIsWorkloadDataDropdownOpen] = React.useState(false);
+    const [workloadTitle, setWorkloadTitle] = React.useState<string>('');
+    const [workloadTitleIsValid, setWorkloadTitleIsValid] = React.useState<boolean>(true);
+    const [workloadSeed, setWorkloadSeed] = React.useState<string>('');
+    const [workloadSeedIsValid, setWorkloadSeedIsValid] = React.useState<boolean>(true);
+    const [isWorkloadDataDropdownOpen, setIsWorkloadDataDropdownOpen] = React.useState<boolean>(false);
     const [selectedWorkloadPreset, setSelectedWorkloadPreset] = React.useState<WorkloadPreset | null>(null);
-    const [debugLoggingEnabled, setDebugLoggingEnabled] = React.useState(true);
+    const [debugLoggingEnabled, setDebugLoggingEnabled] = React.useState<boolean>(true);
     const [timescaleAdjustmentFactor, setTimescaleAdjustmentFactor] = React.useState<number | ''>(1.0);
 
     const defaultWorkloadTitle = React.useRef(uuidv4());
@@ -207,12 +203,8 @@ export const RegisterWorkloadForm: React.FunctionComponent<IRegisterWorkloadForm
     };
 
     return (
-        <Card>
-            <CardBody>
-                <Text>
-                    You can also create new workloads using templates by clicking the + button in the top-right of this
-                    modal.
-                </Text>
+        <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsLg' }}>
+            <FlexItem>
                 <Form>
                     <Grid hasGutter md={6}>
                         <GridItem span={12}>
@@ -517,29 +509,27 @@ export const RegisterWorkloadForm: React.FunctionComponent<IRegisterWorkloadForm
                         </GridItem>
                     </Grid>
                 </Form>
-            </CardBody>
-            <CardFooter>
-                <Flex
-                    justifyContent={{ default: 'justifyContentFlexStart' }}
-                    alignItems={{ default: 'alignItemsFlexStart' }}
-                >
-                    <FlexItem>
-                        <Button
-                            key="submit"
-                            variant="primary"
-                            onClick={onSubmitWorkload}
-                            isDisabled={isSubmitButtonDisabled()}
-                        >
-                            Submit
-                        </Button>
-                    </FlexItem>
-                    <FlexItem>
-                        <Button key="cancel" variant="link" onClick={props.onCancel}>
-                            Cancel
-                        </Button>
-                    </FlexItem>
-                </Flex>
-            </CardFooter>
-        </Card>
+            </FlexItem>
+            <Flex
+                justifyContent={{ default: 'justifyContentFlexStart' }}
+                alignItems={{ default: 'alignItemsFlexStart' }}
+            >
+                <FlexItem>
+                    <Button
+                        key="submit"
+                        variant="primary"
+                        onClick={onSubmitWorkload}
+                        isDisabled={isSubmitButtonDisabled()}
+                    >
+                        Submit
+                    </Button>
+                </FlexItem>
+                <FlexItem>
+                    <Button key="cancel" variant="link" onClick={props.onCancel}>
+                        Cancel
+                    </Button>
+                </FlexItem>
+            </Flex>
+        </Flex>
     );
 };
