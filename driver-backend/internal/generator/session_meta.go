@@ -1,6 +1,7 @@
 package generator
 
 import (
+	"errors"
 	"fmt"
 	"math"
 	"time"
@@ -59,7 +60,7 @@ type SessionMeta struct {
 
 	// The maximum amount of VRAM in GB that this SessionMeta will use during its current training task.
 	// This will only be set (i.e., have a non-zero/non-default value) when the SessionMeta is attached as data to a 'training-started' event.
-	CurrentTrainingMaxVRAM int `json:"currentTrainingMaxVRAM"`
+	CurrentTrainingMaxVRAM float64 `json:"currentTrainingMaxVRAM"`
 
 	// If we're adjusting the MaxSessionGPUs value, then we also need to keep track of an "AdjustmentFactor".
 	// Consider a scenario in which session "ExampleSession1" originally had NUM_GPUS: 8 and MAX_GPU_UTIL: 50%.
@@ -182,13 +183,13 @@ func (s *SessionMeta) Transit(evt domain.Event, inspect bool) ([]domain.SessionE
 
 	events, err := s.transit(evt)
 	// sugarLog.Debugf("Transitioned SessionMeta. NewStatus=%v. Events=%v.", s.Status, events)
-	if err == ErrEventPending {
+	if errors.Is(err, ErrEventPending) {
 		return events, nil
 	} else if err != nil {
 		return events, err
 	}
 
-	// Try apply pending events, if any pending events are applied, we need to re-evaluate the rest.
+	// Try to apply pending events, if any pending events are applied, we need to re-evaluate the rest.
 	for len(s.pending) > 0 {
 		// Make a copy of pending events for looping.
 		pending := s.pending
@@ -198,7 +199,7 @@ func (s *SessionMeta) Transit(evt domain.Event, inspect bool) ([]domain.SessionE
 		s.pending = pending[:0]
 		for _, evt := range pending {
 			moreEvents, err := s.transit(evt)
-			if err == ErrEventPending {
+			if errors.Is(err, ErrEventPending) {
 				// Not applied? just continue.
 				break
 			} else if err != nil {
@@ -319,7 +320,7 @@ func (s *SessionMeta) transit(evt domain.Event) ([]domain.SessionEventName, erro
 		} else if evt.Name() == EventCPUActivated || evt.Name() == EventCPUDeactivated {
 			break
 		} else if evt.Name() == EventCPUStopped {
-			// Handling the sepecial case that the session/pod continues after the end of the trace,
+			// Handling the special case that the session/pod continues after the end of the trace,
 			// where CPU stop along with GPU deactivation and GPU may deactivated at a later time.
 			s.CPU = evt.Data().(*CPUUtil)
 			s.pending = append(s.pending, evt)

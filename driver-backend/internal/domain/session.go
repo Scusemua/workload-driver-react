@@ -67,7 +67,13 @@ func (s SessionState) String() string {
 
 type WorkloadSession interface {
 	GetId() string
-	GetResourceRequest() *ResourceRequest
+	// GetMaxResourceRequest returns the ResourceRequest encoding the maximum amount of each type of resource
+	// that the Session may use at some point during its lifetime.
+	GetMaxResourceRequest() *ResourceRequest
+	// GetCurrentResourceRequest returns the ResourceRequest encoding the Session's current resource usage.
+	GetCurrentResourceRequest() *ResourceRequest
+	// SetCurrentResourceRequest updates the ResourceRequest encoding the Session's current resource usage.
+	SetCurrentResourceRequest(*ResourceRequest)
 	GetTrainingsCompleted() int
 	GetState() SessionState
 	GetCreatedAt() time.Time
@@ -89,22 +95,23 @@ type BasicWorkloadSession struct {
 	sugaredLogger *zap.SugaredLogger
 	atom          *zap.AtomicLevel
 
-	Id                  string           `json:"id"`
-	ResourceRequest     *ResourceRequest `json:"resource_request"`
-	TrainingsCompleted  int              `json:"trainings_completed"`
-	State               SessionState     `json:"state"`
-	CreatedAt           time.Time        `json:"-"`
-	TrainingStartedAt   time.Time        `json:"-"`
-	Meta                SessionMetadata  `json:"-"`
-	TrainingEvents      []*TrainingEvent `json:"trainings"`
-	StderrIoPubMessages []string         `json:"stderr_io_pub_messages"`
-	StdoutIoPubMessages []string         `json:"stdout_io_pub_messages"`
+	Id                     string           `json:"id"`
+	CurrentResourceRequest *ResourceRequest `json:"current_resource_request"`
+	MaxResourceRequest     *ResourceRequest `json:"max_resource_request"`
+	TrainingsCompleted     int              `json:"trainings_completed"`
+	State                  SessionState     `json:"state"`
+	CreatedAt              time.Time        `json:"-"`
+	TrainingStartedAt      time.Time        `json:"-"`
+	Meta                   SessionMetadata  `json:"-"`
+	TrainingEvents         []*TrainingEvent `json:"trainings"`
+	StderrIoPubMessages    []string         `json:"stderr_io_pub_messages"`
+	StdoutIoPubMessages    []string         `json:"stdout_io_pub_messages"`
 }
 
-func newWorkloadSession(id string, meta SessionMetadata, resourceRequest *ResourceRequest, createdAtTime time.Time, atom *zap.AtomicLevel) *BasicWorkloadSession {
+func newWorkloadSession(id string, meta SessionMetadata, maxResourceRequest *ResourceRequest, createdAtTime time.Time, atom *zap.AtomicLevel) *BasicWorkloadSession {
 	session := &BasicWorkloadSession{
 		Id:                  id,
-		ResourceRequest:     resourceRequest,
+		MaxResourceRequest:  maxResourceRequest,
 		TrainingsCompleted:  0,
 		State:               SessionAwaitingStart,
 		CreatedAt:           createdAtTime,
@@ -210,8 +217,20 @@ func (s *BasicWorkloadSession) GetId() string {
 	return s.Id
 }
 
-func (s *BasicWorkloadSession) GetResourceRequest() *ResourceRequest {
-	return s.ResourceRequest
+// GetCurrentResourceRequest returns the ResourceRequest encoding the Session's current resource usage.
+func (s *BasicWorkloadSession) GetCurrentResourceRequest() *ResourceRequest {
+	return s.CurrentResourceRequest
+}
+
+// SetCurrentResourceRequest updates the ResourceRequest encoding the Session's current resource usage.
+func (s *BasicWorkloadSession) SetCurrentResourceRequest(req *ResourceRequest) {
+	s.CurrentResourceRequest = req
+}
+
+// GetMaxResourceRequest returns the ResourceRequest encoding the maximum amount of each type of resource
+// that the Session may use at some point during its lifetime.
+func (s *BasicWorkloadSession) GetMaxResourceRequest() *ResourceRequest {
+	return s.MaxResourceRequest
 }
 
 func (s *BasicWorkloadSession) GetTrainingsCompleted() int {

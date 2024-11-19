@@ -59,6 +59,7 @@ type GPUUtil struct {
 	Max       float64   `json:"max_gpu_utilization"`
 	Status    GPUStatus `json:"status"`
 	GPUName   string    `json:"GPUName"` // TODO(Ben): Right now, we always use 'AnyGPU' for this. Eventually need a way to support a variety of different GPUs. Could do so randomly for now.
+	VRamGB    float64   `json:"vram_gb"`
 
 	// Repeat shows how many iterations the status holds.
 	Repeat       int       `json:"repeat"`
@@ -69,8 +70,8 @@ type GPUUtil struct {
 }
 
 func (ed *GPUUtil) String() string {
-	return fmt.Sprintf("GPUUtil[Pod: %s. GPUs: %d. Util: %.2f%%. Status: %v. Timestamp: %v. RawTS: %v.]", ed.Pod, ed.GPUs, ed.Value, ed.Status, ed.Timestamp, ed.RawTimestamp)
-	// return fmt.Sprintf("Pod: %s, %d cores, %.2f%%%%", ed.Pod, ed.GPUs, ed.Value)
+	return fmt.Sprintf("GPUUtil[Pod: %s. GPUs: %d. Util: %.2f%%. VRAM: %.2f GB. Status: %v. Timestamp: %v. RawTS: %v.]",
+		ed.Pod, ed.GPUs, ed.Value, ed.VRamGB, ed.Status, ed.Timestamp, ed.RawTimestamp)
 }
 
 func (ed *GPUUtil) GetTS() time.Time {
@@ -95,6 +96,7 @@ func (ed *GPUUtil) init(rec *GPURecord) *GPUUtil {
 	ed.Timestamp = rec.Timestamp.Time()
 	ed.GPUs = 1
 	ed.Value = rec.Value
+	ed.VRamGB = rec.VramGb
 	if ed.Value > GPUActivationThreshold {
 		ed.Status = GPUBusy
 	} else {
@@ -114,6 +116,12 @@ func (ed *GPUUtil) update(rec *GPURecord) *GPUUtil {
 
 	ed.GPUs++
 	ed.Value += rec.Value
+
+	// Just take the largest of the two for now.
+	if rec.VramGb > ed.VRamGB {
+		ed.VRamGB = rec.VramGb
+	}
+
 	// Status will be promoted to GPUBusy only, and keep GPUIdle intact.
 	if ed.Value > 0 {
 		ed.Status = GPUBusy
@@ -177,6 +185,7 @@ func (ed *GPUUtil) reset(time time.Time) *GPUUtil {
 		ed.GPUs = ed.LastUtil.GPUs
 	}
 	ed.Value = 0
+	ed.VRamGB = 0
 	ed.Status = GPUStopped
 	ed.Repeat = 0
 	ed.RawTimestamp = time
@@ -279,12 +288,12 @@ func (ed *GPUUtil) transit(evtBuff []GPUEvent, force bool) ([]GPUEvent, error) {
 }
 
 type GPURecord struct {
-	Timestamp UnixTime `csv:"timestamp"`
-	PodIdx    int      `csv:"exported_pod"`
-	GPUIdx    string   `csv:"gpu"`
-	// Instance string `csv:"instance"`
-	Value float64 `csv:"value"`
-	Pod   string
+	Timestamp UnixTime `csv:"timestamp" json:"timestamp"`
+	PodIdx    int      `csv:"exported_pod" json:"exported_pod"`
+	GPUIdx    string   `csv:"gpu" json:"gpu"`
+	Value     float64  `csv:"value" json:"value"` // Instance string `csv:"instance"`
+	VramGb    float64  `csv:"vram,omitempty" json:"vram"`
+	Pod       string   `json:"pod"`
 }
 
 func (r *GPURecord) GetTS() time.Time {
@@ -292,7 +301,7 @@ func (r *GPURecord) GetTS() time.Time {
 }
 
 func (r *GPURecord) String() string {
-	return fmt.Sprintf("GPURecord[Timestamp=%v, PodIdx=%d, GpuIdx=%s, Value=%.2f, Pod=%s]", r.Timestamp, r.PodIdx, r.GPUIdx, r.Value, r.Pod)
+	return fmt.Sprintf("GPURecord[Timestamp=%v, PodIdx=%d, GpuIdx=%s, Value=%.2f, Vram=%.2f, Pod=%s]", r.Timestamp, r.PodIdx, r.GPUIdx, r.Value, r.VramGb, r.Pod)
 }
 
 type GPURecordMapper struct {

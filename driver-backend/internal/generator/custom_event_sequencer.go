@@ -153,7 +153,7 @@ func (s *CustomEventSequencer) stepCpu(sessionId string, timestamp time.Time, cp
 	wrappedSession.session.CPU = committed
 }
 
-func (s *CustomEventSequencer) stepGpu(sessionId string, timestamp time.Time, gpuUtil []domain.GpuUtilization) {
+func (s *CustomEventSequencer) stepGpu(sessionId string, timestamp time.Time, gpuUtil []domain.GpuUtilization, vramGb float64) {
 	wrappedSession := s.getWrappedSession(sessionId)
 
 	gpu := wrappedSession.gpu
@@ -170,6 +170,7 @@ func (s *CustomEventSequencer) stepGpu(sessionId string, timestamp time.Time, gp
 			PodIdx:    podIdx,
 			Value:     gpuUtil.Utilization,
 			GPUIdx:    fmt.Sprintf("%d", gpuIdx),
+			VramGb:    vramGb,
 		}
 
 		if gpuIdx == 0 {
@@ -291,14 +292,14 @@ func (s *CustomEventSequencer) AddSessionTerminatedEvent(sessionId string, tickN
 	sessionMeta := s.getSessionMeta(sessionId)
 
 	s.stepCpu(sessionId, timestamp, 0)
-	s.stepGpu(sessionId, timestamp, []domain.GpuUtilization{{Utilization: 0}})
+	s.stepGpu(sessionId, timestamp, []domain.GpuUtilization{{Utilization: 0}}, 0)
 	s.stepMemory(sessionId, timestamp, 0)
 
 	s.submitWaitingEvent(sessionMeta)
 
 	// Step again just to commit the 0 util entries that were initialized above.
 	s.stepCpu(sessionId, timestamp, 0)
-	s.stepGpu(sessionId, timestamp, []domain.GpuUtilization{{Utilization: 0}})
+	s.stepGpu(sessionId, timestamp, []domain.GpuUtilization{{Utilization: 0}}, 0)
 	s.stepMemory(sessionId, timestamp, 0)
 
 	metadata := sessionMeta.Snapshot()
@@ -366,19 +367,19 @@ func gpuUtilizationValuesAboveZero(gpuUtil []domain.GpuUtilization) int {
 // Parameters:
 // - sessionId: The target Session's ID
 // - duration: The duration that the training should last.
-func (s *CustomEventSequencer) AddTrainingEvent(sessionId string, tickNumber int, durationInTicks int, cpuUtil float64, memUtil float64, gpuUtil []domain.GpuUtilization) {
+func (s *CustomEventSequencer) AddTrainingEvent(sessionId string, tickNumber int, durationInTicks int, cpuUtil float64, memUtil float64, gpuUtil []domain.GpuUtilization, vramUsageGB float64) {
 	startSec := s.startingSeconds + (int64(tickNumber) * s.tickDurationSeconds)
 	startTime := time.Unix(startSec, 0)
 	sessionMeta := s.getSessionMeta(sessionId)
 
 	s.stepCpu(sessionId, startTime, cpuUtil)
-	s.stepGpu(sessionId, startTime, gpuUtil)
+	s.stepGpu(sessionId, startTime, gpuUtil, vramUsageGB)
 	s.stepMemory(sessionId, startTime, memUtil)
 
 	sessionMeta.CurrentTrainingMaxCPUs = cpuUtil
 	sessionMeta.CurrentTrainingMaxMemory = memUtil
 	sessionMeta.CurrentTrainingMaxGPUs = gpuUtilizationValuesAboveZero(gpuUtil)
-	sessionMeta.CurrentTrainingMaxVRAM = sessionMeta.CurrentTrainingMaxGPUs * 2 // TODO: Adjust this.
+	sessionMeta.CurrentTrainingMaxVRAM = vramUsageGB
 
 	s.submitWaitingEvent(sessionMeta)
 
@@ -386,7 +387,7 @@ func (s *CustomEventSequencer) AddTrainingEvent(sessionId string, tickNumber int
 	endTime := time.Unix(endSec, 0)
 
 	s.stepCpu(sessionId, endTime, 0)
-	s.stepGpu(sessionId, endTime, gpuUtil)
+	s.stepGpu(sessionId, endTime, gpuUtil, vramUsageGB)
 	s.stepMemory(sessionId, endTime, 0)
 
 	eventIndex := s.sessionEventIndexes[sessionId]
