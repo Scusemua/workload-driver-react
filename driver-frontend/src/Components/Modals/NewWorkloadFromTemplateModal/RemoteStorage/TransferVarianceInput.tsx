@@ -1,3 +1,4 @@
+import { ClampValue } from '@Components/Modals';
 import { FormGroup, NumberInput, Popover } from '@patternfly/react-core';
 import HelpIcon from '@patternfly/react-icons/dist/esm/icons/help-icon';
 import styles from '@patternfly/react-styles/css/components/Form/form';
@@ -12,6 +13,8 @@ const TransferVarianceInput: React.FunctionComponent<ITransferVarianceInputProps
     props: ITransferVarianceInputProps,
 ) => {
     const { control, setValue, getValues } = useFormContext(); // retrieve all hook methods
+
+    const formName: string = `remoteStorageDefinition.${props.rateName.toLowerCase()}RateVariancePercentage`;
 
     return (
         <FormGroup
@@ -34,14 +37,14 @@ const TransferVarianceInput: React.FunctionComponent<ITransferVarianceInputProps
             }
         >
             <Controller
-                name={`${props.rateName.toLowerCase()}_rate_variance_percentage`}
+                name={formName}
                 control={control}
                 defaultValue={5}
                 rules={{ min: 0, max: 100 }}
                 render={({ field }) => (
                     <NumberInput
-                        inputName={`${props.rateName.toLowerCase()}-rate-variance-percentage-input`}
-                        id={`${props.rateName.toLowerCase()}-rate-variance-percentage-input`}
+                        inputName={`${props.rateName.toLowerCase()}RateVariancePercentage-input`}
+                        id={`${props.rateName.toLowerCase()}RateVariancePercentage-input`}
                         type="number"
                         min={0}
                         max={100}
@@ -52,34 +55,12 @@ const TransferVarianceInput: React.FunctionComponent<ITransferVarianceInputProps
                         widthChars={10}
                         aria-label={`Text input for the remote storage ${props.rateName} rate variance percentage`}
                         onPlus={() => {
-                            const curr: number =
-                                (getValues(`${props.rateName.toLowerCase()}_rate_variance_percentage`) as number) || 0;
-                            let next: number = curr + 1;
-
-                            if (next < 0) {
-                                next = 0;
-                            }
-
-                            if (next > 100) {
-                                next = 100;
-                            }
-
-                            setValue(`${props.rateName.toLowerCase()}_rate_variance_percentage`, next);
+                            const curr: number = (getValues(formName) as number) || 0;
+                            setValue(formName, ClampValue(curr + 1, 0, 100));
                         }}
                         onMinus={() => {
-                            const curr: number =
-                                (getValues(`${props.rateName.toLowerCase()}_rate_variance_percentage`) as number) || 0;
-                            let next: number = curr - 1;
-
-                            if (next < 0) {
-                                next = 0;
-                            }
-
-                            if (next > 100) {
-                                next = 100;
-                            }
-
-                            setValue(`${props.rateName.toLowerCase()}_rate_variance_percentage`, next);
+                            const curr: number = (getValues(formName) as number) || 0;
+                            setValue(formName, ClampValue(curr - 1, 0, 100));
                         }}
                     />
                 )}

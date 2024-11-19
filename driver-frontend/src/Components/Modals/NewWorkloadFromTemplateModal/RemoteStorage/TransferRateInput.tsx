@@ -1,7 +1,8 @@
-import { WorkloadSeedDelta } from '@Components/Modals';
-import { Button, FormGroup, NumberInput, Popover } from '@patternfly/react-core';
+import { ClampValue } from '@Components/Modals';
+import { FormGroup, NumberInput, Popover } from '@patternfly/react-core';
 import HelpIcon from '@patternfly/react-icons/dist/esm/icons/help-icon';
 import styles from '@patternfly/react-styles/css/components/Form/form';
+import { MAX_SAFE_INTEGER } from 'lib0/number';
 import React from 'react';
 import { Controller, useFormContext } from 'react-hook-form';
 
@@ -11,6 +12,8 @@ interface ITransferRateInputProps {
 
 const TransferRateInput: React.FunctionComponent<ITransferRateInputProps> = (props: ITransferRateInputProps) => {
     const { control, setValue, getValues } = useFormContext(); // retrieve all hook methods
+
+    const formName: string = `remoteStorageDefinition.${props.rateName.toLowerCase()}Rate`;
 
     return (
         <FormGroup
@@ -33,14 +36,14 @@ const TransferRateInput: React.FunctionComponent<ITransferRateInputProps> = (pro
             }
         >
             <Controller
-                name={`${props.rateName.toLowerCase()}_rate`}
+                name={formName}
                 control={control}
                 defaultValue={1e6}
                 rules={{ min: 0 }}
                 render={({ field }) => (
                     <NumberInput
-                        inputName={`${props.rateName.toLowerCase()}-rate-input`}
-                        id={`${props.rateName.toLowerCase()}-rate-input`}
+                        inputName={`${props.rateName.toLowerCase()}Rate-input`}
+                        id={`${props.rateName.toLowerCase()}Rate-input`}
                         type="number"
                         min={0}
                         onBlur={field.onBlur}
@@ -50,24 +53,12 @@ const TransferRateInput: React.FunctionComponent<ITransferRateInputProps> = (pro
                         widthChars={10}
                         aria-label={`Text input for the remote storage ${props.rateName} rate`}
                         onPlus={() => {
-                            const curr: number = (getValues(`${props.rateName.toLowerCase()}_rate`) as number) || 0;
-                            let next: number = curr + 1e6;
-
-                            if (next < 0) {
-                                next = 0;
-                            }
-
-                            setValue(`${props.rateName.toLowerCase()}_rate`, next);
+                            const curr: number = (getValues(formName) as number) || 0;
+                            setValue(formName, ClampValue(curr + 1e6, 0, MAX_SAFE_INTEGER));
                         }}
                         onMinus={() => {
-                            const curr: number = (getValues(`${props.rateName.toLowerCase()}_rate`) as number) || 0;
-                            let next: number = curr - 1e6;
-
-                            if (next < 0) {
-                                next = 0;
-                            }
-
-                            setValue(`${props.rateName.toLowerCase()}_rate`, next);
+                            const curr: number = (getValues(formName) as number) || 0;
+                            setValue(formName, ClampValue(curr - 1e6, 0, MAX_SAFE_INTEGER));
                         }}
                     />
                 )}

@@ -61,7 +61,9 @@ export const SessionConfigurationForm: React.FunctionComponent<SessionConfigurat
             // eslint-disable-next-line @typescript-eslint/ban-ts-comment
             // @ts-expect-error
             const first = sessionTabComponentRef.current?.tabList.current.childNodes[activeSessionTab];
-            first && first.firstChild.focus();
+            if (first) {
+                first.firstChild.focus();
+            }
         }
     }, [sessionTabs, activeSessionTab, setValue]);
 

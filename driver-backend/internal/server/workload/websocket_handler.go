@@ -529,6 +529,9 @@ func (h *WebsocketHandler) handleUnpauseWorkload(msgId string, message []byte, w
 // Handle a request to register a new workload.
 // This does not start the workload; that is a separate operation.
 func (h *WebsocketHandler) handleRegisterWorkload(msgId string, message []byte, ws domain.ConcurrentWebSocket) ([]byte, error) {
+	h.logger.Debug("Unmarshalling WorkloadRegistrationRequestWrapper.",
+		zap.ByteString("message", message))
+
 	req, err := domain.UnmarshalRequestPayload[*domain.WorkloadRegistrationRequestWrapper](message)
 	if err != nil {
 		h.logger.Error("Failed to unmarshal WorkloadRegistrationRequestWrapper.", zap.Error(err))

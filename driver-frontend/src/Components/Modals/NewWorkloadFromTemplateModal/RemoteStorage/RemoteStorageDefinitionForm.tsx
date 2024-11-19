@@ -8,6 +8,18 @@ import React from 'react';
 
 import { Controller, useFormContext } from 'react-hook-form';
 
+export function ClampValue(val: number, minVal: number = 0, maxVal: number = 100): number {
+    if (val > maxVal) {
+        val = maxVal;
+    }
+
+    if (val < minVal) {
+        val = minVal;
+    }
+
+    return val;
+}
+
 const RemoteStorageDefinitionForm: React.FunctionComponent = () => {
     const { control } = useFormContext(); // retrieve all hook methods
 
@@ -36,7 +48,7 @@ const RemoteStorageDefinitionForm: React.FunctionComponent = () => {
                         }
                     >
                         <Controller
-                            name="remoteStorageName"
+                            name="name"
                             control={control}
                             defaultValue={'AWS S3'}
                             render={({ field }) => (

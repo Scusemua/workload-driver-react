@@ -1,3 +1,4 @@
+import { ClampValue } from '@Components/Modals';
 import { FormGroup, NumberInput, Popover } from '@patternfly/react-core';
 import HelpIcon from '@patternfly/react-icons/dist/esm/icons/help-icon';
 import styles from '@patternfly/react-styles/css/components/Form/form';
@@ -10,6 +11,8 @@ interface IFailureChanceInputProps {
 
 const FailureChanceInput: React.FunctionComponent<IFailureChanceInputProps> = (props: IFailureChanceInputProps) => {
     const { control, setValue, getValues } = useFormContext(); // retrieve all hook methods
+
+    const formName: string = `remoteStorageDefinition.${props.operationName.toLowerCase()}FailureChancePercentage`;
 
     return (
         <FormGroup
@@ -32,14 +35,14 @@ const FailureChanceInput: React.FunctionComponent<IFailureChanceInputProps> = (p
             }
         >
             <Controller
-                name={`${props.operationName.toLowerCase()}_failure_chance_percentage`}
+                name={formName}
                 control={control}
                 defaultValue={0}
                 rules={{ min: 0, max: 100 }}
                 render={({ field }) => (
                     <NumberInput
-                        inputName={`${props.operationName.toLowerCase()}-failure-chance-percentage`}
-                        id={`${props.operationName.toLowerCase()}-failure-chance-percentage`}
+                        inputName={formName}
+                        id={formName}
                         type="number"
                         min={0}
                         max={100}
@@ -50,38 +53,12 @@ const FailureChanceInput: React.FunctionComponent<IFailureChanceInputProps> = (p
                         widthChars={10}
                         aria-label={`Text input for the remote storage ${props.operationName} rate`}
                         onPlus={() => {
-                            const curr: number =
-                                (getValues(
-                                    `${props.operationName.toLowerCase()}_failure_chance_percentage`,
-                                ) as number) || 0;
-                            let next: number = curr + 1;
-
-                            if (next < 0) {
-                                next = 0;
-                            }
-
-                            if (next > 100) {
-                                next = 100;
-                            }
-
-                            setValue(`${props.operationName.toLowerCase()}_failure_chance_percentage`, next);
+                            const curr: number = (getValues(formName) as number) || 0;
+                            setValue(formName, ClampValue(curr + 1, 0, 100));
                         }}
                         onMinus={() => {
-                            const curr: number =
-                                (getValues(
-                                    `${props.operationName.toLowerCase()}_failure_chance_percentage`,
-                                ) as number) || 0;
-                            let next: number = curr - 1;
-
-                            if (next < 0) {
-                                next = 0;
-                            }
-
-                            if (next > 100) {
-                                next = 100;
-                            }
-
-                            setValue(`${props.operationName.toLowerCase()}_failure_chance_percentage`, next);
+                            const curr: number = (getValues(formName) as number) || 0;
+                            setValue(formName, ClampValue(curr - 1, 0, 100));
                         }}
                     />
                 )}

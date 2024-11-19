@@ -221,6 +221,16 @@ interface ResourceRequest {
     gpu_type: string;
 }
 
+interface RemoteStorageDefinition {
+    name: string;
+    downloadRate: number;
+    uploadRate: number;
+    downloadVariancePercent: number;
+    uploadVariancePercent: number;
+    readFailureChancePercentage: number;
+    writeFailureChancePercentage: number;
+}
+
 interface Session {
     form_id: string;
     id: string;
@@ -326,3 +336,4 @@ export type { WorkloadTemplate as WorkloadTemplate };
 export type { ResourceRequest as ResourceRequest };
 export type { PatchedWorkload as PatchedWorkload };
 export type { ErrorResponse as ErrorResponse };
+export type { RemoteStorageDefinition as RemoteStorageDefinition };

@@ -57,12 +57,12 @@ const GetDefaultSessionFieldValue = () => {
 
 const DefaultRemoteStorageDefinition = {
     name: 'AWS S3',
-    download_rate: 200e6,
-    upload_rate: 125e6,
-    download_rate_variance_percentage: 5,
-    upload_rate_variance_percentage: 5,
-    read_failure_chance_percentage: 0.0,
-    write_failure_chance_percentage: 0.0,
+    downloadRate: 200e6,
+    uploadRate: 125e6,
+    downloadRateVariancePercentage: 5,
+    uploadRateVariancePercentage: 5,
+    readFailureChancePercentage: 0.0,
+    writeFailureChancePercentage: 0.0,
 };
 
 const GetDefaultFormValues = () => {
@@ -74,7 +74,7 @@ const GetDefaultFormValues = () => {
         timescaleAdjustmentFactor: TimeAdjustmentFactorDefault,
         numberOfSessions: 1,
         debugLoggingEnabled: true,
-        remoteStorage: DefaultRemoteStorageDefinition,
+        remoteStorageDefinition: DefaultRemoteStorageDefinition,
         sessions: [GetDefaultSessionFieldValue()],
     };
 };

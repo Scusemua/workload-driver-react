@@ -217,7 +217,13 @@ function WorkloadProvider({ children }: { children: React.ReactNode }) {
             return;
         }
 
-        const message: string = new TextDecoder('utf-8').decode(lastMessage.data);
+        let message: string;
+        try {
+            message = new TextDecoder('utf-8').decode(lastMessage.data);
+        } catch (err) {
+            console.error(`Failed to decode Workload-related WebSocket message because: ${err}`);
+            return;
+        }
 
         let workloadResponse: WorkloadResponse | undefined = undefined;
         try {

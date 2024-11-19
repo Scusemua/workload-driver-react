@@ -38,7 +38,7 @@ import { DropEvent } from '@patternfly/react-core/src/helpers/typeUtils';
 import { CodeIcon, DownloadIcon, PencilAltIcon, SaveAltIcon, TrashAltIcon, UploadIcon } from '@patternfly/react-icons';
 import HelpIcon from '@patternfly/react-icons/dist/esm/icons/help-icon';
 import styles from '@patternfly/react-styles/css/components/Form/form';
-import { Session, TrainingEvent, WorkloadTemplate } from '@src/Data';
+import { RemoteStorageDefinition, Session, TrainingEvent, WorkloadTemplate } from '@src/Data';
 import { SessionTabsDataContext } from '@src/Providers';
 import React from 'react';
 import { FileRejection } from 'react-dropzone';
@@ -163,6 +163,8 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
         const debugLoggingEnabled: boolean = data.debugLoggingEnabled;
         const timescaleAdjustmentFactor: number = data.timescaleAdjustmentFactor;
 
+        const remoteStorageDefinition: RemoteStorageDefinition = data.remoteStorageDefinition;
+
         const sessions: Session[] = data.sessions;
 
         for (let i: number = 0; i < sessions.length; i++) {
@@ -213,11 +215,10 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
             workloadSeed = parseInt(workloadSeedString);
         }
 
-        const messageId: string = uuidv4();
         return JSON.stringify(
             {
                 op: 'register_workload',
-                msg_id: messageId,
+                msg_id: uuidv4(),
                 workloadRegistrationRequest: {
                     adjust_gpu_reservations: false,
                     seed: workloadSeed,
@@ -227,6 +228,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                     debug_logging: debugLoggingEnabled,
                     type: 'template',
                     sessions: workloadTemplate.sessions,
+                    remote_storage_definition: remoteStorageDefinition,
                 },
             },
             null,
