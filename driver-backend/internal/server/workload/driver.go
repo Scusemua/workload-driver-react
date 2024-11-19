@@ -1355,12 +1355,12 @@ func (d *BasicWorkloadDriver) getOriginalSessionIdFromInternalSessionId(internal
 }
 
 // newSession create and return a new Session with the given ID.
-func (d *BasicWorkloadDriver) newSession(id string, meta domain.SessionMetadata, createdAtTime time.Time) domain.WorkloadSession {
+func (d *BasicWorkloadDriver) newSession(id string, meta domain.SessionMetadata, createdAtTime time.Time) Session {
 	d.sugaredLogger.Debugf("Creating new Session %v. MaxSessionCPUs: %.2f; MaxSessionMemory: %.2f. MaxSessionGPUs: %d. MaxSessionVRAM: %.2f, TotalNumSessions: %d",
 		id, meta.GetMaxSessionCPUs(), meta.GetMaxSessionMemory(), meta.GetMaxSessionGPUs(), meta.GetMaxSessionVRAM(), d.sessions.Len())
 
 	// Make sure the Session doesn't already exist.
-	var session domain.WorkloadSession
+	var session Session
 	if session = d.GetSession(id); session != nil {
 		panic(fmt.Sprintf("Attempted to create existing Session %s.", id))
 	}
@@ -1387,14 +1387,14 @@ func (d *BasicWorkloadDriver) newSession(id string, meta domain.SessionMetadata,
 // this will return nil.
 //
 // id should be the internal id of the session.
-func (d *BasicWorkloadDriver) GetSession(id string) domain.WorkloadSession {
+func (d *BasicWorkloadDriver) GetSession(id string) Session {
 	d.mu.Lock()
 	defer d.mu.Unlock()
 
 	session, ok := d.sessions.Get(id)
 
 	if ok {
-		return session.(domain.WorkloadSession)
+		return session.(Session)
 	}
 
 	return nil
@@ -1678,7 +1678,7 @@ func (d *BasicWorkloadDriver) handleSessionStoppedEvent(evt domain.Event) error 
 	// Attempt to update the Prometheus metrics for Session lifetime duration (in seconds).
 	session := d.GetSession(internalSessionId)
 	if session == nil {
-		d.logger.Error("Could not find WorkloadSession with specified ID.",
+		d.logger.Error("Could not find Session with specified ID.",
 			zap.String("workload_id", d.workload.GetId()),
 			zap.String("workload_name", d.workload.WorkloadName()),
 			zap.String("session_id", internalSessionId))

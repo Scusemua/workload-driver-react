@@ -73,29 +73,6 @@ func (s SessionState) String() string {
 	return string(s)
 }
 
-type WorkloadSession interface {
-	GetId() string
-	// GetMaxResourceRequest returns the ResourceRequest encoding the maximum amount of each type of resource
-	// that the Session may use at some point during its lifetime.
-	GetMaxResourceRequest() *ResourceRequest
-	// GetCurrentResourceRequest returns the ResourceRequest encoding the Session's current resource usage.
-	GetCurrentResourceRequest() *ResourceRequest
-	// SetCurrentResourceRequest updates the ResourceRequest encoding the Session's current resource usage.
-	SetCurrentResourceRequest(*ResourceRequest)
-	GetTrainingsCompleted() int
-	GetState() SessionState
-	GetCreatedAt() time.Time
-	GetTrainingStartedAt() time.Time
-	GetTrainings() []*TrainingEvent
-	GetStderrIoPubMessages() []string
-	GetStdoutIoPubMessages() []string
-	AddStderrIoPubMessage(message string)
-	AddStdoutIoPubMessage(message string)
-
-	SetState(SessionState) error
-	GetAndIncrementTrainingsCompleted() int
-}
-
 // BasicWorkloadSession corresponds to the `Session` struct defined in `web/app/Data/BasicWorkload.tsx`.
 // Used by the frontend when submitting workloads created from templates (as opposed to presets).
 type BasicWorkloadSession struct {

@@ -7,12 +7,12 @@ import (
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/server/api/proto"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/server/metrics"
+	"github.com/zhangjyr/hashmap"
 	"sync"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/mattn/go-colorable"
-	"github.com/zhangjyr/hashmap"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
 )
@@ -187,11 +187,11 @@ type Workload interface {
 	// GetProcessedEvents Returns the events processed during this workload (so far).
 	GetProcessedEvents() []*WorkloadEvent
 	// GetSessions Returns the sessions involved in this workload.
-	GetSessions() []WorkloadSession
+	GetSessions() []*WorkloadTemplateSession
 	// SetSessions Sets the sessions that will be involved in this workload.
 	//
 	// IMPORTANT: This can only be set once per workload. If it is called more than once, it will panic.
-	SetSessions([]WorkloadSession)
+	SetSessions([]*WorkloadTemplateSession)
 	// SetSource Sets the source of the workload, namely a template or a preset.
 	SetSource(interface{})
 	// GetCurrentTick Returns the current tick.
@@ -265,31 +265,31 @@ type BasicWorkload struct {
 	sugaredLogger *zap.SugaredLogger
 	atom          *zap.AtomicLevel
 
-	Id                        string            `json:"id"`
-	Name                      string            `json:"name"`
-	WorkloadState             WorkloadState     `json:"workload_state"`
-	CurrentTick               int64             `json:"current_tick"`
-	DebugLoggingEnabled       bool              `json:"debug_logging_enabled"`
-	ErrorMessage              string            `json:"error_message"`
-	EventsProcessed           []*WorkloadEvent  `json:"events_processed"`
-	Sessions                  []WorkloadSession `json:"sessions"`
-	Seed                      int64             `json:"seed"`
-	RegisteredTime            time.Time         `json:"registered_time"`
-	StartTime                 time.Time         `json:"start_time"`
-	EndTime                   time.Time         `json:"end_time"`
-	WorkloadDuration          time.Duration     `json:"workload_duration"` // The total time that the workload executed for. This is only set once the workload has completed.
-	TimeElapsed               time.Duration     `json:"time_elapsed"`      // Computed at the time that the data is requested by the user. This is the time elapsed SO far.
-	TimeElapsedStr            string            `json:"time_elapsed_str"`
-	NumTasksExecuted          int64             `json:"num_tasks_executed"`
-	NumEventsProcessed        int64             `json:"num_events_processed"`
-	NumSessionsCreated        int64             `json:"num_sessions_created"`
-	NumActiveSessions         int64             `json:"num_active_sessions"`
-	NumActiveTrainings        int64             `json:"num_active_trainings"`
-	TimescaleAdjustmentFactor float64           `json:"timescale_adjustment_factor"`
-	SimulationClockTimeStr    string            `json:"simulation_clock_time"`
-	WorkloadType              WorkloadType      `json:"workload_type"`
-	TickDurationsMillis       []int64           `json:"tick_durations_milliseconds"`
-	TimeSpentPausedMillis     int64             `json:"time_spent_paused_milliseconds"`
+	Id                        string                     `json:"id"`
+	Name                      string                     `json:"name"`
+	WorkloadState             WorkloadState              `json:"workload_state"`
+	CurrentTick               int64                      `json:"current_tick"`
+	DebugLoggingEnabled       bool                       `json:"debug_logging_enabled"`
+	ErrorMessage              string                     `json:"error_message"`
+	EventsProcessed           []*WorkloadEvent           `json:"events_processed"`
+	Sessions                  []*WorkloadTemplateSession `json:"sessions"`
+	Seed                      int64                      `json:"seed"`
+	RegisteredTime            time.Time                  `json:"registered_time"`
+	StartTime                 time.Time                  `json:"start_time"`
+	EndTime                   time.Time                  `json:"end_time"`
+	WorkloadDuration          time.Duration              `json:"workload_duration"` // The total time that the workload executed for. This is only set once the workload has completed.
+	TimeElapsed               time.Duration              `json:"time_elapsed"`      // Computed at the time that the data is requested by the user. This is the time elapsed SO far.
+	TimeElapsedStr            string                     `json:"time_elapsed_str"`
+	NumTasksExecuted          int64                      `json:"num_tasks_executed"`
+	NumEventsProcessed        int64                      `json:"num_events_processed"`
+	NumSessionsCreated        int64                      `json:"num_sessions_created"`
+	NumActiveSessions         int64                      `json:"num_active_sessions"`
+	NumActiveTrainings        int64                      `json:"num_active_trainings"`
+	TimescaleAdjustmentFactor float64                    `json:"timescale_adjustment_factor"`
+	SimulationClockTimeStr    string                     `json:"simulation_clock_time"`
+	WorkloadType              WorkloadType               `json:"workload_type"`
+	TickDurationsMillis       []int64                    `json:"tick_durations_milliseconds"`
+	TimeSpentPausedMillis     int64                      `json:"time_spent_paused_milliseconds"`
 	timeSpentPaused           time.Duration
 	pauseWaitBegin            time.Time
 
@@ -399,7 +399,7 @@ func (b *WorkloadBuilder) Build() *BasicWorkload {
 		sessionsMap:               hashmap.New(32),
 		trainingStartedTimes:      hashmap.New(32),
 		CurrentTick:               0,
-		Sessions:                  make([]WorkloadSession, 0), // For template workloads, this will be overwritten.
+		Sessions:                  make([]*WorkloadTemplateSession, 0), // For template workloads, this will be overwritten.
 		SumTickDurationsMillis:    0,
 		TickDurationsMillis:       make([]int64, 0),
 		RemoteStorageDefinition:   b.remoteStorageDefinition,
@@ -429,7 +429,7 @@ func NewWorkload(id string, workloadName string, seed int64, debugLoggingEnabled
 		sessionsMap:               hashmap.New(32),
 		trainingStartedTimes:      hashmap.New(32),
 		CurrentTick:               0,
-		Sessions:                  make([]WorkloadSession, 0), // For template workloads, this will be overwritten.
+		Sessions:                  make([]*WorkloadTemplateSession, 0), // For template workloads, this will be overwritten.
 		SumTickDurationsMillis:    0,
 		TickDurationsMillis:       make([]int64, 0),
 		RemoteStorageDefinition:   remoteStorageDefinition,
@@ -587,7 +587,7 @@ func (w *BasicWorkload) GetSimulationClockTimeStr() string {
 // SetSessions sets the sessions that will be involved in this workload.
 //
 // IMPORTANT: This can only be set once per workload. If it is called more than once, it will panic.
-func (w *BasicWorkload) SetSessions(sessions []WorkloadSession) {
+func (w *BasicWorkload) SetSessions(sessions []*WorkloadTemplateSession) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
@@ -614,7 +614,7 @@ func (w *BasicWorkload) SetSource(source interface{}) {
 }
 
 // GetSessions returns the sessions involved in this workload.
-func (w *BasicWorkload) GetSessions() []WorkloadSession {
+func (w *BasicWorkload) GetSessions() []*WorkloadTemplateSession {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 	return w.Sessions

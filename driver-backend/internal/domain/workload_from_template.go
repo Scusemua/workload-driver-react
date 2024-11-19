@@ -30,7 +30,7 @@ func (w *WorkloadFromTemplate) SetSource(source interface{}) {
 	w.workloadSource = sourceSessions
 
 	workloadTemplateSessions := sourceSessions
-	sessions := make([]WorkloadSession, 0, len(sourceSessions))
+	sessions := make([]*WorkloadTemplateSession, 0, len(sourceSessions))
 
 	for _, workloadTemplateSession := range workloadTemplateSessions {
 		sessions = append(sessions, workloadTemplateSession)
@@ -51,7 +51,7 @@ func (w *WorkloadFromTemplate) SessionCreated(sessionId string, metadata Session
 		return
 	}
 
-	session := val.(WorkloadSession)
+	session := val.(*WorkloadTemplateSession)
 	if err := session.SetState(SessionIdle); err != nil {
 		w.logger.Error("Failed to set session state.", zap.String("session_id", sessionId), zap.Error(err))
 	}
@@ -75,7 +75,7 @@ func (w *WorkloadFromTemplate) SessionStopped(sessionId string, _ Event) {
 		return
 	}
 
-	session := val.(WorkloadSession)
+	session := val.(*WorkloadTemplateSession)
 	if err := session.SetState(SessionStopped); err != nil {
 		w.logger.Error("Failed to set session state.", zap.String("session_id", sessionId), zap.Error(err))
 	}
@@ -99,7 +99,7 @@ func (w *WorkloadFromTemplate) TrainingStarted(sessionId string, evt Event) {
 		return
 	}
 
-	session := val.(WorkloadSession)
+	session := val.(*WorkloadTemplateSession)
 	if err := session.SetState(SessionTraining); err != nil {
 		w.logger.Error("Failed to set session state.", zap.String("session_id", sessionId), zap.Error(err))
 	}
@@ -135,7 +135,7 @@ func (w *WorkloadFromTemplate) TrainingStopped(sessionId string, evt Event) {
 		return
 	}
 
-	session := val.(WorkloadSession)
+	session := val.(*WorkloadTemplateSession)
 	if err := session.SetState(SessionIdle); err != nil {
 		w.logger.Error("Failed to set session state.", zap.String("session_id", sessionId), zap.Error(err))
 	}
