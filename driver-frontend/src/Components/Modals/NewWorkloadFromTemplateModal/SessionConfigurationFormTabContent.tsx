@@ -649,16 +649,14 @@ export const SessionConfigurationFormTabContent: React.FunctionComponent<Session
                                                     onMinus={() => {
                                                         const id: string = trainingCpuUsageFieldId;
                                                         const curr: number = getValues(id) as number;
-                                                        const next: number = curr - 1;
 
-                                                        setValue(id, next);
+                                                        setValue(id, curr - 1);
                                                     }}
                                                     onPlus={() => {
                                                         const id: string = trainingCpuUsageFieldId;
                                                         const curr: number = getValues(id) as number;
-                                                        const next: number = curr + 1;
 
-                                                        setValue(id, next);
+                                                        setValue(id, curr + 1);
                                                     }}
                                                     name={field.name}
                                                     id={`session-${sessionIndex}-training${selectedTrainingEventIndex}-cpu-percent-util-input`}
@@ -672,7 +670,7 @@ export const SessionConfigurationFormTabContent: React.FunctionComponent<Session
                                                             : 'success'
                                                     }
                                                     min={0}
-                                                    max={100}
+                                                    max={128e3}
                                                 />
                                             )}
                                         />
