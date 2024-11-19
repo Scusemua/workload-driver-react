@@ -1,6 +1,4 @@
 import { CodeEditorComponent } from '@Components/CodeEditor';
-import { Session, TrainingEvent, WorkloadTemplate } from '@src/Data';
-import { SessionTabsDataContext } from '@src/Providers';
 import {
     CodeContext,
     GetDefaultFormValues,
@@ -10,6 +8,7 @@ import {
     RoundToThreeDecimalPlaces,
     SessionConfigurationForm,
 } from '@Components/Modals';
+import RemoteStorageDefinitionForm from '@Components/Modals/NewWorkloadFromTemplateModal/RemoteStorage/RemoteStorageDefinitionForm';
 import { Language } from '@patternfly/react-code-editor';
 import {
     Button,
@@ -39,6 +38,8 @@ import { DropEvent } from '@patternfly/react-core/src/helpers/typeUtils';
 import { CodeIcon, DownloadIcon, PencilAltIcon, SaveAltIcon, TrashAltIcon, UploadIcon } from '@patternfly/react-icons';
 import HelpIcon from '@patternfly/react-icons/dist/esm/icons/help-icon';
 import styles from '@patternfly/react-styles/css/components/Form/form';
+import { Session, TrainingEvent, WorkloadTemplate } from '@src/Data';
+import { SessionTabsDataContext } from '@src/Providers';
 import React from 'react';
 import { FileRejection } from 'react-dropzone';
 
@@ -682,7 +683,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                                                 labelIcon={
                                                     <Popover
                                                         aria-label="workload-seed-popover"
-                                                        headerContent={<div>Workload Title</div>}
+                                                        headerContent={<div>Workload Seed</div>}
                                                         bodyContent={
                                                             <div>
                                                                 This is an integer seed for the random number generator
@@ -722,7 +723,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                                                             name={field.name}
                                                             value={field.value}
                                                             widthChars={10}
-                                                            aria-label="Text input for the 'timescale adjustment factor'"
+                                                            aria-label="Text input for the 'workload seed'"
                                                             onPlus={() => {
                                                                 const curr: number =
                                                                     form.getValues('workloadSeed') || 0;
@@ -872,6 +873,7 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
                                     </Grid>
                                 </div>
                             </FormSection>
+                            <RemoteStorageDefinitionForm />
                             <SessionConfigurationForm />
                             <FormSection title="Upload JSON Template File" titleElement="h1">
                                 <FormGroup hasNoPaddingTop isRequired>
