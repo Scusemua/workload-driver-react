@@ -34,7 +34,7 @@ func (w *WorkloadFromPreset) SetSource(source interface{}) {
 
 // SessionCreated is called when a Session is created for/in the Workload.
 // Just updates some internal metrics.
-func (w *WorkloadFromPreset) SessionCreated(sessionId string) {
+func (w *WorkloadFromPreset) SessionCreated(sessionId string, metadata SessionMetadata) {
 	w.NumActiveSessions += 1
 	w.NumSessionsCreated += 1
 
@@ -44,7 +44,7 @@ func (w *WorkloadFromPreset) SessionCreated(sessionId string) {
 
 // SessionStopped is called when a Session is stopped for/in the Workload.
 // Just updates some internal metrics.
-func (w *WorkloadFromPreset) SessionStopped(sessionId string) {
+func (w *WorkloadFromPreset) SessionStopped(sessionId string, evt Event) {
 	w.NumActiveSessions -= 1
 
 	// Haven't implemented logic to add/create WorkloadSessions for preset-based workloads.
@@ -53,7 +53,7 @@ func (w *WorkloadFromPreset) SessionStopped(sessionId string) {
 
 // TrainingStarted is called when a training starts during/in the workload.
 // Just updates some internal metrics.
-func (w *WorkloadFromPreset) TrainingStarted(sessionId string) {
+func (w *WorkloadFromPreset) TrainingStarted(sessionId string, evt Event) {
 	w.NumActiveTrainings += 1
 
 	// Haven't implemented logic to add/create WorkloadSessions for preset-based workloads.
@@ -62,7 +62,7 @@ func (w *WorkloadFromPreset) TrainingStarted(sessionId string) {
 
 // TrainingStopped is called when a training stops during/in the workload.
 // Just updates some internal metrics.
-func (w *WorkloadFromPreset) TrainingStopped(sessionId string) {
+func (w *WorkloadFromPreset) TrainingStopped(sessionId string, evt Event) {
 	w.NumTasksExecuted += 1
 	w.NumActiveTrainings -= 1
 

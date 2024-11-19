@@ -50,10 +50,18 @@ type SessionMetadata interface {
 
 	// GetVRAM returns the VRAM.
 	GetVRAM() float64
+	GetCpuUtilization() float64
+	GetNumGPUs() int
+	GetGpuUtilization() float64
+	GetMemoryUtilization() float64
 
 	// GetCurrentTrainingMaxGPUs returns the maximum number of GPUs that this SessionMetadata will use during its current training task.
 	// This will only be set (i.e., have a non-zero/non-default value) when the SessionMetadata is attached as data to a 'training-started' event.
 	GetCurrentTrainingMaxGPUs() int
+
+	// GetCurrentTrainingMaxVRAM returns the maximum amount of VRAM in GB that this SessionMetadata will use during its current training task.
+	// This will only be set (i.e., have a non-zero/non-default value) when the SessionMetadata is attached as data to a 'training-started' event.
+	GetCurrentTrainingMaxVRAM() float64
 
 	// GetGPUs returns the number of GPUs that this Session is configured to use.
 	GetGPUs() int

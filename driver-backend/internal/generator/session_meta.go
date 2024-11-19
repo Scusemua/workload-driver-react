@@ -106,6 +106,43 @@ func (s *SessionMeta) GetVRAM() float64 {
 	return s.VRAM
 }
 
+func (s *SessionMeta) GetCpuUtilization() float64 {
+	if s.CPU == nil {
+		return 0
+	}
+
+	return s.CPU.Value
+}
+
+func (s *SessionMeta) GetNumGPUs() float64 {
+	if s.GPU == nil {
+		return 0
+	}
+
+	return s.GPU.Value
+}
+
+func (s *SessionMeta) GetGpuUtilization() float64 {
+	if s.GPU == nil {
+		return 0
+	}
+
+	return s.GPU.Value
+}
+
+func (s *SessionMeta) GetMemoryUtilization() float64 {
+	if s.Memory == nil {
+		return 0
+	}
+
+	return s.Memory.Value
+}
+
+// GetCurrentTrainingMaxVRAM returns the SessionMeta's CurrentTrainingMaxVRAM.
+func (s *SessionMeta) GetCurrentTrainingMaxVRAM() float64 {
+	return s.CurrentTrainingMaxVRAM
+}
+
 // GetCurrentTrainingMaxGPUs returns the maximum number of GPUs that this SessionMeta will use during its current training task.
 // This will only be set (i.e., have a non-zero/non-default value) when the SessionMeta is attached as data to a 'training-started' event.
 func (s *SessionMeta) GetCurrentTrainingMaxGPUs() int {

@@ -158,16 +158,16 @@ type Workload interface {
 	ProcessedEvent(*WorkloadEvent)
 	// SessionCreated is Called when a Session is created for/in the Workload.
 	// Just updates some internal metrics.
-	SessionCreated(string)
+	SessionCreated(string, SessionMetadata)
 	// SessionStopped is Called when a Session is stopped for/in the Workload.
 	// Just updates some internal metrics.
-	SessionStopped(string)
+	SessionStopped(string, Event)
 	// TrainingStarted is Called when a training starts during/in the workload.
 	// Just updates some internal metrics.
-	TrainingStarted(string)
+	TrainingStarted(string, Event)
 	// TrainingStopped is Called when a training stops during/in the workload.
 	// Just updates some internal metrics.
-	TrainingStopped(string)
+	TrainingStopped(string, Event)
 	// GetWorkloadType returns the type of workload (TRACE, PRESET, or TEMPLATE).
 	GetWorkloadType() WorkloadType
 	// IsPresetWorkload Returns true if this workload was created using a preset.
@@ -915,7 +915,7 @@ func (w *BasicWorkload) ProcessedEvent(evt *WorkloadEvent) {
 
 // SessionCreated is called when a Session is created for/in the Workload.
 // Just updates some internal metrics.
-func (w *BasicWorkload) SessionCreated(sessionId string) {
+func (w *BasicWorkload) SessionCreated(sessionId string, metadata SessionMetadata) {
 	w.mu.Lock()
 	w.NumActiveSessions += 1
 	w.NumSessionsCreated += 1
@@ -931,12 +931,12 @@ func (w *BasicWorkload) SessionCreated(sessionId string) {
 
 	w.sessionsMap.Get(sessionId)
 
-	w.workloadInstance.SessionCreated(sessionId)
+	w.workloadInstance.SessionCreated(sessionId, metadata)
 }
 
 // SessionStopped is called when a Session is stopped for/in the Workload.
 // Just updates some internal metrics.
-func (w *BasicWorkload) SessionStopped(sessionId string) {
+func (w *BasicWorkload) SessionStopped(sessionId string, evt Event) {
 	w.mu.Lock()
 	w.NumActiveSessions -= 1
 	w.mu.Unlock()
@@ -945,13 +945,13 @@ func (w *BasicWorkload) SessionStopped(sessionId string) {
 		With(prometheus.Labels{"workload_id": w.Id}).
 		Sub(1)
 
-	w.workloadInstance.SessionStopped(sessionId)
+	w.workloadInstance.SessionStopped(sessionId, evt)
 }
 
 // TrainingStarted is called when a training starts during/in the workload.
 // Just updates some internal metrics.
-func (w *BasicWorkload) TrainingStarted(sessionId string) {
-	w.workloadInstance.TrainingStarted(sessionId)
+func (w *BasicWorkload) TrainingStarted(sessionId string, evt Event) {
+	w.workloadInstance.TrainingStarted(sessionId, evt)
 
 	w.trainingStartedTimes.Set(sessionId, time.Now())
 
@@ -962,8 +962,8 @@ func (w *BasicWorkload) TrainingStarted(sessionId string) {
 
 // TrainingStopped is called when a training stops during/in the workload.
 // Just updates some internal metrics.
-func (w *BasicWorkload) TrainingStopped(sessionId string) {
-	w.workloadInstance.TrainingStopped(sessionId)
+func (w *BasicWorkload) TrainingStopped(sessionId string, evt Event) {
+	w.workloadInstance.TrainingStopped(sessionId, evt)
 
 	metrics.PrometheusMetricsWrapperInstance.WorkloadTrainingEventsCompleted.
 		With(prometheus.Labels{"workload_id": w.Id}).

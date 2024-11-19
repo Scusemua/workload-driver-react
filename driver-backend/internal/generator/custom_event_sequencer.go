@@ -181,6 +181,10 @@ func (s *CustomEventSequencer) stepGpu(sessionId string, timestamp time.Time, gp
 	}
 
 	wrappedSession.session.GPU = committed
+
+	if committed != nil {
+		wrappedSession.session.VRAM = committed.VRamGB
+	}
 }
 
 func (s *CustomEventSequencer) stepMemory(sessionId string, timestamp time.Time, memUtil float64) {

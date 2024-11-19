@@ -41,7 +41,7 @@ func (w *WorkloadFromTemplate) SetSource(source interface{}) {
 
 // SessionCreated is called when a Session is created for/in the Workload.
 // Just updates some internal metrics.
-func (w *WorkloadFromTemplate) SessionCreated(sessionId string) {
+func (w *WorkloadFromTemplate) SessionCreated(sessionId string, metadata SessionMetadata) {
 	w.NumActiveSessions += 1
 	w.NumSessionsCreated += 1
 
@@ -55,11 +55,18 @@ func (w *WorkloadFromTemplate) SessionCreated(sessionId string) {
 	if err := session.SetState(SessionIdle); err != nil {
 		w.logger.Error("Failed to set session state.", zap.String("session_id", sessionId), zap.Error(err))
 	}
+
+	session.SetCurrentResourceRequest(&ResourceRequest{
+		VRAM:     metadata.GetVRAM(),
+		Cpus:     metadata.GetCpuUtilization(),
+		MemoryMB: metadata.GetMemoryUtilization(),
+		Gpus:     metadata.GetNumGPUs(),
+	})
 }
 
 // SessionStopped is called when a Session is stopped for/in the Workload.
 // Just updates some internal metrics.
-func (w *WorkloadFromTemplate) SessionStopped(sessionId string) {
+func (w *WorkloadFromTemplate) SessionStopped(sessionId string, _ Event) {
 	w.NumActiveSessions -= 1
 
 	val, ok := w.sessionsMap.Get(sessionId)
@@ -72,11 +79,18 @@ func (w *WorkloadFromTemplate) SessionStopped(sessionId string) {
 	if err := session.SetState(SessionStopped); err != nil {
 		w.logger.Error("Failed to set session state.", zap.String("session_id", sessionId), zap.Error(err))
 	}
+
+	session.SetCurrentResourceRequest(&ResourceRequest{
+		VRAM:     0,
+		Cpus:     0,
+		MemoryMB: 0,
+		Gpus:     0,
+	})
 }
 
 // TrainingStarted is called when a training starts during/in the workload.
 // Just updates some internal metrics.
-func (w *WorkloadFromTemplate) TrainingStarted(sessionId string) {
+func (w *WorkloadFromTemplate) TrainingStarted(sessionId string, evt Event) {
 	w.NumActiveTrainings += 1
 
 	val, ok := w.sessionsMap.Get(sessionId)
@@ -89,11 +103,29 @@ func (w *WorkloadFromTemplate) TrainingStarted(sessionId string) {
 	if err := session.SetState(SessionTraining); err != nil {
 		w.logger.Error("Failed to set session state.", zap.String("session_id", sessionId), zap.Error(err))
 	}
+
+	eventData := evt.Data()
+	sessionMetadata, ok := eventData.(SessionMetadata)
+
+	if !ok {
+		w.logger.Error("Could not extract SessionMetadata from event.",
+			zap.String("event_id", evt.Id()),
+			zap.String("event_name", evt.Name().String()),
+			zap.String("session_id", sessionId))
+		return
+	}
+
+	session.SetCurrentResourceRequest(&ResourceRequest{
+		VRAM:     sessionMetadata.GetCurrentTrainingMaxVRAM(),
+		Cpus:     sessionMetadata.GetCurrentTrainingMaxCPUs(),
+		MemoryMB: sessionMetadata.GetCurrentTrainingMaxMemory(),
+		Gpus:     sessionMetadata.GetCurrentTrainingMaxGPUs(),
+	})
 }
 
 // TrainingStopped is called when a training stops during/in the workload.
 // Just updates some internal metrics.
-func (w *WorkloadFromTemplate) TrainingStopped(sessionId string) {
+func (w *WorkloadFromTemplate) TrainingStopped(sessionId string, evt Event) {
 	w.NumTasksExecuted += 1
 	w.NumActiveTrainings -= 1
 
@@ -108,6 +140,24 @@ func (w *WorkloadFromTemplate) TrainingStopped(sessionId string) {
 		w.logger.Error("Failed to set session state.", zap.String("session_id", sessionId), zap.Error(err))
 	}
 	session.GetAndIncrementTrainingsCompleted()
+
+	eventData := evt.Data()
+	sessionMetadata, ok := eventData.(SessionMetadata)
+
+	if !ok {
+		w.logger.Error("Could not extract SessionMetadata from event.",
+			zap.String("event_id", evt.Id()),
+			zap.String("event_name", evt.Name().String()),
+			zap.String("session_id", sessionId))
+		return
+	}
+
+	session.SetCurrentResourceRequest(&ResourceRequest{
+		VRAM:     sessionMetadata.GetVRAM(),
+		Cpus:     sessionMetadata.GetCpuUtilization(),
+		MemoryMB: sessionMetadata.GetMemoryUtilization(),
+		Gpus:     sessionMetadata.GetNumGPUs(),
+	})
 }
 
 func NewWorkloadFromTemplate(baseWorkload Workload, sourceSessions []*WorkloadTemplateSession) *WorkloadFromTemplate {

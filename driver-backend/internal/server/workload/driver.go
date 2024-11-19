@@ -1371,7 +1371,7 @@ func (d *BasicWorkloadDriver) newSession(id string, meta domain.SessionMetadata,
 
 	internalSessionId := d.getInternalSessionId(session.GetId())
 
-	d.workload.SessionCreated(id)
+	d.workload.SessionCreated(id, meta)
 
 	d.mu.Lock()
 	defer d.mu.Unlock()
@@ -1592,7 +1592,7 @@ func (d *BasicWorkloadDriver) handleTrainingStartedEvent(evt domain.Event) error
 		return err
 	}
 
-	d.workload.TrainingStarted(traceSessionId)
+	d.workload.TrainingStarted(traceSessionId, evt)
 	d.logger.Debug("Handled TrainingStarted event.",
 		zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
 		zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
@@ -1645,7 +1645,7 @@ func (d *BasicWorkloadDriver) handleTrainingEndedEvent(evt domain.Event) error {
 			zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId), zap.Error(err))
 		return err
 	} else {
-		d.workload.TrainingStopped(traceSessionId)
+		d.workload.TrainingStopped(traceSessionId, evt)
 		d.logger.Debug("Successfully handled TrainingEnded event.",
 			zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
 			zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
@@ -1689,7 +1689,7 @@ func (d *BasicWorkloadDriver) handleSessionStoppedEvent(evt domain.Event) error 
 			Observe(sessionLifetimeDuration.Seconds())
 	}
 
-	d.workload.SessionStopped(traceSessionId)
+	d.workload.SessionStopped(traceSessionId, evt)
 	d.logger.Debug("Handled SessionStopped event.",
 		zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
 		zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
