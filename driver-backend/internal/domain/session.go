@@ -95,15 +95,16 @@ type BasicWorkloadSession struct {
 
 func newWorkloadSession(id string, meta SessionMetadata, maxResourceRequest *ResourceRequest, createdAtTime time.Time, atom *zap.AtomicLevel) *BasicWorkloadSession {
 	session := &BasicWorkloadSession{
-		Id:                  id,
-		MaxResourceRequest:  maxResourceRequest,
-		TrainingsCompleted:  0,
-		State:               SessionAwaitingStart,
-		CreatedAt:           createdAtTime,
-		Meta:                meta,
-		TrainingEvents:      make([]*TrainingEvent, 0),
-		StderrIoPubMessages: make([]string, 0),
-		StdoutIoPubMessages: make([]string, 0),
+		Id:                     id,
+		MaxResourceRequest:     maxResourceRequest,
+		CurrentResourceRequest: NewZeroedResourceRequest("ANY_GPU"),
+		TrainingsCompleted:     0,
+		State:                  SessionAwaitingStart,
+		CreatedAt:              createdAtTime,
+		Meta:                   meta,
+		TrainingEvents:         make([]*TrainingEvent, 0),
+		StderrIoPubMessages:    make([]string, 0),
+		StdoutIoPubMessages:    make([]string, 0),
 	}
 
 	zapConfig := zap.NewDevelopmentEncoderConfig()

@@ -80,6 +80,7 @@ var (
 	ErrUnknownEventType                    = errors.New("unknown or unsupported session/workload event type")
 	ErrWorkloadAlreadyPaused               = errors.New("cannot pause workload as workload is already paused")
 	ErrWorkloadAlreadyUnpaused             = errors.New("cannot unpause workload as workload is already unpause")
+	ErrWorkloadNil                         = errors.New("workload is nil; cannot process nil workload")
 
 	ErrUnknownSession      = errors.New("received 'training-started' or 'training-ended' event for unknown session")
 	ErrNoSessionConnection = errors.New("received 'training-started' or 'training-ended' event for session for which no session connection exists")
@@ -983,6 +984,11 @@ func (d *BasicWorkloadDriver) checkForLongTick(tickNumber int, tickDurationSec d
 // ProcessWorkload should be called from its own goroutine.
 func (d *BasicWorkloadDriver) ProcessWorkload(wg *sync.WaitGroup) error {
 	d.mu.Lock()
+
+	if d.workload == nil {
+		d.logger.Error("Workload is nil. Cannot process it.")
+		return ErrWorkloadNil
+	}
 
 	d.workloadStartTime = time.Now()
 	// Add an event for the workload starting.

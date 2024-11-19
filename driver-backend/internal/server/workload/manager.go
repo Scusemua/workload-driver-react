@@ -313,7 +313,7 @@ func (m *BasicWorkloadManager) pushWorkloadUpdate(payload []byte) error {
 }
 
 // Used to push updates about active workloads to the frontend.
-func (m *BasicWorkloadManager) serverPushRoutine( /* doneChan chan struct{} */ ) {
+func (m *BasicWorkloadManager) serverPushRoutine( /* doneChan chan struct{} */) {
 	activeWorkloads := m.GetActiveWorkloads()
 
 	// Function that continuously pulls workload IDs out of the 'workloadStartedChan' until there are none left.

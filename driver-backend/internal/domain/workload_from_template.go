@@ -28,15 +28,7 @@ func (w *WorkloadFromTemplate) SetSource(source interface{}) {
 	}
 
 	w.workloadSource = sourceSessions
-
-	workloadTemplateSessions := sourceSessions
-	sessions := make([]*WorkloadTemplateSession, 0, len(sourceSessions))
-
-	for _, workloadTemplateSession := range workloadTemplateSessions {
-		sessions = append(sessions, workloadTemplateSession)
-	}
-
-	w.SetSessions(sessions)
+	w.SetSessions(sourceSessions)
 }
 
 // SessionCreated is called when a Session is created for/in the Workload.

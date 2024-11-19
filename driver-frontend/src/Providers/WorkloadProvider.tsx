@@ -225,6 +225,8 @@ function WorkloadProvider({ children }: { children: React.ReactNode }) {
             return;
         }
 
+        console.log(`Received workload-related WebSocket message:\n${message}`);
+
         let workloadResponse: WorkloadResponse | undefined = undefined;
         try {
             workloadResponse = JSON.parse(message);

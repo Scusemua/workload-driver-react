@@ -197,11 +197,19 @@ export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFr
             }
 
             // Construct the resource request and update the session object.
-            session.resource_request = {
+            session.max_resource_request = {
                 cpus: max_millicpus,
                 gpus: max_num_gpus,
                 memory_mb: max_mem_mb,
                 vram: max_vram_gb,
+                gpu_type: 'Any_GPU',
+            };
+
+            session.current_resource_request = {
+                cpus: 0,
+                gpus: 0,
+                memory_mb: 0,
+                vram: 0,
                 gpu_type: 'Any_GPU',
             };
         }

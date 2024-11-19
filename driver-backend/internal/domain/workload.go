@@ -379,7 +379,7 @@ func (b *WorkloadBuilder) SetAtom(atom *zap.AtomicLevel) *WorkloadBuilder {
 
 // Build creates a Workload instance with the specified values.
 func (b *WorkloadBuilder) Build() *BasicWorkload {
-	return &BasicWorkload{
+	workload := &BasicWorkload{
 		Id:                        b.id, // Same ID as the driver.
 		Name:                      b.workloadName,
 		WorkloadState:             WorkloadReady,
@@ -404,6 +404,19 @@ func (b *WorkloadBuilder) Build() *BasicWorkload {
 		TickDurationsMillis:       make([]int64, 0),
 		RemoteStorageDefinition:   b.remoteStorageDefinition,
 	}
+
+	zapConfig := zap.NewDevelopmentEncoderConfig()
+	zapConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+	core := zapcore.NewCore(zapcore.NewConsoleEncoder(zapConfig), zapcore.AddSync(colorable.NewColorableStdout()), atom)
+	logger := zap.New(core, zap.Development())
+	if logger == nil {
+		panic("failed to create logger for workload driver")
+	}
+
+	workload.logger = logger
+	workload.sugaredLogger = logger.Sugar()
+
+	return workload
 }
 
 func NewWorkload(id string, workloadName string, seed int64, debugLoggingEnabled bool, timescaleAdjustmentFactor float64,
@@ -902,15 +915,29 @@ func (w *BasicWorkload) ProcessedEvent(evt *WorkloadEvent) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
+	if evt == nil {
+		w.logger.Error("Workload event that was supposedly processed is nil.",
+			zap.String("workload_id", w.Id),
+			zap.String("workload_name", w.Name))
+		return
+	}
+
 	w.NumEventsProcessed += 1
 	evt.Index = len(w.EventsProcessed)
 	w.EventsProcessed = append(w.EventsProcessed, evt)
 
-	metrics.PrometheusMetricsWrapperInstance.WorkloadEventsProcessed.
-		With(prometheus.Labels{"workload_id": w.Id}).
-		Add(1)
+	if metrics.PrometheusMetricsWrapperInstance != nil && metrics.PrometheusMetricsWrapperInstance.WorkloadEventsProcessed != nil {
+		metrics.PrometheusMetricsWrapperInstance.WorkloadEventsProcessed.
+			With(prometheus.Labels{"workload_id": w.Id}).
+			Add(1)
+	}
 
-	w.sugaredLogger.Debugf("Workload %s processed event '%s' targeting session '%s'", w.Name, evt.Name, evt.Session)
+	w.logger.Debug("Processed workload event.",
+		zap.String("workload_id", w.Id),
+		zap.String("workload_name", w.Name),
+		zap.String("event_id", evt.Id),
+		zap.String("event_name", evt.Name),
+		zap.String("session_id", evt.Session))
 }
 
 // SessionCreated is called when a Session is created for/in the Workload.

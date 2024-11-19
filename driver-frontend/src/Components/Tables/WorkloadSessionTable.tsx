@@ -155,22 +155,32 @@ export const WorkloadSessionTable: React.FunctionComponent<WorkloadSessionTableP
                                     <Td dataLabel={sessions_table_columns[3]}>{session.trainings_completed || '0'}</Td>
                                     <Td dataLabel={sessions_table_columns[4]}>{getRemainingTrainings(session)}</Td>
                                     <Td dataLabel={sessions_table_columns[5]}>
-                                        <CpuIcon /> {session?.current_resource_request.cpus}
+                                        <CpuIcon />{' '}
+                                        {session?.current_resource_request ? session?.current_resource_request.cpus : 0}
                                         {'/'}
                                         {session?.max_resource_request.cpus}
                                     </Td>
                                     <Td dataLabel={sessions_table_columns[6]}>
-                                        <MemoryIcon /> {session?.current_resource_request.memory_mb}
+                                        <MemoryIcon />
+                                        {session?.current_resource_request.memory_mb
+                                            ? session?.current_resource_request.memory_mb
+                                            : 0}
                                         {'/'}
                                         {session?.max_resource_request.memory_mb}
                                     </Td>
                                     <Td dataLabel={sessions_table_columns[7]}>
-                                        <GpuIcon /> {session?.current_resource_request.gpus}
+                                        <GpuIcon />
+                                        {session?.current_resource_request.gpus
+                                            ? session?.current_resource_request.gpus
+                                            : 0}
                                         {'/'}
                                         {session?.max_resource_request.gpus}
                                     </Td>
                                     <Td dataLabel={sessions_table_columns[8]}>
-                                        <GpuIconAlt2 /> {session?.current_resource_request.vram}
+                                        <GpuIconAlt2 />
+                                        {session?.current_resource_request.vram
+                                            ? session?.current_resource_request.vram
+                                            : 0}
                                         {'/'}
                                         {session?.max_resource_request.vram}
                                     </Td>

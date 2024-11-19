@@ -12,6 +12,17 @@ type ResourceRequest struct {
 	RequestedGpuName string  `json:"gpu_type,omitempty"` // The name of the specific GPU requested by the session.
 }
 
+// NewZeroedResourceRequest returns a ResourceRequest encoding zero current resource usage.
+func NewZeroedResourceRequest(requestedGpuName string) *ResourceRequest {
+	return &ResourceRequest{
+		Cpus:             0,
+		Gpus:             0,
+		VRAM:             0,
+		MemoryMB:         0,
+		RequestedGpuName: requestedGpuName,
+	}
+}
+
 func NewResourceRequest(vcpus float64, memMB float64, gpus int, vram float64, requestedGpuName string) *ResourceRequest {
 	return &ResourceRequest{
 		Cpus:             vcpus,
