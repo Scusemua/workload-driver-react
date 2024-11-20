@@ -519,6 +519,12 @@ func (s *serverImpl) setupRoutes() error {
 		// Used by the frontend to retrieve the UnixMillisecond timestamp at which the Cluster was created.
 		apiGroup.GET(domain.ClusterAgeEndpoint, handlers.NewClusterAgeHttpHandler(s.opts, s.gatewayRpcClient, &atom).HandleRequest)
 
+		// Used by the frontend to get the configured scheduling policy.
+		apiGroup.GET(domain.SchedulingPolicyEndpoint, handlers.NewSchedulingPolicyHttpHandler(s.opts, s.gatewayRpcClient, &atom).HandleRequest)
+
+		// Used by the frontend to get the configured deployment mode.
+		apiGroup.GET(domain.DeploymentModeEndpoint, handlers.NewDeploymentModeHttpHandler(s.opts, s.gatewayRpcClient, &atom).HandleRequest)
+
 		// Used to tell the frontend what the address of Jupyter is.
 		apiGroup.GET(domain.JupyterAddressEndpoint, handlers.NewJupyterAddressHttpHandler(s.opts, &atom).HandleRequest)
 

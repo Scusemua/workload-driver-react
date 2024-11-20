@@ -61,6 +61,12 @@ const (
 	// ClusterAgeEndpoint is used to retrieve the UnixMillisecond timestamp at which the Cluster was created.
 	ClusterAgeEndpoint = "cluster-age"
 
+	// SchedulingPolicyEndpoint is targeted by HTTP GET requests to get the scheduling policy of the cluster.
+	SchedulingPolicyEndpoint = "scheduling-policy"
+
+	// DeploymentModeEndpoint is used to retrieve the configured deployment mode of the cluster.
+	DeploymentModeEndpoint = "deployment-mode"
+
 	// RefreshToken is used to refresh a JWT auth token.
 	RefreshToken = "refresh_token"
 
