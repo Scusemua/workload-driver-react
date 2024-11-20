@@ -1,6 +1,7 @@
-import KernelInfoBar from '@Cards/KernelListCard/KernelInfoBar';
+import { KernelInfoIcons } from '@Cards/KernelListCard/KernelInfoBar';
 import { Card, CardBody, Flex, FlexItem, PageSection, Text } from '@patternfly/react-core';
 import useNavigation from '@Providers/NavigationProvider';
+import { KernelOverflowMenu, KernelReplicaTable } from '@src/Components';
 import { DistributedJupyterKernel } from '@src/Data';
 import { useKernels } from '@src/Providers';
 import React from 'react';
@@ -40,8 +41,41 @@ export const IndividualKernelsPage: React.FunctionComponent = () => {
                     <Card isFullHeight isRounded>
                         <CardBody>
                             <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsLg' }}>
+                                <Flex direction={{ default: 'row' }}>
+                                    <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsXs' }}>
+                                        <FlexItem align={{ default: 'alignLeft' }}>
+                                            <Text component={'h1'}>Kernel {targetKernel?.kernelId}</Text>
+                                        </FlexItem>
+                                        <FlexItem align={{ default: 'alignLeft' }}>
+                                            <KernelInfoIcons
+                                                kernel={targetKernel}
+                                                iconSizes={'lg'}
+                                                iconSpacingOverride={'spaceItems3xl'}
+                                            />
+                                        </FlexItem>
+                                    </Flex>
+                                    <FlexItem align={{ default: 'alignRight' }}>
+                                        <KernelOverflowMenu
+                                            kernel={targetKernel}
+                                            onExecuteCodeClicked={() => {}}
+                                            onPingKernelClicked={() => {}}
+                                            onInterruptKernelClicked={() => {}}
+                                            onTerminateKernelClicked={() => {}}
+                                            onStopTrainingClicked={() => {}}
+                                            onToggleOrSelectKernelDropdown={() => {}}
+                                            openKernelDropdownMenu={targetKernel?.kernelId}
+                                        />
+                                    </FlexItem>
+                                </Flex>
                                 <FlexItem>
-                                    <KernelInfoBar kernel={targetKernel} />
+                                    <KernelReplicaTable
+                                        kernel={targetKernel}
+                                        openMigrationModal={() => {}}
+                                        onExecuteCodeClicked={() => {}}
+                                        setOpenReplicaDropdownMenu={() => {}}
+                                        setOpenKernelDropdownMenu={() => {}}
+                                        openReplicaDropdownMenu={targetKernel?.kernelId}
+                                    />
                                 </FlexItem>
                             </Flex>
                         </CardBody>
