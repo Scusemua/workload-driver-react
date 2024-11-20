@@ -1,6 +1,5 @@
 import { CodeEditorComponent } from '@Components/CodeEditor';
 import { ExecutionOutputTabContent } from '@Components/Modals/ExecuteCodeOnKernelModal/ExecutionOutputTabContent';
-import { RoundToNDecimalPlaces } from '@Utils/utils';
 import { KernelManager, ServerConnection } from '@jupyterlab/services';
 import { IKernelConnection, IShellFuture } from '@jupyterlab/services/lib/kernel/kernel';
 import { IExecuteReplyMsg, IExecuteRequestMsg, IIOPubMessage } from '@jupyterlab/services/lib/kernel/messages';
@@ -13,6 +12,7 @@ import {
     CardBody,
     Checkbox,
     ClipboardCopy,
+    ClipboardCopyVariant,
     Flex,
     FlexItem,
     FormSelect,
@@ -22,8 +22,8 @@ import {
     Label,
     Modal,
     Tab,
-    TabTitleText,
     Tabs,
+    TabTitleText,
     Text,
     TextVariants,
     Title,
@@ -33,8 +33,14 @@ import { CheckCircleIcon, SpinnerIcon, TimesCircleIcon, TimesIcon } from '@patte
 import { AuthorizationContext } from '@Providers/AuthProvider';
 import { useJupyterAddress } from '@Providers/JupyterAddressProvider';
 import { RequestTraceSplitTable } from '@src/Components';
-import { DistributedJupyterKernel, FirstJupyterKernelBuffersFrame, JupyterKernelReplica } from '@src/Data';
+import {
+    DistributedJupyterKernel,
+    FirstJupyterKernelBuffersFrame,
+    JupyterKernelReplica,
+    RequestTrace,
+} from '@src/Data';
 import { GetPathForFetch, JoinPaths } from '@src/Utils/path_utils';
+import { RoundToNDecimalPlaces } from '@Utils/utils';
 import React, { ReactElement } from 'react';
 import toast, { Toast } from 'react-hot-toast';
 import { v4 as uuidv4 } from 'uuid';
@@ -59,7 +65,7 @@ export const CodeContext = React.createContext({
 });
 
 // Execution encapsulates the submission of code to be executed on a kernel.
-interface Execution {
+export interface Execution {
     // The ID of the kernel to which the code was submitted for execution.
     kernelId: string;
     // The SMR node ID of the replica targeted, if one was explicitly targeted.
@@ -78,6 +84,12 @@ interface Execution {
     errorName: string | undefined;
     // The error message that caused the execution to fail (if the execution did fail).
     errorMessage: string | undefined;
+    // The request traces from the Execution.
+    requestTraces: RequestTrace[];
+    // The ID of the Jupyter message response.
+    messageId: string | undefined;
+    // Unix timestamp at which we received the reply.
+    receivedReplyAt: number;
 }
 
 export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKernelProps> = (props) => {
@@ -287,6 +299,9 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                 const exec: Execution | undefined = prevMap.get(executionId);
                 if (exec) {
                     exec.status = 'completed';
+                    exec.requestTraces = firstBufferFrame ? [firstBufferFrame.request_trace] : [];
+                    exec.messageId = response.header.msg_id;
+                    exec.receivedReplyAt = receivedReplyAt;
                     return new Map(prevMap).set(executionId, exec);
                 }
                 return prevMap;
@@ -352,8 +367,11 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                 const exec: Execution | undefined = prevMap.get(executionId);
                 if (exec) {
                     exec.status = 'failed';
+                    exec.requestTraces = firstBufferFrame ? [firstBufferFrame.request_trace] : [];
                     exec.errorName = errorName;
                     exec.errorMessage = errorMessage;
+                    exec.messageId = response.header.msg_id;
+                    exec.receivedReplyAt = receivedReplyAt;
                     return new Map(prevMap).set(executionId, exec);
                 }
                 return prevMap;
@@ -382,7 +400,13 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                                     <Title headingLevel={'h3'}>Error Message</Title>
                                 </FlexItem>
                                 <FlexItem>
-                                    <ClipboardCopy isReadOnly hoverTip="Copy" clickTip="Copied">
+                                    <ClipboardCopy
+                                        isReadOnly
+                                        isExpanded
+                                        hoverTip="Copy"
+                                        clickTip="Copied"
+                                        variant={ClipboardCopyVariant.expansion}
+                                    >
                                         {errorNameAndMessage}
                                     </ClipboardCopy>
                                 </FlexItem>
@@ -564,6 +588,9 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                 output: [],
                 errorName: undefined,
                 errorMessage: undefined,
+                requestTraces: [],
+                messageId: undefined,
+                receivedReplyAt: -1,
             };
 
             if (activeExecutionOutputTab === '' || !executionMap.has(activeExecutionOutputTab)) {
@@ -722,10 +749,18 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
     /**
      * Return the error message associated with the active execution.
      */
-    const getErrorNameAndMessageForActiveExecutionTab = () => {
-        const exec = executionMap.get(activeExecutionOutputTab);
+    const getErrorNameAndMessageForActiveExecutionTab = (): string | undefined => {
+        const exec: Execution | undefined = executionMap.get(activeExecutionOutputTab);
         if (exec && exec.errorName && exec.errorMessage) {
             return `${exec.errorName}: ${exec.errorMessage}`;
+        }
+        return undefined;
+    };
+
+    const getExecutionForActiveExecutionTab = (): Execution | undefined => {
+        const exec: Execution | undefined = executionMap.get(activeExecutionOutputTab);
+        if (exec) {
+            return exec;
         }
         return undefined;
     };
@@ -825,6 +860,7 @@ export const ExecuteCodeOnKernelModal: React.FunctionComponent<ExecuteCodeOnKern
                     kernelId={getKernelId(activeExecutionOutputTab)}
                     replicaId={getReplicaId(activeExecutionOutputTab)}
                     errorMessage={getErrorNameAndMessageForActiveExecutionTab()}
+                    exec={getExecutionForActiveExecutionTab()}
                 />
             </CardBody>
         </Card>

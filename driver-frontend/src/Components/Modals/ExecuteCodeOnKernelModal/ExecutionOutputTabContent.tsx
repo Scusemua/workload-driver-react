@@ -1,9 +1,11 @@
+import { Execution } from '@Components/Modals';
 import {
     Button,
     Card,
     CardBody,
     Checkbox,
     ClipboardCopy,
+    ClipboardCopyVariant,
     Flex,
     FlexItem,
     Title,
@@ -16,6 +18,7 @@ import {
 } from '@patternfly/react-core';
 import { DownloadIcon, EllipsisVIcon } from '@patternfly/react-icons';
 import { LogViewer, LogViewerSearch } from '@patternfly/react-log-viewer';
+import { RequestTraceSplitTable } from '@src/Components';
 import { DarkModeContext } from '@src/Providers';
 import React from 'react';
 
@@ -26,6 +29,7 @@ export interface ExecutionOutputTabContentProps {
     executionId?: string;
     output: string[];
     errorMessage?: string;
+    exec?: Execution;
 }
 
 export const ExecutionOutputTabContent: React.FunctionComponent<ExecutionOutputTabContentProps> = (
@@ -122,10 +126,25 @@ export const ExecutionOutputTabContent: React.FunctionComponent<ExecutionOutputT
                     </FlexItem>
                     <FlexItem hidden={props.errorMessage === undefined}>
                         <Title headingLevel="h3">Error Message</Title>
-                        <ClipboardCopy isReadOnly hoverTip="Copy" clickTip="Copied">
+                        <ClipboardCopy
+                            isReadOnly
+                            isExpanded
+                            hoverTip="Copy"
+                            clickTip="Copied"
+                            variant={ClipboardCopyVariant.expansion}
+                        >
                             {props.errorMessage}
                         </ClipboardCopy>
                     </FlexItem>
+                    {props.exec !== undefined && props.exec.requestTraces.length > 0 && (
+                        <FlexItem>
+                            <RequestTraceSplitTable
+                                traces={props.exec.requestTraces}
+                                messageId={props.exec.messageId || ''}
+                                receivedReplyAt={props.exec.receivedReplyAt}
+                            />
+                        </FlexItem>
+                    )}
                 </Flex>
             </CardBody>
         </Card>
