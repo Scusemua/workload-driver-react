@@ -47,14 +47,14 @@ interface IKernelInfoIconsProps {
 export const KernelInfoIcons: React.FunctionComponent<IKernelInfoIconsProps> = (props: IKernelInfoIconsProps) => {
     const getLabelFontSize = () => {
         if (props.iconSizes == 'xl') {
-            return 26;
+            return 27;
         } else if (props.iconSizes == 'lg') {
-            return 22;
+            return 23;
         } else if (props.iconSizes == 'md') {
-            return 18;
+            return 19;
         }
 
-        return 14;
+        return 15;
     };
 
     /**

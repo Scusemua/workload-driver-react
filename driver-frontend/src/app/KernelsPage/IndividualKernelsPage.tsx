@@ -50,7 +50,7 @@ export const IndividualKernelsPage: React.FunctionComponent = () => {
                                             <KernelInfoIcons
                                                 kernel={targetKernel}
                                                 iconSizes={'lg'}
-                                                iconSpacingOverride={'spaceItems3xl'}
+                                                iconSpacingOverride={'spaceItemsXl'}
                                             />
                                         </FlexItem>
                                     </Flex>
