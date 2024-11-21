@@ -384,7 +384,7 @@ export const AppHeader: React.FunctionComponent<AppHeaderProps> = (props: AppHea
                                             fetch(GetPathForFetch('api/panic'), requestOptions).then(() => {});
                                         }}
                                     >
-                                        Induce a Panic
+                                        Panic
                                     </Button>
                                 </Tooltip>
                             </FlexItem>
@@ -402,7 +402,7 @@ export const AppHeader: React.FunctionComponent<AppHeaderProps> = (props: AppHea
                                         icon={<InfoAltIcon />}
                                         onClick={() => setQueryMessageModalOpen(true)}
                                     >
-                                        Query Message Status
+                                        Query Message
                                     </Button>
                                 </Tooltip>
                             </FlexItem>
@@ -411,6 +411,7 @@ export const AppHeader: React.FunctionComponent<AppHeaderProps> = (props: AppHea
                         <FlexItem>
                             <Tooltip content="Indicates whether we're presently authenticated." position="bottom">
                                 <Label
+                                    isCompact
                                     color={authenticated ? 'green' : 'orange'}
                                     icon={authenticated ? <CheckCircleIcon /> : <WarningTriangleIcon />}
                                 >
@@ -425,7 +426,7 @@ export const AppHeader: React.FunctionComponent<AppHeaderProps> = (props: AppHea
                                     content="Indicates the current connection status with the backend of the Cluster Dashboard."
                                     position="bottom"
                                 >
-                                    <Label color={connectionStatusColor} icon={connectionStatusIcon}>
+                                    <Label color={connectionStatusColor} icon={connectionStatusIcon} isCompact>
                                         {connectionStatus}
                                     </Label>
                                 </Tooltip>
@@ -435,7 +436,7 @@ export const AppHeader: React.FunctionComponent<AppHeaderProps> = (props: AppHea
                         {props.isLoggedIn && (
                             <FlexItem>
                                 <Tooltip content={'Age of the cluster'} position="bottom">
-                                    <Label color={'purple'} icon={<ClockIcon />}>
+                                    <Label isCompact color={'purple'} icon={<ClockIcon />}>
                                         <b>Cluster Age:</b> {currentClusterAge}
                                     </Label>
                                 </Tooltip>
@@ -448,7 +449,7 @@ export const AppHeader: React.FunctionComponent<AppHeaderProps> = (props: AppHea
                                     content={'Configured scheduling policy employed by the cluster'}
                                     position="bottom"
                                 >
-                                    <Label color={'cyan'} icon={<ClockIcon />}>
+                                    <Label isCompact color={'cyan'} icon={<ClockIcon />}>
                                         <b>Scheduling Policy:</b> {schedulingPolicy}
                                     </Label>
                                 </Tooltip>
@@ -458,7 +459,7 @@ export const AppHeader: React.FunctionComponent<AppHeaderProps> = (props: AppHea
                         {props.isLoggedIn && (
                             <FlexItem>
                                 <Tooltip content={'Configured deployment mode of the cluster'} position="bottom">
-                                    <Label color={'gold'} icon={<ClockIcon />}>
+                                    <Label isCompact color={'gold'} icon={<ClockIcon />}>
                                         <b>Deployment Mode:</b> {deploymentMode}
                                     </Label>
                                 </Tooltip>

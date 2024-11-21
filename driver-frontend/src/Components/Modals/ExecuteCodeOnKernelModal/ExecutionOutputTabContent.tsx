@@ -137,13 +137,18 @@ export const ExecutionOutputTabContent: React.FunctionComponent<ExecutionOutputT
                         </ClipboardCopy>
                     </FlexItem>
                     {props.exec !== undefined && props.exec.requestTraces.length > 0 && (
-                        <FlexItem>
-                            <RequestTraceSplitTable
-                                traces={props.exec.requestTraces}
-                                messageId={props.exec.messageId || ''}
-                                receivedReplyAt={props.exec.receivedReplyAt}
-                            />
-                        </FlexItem>
+                        <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsXs' }}>
+                            <FlexItem>
+                                <Title headingLevel="h3">Request Trace</Title>
+                            </FlexItem>
+                            <FlexItem>
+                                <RequestTraceSplitTable
+                                    traces={props.exec.requestTraces}
+                                    messageId={props.exec.messageId || ''}
+                                    receivedReplyAt={props.exec.receivedReplyAt}
+                                />
+                            </FlexItem>
+                        </Flex>
                     )}
                 </Flex>
             </CardBody>

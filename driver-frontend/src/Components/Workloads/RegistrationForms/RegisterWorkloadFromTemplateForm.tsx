@@ -1,5 +1,5 @@
 import { CodeEditorComponent } from '@Components/CodeEditor';
-import { CodeContext, SessionConfigurationForm } from '@Components/Modals';
+import { SessionConfigurationForm } from '@Components/Modals';
 import RemoteStorageDefinitionForm from '@Components/Modals/NewWorkloadFromTemplateModal/RemoteStorage/RemoteStorageDefinitionForm';
 import { Language } from '@patternfly/react-code-editor';
 import {
@@ -71,6 +71,12 @@ interface readFile {
     loadResult?: 'danger' | 'success';
     loadError?: DOMException;
 }
+
+export const WorkloadTemplateJsonContext = React.createContext({
+    code: '',
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    setCode: (_: string) => {},
+});
 
 // Important: this component must be wrapped in a <SessionTabsDataProvider></SessionTabsDataProvider>!
 export const RegisterWorkloadFromTemplateForm: React.FunctionComponent<IRegisterWorkloadFromTemplateFormProps> = (
@@ -515,14 +521,15 @@ export const RegisterWorkloadFromTemplateForm: React.FunctionComponent<IRegister
     const successfullyReadFileCount = readFileData.filter((fileData) => fileData.loadResult === 'success').length;
 
     const jsonEditor = (
-        <CodeContext.Provider value={{ code: formAsJson, setCode: setFormAsJson }}>
+        <WorkloadTemplateJsonContext.Provider value={{ code: formAsJson, setCode: setFormAsJson }}>
             <CodeEditorComponent
                 showCodeTemplates={false}
                 height={650}
                 language={Language.json}
                 defaultFilename={'template'}
+                targetContext={WorkloadTemplateJsonContext}
             />
-        </CodeContext.Provider>
+        </WorkloadTemplateJsonContext.Provider>
     );
 
     const jsonFileUploadRegion = (

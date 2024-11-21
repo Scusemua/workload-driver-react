@@ -5,13 +5,13 @@ import { ClockIcon, CodeIcon, DiceIcon } from '@patternfly/react-icons';
 import { DarkModeContext } from '@src/Providers';
 import { editor } from 'monaco-editor/esm/vs/editor/editor.api';
 import React from 'react';
-import { CodeContext } from './Modals';
 
 export interface CodeEditorComponentProps {
     children?: React.ReactNode;
     showCodeTemplates: boolean;
     height: number;
     language: Language;
+    targetContext: React.Context<{ code: string; setCode: (_: string) => void }>;
 
     // Do not include the file extension. That is added automatically.
     defaultFilename: string;
@@ -21,7 +21,7 @@ export const CodeEditorComponent: React.FunctionComponent<CodeEditorComponentPro
     props: CodeEditorComponentProps,
 ) => {
     const { darkMode } = React.useContext(DarkModeContext);
-    const { code, setCode } = React.useContext(CodeContext);
+    const { code, setCode } = React.useContext(props.targetContext);
 
     const [isEditorDarkMode, setIsEditorDarkMode] = React.useState(darkMode);
     const [filename, setFilename] = React.useState<string>('');

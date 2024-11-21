@@ -1,7 +1,7 @@
 import { KernelInfoIcons } from '@Cards/KernelListCard/KernelInfoBar';
-import { Card, CardBody, Flex, FlexItem, PageSection, Text } from '@patternfly/react-core';
+import { Card, CardBody, Flex, FlexItem, PageSection, Text, Title } from '@patternfly/react-core';
 import useNavigation from '@Providers/NavigationProvider';
-import { KernelOverflowMenu, KernelReplicaTable } from '@src/Components';
+import { ExecuteCodeOnKernelPanel, KernelOverflowMenu, KernelReplicaTable } from '@src/Components';
 import { DistributedJupyterKernel } from '@src/Data';
 import { useKernels } from '@src/Providers';
 import React from 'react';
@@ -40,9 +40,9 @@ export const IndividualKernelsPage: React.FunctionComponent = () => {
                 <PageSection>
                     <Card isFullHeight isRounded>
                         <CardBody>
-                            <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsLg' }}>
+                            <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItems2xl' }}>
                                 <Flex direction={{ default: 'row' }}>
-                                    <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsXs' }}>
+                                    <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
                                         <FlexItem align={{ default: 'alignLeft' }}>
                                             <Text component={'h1'}>Kernel {targetKernel?.kernelId}</Text>
                                         </FlexItem>
@@ -67,15 +67,23 @@ export const IndividualKernelsPage: React.FunctionComponent = () => {
                                         />
                                     </FlexItem>
                                 </Flex>
+                                <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
+                                    <FlexItem>
+                                        <Title headingLevel={'h2'}>Replicas</Title>
+                                    </FlexItem>
+                                    <FlexItem>
+                                        <KernelReplicaTable
+                                            kernel={targetKernel}
+                                            openMigrationModal={() => {}}
+                                            onExecuteCodeClicked={() => {}}
+                                            setOpenReplicaDropdownMenu={() => {}}
+                                            setOpenKernelDropdownMenu={() => {}}
+                                            openReplicaDropdownMenu={targetKernel?.kernelId}
+                                        />
+                                    </FlexItem>
+                                </Flex>
                                 <FlexItem>
-                                    <KernelReplicaTable
-                                        kernel={targetKernel}
-                                        openMigrationModal={() => {}}
-                                        onExecuteCodeClicked={() => {}}
-                                        setOpenReplicaDropdownMenu={() => {}}
-                                        setOpenKernelDropdownMenu={() => {}}
-                                        openReplicaDropdownMenu={targetKernel?.kernelId}
-                                    />
+                                    <ExecuteCodeOnKernelPanel kernel={targetKernel} replicaId={-1} />
                                 </FlexItem>
                             </Flex>
                         </CardBody>
