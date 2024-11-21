@@ -276,7 +276,7 @@ func (s *Synthesizer) transitionAndSubmitEvent(evt domain.Event) {
 					}
 				}
 
-				sessEvt := &eventImpl{name: evtName, eventSource: evt.EventSource(), originalEventSource: evt.OriginalEventSource(), data: eventData, timestamp: sess.Timestamp, id: uuid.New().String()}
+				sessEvt := &eventImpl{name: evtName, eventSource: evt.EventSource(), originalEventSource: evt.OriginalEventSource(), data: eventData, timestamp: sess.Timestamp, id: uuid.New().String(), originalTimestamp: sess.Timestamp}
 				s.sugarLog.Debugf("Enqueuing Session-level event targeting pod %s: %s [ts=%v]", sessEvt.Data().(*SessionMeta).Pod, evtName, sess.Timestamp)
 				s.consumer.SubmitEvent(sessEvt)
 			} else {

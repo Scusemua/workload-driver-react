@@ -380,6 +380,7 @@ func (d *BaseDriver) Trigger(ctx context.Context, name domain.EventName, rec Rec
 		name:                name,
 		data:                rec,
 		timestamp:           rec.GetTS(),
+		originalTimestamp:   rec.GetTS(),
 		id:                  uuid.New().String(),
 	})
 }

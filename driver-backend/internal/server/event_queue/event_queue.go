@@ -212,6 +212,9 @@ func (q *BasicEventQueue) EnqueueEvent(evt domain.Event) {
 	} else {
 		panic(fmt.Sprintf("Event %v has no data associated with it.", evt))
 	}
+
+	// Record that the event was enqueued.
+	evt.Enqueued()
 }
 
 // GetTimestampOfNextReadyEvent returns the timestamp of the next session event to be processed.

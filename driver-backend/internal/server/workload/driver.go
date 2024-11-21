@@ -1263,7 +1263,7 @@ func (d *BasicWorkloadDriver) processEventsForTick(tick time.Time) {
 		}
 
 		// Add the event to the slice of events for this session.
-		sessionEvents = append(sessionEvents, evt.GetEvent())
+		sessionEvents = append(sessionEvents, evt)
 		// Put the updated list back into the map.
 		sessionEventMap[sessionId] = sessionEvents
 	}
@@ -1459,7 +1459,10 @@ func (d *BasicWorkloadDriver) handleSessionReadyEvent(sessionReadyEvent domain.E
 		// This is thread-safe because the WebSocket uses a thread-safe wrapper.
 		go func() {
 			if writeError := d.websocket.WriteMessage(websocket.BinaryMessage, payload); writeError != nil {
-				d.logger.Error("Failed to write error message via WebSocket.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.Error(writeError))
+				d.logger.Error("Failed to write error message via WebSocket.",
+					zap.String("workload_id", d.workload.GetId()),
+					zap.String("workload_name", d.workload.WorkloadName()),
+					zap.Error(writeError))
 			}
 		}()
 
@@ -1467,7 +1470,11 @@ func (d *BasicWorkloadDriver) handleSessionReadyEvent(sessionReadyEvent domain.E
 		// Depending on what the error is, we'll treat it as a critical error or not.
 		d.handleFailureToCreateNewSession(err, sessionReadyEvent)
 	} else {
-		d.logger.Debug("Successfully handled SessionStarted event.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String(ZapInternalSessionIDKey, sessionId), zap.Duration("real-time-elapsed", time.Since(provisionStart)))
+		d.logger.Debug("Successfully handled SessionStarted event.",
+			zap.String("workload_id", d.workload.GetId()),
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String(ZapInternalSessionIDKey, sessionId),
+			zap.Duration("real-time-elapsed", time.Since(provisionStart)))
 	}
 
 	if wg != nil {
@@ -1476,9 +1483,29 @@ func (d *BasicWorkloadDriver) handleSessionReadyEvent(sessionReadyEvent domain.E
 }
 
 func (d *BasicWorkloadDriver) handleFailureToCreateNewSession(err error, sessionReadyEvent domain.Event) {
+	if strings.Contains(err.Error(), "insufficient hosts available") {
+		sessionReadyEvent.PushTimestampBack(d.targetTickDuration)
+
+		d.logger.Warn("Failed to create session due to insufficient resources available. Will requeue event and try again later.",
+			zap.String("workload_id", d.workload.GetId()),
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String(ZapInternalSessionIDKey, sessionReadyEvent.SessionID()),
+			zap.Time("original_timestamp", sessionReadyEvent.OriginalTimestamp()),
+			zap.Time("current_timestamp", sessionReadyEvent.Timestamp()),
+			zap.Time("total_delay", sessionReadyEvent.TotalDelay()))
+
+		d.eventQueue.EnqueueEvent(sessionReadyEvent)
+
+		return
+	}
+
+	d.logger.Error("Session creation failure is due to unexpected reason. Aborting workload.",
+		zap.String("workload_id", d.workload.GetId()),
+		zap.String("workload_name", d.workload.WorkloadName()),
+		zap.String(ZapInternalSessionIDKey, sessionReadyEvent.SessionID()),
+		zap.Error(err))
 
 	d.errorChan <- err
-
 	if d.onCriticalErrorOccurred != nil {
 		go d.onCriticalErrorOccurred(d.workload.GetId(), err)
 	}

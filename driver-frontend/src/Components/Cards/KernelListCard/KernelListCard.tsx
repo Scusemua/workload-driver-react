@@ -42,7 +42,7 @@ import {
 import { useNodes } from '@src/Providers';
 import { GetPathForFetch } from '@src/Utils/path_utils';
 import { DefaultDismiss, GetToastContentWithHeaderAndBody, ToastPromise, ToastRefresh } from '@src/Utils/toast_utils';
-import { RoundToThreeDecimalPlaces, numberArrayFromRange } from '@src/Utils/utils';
+import { numberArrayFromRange, RoundToThreeDecimalPlaces } from '@src/Utils/utils';
 import React, { useEffect, useReducer, useRef } from 'react';
 
 import toast, { Toast } from 'react-hot-toast';
@@ -228,6 +228,7 @@ export const KernelListCard: React.FunctionComponent<KernelListProps> = (props: 
 
         async function start_session(): Promise<ISessionModel> {
             const response: Response = await fetch(GetPathForFetch('jupyter/api/sessions'), req);
+            console.log(`response.headers.get("content-type"): ${response.headers.get('content-type')}`);
 
             if (response.status != 201) {
                 numKernelsCreating.current -= 1;

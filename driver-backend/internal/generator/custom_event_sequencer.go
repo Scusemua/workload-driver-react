@@ -274,6 +274,7 @@ func (s *CustomEventSequencer) AddSessionStartedEvent(sessionId string, tickNumb
 		eventSource:         nil,
 		originalEventSource: nil,
 		timestamp:           timestamp,
+		originalTimestamp:   timestamp,
 		localIndex:          localIndex,
 		id:                  uuid.New().String(),
 		globalIndex:         globalCustomEventIndex.Add(1),
@@ -315,6 +316,7 @@ func (s *CustomEventSequencer) AddSessionTerminatedEvent(sessionId string, tickN
 		originalEventSource: nil,
 		data:                metadata,
 		timestamp:           timestamp,
+		originalTimestamp:   timestamp,
 		localIndex:          eventIndex,
 		id:                  uuid.New().String(),
 		globalIndex:         globalCustomEventIndex.Add(1),
@@ -402,6 +404,7 @@ func (s *CustomEventSequencer) AddTrainingEvent(sessionId string, tickNumber int
 		originalEventSource: nil,
 		data:                metadata,
 		localIndex:          eventIndex,
+		originalTimestamp:   startTime,
 		timestamp:           startTime,
 		id:                  uuid.New().String(),
 		globalIndex:         globalCustomEventIndex.Add(1),
@@ -424,6 +427,7 @@ func (s *CustomEventSequencer) AddTrainingEvent(sessionId string, tickNumber int
 		data:                nil,
 		localIndex:          eventIndex + 1,
 		timestamp:           endTime,
+		originalTimestamp:   endTime,
 		id:                  uuid.New().String(),
 		globalIndex:         globalCustomEventIndex.Add(1),
 	}
@@ -465,7 +469,7 @@ func (h internalEventHeap) Less(i, j int) bool {
 			// Sanity check -- if we find a "session-stopped" and "training-ended" event targeting the same session,
 			// then we double-check that their "event indices" are consistent with the order that they should be
 			// processed. "training-ended" events should always be processed before "session-stopped" events.
-			if h[i].SessionSpecificEventIndex() /* training-ended */ > h[j].SessionSpecificEventIndex() /* session-stopped */ && h[i].SessionID() == h[j].SessionID() {
+			if h[i].SessionSpecificEventIndex() /* training-ended */ > h[j].SessionSpecificEventIndex() /* session-stopped */ && h[i].SessionID() == h[j].SessionID() && !h[i].WasEnqueuedMultipleTimes() && !h[j].WasEnqueuedMultipleTimes() {
 				// We expect the global localIndex of the training-ended event to be less than that of the session-stopped
 				// event, since the training-ended event should have been created prior to the session-stopped event.
 				log.Fatalf("Global event indices do not reflect correct ordering of events. "+
@@ -477,7 +481,7 @@ func (h internalEventHeap) Less(i, j int) bool {
 			// Sanity check -- if we find a "session-stopped" and "training-ended" event targeting the same session,
 			// then we double-check that their "event indices" are consistent with the order that they should be
 			// processed. "training-ended" events should always be processed before "session-stopped" events.
-			if h[j].SessionSpecificEventIndex() /* training-ended */ > h[i].SessionSpecificEventIndex() /* session-stopped */ && h[i].SessionID() == h[j].SessionID() {
+			if h[j].SessionSpecificEventIndex() /* training-ended */ > h[i].SessionSpecificEventIndex() /* session-stopped */ && h[i].SessionID() == h[j].SessionID() && !h[i].WasEnqueuedMultipleTimes() && !h[j].WasEnqueuedMultipleTimes() {
 				// We expect the global localIndex of the training-ended event to be less than that of the session-stopped
 				// event, since the training-ended event should have been created prior to the session-stopped event.
 				log.Fatalf("Global event indices do not reflect correct ordering of events. "+

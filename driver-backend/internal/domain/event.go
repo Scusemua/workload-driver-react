@@ -75,24 +75,24 @@ type EventConsumer interface {
 }
 
 type Event interface {
-	EventSource() EventSource
-	OriginalEventSource() EventSource
-	Name() EventName
 	Data() interface{}
-	SessionID() string
-	Timestamp() time.Time
+	Enqueued() // Enqueued records that the event was enqueued for processing. Events can be enqueued multiple times.
+	EventSource() EventSource
+	GlobalEventIndex() uint64 // GlobalEventIndex provides a global ordering for comparing all events with each other within a workload.
 	Id() string
-	// SessionSpecificEventIndex indicates the order in which the event was created relative to other events targeting
-	// the same Session.
-	// The first event created for a session while have an index of 0.
-	// The last event created for a session while have an index of N - 1, where N is the number of events created
-	// for that Session.
-	SessionSpecificEventIndex() int
-	// GlobalEventIndex provides a global ordering for comparing all events with each other within a workload.
-	GlobalEventIndex() uint64
-	OrderSeq() int64 // OrderSeq is essentially timestamp of event, but randomized to make behavior stochastic.
+	Name() EventName
+	NumTimesEnqueued() int32 // NumTimesEnqueued returns the number of times that the Event has been enqueued.
+	OrderSeq() int64         // OrderSeq is essentially timestamp of event, but randomized to make behavior stochastic.
+	OriginalEventSource() EventSource
+	OriginalTimestamp() time.Time // OriginalTimestamp returns the original timestamp of the underlying event.
+	SessionID() string
+	SessionSpecificEventIndex() int // SessionSpecificEventIndex indicates the order in which the event was created relative to other events targeting the same Session. The first event created for a session while have an index of 0. The last event created for a session while have an index of N - 1, where N is the number of events created for that Session.
 	SetOrderSeq(int64)
 	String() string
+	Timestamp() time.Time
+	PushTimestampBack(time.Duration) // PushTimestampBack adds the given time.Duration to the Event's timestamp. To be used when re-enqueuing the event to process it later.
+	TotalDelay() time.Duration       // TotalDelay returns the total time.Duration that the event has been pushed back.
+	WasEnqueuedMultipleTimes() bool  // WasEnqueuedMultipleTimes returns true if the event has been enqueued more than once.
 }
 
 type EventBuff []Event
@@ -127,7 +127,7 @@ func (h EventHeap) Less(i, j int) bool {
 			// Sanity check -- if we find a "session-stopped" and "training-ended" event targeting the same session,
 			// then we double-check that their "event indices" are consistent with the order that they should be
 			// processed. "training-ended" events should always be processed before "session-stopped" events.
-			if h[i].SessionSpecificEventIndex() /* training-ended */ > h[j].SessionSpecificEventIndex() /* session-stopped */ && h[i].SessionID() == h[j].SessionID() {
+			if h[i].SessionSpecificEventIndex() /* training-ended */ > h[j].SessionSpecificEventIndex() /* session-stopped */ && h[i].SessionID() == h[j].SessionID() && !h[i].WasEnqueuedMultipleTimes() && !h[j].WasEnqueuedMultipleTimes() {
 				// We expect the event index of the training-ended event to be less than that of the session-stopped
 				// event, since the training-ended event should have been created prior to the session-stopped event.
 				log.Fatalf("Event indices do not reflect correct ordering of events. "+
@@ -139,7 +139,7 @@ func (h EventHeap) Less(i, j int) bool {
 			// Sanity check -- if we find a "session-stopped" and "training-ended" event targeting the same session,
 			// then we double-check that their "event indices" are consistent with the order that they should be
 			// processed. "training-ended" events should always be processed before "session-stopped" events.
-			if h[j].SessionSpecificEventIndex() /* training-ended */ > h[i].SessionSpecificEventIndex() /* session-stopped */ && h[i].SessionID() == h[j].SessionID() {
+			if h[j].SessionSpecificEventIndex() /* training-ended */ > h[i].SessionSpecificEventIndex() /* session-stopped */ && h[i].SessionID() == h[j].SessionID() && !h[i].WasEnqueuedMultipleTimes() && !h[j].WasEnqueuedMultipleTimes() {
 				// We expect the event index of the training-ended event to be less than that of the session-stopped
 				// event, since the training-ended event should have been created prior to the session-stopped event.
 				log.Fatalf("Event indices do not reflect correct ordering of events. "+

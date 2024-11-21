@@ -159,6 +159,27 @@ export const SessionConfigurationFormTabContent: React.FunctionComponent<Session
         }
     };
 
+    const getGpusFieldValidated = () => {
+        if (getFieldState(numGpusFieldId).invalid) {
+            return 'error';
+        }
+
+        const gpus: number = getValues(numGpusFieldId) as number;
+        if (gpus < 0) {
+            return 'error';
+        }
+
+        if (gpus <= 8) {
+            return 'success';
+        }
+
+        if (gpus > 8 && gpus <= 16) {
+            return 'warning';
+        }
+
+        return 'error';
+    };
+
     return (
         <Card isCompact isRounded isFlat>
             <CardBody>
@@ -547,7 +568,7 @@ export const SessionConfigurationFormTabContent: React.FunctionComponent<Session
                                         <Controller
                                             control={control}
                                             name={numGpusFieldId}
-                                            rules={{ min: 0, max: 8, required: true }}
+                                            rules={{ min: 0, max: 16, required: true }}
                                             defaultValue={NumberOfGpusDefault}
                                             render={({ field }) => (
                                                 <NumberInput
@@ -600,8 +621,8 @@ export const SessionConfigurationFormTabContent: React.FunctionComponent<Session
                                                         const curr: number = getValues(numGpusFieldId) as number;
                                                         let next: number = curr + 1;
 
-                                                        if (next > 8) {
-                                                            next = 8;
+                                                        if (next > 16) {
+                                                            next = 16;
                                                         }
 
                                                         setValue(numGpusFieldId, next);
@@ -616,11 +637,9 @@ export const SessionConfigurationFormTabContent: React.FunctionComponent<Session
                                                     inputAriaLabel={`session-${sessionIndex}-num-gpus-input`}
                                                     minusBtnAriaLabel="minus"
                                                     plusBtnAriaLabel="plus"
-                                                    validated={
-                                                        getFieldState(numGpusFieldId).invalid ? 'error' : 'success'
-                                                    }
+                                                    validated={getGpusFieldValidated()}
                                                     min={0}
-                                                    max={8}
+                                                    max={16}
                                                 />
                                             )}
                                         />

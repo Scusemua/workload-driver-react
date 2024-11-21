@@ -3,6 +3,7 @@ package generator
 import (
 	"errors"
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
@@ -36,7 +37,10 @@ type eventImpl struct {
 	name                domain.EventName
 	data                interface{}
 	timestamp           time.Time
+	originalTimestamp   time.Time
+	delay               time.Duration
 	id                  string
+	numTimesEnqueued    atomic.Int32
 	orderSeq            int64 // OrderSeq is essentially timestamp of event, but randomized to make behavior stochastic.
 
 	// localIndex indicates the order in which the event was created relative to other events targeting the same Session.
@@ -67,6 +71,39 @@ func (e *eventImpl) SessionSpecificEventIndex() int { return e.localIndex }
 // GlobalEventIndex provides a global ordering for comparing all events with each other within a workload.
 func (e *eventImpl) GlobalEventIndex() uint64 {
 	return e.globalIndex
+}
+
+// Enqueued records that the event was enqueued for processing.
+// Events can be enqueued multiple times.
+func (e *eventImpl) Enqueued() {
+	e.numTimesEnqueued.Add(1)
+}
+
+// PushTimestampBack adds the given time.Duration to the Event's timestamp. To be used when re-enqueuing the event to process it later.
+func (e *eventImpl) PushTimestampBack(amount time.Duration) {
+	e.timestamp = e.timestamp.Add(amount)
+
+	e.delay = e.delay + amount
+}
+
+// OriginalTimestamp returns the original timestamp of the underlying event.
+func (e *eventImpl) OriginalTimestamp() time.Time {
+	return e.originalTimestamp
+}
+
+// TotalDelay returns the total time.Duration that the event has been pushed back.
+func (e *eventImpl) TotalDelay() time.Duration {
+	return e.delay
+}
+
+// NumTimesEnqueued returns the number of times that the Event has been enqueued.
+func (e *eventImpl) NumTimesEnqueued() int32 {
+	return e.numTimesEnqueued.Load()
+}
+
+// WasEnqueuedMultipleTimes returns true if the event has been enqueued more than once.
+func (e *eventImpl) WasEnqueuedMultipleTimes() bool {
+	return e.numTimesEnqueued.Load() > 1 // Enqueued more than once?
 }
 
 func (e *eventImpl) SessionID() string {

@@ -319,7 +319,14 @@ func (m *BasicKernelSessionManager) CreateSession(sessionId string, sessionPath 
 		m.kernelMetricsManager.SessionCreated(time.Since(sentAt), workloadId.(string))
 		m.mu.Unlock()
 
-		sessionConnection.AddMetadata(WorkloadIdMetadataKey, workloadId.(string), true)
+		err := sessionConnection.AddMetadata(WorkloadIdMetadataKey, workloadId.(string), true)
+		if err != nil {
+			m.logger.Error("Error while adding metadata to session connection.",
+				zap.String(ZapSessionIDKey, sessionId),
+				zap.String("metadata_key", WorkloadIdMetadataKey),
+				zap.String("metadata_value", workloadId.(string)),
+				zap.String("workload_id", workloadId.(string)))
+		}
 	} else {
 		m.logger.Warn("Could not load WorkloadID metadata from KernelSessionManager while creating session.",
 			zap.String("session_id", sessionId),

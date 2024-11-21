@@ -50,7 +50,7 @@ func (e *eventHeapElementImpl) GetIndex() int {
 
 // OriginalTimestamp returns the original timestamp of the underlying event.
 func (e *eventHeapElementImpl) OriginalTimestamp() time.Time {
-	return e.Timestamp()
+	return e.Event.OriginalTimestamp()
 }
 
 // SessionID returns the ID of the associated Session.
