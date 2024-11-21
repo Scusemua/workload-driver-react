@@ -19,8 +19,8 @@ import {
     FormSelectOption,
     Label,
     Tab,
-    TabTitleText,
     Tabs,
+    TabTitleText,
     Text,
     TextVariants,
     Title,
@@ -929,27 +929,24 @@ export const ExecuteCodeOnKernelPanel: React.FunctionComponent<IExecuteCodeOnKer
     );
 
     const targetReplicaSpecifier = (
-        <React.Fragment>
-            <Text component={TextVariants.p}>Target replica:</Text>
-            <Tooltip content="Specify the replica that should execute the code. This will fail (initially) if the target replica does not have enough resources, but may eventually succeed depending on the configured scheduling policy.">
-                <FormSelect
-                    isDisabled={forceFailure}
-                    value={targetReplicaId}
-                    onChange={onTargetReplicaChanged}
-                    aria-label="select-target-replica-menu"
-                    ouiaId="select-target-replica-menu"
-                >
-                    <FormSelectOption key={-1} value={'Auto'} label={'Auto'} />
-                    {props.kernel?.replicas.map((replica: JupyterKernelReplica) => (
-                        <FormSelectOption
-                            key={replica.replicaId}
-                            value={replica.replicaId}
-                            label={`Replica ${replica.replicaId}`}
-                        />
-                    ))}
-                </FormSelect>
-            </Tooltip>
-        </React.Fragment>
+        <Tooltip content="Specify the replica that should execute the code. This will fail (initially) if the target replica does not have enough resources, but may eventually succeed depending on the configured scheduling policy.">
+            <FormSelect
+                isDisabled={forceFailure}
+                value={targetReplicaId}
+                onChange={onTargetReplicaChanged}
+                aria-label="select-target-replica-menu"
+                ouiaId="select-target-replica-menu"
+            >
+                <FormSelectOption key={-1} value={'Any/Auto'} label={'Any/Auto'} />
+                {props.kernel?.replicas.map((replica: JupyterKernelReplica) => (
+                    <FormSelectOption
+                        key={replica.replicaId}
+                        value={replica.replicaId}
+                        label={`Replica ${replica.replicaId}`}
+                    />
+                ))}
+            </FormSelect>
+        </Tooltip>
     );
 
     const forceFailureCheckbox = (
@@ -964,28 +961,35 @@ export const ExecuteCodeOnKernelPanel: React.FunctionComponent<IExecuteCodeOnKer
     );
 
     const codeEditorComponent = (
-        <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsXs' }}>
-            <FlexItem>
-                <Title headingLevel={'h2'}>Code Editor</Title>
-            </FlexItem>
-            <FlexItem>
-                <Text component={TextVariants.h3}>
-                    Enter the code to be executed below. Once you&apos;re ready, press &apos;Execute&apos; to submit the
-                    code to the kernel for execution.
-                </Text>
-            </FlexItem>
-            <FlexItem>
-                <CodeContext.Provider value={{ code: code, setCode: (code: string) => setCode(code) }}>
-                    <CodeEditorComponent
-                        showCodeTemplates={true}
-                        height={400}
-                        language={Language.python}
-                        defaultFilename={'code'}
-                        targetContext={CodeContext}
-                    />
-                </CodeContext.Provider>
-            </FlexItem>
-            <Flex direction={{ default: 'row' }}>
+        <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsMd' }}>
+            <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsXs' }}>
+                <FlexItem>
+                    <Title headingLevel={'h2'}>Code Editor</Title>
+                </FlexItem>
+                <FlexItem>
+                    <Text component={TextVariants.h3}>
+                        Enter the code to be executed below. Once you&apos;re ready, press &apos;Execute&apos; to submit
+                        the code to the kernel for execution.
+                    </Text>
+                </FlexItem>
+                <FlexItem>
+                    <CodeContext.Provider value={{ code: code, setCode: (code: string) => setCode(code) }}>
+                        <CodeEditorComponent
+                            showCodeTemplates={true}
+                            height={400}
+                            language={Language.python}
+                            defaultFilename={'my_code.py'}
+                            targetContext={CodeContext}
+                        />
+                    </CodeContext.Provider>
+                </FlexItem>
+            </Flex>
+            <Flex
+                direction={{ default: 'row' }}
+            >
+                <FlexItem align={{ default: 'alignLeft' }}>{executeButton}</FlexItem>
+                <FlexItem align={{ default: 'alignLeft' }}>{enqueueButton}</FlexItem>
+                {props.onCancel !== undefined && <FlexItem align={{ default: 'alignLeft' }}>{cancelButton}</FlexItem>}
                 <FlexItem align={{ default: 'alignLeft' }}>{targetReplicaSpecifier}</FlexItem>
                 <FlexItem align={{ default: 'alignRight' }}>{forceFailureCheckbox}</FlexItem>
             </Flex>
@@ -996,11 +1000,7 @@ export const ExecuteCodeOnKernelPanel: React.FunctionComponent<IExecuteCodeOnKer
         <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItems2xl' }}>
             <FlexItem>{codeEditorComponent}</FlexItem>
             {executionOutputArea}
-            <Flex direction={{ default: 'row' }}>
-                <FlexItem>{executeButton}</FlexItem>
-                <FlexItem>{enqueueButton}</FlexItem>
-                {props.onCancel !== undefined && <FlexItem>{cancelButton}</FlexItem>}
-            </Flex>
+            <Flex direction={{ default: 'row' }}></Flex>
         </Flex>
     );
 };
