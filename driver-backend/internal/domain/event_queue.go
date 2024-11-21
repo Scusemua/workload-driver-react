@@ -6,7 +6,7 @@ import "time"
 // Entities that only need to be able to deposit events into the queue receive/use values of this type.
 // This is because they have no reason to access the rest of the EventQueue API.
 type EventQueueReceiver interface {
-	EnqueueEvent(Event)
+	EnqueueEvent(*Event)
 }
 
 // EventQueue defines the interface of an EventQueue that contains training start/stop Event instances
@@ -22,7 +22,7 @@ type EventQueue interface {
 	HasEventsForTick(time.Time) bool
 
 	// GetNextSessionStartEvent returns the next, ready-to-be-processed `EventSessionReady` from the queue.
-	GetNextSessionStartEvent(currentTime time.Time) Event
+	GetNextSessionStartEvent(currentTime time.Time) *Event
 
 	// GetAllSessionStartEventsForTick returns a slice of domain.Event containing all the EventSessionReady domain.Event
 	// instances that should be processed within the specified tick.
@@ -30,7 +30,7 @@ type EventQueue interface {
 	// If max is negative, then all events are returned.
 	//
 	// If max is a positive value, then up to `max` events are returned.
-	GetAllSessionStartEventsForTick(tick time.Time, max int) []Event
+	GetAllSessionStartEventsForTick(tick time.Time, max int) []*Event
 
 	// HasSessionReadyEvents returns true if there is at least one sessionReadyEvent in the `EventQueueService_Old::sessionReadyEvents` queue.
 	HasSessionReadyEvents() bool
@@ -48,5 +48,5 @@ type EventQueue interface {
 	// GetNextEvent returns the next event that occurs at or before the given timestamp, or nil if there are no such events.
 	// This will remove the event from the main EventQueueServiceImpl::eventHeap, but it will NOT remove the
 	// event from the EventQueueServiceImpl::eventsPerSession. To do that, you must call EventQueueServiceImpl::UnregisterEvent().
-	GetNextEvent(threshold time.Time) (EventHeapElement, bool)
+	GetNextEvent(threshold time.Time) (*Event, bool)
 }

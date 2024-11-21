@@ -58,7 +58,7 @@ func (w *WorkloadFromTemplate) SessionCreated(sessionId string, metadata Session
 
 // SessionStopped is called when a Session is stopped for/in the Workload.
 // Just updates some internal metrics.
-func (w *WorkloadFromTemplate) SessionStopped(sessionId string, _ Event) {
+func (w *WorkloadFromTemplate) SessionStopped(sessionId string, _ *Event) {
 	w.NumActiveSessions -= 1
 
 	val, ok := w.sessionsMap.Get(sessionId)
@@ -82,7 +82,7 @@ func (w *WorkloadFromTemplate) SessionStopped(sessionId string, _ Event) {
 
 // TrainingStarted is called when a training starts during/in the workload.
 // Just updates some internal metrics.
-func (w *WorkloadFromTemplate) TrainingStarted(sessionId string, evt Event) {
+func (w *WorkloadFromTemplate) TrainingStarted(sessionId string, evt *Event) {
 	w.NumActiveTrainings += 1
 
 	val, ok := w.sessionsMap.Get(sessionId)
@@ -96,13 +96,13 @@ func (w *WorkloadFromTemplate) TrainingStarted(sessionId string, evt Event) {
 		w.logger.Error("Failed to set session state.", zap.String("session_id", sessionId), zap.Error(err))
 	}
 
-	eventData := evt.Data()
+	eventData := evt.Data
 	sessionMetadata, ok := eventData.(SessionMetadata)
 
 	if !ok {
 		w.logger.Error("Could not extract SessionMetadata from event.",
 			zap.String("event_id", evt.Id()),
-			zap.String("event_name", evt.Name().String()),
+			zap.String("event_name", evt.Name.String()),
 			zap.String("session_id", sessionId))
 		return
 	}
@@ -117,7 +117,7 @@ func (w *WorkloadFromTemplate) TrainingStarted(sessionId string, evt Event) {
 
 // TrainingStopped is called when a training stops during/in the workload.
 // Just updates some internal metrics.
-func (w *WorkloadFromTemplate) TrainingStopped(sessionId string, evt Event) {
+func (w *WorkloadFromTemplate) TrainingStopped(sessionId string, evt *Event) {
 	w.NumTasksExecuted += 1
 	w.NumActiveTrainings -= 1
 
@@ -133,13 +133,13 @@ func (w *WorkloadFromTemplate) TrainingStopped(sessionId string, evt Event) {
 	}
 	session.GetAndIncrementTrainingsCompleted()
 
-	eventData := evt.Data()
+	eventData := evt.Data
 	sessionMetadata, ok := eventData.(SessionMetadata)
 
 	if !ok {
 		w.logger.Error("Could not extract SessionMetadata from event.",
 			zap.String("event_id", evt.Id()),
-			zap.String("event_name", evt.Name().String()),
+			zap.String("event_name", evt.Name.String()),
 			zap.String("session_id", sessionId))
 		return
 	}

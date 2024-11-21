@@ -120,7 +120,7 @@ type BasicWorkloadDriver struct {
 	workloadEventGeneratorCompleteChan chan interface{}                      // Used to signal that the generators have submitted all events. Once all remaining, already-enqueued events have been processed, the workload will be complete.
 	driverTimescale                    float64                               // Multiplier that impacts the timescale at the Driver will operate on with respect to the trace data. For example, if each tick is 60 seconds, then a DriverTimescale value of 0.5 will mean that each tick will take 30 seconds.
 	errorChan                          chan error                            // Used to stop the workload due to a critical error.
-	eventChan                          chan domain.Event                     // Receives events from the Synthesizer.
+	eventChan                          chan *domain.Event                    // Receives events from the Synthesizer.
 	eventQueue                         domain.EventQueue                     // Maintains a queue of events to be processed for each session.
 	id                                 string                                // Unique ID (relative to other drivers). The workload registered with this driver will be assigned this ID.
 	kernelManager                      jupyter.KernelSessionManager          // Simplified Go implementation of the Jupyter JavaScript API.
@@ -173,7 +173,7 @@ func NewBasicWorkloadDriver(opts *domain.Configuration, performClockTicks bool, 
 
 	driver := &BasicWorkloadDriver{
 		id:                                 GenerateWorkloadID(8),
-		eventChan:                          make(chan domain.Event),
+		eventChan:                          make(chan *domain.Event),
 		clockTrigger:                       clock.NewTrigger(),
 		opts:                               opts,
 		workloadExecutionCompleteChan:      make(chan interface{}, 1),
@@ -276,7 +276,7 @@ func (d *BasicWorkloadDriver) Stats() *WorkloadStats {
 	return d.stats
 }
 
-func (d *BasicWorkloadDriver) SubmitEvent(evt domain.Event) {
+func (d *BasicWorkloadDriver) SubmitEvent(evt *domain.Event) {
 	d.eventChan <- evt
 }
 
@@ -582,19 +582,19 @@ func (d *BasicWorkloadDriver) bootstrapSimulation() error {
 	// Save the timestamp information.
 	if d.performClockTicks {
 		// Set the d.currentTick to the timestamp of the event.
-		_, _, err := d.currentTick.IncreaseClockTimeTo(firstEvent.Timestamp())
+		_, _, err := d.currentTick.IncreaseClockTimeTo(firstEvent.Timestamp)
 		if err != nil {
 			d.logger.Error("Critical error occurred when attempting to increase clock time.", zap.Error(err))
 			return err
 		}
 
-		_, _, err = d.clockTime.IncreaseClockTimeTo(firstEvent.Timestamp())
+		_, _, err = d.clockTime.IncreaseClockTimeTo(firstEvent.Timestamp)
 		if err != nil {
 			d.logger.Error("Critical error occurred when attempting to increase clock time.", zap.Error(err))
 			return err
 		}
 
-		d.sugaredLogger.Debugf("d.currentTick has been initialized to %v.", firstEvent.Timestamp())
+		d.sugaredLogger.Debugf("d.currentTick has been initialized to %v.", firstEvent.Timestamp)
 	}
 
 	// Handle the event. Basically, just enqueue it in the EventQueue.
@@ -644,11 +644,11 @@ OUTER:
 			}
 
 			// If the event occurs during this tick, then call SimulationDriver::HandleDriverEvent to enqueue the event in the EventQueue.
-			if evt.Timestamp().Before(nextTick) {
+			if evt.Timestamp.Before(nextTick) {
 				d.eventQueue.EnqueueEvent(evt)
 			} else {
 				// The event occurs in the next tick. Update the current tick clock, issue/perform a tick-trigger, and then process the event.
-				err = d.IssueClockTicks(evt.Timestamp())
+				err = d.IssueClockTicks(evt.Timestamp)
 				if err != nil {
 					d.logger.Error("Critical error occurred while attempting to increment clock time.",
 						zap.String("workload_id", d.id),
@@ -1023,9 +1023,25 @@ func (d *BasicWorkloadDriver) ProcessWorkload(wg *sync.WaitGroup) error {
 	d.mu.Unlock()
 
 	if d.workload.IsPresetWorkload() {
-		go d.workloadGenerator.GeneratePresetWorkload(d, d.workload, d.workload.(*domain.WorkloadFromPreset).WorkloadPreset, d.workloadRegistrationRequest)
+		go func() {
+			err := d.workloadGenerator.GeneratePresetWorkload(d, d.workload, d.workload.(*domain.WorkloadFromPreset).WorkloadPreset, d.workloadRegistrationRequest)
+			if err != nil {
+				d.logger.Error("Failed to drive/generate preset workload.",
+					zap.String("workload_id", d.id),
+					zap.String("workload_name", d.workload.WorkloadName()),
+					zap.Error(err))
+			}
+		}()
 	} else if d.workload.IsTemplateWorkload() {
-		go d.workloadGenerator.GenerateTemplateWorkload(d, d.workload, d.workloadSessions, d.workloadRegistrationRequest)
+		go func() {
+			err := d.workloadGenerator.GenerateTemplateWorkload(d, d.workload, d.workloadSessions, d.workloadRegistrationRequest)
+			if err != nil {
+				d.logger.Error("Failed to drive/generate templated workload.",
+					zap.String("workload_id", d.id),
+					zap.String("workload_name", d.workload.WorkloadName()),
+					zap.Error(err))
+			}
+		}()
 	} else {
 		panic(fmt.Sprintf("Workload is of presently-unsuporrted type: \"%s\" -- cannot generate workload.", d.workload.GetWorkloadType()))
 	}
@@ -1238,7 +1254,7 @@ func (d *BasicWorkloadDriver) EventQueue() domain.EventQueue {
 func (d *BasicWorkloadDriver) processEventsForTick(tick time.Time) {
 	var (
 		// Map from session ID to a slice of events that the session is supposed to process in this tick.
-		sessionEventMap = make(map[string][]domain.Event)
+		sessionEventMap = make(map[string][]*domain.Event)
 		// Used to wait until all goroutines finish processing events for the sessions.
 		waitGroup sync.WaitGroup
 	)
@@ -1255,11 +1271,11 @@ func (d *BasicWorkloadDriver) processEventsForTick(tick time.Time) {
 		}
 
 		// Get the list of events for the particular session, creating said list if it does not already exist.
-		sessionId := evt.Data().(domain.PodData).GetPod()
+		sessionId := evt.Data.(domain.PodData).GetPod()
 		sessionEvents, ok := sessionEventMap[sessionId]
 		if !ok {
 			// If the slice of events doesn't exist already, then create it.
-			sessionEvents = make([]domain.Event, 0, 1)
+			sessionEvents = make([]*domain.Event, 0, 1)
 		}
 
 		// Add the event to the slice of events for this session.
@@ -1294,13 +1310,13 @@ func (d *BasicWorkloadDriver) processEventsForTick(tick time.Time) {
 
 // Process the given events for the specified session during the specified tick.
 // This is intended to be called within its own goroutine so that events for multiple sessions within the same tick can be processed concurrently by the driver.
-func (d *BasicWorkloadDriver) processEventsForSession(sessionId string, events []domain.Event, numSessionsWithEventsToProcess int, waitGroup *sync.WaitGroup, tick time.Time) {
+func (d *BasicWorkloadDriver) processEventsForSession(sessionId string, events []*domain.Event, numSessionsWithEventsToProcess int, waitGroup *sync.WaitGroup, tick time.Time) {
 	for idx, event := range events {
 		d.logger.Debug("Handling workload event.",
 			zap.Int("event_index", idx+1),
 			zap.Int("total_events", numSessionsWithEventsToProcess),
 			zap.String("session", sessionId),
-			zap.String("event_name", event.Name().String()),
+			zap.String("event_name", event.Name.String()),
 			zap.String("workload_name", d.workload.WorkloadName()),
 			zap.String("workload_id", d.workload.GetId()))
 		err := d.handleEvent(event)
@@ -1309,8 +1325,8 @@ func (d *BasicWorkloadDriver) processEventsForSession(sessionId string, events [
 		d.workload.ProcessedEvent(domain.NewEmptyWorkloadEvent().
 			WithEventId(event.Id()).
 			WithSessionId(event.SessionID()).
-			WithEventName(event.Name()).
-			WithEventTimestamp(event.Timestamp()).
+			WithEventName(event.Name).
+			WithEventTimestamp(event.Timestamp).
 			WithProcessedAtTime(time.Now()).
 			WithError(err))
 
@@ -1319,7 +1335,7 @@ func (d *BasicWorkloadDriver) processEventsForSession(sessionId string, events [
 				zap.Int("event_index", idx+1),
 				zap.Int("total_events", numSessionsWithEventsToProcess),
 				zap.String("session", sessionId),
-				zap.String("event_name", event.Name().String()),
+				zap.String("event_name", event.Name.String()),
 				zap.String("workload_name", d.workload.WorkloadName()),
 				zap.String("workload_id", d.workload.GetId()),
 				zap.Error(err))
@@ -1336,7 +1352,7 @@ func (d *BasicWorkloadDriver) processEventsForSession(sessionId string, events [
 			zap.Int("event_index", idx+1),
 			zap.Int("total_events", numSessionsWithEventsToProcess),
 			zap.String("session", sessionId),
-			zap.String("event_name", event.Name().String()),
+			zap.String("event_name", event.Name.String()),
 			zap.String("workload_name", d.workload.WorkloadName()),
 			zap.String("workload_id", d.workload.GetId()))
 	}
@@ -1410,14 +1426,14 @@ func (d *BasicWorkloadDriver) GetSession(id string) Session {
 	return nil
 }
 
-// handleSessionReadyEvent handles a single EventSessionReady domain.Event.
+// handleSessionReadyEvent handles a single EventSessionReady *domain.Event.
 // This function is thread-safe and may be called within its own goroutine.
-func (d *BasicWorkloadDriver) handleSessionReadyEvent(sessionReadyEvent domain.Event, eventIndex int, wg *sync.WaitGroup) {
-	sessionMeta := sessionReadyEvent.Data().(domain.SessionMetadata)
+func (d *BasicWorkloadDriver) handleSessionReadyEvent(sessionReadyEvent *domain.Event, eventIndex int, wg *sync.WaitGroup) {
+	sessionMeta := sessionReadyEvent.Data.(domain.SessionMetadata)
 
 	sessionId := sessionMeta.GetPod()
 	if d.sugaredLogger.Level() == zapcore.DebugLevel {
-		d.sugaredLogger.Debugf("Handling EventSessionReady %d targeting Session %s [ts: %v].", eventIndex+1, sessionId, sessionReadyEvent.Timestamp())
+		d.sugaredLogger.Debugf("Handling EventSessionReady %d targeting Session %s [ts: %v].", eventIndex+1, sessionId, sessionReadyEvent.Timestamp)
 	}
 
 	resourceSpec := &jupyter.ResourceSpec{
@@ -1427,14 +1443,14 @@ func (d *BasicWorkloadDriver) handleSessionReadyEvent(sessionReadyEvent domain.E
 	}
 
 	provisionStart := time.Now()
-	_, err := d.provisionSession(sessionId, sessionMeta, sessionReadyEvent.Timestamp(), resourceSpec)
+	_, err := d.provisionSession(sessionId, sessionMeta, sessionReadyEvent.Timestamp, resourceSpec)
 
 	// The event index will be populated automatically by the ProcessedEvent method.
 	workloadEvent := domain.NewEmptyWorkloadEvent().
 		WithEventId(sessionReadyEvent.Id()).
 		WithEventName(domain.EventSessionStarted).
 		WithSessionId(sessionReadyEvent.SessionID()).
-		WithEventTimestamp(sessionReadyEvent.Timestamp()).
+		WithEventTimestamp(sessionReadyEvent.Timestamp).
 		WithProcessedAtTime(time.Now()).
 		WithProcessedStatus(err == nil).
 		WithSimProcessedAtTime(d.clockTime.GetClockTime()).
@@ -1482,7 +1498,7 @@ func (d *BasicWorkloadDriver) handleSessionReadyEvent(sessionReadyEvent domain.E
 	}
 }
 
-func (d *BasicWorkloadDriver) handleFailureToCreateNewSession(err error, sessionReadyEvent domain.Event) {
+func (d *BasicWorkloadDriver) handleFailureToCreateNewSession(err error, sessionReadyEvent *domain.Event) {
 	if strings.Contains(err.Error(), "insufficient hosts available") {
 		sessionReadyEvent.PushTimestampBack(d.targetTickDuration)
 
@@ -1490,9 +1506,9 @@ func (d *BasicWorkloadDriver) handleFailureToCreateNewSession(err error, session
 			zap.String("workload_id", d.workload.GetId()),
 			zap.String("workload_name", d.workload.WorkloadName()),
 			zap.String(ZapInternalSessionIDKey, sessionReadyEvent.SessionID()),
-			zap.Time("original_timestamp", sessionReadyEvent.OriginalTimestamp()),
-			zap.Time("current_timestamp", sessionReadyEvent.Timestamp()),
-			zap.Time("total_delay", sessionReadyEvent.TotalDelay()))
+			zap.Time("original_timestamp", sessionReadyEvent.OriginalTimestamp),
+			zap.Time("current_timestamp", sessionReadyEvent.Timestamp),
+			zap.Duration("total_delay", sessionReadyEvent.TotalDelay()))
 
 		d.eventQueue.EnqueueEvent(sessionReadyEvent)
 
@@ -1538,8 +1554,8 @@ func (d *BasicWorkloadDriver) handleSessionReadyEvents(latestTick time.Time) {
 }
 
 // handleUpdateGpuUtilizationEvent handles a 'update-gpu-util' event.
-func (d *BasicWorkloadDriver) handleUpdateGpuUtilizationEvent(evt domain.Event) error {
-	traceSessionId := evt.Data().(domain.SessionMetadata).GetPod()
+func (d *BasicWorkloadDriver) handleUpdateGpuUtilizationEvent(evt *domain.Event) error {
+	traceSessionId := evt.Data.(domain.SessionMetadata).GetPod()
 	internalSessionId := d.getInternalSessionId(traceSessionId)
 
 	d.logger.Debug("Received UpdateGpuUtil event.",
@@ -1556,10 +1572,10 @@ func (d *BasicWorkloadDriver) handleUpdateGpuUtilizationEvent(evt domain.Event) 
 // createExecuteRequestArguments creates the arguments for an "execute_request" from the given event.
 //
 // The event must be of type "training-started", or this will return nil.
-func (d *BasicWorkloadDriver) createExecuteRequestArguments(evt domain.Event) *jupyter.RequestExecuteArgs {
-	if evt.Name() != domain.EventSessionTrainingStarted {
+func (d *BasicWorkloadDriver) createExecuteRequestArguments(evt *domain.Event) *jupyter.RequestExecuteArgs {
+	if evt.Name != domain.EventSessionTrainingStarted {
 		d.logger.Error("Attempted to create \"execute_request\" arguments for event of invalid type.",
-			zap.String("event_type", evt.Name().String()),
+			zap.String("event_type", evt.Name.String()),
 			zap.String("event_id", evt.Id()),
 			zap.String("session_id", evt.SessionID()),
 			zap.String("workload_id", d.workload.GetId()),
@@ -1568,7 +1584,7 @@ func (d *BasicWorkloadDriver) createExecuteRequestArguments(evt domain.Event) *j
 		return nil
 	}
 
-	sessionMetadata := evt.Data().(domain.SessionMetadata)
+	sessionMetadata := evt.Data.(domain.SessionMetadata)
 
 	gpus := sessionMetadata.GetCurrentTrainingMaxGPUs()
 	if gpus == 0 && sessionMetadata.GetGPUs() > 0 {
@@ -1596,8 +1612,8 @@ func (d *BasicWorkloadDriver) createExecuteRequestArguments(evt domain.Event) *j
 }
 
 // handleTrainingStartedEvent handles a 'training-started' event.
-func (d *BasicWorkloadDriver) handleTrainingStartedEvent(evt domain.Event) error {
-	traceSessionId := evt.Data().(domain.SessionMetadata).GetPod()
+func (d *BasicWorkloadDriver) handleTrainingStartedEvent(evt *domain.Event) error {
+	traceSessionId := evt.Data.(domain.SessionMetadata).GetPod()
 	internalSessionId := d.getInternalSessionId(traceSessionId)
 
 	d.logger.Debug("Received TrainingStarted event.",
@@ -1646,8 +1662,8 @@ func (d *BasicWorkloadDriver) handleTrainingStartedEvent(evt domain.Event) error
 }
 
 // handleTrainingEndedEvent handles a 'training-stopped' event.
-func (d *BasicWorkloadDriver) handleTrainingEndedEvent(evt domain.Event) error {
-	traceSessionId := evt.Data().(domain.SessionMetadata).GetPod()
+func (d *BasicWorkloadDriver) handleTrainingEndedEvent(evt *domain.Event) error {
+	traceSessionId := evt.Data.(domain.SessionMetadata).GetPod()
 	internalSessionId := d.getInternalSessionId(traceSessionId)
 	d.logger.Debug("Received TrainingEnded event.",
 		zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
@@ -1700,8 +1716,8 @@ func (d *BasicWorkloadDriver) handleTrainingEndedEvent(evt domain.Event) error {
 }
 
 // handleSessionStoppedEvent handles a 'session-stopped' event.
-func (d *BasicWorkloadDriver) handleSessionStoppedEvent(evt domain.Event) error {
-	traceSessionId := evt.Data().(domain.SessionMetadata).GetPod()
+func (d *BasicWorkloadDriver) handleSessionStoppedEvent(evt *domain.Event) error {
+	traceSessionId := evt.Data.(domain.SessionMetadata).GetPod()
 	internalSessionId := d.getInternalSessionId(traceSessionId)
 
 	d.logger.Debug("Received SessionStopped event.",
@@ -1742,9 +1758,9 @@ func (d *BasicWorkloadDriver) handleSessionStoppedEvent(evt domain.Event) error 
 	return nil
 }
 
-// handleEvent processes a single domain.Event.
-func (d *BasicWorkloadDriver) handleEvent(evt domain.Event) error {
-	switch evt.Name() {
+// handleEvent processes a single *domain.Event.
+func (d *BasicWorkloadDriver) handleEvent(evt *domain.Event) error {
+	switch evt.Name {
 	case domain.EventSessionStarted:
 		panic("Received SessionStarted event.")
 	case domain.EventSessionTrainingStarted:
@@ -1756,18 +1772,18 @@ func (d *BasicWorkloadDriver) handleEvent(evt domain.Event) error {
 	case domain.EventSessionStopped:
 		return d.handleSessionStoppedEvent(evt)
 	default:
-		traceSessionId := evt.Data().(domain.SessionMetadata).GetPod()
+		traceSessionId := evt.Data.(domain.SessionMetadata).GetPod()
 		internalSessionId := d.getInternalSessionId(traceSessionId)
 
 		d.logger.Error("Received event of unknown type.",
 			zap.String("workload_id", d.workload.GetId()),
 			zap.String("workload_name", d.workload.WorkloadName()),
-			zap.String("event_name", evt.Name().String()),
-			zap.Time("event_timestamp", evt.Timestamp()),
+			zap.String("event_name", evt.Name.String()),
+			zap.Time("event_timestamp", evt.Timestamp),
 			zap.String("trace_session_id", traceSessionId),
 			zap.String("session_id", internalSessionId))
 
-		return fmt.Errorf("%w: \"%s\"", ErrUnknownEventType, evt.Name().String())
+		return fmt.Errorf("%w: \"%s\"", ErrUnknownEventType, evt.Name.String())
 	}
 
 	return nil

@@ -1,7 +1,8 @@
 package domain
 
 import (
-	"log"
+	"fmt"
+	"sync/atomic"
 	"time"
 )
 
@@ -40,7 +41,7 @@ type PodData interface {
 }
 
 type EventSource interface {
-	OnEvent() <-chan Event
+	OnEvent() <-chan *Event
 	String() string
 	Id() int
 	SetId(int)
@@ -61,7 +62,7 @@ type EventSource interface {
 
 type EventConsumer interface {
 	// SubmitEvent delivers an event to the EventConsumer so that it may be processed.
-	SubmitEvent(Event)
+	SubmitEvent(*Event)
 
 	// GetErrorChan returns the channel used to tell the EventConsumer that an error has occurred
 	// in the generator portion of the workload simulator/driver.
@@ -74,147 +75,95 @@ type EventConsumer interface {
 	WorkloadEventGeneratorCompleteChan() chan interface{}
 }
 
-type Event interface {
-	Data() interface{}
-	Enqueued() // Enqueued records that the event was enqueued for processing. Events can be enqueued multiple times.
-	EventSource() EventSource
-	GlobalEventIndex() uint64 // GlobalEventIndex provides a global ordering for comparing all events with each other within a workload.
-	Id() string
-	Name() EventName
-	NumTimesEnqueued() int32 // NumTimesEnqueued returns the number of times that the Event has been enqueued.
-	OrderSeq() int64         // OrderSeq is essentially timestamp of event, but randomized to make behavior stochastic.
-	OriginalEventSource() EventSource
-	OriginalTimestamp() time.Time // OriginalTimestamp returns the original timestamp of the underlying event.
-	SessionID() string
-	SessionSpecificEventIndex() int // SessionSpecificEventIndex indicates the order in which the event was created relative to other events targeting the same Session. The first event created for a session while have an index of 0. The last event created for a session while have an index of N - 1, where N is the number of events created for that Session.
-	SetOrderSeq(int64)
-	String() string
-	Timestamp() time.Time
-	PushTimestampBack(time.Duration) // PushTimestampBack adds the given time.Duration to the Event's timestamp. To be used when re-enqueuing the event to process it later.
-	TotalDelay() time.Duration       // TotalDelay returns the total time.Duration that the event has been pushed back.
-	WasEnqueuedMultipleTimes() bool  // WasEnqueuedMultipleTimes returns true if the event has been enqueued more than once.
+type Event struct {
+	EventSource         EventSource
+	OriginalEventSource EventSource
+	Name                EventName
+	Data                interface{}
+	Timestamp           time.Time
+	OriginalTimestamp   time.Time
+	Delay               time.Duration
+	ID                  string
+	OrderSeq            int64 // OrderSeq is essentially Timestamp of event, but randomized to make behavior stochastic.
+
+	// LocalIndex indicates the order in which the event was created relative to other events targeting the same Session.
+	// The first event created for a session while have an LocalIndex of 0.
+	// The last event created for a session while have an LocalIndex of N - 1, where N is the number of events created
+	// for that Session.
+	LocalIndex int
+
+	// GlobalIndex provides a global ordering for comparing all events with each other within a workload.
+	GlobalIndex uint64
+
+	HeapIndex        int
+	numTimesEnqueued atomic.Int32
+	Enqueued         bool
 }
 
-type EventBuff []Event
-
-// sort.Interface implementations
-
-func (buff EventBuff) Len() int {
-	return len(buff)
+func (e *Event) SetIndex(idx int) {
+	e.HeapIndex = idx
 }
 
-func (buff EventBuff) Less(i, j int) bool {
-	return buff[i].OrderSeq() < buff[j].OrderSeq()
+func (e *Event) GetIndex() int {
+	return e.HeapIndex
 }
 
-func (buff EventBuff) Swap(i, j int) {
-	buff[i], buff[j] = buff[j], buff[i]
+func (e *Event) SetEnqueued(b bool) {
+	e.Enqueued = true
 }
 
-// An EventHeap is a Heap implementation for elements of type EventHeapElementImpl.
-type EventHeap []EventHeapElement
-
-func (h EventHeap) Len() int {
-	return len(h)
+// RecordThatEventWasEnqueued records that the event was enqueued for processing.
+// Events can be enqueued multiple times.
+func (e *Event) RecordThatEventWasEnqueued() {
+	e.numTimesEnqueued.Add(1)
 }
 
-func (h EventHeap) Less(i, j int) bool {
-	// We want to ensure that TrainingEnded events are processed before SessionStopped events.
-	// So, if the event at index i is a TrainingEnded event while the event at index j is a SessionStopped event,
-	// then the event at index i should be processed first.
-	if h[i].OriginalTimestamp() == h[j].OriginalTimestamp() {
-		if h[i].Name() == EventSessionTrainingEnded && h[j].Name() == EventSessionStopped {
-			// Sanity check -- if we find a "session-stopped" and "training-ended" event targeting the same session,
-			// then we double-check that their "event indices" are consistent with the order that they should be
-			// processed. "training-ended" events should always be processed before "session-stopped" events.
-			if h[i].SessionSpecificEventIndex() /* training-ended */ > h[j].SessionSpecificEventIndex() /* session-stopped */ && h[i].SessionID() == h[j].SessionID() && !h[i].WasEnqueuedMultipleTimes() && !h[j].WasEnqueuedMultipleTimes() {
-				// We expect the event index of the training-ended event to be less than that of the session-stopped
-				// event, since the training-ended event should have been created prior to the session-stopped event.
-				log.Fatalf("Event indices do not reflect correct ordering of events. "+
-					"TrainingEnded: %s. SessionStopped: %s.", h[i].String(), h[j].String())
-			}
+// GetNumTimesEnqueued returns the number of times that the Event has been enqueued.
+func (e *Event) GetNumTimesEnqueued() int32 {
+	return e.numTimesEnqueued.Load()
+}
 
-			return true
-		} else if h[j].Name() == EventSessionTrainingEnded && h[i].Name() == EventSessionStopped {
-			// Sanity check -- if we find a "session-stopped" and "training-ended" event targeting the same session,
-			// then we double-check that their "event indices" are consistent with the order that they should be
-			// processed. "training-ended" events should always be processed before "session-stopped" events.
-			if h[j].SessionSpecificEventIndex() /* training-ended */ > h[i].SessionSpecificEventIndex() /* session-stopped */ && h[i].SessionID() == h[j].SessionID() && !h[i].WasEnqueuedMultipleTimes() && !h[j].WasEnqueuedMultipleTimes() {
-				// We expect the event index of the training-ended event to be less than that of the session-stopped
-				// event, since the training-ended event should have been created prior to the session-stopped event.
-				log.Fatalf("Event indices do not reflect correct ordering of events. "+
-					"TrainingEnded: %s. SessionStopped: %s.", h[j].String(), h[i].String())
-			}
+// WasEnqueuedMultipleTimes returns true if the event has been enqueued more than once.
+func (e *Event) WasEnqueuedMultipleTimes() bool {
+	return e.numTimesEnqueued.Load() > 1 // RecordThatEventWasEnqueued more than once?
+}
 
-			return false
-		}
+// SessionSpecificEventIndex indicates the order in which the event was created relative to other events targeting
+// the same Session.
+// The first event created for a session while have an localIndex of 0.
+// The last event created for a session while have an localIndex of N - 1, where N is the number of events created
+// for that Session.
+func (e *Event) SessionSpecificEventIndex() int { return e.LocalIndex }
 
-		// Defer to the order in which the events were created to resolve the tie.
-		// TODO: In theory, this would also resolve the above issue...
-		return h[i].SessionSpecificEventIndex() < h[j].SessionSpecificEventIndex()
+// GlobalEventIndex provides a global ordering for comparing all events with each other within a workload.
+func (e *Event) GlobalEventIndex() uint64 {
+	return e.GlobalIndex
+}
+
+// PushTimestampBack adds the given time.Duration to the Event's timestamp. To be used when re-enqueuing the event to process it later.
+func (e *Event) PushTimestampBack(amount time.Duration) {
+	e.Timestamp = e.Timestamp.Add(amount)
+
+	e.Delay = e.Delay + amount
+}
+
+// TotalDelay returns the total time.Duration that the event has been pushed back.
+func (e *Event) TotalDelay() time.Duration {
+	return e.Delay
+}
+
+func (e *Event) SessionID() string {
+	data, ok := e.Data.(SessionMetadata)
+	if !ok {
+		return "N/A"
 	}
 
-	return h[i].OriginalTimestamp().Before(h[j].OriginalTimestamp())
+	return data.GetPod()
 }
 
-func (h EventHeap) Swap(i, j int) {
-	// log.Printf("Swap %d, %d (%v, %v) of %d", i, j, h[i], h[j], len(h))
-	h[i].SetIndex(j)
-	h[j].SetIndex(i)
-	h[i], h[j] = h[j], h[i]
-}
+func (e *Event) Id() string { return e.ID }
 
-func (h *EventHeap) Push(x interface{}) {
-	x.(EventHeapElement).SetIndex(len(*h))
-	*h = append(*h, x.(EventHeapElement))
-}
-
-func (h *EventHeap) Pop() interface{} {
-	old := *h
-	n := len(old)
-	ret := old[n-1]
-	old[n-1] = nil // avoid memory leak
-	*h = old[0 : n-1]
-	return ret
-}
-
-func (h EventHeap) Peek() EventHeapElement {
-	if len(h) == 0 {
-		return nil
-	}
-	return h[0]
-}
-
-type SimpleEventHeap []Event
-
-func (h SimpleEventHeap) Len() int {
-	return len(h)
-}
-
-func (h SimpleEventHeap) Less(i, j int) bool {
-	return h[i].Timestamp().Before(h[j].Timestamp())
-}
-
-func (h SimpleEventHeap) Swap(i, j int) {
-	h[i], h[j] = h[j], h[i]
-}
-
-func (h *SimpleEventHeap) Push(x interface{}) {
-	*h = append(*h, x.(Event))
-}
-
-func (h *SimpleEventHeap) Pop() interface{} {
-	old := *h
-	n := len(old)
-	ret := old[n-1]
-	old[n-1] = nil // avoid memory leak
-	*h = old[0 : n-1]
-	return ret
-}
-
-func (h SimpleEventHeap) Peek() Event {
-	if len(h) == 0 {
-		return nil
-	}
-	return h[0]
+func (e *Event) String() string {
+	return fmt.Sprintf("generator.Event[Timestamp=%v,Name=%s,LocalIndex=%d,GlobalIndex=%d,,src=%v,orgSrc=%v,orderSeq=%d,data=%v]",
+		e.Timestamp, e.Name, e.LocalIndex, e.GlobalIndex, e.EventSource, e.OriginalEventSource, e.OrderSeq, e.Data)
 }

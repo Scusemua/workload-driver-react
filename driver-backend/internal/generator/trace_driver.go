@@ -79,9 +79,9 @@ type BaseDriver struct {
 
 	LastTimestamp time.Time
 
-	events    chan domain.Event
-	eventBuff domain.EventBuff
-	lastEvent domain.Event
+	events    chan *domain.Event
+	eventBuff domain.BasicEventHeap
+	lastEvent *domain.Event
 
 	// Synchronizes concurrent access to the maps containing maximum utilization values.
 	MaxesMutex sync.RWMutex
@@ -115,8 +115,8 @@ type BaseDriver struct {
 func NewBaseDriver(id int) *BaseDriver {
 	driver := &BaseDriver{
 		id:                         id,
-		events:                     make(chan domain.Event),
-		eventBuff:                  make(domain.EventBuff, 0, 1000),
+		events:                     make(chan *domain.Event),
+		eventBuff:                  make(domain.BasicEventHeap, 0, 1000),
 		SessionMaxes:               make(map[string]float64),
 		SessionNumGPUs:             make(map[string]int),
 		TrainingMaxes:              make(map[string][]float64),
@@ -251,11 +251,11 @@ func (d *BaseDriver) DriveWithSlice(ctx context.Context, records []Record, doneC
 	}
 
 	d.sugarLog.Debugf("Finished processing all %d record(s).", len(records))
-	err := d.TriggerEvent(ctx, &eventImpl{
-		eventSource:         d,
-		originalEventSource: d,
-		name:                EventNoMore,
-		id:                  uuid.New().String(),
+	err := d.TriggerEvent(ctx, &domain.Event{
+		EventSource:         d,
+		OriginalEventSource: d,
+		Name:                EventNoMore,
+		ID:                  uuid.New().String(),
 	})
 	if err != nil {
 		d.sugarLog.Warnf("Error while triggering events: %v", err)
@@ -320,7 +320,7 @@ func (d *BaseDriver) DriveSync(ctx context.Context, mfPaths ...string) error {
 			lineNo++
 
 			if d.LastTimestamp != defaultTime && record.GetTS().After(d.LastTimestamp) {
-				sugarLog.Warnf("Encountered record with timestamp %v: %v", record.GetTS(), record)
+				sugarLog.Warnf("Encountered record with Timestamp %v: %v", record.GetTS(), record)
 				sugarLog.Warnf("TraceDriver's `LastTimestamp` is %v. Finished parsing file \"%s\".", d.LastTimestamp, mfPaths[i])
 				break
 			}
@@ -359,11 +359,11 @@ func (d *BaseDriver) Drive(ctx context.Context, mfPaths ...string) {
 		return
 	}
 
-	if err := d.TriggerEvent(ctx, &eventImpl{
-		eventSource:         d,
-		originalEventSource: d,
-		name:                EventNoMore,
-		id:                  uuid.New().String(),
+	if err := d.TriggerEvent(ctx, &domain.Event{
+		EventSource:         d,
+		OriginalEventSource: d,
+		Name:                EventNoMore,
+		ID:                  uuid.New().String(),
 	}); err != nil {
 		d.sugarLog.Warnf("Error while triggering events: %v", err)
 	}
@@ -373,25 +373,25 @@ func (d *BaseDriver) Drive(ctx context.Context, mfPaths ...string) {
 	}
 }
 
-func (d *BaseDriver) Trigger(ctx context.Context, name domain.EventName, rec Record) error {
-	return d.TriggerEvent(ctx, &eventImpl{
-		eventSource:         d.TraceDriver,
-		originalEventSource: d.TraceDriver,
-		name:                name,
-		data:                rec,
-		timestamp:           rec.GetTS(),
-		originalTimestamp:   rec.GetTS(),
-		id:                  uuid.New().String(),
+func (d *BaseDriver) Trigger(ctx context.Context, Name domain.EventName, rec Record) error {
+	return d.TriggerEvent(ctx, &domain.Event{
+		EventSource:         d.TraceDriver,
+		OriginalEventSource: d.TraceDriver,
+		Name:                Name,
+		Data:                rec,
+		Timestamp:           rec.GetTS(),
+		OriginalTimestamp:   rec.GetTS(),
+		ID:                  uuid.New().String(),
 	})
 }
 
 func (d *BaseDriver) TriggerError(ctx context.Context, e error) error {
-	err := d.TriggerEvent(ctx, &eventImpl{
-		eventSource:         d.TraceDriver,
-		originalEventSource: d.TraceDriver,
-		name:                EventError,
-		data:                e,
-		id:                  uuid.New().String(),
+	err := d.TriggerEvent(ctx, &domain.Event{
+		EventSource:         d.TraceDriver,
+		OriginalEventSource: d.TraceDriver,
+		Name:                EventError,
+		Data:                e,
+		ID:                  uuid.New().String(),
 	})
 	if err != nil {
 		return err
@@ -400,25 +400,25 @@ func (d *BaseDriver) TriggerError(ctx context.Context, e error) error {
 	return d.flushEvents()
 }
 
-// TriggerEvent buffers events of same timestamp and call FlushEvent if the timestamp changes.
+// TriggerEvent buffers events of same Timestamp and call FlushEvent if the Timestamp changes.
 // The buffer and flush design allows objects' status being updated to the timetick before any event
 // of the timetick being triggered.
-func (d *BaseDriver) TriggerEvent(_ context.Context, evt domain.Event) error {
-	if len(d.eventBuff) > 0 && evt.Timestamp() != d.eventBuff[len(d.eventBuff)-1].Timestamp() {
+func (d *BaseDriver) TriggerEvent(_ context.Context, evt *domain.Event) error {
+	if len(d.eventBuff) > 0 && evt.Timestamp != d.eventBuff[len(d.eventBuff)-1].Timestamp {
 		err := d.flushEvents()
 		if err != nil {
 			return err
 		}
 	}
 
-	// Assign random timestamp offset to simulate stochastic behavior
+	// Assign random Timestamp offset to simulate stochastic behavior
 	// Use negative for new readings to be successfully read.
 	// Events triggered in a row will maitain a strict order
-	if len(d.eventBuff) > 0 && evt.Data() == d.eventBuff[len(d.eventBuff)-1].Data() { // If there are already buffered events and the data of the last event in the buffer is the same as this event...
-		evt.SetOrderSeq(d.eventBuff[len(d.eventBuff)-1].OrderSeq() + 1) // Set to one greater than the event at the end of the event buffer.
+	if len(d.eventBuff) > 0 && evt.Data == d.eventBuff[len(d.eventBuff)-1].Data { // If there are already buffered events and the Data of the last event in the buffer is the same as this event...
+		evt.OrderSeq = d.eventBuff[len(d.eventBuff)-1].OrderSeq + 1 // Set to one greater than the event at the end of the event buffer.
 	} else {
 		// Minus(event happened before the reading) some random ns
-		evt.SetOrderSeq(evt.Timestamp().UnixNano() - d.Rand.Int63n(d.ReadingInterval.Nanoseconds()-int64(time.Second))) // Skip 1 second for separation
+		evt.OrderSeq = evt.Timestamp.UnixNano() - d.Rand.Int63n(d.ReadingInterval.Nanoseconds()-int64(time.Second)) // Skip 1 second for separation
 	}
 
 	d.eventBuff = append(d.eventBuff, evt)
@@ -430,14 +430,14 @@ func (d *BaseDriver) SetId(id int) {
 	d.id = id
 }
 
-func (d *BaseDriver) FlushEvents(ctx context.Context, timestamp time.Time) error {
-	if len(d.eventBuff) == 0 && (d.lastEvent == nil || timestamp != d.lastEvent.Timestamp()) {
-		err := d.TriggerEvent(ctx, &eventImpl{
-			eventSource:         d.TraceDriver,
-			originalEventSource: d.TraceDriver,
-			name:                EventTickHolder,
-			timestamp:           timestamp,
-			id:                  uuid.New().String(),
+func (d *BaseDriver) FlushEvents(ctx context.Context, Timestamp time.Time) error {
+	if len(d.eventBuff) == 0 && (d.lastEvent == nil || Timestamp != d.lastEvent.Timestamp) {
+		err := d.TriggerEvent(ctx, &domain.Event{
+			EventSource:         d.TraceDriver,
+			OriginalEventSource: d.TraceDriver,
+			Name:                EventTickHolder,
+			Timestamp:           Timestamp,
+			ID:                  uuid.New().String(),
 		})
 
 		if err != nil {
@@ -454,7 +454,7 @@ func (d *BaseDriver) flushEvents() error {
 		return nil
 	}
 
-	// Sort stochastic timestamp in order
+	// Sort stochastic Timestamp in order
 	sort.Sort(d.eventBuff)
 
 	for _, evt := range d.eventBuff {
@@ -464,6 +464,6 @@ func (d *BaseDriver) flushEvents() error {
 	return nil
 }
 
-func (d *BaseDriver) OnEvent() <-chan domain.Event {
+func (d *BaseDriver) OnEvent() <-chan *domain.Event {
 	return d.events
 }

@@ -162,13 +162,13 @@ type Workload interface {
 	SessionCreated(string, SessionMetadata)
 	// SessionStopped is Called when a Session is stopped for/in the Workload.
 	// Just updates some internal metrics.
-	SessionStopped(string, Event)
+	SessionStopped(string, *Event)
 	// TrainingStarted is Called when a training starts during/in the workload.
 	// Just updates some internal metrics.
-	TrainingStarted(string, Event)
+	TrainingStarted(string, *Event)
 	// TrainingStopped is Called when a training stops during/in the workload.
 	// Just updates some internal metrics.
-	TrainingStopped(string, Event)
+	TrainingStopped(string, *Event)
 	// GetWorkloadType returns the type of workload (TRACE, PRESET, or TEMPLATE).
 	GetWorkloadType() WorkloadType
 	// IsPresetWorkload Returns true if this workload was created using a preset.
@@ -975,7 +975,7 @@ func (w *BasicWorkload) SessionCreated(sessionId string, metadata SessionMetadat
 
 // SessionStopped is called when a Session is stopped for/in the Workload.
 // Just updates some internal metrics.
-func (w *BasicWorkload) SessionStopped(sessionId string, evt Event) {
+func (w *BasicWorkload) SessionStopped(sessionId string, evt *Event) {
 	w.mu.Lock()
 	w.NumActiveSessions -= 1
 	w.mu.Unlock()
@@ -989,7 +989,7 @@ func (w *BasicWorkload) SessionStopped(sessionId string, evt Event) {
 
 // TrainingStarted is called when a training starts during/in the workload.
 // Just updates some internal metrics.
-func (w *BasicWorkload) TrainingStarted(sessionId string, evt Event) {
+func (w *BasicWorkload) TrainingStarted(sessionId string, evt *Event) {
 	w.workloadInstance.TrainingStarted(sessionId, evt)
 
 	w.trainingStartedTimes.Set(sessionId, time.Now())
@@ -1001,7 +1001,7 @@ func (w *BasicWorkload) TrainingStarted(sessionId string, evt Event) {
 
 // TrainingStopped is called when a training stops during/in the workload.
 // Just updates some internal metrics.
-func (w *BasicWorkload) TrainingStopped(sessionId string, evt Event) {
+func (w *BasicWorkload) TrainingStopped(sessionId string, evt *Event) {
 	w.workloadInstance.TrainingStopped(sessionId, evt)
 
 	metrics.PrometheusMetricsWrapperInstance.WorkloadTrainingEventsCompleted.
