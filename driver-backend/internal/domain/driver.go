@@ -73,9 +73,6 @@ type WorkloadDriver interface {
 	// If the workload is able to complete successfully, then nil is returned.
 	ProcessWorkload(wg *sync.WaitGroup) error
 
-	// EventQueue returns the event queue for this workload.
-	EventQueue() EventQueue
-
 	// WebSocket returns the WebSocket connection on which this workload was registered by a remote client and on/through which updates about the workload are reported.
 	WebSocket() ConcurrentWebSocket
 

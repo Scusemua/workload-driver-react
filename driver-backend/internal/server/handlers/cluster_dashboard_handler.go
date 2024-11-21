@@ -192,9 +192,13 @@ func (h *ClusterDashboardHandler) HandleConnectionError() {
 // ultimately be pushed to the frontend to be displayed to the user.
 func (h *ClusterDashboardHandler) SendNotification(_ context.Context, notification *gateway.Notification) (*gateway.Void, error) {
 	if notification.NotificationType == int32(domain.ErrorNotification) {
-		h.logger.Warn("Notified of error that occurred within Cluster.", zap.String("error-name", notification.Title), zap.String("error-message", notification.Message))
+		h.logger.Warn("Notified of error that occurred within Cluster.",
+			zap.String("error-name", notification.Title),
+			zap.String("error-message", notification.Message))
 	} else {
-		h.logger.Debug("Received notification from Cluster.", zap.String("notification-name", notification.Title), zap.String("notification-message", notification.Message))
+		h.logger.Debug("Received notification from Cluster.",
+			zap.String("notification-name", notification.Title),
+			zap.String("notification-message", notification.Message))
 	}
 
 	go h.notificationCallback(notification)

@@ -120,6 +120,40 @@ func (q *BasicEventQueue) GetAllSessionStartEventsForTick(tick time.Time, max in
 	return events
 }
 
+func (q *BasicEventQueue) FixEvents(sessionId string, delay time.Duration) {
+	val, ok := q.eventsPerSession.Get(sessionId)
+
+	if !ok {
+		q.logger.Error("Could not find events for requested session.", zap.String("sessionId", sessionId))
+		return
+	}
+
+	sessionEvents := val.(*hashmap.HashMap)
+	iter := sessionEvents.Iter()
+
+	for kv := range iter {
+		event := kv.Value.(*domain.Event)
+
+		prevTimestamp := event.Timestamp
+		event.Timestamp = event.Timestamp.Add(delay)
+
+		q.logger.Debug("Updated timestamp of event.",
+			zap.String("event_id", event.ID),
+			zap.String("event_name", event.Name.String()),
+			zap.String("session_id", sessionId),
+			zap.Duration("delay", delay),
+			zap.Time("previous_timestamp", prevTimestamp),
+			zap.Time("updated_timestamp", event.Timestamp),
+			zap.Time("original_timestamp", event.OriginalTimestamp))
+
+		if event.Enqueued {
+			q.eventHeapMutex.Lock()
+			heap.Fix(&q.eventHeap, event.GetIndex())
+			q.eventHeapMutex.Unlock()
+		}
+	}
+}
+
 // GetNextSessionStartEvent returns the next, ready-to-be-processed `EventSessionReady` from the queue.
 func (q *BasicEventQueue) GetNextSessionStartEvent(currentTime time.Time) *domain.Event {
 	q.eventHeapMutex.Lock()
@@ -184,7 +218,7 @@ func (q *BasicEventQueue) EnqueueEvent(evt *domain.Event) {
 		// As described above, EventSessionReady events must be processed differently.
 		heap.Push(&q.sessionReadyEvents, evt)
 
-		q.sugaredLogger.Debugf("RecordThatEventWasEnqueued SessionReadyEvent: session=%s; ts=%v.", sess.GetPod(), evt.Timestamp)
+		q.sugaredLogger.Debugf("Enqueued SessionReadyEvent: session=%s; ts=%v.", sess.GetPod(), evt.Timestamp)
 	} else if evt.Name == domain.EventSessionStarted { // Do nothing other than try to create the heap.
 		q.eventsPerSession.GetOrInsert(sess.GetPod(), hashmap.New(10)) // Don't bother capturing the return value. We just don't want to overwrite the existing hashmap if it exists.
 	} else if sess, ok := evt.Data.(domain.SessionMetadata); ok {
@@ -253,14 +287,21 @@ func (q *BasicEventQueue) GetNextEvent(threshold time.Time) (*domain.Event, bool
 	}
 
 	nextEvent := q.eventHeap.Peek()
-	nextEventTimestamp := nextEvent.OriginalTimestamp
-	if threshold == nextEventTimestamp || nextEventTimestamp.Before(threshold) {
+	if threshold == nextEvent.Timestamp || nextEvent.Timestamp.Before(threshold) {
 		heap.Pop(&q.eventHeap)
 
 		nextEvent.SetIndex(q.Len())
 		nextEvent.SetEnqueued(false)
 
-		q.sugaredLogger.Debugf("Returning ready event \"%s\" [id=%s] targeting session %s. Heap size: %d.", nextEvent.Name, nextEvent.Id(), nextEvent.SessionID(), q.Len())
+		q.logger.Debug("Returning ready event.",
+			zap.String("event_name", nextEvent.Name.String()),
+			zap.String("event_id", nextEvent.ID),
+			zap.Time("threshold", threshold),
+			zap.Time("original_event_timestamp", nextEvent.OriginalTimestamp),
+			zap.Time("current_event_timestamp", nextEvent.Timestamp),
+			zap.Duration("event_delay", nextEvent.Delay),
+			zap.String("session_id", nextEvent.SessionID()))
+
 		return nextEvent, true
 	}
 

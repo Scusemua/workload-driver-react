@@ -164,6 +164,6 @@ func (e *Event) SessionID() string {
 func (e *Event) Id() string { return e.ID }
 
 func (e *Event) String() string {
-	return fmt.Sprintf("generator.Event[Timestamp=%v,Name=%s,LocalIndex=%d,GlobalIndex=%d,,src=%v,orgSrc=%v,orderSeq=%d,data=%v]",
-		e.Timestamp, e.Name, e.LocalIndex, e.GlobalIndex, e.EventSource, e.OriginalEventSource, e.OrderSeq, e.Data)
+	return fmt.Sprintf("generator.Event[Name=%s,OriginalTimestamp=%v,Timestamp=%v,LocalIndex=%d,GlobalIndex=%d,,src=%v,orgSrc=%v,orderSeq=%d,data=%v]",
+		e.Name, e.Timestamp, e.OriginalTimestamp, e.LocalIndex, e.GlobalIndex, e.EventSource, e.OriginalEventSource, e.OrderSeq, e.Data)
 }

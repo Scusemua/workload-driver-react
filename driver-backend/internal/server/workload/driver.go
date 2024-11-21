@@ -121,7 +121,7 @@ type BasicWorkloadDriver struct {
 	driverTimescale                    float64                               // Multiplier that impacts the timescale at the Driver will operate on with respect to the trace data. For example, if each tick is 60 seconds, then a DriverTimescale value of 0.5 will mean that each tick will take 30 seconds.
 	errorChan                          chan error                            // Used to stop the workload due to a critical error.
 	eventChan                          chan *domain.Event                    // Receives events from the Synthesizer.
-	eventQueue                         domain.EventQueue                     // Maintains a queue of events to be processed for each session.
+	eventQueue                         *event_queue.BasicEventQueue          // Maintains a queue of events to be processed for each session.
 	id                                 string                                // Unique ID (relative to other drivers). The workload registered with this driver will be assigned this ID.
 	kernelManager                      jupyter.KernelSessionManager          // Simplified Go implementation of the Jupyter JavaScript API.
 	mu                                 sync.Mutex                            // Synchronizes access to internal data structures. Can be locked externally using the Lock/Unlock API exposed by the WorkloadDriver.
@@ -1242,7 +1242,7 @@ func (d *BasicWorkloadDriver) WorkloadEventGeneratorCompleteChan() chan interfac
 }
 
 // EventQueue returns the event queue for this workload.
-func (d *BasicWorkloadDriver) EventQueue() domain.EventQueue {
+func (d *BasicWorkloadDriver) EventQueue() *event_queue.BasicEventQueue {
 	return d.eventQueue
 }
 
@@ -1252,6 +1252,7 @@ func (d *BasicWorkloadDriver) EventQueue() domain.EventQueue {
 // events with timestamps that are (a) equal to 19:05:00 or (b) come before 19:05:00. Any events with timestamps
 // that come after 19:05:00 will not be processed until the next tick.
 func (d *BasicWorkloadDriver) processEventsForTick(tick time.Time) {
+
 	var (
 		// Map from session ID to a slice of events that the session is supposed to process in this tick.
 		sessionEventMap = make(map[string][]*domain.Event)
@@ -1459,7 +1460,7 @@ func (d *BasicWorkloadDriver) handleSessionReadyEvent(sessionReadyEvent *domain.
 
 	// Handle the error from the above call to provisionSession.
 	if err != nil {
-		d.logger.Error("Failed to provision new Jupyter session.",
+		d.logger.Warn("Failed to provision new Jupyter session.",
 			zap.String(ZapInternalSessionIDKey, sessionId),
 			zap.Duration("real-time-elapsed", time.Since(provisionStart)),
 			zap.String("workload_id", d.workload.GetId()),
@@ -1510,7 +1511,11 @@ func (d *BasicWorkloadDriver) handleFailureToCreateNewSession(err error, session
 			zap.Time("current_timestamp", sessionReadyEvent.Timestamp),
 			zap.Duration("total_delay", sessionReadyEvent.TotalDelay()))
 
+		// Put the event back in the queue.
 		d.eventQueue.EnqueueEvent(sessionReadyEvent)
+
+		// Push back any events targeting that session.
+		d.eventQueue.FixEvents(sessionReadyEvent.SessionID(), d.targetTickDuration)
 
 		return
 	}
@@ -1622,8 +1627,11 @@ func (d *BasicWorkloadDriver) handleTrainingStartedEvent(evt *domain.Event) erro
 
 	if _, ok := d.seenSessions[internalSessionId]; !ok {
 		d.logger.Error("Received 'training-started' event for unknown session.",
-			zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
-			zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
+			zap.String("workload_id", d.workload.GetId()),
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String("event", evt.String()),
+			zap.String(ZapInternalSessionIDKey, internalSessionId),
+			zap.String(ZapTraceSessionIDKey, traceSessionId))
 		return ErrUnknownSession
 	}
 
@@ -1805,7 +1813,7 @@ func (d *BasicWorkloadDriver) provisionSession(sessionId string, meta domain.Ses
 		"notebook", "distributed", resourceSpec)
 
 	if err != nil {
-		d.logger.Error("Failed to create session.",
+		d.logger.Warn("Failed to create session.",
 			zap.String("workload_id", d.workload.GetId()),
 			zap.String("workload_name", d.workload.WorkloadName()),
 			zap.String(ZapInternalSessionIDKey, sessionId),

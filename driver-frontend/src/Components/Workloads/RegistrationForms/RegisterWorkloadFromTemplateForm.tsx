@@ -105,8 +105,16 @@ export const RegisterWorkloadFromTemplateForm: React.FunctionComponent<IRegister
     });
 
     const {
-        formState: { isSubmitSuccessful },
+        formState: { isSubmitSuccessful, isValid },
     } = form;
+
+    React.useEffect(() => {
+        if (isValid) {
+            console.debug('Workload template is currently valid.');
+        } else {
+            console.debug('Workload template is NOT valid in its current form.');
+        }
+    }, [isValid]);
 
     React.useEffect(() => {
         if (isSubmitSuccessful) {
@@ -247,8 +255,15 @@ export const RegisterWorkloadFromTemplateForm: React.FunctionComponent<IRegister
         );
     };
 
-    const onSubmit = (data: { workloadTitle: string }) => {
-        const workloadRegistrationRequest: string = parseData(data);
+    const onSubmitTemplate = (data) => {
+        let workloadRegistrationRequest: string;
+        try {
+            workloadRegistrationRequest = parseData(data);
+        } catch (err) {
+            console.error(`Failed to parse template: ${err}`);
+            toast.error(`Failed to parse template: ${err}`);
+            return;
+        }
         console.log(`User submitted workload template data: ${JSON.stringify(data)}`);
         props.onConfirm(data.workloadTitle, workloadRegistrationRequest);
     };
@@ -347,7 +362,7 @@ export const RegisterWorkloadFromTemplateForm: React.FunctionComponent<IRegister
                 <Button
                     key="submit-workload-from-template-button"
                     variant="primary"
-                    onClick={form.handleSubmit(onSubmit)}
+                    onClick={form.handleSubmit(onSubmitTemplate)}
                 >
                     Submit Workload
                 </Button>
@@ -865,7 +880,7 @@ export const RegisterWorkloadFromTemplateForm: React.FunctionComponent<IRegister
         <Form
             onSubmit={() => {
                 form.clearErrors();
-                form.handleSubmit(onSubmit);
+                form.handleSubmit(onSubmitTemplate);
             }}
         >
             <Flex direction={{ default: 'column' }}>
