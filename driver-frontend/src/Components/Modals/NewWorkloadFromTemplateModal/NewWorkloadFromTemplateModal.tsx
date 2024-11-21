@@ -15,7 +15,7 @@ export interface NewWorkloadFromTemplateModalProps {
 export const NewWorkloadFromTemplateModal: React.FunctionComponent<NewWorkloadFromTemplateModalProps> = (props) => {
     return (
         <Modal
-            variant={ModalVariant.large}
+            width={'70%'}
             titleIconVariant={PencilAltIcon}
             aria-label="Modal to create a new workload from a template"
             title={'Create New Workload from Template'}

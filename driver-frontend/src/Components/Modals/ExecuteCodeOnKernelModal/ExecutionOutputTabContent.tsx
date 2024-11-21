@@ -1,4 +1,3 @@
-import { Execution } from '@Components/Modals';
 import {
     Button,
     Card,
@@ -18,7 +17,7 @@ import {
 } from '@patternfly/react-core';
 import { DownloadIcon, EllipsisVIcon } from '@patternfly/react-icons';
 import { LogViewer, LogViewerSearch } from '@patternfly/react-log-viewer';
-import { RequestTraceSplitTable } from '@src/Components';
+import { Execution, RequestTraceSplitTable } from '@src/Components';
 import { DarkModeContext } from '@src/Providers';
 import React from 'react';
 
@@ -37,6 +36,7 @@ export const ExecutionOutputTabContent: React.FunctionComponent<ExecutionOutputT
 ) => {
     const { darkMode } = React.useContext(DarkModeContext);
 
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const logViewerRef = React.useRef<React.Ref<any>>();
     const [isOutputTextWrapped, setIsOutputTextWrapped] = React.useState(false);
     const [isOutputFullScreen] = React.useState(false);

@@ -3,11 +3,9 @@ import '@patternfly/react-core/dist/styles/base.css';
 import { KernelListCard, KernelSpecList, NodeListCard, UtilizationCard, WorkloadCard } from '@Components/Cards/';
 import { MigrationModal } from '@Components/Modals';
 import { Grid, GridItem, PageSection, gridSpans } from '@patternfly/react-core';
-import { GetPathForFetch } from '@src/Utils/path_utils';
+import { MigrateKernelReplica } from '@src/Components';
 
 import React, { createContext } from 'react';
-
-import toast from 'react-hot-toast';
 import { DistributedJupyterKernel, JupyterKernelReplica } from 'src/Data';
 
 export type HeightFactorContext = {
@@ -37,53 +35,17 @@ const Dashboard: React.FunctionComponent = () => {
     const [kernelHeightFactor, setKernelHeightFactor] = React.useState(3);
     const [kubeNodeHeightFactor, setKubeNodeHeightFactor] = React.useState(3);
 
-    const onConfirmMigrateReplica = (
+    const onConfirmMigrateReplica = async (
         targetReplica: JupyterKernelReplica,
         targetKernel: DistributedJupyterKernel,
         targetNodeId: string,
     ) => {
-        const requestOptions = {
-            method: 'POST',
-            headers: {
-                'Content-Type': 'application/json',
-                Authorization: 'Bearer ' + localStorage.getItem('token'),
-                // 'Cache-Control': 'no-cache, no-transform, no-store',
-            },
-            body: JSON.stringify({
-                targetReplica: {
-                    replicaId: targetReplica.replicaId,
-                    kernelId: targetKernel.kernelId,
-                },
-                targetNodeId: targetNodeId,
-            }),
-        };
-
-        targetReplica.isMigrating = true;
-
-        console.log(
-            `Migrating replica ${targetReplica.replicaId} of kernel ${targetKernel.kernelId} to node ${targetNodeId}`,
-        );
-        toast(
-            `Migrating replica ${targetReplica.replicaId} of kernel ${targetKernel.kernelId} to node ${targetNodeId}`,
-            {
-                duration: 7500,
-                style: { maxWidth: 850 },
-            },
-        );
-
-        fetch(GetPathForFetch('/api/migrate'), requestOptions).then((response) => {
-            console.log(
-                'Received response for migration operation of replica %d of kernel %s: %s',
-                targetReplica.replicaId,
-                targetKernel.kernelId,
-                JSON.stringify(response),
-            );
-        });
-
         // Close the migration modal and reset its state.
         setIsMigrateModalOpen(false);
         setMigrateReplica(null);
         setMigrateKernel(null);
+
+        await MigrateKernelReplica(targetReplica, targetKernel, targetNodeId);
     };
 
     const closeMigrateReplicaModal = () => {
