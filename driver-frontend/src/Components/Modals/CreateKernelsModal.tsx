@@ -3,17 +3,21 @@ import {
     Divider,
     Form,
     FormGroup,
+    FormHelperText,
     FormSection,
     FormSelect,
     FormSelectOption,
     Grid,
     GridItem,
+    HelperText,
+    HelperTextItem,
     Modal,
     ModalVariant,
     TextInput,
     TextInputGroup,
     TextInputProps,
 } from '@patternfly/react-core';
+import { ExclamationCircleIcon, WarningTriangleIcon } from '@patternfly/react-icons';
 import { AuthorizationContext } from '@Providers/AuthProvider';
 import { ResourceSpec } from '@src/Data';
 import React from 'react';
@@ -46,6 +50,8 @@ export const CreateKernelsModal: React.FunctionComponent<CreateKernelsModalProps
     const [gpusValidated, setGpusValidated] = React.useState<TextInputProps['validated']>('default');
     const [vramValidated, setVramValidated] = React.useState<TextInputProps['validated']>('default');
     const [memValidated, setMemValidated] = React.useState<TextInputProps['validated']>('default');
+
+    const [gpusHelperText, setGpusHelperText] = React.useState<string>('');
 
     const [cpus, setCpus] = React.useState<Map<number, string>>(new Map());
     const [memory, setMemory] = React.useState<Map<number, string>>(new Map());
@@ -168,7 +174,6 @@ export const CreateKernelsModal: React.FunctionComponent<CreateKernelsModalProps
             cpusValidated == 'error' ||
             cpusValidated == 'warning' ||
             gpusValidated == 'error' ||
-            gpusValidated == 'warning' ||
             memValidated == 'error' ||
             memValidated == 'warning' ||
             numKernelsValidated == 'error' ||
@@ -400,18 +405,40 @@ export const CreateKernelsModal: React.FunctionComponent<CreateKernelsModalProps
 
                                         if (Number.isNaN(value)) {
                                             setGpusValidated('error');
+                                            setGpusHelperText('Must be a number');
                                             return;
                                         }
 
-                                        // For now, we assuem 8 GPUs is the maximum availabe on a node.
-                                        if (valueAsNumber > 8 || valueAsNumber <= 0) {
+                                        if (valueAsNumber > 8) {
+                                            setGpusValidated('warning');
+                                            setGpusHelperText('Values greater than 8 may be unsupported');
+                                            return;
+                                        }
+
+                                        if (valueAsNumber <= 0) {
                                             setGpusValidated('error');
+                                            setGpusHelperText('Must be greater than 0');
                                             return;
                                         }
 
                                         setGpusValidated('success');
                                     }}
                                 />
+                                <FormHelperText>
+                                    <HelperText>
+                                        <HelperTextItem
+                                            variant={gpusValidated}
+                                            {...(gpusValidated === 'error' && {
+                                                icon: <ExclamationCircleIcon />,
+                                            })}
+                                            {...(gpusValidated === 'warning' && {
+                                                icon: <WarningTriangleIcon />,
+                                            })}
+                                        >
+                                            {gpusHelperText}
+                                        </HelperTextItem>
+                                    </HelperText>
+                                </FormHelperText>
                             </FormGroup>
                         </GridItem>
                         <GridItem span={3} rowSpan={1}>

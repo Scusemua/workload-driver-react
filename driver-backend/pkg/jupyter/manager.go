@@ -279,18 +279,35 @@ func (m *BasicKernelSessionManager) CreateSession(sessionId string, sessionPath 
 			m.logger.Error("Failed to decode JSON response with unexpected HTTP status code.", zap.Int("http-status-code", http.StatusBadRequest), zap.Error(err))
 		}
 
-		m.logger.Warn("Unexpected response status code when creating a new session.", zap.Int("status-code", resp.StatusCode), zap.String("status", resp.Status), zap.Any("headers", resp.Header), zap.Any("body", body), zap.String("request-args", requestBody.String()), zap.String("response-body", string(body)))
+		m.logger.Warn("Unexpected response status code when creating a new session.",
+			zap.Int("status-code", resp.StatusCode),
+			zap.String("status", resp.Status),
+			zap.Any("headers", resp.Header),
+			zap.Any("body", body),
+			zap.String("request-args", requestBody.String()),
+			zap.String("response-body", string(body)),
+			zap.Any("response-json", responseJson))
+
 		if message, ok := responseJson["message"]; ok {
-			err = fmt.Errorf("ErrCreateSessionUnknownFailure %w: HTTP %d %s - %s", ErrCreateSessionUnknownFailure, resp.StatusCode, resp.Status, message)
+			err = fmt.Errorf("ErrCreateSessionUnknownFailure %w: HTTP %d %s - %s",
+				ErrCreateSessionUnknownFailure, resp.StatusCode, resp.Status, message)
+
 			m.tryCallErrorHandler("", sessionId, err)
+
 			return nil, err
 		} else if reason, ok := responseJson["reason"]; ok {
-			err = fmt.Errorf("ErrCreateSessionUnknownFailure %w: HTTP %d %s - %s", ErrCreateSessionUnknownFailure, resp.StatusCode, resp.Status, reason)
+			err = fmt.Errorf("ErrCreateSessionUnknownFailure %w: HTTP %d %s - %s",
+				ErrCreateSessionUnknownFailure, resp.StatusCode, resp.Status, reason)
+
 			m.tryCallErrorHandler("", sessionId, err)
+
 			return nil, err
 		} else {
-			err = fmt.Errorf("ErrCreateSessionUnknownFailure %w: HTTP %d %s - %s", ErrCreateSessionUnknownFailure, resp.StatusCode, resp.Status, string(body))
+			err = fmt.Errorf("ErrCreateSessionUnknownFailure %w: HTTP %d %s - %s",
+				ErrCreateSessionUnknownFailure, resp.StatusCode, resp.Status, string(body))
+
 			m.tryCallErrorHandler("", sessionId, err)
+
 			return nil, err
 		}
 	}

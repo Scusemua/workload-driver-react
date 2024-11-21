@@ -1447,7 +1447,9 @@ func (d *BasicWorkloadDriver) handleSessionReadyEvent(sessionReadyEvent domain.E
 			zap.String(ZapInternalSessionIDKey, sessionId),
 			zap.Duration("real-time-elapsed", time.Since(provisionStart)),
 			zap.String("workload_id", d.workload.GetId()),
-			zap.String("workload_name", d.workload.WorkloadName()), zap.Error(err))
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.Error(err))
+
 		payload, _ := json.Marshal(domain.ErrorMessage{
 			Description:  reflect.TypeOf(err).Name(),
 			ErrorMessage: err.Error(),
@@ -1461,11 +1463,9 @@ func (d *BasicWorkloadDriver) handleSessionReadyEvent(sessionReadyEvent domain.E
 			}
 		}()
 
-		d.errorChan <- err
-
-		if d.onCriticalErrorOccurred != nil {
-			go d.onCriticalErrorOccurred(d.workload.GetId(), err)
-		}
+		// We need to inspect the error here.
+		// Depending on what the error is, we'll treat it as a critical error or not.
+		d.handleFailureToCreateNewSession(err, sessionReadyEvent)
 	} else {
 		d.logger.Debug("Successfully handled SessionStarted event.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String(ZapInternalSessionIDKey, sessionId), zap.Duration("real-time-elapsed", time.Since(provisionStart)))
 	}
@@ -1473,7 +1473,15 @@ func (d *BasicWorkloadDriver) handleSessionReadyEvent(sessionReadyEvent domain.E
 	if wg != nil {
 		wg.Done()
 	}
+}
 
+func (d *BasicWorkloadDriver) handleFailureToCreateNewSession(err error, sessionReadyEvent domain.Event) {
+
+	d.errorChan <- err
+
+	if d.onCriticalErrorOccurred != nil {
+		go d.onCriticalErrorOccurred(d.workload.GetId(), err)
+	}
 }
 
 // Schedule new Sessions onto Hosts.
@@ -1754,7 +1762,11 @@ func (d *BasicWorkloadDriver) provisionSession(sessionId string, meta domain.Ses
 		"notebook", "distributed", resourceSpec)
 
 	if err != nil {
-		d.logger.Error("Failed to create session.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String(ZapInternalSessionIDKey, sessionId))
+		d.logger.Error("Failed to create session.",
+			zap.String("workload_id", d.workload.GetId()),
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String(ZapInternalSessionIDKey, sessionId),
+			zap.Error(err))
 
 		// We call our OnError handlers after returning; no need to call them here.
 		return nil, err
