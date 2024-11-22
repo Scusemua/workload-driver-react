@@ -3,6 +3,7 @@ package event_queue
 import (
 	"container/heap"
 	"errors"
+	"fmt"
 	"os"
 	"sync"
 	"time"
@@ -14,8 +15,9 @@ import (
 )
 
 var (
-	ErrNoEventQueue = errors.New("no corresponding event queue for given Session")
-	ErrNoMoreEvents = errors.New("there are no more events for the specified Session")
+	ErrNoEventQueue   = errors.New("no corresponding event queue for given Session")
+	ErrNoMoreEvents   = errors.New("there are no more events for the specified Session")
+	ErrUnknownSession = errors.New("specified session does not have an event queue registered")
 )
 
 // EventQueue maintains a queue of events (sorted by timestamp) for each unique session.
@@ -180,6 +182,10 @@ func (q *EventQueue) NumSessionQueues() int {
 	q.eventHeapMutex.Lock()
 	defer q.eventHeapMutex.Unlock()
 
+	return q.unsafeNumSessionQueues()
+}
+
+func (q *EventQueue) unsafeNumSessionQueues() int {
 	return q.eventsPerSession.Len()
 }
 
@@ -200,6 +206,61 @@ func (q *EventQueue) Peek(threshold time.Time) *domain.Event {
 	if threshold == timestamp || timestamp.Before(threshold) {
 		return sessionQueue.Peek()
 	}
+
+	return nil
+}
+
+// DelaySession adds the specified time.Duration to the specified Session's delay.
+//
+// DelaySession returns nil on success and an ErrUnknownSession error if the specified Session
+// does not have an event queue.
+func (q *EventQueue) DelaySession(sessionId string, amount time.Duration) error {
+	q.eventHeapMutex.Lock()
+	defer q.eventHeapMutex.Unlock()
+
+	if q.unsafeNumSessionQueues() == 0 {
+		return fmt.Errorf("%w: \"%s\"", ErrUnknownSession, sessionId)
+	}
+
+	val, loaded := q.eventsPerSession.Get(sessionId)
+	if !loaded {
+		return fmt.Errorf("%w: \"%s\"", ErrUnknownSession, sessionId)
+	}
+
+	sessionEventQueue := val.(*SessionEventQueue)
+	sessionEventQueue.Delay += amount
+
+	q.logger.Debug("Increased delay of session.",
+		zap.String("session_id", sessionId),
+		zap.Duration("amount", amount),
+		zap.Duration("delay", sessionEventQueue.Delay))
+
+	return nil
+}
+
+// SetSessionDelay sets the specified Session's delay to the specified time.Duration.
+//
+// SetSessionDelay returns nil on success and an ErrUnknownSession error if the specified
+// Session does not have an event queue.
+func (q *EventQueue) SetSessionDelay(sessionId string, delay time.Duration) error {
+	q.eventHeapMutex.Lock()
+	defer q.eventHeapMutex.Unlock()
+
+	if q.unsafeNumSessionQueues() == 0 {
+		return fmt.Errorf("%w: \"%s\"", ErrUnknownSession, sessionId)
+	}
+
+	val, loaded := q.eventsPerSession.Get(sessionId)
+	if !loaded {
+		return fmt.Errorf("%w: \"%s\"", ErrUnknownSession, sessionId)
+	}
+
+	sessionEventQueue := val.(*SessionEventQueue)
+	sessionEventQueue.Delay = delay
+
+	q.logger.Debug("Set delay of session.",
+		zap.String("session_id", sessionId),
+		zap.Duration("delay", delay))
 
 	return nil
 }
