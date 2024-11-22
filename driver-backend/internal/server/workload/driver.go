@@ -1258,6 +1258,10 @@ func (d *BasicWorkloadDriver) processEventsForTick(tick time.Time) {
 	var (
 		// Map from session ID to a slice of events that the session is supposed to process in this tick.
 		sessionEventMap = make(map[string][]*domain.Event)
+
+		// 'Session Ready' events.
+		sessionReadyEvents = make([]*domain.Event, 0)
+
 		// Used to wait until all goroutines finish processing events for the sessions.
 		waitGroup sync.WaitGroup
 	)
@@ -1273,6 +1277,12 @@ func (d *BasicWorkloadDriver) processEventsForTick(tick time.Time) {
 			panic(fmt.Sprintf("Expected to find valid event for tick %v.", tick))
 		}
 
+		// Collect up all of the "session-ready" events.
+		if evt.Name == domain.EventSessionReady {
+			sessionReadyEvents = append(sessionReadyEvents, evt)
+			continue
+		}
+
 		// Get the list of events for the particular session, creating said list if it does not already exist.
 		sessionId := evt.Data.(domain.PodData).GetPod()
 		sessionEvents, ok := sessionEventMap[sessionId]
@@ -1285,6 +1295,24 @@ func (d *BasicWorkloadDriver) processEventsForTick(tick time.Time) {
 		sessionEvents = append(sessionEvents, evt)
 		// Put the updated list back into the map.
 		sessionEventMap[sessionId] = sessionEvents
+	}
+
+	// First, process any 'session-ready' events.
+	if len(sessionReadyEvents) > 0 {
+		var wg sync.WaitGroup
+		wg.Add(len(sessionReadyEvents))
+
+		d.logger.Debug("Processing \"session-ready\" event(s).",
+			zap.String("workload_id", d.workload.GetId()),
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.Time("tick", tick),
+			zap.Int("num_events", len(sessionReadyEvents)))
+
+		for idx, sessionReadyEvent := range sessionReadyEvents {
+			go d.handleSessionReadyEvent(sessionReadyEvent, idx, &wg)
+		}
+
+		wg.Wait()
 	}
 
 	// If we dequeued 0 events, then just return.

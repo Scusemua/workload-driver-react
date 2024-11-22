@@ -15,6 +15,11 @@ func (h EventHeap) Less(i, j int) bool {
 	// So, if the event at localIndex i is a TrainingEnded event while the event at localIndex j is a SessionStopped event,
 	// then the event at localIndex i should be processed first.
 	if h[i].Timestamp.Equal(h[j].Timestamp) {
+		// SessionReady events should always go first.
+		if h[i].Name == EventSessionReady {
+			return true
+		}
+
 		if h[i].Name == EventSessionTrainingEnded && h[j].Name == EventSessionStopped {
 			// Sanity check -- if we find a "session-stopped" and "training-ended" event targeting the same session,
 			// then we double-check that their "event indices" are consistent with the order that they should be
