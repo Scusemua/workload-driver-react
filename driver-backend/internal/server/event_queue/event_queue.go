@@ -80,7 +80,7 @@ func (q *BasicEventQueue) HasEventsForTick(tick time.Time) bool {
 		return false
 	}
 
-	timestamp := sessionEventQueue.NextEventTimestamp()
+	timestamp, _ := sessionEventQueue.NextEventTimestamp()
 	return tick == timestamp || timestamp.Before(tick)
 }
 
@@ -121,7 +121,13 @@ func (q *BasicEventQueue) GetAllSessionStartEventsForTick(tick time.Time, max in
 	//}
 
 	nextSessionQueue := q.events.Peek()
-	if nextSessionQueue.NextEventName() == domain.EventSessionReady {
+
+	if nextSessionQueue.IsEmpty() {
+		return events
+	}
+
+	eventName, _ := nextSessionQueue.NextEventName()
+	if eventName == domain.EventSessionReady {
 		events = append(events, nextSessionQueue.Pop())
 	}
 

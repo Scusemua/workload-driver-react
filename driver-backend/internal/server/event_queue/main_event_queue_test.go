@@ -30,6 +30,7 @@ var _ = Describe("MainEventQueue Tests", func() {
 			LocalIndex:  int(index),
 			ID:          uuid.NewString(),
 			Timestamp:   timestamp,
+			Data:        data,
 		}
 	}
 
@@ -73,8 +74,6 @@ var _ = Describe("MainEventQueue Tests", func() {
 
 			heap.Push(&queue, sessionQueue1)
 
-			GinkgoWriter.Println("Pushed first session queue.")
-
 			Expect(queue.Len()).To(Equal(1))
 			Expect(queue.Peek()).To(Equal(sessionQueue1))
 
@@ -87,25 +86,7 @@ var _ = Describe("MainEventQueue Tests", func() {
 
 			heap.Push(&queue, sessionQueue2)
 
-			GinkgoWriter.Println("Pushed first second queue.")
-
 			Expect(queue.Len()).To(Equal(2))
-
-			Expect(queue.Peek()).To(Equal(sessionQueue1))
-
-			sessionQueue := queue.Pop().(*event_queue.SessionEventQueue)
-			Expect(sessionQueue).ToNot(BeNil())
-			Expect(sessionQueue.SessionId).To(Equal(session1Id))
-			Expect(sessionQueue).To(Equal(sessionQueue1))
-			Expect(queue.Len()).To(Equal(1))
-
-			Expect(queue.Peek()).To(Equal(sessionQueue2))
-
-			sessionQueue = queue.Pop().(*event_queue.SessionEventQueue)
-			Expect(sessionQueue).ToNot(BeNil())
-			Expect(sessionQueue.SessionId).To(Equal(session2Id))
-			Expect(sessionQueue).To(Equal(sessionQueue2))
-			Expect(queue.Len()).To(Equal(0))
 		})
 
 		It("Will position an empty SessionEventQueue behind a non-empty SessionEventQueue", func() {
@@ -126,9 +107,41 @@ var _ = Describe("MainEventQueue Tests", func() {
 
 			heap.Push(&queue, sessionQueue2)
 
-			Expect(queue.Len()).To(Equal(1))
+			Expect(queue.Len()).To(Equal(2))
 			Expect(queue.Peek()).To(Equal(sessionQueue2))
 			Expect(queue.Peek().Len()).To(Equal(1))
+		})
+
+		It("Will correctly handle enqueuing and de-queuing SessionEventQueues", func() {
+			session1Id := "Session1"
+			sessionQueue1 := event_queue.NewSessionEventQueue(session1Id)
+			session1Event1 := createEvent(domain.EventSessionStarted, session1Id, 1, time.UnixMilli(1))
+			sessionQueue1.Push(session1Event1)
+			Expect(sessionQueue1.Len()).To(Equal(1))
+
+			session2Id := "Session2"
+			sessionQueue2 := event_queue.NewSessionEventQueue(session2Id)
+			session2Event1 := createEvent(domain.EventSessionStarted, session2Id, 2, time.UnixMilli(2))
+			sessionQueue2.Push(session2Event1)
+			Expect(sessionQueue2.Len()).To(Equal(1))
+
+			heap.Push(&queue, sessionQueue2)
+			Expect(queue.Len()).To(Equal(1))
+			Expect(queue.Peek()).To(Equal(sessionQueue2))
+
+			heap.Push(&queue, sessionQueue1)
+			Expect(queue.Len()).To(Equal(2))
+			Expect(queue.Peek()).To(Equal(sessionQueue1))
+
+			session3Id := "Session3"
+			sessionQueue3 := event_queue.NewSessionEventQueue(session3Id)
+			session3Event1 := createEvent(domain.EventSessionStarted, session3Id, 0, time.UnixMilli(0))
+			sessionQueue3.Push(session3Event1)
+			Expect(sessionQueue3.Len()).To(Equal(1))
+
+			heap.Push(&queue, sessionQueue3)
+			Expect(queue.Len()).To(Equal(3))
+			Expect(queue.Peek()).To(Equal(sessionQueue3))
 		})
 
 		It("Will be sorted into the correct order when initialized using a reverse-ordered non-empty backing slice", func() {
@@ -157,13 +170,15 @@ var _ = Describe("MainEventQueue Tests", func() {
 			queue = event_queue.MainEventQueue{sessionEventQueues[7], sessionEventQueues[6], sessionEventQueues[5], sessionEventQueues[4], sessionEventQueues[3], sessionEventQueues[2], sessionEventQueues[1], sessionEventQueues[0]}
 
 			for i := 0; i < 8; i++ {
-				fmt.Printf("Queue element #%d: \"%s\" (HeapIndex=%d) [%v]\n", i, queue[i].SessionId, queue[i].HeapIndex, queue[i].NextEventTimestamp())
+				timestamp, _ := queue[i].NextEventTimestamp()
+				fmt.Printf("Queue element #%d: \"%s\" (HeapIndex=%d) [%v]\n", i, queue[i].SessionId, queue[i].HeapIndex, timestamp)
 			}
 
 			heap.Init(&queue)
 
 			for i := 0; i < 8; i++ {
-				fmt.Printf("Queue element #%d: \"%s\" (HeapIndex=%d) [%v]\n", i, queue[i].SessionId, queue[i].HeapIndex, queue[i].NextEventTimestamp())
+				timestamp, _ := queue[i].NextEventTimestamp()
+				fmt.Printf("Queue element #%d: \"%s\" (HeapIndex=%d) [%v]\n", i, queue[i].SessionId, queue[i].HeapIndex, timestamp)
 			}
 
 			Expect(queue.Len()).To(Equal(8))
@@ -172,9 +187,9 @@ var _ = Describe("MainEventQueue Tests", func() {
 				Expect(queue.Peek().SessionId).To(Equal(sessionIDs[i]))
 				Expect(queue.Peek()).To(Equal(sessionEventQueues[i]))
 
-				sessionEventQueue := queue.Pop().(*event_queue.SessionEventQueue)
+				sessionEventQueue := heap.Pop(&queue).(*event_queue.SessionEventQueue)
 				Expect(sessionEventQueue).ToNot(BeNil())
-				Expect(sessionEventQueue).To(Equal(sessionIDs[i]))
+				Expect(sessionEventQueue.SessionId).To(Equal(sessionIDs[i]))
 				Expect(sessionEventQueue).To(Equal(sessionEventQueues[i]))
 			}
 		})

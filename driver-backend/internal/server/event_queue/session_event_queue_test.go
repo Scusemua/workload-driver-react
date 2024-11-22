@@ -29,6 +29,7 @@ var _ = Describe("SessionEventQueue Tests", func() {
 			LocalIndex:  int(index),
 			ID:          uuid.NewString(),
 			Timestamp:   timestamp,
+			Data:        data,
 		}
 	}
 
@@ -46,12 +47,16 @@ var _ = Describe("SessionEventQueue Tests", func() {
 		queue := event_queue.NewSessionEventQueue(sessionId)
 		Expect(queue.Len()).To(Equal(0))
 
+		data := mock_domain.NewMockSessionMetadata(mockCtrl)
+		data.EXPECT().GetPod().AnyTimes().Return(sessionId)
+
 		evt := &domain.Event{
 			Name:        domain.EventSessionReady,
 			GlobalIndex: 0,
 			LocalIndex:  0,
 			ID:          uuid.NewString(),
 			Timestamp:   time.Now(),
+			Data:        data,
 		}
 
 		queue.Push(evt)
@@ -113,6 +118,20 @@ var _ = Describe("SessionEventQueue Tests", func() {
 		Expect(queue.Len()).To(Equal(0))
 		Expect(evt).To(Equal(evt4))
 		Expect(queue.Peek() == nil).To(BeTrue())
+	})
+
+	It("Will panic if pushing event for wrong session into queue", func() {
+		sessionId := uuid.NewString()
+		queue := event_queue.NewSessionEventQueue(sessionId)
+		Expect(queue.Len()).To(Equal(0))
+
+		evt := createEvent(domain.EventSessionTrainingStarted, "WrongSessionId", 0, time.UnixMilli(0))
+
+		pushAndPanic := func() {
+			queue.Push(evt)
+		}
+
+		Expect(pushAndPanic).To(Panic())
 	})
 
 	It("Will correctly break ties using the global indices of events", func() {

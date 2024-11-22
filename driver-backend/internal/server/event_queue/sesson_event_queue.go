@@ -2,6 +2,7 @@ package event_queue
 
 import (
 	"container/heap"
+	"fmt"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
 	"sync"
 	"time"
@@ -69,6 +70,11 @@ func (q *SessionEventQueue) Pop() *domain.Event {
 
 // Push pushes the specified *domain.Event into the InternalQueue of the SessionEventQueue.
 func (q *SessionEventQueue) Push(evt *domain.Event) {
+	if evt.SessionID() != q.SessionId {
+		panic(fmt.Sprintf("attempting to push event with session ID \"%s\" into queue for session \"%s\"\n",
+			evt.SessionID(), q.SessionId))
+	}
+
 	heap.Push(&q.InternalQueue, evt)
 }
 
@@ -84,41 +90,41 @@ func (q *SessionEventQueue) Peek() *domain.Event {
 // NextEventTimestamp returns the Timestamp of the next domain.Event in this SessionEventQueue's InternalQueue.
 //
 // The SessionEventQueue's Delay field is added to the domain.Event's Timestamp field before the Timestamp is returned.
-func (q *SessionEventQueue) NextEventTimestamp() time.Time {
+func (q *SessionEventQueue) NextEventTimestamp() (time.Time, bool) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
 	// What do we do if the queue is empty?
 	if len(q.InternalQueue) == 0 {
-		panic("SessionEventQueue is empty.")
+		return time.Time{}, false
 	}
 
-	return q.InternalQueue.Peek().Timestamp.Add(q.Delay)
+	return q.InternalQueue.Peek().Timestamp.Add(q.Delay), true
 }
 
 // NextEventName returns the Name of the next domain.Event in this SessionEventQueue's InternalQueue.
-func (q *SessionEventQueue) NextEventName() domain.EventName {
+func (q *SessionEventQueue) NextEventName() (domain.EventName, bool) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
 	// What do we do if the queue is empty?
 	if len(q.InternalQueue) == 0 {
-		panic("SessionEventQueue is empty.")
+		return domain.EventInvalidName, false
 	}
 
-	return q.InternalQueue.Peek().Name
+	return q.InternalQueue.Peek().Name, true
 }
 
 // NextEventGlobalEventIndex returns the GlobalEventIndex of the next domain.Event
 // in this SessionEventQueue's InternalQueue.
-func (q *SessionEventQueue) NextEventGlobalEventIndex() uint64 {
+func (q *SessionEventQueue) NextEventGlobalEventIndex() (uint64, bool) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
 	// What do we do if the queue is empty?
 	if len(q.InternalQueue) == 0 {
-		panic("SessionEventQueue is empty.")
+		return 0, false
 	}
 
-	return q.InternalQueue.Peek().GlobalIndex
+	return q.InternalQueue.Peek().GlobalIndex, true
 }
