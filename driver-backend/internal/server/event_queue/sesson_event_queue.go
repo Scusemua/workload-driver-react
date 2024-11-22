@@ -4,6 +4,7 @@ import (
 	"container/heap"
 	"fmt"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
+	"github.com/zhangjyr/hashmap"
 	"sync"
 	"time"
 )
@@ -22,6 +23,8 @@ type SessionEventQueue struct {
 	// HeapIndex is the index of this SessionEventQueue with respect to other SessionEventQueue instances.
 	HeapIndex int
 
+	EventsMap *hashmap.HashMap
+
 	mu sync.Mutex
 }
 
@@ -30,6 +33,7 @@ func NewSessionEventQueue(sessionId string) *SessionEventQueue {
 	queue := &SessionEventQueue{
 		SessionId:     sessionId,
 		InternalQueue: make(domain.EventHeap, 0),
+		EventsMap:     hashmap.New(16),
 		HeapIndex:     -1,
 	}
 
@@ -76,6 +80,8 @@ func (q *SessionEventQueue) Push(evt *domain.Event) {
 	}
 
 	heap.Push(&q.InternalQueue, evt)
+
+	q.EventsMap.Set(evt.ID, evt)
 }
 
 // Peek returns -- but does not remove -- the next *domain.Event in the InternalQueue of the SessionEventQueue.

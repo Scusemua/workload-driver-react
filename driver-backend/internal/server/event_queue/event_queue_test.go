@@ -4,6 +4,6 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 )
 
-var _ = Describe("EventQueue", func() {
+var _ = Describe("EventQueue Tests", func() {
 
 })
