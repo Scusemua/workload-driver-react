@@ -28,8 +28,8 @@ type BasicEventQueue struct {
 	// events is a queue of queues. Each internal queue is associated with a particular session.
 	events MainEventQueue
 
-	sessionReadyEvents domain.BasicEventHeap // The `EventSessionReady` events are stored separately, as this is what actually creates/registers a Session within the Cluster. The Cluster won't have a given Session's info until after the associated `EventSessionReady` is processed, so the EventSessionReady events must go through a different path.
-	eventHeap          domain.BasicEventHeap // The heap of events, sorted by timestamp in ascending order (so future events are further in the list). Does not contain "Session Ready" events. Those are stored in a separate heap.
+	sessionReadyEvents domain.EventHeap // The `EventSessionReady` events are stored separately, as this is what actually creates/registers a Session within the Cluster. The Cluster won't have a given Session's info until after the associated `EventSessionReady` is processed, so the EventSessionReady events must go through a different path.
+	eventHeap          domain.EventHeap // The heap of events, sorted by timestamp in ascending order (so future events are further in the list). Does not contain "Session Ready" events. Those are stored in a separate heap.
 
 	eventsPerSession   *hashmap.HashMap // Mapping from session ID to another hashmap. The second/inner hashmap is a map from event ID to the event.
 	terminatedSessions *hashmap.HashMap // Map from Session ID to the last event that was returned successfully. Used to monitor Sessions who are not consuming events for a suspiciously long period of time. lastEventProcessed *hashmap.HashMap Sessions that have been permanently stopped and thus won't be consuming events anymore. We don't bother saving events for those sessions.
@@ -47,8 +47,8 @@ func NewBasicEventQueue(atom *zap.AtomicLevel) *BasicEventQueue {
 		delayedEvents:      hashmap.New(100),
 		doneChan:           make(chan interface{}),
 		events:             make(MainEventQueue, 0),
-		sessionReadyEvents: make(domain.BasicEventHeap, 0, 100),
-		eventHeap:          make(domain.BasicEventHeap, 0, 100),
+		sessionReadyEvents: make(domain.EventHeap, 0, 100),
+		eventHeap:          make(domain.EventHeap, 0, 100),
 	}
 
 	core := zapcore.NewCore(zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()), os.Stdout, queue.atom)

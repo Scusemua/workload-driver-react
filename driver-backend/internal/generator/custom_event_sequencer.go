@@ -25,7 +25,7 @@ type sessionMetaWrapper struct {
 
 type CustomEventSequencer struct {
 	sessions      map[string]*sessionMetaWrapper
-	eventHeap     domain.BasicEventHeap
+	eventHeap     domain.EventHeap
 	eventConsumer domain.EventConsumer
 
 	log      *zap.Logger
@@ -49,7 +49,7 @@ func NewCustomEventSequencer(eventConsumer domain.EventConsumer, startingSeconds
 		sessions:            make(map[string]*sessionMetaWrapper),
 		sessionEventIndexes: make(map[string]int),
 		waitingEvents:       make(map[string]*domain.Event),
-		eventHeap:           make(domain.BasicEventHeap, 0, 100),
+		eventHeap:           make(domain.EventHeap, 0, 100),
 		podMap:              make(map[string]int),
 		eventConsumer:       eventConsumer,
 		startingSeconds:     startingSeconds,

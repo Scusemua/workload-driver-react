@@ -16,7 +16,7 @@ type SessionEventQueue struct {
 	Delay time.Duration
 
 	// InternalQueue contains the domain.Event instances for the associated Session.
-	InternalQueue domain.BasicEventHeap
+	InternalQueue domain.EventHeap
 
 	// HeapIndex is the index of this SessionEventQueue with respect to other SessionEventQueue instances.
 	HeapIndex int
@@ -28,7 +28,7 @@ type SessionEventQueue struct {
 func NewSessionEventQueue(sessionId string) *SessionEventQueue {
 	queue := &SessionEventQueue{
 		SessionId:     sessionId,
-		InternalQueue: make(domain.BasicEventHeap, 0),
+		InternalQueue: make(domain.EventHeap, 0),
 		HeapIndex:     -1,
 	}
 

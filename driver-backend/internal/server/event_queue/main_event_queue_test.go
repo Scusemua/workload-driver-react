@@ -2,6 +2,7 @@ package event_queue_test
 
 import (
 	"container/heap"
+	"fmt"
 	"github.com/google/uuid"
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
@@ -128,6 +129,54 @@ var _ = Describe("MainEventQueue Tests", func() {
 			Expect(queue.Len()).To(Equal(1))
 			Expect(queue.Peek()).To(Equal(sessionQueue2))
 			Expect(queue.Peek().Len()).To(Equal(1))
+		})
+
+		It("Will be sorted into the correct order when initialized using a reverse-ordered non-empty backing slice", func() {
+			sessionIDs := make([]string, 0, 8)
+			sessionEventQueues := make([]*event_queue.SessionEventQueue, 0, 8)
+			for i := 0; i < 8; i++ {
+				sessionId := fmt.Sprintf("Session-%d", i)
+				sessionIDs = append(sessionIDs, sessionId)
+
+				sessionEventQueue := event_queue.NewSessionEventQueue(sessionId)
+
+				evt := createEvent(domain.EventSessionStarted, sessionId, uint64(i), time.UnixMilli(int64(i)))
+				sessionEventQueue.Push(evt)
+
+				sessionEventQueues = append(sessionEventQueues, sessionEventQueue)
+			}
+
+			for i := 0; i < 8; i++ {
+				Expect(sessionEventQueues[i]).ToNot(BeNil())
+				Expect(sessionEventQueues[i].SessionId).To(Equal(sessionIDs[i]))
+
+				sessionId := fmt.Sprintf("Session-%d", i)
+				Expect(sessionEventQueues[i].SessionId).To(Equal(sessionId))
+			}
+
+			queue = event_queue.MainEventQueue{sessionEventQueues[7], sessionEventQueues[6], sessionEventQueues[5], sessionEventQueues[4], sessionEventQueues[3], sessionEventQueues[2], sessionEventQueues[1], sessionEventQueues[0]}
+
+			for i := 0; i < 8; i++ {
+				fmt.Printf("Queue element #%d: \"%s\" (HeapIndex=%d) [%v]\n", i, queue[i].SessionId, queue[i].HeapIndex, queue[i].NextEventTimestamp())
+			}
+
+			heap.Init(&queue)
+
+			for i := 0; i < 8; i++ {
+				fmt.Printf("Queue element #%d: \"%s\" (HeapIndex=%d) [%v]\n", i, queue[i].SessionId, queue[i].HeapIndex, queue[i].NextEventTimestamp())
+			}
+
+			Expect(queue.Len()).To(Equal(8))
+
+			for i := 0; i < 8; i++ {
+				Expect(queue.Peek().SessionId).To(Equal(sessionIDs[i]))
+				Expect(queue.Peek()).To(Equal(sessionEventQueues[i]))
+
+				sessionEventQueue := queue.Pop().(*event_queue.SessionEventQueue)
+				Expect(sessionEventQueue).ToNot(BeNil())
+				Expect(sessionEventQueue).To(Equal(sessionIDs[i]))
+				Expect(sessionEventQueue).To(Equal(sessionEventQueues[i]))
+			}
 		})
 	})
 })

@@ -40,7 +40,7 @@ type Synthesizer struct {
 	consumer              domain.EventConsumer
 	bufferedEvents        chan domain.Event
 	eventsChannel         chan domain.Event
-	eventsHeap            domain.BasicEventHeap
+	eventsHeap            domain.EventHeap
 	numActiveSources      uint64
 	maxUtilizationWrapper *domain.MaxUtilizationWrapper
 
@@ -69,7 +69,7 @@ func NewSynthesizer(opts *domain.Configuration, maxUtilizationWrapper *domain.Ma
 	synthesizer := &Synthesizer{
 		// Sources:          make([]TraceDriver, 0, 2),
 		bufferedEvents:        make(chan domain.Event),
-		eventsHeap:            make(domain.BasicEventHeap, 0, 1),
+		eventsHeap:            make(domain.EventHeap, 0, 1),
 		eventsChannel:         make(chan domain.Event),
 		numActiveSources:      0,
 		maxUtilizationWrapper: maxUtilizationWrapper,
@@ -315,7 +315,7 @@ func (s *Synthesizer) Synthesize(ctx context.Context, opts *domain.Configuration
 
 	s.Tick = opts.TraceStep
 
-	s.eventsHeap = make(domain.BasicEventHeap, 0, len(s.Sources))
+	s.eventsHeap = make(domain.EventHeap, 0, len(s.Sources))
 	if s.drivingCPU && s.drivingGPU {
 		s.sessions = make(map[string]*SessionMeta, 1000)
 	}

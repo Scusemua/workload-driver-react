@@ -4,13 +4,13 @@ import (
 	"log"
 )
 
-type BasicEventHeap []*Event
+type EventHeap []*Event
 
-func (h BasicEventHeap) Len() int {
+func (h EventHeap) Len() int {
 	return len(h)
 }
 
-func (h BasicEventHeap) Less(i, j int) bool {
+func (h EventHeap) Less(i, j int) bool {
 	// We want to ensure that TrainingEnded events are processed before SessionStopped events.
 	// So, if the event at localIndex i is a TrainingEnded event while the event at localIndex j is a SessionStopped event,
 	// then the event at localIndex i should be processed first.
@@ -49,19 +49,19 @@ func (h BasicEventHeap) Less(i, j int) bool {
 	return h[i].Timestamp.Before(h[j].Timestamp)
 }
 
-func (h BasicEventHeap) Swap(i, j int) {
+func (h EventHeap) Swap(i, j int) {
 	// log.Printf("Swap %d, %d (%v, %v) of %d", i, j, h[i], h[j], len(h))
 	h[i].SetIndex(j)
 	h[j].SetIndex(i)
 	h[i], h[j] = h[j], h[i]
 }
 
-func (h *BasicEventHeap) Push(x interface{}) {
+func (h *EventHeap) Push(x interface{}) {
 	x.(*Event).SetIndex(len(*h))
 	*h = append(*h, x.(*Event))
 }
 
-func (h *BasicEventHeap) Pop() interface{} {
+func (h *EventHeap) Pop() interface{} {
 	old := *h
 	n := len(old)
 	ret := old[n-1]
@@ -70,7 +70,7 @@ func (h *BasicEventHeap) Pop() interface{} {
 	return ret
 }
 
-func (h BasicEventHeap) Peek() *Event {
+func (h EventHeap) Peek() *Event {
 	if len(h) == 0 {
 		return nil
 	}

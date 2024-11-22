@@ -80,7 +80,7 @@ type BaseDriver struct {
 	LastTimestamp time.Time
 
 	events    chan *domain.Event
-	eventBuff domain.BasicEventHeap
+	eventBuff domain.EventHeap
 	lastEvent *domain.Event
 
 	// Synchronizes concurrent access to the maps containing maximum utilization values.
@@ -116,7 +116,7 @@ func NewBaseDriver(id int) *BaseDriver {
 	driver := &BaseDriver{
 		id:                         id,
 		events:                     make(chan *domain.Event),
-		eventBuff:                  make(domain.BasicEventHeap, 0, 1000),
+		eventBuff:                  make(domain.EventHeap, 0, 1000),
 		SessionMaxes:               make(map[string]float64),
 		SessionNumGPUs:             make(map[string]int),
 		TrainingMaxes:              make(map[string][]float64),

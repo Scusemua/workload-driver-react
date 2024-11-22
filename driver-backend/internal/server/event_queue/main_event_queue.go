@@ -9,15 +9,9 @@ import (
 // sorted according to the next event for the associated Session contained within each SessionEventQueue.
 //
 // Empty queues are always positioned after non-empty queues.
-//
-// Empty queues sorted amongst themselves according to their Session ID.
 type MainEventQueue []*SessionEventQueue
 
-func (h MainEventQueue) Len() int {
-	return len(h)
-}
-
-func (h MainEventQueue) Less(i, j int) bool {
+func (h MainEventQueue) Less2(i, j int) bool {
 	// If the i-th queue is non-empty while the j-th queue is empty, then the i-th queue should come first.
 	if h[i].IsNonEmpty() && h[j].IsEmpty() {
 		fmt.Printf("SessionEventQueue %d (\"%s\") is non-empty while SessionEventQueue %d (\"%s\") is empty.\n",
@@ -32,14 +26,13 @@ func (h MainEventQueue) Less(i, j int) bool {
 		return false
 	}
 
-	// If both queues are empty, then sort according to the associated session IDs.
+	// If both queues are empty, then just treat them as if they're equal, so return false.
 	if h[i].IsEmpty() && h[j].IsEmpty() {
-		fmt.Printf("Comparing SessionID of SessionEventQueue %d (\"%s\") and SessionEventQueue %d (\"%s\").\n",
-			i, h[i].SessionId, j, h[j].SessionId)
-		fmt.Printf("h[%d].SessionId (\"%s\") < h[%d].SessionId (\"%s\"): %v\n",
-			i, h[i].SessionId, j, h[j].SessionId, h[i].SessionId < h[j].SessionId)
-		return h[i].SessionId < h[j].SessionId
+		return false
 	}
+
+	fmt.Printf("Comparing timestamps of SessionEventQueue %d (\"%s\") [%v] and SessionEventQueue %d (\"%s\") [%v] {%v}.\n",
+		i, h[i].SessionId, h[i].NextEventTimestamp(), j, h[j].SessionId, h[j].NextEventTimestamp(), h[i].NextEventTimestamp().Before(h[j].NextEventTimestamp()))
 
 	// We want to ensure that TrainingEnded events are processed before SessionStopped events.
 	// So, if the event at localIndex i is a TrainingEnded event while the event at localIndex j is a SessionStopped event,
@@ -69,9 +62,36 @@ func (h MainEventQueue) Less(i, j int) bool {
 	return h[i].NextEventTimestamp().Before(h[j].NextEventTimestamp())
 }
 
+func (h MainEventQueue) Len() int {
+	return len(h)
+}
+
+func (h MainEventQueue) Less(i, j int) bool {
+	fmt.Printf("Comparing timestamps of SessionEventQueue at index %d (\"%s\") [%v] and SessionEventQueue at index %d (\"%s\") [%v] {%v}.\n",
+		i, h[i].SessionId, h[i].NextEventTimestamp(), j, h[j].SessionId, h[j].NextEventTimestamp(), h[i].NextEventTimestamp().Before(h[j].NextEventTimestamp()))
+
+	// We want to ensure that TrainingEnded events are processed before SessionStopped events.
+	// So, if the event at localIndex i is a TrainingEnded event while the event at localIndex j is a SessionStopped event,
+	// then the event at localIndex i should be processed first.
+	if h[i].NextEventTimestamp().Equal(h[j].NextEventTimestamp()) {
+		if h[i].NextEventName() == domain.EventSessionTrainingEnded && h[j].NextEventName() == domain.EventSessionStopped {
+			return true
+		} else if h[j].NextEventName() == domain.EventSessionTrainingEnded && h[i].NextEventName() == domain.EventSessionStopped {
+			return false
+		}
+
+		return h[i].NextEventGlobalEventIndex() < h[j].NextEventGlobalEventIndex()
+	}
+
+	return h[i].NextEventTimestamp().Before(h[j].NextEventTimestamp())
+}
+
 func (h MainEventQueue) Swap(i, j int) {
+	// log.Printf("Swap %d, %d (%v, %v) of %d", i, j, h[i], h[j], len(h))
 	h[i].SetIndex(j)
+	fmt.Printf("[SWAP 1/2] Set index of SessEvtQ \"%s\" to %d.\n", h[i].SessionId, j)
 	h[j].SetIndex(i)
+	fmt.Printf("[SWAP 2/2] Set index of SessEvtQ \"%s\" to %d.\n", h[j].SessionId, i)
 	h[i], h[j] = h[j], h[i]
 }
 

@@ -258,7 +258,7 @@ var _ = Describe("SessionEventQueue Tests", func() {
 
 		queue := &event_queue.SessionEventQueue{
 			SessionId:     sessionId,
-			InternalQueue: domain.BasicEventHeap{evt8, evt2, evt7, evt6, evt5, evt3, evt4, evt1},
+			InternalQueue: domain.EventHeap{evt8, evt2, evt7, evt6, evt5, evt3, evt4, evt1},
 			HeapIndex:     -1,
 		}
 
@@ -314,7 +314,7 @@ var _ = Describe("SessionEventQueue Tests", func() {
 
 		queue := &event_queue.SessionEventQueue{
 			SessionId:     sessionId,
-			InternalQueue: domain.BasicEventHeap{evt8, evt7, evt6, evt5, evt4, evt3, evt2, evt1},
+			InternalQueue: domain.EventHeap{evt8, evt7, evt6, evt5, evt4, evt3, evt2, evt1},
 			HeapIndex:     -1,
 		}
 
