@@ -66,7 +66,21 @@ func (q *EventQueue) MainEventQueueLength() int {
 	q.eventHeapMutex.Lock()
 	defer q.eventHeapMutex.Unlock()
 
+	return q.unsafeMainEventQueueLength()
+}
+
+func (q *EventQueue) unsafeMainEventQueueLength() int {
 	return q.events.Len()
+}
+
+func (q *EventQueue) PrintEvents() {
+	q.eventHeapMutex.Lock()
+	defer q.eventHeapMutex.Unlock()
+
+	for _, sessionQueue := range q.events {
+		q.sugaredLogger.Debugf("Session Event Queue \"%s\" [NumEvents=%d, HeapIndex=%d]",
+			sessionQueue.SessionId, sessionQueue.Len(), sessionQueue.HeapIndex)
+	}
 }
 
 // HasEventsForTick returns true if there are events available for the specified tick; otherwise return false.
@@ -83,7 +97,9 @@ func (q *EventQueue) HasEventsForTick(tick time.Time) bool {
 	if sessionEventQueue == nil {
 		q.logger.Warn("Peeked event queue, got back nil.",
 			zap.Int("events_length", length),
-			zap.Int("num_session_event_queues", q.NumSessionQueues()))
+			zap.Int("num_session_event_queues", q.NumSessionQueues()),
+			zap.Int("main_event_queue_len", q.unsafeMainEventQueueLength()),
+			zap.Int("len_main_event_queue", len(q.events)))
 		return false
 	}
 
@@ -125,6 +141,13 @@ func (q *EventQueue) EnqueueEvent(evt *domain.Event) {
 	if evt.Name == domain.EventSessionStarted { // Do nothing other than try to create the heap.
 		sessionEventQueue, loaded := q.eventsPerSession.GetOrInsert(sessionId, NewSessionEventQueue(sessionId))
 
+		q.logger.Debug("Creating new SessionEventQueue while enqueuing \"session-started\" event.",
+			zap.String("event_name", evt.Name.String()),
+			zap.String("event_id", evt.ID),
+			zap.String("session_id", evt.SessionID()),
+			zap.Time("event_timestamp", evt.Timestamp),
+			zap.Time("original_timestamp", evt.OriginalTimestamp))
+
 		if loaded {
 			panic("we already have a SessionEventQueue for a session whose 'session-started' we just received")
 		}
@@ -136,8 +159,17 @@ func (q *EventQueue) EnqueueEvent(evt *domain.Event) {
 	var sessionEventQueue *SessionEventQueue
 	val, loaded := q.eventsPerSession.Get(sessionId)
 	if !loaded {
+		q.logger.Debug("Creating new SessionEventQueue while enqueuing event.",
+			zap.String("event_name", evt.Name.String()),
+			zap.String("event_id", evt.ID),
+			zap.String("session_id", evt.SessionID()),
+			zap.Time("event_timestamp", evt.Timestamp),
+			zap.Time("original_timestamp", evt.OriginalTimestamp))
+
 		sessionEventQueue = NewSessionEventQueue(sessionId)
 		q.eventsPerSession.Set(sessionId, sessionEventQueue)
+
+		heap.Push(&q.events, sessionEventQueue)
 	} else {
 		sessionEventQueue = val.(*SessionEventQueue)
 	}
@@ -149,12 +181,27 @@ func (q *EventQueue) EnqueueEvent(evt *domain.Event) {
 	// Record that the event was enqueued.
 	evt.RecordThatEventWasEnqueued()
 
-	q.logger.Debug("Enqueued event.",
-		zap.String("event_name", evt.Name.String()),
-		zap.String("event_id", evt.ID),
-		zap.String("session_id", evt.SessionID()),
-		zap.Time("event_timestamp", evt.Timestamp),
-		zap.Time("original_timestamp", evt.OriginalTimestamp))
+	if evt.GetNumTimesEnqueued() > 1 {
+		q.logger.Debug("Re-enqueued event.",
+			zap.String("event_name", evt.Name.String()),
+			zap.String("event_id", evt.ID),
+			zap.String("session_id", evt.SessionID()),
+			zap.Time("event_timestamp", evt.Timestamp),
+			zap.Time("original_timestamp", evt.OriginalTimestamp),
+			zap.Int32("num_times_enqueued", evt.GetNumTimesEnqueued()),
+			zap.Int("num_events_enqueued_for_session", sessionEventQueue.Len()),
+			zap.Int("session_event_queue_heap_index", sessionEventQueue.HeapIndex))
+	} else {
+		q.logger.Debug("Enqueued event for the first time.",
+			zap.String("event_name", evt.Name.String()),
+			zap.String("event_id", evt.ID),
+			zap.String("session_id", evt.SessionID()),
+			zap.Time("event_timestamp", evt.Timestamp),
+			zap.Time("original_timestamp", evt.OriginalTimestamp),
+			zap.Int32("num_times_enqueued", evt.GetNumTimesEnqueued()),
+			zap.Int("num_events_enqueued_for_session", sessionEventQueue.Len()),
+			zap.Int("session_event_queue_heap_index", sessionEventQueue.HeapIndex))
+	}
 }
 
 // GetTimestampOfNextReadyEvent returns the timestamp of the next session event to be processed.
@@ -170,7 +217,9 @@ func (q *EventQueue) GetTimestampOfNextReadyEvent() (time.Time, error) {
 	if nextSessionQueue == nil {
 		q.logger.Warn("Peeked event queue, got back nil.",
 			zap.Int("events_length", length),
-			zap.Int("num_session_event_queues", q.NumSessionQueues()))
+			zap.Int("num_session_event_queues", q.NumSessionQueues()),
+			zap.Int("main_event_queue_len", q.unsafeMainEventQueueLength()),
+			zap.Int("len_main_event_queue", len(q.events)))
 		return time.Time{}, ErrNoMoreEvents
 	}
 
@@ -316,7 +365,7 @@ func (q *EventQueue) Pop(threshold time.Time) *domain.Event {
 		nextEvent := sessionQueue.Pop()
 
 		nextEvent.SetIndex(q.lenUnsafe())
-		nextEvent.SetEnqueued(false)
+		nextEvent.Dequeued()
 
 		q.logger.Debug("Returning ready event.",
 			zap.String("event_name", nextEvent.Name.String()),
@@ -325,9 +374,10 @@ func (q *EventQueue) Pop(threshold time.Time) *domain.Event {
 			zap.Time("original_event_timestamp", nextEvent.OriginalTimestamp),
 			zap.Time("current_event_timestamp", nextEvent.Timestamp),
 			zap.Duration("event_delay", nextEvent.Delay),
+			zap.Int32("num_times_enqueued", nextEvent.GetNumTimesEnqueued()),
 			zap.String("session_id", nextEvent.SessionID()))
 
-		heap.Fix(&q.events, 0)
+		heap.Fix(&q.events, sessionQueue.HeapIndex)
 
 		return nextEvent
 	}

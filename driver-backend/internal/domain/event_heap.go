@@ -20,6 +20,11 @@ func (h EventHeap) Less(i, j int) bool {
 			return true
 		}
 
+		// SessionReady events should always go first.
+		if h[j].Name == EventSessionReady {
+			return false
+		}
+
 		if h[i].Name == EventSessionTrainingEnded && h[j].Name == EventSessionStopped {
 			// Sanity check -- if we find a "session-stopped" and "training-ended" event targeting the same session,
 			// then we double-check that their "event indices" are consistent with the order that they should be

@@ -112,14 +112,15 @@ func (e *Event) GetIndex() int {
 	return e.HeapIndex
 }
 
-func (e *Event) SetEnqueued(b bool) {
-	e.Enqueued = true
+func (e *Event) Dequeued() {
+	e.Enqueued = false
 }
 
 // RecordThatEventWasEnqueued records that the event was enqueued for processing.
 // Events can be enqueued multiple times.
 func (e *Event) RecordThatEventWasEnqueued() {
 	e.numTimesEnqueued.Add(1)
+	e.Enqueued = true
 }
 
 // GetNumTimesEnqueued returns the number of times that the Event has been enqueued.

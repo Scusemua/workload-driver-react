@@ -120,8 +120,7 @@ func NewServer(opts *domain.Configuration) domain.Server {
 		prometheusEndpoint:      opts.PrometheusEndpoint,
 	}
 
-	s.workloadManager = workload.NewWorkloadManager(opts, &atom, s.handleWorkloadError,
-		s.handleCriticalWorkloadError, s.notifyFrontend)
+	s.workloadManager = workload.NewWorkloadManager(opts, &atom, s.handleCriticalWorkloadError, s.handleWorkloadError, s.notifyFrontend)
 
 	// Default to "/"
 	if s.baseUrl == "" {
@@ -588,6 +587,10 @@ func (s *serverImpl) handleWorkloadError(workloadId string, err error) {
 		err = fmt.Errorf("unspecified")
 	}
 
+	s.logger.Warn("Notifying front-end of non-critical workload error.",
+		zap.String("workload_id", workloadId),
+		zap.Error(err))
+
 	s.notifyFrontend(&gateway.Notification{
 		Title:            fmt.Sprintf("Non-Critical Error Occurred in Workload \"%s\"", workloadId),
 		Message:          err.Error(),
@@ -602,6 +605,10 @@ func (s *serverImpl) handleCriticalWorkloadError(workloadId string, err error) {
 			zap.String("workload_id", workloadId))
 		err = fmt.Errorf("unspecified")
 	}
+
+	s.logger.Error("Notifying front-end of critical workload error.",
+		zap.String("workload_id", workloadId),
+		zap.Error(err))
 
 	s.notifyFrontend(&gateway.Notification{
 		Title:            fmt.Sprintf("Critical Error Occurred in Workload \"%s\"", workloadId),

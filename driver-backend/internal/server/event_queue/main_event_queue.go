@@ -32,7 +32,7 @@ func (h MainEventQueue) Less(i, j int) bool {
 
 	// If both queues are empty, then just treat them as if they're equal, so return false.
 	if h[i].IsEmpty() && h[j].IsEmpty() {
-		fmt.Printf("Both SessionEventQueue %d (\"%s\") abd SessionEventQueue %d (\"%s\") are empty.\n",
+		fmt.Printf("Both SessionEventQueue %d (\"%s\") and SessionEventQueue %d (\"%s\") are empty.\n",
 			i, h[i].SessionId, j, h[j].SessionId)
 		return false
 	}
@@ -61,6 +61,16 @@ func (h MainEventQueue) Less(i, j int) bool {
 			panic("unexpected empty")
 		}
 
+		// "session-ready" events should always go first within the same tick.
+		if eventNameI == domain.EventSessionReady {
+			return true
+		}
+
+		// "session-ready" events should always go first within the same tick.
+		if eventNameJ == domain.EventSessionReady {
+			return false
+		}
+
 		if eventNameI == domain.EventSessionTrainingEnded && eventNameJ == domain.EventSessionStopped {
 			return true
 		} else if eventNameJ == domain.EventSessionTrainingEnded && eventNameI == domain.EventSessionStopped {
@@ -85,7 +95,7 @@ func (h MainEventQueue) Less(i, j int) bool {
 }
 
 func (h MainEventQueue) Swap(i, j int) {
-	// log.Printf("Swap %d, %d (%v, %v) of %d", i, j, h[i], h[j], len(h))
+	fmt.Printf("Swap %d, %d (%v, %v) of %d\n", i, j, h[i], h[j], len(h))
 	h[i].SetIndex(j)
 	fmt.Printf("[SWAP 1/2] Set index of SessEvtQ \"%s\" to %d.\n", h[i].SessionId, j)
 	h[j].SetIndex(i)
