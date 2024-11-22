@@ -33,8 +33,8 @@ type EventQueue struct {
 	doneChan         chan interface{}
 }
 
-// NewBasicEventQueue creates a new EventQueue struct and returns a pointer to it.
-func NewBasicEventQueue(atom *zap.AtomicLevel) *EventQueue {
+// NewEventQueue creates a new EventQueue struct and returns a pointer to it.
+func NewEventQueue(atom *zap.AtomicLevel) *EventQueue {
 	queue := &EventQueue{
 		atom:             atom,
 		eventsPerSession: hashmap.New(100),
@@ -160,6 +160,10 @@ func (q *EventQueue) Len() int {
 	q.eventHeapMutex.Lock()
 	defer q.eventHeapMutex.Unlock()
 
+	return q.lenUnsafe()
+}
+
+func (q *EventQueue) lenUnsafe() int {
 	length := 0
 	for kv := range q.eventsPerSession.Iter() {
 		sessionEventQueue := kv.Value.(*SessionEventQueue)
@@ -176,7 +180,7 @@ func (q *EventQueue) NumSessionQueues() int {
 	q.eventHeapMutex.Lock()
 	defer q.eventHeapMutex.Unlock()
 
-	return q.events.Len()
+	return q.eventsPerSession.Len()
 }
 
 // GetNextEvent return the next event that occurs at or before the given timestamp, or nil if there are no such events.
@@ -186,7 +190,7 @@ func (q *EventQueue) GetNextEvent(threshold time.Time) (*domain.Event, bool) {
 	q.eventHeapMutex.Lock()
 	defer q.eventHeapMutex.Unlock()
 
-	if q.Len() == 0 {
+	if q.lenUnsafe() == 0 {
 		return nil, false
 	}
 
@@ -199,7 +203,7 @@ func (q *EventQueue) GetNextEvent(threshold time.Time) (*domain.Event, bool) {
 	if threshold == timestamp || timestamp.Before(threshold) {
 		nextEvent := sessionQueue.Pop()
 
-		nextEvent.SetIndex(q.Len())
+		nextEvent.SetIndex(q.lenUnsafe())
 		nextEvent.SetEnqueued(false)
 
 		q.logger.Debug("Returning ready event.",

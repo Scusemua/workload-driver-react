@@ -13,25 +13,9 @@ import (
 )
 
 var _ = Describe("SessionEventQueue Tests", func() {
-	var mockCtrl *gomock.Controller
-
 	BeforeEach(func() {
 		mockCtrl = gomock.NewController(GinkgoT())
 	})
-
-	createEvent := func(name domain.EventName, sessionId string, index uint64, timestamp time.Time) *domain.Event {
-		data := mock_domain.NewMockSessionMetadata(mockCtrl)
-		data.EXPECT().GetPod().AnyTimes().Return(sessionId)
-
-		return &domain.Event{
-			Name:        name,
-			GlobalIndex: index,
-			LocalIndex:  int(index),
-			ID:          uuid.NewString(),
-			Timestamp:   timestamp,
-			Data:        data,
-		}
-	}
 
 	It("Can be instantiated correctly", func() {
 		sessionId := uuid.NewString()
@@ -74,10 +58,10 @@ var _ = Describe("SessionEventQueue Tests", func() {
 		queue := event_queue.NewSessionEventQueue(sessionId)
 		Expect(queue.Len()).To(Equal(0))
 
-		evt1 := createEvent(domain.EventSessionReady, sessionId, 0, time.UnixMilli(0))
-		evt2 := createEvent(domain.EventSessionTrainingStarted, sessionId, 1, time.UnixMilli(1))
-		evt3 := createEvent(domain.EventSessionTrainingEnded, sessionId, 2, time.UnixMilli(2))
-		evt4 := createEvent(domain.EventSessionStopped, sessionId, 3, time.UnixMilli(3))
+		evt1 := createEvent(domain.EventSessionReady, sessionId, 0, time.UnixMilli(0), mockCtrl)
+		evt2 := createEvent(domain.EventSessionTrainingStarted, sessionId, 1, time.UnixMilli(1), mockCtrl)
+		evt3 := createEvent(domain.EventSessionTrainingEnded, sessionId, 2, time.UnixMilli(2), mockCtrl)
+		evt4 := createEvent(domain.EventSessionStopped, sessionId, 3, time.UnixMilli(3), mockCtrl)
 
 		By("Correctly pushing events onto its internal queue")
 
@@ -125,7 +109,7 @@ var _ = Describe("SessionEventQueue Tests", func() {
 		queue := event_queue.NewSessionEventQueue(sessionId)
 		Expect(queue.Len()).To(Equal(0))
 
-		evt := createEvent(domain.EventSessionTrainingStarted, "WrongSessionId", 0, time.UnixMilli(0))
+		evt := createEvent(domain.EventSessionTrainingStarted, "WrongSessionId", 0, time.UnixMilli(0), mockCtrl)
 
 		pushAndPanic := func() {
 			queue.Push(evt)
@@ -139,8 +123,8 @@ var _ = Describe("SessionEventQueue Tests", func() {
 		queue := event_queue.NewSessionEventQueue(sessionId)
 		Expect(queue.Len()).To(Equal(0))
 
-		evt1 := createEvent(domain.EventSessionTrainingStarted, sessionId, 0, time.UnixMilli(0))
-		evt2 := createEvent(domain.EventSessionTrainingEnded, sessionId, 1, time.UnixMilli(0))
+		evt1 := createEvent(domain.EventSessionTrainingStarted, sessionId, 0, time.UnixMilli(0), mockCtrl)
+		evt2 := createEvent(domain.EventSessionTrainingEnded, sessionId, 1, time.UnixMilli(0), mockCtrl)
 
 		Expect(evt1.Timestamp).To(Equal(evt2.Timestamp))
 		Expect(evt1.OriginalTimestamp).To(Equal(evt2.OriginalTimestamp))
@@ -164,8 +148,8 @@ var _ = Describe("SessionEventQueue Tests", func() {
 		Expect(queue.Peek() == nil).To(BeTrue())
 
 		// Note that these are not in the order you'd inspect just based on their names.
-		evt3 := createEvent(domain.EventSessionTrainingStarted, sessionId, 3, time.UnixMilli(0))
-		evt4 := createEvent(domain.EventSessionTrainingEnded, sessionId, 2, time.UnixMilli(0))
+		evt3 := createEvent(domain.EventSessionTrainingStarted, sessionId, 3, time.UnixMilli(0), mockCtrl)
+		evt4 := createEvent(domain.EventSessionTrainingEnded, sessionId, 2, time.UnixMilli(0), mockCtrl)
 
 		queue.Push(evt3)
 		Expect(queue.Len()).To(Equal(1))
@@ -192,8 +176,8 @@ var _ = Describe("SessionEventQueue Tests", func() {
 		Expect(queue.Len()).To(Equal(0))
 
 		// Note that these were assigned the same indices.
-		evt1 := createEvent(domain.EventSessionStopped, sessionId, 1, time.UnixMilli(0))
-		evt2 := createEvent(domain.EventSessionTrainingEnded, sessionId, 0, time.UnixMilli(0))
+		evt1 := createEvent(domain.EventSessionStopped, sessionId, 1, time.UnixMilli(0), mockCtrl)
+		evt2 := createEvent(domain.EventSessionTrainingEnded, sessionId, 0, time.UnixMilli(0), mockCtrl)
 
 		By("Doing so when we push the 'training-ended' event onto the queue first.")
 
@@ -219,8 +203,8 @@ var _ = Describe("SessionEventQueue Tests", func() {
 		queue = event_queue.NewSessionEventQueue(sessionId)
 		Expect(queue.Len()).To(Equal(0))
 
-		evt2 = createEvent(domain.EventSessionStopped, sessionId, 1, time.UnixMilli(0))
-		evt1 = createEvent(domain.EventSessionTrainingEnded, sessionId, 0, time.UnixMilli(0))
+		evt2 = createEvent(domain.EventSessionStopped, sessionId, 1, time.UnixMilli(0), mockCtrl)
+		evt1 = createEvent(domain.EventSessionTrainingEnded, sessionId, 0, time.UnixMilli(0), mockCtrl)
 
 		queue.Push(evt2)
 		Expect(queue.Len()).To(Equal(1))
@@ -247,8 +231,8 @@ var _ = Describe("SessionEventQueue Tests", func() {
 		Expect(queue.Len()).To(Equal(0))
 
 		// Note that these were assigned the same indices.
-		evt1 := createEvent(domain.EventSessionStopped, sessionId, 0, time.UnixMilli(0))
-		evt2 := createEvent(domain.EventSessionTrainingEnded, sessionId, 1, time.UnixMilli(0))
+		evt1 := createEvent(domain.EventSessionStopped, sessionId, 0, time.UnixMilli(0), mockCtrl)
+		evt2 := createEvent(domain.EventSessionTrainingEnded, sessionId, 1, time.UnixMilli(0), mockCtrl)
 
 		By("Doing so when we push the 'training-ended' event onto the queue first.")
 
@@ -266,14 +250,14 @@ var _ = Describe("SessionEventQueue Tests", func() {
 	It("Will be sorted into the correct order when initialized using a non-empty backing slice", func() {
 		sessionId := uuid.NewString()
 
-		evt1 := createEvent(domain.EventSessionReady, sessionId, 0, time.UnixMilli(0))
-		evt2 := createEvent(domain.EventSessionTrainingStarted, sessionId, 1, time.UnixMilli(1))
-		evt3 := createEvent(domain.EventSessionTrainingEnded, sessionId, 2, time.UnixMilli(2))
-		evt4 := createEvent(domain.EventSessionTrainingStarted, sessionId, 3, time.UnixMilli(3))
-		evt5 := createEvent(domain.EventSessionTrainingEnded, sessionId, 4, time.UnixMilli(4))
-		evt6 := createEvent(domain.EventSessionTrainingStarted, sessionId, 5, time.UnixMilli(5))
-		evt7 := createEvent(domain.EventSessionTrainingEnded, sessionId, 6, time.UnixMilli(6))
-		evt8 := createEvent(domain.EventSessionStopped, sessionId, 7, time.UnixMilli(7))
+		evt1 := createEvent(domain.EventSessionReady, sessionId, 0, time.UnixMilli(0), mockCtrl)
+		evt2 := createEvent(domain.EventSessionTrainingStarted, sessionId, 1, time.UnixMilli(1), mockCtrl)
+		evt3 := createEvent(domain.EventSessionTrainingEnded, sessionId, 2, time.UnixMilli(2), mockCtrl)
+		evt4 := createEvent(domain.EventSessionTrainingStarted, sessionId, 3, time.UnixMilli(3), mockCtrl)
+		evt5 := createEvent(domain.EventSessionTrainingEnded, sessionId, 4, time.UnixMilli(4), mockCtrl)
+		evt6 := createEvent(domain.EventSessionTrainingStarted, sessionId, 5, time.UnixMilli(5), mockCtrl)
+		evt7 := createEvent(domain.EventSessionTrainingEnded, sessionId, 6, time.UnixMilli(6), mockCtrl)
+		evt8 := createEvent(domain.EventSessionStopped, sessionId, 7, time.UnixMilli(7), mockCtrl)
 
 		queue := &event_queue.SessionEventQueue{
 			SessionId:     sessionId,
@@ -322,14 +306,14 @@ var _ = Describe("SessionEventQueue Tests", func() {
 	It("Will be sorted into the correct order when initialized using a reverse-ordered non-empty backing slice", func() {
 		sessionId := uuid.NewString()
 
-		evt1 := createEvent(domain.EventSessionReady, sessionId, 0, time.UnixMilli(0))
-		evt2 := createEvent(domain.EventSessionTrainingStarted, sessionId, 1, time.UnixMilli(1))
-		evt3 := createEvent(domain.EventSessionTrainingEnded, sessionId, 2, time.UnixMilli(2))
-		evt4 := createEvent(domain.EventSessionTrainingStarted, sessionId, 3, time.UnixMilli(3))
-		evt5 := createEvent(domain.EventSessionTrainingEnded, sessionId, 4, time.UnixMilli(4))
-		evt6 := createEvent(domain.EventSessionTrainingStarted, sessionId, 5, time.UnixMilli(5))
-		evt7 := createEvent(domain.EventSessionTrainingEnded, sessionId, 6, time.UnixMilli(6))
-		evt8 := createEvent(domain.EventSessionStopped, sessionId, 7, time.UnixMilli(7))
+		evt1 := createEvent(domain.EventSessionReady, sessionId, 0, time.UnixMilli(0), mockCtrl)
+		evt2 := createEvent(domain.EventSessionTrainingStarted, sessionId, 1, time.UnixMilli(1), mockCtrl)
+		evt3 := createEvent(domain.EventSessionTrainingEnded, sessionId, 2, time.UnixMilli(2), mockCtrl)
+		evt4 := createEvent(domain.EventSessionTrainingStarted, sessionId, 3, time.UnixMilli(3), mockCtrl)
+		evt5 := createEvent(domain.EventSessionTrainingEnded, sessionId, 4, time.UnixMilli(4), mockCtrl)
+		evt6 := createEvent(domain.EventSessionTrainingStarted, sessionId, 5, time.UnixMilli(5), mockCtrl)
+		evt7 := createEvent(domain.EventSessionTrainingEnded, sessionId, 6, time.UnixMilli(6), mockCtrl)
+		evt8 := createEvent(domain.EventSessionStopped, sessionId, 7, time.UnixMilli(7), mockCtrl)
 
 		queue := &event_queue.SessionEventQueue{
 			SessionId:     sessionId,

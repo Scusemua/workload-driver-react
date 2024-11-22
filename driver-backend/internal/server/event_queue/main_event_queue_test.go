@@ -7,32 +7,15 @@ import (
 	. "github.com/onsi/ginkgo/v2"
 	. "github.com/onsi/gomega"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
-	"github.com/scusemua/workload-driver-react/m/v2/internal/mock_domain"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/server/event_queue"
 	"go.uber.org/mock/gomock"
 	"time"
 )
 
 var _ = Describe("MainEventQueue Tests", func() {
-	var mockCtrl *gomock.Controller
-
 	BeforeEach(func() {
 		mockCtrl = gomock.NewController(GinkgoT())
 	})
-
-	createEvent := func(name domain.EventName, sessionId string, index uint64, timestamp time.Time) *domain.Event {
-		data := mock_domain.NewMockSessionMetadata(mockCtrl)
-		data.EXPECT().GetPod().AnyTimes().Return(sessionId)
-
-		return &domain.Event{
-			Name:        name,
-			GlobalIndex: index,
-			LocalIndex:  int(index),
-			ID:          uuid.NewString(),
-			Timestamp:   timestamp,
-			Data:        data,
-		}
-	}
 
 	Expect(createEvent).ToNot(BeNil())
 
@@ -102,7 +85,7 @@ var _ = Describe("MainEventQueue Tests", func() {
 			session2Id := "Session2"
 			sessionQueue2 := event_queue.NewSessionEventQueue(session2Id)
 
-			session2Event1 := createEvent(domain.EventSessionStarted, session2Id, 0, time.UnixMilli(0))
+			session2Event1 := createEvent(domain.EventSessionStarted, session2Id, 0, time.UnixMilli(0), mockCtrl)
 			sessionQueue2.Push(session2Event1)
 
 			heap.Push(&queue, sessionQueue2)
@@ -115,13 +98,13 @@ var _ = Describe("MainEventQueue Tests", func() {
 		It("Will correctly handle enqueuing and de-queuing SessionEventQueues", func() {
 			session1Id := "Session1"
 			sessionQueue1 := event_queue.NewSessionEventQueue(session1Id)
-			session1Event1 := createEvent(domain.EventSessionStarted, session1Id, 1, time.UnixMilli(1))
+			session1Event1 := createEvent(domain.EventSessionStarted, session1Id, 1, time.UnixMilli(1), mockCtrl)
 			sessionQueue1.Push(session1Event1)
 			Expect(sessionQueue1.Len()).To(Equal(1))
 
 			session2Id := "Session2"
 			sessionQueue2 := event_queue.NewSessionEventQueue(session2Id)
-			session2Event1 := createEvent(domain.EventSessionStarted, session2Id, 2, time.UnixMilli(2))
+			session2Event1 := createEvent(domain.EventSessionStarted, session2Id, 2, time.UnixMilli(2), mockCtrl)
 			sessionQueue2.Push(session2Event1)
 			Expect(sessionQueue2.Len()).To(Equal(1))
 
@@ -135,7 +118,7 @@ var _ = Describe("MainEventQueue Tests", func() {
 
 			session3Id := "Session3"
 			sessionQueue3 := event_queue.NewSessionEventQueue(session3Id)
-			session3Event1 := createEvent(domain.EventSessionStarted, session3Id, 0, time.UnixMilli(0))
+			session3Event1 := createEvent(domain.EventSessionStarted, session3Id, 0, time.UnixMilli(0), mockCtrl)
 			sessionQueue3.Push(session3Event1)
 			Expect(sessionQueue3.Len()).To(Equal(1))
 
@@ -153,7 +136,7 @@ var _ = Describe("MainEventQueue Tests", func() {
 
 				sessionEventQueue := event_queue.NewSessionEventQueue(sessionId)
 
-				evt := createEvent(domain.EventSessionStarted, sessionId, uint64(i), time.UnixMilli(int64(i)))
+				evt := createEvent(domain.EventSessionStarted, sessionId, uint64(i), time.UnixMilli(int64(i)), mockCtrl)
 				sessionEventQueue.Push(evt)
 
 				sessionEventQueues = append(sessionEventQueues, sessionEventQueue)
