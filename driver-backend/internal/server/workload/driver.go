@@ -1576,6 +1576,15 @@ func (d *BasicWorkloadDriver) handleSessionReadyEvent(sessionReadyEvent *domain.
 	}
 }
 
+func (d *BasicWorkloadDriver) delaySession(sessionId string, delayAmount time.Duration) {
+	err := d.eventQueue.DelaySession(sessionId, delayAmount)
+	if err != nil {
+		panic(err)
+	}
+
+	d.workload.SessionDelayed(sessionId, delayAmount)
+}
+
 func (d *BasicWorkloadDriver) handleFailureToCreateNewSession(err error, sessionReadyEvent *domain.Event) {
 	sessionId := sessionReadyEvent.SessionID()
 	if strings.Contains(err.Error(), "insufficient hosts available") {
@@ -1591,10 +1600,7 @@ func (d *BasicWorkloadDriver) handleFailureToCreateNewSession(err error, session
 			zap.Int32("num_times_enqueued", sessionReadyEvent.GetNumTimesEnqueued()),
 			zap.Duration("total_delay", sessionReadyEvent.TotalDelay()))
 
-		err := d.eventQueue.DelaySession(sessionId, d.targetTickDuration*2)
-		if err != nil {
-			panic(err)
-		}
+		d.delaySession(sessionId, d.targetTickDuration*2)
 
 		// Put the event back in the queue.
 		d.eventQueue.EnqueueEvent(sessionReadyEvent)

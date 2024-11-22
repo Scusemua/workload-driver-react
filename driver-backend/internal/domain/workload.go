@@ -187,12 +187,6 @@ type Workload interface {
 	GetTimescaleAdjustmentFactor() float64
 	// GetProcessedEvents Returns the events processed during this workload (so far).
 	GetProcessedEvents() []*WorkloadEvent
-	// GetSessions Returns the sessions involved in this workload.
-	GetSessions() []*WorkloadTemplateSession
-	// SetSessions Sets the sessions that will be involved in this workload.
-	//
-	// IMPORTANT: This can only be set once per workload. If it is called more than once, it will panic.
-	SetSessions([]*WorkloadTemplateSession) error
 	// SetSource Sets the source of the workload, namely a template or a preset.
 	SetSource(interface{}) error
 	// GetCurrentTick Returns the current tick.
@@ -231,6 +225,9 @@ type Workload interface {
 	Unpause() error
 	// GetRemoteStorageDefinition returns the *proto.RemoteStorageDefinition used by the Workload.
 	GetRemoteStorageDefinition() *proto.RemoteStorageDefinition
+	// SessionDelayed should be called when events for a particular Session are delayed for processing, such as
+	// due to there being too much resource contention.
+	SessionDelayed(string, time.Duration)
 }
 
 // GetWorkloadStateAsString will panic if an invalid workload state is specified.
@@ -594,41 +591,6 @@ func (w *BasicWorkload) GetSimulationClockTimeStr() string {
 	return w.SimulationClockTimeStr
 }
 
-// SetSessions sets the sessions that will be involved in this workload.
-//
-// IMPORTANT: This can only be set once per workload. If it is called more than once, it will panic.
-func (w *BasicWorkload) SetSessions(sessions []*WorkloadTemplateSession) error {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-
-	w.Sessions = sessions
-	w.sessionsSet = true
-
-	// Add each session to our internal mapping and initialize the session.
-	for _, session := range sessions {
-		if err := session.SetState(SessionAwaitingStart); err != nil {
-			w.logger.Error("Failed to set session state.", zap.String("session_id", session.GetId()), zap.Error(err))
-		}
-
-		if session.CurrentResourceRequest == nil {
-			session.SetCurrentResourceRequest(NewResourceRequest(0, 0, 0, 0, "ANY_GPU"))
-		}
-
-		if session.MaxResourceRequest == nil {
-			w.logger.Error("Session does not have a 'max' resource request.",
-				zap.String("session_id", session.GetId()),
-				zap.String("workload_id", w.Id),
-				zap.String("workload_name", w.Name))
-
-			return ErrMissingMaxResourceRequest
-		}
-
-		w.sessionsMap.Set(session.GetId(), session)
-	}
-
-	return nil
-}
-
 // SetSource sets the source of the workload, namely a template or a preset.
 // This defers the execution of the method to the `BasicWorkload::workload` field.
 func (w *BasicWorkload) SetSource(source interface{}) error {
@@ -904,6 +866,14 @@ func (w *BasicWorkload) UpdateTimeElapsed() {
 	w.TimeElapsedStr = w.TimeElapsed.String()
 }
 
+// SessionDelayed should be called when events for a particular Session are delayed for processing, such as
+// due to there being too much resource contention.
+//
+// Multiple calls to SessionDelayed will treat each passed delay additively, as in they'll all be added together.
+func (w *BasicWorkload) SessionDelayed(sessionId string, delayAmount time.Duration) {
+	w.workloadInstance.SessionDelayed(sessionId, delayAmount)
+}
+
 // GetNumEventsProcessed returns the number of events processed by the workload.
 func (w *BasicWorkload) GetNumEventsProcessed() int64 {
 	w.mu.RLock()
@@ -967,8 +937,6 @@ func (w *BasicWorkload) SessionCreated(sessionId string, metadata SessionMetadat
 	metrics.PrometheusMetricsWrapperInstance.WorkloadActiveNumSessions.
 		With(prometheus.Labels{"workload_id": w.Id}).
 		Add(1)
-
-	w.sessionsMap.Get(sessionId)
 
 	w.workloadInstance.SessionCreated(sessionId, metadata)
 }

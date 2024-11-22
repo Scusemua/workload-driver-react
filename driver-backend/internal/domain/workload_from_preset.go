@@ -1,5 +1,7 @@
 package domain
 
+import "time"
+
 // WorkloadFromPreset is a struct representing a workload that is generated using the "preset" option
 // within the frontend dashboard.
 //
@@ -32,6 +34,14 @@ func (w *WorkloadFromPreset) SetSource(source interface{}) error {
 	w.workloadSource = preset
 
 	return nil
+}
+
+// SessionDelayed should be called when events for a particular Session are delayed for processing, such as
+// due to there being too much resource contention.
+//
+// Multiple calls to SessionDelayed will treat each passed delay additively, as in they'll all be added together.
+func (w *WorkloadFromPreset) SessionDelayed(sessionId string, delayAmount time.Duration) {
+	panic("Not supported")
 }
 
 // SessionCreated is called when a Session is created for/in the Workload.

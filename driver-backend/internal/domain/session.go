@@ -91,6 +91,8 @@ type BasicWorkloadSession struct {
 	TrainingEvents         []*TrainingEvent `json:"trainings"`
 	StderrIoPubMessages    []string         `json:"stderr_io_pub_messages"`
 	StdoutIoPubMessages    []string         `json:"stdout_io_pub_messages"`
+	TotalDelayIncurred     time.Duration    `json:"total_delay"`
+	TotalDelayMilliseconds int64            `json:"total_delay_milliseconds"`
 }
 
 func newWorkloadSession(id string, meta SessionMetadata, maxResourceRequest *ResourceRequest, createdAtTime time.Time, atom *zap.AtomicLevel) *BasicWorkloadSession {
@@ -105,6 +107,7 @@ func newWorkloadSession(id string, meta SessionMetadata, maxResourceRequest *Res
 		TrainingEvents:         make([]*TrainingEvent, 0),
 		StderrIoPubMessages:    make([]string, 0),
 		StdoutIoPubMessages:    make([]string, 0),
+		TotalDelayMilliseconds: 0,
 	}
 
 	zapConfig := zap.NewDevelopmentEncoderConfig()
