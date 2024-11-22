@@ -235,6 +235,8 @@ func (q *EventQueue) DelaySession(sessionId string, amount time.Duration) error 
 		zap.Duration("amount", amount),
 		zap.Duration("delay", sessionEventQueue.Delay))
 
+	heap.Fix(&q.events, sessionEventQueue.HeapIndex)
+
 	return nil
 }
 
@@ -261,6 +263,8 @@ func (q *EventQueue) SetSessionDelay(sessionId string, delay time.Duration) erro
 	q.logger.Debug("Set delay of session.",
 		zap.String("session_id", sessionId),
 		zap.Duration("delay", delay))
+
+	heap.Fix(&q.events, sessionEventQueue.HeapIndex)
 
 	return nil
 }

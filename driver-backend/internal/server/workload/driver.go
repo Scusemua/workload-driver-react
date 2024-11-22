@@ -1200,8 +1200,10 @@ func (d *BasicWorkloadDriver) handleTick(tick time.Time) error {
 		}
 	}
 
+	// TODO: Update this.
+
 	// Process "session ready" events.
-	d.handleSessionReadyEvents(tick)
+	//d.handleSessionReadyEvents(tick)
 
 	// Process "start/stop training" events.
 	d.processEventsForTick(tick)
@@ -1262,9 +1264,9 @@ func (d *BasicWorkloadDriver) processEventsForTick(tick time.Time) {
 
 	// Extract all the events for this tick.
 	for d.eventQueue.HasEventsForTick(tick) {
-		evt, ok := d.eventQueue.Pop(tick)
+		evt := d.eventQueue.Pop(tick)
 
-		if !ok {
+		if evt == nil {
 			// Since 'HasEventsForTick' returned true, 'Pop' should return a valid value.
 			// If it doesn't, then in theory we could just ignore it, but it shouldn't happen, so there's probably a bug.
 			// Hence, we'll panic.
@@ -1500,22 +1502,25 @@ func (d *BasicWorkloadDriver) handleSessionReadyEvent(sessionReadyEvent *domain.
 }
 
 func (d *BasicWorkloadDriver) handleFailureToCreateNewSession(err error, sessionReadyEvent *domain.Event) {
+	sessionId := sessionReadyEvent.SessionID()
 	if strings.Contains(err.Error(), "insufficient hosts available") {
-		sessionReadyEvent.PushTimestampBack(d.targetTickDuration)
+		//sessionReadyEvent.PushTimestampBack(d.targetTickDuration)
 
 		d.logger.Warn("Failed to create session due to insufficient resources available. Will requeue event and try again later.",
 			zap.String("workload_id", d.workload.GetId()),
 			zap.String("workload_name", d.workload.WorkloadName()),
-			zap.String(ZapInternalSessionIDKey, sessionReadyEvent.SessionID()),
+			zap.String(ZapInternalSessionIDKey, sessionId),
 			zap.Time("original_timestamp", sessionReadyEvent.OriginalTimestamp),
 			zap.Time("current_timestamp", sessionReadyEvent.Timestamp),
 			zap.Duration("total_delay", sessionReadyEvent.TotalDelay()))
 
+		err := d.eventQueue.DelaySession(sessionId, d.targetTickDuration)
+		if err != nil {
+			panic(err)
+		}
+
 		// Put the event back in the queue.
 		d.eventQueue.EnqueueEvent(sessionReadyEvent)
-
-		// Push back any events targeting that session.
-		d.eventQueue.FixEvents(sessionReadyEvent.SessionID(), d.targetTickDuration)
 
 		return
 	}
@@ -1523,7 +1528,7 @@ func (d *BasicWorkloadDriver) handleFailureToCreateNewSession(err error, session
 	d.logger.Error("Session creation failure is due to unexpected reason. Aborting workload.",
 		zap.String("workload_id", d.workload.GetId()),
 		zap.String("workload_name", d.workload.WorkloadName()),
-		zap.String(ZapInternalSessionIDKey, sessionReadyEvent.SessionID()),
+		zap.String(ZapInternalSessionIDKey, sessionId),
 		zap.Error(err))
 
 	d.errorChan <- err
@@ -1533,30 +1538,30 @@ func (d *BasicWorkloadDriver) handleFailureToCreateNewSession(err error, session
 }
 
 // Schedule new Sessions onto Hosts.
-func (d *BasicWorkloadDriver) handleSessionReadyEvents(latestTick time.Time) {
-	sessionReadyEvents := d.eventQueue.GetAllSessionStartEventsForTick(latestTick, -1 /* return all ready events */)
-	if len(sessionReadyEvents) == 0 {
-		return // No events to process, so just return immediately.
-	}
-
-	if d.sugaredLogger.Level() == zapcore.DebugLevel {
-		d.sugaredLogger.Debugf("[%v] Handling %d EventSessionReady events now.",
-			d.clockTime.GetClockTime(), len(sessionReadyEvents))
-	}
-
-	var wg sync.WaitGroup
-	wg.Add(len(sessionReadyEvents))
-
-	// We'll process the 'session-ready' events in-parallel.
-	st := time.Now()
-	for idx, sessionReadyEvent := range sessionReadyEvents {
-		go d.handleSessionReadyEvent(sessionReadyEvent, idx, &wg)
-	}
-
-	wg.Wait()
-
-	d.sugaredLogger.Debugf("Finished processing %d events in %v.", len(sessionReadyEvents), time.Since(st))
-}
+//func (d *BasicWorkloadDriver) handleSessionReadyEvents(latestTick time.Time) {
+//	sessionReadyEvents := d.eventQueue.GetAllSessionStartEventsForTick(latestTick, -1 /* return all ready events */)
+//	if len(sessionReadyEvents) == 0 {
+//		return // No events to process, so just return immediately.
+//	}
+//
+//	if d.sugaredLogger.Level() == zapcore.DebugLevel {
+//		d.sugaredLogger.Debugf("[%v] Handling %d EventSessionReady events now.",
+//			d.clockTime.GetClockTime(), len(sessionReadyEvents))
+//	}
+//
+//	var wg sync.WaitGroup
+//	wg.Add(len(sessionReadyEvents))
+//
+//	// We'll process the 'session-ready' events in-parallel.
+//	st := time.Now()
+//	for idx, sessionReadyEvent := range sessionReadyEvents {
+//		go d.handleSessionReadyEvent(sessionReadyEvent, idx, &wg)
+//	}
+//
+//	wg.Wait()
+//
+//	d.sugaredLogger.Debugf("Finished processing %d events in %v.", len(sessionReadyEvents), time.Since(st))
+//}
 
 // handleUpdateGpuUtilizationEvent handles a 'update-gpu-util' event.
 func (d *BasicWorkloadDriver) handleUpdateGpuUtilizationEvent(evt *domain.Event) error {

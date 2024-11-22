@@ -74,7 +74,7 @@ var _ = Describe("EventQueue Tests", func() {
 			Expect(err).To(BeNil())
 			Expect(timestamp).To(Equal(time.UnixMilli(1)))
 
-			eventTrainingEnded := createEvent(domain.EventSessionTrainingEnded, session1Id, 2, time.UnixMilli(3), mockCtrl)
+			eventTrainingEnded := createEvent(domain.EventSessionTrainingEnded, session1Id, 3, time.UnixMilli(3), mockCtrl)
 			queue.EnqueueEvent(eventTrainingEnded)
 
 			Expect(queue.Len()).To(Equal(3))
@@ -87,7 +87,7 @@ var _ = Describe("EventQueue Tests", func() {
 			Expect(err).To(BeNil())
 			Expect(timestamp).To(Equal(time.UnixMilli(1)))
 
-			eventSessionStopped := createEvent(domain.EventSessionStopped, session1Id, 2, time.UnixMilli(4), mockCtrl)
+			eventSessionStopped := createEvent(domain.EventSessionStopped, session1Id, 4, time.UnixMilli(4), mockCtrl)
 			queue.EnqueueEvent(eventSessionStopped)
 
 			Expect(queue.Len()).To(Equal(4))
@@ -242,6 +242,11 @@ var _ = Describe("EventQueue Tests", func() {
 			Expect(queue.Len()).To(Equal(0))
 		})
 
+		It("Will return an error when delaying an unknown session", func() {
+			err := queue.DelaySession("UnknownSession", time.Second*5)
+			Expect(errors.Is(err, event_queue.ErrUnknownSession)).To(BeTrue())
+		})
+
 		It("Will correctly account for delay", func() {
 			Expect(queue.Len()).To(Equal(0))
 			Expect(queue.NumSessionQueues()).To(Equal(0))
@@ -249,118 +254,93 @@ var _ = Describe("EventQueue Tests", func() {
 			session1Id := "Session1"
 			eventSession1Started := createEvent(domain.EventSessionStarted, session1Id, 0, time.UnixMilli(0), mockCtrl)
 			queue.EnqueueEvent(eventSession1Started)
-			Expect(queue.Len()).To(Equal(0))
-			Expect(queue.NumSessionQueues()).To(Equal(1))
 
-			session2Id := "Session2"
-			eventSession2Started := createEvent(domain.EventSessionStarted, session2Id, 1, time.UnixMilli(0), mockCtrl)
-			queue.EnqueueEvent(eventSession2Started)
-			Expect(queue.Len()).To(Equal(0))
-			Expect(queue.NumSessionQueues()).To(Equal(2))
-
-			eventSession1Ready := createEvent(domain.EventSessionReady, session1Id, 3, time.UnixMilli(2), mockCtrl)
+			eventSession1Ready := createEvent(domain.EventSessionReady, session1Id, 1, time.UnixMilli(1), mockCtrl)
 			queue.EnqueueEvent(eventSession1Ready)
 
-			Expect(queue.Len()).To(Equal(1))
-			Expect(queue.NumSessionQueues()).To(Equal(2))
-			Expect(queue.HasEventsForSession(session1Id)).To(BeTrue())
+			eventTrainingStartedSess1 := createEvent(domain.EventSessionTrainingStarted, session1Id, 2, time.UnixMilli(2), mockCtrl)
+			queue.EnqueueEvent(eventTrainingStartedSess1)
 
-			timestamp, err := queue.GetTimestampOfNextReadyEvent()
-			Expect(err).To(BeNil())
-			Expect(timestamp).To(Equal(time.UnixMilli(2)))
+			eventTrainingEndedSess1 := createEvent(domain.EventSessionTrainingEnded, session1Id, 3, time.UnixMilli(3), mockCtrl)
+			queue.EnqueueEvent(eventTrainingEndedSess1)
 
-			nextEvent := queue.Peek(time.UnixMilli(2))
-			Expect(nextEvent).To(Equal(eventSession1Ready))
+			eventSession1Stopped := createEvent(domain.EventSessionStopped, session1Id, 4, time.UnixMilli(4), mockCtrl)
+			queue.EnqueueEvent(eventSession1Stopped)
 
-			Expect(queue.Peek(time.UnixMilli(1)) == nil).To(BeTrue())
+			session2Id := "Session2"
+			eventSession2Started := createEvent(domain.EventSessionStarted, session2Id, 5, time.UnixMilli(10), mockCtrl)
+			queue.EnqueueEvent(eventSession2Started)
 
-			eventSession2Ready := createEvent(domain.EventSessionReady, session2Id, 2, time.UnixMilli(1), mockCtrl)
+			eventSession2Ready := createEvent(domain.EventSessionReady, session2Id, 6, time.UnixMilli(11), mockCtrl)
 			queue.EnqueueEvent(eventSession2Ready)
 
-			Expect(queue.Len()).To(Equal(2))
-			Expect(queue.NumSessionQueues()).To(Equal(2))
+			eventTrainingStartedSess2 := createEvent(domain.EventSessionTrainingStarted, session2Id, 7, time.UnixMilli(12), mockCtrl)
+			queue.EnqueueEvent(eventTrainingStartedSess2)
+
+			eventTrainingEndedSess2 := createEvent(domain.EventSessionTrainingEnded, session2Id, 8, time.UnixMilli(13), mockCtrl)
+			queue.EnqueueEvent(eventTrainingEndedSess2)
+
+			eventSession2Stopped := createEvent(domain.EventSessionStopped, session2Id, 9, time.UnixMilli(14), mockCtrl)
+			queue.EnqueueEvent(eventSession2Stopped)
+
+			err := queue.DelaySession(session1Id, time.Millisecond*50)
+			Expect(err).To(BeNil())
+
+			By("Returning the events of the non-delayed session first")
+
 			Expect(queue.HasEventsForSession(session1Id)).To(BeTrue())
 			Expect(queue.HasEventsForSession(session2Id)).To(BeTrue())
 
-			timestamp, err = queue.GetTimestampOfNextReadyEvent()
+			timestamp, err := queue.GetTimestampOfNextReadyEvent()
 			Expect(err).To(BeNil())
-			Expect(timestamp).To(Equal(time.UnixMilli(1)))
+			GinkgoWriter.Printf("GetTimestampOfNextReadyEvent: %v\n", timestamp)
+			Expect(timestamp).To(Equal(time.UnixMilli(11)))
 
-			nextEvent = queue.Peek(time.UnixMilli(2))
+			nextEvent := queue.Peek(time.UnixMilli(11))
 			Expect(nextEvent).To(Equal(eventSession2Ready))
-
-			eventTrainingStartedSess1 := createEvent(domain.EventSessionTrainingStarted, session1Id, 4, time.UnixMilli(3), mockCtrl)
-			queue.EnqueueEvent(eventTrainingStartedSess1)
-
-			Expect(queue.Len()).To(Equal(3))
-			Expect(queue.NumSessionQueues()).To(Equal(2))
-
-			timestamp, err = queue.GetTimestampOfNextReadyEvent()
-			Expect(err).To(BeNil())
-			Expect(timestamp).To(Equal(time.UnixMilli(1)))
-
-			nextEvent = queue.Peek(time.UnixMilli(2))
-			Expect(nextEvent).To(Equal(eventSession2Ready))
-
-			eventTrainingStartedSess2 := createEvent(domain.EventSessionTrainingStarted, session2Id, 5, time.UnixMilli(4), mockCtrl)
-			queue.EnqueueEvent(eventTrainingStartedSess2)
-			Expect(queue.Len()).To(Equal(4))
-
-			eventTrainingEndedSess1 := createEvent(domain.EventSessionTrainingEnded, session1Id, 7, time.UnixMilli(6), mockCtrl)
-			queue.EnqueueEvent(eventTrainingEndedSess1)
-			Expect(queue.Len()).To(Equal(5))
-
-			eventTrainingEndedSess2 := createEvent(domain.EventSessionTrainingEnded, session2Id, 6, time.UnixMilli(5), mockCtrl)
-			queue.EnqueueEvent(eventTrainingEndedSess2)
-			Expect(queue.Len()).To(Equal(6))
-
-			eventSession1Stopped := createEvent(domain.EventSessionStopped, session1Id, 8, time.UnixMilli(7), mockCtrl)
-			queue.EnqueueEvent(eventSession1Stopped)
+			Expect(queue.Pop(time.UnixMilli(11))).To(Equal(eventSession2Ready))
 			Expect(queue.Len()).To(Equal(7))
 
-			eventSession2Stopped := createEvent(domain.EventSessionStopped, session2Id, 9, time.UnixMilli(8), mockCtrl)
-			queue.EnqueueEvent(eventSession2Stopped)
-			Expect(queue.Len()).To(Equal(8))
-
-			nextEvent = queue.Peek(time.UnixMilli(1))
-			Expect(nextEvent).To(Equal(eventSession2Ready))
-			Expect(queue.Pop(time.UnixMilli(1))).To(Equal(eventSession2Ready))
-			Expect(queue.Len()).To(Equal(7))
-
-			nextEvent = queue.Peek(time.UnixMilli(2))
-			Expect(nextEvent).To(Equal(eventSession1Ready))
-			Expect(queue.Pop(time.UnixMilli(2))).To(Equal(eventSession1Ready))
-			Expect(queue.Len()).To(Equal(6))
-
-			nextEvent = queue.Peek(time.UnixMilli(3))
-			Expect(nextEvent).To(Equal(eventTrainingStartedSess1))
-			Expect(queue.Pop(time.UnixMilli(3))).To(Equal(eventTrainingStartedSess1))
-			Expect(queue.Len()).To(Equal(5))
-
-			nextEvent = queue.Peek(time.UnixMilli(4))
+			nextEvent = queue.Peek(time.UnixMilli(12))
 			Expect(nextEvent).To(Equal(eventTrainingStartedSess2))
-			Expect(queue.Pop(time.UnixMilli(4))).To(Equal(eventTrainingStartedSess2))
+			Expect(queue.Pop(time.UnixMilli(12))).To(Equal(eventTrainingStartedSess2))
+			Expect(queue.Len()).To(Equal(6))
+
+			nextEvent = queue.Peek(time.UnixMilli(13))
+			Expect(nextEvent).To(Equal(eventTrainingEndedSess2))
+			Expect(queue.Pop(time.UnixMilli(13))).To(Equal(eventTrainingEndedSess2))
+			Expect(queue.Len()).To(Equal(5))
+
+			nextEvent = queue.Peek(time.UnixMilli(14))
+			Expect(nextEvent).To(Equal(eventSession2Stopped))
+			Expect(queue.Pop(time.UnixMilli(14))).To(Equal(eventSession2Stopped))
 			Expect(queue.Len()).To(Equal(4))
 
-			nextEvent = queue.Peek(time.UnixMilli(5))
-			Expect(nextEvent).To(Equal(eventTrainingEndedSess2))
-			Expect(queue.Pop(time.UnixMilli(5))).To(Equal(eventTrainingEndedSess2))
+			Expect(queue.HasEventsForSession(session2Id)).To(BeFalse())
+
+			By("Returning the events of the delayed session")
+
+			nextEvent = queue.Peek(time.UnixMilli(51))
+			Expect(nextEvent).To(Equal(eventSession1Ready))
+			Expect(queue.Pop(time.UnixMilli(51))).To(Equal(eventSession1Ready))
 			Expect(queue.Len()).To(Equal(3))
 
-			nextEvent = queue.Peek(time.UnixMilli(6))
-			Expect(nextEvent).To(Equal(eventTrainingEndedSess1))
-			Expect(queue.Pop(time.UnixMilli(6))).To(Equal(eventTrainingEndedSess1))
+			nextEvent = queue.Peek(time.UnixMilli(52))
+			Expect(nextEvent).To(Equal(eventTrainingStartedSess1))
+			Expect(queue.Pop(time.UnixMilli(52))).To(Equal(eventTrainingStartedSess1))
 			Expect(queue.Len()).To(Equal(2))
 
-			nextEvent = queue.Peek(time.UnixMilli(7))
-			Expect(nextEvent).To(Equal(eventSession1Stopped))
-			Expect(queue.Pop(time.UnixMilli(7))).To(Equal(eventSession1Stopped))
+			nextEvent = queue.Peek(time.UnixMilli(53))
+			Expect(nextEvent).To(Equal(eventTrainingEndedSess1))
+			Expect(queue.Pop(time.UnixMilli(53))).To(Equal(eventTrainingEndedSess1))
 			Expect(queue.Len()).To(Equal(1))
 
-			nextEvent = queue.Peek(time.UnixMilli(8))
-			Expect(nextEvent).To(Equal(eventSession2Stopped))
-			Expect(queue.Pop(time.UnixMilli(8))).To(Equal(eventSession2Stopped))
+			nextEvent = queue.Peek(time.UnixMilli(54))
+			Expect(nextEvent).To(Equal(eventSession1Stopped))
+			Expect(queue.Pop(time.UnixMilli(54))).To(Equal(eventSession1Stopped))
 			Expect(queue.Len()).To(Equal(0))
+
+			Expect(queue.HasEventsForSession(session1Id)).To(BeFalse())
 		})
 	})
 })
