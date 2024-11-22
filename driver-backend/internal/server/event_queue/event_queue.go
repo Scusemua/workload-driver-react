@@ -183,21 +183,42 @@ func (q *EventQueue) NumSessionQueues() int {
 	return q.eventsPerSession.Len()
 }
 
-// GetNextEvent return the next event that occurs at or before the given timestamp, or nil if there are no such events.
-// This will remove the event from the main EventQueueServiceImpl::eventHeap, but it will NOT remove the
-// event from the EventQueueServiceImpl::eventsPerSession. To do that, you must call EventQueueServiceImpl::UnregisterEvent().
-func (q *EventQueue) GetNextEvent(threshold time.Time) (*domain.Event, bool) {
+func (q *EventQueue) Peek(threshold time.Time) *domain.Event {
 	q.eventHeapMutex.Lock()
 	defer q.eventHeapMutex.Unlock()
 
 	if q.lenUnsafe() == 0 {
-		return nil, false
+		return nil
 	}
 
 	sessionQueue := q.events.Peek()
 	timestamp, ok := sessionQueue.NextEventTimestamp()
 	if !ok {
-		return nil, false
+		return nil
+	}
+
+	if threshold == timestamp || timestamp.Before(threshold) {
+		return sessionQueue.Peek()
+	}
+
+	return nil
+}
+
+// Pop return the next event that occurs at or before the given timestamp, or nil if there are no such events.
+// This will remove the event from the main EventQueueServiceImpl::eventHeap, but it will NOT remove the
+// event from the EventQueueServiceImpl::eventsPerSession. To do that, you must call EventQueueServiceImpl::UnregisterEvent().
+func (q *EventQueue) Pop(threshold time.Time) *domain.Event {
+	q.eventHeapMutex.Lock()
+	defer q.eventHeapMutex.Unlock()
+
+	if q.lenUnsafe() == 0 {
+		return nil
+	}
+
+	sessionQueue := q.events.Peek()
+	timestamp, ok := sessionQueue.NextEventTimestamp()
+	if !ok {
+		return nil
 	}
 
 	if threshold == timestamp || timestamp.Before(threshold) {
@@ -217,8 +238,8 @@ func (q *EventQueue) GetNextEvent(threshold time.Time) (*domain.Event, bool) {
 
 		heap.Fix(&q.events, 0)
 
-		return nextEvent, true
+		return nextEvent
 	}
 
-	return nil, false
+	return nil
 }

@@ -1262,10 +1262,10 @@ func (d *BasicWorkloadDriver) processEventsForTick(tick time.Time) {
 
 	// Extract all the events for this tick.
 	for d.eventQueue.HasEventsForTick(tick) {
-		evt, ok := d.eventQueue.GetNextEvent(tick)
+		evt, ok := d.eventQueue.Pop(tick)
 
 		if !ok {
-			// Since 'HasEventsForTick' returned true, 'GetNextEvent' should return a valid value.
+			// Since 'HasEventsForTick' returned true, 'Pop' should return a valid value.
 			// If it doesn't, then in theory we could just ignore it, but it shouldn't happen, so there's probably a bug.
 			// Hence, we'll panic.
 			panic(fmt.Sprintf("Expected to find valid event for tick %v.", tick))
