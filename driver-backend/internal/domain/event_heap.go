@@ -22,8 +22,9 @@ func (h BasicEventHeap) Less(i, j int) bool {
 			if h[i].SessionSpecificEventIndex() /* training-ended */ > h[j].SessionSpecificEventIndex() /* session-stopped */ && h[i].SessionID() == h[j].SessionID() && !h[i].WasEnqueuedMultipleTimes() && !h[j].WasEnqueuedMultipleTimes() {
 				// We expect the global localIndex of the training-ended event to be less than that of the session-stopped
 				// event, since the training-ended event should have been created prior to the session-stopped event.
-				log.Fatalf("Global event indices do not reflect correct ordering of events. "+
-					"TrainingEnded: %s. SessionStopped: %s.", h[i].String(), h[j].String())
+				log.Printf("[FATAL] Global event indices do not reflect correct ordering of events. "+
+					"TrainingEnded: %s. SessionStopped: %s.\n", h[i].String(), h[j].String())
+				panic("encountered inconsistent global event indices")
 			}
 
 			return true
@@ -34,8 +35,9 @@ func (h BasicEventHeap) Less(i, j int) bool {
 			if h[j].SessionSpecificEventIndex() /* training-ended */ > h[i].SessionSpecificEventIndex() /* session-stopped */ && h[i].SessionID() == h[j].SessionID() && !h[i].WasEnqueuedMultipleTimes() && !h[j].WasEnqueuedMultipleTimes() {
 				// We expect the global localIndex of the training-ended event to be less than that of the session-stopped
 				// event, since the training-ended event should have been created prior to the session-stopped event.
-				log.Fatalf("Global event indices do not reflect correct ordering of events. "+
-					"TrainingEnded: %s. SessionStopped: %s.", h[j].String(), h[i].String())
+				log.Printf("[FATAL] Global event indices do not reflect correct ordering of events. "+
+					"TrainingEnded: %s. SessionStopped: %s.\n", h[j].String(), h[i].String())
+				panic("encountered inconsistent global event indices")
 			}
 
 			return false

@@ -76,28 +76,29 @@ type EventConsumer interface {
 }
 
 type Event struct {
-	EventSource         EventSource
-	OriginalEventSource EventSource
-	Name                EventName
-	Data                interface{}
-	Timestamp           time.Time
-	OriginalTimestamp   time.Time
-	Delay               time.Duration
-	ID                  string
-	OrderSeq            int64 // OrderSeq is essentially Timestamp of event, but randomized to make behavior stochastic.
+	EventSource         EventSource   `json:"-"`
+	OriginalEventSource EventSource   `json:"-"`
+	Data                interface{}   `json:"data"`
+	Name                EventName     `json:"name"`
+	Timestamp           time.Time     `json:"timestamp"`
+	OriginalTimestamp   time.Time     `json:"originalTimestamp"`
+	Delay               time.Duration `json:"delay"`
+	ID                  string        `json:"id"`
+	OrderSeq            int64         `json:"order_seq"` // OrderSeq is essentially Timestamp of event, but randomized to make behavior stochastic.
+	HeapIndex           int           `json:"heap_index"`
+	Enqueued            bool          `json:"enqueued"`
 
 	// LocalIndex indicates the order in which the event was created relative to other events targeting the same Session.
 	// The first event created for a session while have an LocalIndex of 0.
 	// The last event created for a session while have an LocalIndex of N - 1, where N is the number of events created
 	// for that Session.
-	LocalIndex int
+	LocalIndex int `json:"local_index"`
 
 	// GlobalIndex provides a global ordering for comparing all events with each other within a workload.
-	GlobalIndex uint64
+	GlobalIndex uint64 `json:"global_index"`
 
-	HeapIndex        int
+	// numTimesEnqueued atomically records the number of times that this Event has been enqueued.
 	numTimesEnqueued atomic.Int32
-	Enqueued         bool
 }
 
 func (e *Event) SetIndex(idx int) {

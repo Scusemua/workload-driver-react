@@ -4,7 +4,6 @@ import (
 	"container/heap"
 	"errors"
 	"fmt"
-	"math"
 	"os"
 	"sync"
 	"time"
@@ -26,12 +25,16 @@ type BasicEventQueue struct {
 	sugaredLogger *zap.SugaredLogger // Logger for printing formatted output.
 	atom          *zap.AtomicLevel
 
+	// events is a queue of queues. Each internal queue is associated with a particular session.
+	events MainEventQueue
+
 	sessionReadyEvents domain.BasicEventHeap // The `EventSessionReady` events are stored separately, as this is what actually creates/registers a Session within the Cluster. The Cluster won't have a given Session's info until after the associated `EventSessionReady` is processed, so the EventSessionReady events must go through a different path.
-	terminatedSessions *hashmap.HashMap      // Map from Session ID to the last event that was returned successfully. Used to monitor Sessions who are not consuming events for a suspiciously long period of time. lastEventProcessed *hashmap.HashMap Sessions that have been permanently stopped and thus won't be consuming events anymore. We don't bother saving events for those sessions.
-	eventHeapMutex     sync.Mutex            // Controls access to the underlying eventHeap.
 	eventHeap          domain.BasicEventHeap // The heap of events, sorted by timestamp in ascending order (so future events are further in the list). Does not contain "Session Ready" events. Those are stored in a separate heap.
-	eventsPerSession   *hashmap.HashMap      // Mapping from session ID to another hashmap. The second/inner hashmap is a map from event ID to the event.
-	delayedEvents      *hashmap.HashMap      // Mapping from SessionID to a slice of *generator.Event that have been returned to the Cluster for processing but could not be processed at the time because the associated Session was descheduled. Once the Session is rescheduled, it will re-enqueue all of the events in its `delayedEvents` slice.
+
+	eventsPerSession   *hashmap.HashMap // Mapping from session ID to another hashmap. The second/inner hashmap is a map from event ID to the event.
+	terminatedSessions *hashmap.HashMap // Map from Session ID to the last event that was returned successfully. Used to monitor Sessions who are not consuming events for a suspiciously long period of time. lastEventProcessed *hashmap.HashMap Sessions that have been permanently stopped and thus won't be consuming events anymore. We don't bother saving events for those sessions.
+	eventHeapMutex     sync.Mutex       // Controls access to the underlying eventHeap.
+	delayedEvents      *hashmap.HashMap // Mapping from SessionID to a slice of *generator.Event that have been returned to the Cluster for processing but could not be processed at the time because the associated Session was descheduled. Once the Session is rescheduled, it will re-enqueue all of the events in its `delayedEvents` slice.
 	doneChan           chan interface{}
 }
 
@@ -42,9 +45,10 @@ func NewBasicEventQueue(atom *zap.AtomicLevel) *BasicEventQueue {
 		eventsPerSession:   hashmap.New(100),
 		terminatedSessions: hashmap.New(100),
 		delayedEvents:      hashmap.New(100),
+		doneChan:           make(chan interface{}),
+		events:             make(MainEventQueue, 0),
 		sessionReadyEvents: make(domain.BasicEventHeap, 0, 100),
 		eventHeap:          make(domain.BasicEventHeap, 0, 100),
-		doneChan:           make(chan interface{}),
 	}
 
 	core := zapcore.NewCore(zapcore.NewConsoleEncoder(zap.NewDevelopmentEncoderConfig()), os.Stdout, queue.atom)
@@ -69,13 +73,15 @@ func (q *BasicEventQueue) HasEventsForTick(tick time.Time) bool {
 		return false
 	}
 
-	nextEvent := q.eventHeap.Peek()
-	nextEventTimestamp := nextEvent.OriginalTimestamp
-	if tick == nextEventTimestamp || nextEventTimestamp.Before(tick) {
-		return true
+	sessionEventQueue := q.events.Peek()
+
+	// If the queue is empty, then return false.
+	if sessionEventQueue.Len() == 0 {
+		return false
 	}
 
-	return false
+	timestamp := sessionEventQueue.NextEventTimestamp()
+	return tick == timestamp || timestamp.Before(tick)
 }
 
 // GetAllSessionStartEventsForTick returns a slice of domain.Event containing all the EventSessionReady domain.Event
@@ -90,32 +96,42 @@ func (q *BasicEventQueue) GetAllSessionStartEventsForTick(tick time.Time, max in
 
 	events := make([]*domain.Event, 0)
 
-	if max < 0 {
-		max = math.MaxInt
+	//if max < 0 {
+	//	max = math.MaxInt
+	//}
+	//
+	//for q.sessionReadyEvents.Len() > 0 {
+	//	// If the event isn't ready, we'll return straight away.
+	//	if q.sessionReadyEvents.Peek().Timestamp.After(tick) {
+	//		break
+	//	}
+	//
+	//	evt := heap.Pop(&q.sessionReadyEvents).(*domain.Event)
+	//
+	//	q.sugaredLogger.Debugf(
+	//		"SessionReadyEvent '%s' for Session %s with timestamp %v occurs during or before current tick %v.",
+	//		evt.Id(), evt.Data.(domain.SessionMetadata).GetPod(), evt.Timestamp, tick)
+	//
+	//	events = append(events, evt)
+	//
+	//	// If we've collected `max` events, then we'll break and return them.
+	//	if max >= 0 && len(events) >= max {
+	//		break
+	//	}
+	//}
+
+	nextSessionQueue := q.events.Peek()
+	if nextSessionQueue.NextEventName() == domain.EventSessionReady {
+		events = append(events, nextSessionQueue.Pop())
 	}
 
-	for q.sessionReadyEvents.Len() > 0 {
-		// If the event isn't ready, we'll return straight away.
-		if q.sessionReadyEvents.Peek().Timestamp.After(tick) {
-			break
-		}
-
-		evt := heap.Pop(&q.sessionReadyEvents).(*domain.Event)
-
-		q.sugaredLogger.Debugf(
-			"SessionReadyEvent '%s' for Session %s with timestamp %v occurs during or before current tick %v.",
-			evt.Id(), evt.Data.(domain.SessionMetadata).GetPod(), evt.Timestamp, tick)
-
-		events = append(events, evt)
-
-		// If we've collected `max` events, then we'll break and return them.
-		if max >= 0 && len(events) >= max {
-			break
-		}
+	if len(events) > 0 {
+		q.logger.Debug("Returning one or more 'session-ready' events.",
+			zap.Time("tick", tick),
+			zap.Int("num_events", len(events)))
+	} else {
+		q.logger.Debug("No 'session-ready' events for specified tick.", zap.Time("tick", tick))
 	}
-
-	q.sugaredLogger.Debugf("Returning %d (max: %d) SessionReadyEvent(s) with timestamps during or before tick %v",
-		len(events), max, tick)
 
 	return events
 }
