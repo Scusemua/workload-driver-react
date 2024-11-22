@@ -61,13 +61,31 @@ func (q *EventQueue) WorkloadExecutionCompleteChan() chan interface{} {
 	return q.doneChan
 }
 
+// MainEventQueueLength returns the result of calling Len on the MainEventQueue field of the EventQueue.
+func (q *EventQueue) MainEventQueueLength() int {
+	q.eventHeapMutex.Lock()
+	defer q.eventHeapMutex.Unlock()
+
+	return q.events.Len()
+}
+
 // HasEventsForTick returns true if there are events available for the specified tick; otherwise return false.
 func (q *EventQueue) HasEventsForTick(tick time.Time) bool {
-	if q.Len() == 0 {
+	q.eventHeapMutex.Lock()
+	defer q.eventHeapMutex.Unlock()
+
+	length := q.lenUnsafe()
+	if length == 0 {
 		return false
 	}
 
 	sessionEventQueue := q.events.Peek()
+	if sessionEventQueue == nil {
+		q.logger.Warn("Peeked event queue, got back nil.",
+			zap.Int("events_length", length),
+			zap.Int("num_session_event_queues", q.NumSessionQueues()))
+		return false
+	}
 
 	// If the queue is empty, then return false.
 	if sessionEventQueue.Len() == 0 {
@@ -143,11 +161,19 @@ func (q *EventQueue) EnqueueEvent(evt *domain.Event) {
 // The error will be nil if there is at least one session event enqueued.
 // If there are no session events enqueued, then this will return time.Time{} and an ErrNoMoreEvents error.
 func (q *EventQueue) GetTimestampOfNextReadyEvent() (time.Time, error) {
-	if q.Len() == 0 {
+	length := q.Len()
+	if length == 0 {
 		return time.Time{}, ErrNoMoreEvents
 	}
 
 	nextSessionQueue := q.events.Peek()
+	if nextSessionQueue == nil {
+		q.logger.Warn("Peeked event queue, got back nil.",
+			zap.Int("events_length", length),
+			zap.Int("num_session_event_queues", q.NumSessionQueues()))
+		return time.Time{}, ErrNoMoreEvents
+	}
+
 	timestamp, ok := nextSessionQueue.NextEventTimestamp()
 
 	if ok {

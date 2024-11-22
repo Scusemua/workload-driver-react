@@ -40,6 +40,7 @@ var _ = Describe("EventQueue Tests", func() {
 			queue.EnqueueEvent(eventSessionStarted)
 			Expect(queue.Len()).To(Equal(0))
 			Expect(queue.NumSessionQueues()).To(Equal(1))
+			Expect(queue.MainEventQueueLength()).To(Equal(1))
 			Expect(queue.HasEventsForSession(session1Id)).To(BeFalse())
 			Expect(queue.HasEventsForTick(time.UnixMilli(0))).To(BeFalse())
 			Expect(queue.HasEventsForTick(time.UnixMilli(1))).To(BeFalse())
@@ -53,6 +54,7 @@ var _ = Describe("EventQueue Tests", func() {
 
 			Expect(queue.Len()).To(Equal(1))
 			Expect(queue.NumSessionQueues()).To(Equal(1))
+			Expect(queue.MainEventQueueLength()).To(Equal(1))
 			Expect(queue.HasEventsForSession(session1Id)).To(BeTrue())
 			Expect(queue.HasEventsForTick(time.UnixMilli(0))).To(BeFalse())
 			Expect(queue.HasEventsForTick(time.UnixMilli(1))).To(BeTrue())
@@ -136,6 +138,7 @@ var _ = Describe("EventQueue Tests", func() {
 			queue.EnqueueEvent(eventSession2Started)
 			Expect(queue.Len()).To(Equal(0))
 			Expect(queue.NumSessionQueues()).To(Equal(2))
+			Expect(queue.MainEventQueueLength()).To(Equal(2))
 
 			eventSession1Ready := createEvent(domain.EventSessionReady, session1Id, 3, time.UnixMilli(2), mockCtrl)
 			queue.EnqueueEvent(eventSession1Ready)

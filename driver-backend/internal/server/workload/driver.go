@@ -594,7 +594,10 @@ func (d *BasicWorkloadDriver) bootstrapSimulation() error {
 			return err
 		}
 
-		d.sugaredLogger.Debugf("d.currentTick has been initialized to %v.", firstEvent.Timestamp)
+		d.logger.Debug("Initialized current tick.",
+			zap.String("workload_id", d.workload.GetId()),
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.Time("timestamp", firstEvent.Timestamp))
 	}
 
 	// Handle the event. Basically, just enqueue it in the EventQueue.
@@ -827,13 +830,23 @@ func (d *BasicWorkloadDriver) IssueClockTicks(timestamp time.Time) error {
 	numTicksToIssue := int64((timestamp.Sub(currentTick)) / d.targetTickDuration)
 
 	// This is just for debugging/logging purposes.
-	nextEventAtTime, errNoMoreEvents := d.eventQueue.GetTimestampOfNextReadyEvent()
-	if errNoMoreEvents == nil {
+	nextEventAtTime, err := d.eventQueue.GetTimestampOfNextReadyEvent()
+	if err == nil {
 		timeUntilNextEvent := nextEventAtTime.Sub(currentTick)
 		numTicksTilNextEvent := int64(timeUntilNextEvent / d.targetTickDuration)
-		d.sugaredLogger.Debugf("Preparing to issue %d clock tick(s). Next event occurs at %v, which is in %v and will require %v ticks.", numTicksToIssue, nextEventAtTime, timeUntilNextEvent, numTicksTilNextEvent)
+
+		d.logger.Debug("Preparing to issue clock ticks. There are no events enqueued.",
+			zap.Int64("num_ticks_to_issue", numTicksToIssue),
+			zap.Time("next_event_timestamp", nextEventAtTime),
+			zap.Duration("time_til_next_event", timeUntilNextEvent),
+			zap.Int64("num_ticks_til_next_event", numTicksTilNextEvent),
+			zap.String("workload_id", d.id),
+			zap.String("workload_name", d.workload.WorkloadName()))
 	} else {
-		d.sugaredLogger.Debugf("Preparing to issue %d clock tick(s). There are no events currently enqueued.", numTicksToIssue)
+		d.logger.Debug("Preparing to issue clock ticks. There are no events enqueued.",
+			zap.Int64("num_ticks_to_issue", numTicksToIssue),
+			zap.String("workload_id", d.id),
+			zap.String("workload_name", d.workload.WorkloadName()))
 	}
 
 	// Issue clock ticks.

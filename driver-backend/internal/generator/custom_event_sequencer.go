@@ -75,8 +75,12 @@ func (s *CustomEventSequencer) SubmitEvents(workloadGenerationCompleteChan chan 
 		for s.eventHeap.Len() > 0 {
 			e := heap.Pop(&s.eventHeap).(*domain.Event)
 			s.eventConsumer.SubmitEvent(e)
-			s.sugarLog.Debugf("Submitted event #%d '%s' targeting session '%s' [%v]. EventID=%s.",
-				e.SessionSpecificEventIndex(), e.Name, e.Data.(*SessionMeta).Pod, e.Timestamp, e.Id())
+			s.log.Debug("Submitted event.",
+				zap.Int("event_session_index", e.SessionSpecificEventIndex()),
+				zap.String("event_name", e.Name.String()),
+				zap.String("event_id", e.ID),
+				zap.String("session_id", e.Data.(*SessionMeta).Pod),
+				zap.Time("event_timestamp", e.Timestamp))
 		}
 
 		workloadGenerationCompleteChan <- struct{}{}
