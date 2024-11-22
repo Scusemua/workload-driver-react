@@ -121,7 +121,7 @@ type BasicWorkloadDriver struct {
 	driverTimescale                    float64                               // Multiplier that impacts the timescale at the Driver will operate on with respect to the trace data. For example, if each tick is 60 seconds, then a DriverTimescale value of 0.5 will mean that each tick will take 30 seconds.
 	errorChan                          chan error                            // Used to stop the workload due to a critical error.
 	eventChan                          chan *domain.Event                    // Receives events from the Synthesizer.
-	eventQueue                         *event_queue.BasicEventQueue          // Maintains a queue of events to be processed for each session.
+	eventQueue                         *event_queue.EventQueue               // Maintains a queue of events to be processed for each session.
 	id                                 string                                // Unique ID (relative to other drivers). The workload registered with this driver will be assigned this ID.
 	kernelManager                      jupyter.KernelSessionManager          // Simplified Go implementation of the Jupyter JavaScript API.
 	mu                                 sync.Mutex                            // Synchronizes access to internal data structures. Can be locked externally using the Lock/Unlock API exposed by the WorkloadDriver.
@@ -1242,7 +1242,7 @@ func (d *BasicWorkloadDriver) WorkloadEventGeneratorCompleteChan() chan interfac
 }
 
 // EventQueue returns the event queue for this workload.
-func (d *BasicWorkloadDriver) EventQueue() *event_queue.BasicEventQueue {
+func (d *BasicWorkloadDriver) EventQueue() *event_queue.EventQueue {
 	return d.eventQueue
 }
 

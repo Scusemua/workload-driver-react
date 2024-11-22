@@ -18,8 +18,8 @@ var (
 	ErrNoMoreEvents = errors.New("there are no more events for the specified Session")
 )
 
-// BasicEventQueue maintains a queue of events (sorted by timestamp) for each unique session.
-type BasicEventQueue struct {
+// EventQueue maintains a queue of events (sorted by timestamp) for each unique session.
+type EventQueue struct {
 	logger        *zap.Logger        // Logger for printing purely structured output.
 	sugaredLogger *zap.SugaredLogger // Logger for printing formatted output.
 	atom          *zap.AtomicLevel
@@ -33,9 +33,9 @@ type BasicEventQueue struct {
 	doneChan         chan interface{}
 }
 
-// NewBasicEventQueue creates a new BasicEventQueue struct and returns a pointer to it.
-func NewBasicEventQueue(atom *zap.AtomicLevel) *BasicEventQueue {
-	queue := &BasicEventQueue{
+// NewBasicEventQueue creates a new EventQueue struct and returns a pointer to it.
+func NewBasicEventQueue(atom *zap.AtomicLevel) *EventQueue {
+	queue := &EventQueue{
 		atom:             atom,
 		eventsPerSession: hashmap.New(100),
 		delayedEvents:    hashmap.New(100),
@@ -55,12 +55,12 @@ func NewBasicEventQueue(atom *zap.AtomicLevel) *BasicEventQueue {
 	return queue
 }
 
-func (q *BasicEventQueue) WorkloadExecutionCompleteChan() chan interface{} {
+func (q *EventQueue) WorkloadExecutionCompleteChan() chan interface{} {
 	return q.doneChan
 }
 
 // HasEventsForTick returns true if there are events available for the specified tick; otherwise return false.
-func (q *BasicEventQueue) HasEventsForTick(tick time.Time) bool {
+func (q *EventQueue) HasEventsForTick(tick time.Time) bool {
 	if q.Len() == 0 {
 		return false
 	}
@@ -78,7 +78,7 @@ func (q *BasicEventQueue) HasEventsForTick(tick time.Time) bool {
 
 // HasEventsForSession returns true if there is at least 1 event in the event queue for the specified pod/Session.
 // Otherwise, return false. Returns an error (and false) if no queue exists for the specified pod/Session.
-func (q *BasicEventQueue) HasEventsForSession(podId string) (bool, error) {
+func (q *EventQueue) HasEventsForSession(podId string) (bool, error) {
 	q.eventHeapMutex.Lock()
 	defer q.eventHeapMutex.Unlock()
 
@@ -95,7 +95,7 @@ func (q *BasicEventQueue) HasEventsForSession(podId string) (bool, error) {
 
 // EnqueueEvent enqueues the given event in the event heap associated with the event's target pod/container/session.
 // If no such event heap exists already, then first create the event heap.
-func (q *BasicEventQueue) EnqueueEvent(evt *domain.Event) {
+func (q *EventQueue) EnqueueEvent(evt *domain.Event) {
 	q.eventHeapMutex.Lock()
 	defer q.eventHeapMutex.Unlock()
 
@@ -140,7 +140,7 @@ func (q *BasicEventQueue) EnqueueEvent(evt *domain.Event) {
 // GetTimestampOfNextReadyEvent returns the timestamp of the next session event to be processed.
 // The error will be nil if there is at least one session event enqueued.
 // If there are no session events enqueued, then this will return time.Time{} and an ErrNoMoreEvents error.
-func (q *BasicEventQueue) GetTimestampOfNextReadyEvent() (time.Time, error) {
+func (q *EventQueue) GetTimestampOfNextReadyEvent() (time.Time, error) {
 	if q.Len() == 0 {
 		return time.Time{}, ErrNoMoreEvents
 	}
@@ -156,7 +156,7 @@ func (q *BasicEventQueue) GetTimestampOfNextReadyEvent() (time.Time, error) {
 }
 
 // Len returns the total number of events enqueued.
-func (q *BasicEventQueue) Len() int {
+func (q *EventQueue) Len() int {
 	q.eventHeapMutex.Lock()
 	defer q.eventHeapMutex.Unlock()
 
@@ -172,7 +172,7 @@ func (q *BasicEventQueue) Len() int {
 
 // NumSessionQueues returns the total number of session queues that are enqueued.
 // This will also count empty session queues.
-func (q *BasicEventQueue) NumSessionQueues() int {
+func (q *EventQueue) NumSessionQueues() int {
 	q.eventHeapMutex.Lock()
 	defer q.eventHeapMutex.Unlock()
 
@@ -182,7 +182,7 @@ func (q *BasicEventQueue) NumSessionQueues() int {
 // GetNextEvent return the next event that occurs at or before the given timestamp, or nil if there are no such events.
 // This will remove the event from the main EventQueueServiceImpl::eventHeap, but it will NOT remove the
 // event from the EventQueueServiceImpl::eventsPerSession. To do that, you must call EventQueueServiceImpl::UnregisterEvent().
-func (q *BasicEventQueue) GetNextEvent(threshold time.Time) (*domain.Event, bool) {
+func (q *EventQueue) GetNextEvent(threshold time.Time) (*domain.Event, bool) {
 	q.eventHeapMutex.Lock()
 	defer q.eventHeapMutex.Unlock()
 
