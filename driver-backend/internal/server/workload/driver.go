@@ -276,7 +276,21 @@ func (d *BasicWorkloadDriver) Stats() *WorkloadStats {
 	return d.stats
 }
 
+// IsSessionBeingSampled returns true if the specified session was selected for sampling.
+func (d *BasicWorkloadDriver) IsSessionBeingSampled(sessionId string) bool {
+	return d.workload.IsSessionBeingSampled(sessionId)
+}
+
+// GetSampleSessionsPercentage returns the configured SampleSessionsPercentage parameter for the Workload.
+func (d *BasicWorkloadDriver) GetSampleSessionsPercentage() float64 {
+	return d.workload.GetSampleSessionsPercentage()
+}
+
 func (d *BasicWorkloadDriver) SubmitEvent(evt *domain.Event) {
+	if !d.workload.IsSessionBeingSampled(evt.SessionID()) {
+		return
+	}
+
 	d.eventChan <- evt
 }
 
@@ -328,6 +342,7 @@ func (d *BasicWorkloadDriver) createWorkloadFromPreset(workloadRegistrationReque
 		EnableDebugLogging(workloadRegistrationRequest.DebugLogging).
 		SetTimescaleAdjustmentFactor(workloadRegistrationRequest.TimescaleAdjustmentFactor).
 		SetRemoteStorageDefinition(workloadRegistrationRequest.RemoteStorageDefinition).
+		SetSessionsSamplePercentage(workloadRegistrationRequest.SampleSessionsPercent).
 		Build()
 
 	workloadFromPreset := domain.NewWorkloadFromPreset(basicWorkload, d.workloadPreset)

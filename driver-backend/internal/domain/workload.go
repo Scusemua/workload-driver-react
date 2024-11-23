@@ -8,6 +8,7 @@ import (
 	"github.com/scusemua/workload-driver-react/m/v2/internal/server/api/proto"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/server/metrics"
 	"github.com/zhangjyr/hashmap"
+	"math/rand"
 	"sync"
 	"time"
 
@@ -228,6 +229,10 @@ type Workload interface {
 	// SessionDelayed should be called when events for a particular Session are delayed for processing, such as
 	// due to there being too much resource contention.
 	SessionDelayed(string, time.Duration)
+	// IsSessionBeingSampled returns true if the specified session was selected for sampling.
+	IsSessionBeingSampled(string) bool
+	// GetSampleSessionsPercentage returns the configured SampleSessionsPercentage parameter for the Workload.
+	GetSampleSessionsPercentage() float64
 }
 
 // GetWorkloadStateAsString will panic if an invalid workload state is specified.
@@ -263,6 +268,17 @@ type BasicWorkload struct {
 	sugaredLogger *zap.SugaredLogger
 	atom          *zap.AtomicLevel
 
+	// SampledSessions is a map (really, just a set; the values of the map are not used) that keeps track of the
+	// sessions that this BasicWorkload is actively sampling and processing from the workload.
+	//
+	// The likelihood that a Session is selected for sampling is based on the SessionsSamplePercentage field.
+	//
+	// SampledSessions is a sort of counterpart to the UnsampledSessions field.
+	SampledSessions map[string]interface{} `json:"sampled_sessions"`
+	// UnsampledSessions keeps track of the Sessions this workload has not selected for sampling/processing.
+	//
+	// UnsampledSessions is a sort of counterpart to the SampledSessions field.
+	UnsampledSessions         map[string]interface{}     `json:"unsampled_sessions"`
 	Id                        string                     `json:"id"`
 	Name                      string                     `json:"name"`
 	WorkloadState             WorkloadState              `json:"workload_state"`
@@ -287,6 +303,7 @@ type BasicWorkload struct {
 	SimulationClockTimeStr    string                     `json:"simulation_clock_time"`
 	WorkloadType              WorkloadType               `json:"workload_type"`
 	TickDurationsMillis       []int64                    `json:"tick_durations_milliseconds"`
+	SessionsSamplePercentage  float64                    `json:"sessions_sample_percentage"`
 	TimeSpentPausedMillis     int64                      `json:"time_spent_paused_milliseconds"`
 	timeSpentPaused           time.Duration
 	pauseWaitBegin            time.Time
@@ -324,6 +341,7 @@ type WorkloadBuilder struct {
 	seed                      int64
 	debugLoggingEnabled       bool
 	timescaleAdjustmentFactor float64
+	sessionsSamplePercentage  float64
 	remoteStorageDefinition   *proto.RemoteStorageDefinition
 	atom                      *zap.AtomicLevel
 }
@@ -331,7 +349,11 @@ type WorkloadBuilder struct {
 // NewWorkloadBuilder creates a new WorkloadBuilder instance.
 func NewWorkloadBuilder(atom *zap.AtomicLevel) *WorkloadBuilder {
 	return &WorkloadBuilder{
-		atom: atom,
+		atom:                      atom,
+		seed:                      -1,
+		debugLoggingEnabled:       true,
+		sessionsSamplePercentage:  1.0,
+		timescaleAdjustmentFactor: 1.0,
 	}
 }
 
@@ -362,6 +384,12 @@ func (b *WorkloadBuilder) EnableDebugLogging(enabled bool) *WorkloadBuilder {
 // SetTimescaleAdjustmentFactor sets the timescale adjustment factor.
 func (b *WorkloadBuilder) SetTimescaleAdjustmentFactor(factor float64) *WorkloadBuilder {
 	b.timescaleAdjustmentFactor = factor
+	return b
+}
+
+// SetSessionsSamplePercentage sets the sessions sample percentage.
+func (b *WorkloadBuilder) SetSessionsSamplePercentage(percentage float64) *WorkloadBuilder {
+	b.sessionsSamplePercentage = percentage
 	return b
 }
 
@@ -397,6 +425,9 @@ func (b *WorkloadBuilder) Build() *BasicWorkload {
 		SumTickDurationsMillis:    0,
 		TickDurationsMillis:       make([]int64, 0),
 		RemoteStorageDefinition:   b.remoteStorageDefinition,
+		SessionsSamplePercentage:  b.sessionsSamplePercentage,
+		SampledSessions:           make(map[string]interface{}),
+		UnsampledSessions:         make(map[string]interface{}),
 	}
 
 	zapConfig := zap.NewDevelopmentEncoderConfig()
@@ -1153,4 +1184,36 @@ func (w *BasicWorkload) String() string {
 	}
 
 	return string(out)
+}
+
+// IsSessionBeingSampled returns true if the specified session was selected for sampling.
+func (w *BasicWorkload) IsSessionBeingSampled(sessionId string) bool {
+	// Check if we've already decided to discard events for this session.
+	_, discarded := w.UnsampledSessions[sessionId]
+	if discarded {
+		return false
+	}
+
+	// Check if we've already decided to process events for this session.
+	_, sampled := w.SampledSessions[sessionId]
+	if sampled {
+		return true
+	}
+
+	// Randomly decide if we're going to sample/process [events for] this session or not.
+	randomValue := rand.Float64()
+	if randomValue <= w.SessionsSamplePercentage {
+		w.logger.Debug("Decided to sample events targeting session.", zap.String("session_id", sessionId))
+		w.SampledSessions[sessionId] = struct{}{}
+		return true
+	}
+
+	w.logger.Debug("Decided to discard events targeting session.", zap.String("session_id", sessionId))
+	w.UnsampledSessions[sessionId] = struct{}{}
+	return false
+}
+
+// GetSampleSessionsPercentage returns the configured SampleSessionsPercentage parameter for the Workload.
+func (w *BasicWorkload) GetSampleSessionsPercentage() float64 {
+	return w.SessionsSamplePercentage
 }

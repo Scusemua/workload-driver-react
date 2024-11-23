@@ -168,6 +168,7 @@ func NewWorkloadFromPreset(baseWorkload Workload, workloadPreset *WorkloadPreset
 		WorkloadPreset:     workloadPreset,
 		WorkloadPresetName: workloadPreset.GetName(),
 		WorkloadPresetKey:  workloadPreset.GetKey(),
+		Sessions:           make([]*BasicWorkloadSession, 0),
 	}
 
 	baseWorkloadImpl.WorkloadType = PresetWorkload
