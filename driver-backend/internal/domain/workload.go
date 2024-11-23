@@ -1188,6 +1188,9 @@ func (w *BasicWorkload) String() string {
 
 // IsSessionBeingSampled returns true if the specified session was selected for sampling.
 func (w *BasicWorkload) IsSessionBeingSampled(sessionId string) bool {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	// Check if we've already decided to discard events for this session.
 	_, discarded := w.UnsampledSessions[sessionId]
 	if discarded {
@@ -1203,13 +1206,19 @@ func (w *BasicWorkload) IsSessionBeingSampled(sessionId string) bool {
 	// Randomly decide if we're going to sample/process [events for] this session or not.
 	randomValue := rand.Float64()
 	if randomValue <= w.SessionsSamplePercentage {
-		w.logger.Debug("Decided to sample events targeting session.", zap.String("session_id", sessionId))
 		w.SampledSessions[sessionId] = struct{}{}
+		w.logger.Debug("Decided to sample events targeting session.",
+			zap.String("session_id", sessionId),
+			zap.Int("num_sampled_sessions", len(w.SampledSessions)),
+			zap.Int("num_discarded_sessions", len(w.UnsampledSessions)))
 		return true
 	}
 
-	w.logger.Debug("Decided to discard events targeting session.", zap.String("session_id", sessionId))
 	w.UnsampledSessions[sessionId] = struct{}{}
+	w.logger.Debug("Decided to discard events targeting session.",
+		zap.String("session_id", sessionId),
+		zap.Int("num_sampled_sessions", len(w.SampledSessions)),
+		zap.Int("num_discarded_sessions", len(w.UnsampledSessions)))
 	return false
 }
 

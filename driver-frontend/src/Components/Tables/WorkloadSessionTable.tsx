@@ -12,6 +12,7 @@ import {
 } from '@patternfly/react-icons';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
 import { GpuIcon, GpuIconAlt2 } from '@src/Assets/Icons';
+import { RoundToThreeDecimalPlaces } from '@src/Utils';
 import React from 'react';
 
 export interface WorkloadSessionTableProps {
@@ -163,7 +164,7 @@ export const WorkloadSessionTable: React.FunctionComponent<WorkloadSessionTableP
                                     <Td dataLabel={sessions_table_columns[6]}>
                                         <MemoryIcon />
                                         {session?.current_resource_request.memory_mb
-                                            ? session?.current_resource_request.memory_mb
+                                            ? RoundToThreeDecimalPlaces(session?.current_resource_request.memory_mb)
                                             : 0}
                                         {'/'}
                                         {session?.max_resource_request.memory_mb}

@@ -138,6 +138,10 @@ func (m *BasicKernelSessionManager) RegisterOnErrorHandler(handler ErrorHandler)
 }
 
 func (m *BasicKernelSessionManager) tryCallErrorHandler(kernelId string, sessionId string, err error) {
+	if strings.Contains(err.Error(), "insufficient hosts available") {
+		return
+	}
+
 	if m.onError != nil {
 		go m.onError(kernelId, sessionId, err)
 	}
@@ -273,6 +277,15 @@ func (m *BasicKernelSessionManager) CreateSession(sessionId string, sessionPath 
 			m.tryCallErrorHandler("", sessionId, err)
 			return nil, fmt.Errorf("ErrCreateSessionBadRequest %w : %s", ErrCreateSessionBadRequest, string(body))
 		}
+	case http.StatusInternalServerError:
+		{
+			m.logger.Warn("Failed to create session due to HTTP 500 Internal Server Error.",
+				zap.String("status", resp.Status),
+				zap.Any("headers", resp.Header),
+				zap.String("body", string(body)))
+
+			return nil, fmt.Errorf(string(body))
+		}
 	default:
 		var responseJson map[string]interface{}
 		if err := json.Unmarshal(body, &responseJson); err != nil {
@@ -289,27 +302,29 @@ func (m *BasicKernelSessionManager) CreateSession(sessionId string, sessionPath 
 			zap.Any("response-json", responseJson))
 
 		if message, ok := responseJson["message"]; ok {
-			err = fmt.Errorf("ErrCreateSessionUnknownFailure %w: HTTP %d %s - %s",
+			err = fmt.Errorf("%w: HTTP %d %s - %s",
 				ErrCreateSessionUnknownFailure, resp.StatusCode, resp.Status, message)
 
 			m.tryCallErrorHandler("", sessionId, err)
 
 			return nil, err
-		} else if reason, ok := responseJson["reason"]; ok {
-			err = fmt.Errorf("ErrCreateSessionUnknownFailure %w: HTTP %d %s - %s",
+		}
+
+		if reason, ok := responseJson["reason"]; ok {
+			err = fmt.Errorf("%w: HTTP %d %s - %s",
 				ErrCreateSessionUnknownFailure, resp.StatusCode, resp.Status, reason)
 
 			m.tryCallErrorHandler("", sessionId, err)
 
 			return nil, err
-		} else {
-			err = fmt.Errorf("ErrCreateSessionUnknownFailure %w: HTTP %d %s - %s",
-				ErrCreateSessionUnknownFailure, resp.StatusCode, resp.Status, string(body))
-
-			m.tryCallErrorHandler("", sessionId, err)
-
-			return nil, err
 		}
+
+		err = fmt.Errorf("%w: HTTP %d %s - %s",
+			ErrCreateSessionUnknownFailure, resp.StatusCode, resp.Status, string(body))
+
+		m.tryCallErrorHandler("", sessionId, err)
+
+		return nil, err
 	}
 
 	workloadId, loaded := m.GetMetadata(WorkloadIdMetadataKey)

@@ -205,7 +205,8 @@ func NewKernelConnection(kernelId string, clientId string, username string, jupy
 }
 
 func (conn *BasicKernelConnection) tryCallOnError(err error) {
-	if conn.onError != nil {
+	// We don't need to call the error handler for a legitimate internal error.
+	if conn.onError != nil && !strings.Contains(err.Error(), "insufficient hosts available") {
 		conn.onError(err)
 	}
 }

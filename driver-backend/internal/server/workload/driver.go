@@ -1306,7 +1306,7 @@ func (d *BasicWorkloadDriver) processEventsForTick(tick time.Time) {
 		waitGroup sync.WaitGroup
 	)
 
-	d.eventQueue.PrintEvents()
+	//d.eventQueue.PrintEvents()
 
 	// Extract all the "session-ready" events for this tick.
 	for d.eventQueue.HasEventsForTick(tick) && d.eventQueue.Peek(tick).Name == domain.EventSessionReady {
@@ -1624,7 +1624,7 @@ func (d *BasicWorkloadDriver) handleFailureToCreateNewSession(err error, session
 	if strings.Contains(err.Error(), "insufficient hosts available") {
 		//sessionReadyEvent.PushTimestampBack(d.targetTickDuration)
 
-		d.logger.Warn("Failed to create session due to insufficient resources available. Will requeue event and try again later.",
+		d.logger.Warn("Failed to create session due to insufficient hosts available. Will requeue event and try again later.",
 			zap.String("workload_id", d.workload.GetId()),
 			zap.String("workload_name", d.workload.WorkloadName()),
 			zap.String(ZapInternalSessionIDKey, sessionId),
@@ -1640,7 +1640,7 @@ func (d *BasicWorkloadDriver) handleFailureToCreateNewSession(err error, session
 		d.eventQueue.EnqueueEvent(sessionReadyEvent)
 
 		// Return a less verbose error.
-		return fmt.Errorf("failed to create kernel \"%s\": insufficient resources available", sessionId)
+		return fmt.Errorf("failed to create kernel \"%s\": insufficient hosts available", sessionId)
 	}
 
 	d.logger.Error("Session creation failure is due to unexpected reason. Aborting workload.",
@@ -1993,7 +1993,8 @@ func (d *BasicWorkloadDriver) provisionSession(sessionId string, meta domain.Ses
 	}
 
 	if err := sessionConnection.RegisterIoPubHandler(d.id, ioPubHandler); err != nil {
-		d.logger.Warn("Failed to register IOPub message handler.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String("id", d.id), zap.Error(err))
+		d.logger.Warn("Failed to register IOPub message handler.",
+			zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String("id", d.id), zap.Error(err))
 	}
 
 	return sessionConnection, nil

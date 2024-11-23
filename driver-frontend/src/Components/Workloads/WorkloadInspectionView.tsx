@@ -1,5 +1,6 @@
 import WorkloadTickDurationChart from '@Components/Workloads/WorkloadTickDurationChart';
 import {
+    Checkbox,
     DescriptionList,
     DescriptionListDescription,
     DescriptionListGroup,
@@ -23,8 +24,9 @@ import { WorkloadEventTable, WorkloadSessionTable } from '@src/Components';
 import { Workload } from '@src/Data';
 import { GetToastContentWithHeaderAndBody } from '@src/Utils/toast_utils';
 import { RoundToThreeDecimalPlaces } from '@Utils/utils';
+import { uuidv4 } from 'lib0/random';
 import React from 'react';
-import toast from 'react-hot-toast';
+import toast, { Toast } from 'react-hot-toast';
 
 interface IWorkloadInspectionViewProps {
     workload: Workload;
@@ -36,9 +38,13 @@ export const WorkloadInspectionView: React.FunctionComponent<IWorkloadInspection
 ) => {
     const [currentTick, setCurrentTick] = React.useState<number>(0);
 
+    const [tickIdToastId, setTickIdToastId] = React.useState<string | undefined>(undefined);
+
     // Map from workload ID to the largest tick for which we've shown a toast notification
     // about the workload being incremented to that tick.
     const showedTickNotifications = React.useRef<Map<string, number>>(new Map<string, number>());
+
+    const [showDiscardedEvents, setShowDiscardedEvents] = React.useState<boolean>(false);
 
     const shouldShowTickNotification = (workloadId: string, tick: number): boolean => {
         if (!showedTickNotifications || !showedTickNotifications.current) {
@@ -59,8 +65,8 @@ export const WorkloadInspectionView: React.FunctionComponent<IWorkloadInspection
 
             if (shouldShowTickNotification(props.workload.id, props.workload.current_tick)) {
                 const tick: number = props.workload?.current_tick;
-                toast.custom(
-                    (t) =>
+                const toastId: string = toast.custom(
+                    (t: Toast) =>
                         GetToastContentWithHeaderAndBody(
                             'Tick Incremented',
                             `Workload ${props.workload?.name} has progressed to Tick #${tick}.`,
@@ -69,8 +75,12 @@ export const WorkloadInspectionView: React.FunctionComponent<IWorkloadInspection
                                 toast.dismiss(t.id);
                             },
                         ),
-                    { icon: '⏱️', style: { maxWidth: 700 }, duration: 5000 },
+                    { icon: '⏱️', style: { maxWidth: 700 }, duration: 5000, id: tickIdToastId || uuidv4() },
                 );
+
+                if (tickIdToastId === undefined) {
+                    setTickIdToastId(toastId);
+                }
 
                 showedTickNotifications.current.set(props.workload.id, tick);
             }
@@ -211,11 +221,23 @@ export const WorkloadInspectionView: React.FunctionComponent<IWorkloadInspection
                     </FlexItem>
                 )}
             </Flex>
+            <Flex direction={{ default: 'row' }}>
+                <FlexItem align={{ default: 'alignLeft' }}>
+                    <ClipboardCheckIcon /> {<strong>Events Processed:</strong>} {props.workload?.num_events_processed}
+                </FlexItem>
+                <FlexItem align={{ default: 'alignRight' }}>
+                    <Checkbox
+                        label="Show Discarded Events"
+                        id={'show-discarded-events-checkbox'}
+                        isChecked={showDiscardedEvents}
+                        onChange={(_event: React.FormEvent<HTMLInputElement>, checked: boolean) =>
+                            setShowDiscardedEvents(checked)
+                        }
+                    />
+                </FlexItem>
+            </Flex>
             <FlexItem>
-                <ClipboardCheckIcon /> {<strong>Events Processed:</strong>} {props.workload?.num_events_processed}
-            </FlexItem>
-            <FlexItem>
-                <WorkloadEventTable workload={props.workload} />
+                <WorkloadEventTable workload={props.workload} showDiscardedEvents={showDiscardedEvents} />
             </FlexItem>
             <FlexItem>
                 <ClipboardCheckIcon /> {<strong>Sessions:</strong>} {props.workload?.num_sessions_created} /{' '}

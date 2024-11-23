@@ -17,6 +17,7 @@ import React from 'react';
 export interface WorkloadEventTableProps {
     children?: React.ReactNode;
     workload: Workload | null;
+    showDiscardedEvents?: boolean;
 }
 
 export const WorkloadEventTable: React.FunctionComponent<WorkloadEventTableProps> = (props) => {
@@ -203,10 +204,14 @@ export const WorkloadEventTable: React.FunctionComponent<WorkloadEventTableProps
         }
     };
 
-    const filteredEvents: WorkloadEvent[] | undefined = sortedEvents?.slice(
+    let filteredEvents: WorkloadEvent[] | undefined = sortedEvents?.slice(
         perPage * (page - 1),
         perPage * (page - 1) + perPage,
     );
+
+    if (!props.showDiscardedEvents) {
+        filteredEvents = filteredEvents?.filter((event: WorkloadEvent) => event.status != 'Discarded');
+    }
 
     return (
         <Card isCompact isRounded isFlat>

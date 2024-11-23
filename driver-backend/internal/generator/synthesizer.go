@@ -230,9 +230,9 @@ func (s *Synthesizer) handleEventStandard(evt *domain.Event, triggeredEventName 
 		newPod := uuid.NewString()
 		eventData.Pod = newPod
 		s.sessionIdMapping[originalPod] = newPod
-		s.log.Info("Renamed Session.",
-			zap.String("old_name", originalPod),
-			zap.String("new_name", newPod))
+		//s.log.Debug("Renamed Session.",
+		//	zap.String("old_name", originalPod),
+		//	zap.String("new_name", newPod))
 	}
 
 	sessEvt := &domain.Event{
@@ -361,20 +361,20 @@ func (s *Synthesizer) transitionAndSubmitEvent(evt *domain.Event) {
 		}
 
 		if len(triggered) == 0 {
-			s.log.Debug("Triggered 0 events after transitioning event.",
-				zap.String("session_id", evt.SessionID()),
-				zap.String("event_name", evt.Name.String()),
-				zap.String("event_id", evt.ID),
-				zap.Error(err))
+			//s.log.Debug("Triggered 0 events after transitioning event.",
+			//	zap.String("session_id", evt.SessionID()),
+			//	zap.String("event_name", evt.Name.String()),
+			//	zap.String("event_id", evt.ID),
+			//	zap.Error(err))
 			return
 		}
 
-		s.log.Debug("Preparing to submit triggered event(s) after transitioning event.",
-			zap.String("session_id", evt.SessionID()),
-			zap.String("event_name", evt.Name.String()),
-			zap.String("event_id", evt.ID),
-			zap.Int("num_triggered", len(triggered)),
-			zap.Error(err))
+		//s.log.Debug("Preparing to submit triggered event(s) after transitioning event.",
+		//	zap.String("session_id", evt.SessionID()),
+		//	zap.String("event_name", evt.Name.String()),
+		//	zap.String("event_id", evt.ID),
+		//	zap.Int("num_triggered", len(triggered)),
+		//	zap.Error(err))
 
 		for _, evtName := range triggered {
 			if s.executionMode == 1 {
@@ -388,10 +388,10 @@ func (s *Synthesizer) transitionAndSubmitEvent(evt *domain.Event) {
 		return
 	}
 
-	s.log.Warn("Event had unexpected data.",
-		zap.String("event_name", evt.Name.String()),
-		zap.String("event_id", evt.ID),
-		zap.Any("event", evt))
+	//s.log.Warn("Event had unexpected data.",
+	//	zap.String("event_name", evt.Name.String()),
+	//	zap.String("event_id", evt.ID),
+	//	zap.Any("event", evt))
 }
 
 func (s *Synthesizer) Synthesize(ctx context.Context, opts *domain.Configuration, workloadGenerationCompleteChan chan interface{}) { // , clusterDoneChan chan struct{}
@@ -465,10 +465,10 @@ func (s *Synthesizer) Synthesize(ctx context.Context, opts *domain.Configuration
 		// Skip idle time
 		skipped += timeToNext
 
-		s.log.Debug("Transitioning and submitting event.",
-			zap.String("event_name", evt.Name.String()),
-			zap.String("event_id", evt.ID),
-			zap.Time("event_timestamp", evt.Timestamp))
+		//s.log.Debug("Transitioning and submitting event.",
+		//	zap.String("event_name", evt.Name.String()),
+		//	zap.String("event_id", evt.ID),
+		//	zap.Time("event_timestamp", evt.Timestamp))
 
 		// Dispatch event
 		s.transitionAndSubmitEvent(evt)
