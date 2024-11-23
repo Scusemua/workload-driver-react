@@ -223,7 +223,7 @@ func (s *SessionMeta) GetPod() string {
 	return s.Pod
 }
 
-func (s *SessionMeta) Transit(evt *domain.Event, inspect bool) ([]domain.SessionEventName, error) {
+func (s *SessionMeta) Transit(evt *domain.Event) ([]domain.SessionEventName, error) {
 	if s.pending == nil {
 		s.pending = make([]*domain.Event, 0, 3)
 	}
@@ -234,7 +234,6 @@ func (s *SessionMeta) Transit(evt *domain.Event, inspect bool) ([]domain.Session
 	}()
 
 	events, err := s.transit(evt)
-	// sugarLog.Debugf("Transitioned SessionMeta. NewStatus=%v. Events=%v.", s.Status, events)
 	if errors.Is(err, ErrEventPending) {
 		return events, nil
 	} else if err != nil {

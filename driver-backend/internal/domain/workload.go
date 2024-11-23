@@ -64,9 +64,9 @@ func (typ WorkloadType) String() string {
 }
 
 type WorkloadGenerator interface {
-	GeneratePresetWorkload(EventConsumer, Workload, *WorkloadPreset, *WorkloadRegistrationRequest) error              // Start generating the workload.
-	GenerateTemplateWorkload(EventConsumer, Workload, []*WorkloadTemplateSession, *WorkloadRegistrationRequest) error // Start generating the workload.
-	StopGeneratingWorkload()                                                                                          // Stop generating the workload prematurely.
+	GeneratePresetWorkload(EventConsumer, *WorkloadFromPreset, *WorkloadPreset, *WorkloadRegistrationRequest) error                // Start generating the workload.
+	GenerateTemplateWorkload(EventConsumer, *WorkloadFromTemplate, []*WorkloadTemplateSession, *WorkloadRegistrationRequest) error // Start generating the workload.
+	StopGeneratingWorkload()                                                                                                       // Stop generating the workload prematurely.
 }
 
 // NamedEvent is intended to cover SessionEvents and WorkloadEvents
@@ -944,34 +944,77 @@ func (w *BasicWorkload) SessionCreated(sessionId string, metadata SessionMetadat
 // SessionStopped is called when a Session is stopped for/in the Workload.
 // Just updates some internal metrics.
 func (w *BasicWorkload) SessionStopped(sessionId string, evt *Event) {
-	w.mu.Lock()
-	w.NumActiveSessions -= 1
-	w.mu.Unlock()
-
 	metrics.PrometheusMetricsWrapperInstance.WorkloadActiveNumSessions.
 		With(prometheus.Labels{"workload_id": w.Id}).
 		Sub(1)
 
-	w.workloadInstance.SessionStopped(sessionId, evt)
+	w.mu.Lock()
+	defer w.mu.Unlock()
+	w.NumActiveSessions -= 1
+
+	val, ok := w.sessionsMap.Get(sessionId)
+	if !ok {
+		w.logger.Error("Failed to find freshly-terminated session in session map.", zap.String("session_id", sessionId))
+		return
+	}
+
+	session := val.(*WorkloadTemplateSession)
+	if err := session.SetState(SessionStopped); err != nil {
+		w.logger.Error("Failed to set session state.", zap.String("session_id", sessionId), zap.Error(err))
+	}
+
+	session.SetCurrentResourceRequest(&ResourceRequest{
+		VRAM:     0,
+		Cpus:     0,
+		MemoryMB: 0,
+		Gpus:     0,
+	})
 }
 
 // TrainingStarted is called when a training starts during/in the workload.
 // Just updates some internal metrics.
 func (w *BasicWorkload) TrainingStarted(sessionId string, evt *Event) {
-	w.workloadInstance.TrainingStarted(sessionId, evt)
-
 	w.trainingStartedTimes.Set(sessionId, time.Now())
 
 	metrics.PrometheusMetricsWrapperInstance.WorkloadActiveTrainingSessions.
 		With(prometheus.Labels{"workload_id": w.Id}).
 		Add(1)
+
+	w.NumActiveTrainings += 1
+
+	val, ok := w.sessionsMap.Get(sessionId)
+	if !ok {
+		w.logger.Error("Failed to find now-training session in session map.", zap.String("session_id", sessionId))
+		return
+	}
+
+	session := val.(*WorkloadTemplateSession)
+	if err := session.SetState(SessionTraining); err != nil {
+		w.logger.Error("Failed to set session state.", zap.String("session_id", sessionId), zap.Error(err))
+	}
+
+	eventData := evt.Data
+	sessionMetadata, ok := eventData.(SessionMetadata)
+
+	if !ok {
+		w.logger.Error("Could not extract SessionMetadata from event.",
+			zap.String("event_id", evt.Id()),
+			zap.String("event_name", evt.Name.String()),
+			zap.String("session_id", sessionId))
+		return
+	}
+
+	session.SetCurrentResourceRequest(&ResourceRequest{
+		VRAM:     sessionMetadata.GetCurrentTrainingMaxVRAM(),
+		Cpus:     sessionMetadata.GetCurrentTrainingMaxCPUs(),
+		MemoryMB: sessionMetadata.GetCurrentTrainingMaxMemory(),
+		Gpus:     sessionMetadata.GetCurrentTrainingMaxGPUs(),
+	})
 }
 
 // TrainingStopped is called when a training stops during/in the workload.
 // Just updates some internal metrics.
 func (w *BasicWorkload) TrainingStopped(sessionId string, evt *Event) {
-	w.workloadInstance.TrainingStopped(sessionId, evt)
-
 	metrics.PrometheusMetricsWrapperInstance.WorkloadTrainingEventsCompleted.
 		With(prometheus.Labels{"workload_id": w.Id}).
 		Add(1)
@@ -991,6 +1034,39 @@ func (w *BasicWorkload) TrainingStopped(sessionId string, evt *Event) {
 			With(prometheus.Labels{"workload_id": w.Id}).
 			Observe(float64(trainingDuration.Milliseconds()))
 	}
+
+	w.NumTasksExecuted += 1
+	w.NumActiveTrainings -= 1
+
+	val, ok := w.sessionsMap.Get(sessionId)
+	if !ok {
+		w.logger.Error("Failed to find now-idle session in session map.", zap.String("session_id", sessionId))
+		return
+	}
+
+	session := val.(*WorkloadTemplateSession)
+	if err := session.SetState(SessionIdle); err != nil {
+		w.logger.Error("Failed to set session state.", zap.String("session_id", sessionId), zap.Error(err))
+	}
+	session.GetAndIncrementTrainingsCompleted()
+
+	eventData := evt.Data
+	sessionMetadata, ok := eventData.(SessionMetadata)
+
+	if !ok {
+		w.logger.Error("Could not extract SessionMetadata from event.",
+			zap.String("event_id", evt.Id()),
+			zap.String("event_name", evt.Name.String()),
+			zap.String("session_id", sessionId))
+		return
+	}
+
+	session.SetCurrentResourceRequest(&ResourceRequest{
+		VRAM:     sessionMetadata.GetVRAM(),
+		Cpus:     sessionMetadata.GetCpuUtilization(),
+		MemoryMB: sessionMetadata.GetMemoryUtilization(),
+		Gpus:     sessionMetadata.GetNumGPUs(),
+	})
 }
 
 // GetId returns the unique ID of the workload.

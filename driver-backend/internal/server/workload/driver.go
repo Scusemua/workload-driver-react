@@ -331,7 +331,9 @@ func (d *BasicWorkloadDriver) createWorkloadFromPreset(workloadRegistrationReque
 		Build()
 
 	workloadFromPreset := domain.NewWorkloadFromPreset(basicWorkload, d.workloadPreset)
+
 	err := workloadFromPreset.SetSource(d.workloadPreset)
+
 	if err != nil {
 		return nil, err
 	}
@@ -1047,7 +1049,8 @@ func (d *BasicWorkloadDriver) ProcessWorkload(wg *sync.WaitGroup) error {
 
 	if d.workload.IsPresetWorkload() {
 		go func() {
-			err := d.workloadGenerator.GeneratePresetWorkload(d, d.workload, d.workload.(*domain.WorkloadFromPreset).WorkloadPreset, d.workloadRegistrationRequest)
+			presetWorkload := d.workload.(*domain.WorkloadFromPreset)
+			err := d.workloadGenerator.GeneratePresetWorkload(d, presetWorkload, presetWorkload.WorkloadPreset, d.workloadRegistrationRequest)
 			if err != nil {
 				d.logger.Error("Failed to drive/generate preset workload.",
 					zap.String("workload_id", d.id),
@@ -1057,7 +1060,8 @@ func (d *BasicWorkloadDriver) ProcessWorkload(wg *sync.WaitGroup) error {
 		}()
 	} else if d.workload.IsTemplateWorkload() {
 		go func() {
-			err := d.workloadGenerator.GenerateTemplateWorkload(d, d.workload, d.workloadSessions, d.workloadRegistrationRequest)
+			templateWorkload := d.workload.(*domain.WorkloadFromTemplate)
+			err := d.workloadGenerator.GenerateTemplateWorkload(d, templateWorkload, d.workloadSessions, d.workloadRegistrationRequest)
 			if err != nil {
 				d.logger.Error("Failed to drive/generate templated workload.",
 					zap.String("workload_id", d.id),

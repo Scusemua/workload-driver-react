@@ -59,7 +59,7 @@ export const RegisterWorkloadFromPresetForm: React.FunctionComponent<IRegisterWo
     const [isWorkloadDataDropdownOpen, setIsWorkloadDataDropdownOpen] = React.useState<boolean>(false);
     const [selectedWorkloadPreset, setSelectedWorkloadPreset] = React.useState<WorkloadPreset | null>(null);
     const [debugLoggingEnabled, setDebugLoggingEnabled] = React.useState<boolean>(true);
-    const [timescaleAdjustmentFactor, setTimescaleAdjustmentFactor] = React.useState<number | ''>(1.0);
+    const [timescaleAdjustmentFactor, setTimescaleAdjustmentFactor] = React.useState<number | ''>(0.05);
 
     const defaultWorkloadTitle = React.useRef(uuidv4());
 

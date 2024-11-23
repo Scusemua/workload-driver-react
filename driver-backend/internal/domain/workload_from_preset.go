@@ -1,6 +1,9 @@
 package domain
 
-import "time"
+import (
+	"go.uber.org/zap"
+	"time"
+)
 
 // WorkloadFromPreset is a struct representing a workload that is generated using the "preset" option
 // within the frontend dashboard.
@@ -9,9 +12,12 @@ import "time"
 type WorkloadFromPreset struct {
 	*BasicWorkload
 
-	WorkloadPreset     *WorkloadPreset `json:"workload_preset"`
-	WorkloadPresetName string          `json:"workload_preset_name"`
-	WorkloadPresetKey  string          `json:"workload_preset_key"`
+	WorkloadPreset        *WorkloadPreset        `json:"workload_preset"`
+	WorkloadPresetName    string                 `json:"workload_preset_name"`
+	WorkloadPresetKey     string                 `json:"workload_preset_key"`
+	MaxUtilizationWrapper *MaxUtilizationWrapper `json:"max_utilization_wrapper"`
+
+	Sessions []*BasicWorkloadSession `json:"sessions"`
 }
 
 func (w *WorkloadFromPreset) GetWorkloadSource() interface{} {
@@ -36,12 +42,58 @@ func (w *WorkloadFromPreset) SetSource(source interface{}) error {
 	return nil
 }
 
+func (w *WorkloadFromPreset) SetMaxUtilizationWrapper(wrapper *MaxUtilizationWrapper) {
+	w.MaxUtilizationWrapper = wrapper
+}
+
+// SetSessions sets the sessions that will be involved in this workload.
+//
+// IMPORTANT: This can only be set once per workload. If it is called more than once, it will panic.
+func (w *WorkloadFromPreset) SetSessions(sessions []*BasicWorkloadSession) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	w.Sessions = sessions
+	w.sessionsSet = true
+
+	// Add each session to our internal mapping and initialize the session.
+	for _, session := range sessions {
+		if err := session.SetState(SessionAwaitingStart); err != nil {
+			w.logger.Error("Failed to set session state.", zap.String("session_id", session.GetId()), zap.Error(err))
+		}
+
+		if session.CurrentResourceRequest == nil {
+			session.SetCurrentResourceRequest(NewResourceRequest(0, 0, 0, 0, "ANY_GPU"))
+		}
+
+		if session.MaxResourceRequest == nil {
+			w.logger.Error("Session does not have a 'max' resource request.",
+				zap.String("session_id", session.GetId()),
+				zap.String("workload_id", w.Id),
+				zap.String("workload_name", w.Name))
+
+			return ErrMissingMaxResourceRequest
+		}
+
+		w.sessionsMap.Set(session.GetId(), session)
+	}
+
+	return nil
+}
+
 // SessionDelayed should be called when events for a particular Session are delayed for processing, such as
 // due to there being too much resource contention.
 //
 // Multiple calls to SessionDelayed will treat each passed delay additively, as in they'll all be added together.
 func (w *WorkloadFromPreset) SessionDelayed(sessionId string, delayAmount time.Duration) {
-	panic("Not supported")
+	val, loaded := w.sessionsMap.Get(sessionId)
+	if !loaded {
+		return
+	}
+
+	session := val.(*WorkloadTemplateSession)
+	session.TotalDelayMilliseconds += delayAmount.Milliseconds()
+	session.TotalDelayIncurred += delayAmount
 }
 
 // SessionCreated is called when a Session is created for/in the Workload.
@@ -50,36 +102,48 @@ func (w *WorkloadFromPreset) SessionCreated(sessionId string, metadata SessionMe
 	w.NumActiveSessions += 1
 	w.NumSessionsCreated += 1
 
+	if w.MaxUtilizationWrapper == nil {
+		panic("max utilization wrapper not set by the time sessions are being created")
+	}
+
+	maxCpu, loadedCpus := w.MaxUtilizationWrapper.CpuSessionMap[sessionId]
+	if !loadedCpus {
+		w.logger.Warn("Could not load maximum CPU value for session.", zap.String("sessionId", sessionId))
+		maxCpu = 0
+	}
+
+	maxMemory, loadedMemory := w.MaxUtilizationWrapper.MemSessionMap[sessionId]
+	if !loadedMemory {
+		w.logger.Warn("Could not load maximum MEM value for session.", zap.String("sessionId", sessionId))
+		maxMemory = 0
+	}
+
+	maxGpus, loadedGpus := w.MaxUtilizationWrapper.GpuSessionMap[sessionId]
+	if !loadedGpus {
+		w.logger.Warn("Could not load maximum GPU value for session.", zap.String("sessionId", sessionId))
+		maxGpus = 0
+	}
+
+	maxVram, loadedVram := w.MaxUtilizationWrapper.VramSessionMap[sessionId]
+	if !loadedVram {
+		w.logger.Warn("Could not load maximum VRAM value for session.", zap.String("sessionId", sessionId))
+		maxVram = 0
+	}
+
+	maxResourceRequest := NewResourceRequest(maxCpu, maxMemory, maxGpus, maxVram, "ANY_GPU")
+
 	// Haven't implemented logic to add/create WorkloadSessions for preset-based workloads.
-	panic("Not yet supported.")
-}
+	session := newWorkloadSession(sessionId, metadata, maxResourceRequest, time.Now(), w.atom)
 
-// SessionStopped is called when a Session is stopped for/in the Workload.
-// Just updates some internal metrics.
-func (w *WorkloadFromPreset) SessionStopped(sessionId string, evt *Event) {
-	w.NumActiveSessions -= 1
+	session.SetCurrentResourceRequest(&ResourceRequest{
+		VRAM:     metadata.GetVRAM(),
+		Cpus:     metadata.GetCpuUtilization(),
+		MemoryMB: metadata.GetMemoryUtilization(),
+		Gpus:     metadata.GetNumGPUs(),
+	})
 
-	// Haven't implemented logic to add/create WorkloadSessions for preset-based workloads.
-	panic("Not yet supported.")
-}
-
-// TrainingStarted is called when a training starts during/in the workload.
-// Just updates some internal metrics.
-func (w *WorkloadFromPreset) TrainingStarted(sessionId string, evt *Event) {
-	w.NumActiveTrainings += 1
-
-	// Haven't implemented logic to add/create WorkloadSessions for preset-based workloads.
-	panic("Not yet supported.")
-}
-
-// TrainingStopped is called when a training stops during/in the workload.
-// Just updates some internal metrics.
-func (w *WorkloadFromPreset) TrainingStopped(sessionId string, evt *Event) {
-	w.NumTasksExecuted += 1
-	w.NumActiveTrainings -= 1
-
-	// Haven't implemented logic to add/create WorkloadSessions for preset-based workloads.
-	panic("Not yet supported.")
+	w.Sessions = append(w.Sessions, session)
+	w.sessionsMap.Set(sessionId, session)
 }
 
 func NewWorkloadFromPreset(baseWorkload Workload, workloadPreset *WorkloadPreset) *WorkloadFromPreset {
