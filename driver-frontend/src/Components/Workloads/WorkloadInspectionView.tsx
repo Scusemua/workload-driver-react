@@ -1,4 +1,3 @@
-import { RoundToThreeDecimalPlaces } from '@Utils/utils';
 import WorkloadTickDurationChart from '@Components/Workloads/WorkloadTickDurationChart';
 import {
     DescriptionList,
@@ -17,11 +16,13 @@ import {
     MonitoringIcon,
     Stopwatch20Icon,
     StopwatchIcon,
+    TaskIcon,
     UserClockIcon,
 } from '@patternfly/react-icons';
 import { WorkloadEventTable, WorkloadSessionTable } from '@src/Components';
 import { Workload } from '@src/Data';
 import { GetToastContentWithHeaderAndBody } from '@src/Utils/toast_utils';
+import { RoundToThreeDecimalPlaces } from '@Utils/utils';
 import React from 'react';
 import toast from 'react-hot-toast';
 
@@ -132,16 +133,24 @@ export const WorkloadInspectionView: React.FunctionComponent<IWorkloadInspection
                         </DescriptionListGroup>} */}
                         <DescriptionListGroup>
                             <DescriptionListTerm>
-                                Seed <DiceIcon />{' '}
+                                Seed <DiceIcon />
                             </DescriptionListTerm>
                             <DescriptionListDescription>{props.workload?.seed}</DescriptionListDescription>
                         </DescriptionListGroup>
                         <DescriptionListGroup>
                             <DescriptionListTerm>
-                                Time Adjustment Factor <ClockIcon />{' '}
+                                Time Adjustment Factor <ClockIcon />
                             </DescriptionListTerm>
                             <DescriptionListDescription>
                                 {props.workload?.timescale_adjustment_factor}
+                            </DescriptionListDescription>
+                        </DescriptionListGroup>
+                        <DescriptionListGroup>
+                            <DescriptionListTerm>
+                                Sessions Sample Percentage <TaskIcon />
+                            </DescriptionListTerm>
+                            <DescriptionListDescription>
+                                {props.workload.sessions_sample_percentage || 1.0}
                             </DescriptionListDescription>
                         </DescriptionListGroup>
                         <DescriptionListGroup>

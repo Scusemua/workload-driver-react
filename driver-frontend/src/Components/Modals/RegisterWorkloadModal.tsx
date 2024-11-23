@@ -17,6 +17,7 @@ export interface IRegisterWorkloadModalProps {
         workloadSeed: string,
         debugLoggingEnabled: boolean,
         timescaleAdjustmentFactor: number,
+        workloadSessionSamplePercent: number,
     ) => void;
 }
 

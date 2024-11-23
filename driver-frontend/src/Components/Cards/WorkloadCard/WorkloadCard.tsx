@@ -98,6 +98,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
         workloadSeedString: string,
         debugLoggingEnabled: boolean,
         timescaleAdjustmentFactor: number,
+        workloadSessionSamplePercent: number,
     ) => {
         setIsRegisterWorkloadModalOpen(false);
         setIsRegisterNewWorkloadFromTemplateModalOpen(false);
@@ -108,6 +109,7 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
             workloadSeedString,
             debugLoggingEnabled,
             timescaleAdjustmentFactor,
+            workloadSessionSamplePercent,
         );
     };
 

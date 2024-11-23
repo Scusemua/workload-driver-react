@@ -68,6 +68,7 @@ interface Workload {
     debug_logging_enabled: boolean;
     error_message: string;
     timescale_adjustment_factor: number;
+    sessions_sample_percentage: number;
     events_processed: WorkloadEvent[];
     sessions: Session[];
     simulation_clock_time: string;

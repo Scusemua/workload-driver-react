@@ -342,7 +342,7 @@ func (d *BasicWorkloadDriver) createWorkloadFromPreset(workloadRegistrationReque
 		EnableDebugLogging(workloadRegistrationRequest.DebugLogging).
 		SetTimescaleAdjustmentFactor(workloadRegistrationRequest.TimescaleAdjustmentFactor).
 		SetRemoteStorageDefinition(workloadRegistrationRequest.RemoteStorageDefinition).
-		SetSessionsSamplePercentage(workloadRegistrationRequest.SampleSessionsPercent).
+		SetSessionsSamplePercentage(workloadRegistrationRequest.SessionsSamplePercentage).
 		Build()
 
 	workloadFromPreset := domain.NewWorkloadFromPreset(basicWorkload, d.workloadPreset)
@@ -1436,6 +1436,21 @@ func (d *BasicWorkloadDriver) processEventsForSession(sessionId string, events [
 				zap.String("workload_name", d.workload.WorkloadName()),
 				zap.String("workload_id", d.workload.GetId()),
 				zap.Error(err))
+
+			// If we're just sampling part of the trace, then we may get 'training-started' or 'training-ended'
+			// events for sessions that were never created. In this case, we'll just discard the events and continue.
+			if errors.Is(err, ErrUnknownSession) {
+				// This error is only really noteworthy if we're not using a preset workload, as it shouldn't happen
+				// for template-based workloads.
+				//
+				// Either way, we'll ultimately just ignore the error.
+				if d.workload.IsTemplateWorkload() && d.onNonCriticalErrorOccurred != nil {
+					go d.onNonCriticalErrorOccurred(d.workload.GetId(), err)
+				}
+
+				continue
+			}
+
 			d.errorChan <- err
 
 			if d.onCriticalErrorOccurred != nil {
@@ -1739,7 +1754,7 @@ func (d *BasicWorkloadDriver) handleTrainingStartedEvent(evt *domain.Event) erro
 			zap.String("event", evt.String()),
 			zap.String(ZapInternalSessionIDKey, internalSessionId),
 			zap.String(ZapTraceSessionIDKey, traceSessionId))
-		return ErrUnknownSession
+		return fmt.Errorf("%w: session \"%s\"", ErrUnknownSession, internalSessionId)
 	}
 
 	sessionConnection, ok := d.sessionConnections[internalSessionId]
@@ -1788,14 +1803,14 @@ func (d *BasicWorkloadDriver) handleTrainingEndedEvent(evt *domain.Event) error 
 		d.logger.Error("Received 'training-stopped' event for unknown session.",
 			zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
 			zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
-		return ErrUnknownSession
+		return fmt.Errorf("%w: session \"%s\"", ErrUnknownSession, internalSessionId)
 	}
 
 	if _, ok := d.seenSessions[internalSessionId]; !ok {
 		d.logger.Error("Received 'training-stopped' event for unknown session.",
 			zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
 			zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
-		return ErrUnknownSession
+		return fmt.Errorf("%w: session \"%s\"", ErrUnknownSession, internalSessionId)
 	}
 
 	sessionConnection, ok := d.sessionConnections[internalSessionId]

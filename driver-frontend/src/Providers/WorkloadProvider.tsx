@@ -32,6 +32,7 @@ type WorkloadContextData = {
         workloadSeedString: string,
         debugLoggingEnabled: boolean,
         timescaleAdjustmentFactor: number,
+        workloadSessionSamplePercent: number,
     ) => void;
     exportWorkload: (currentLocalWorkload: Workload) => void;
     stopWorkload: (workload: Workload) => void;
@@ -474,6 +475,7 @@ function WorkloadProvider({ children }: { children: React.ReactNode }) {
         workloadSeedString: string,
         debugLoggingEnabled: boolean,
         timescaleAdjustmentFactor: number,
+        workloadSessionSamplePercent: number,
     ) => {
         const toastId: string = toast(`Registering preset-based workload ${workloadName} now.`, {
             style: { maxWidth: 650 },
@@ -499,6 +501,7 @@ function WorkloadProvider({ children }: { children: React.ReactNode }) {
                     name: workloadName,
                     debug_logging: debugLoggingEnabled,
                     type: 'preset',
+                    sessions_sample_percentage: workloadSessionSamplePercent,
                 },
             }),
         );

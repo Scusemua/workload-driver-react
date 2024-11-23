@@ -180,12 +180,12 @@ type WorkloadRegistrationRequest struct {
 	TimescaleAdjustmentFactor float64                        `name:"timescale_adjustment_factor" json:"timescale_adjustment_factor" description:"Adjusts how long ticks are simulated for."`
 	RemoteStorageDefinition   *proto.RemoteStorageDefinition `name:"remote_storage_definition" json:"remote_storage_definition" yaml:"remote_storage_definition" mapstructure:"remote_storage_definition" description:"Defines a simulated remote storage to be used during the workload."`
 
-	// SampleSessionsPercent is the percent of sessions from a CSV workload for which we'll actually process events.
+	// SessionsSamplePercentage is the percent of sessions from a CSV workload for which we'll actually process events.
 	//
-	// If SampleSessionsPercent is set to 1.0, then all sessions will be processed.
+	// If SessionsSamplePercentage is set to 1.0, then all sessions will be processed.
 	//
-	// SampleSessionsPercent must be > 0.
-	SampleSessionsPercent float64 `name:"sample_sessions_percent" json:"sample_sessions_percent" yaml:"sample_sessions_percent"`
+	// SessionsSamplePercentage must be > 0.
+	SessionsSamplePercentage float64 `name:"sessions_sample_percentage" json:"sessions_sample_percentage" yaml:"sessions_sample_percentage"`
 }
 
 func (r *WorkloadRegistrationRequest) String() string {

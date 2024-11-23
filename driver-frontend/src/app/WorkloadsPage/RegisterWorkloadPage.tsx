@@ -34,6 +34,7 @@ const RegisterWorkloadPage: React.FunctionComponent = () => {
         workloadSeedString: string,
         debugLoggingEnabled: boolean,
         timescaleAdjustmentFactor: number,
+        workloadSessionSamplePercent: number,
     ) => {
         registerWorkloadFromPreset(
             workloadName,
@@ -41,6 +42,7 @@ const RegisterWorkloadPage: React.FunctionComponent = () => {
             workloadSeedString,
             debugLoggingEnabled,
             timescaleAdjustmentFactor,
+            workloadSessionSamplePercent,
         );
         navigate('workloads');
     };
