@@ -2,19 +2,29 @@ package domain
 
 import (
 	"encoding/json"
+	"errors"
 	"time"
 )
 
+const (
+	Processed EventStatus = "Processed"
+	Discarded EventStatus = "Discarded"
+	Erred     EventStatus = "Error"
+)
+
+type EventStatus string
+
 type WorkloadEvent struct {
-	Index                 int    `json:"idx"`                     // Index of the event relative to the workload in which the event occurred. The first event to occur has index 0.
-	Id                    string `json:"id"`                      // Unique ID of the event.
-	Name                  string `json:"name"`                    // The name of the event.
-	Session               string `json:"session"`                 // The ID of the session targeted by the event.
-	Timestamp             string `json:"timestamp"`               // The timestamp specified by the trace data/template/preset.
-	ProcessedAt           string `json:"processed_at"`            // The real-world clocktime at which the event was processed.
-	SimProcessedAt        string `json:"sim_processed_at"`        // The simulation clocktime at which the event was processed. May differ from the 'Timestamp' field if there were delays.
-	ProcessedSuccessfully bool   `json:"processed_successfully"`  // True if the event was processed without error.
-	ErrorMessage          string `json:"error_message,omitempty"` // Error message from the error that caused the event to not be processed successfully.
+	Index                 int         `json:"idx"`                     // Index of the event relative to the workload in which the event occurred. The first event to occur has index 0.
+	Id                    string      `json:"id"`                      // Unique ID of the event.
+	Name                  string      `json:"name"`                    // The name of the event.
+	Session               string      `json:"session"`                 // The ID of the session targeted by the event.
+	Timestamp             string      `json:"timestamp"`               // The timestamp specified by the trace data/template/preset.
+	ProcessedAt           string      `json:"processed_at"`            // The real-world clocktime at which the event was processed.
+	SimProcessedAt        string      `json:"sim_processed_at"`        // The simulation clocktime at which the event was processed. May differ from the 'Timestamp' field if there were delays.
+	ProcessedSuccessfully bool        `json:"processed_successfully"`  // True if the event was processed without error.
+	ErrorMessage          string      `json:"error_message,omitempty"` // Error message from the error that caused the event to not be processed successfully.
+	Status                EventStatus `json:"status"`
 }
 
 // NewEmptyWorkloadEvent returns an "empty" workload event -- with none of its fields populated.
@@ -86,6 +96,11 @@ func (evt *WorkloadEvent) WithEventTimestampAsString(eventTimestamp string) *Wor
 	return evt
 }
 
+func (evt *WorkloadEvent) WithStatus(status EventStatus) *WorkloadEvent {
+	evt.Status = status
+	return evt
+}
+
 func (evt *WorkloadEvent) WithProcessedAtTime(processedAt time.Time) *WorkloadEvent {
 	evt.ProcessedAt = processedAt.String()
 	return evt
@@ -119,6 +134,12 @@ func (evt *WorkloadEvent) WithError(err error) *WorkloadEvent {
 	if err != nil {
 		evt.ErrorMessage = err.Error()
 		evt.ProcessedSuccessfully = false
+
+		if errors.Is(err, ErrUnknownSession) {
+			evt.Status = Discarded
+		} else {
+			evt.Status = Erred
+		}
 	}
 
 	return evt

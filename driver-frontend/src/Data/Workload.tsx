@@ -212,6 +212,7 @@ interface WorkloadEvent {
     processed_at: string;
     processed_successfully: boolean;
     error_message: string;
+    status: string;
 }
 
 interface ResourceRequest {

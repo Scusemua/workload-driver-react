@@ -15,9 +15,9 @@ import (
 )
 
 var (
-	ErrNoEventQueue   = errors.New("no corresponding event queue for given Session")
-	ErrNoMoreEvents   = errors.New("there are no more events for the specified Session")
-	ErrUnknownSession = errors.New("specified session does not have an event queue registered")
+	ErrNoEventQueue        = errors.New("no corresponding event queue for given Session")
+	ErrNoMoreEvents        = errors.New("there are no more events for the specified Session")
+	ErrUnregisteredSession = errors.New("specified session does not have an event queue registered")
 )
 
 // EventQueue maintains a queue of events (sorted by timestamp) for each unique session.
@@ -287,19 +287,19 @@ func (q *EventQueue) Peek(threshold time.Time) *domain.Event {
 
 // DelaySession adds the specified time.Duration to the specified Session's delay.
 //
-// DelaySession returns nil on success and an ErrUnknownSession error if the specified Session
+// DelaySession returns nil on success and an ErrUnregisteredSession error if the specified Session
 // does not have an event queue.
 func (q *EventQueue) DelaySession(sessionId string, amount time.Duration) error {
 	q.eventHeapMutex.Lock()
 	defer q.eventHeapMutex.Unlock()
 
 	if q.unsafeNumSessionQueues() == 0 {
-		return fmt.Errorf("%w: \"%s\"", ErrUnknownSession, sessionId)
+		return fmt.Errorf("%w: \"%s\"", ErrUnregisteredSession, sessionId)
 	}
 
 	val, loaded := q.eventsPerSession.Get(sessionId)
 	if !loaded {
-		return fmt.Errorf("%w: \"%s\"", ErrUnknownSession, sessionId)
+		return fmt.Errorf("%w: \"%s\"", ErrUnregisteredSession, sessionId)
 	}
 
 	sessionEventQueue := val.(*SessionEventQueue)
@@ -317,19 +317,19 @@ func (q *EventQueue) DelaySession(sessionId string, amount time.Duration) error 
 
 // SetSessionDelay sets the specified Session's delay to the specified time.Duration.
 //
-// SetSessionDelay returns nil on success and an ErrUnknownSession error if the specified
+// SetSessionDelay returns nil on success and a ErrUnregisteredSession error if the specified
 // Session does not have an event queue.
 func (q *EventQueue) SetSessionDelay(sessionId string, delay time.Duration) error {
 	q.eventHeapMutex.Lock()
 	defer q.eventHeapMutex.Unlock()
 
 	if q.unsafeNumSessionQueues() == 0 {
-		return fmt.Errorf("%w: \"%s\"", ErrUnknownSession, sessionId)
+		return fmt.Errorf("%w: \"%s\"", ErrUnregisteredSession, sessionId)
 	}
 
 	val, loaded := q.eventsPerSession.Get(sessionId)
 	if !loaded {
-		return fmt.Errorf("%w: \"%s\"", ErrUnknownSession, sessionId)
+		return fmt.Errorf("%w: \"%s\"", ErrUnregisteredSession, sessionId)
 	}
 
 	sessionEventQueue := val.(*SessionEventQueue)
@@ -373,7 +373,9 @@ func (q *EventQueue) Pop(threshold time.Time) *domain.Event {
 			zap.Time("threshold", threshold),
 			zap.Time("original_event_timestamp", nextEvent.OriginalTimestamp),
 			zap.Time("current_event_timestamp", nextEvent.Timestamp),
+			zap.Time("returned_timestamp", timestamp),
 			zap.Duration("event_delay", nextEvent.Delay),
+			zap.Duration("session_queue_delay", sessionQueue.Delay),
 			zap.Int32("num_times_enqueued", nextEvent.GetNumTimesEnqueued()),
 			zap.String("session_id", nextEvent.SessionID()))
 

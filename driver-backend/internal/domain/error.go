@@ -2,20 +2,25 @@ package domain
 
 import (
 	"encoding/json"
+	"errors"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 	"net/http"
+)
+
+const (
+	ResponseStatusError string = "ERROR"
+	ResponseStatusOK    string = "OK"
+)
+
+var (
+	ErrUnknownSession = errors.New("received 'training-started' or 'training-ended' event for unknown session")
 )
 
 // ErrorHandler is used to pass errors back to another window.
 type ErrorHandler interface {
 	HandleError(error, string)
 }
-
-const (
-	ResponseStatusError string = "ERROR"
-	ResponseStatusOK    string = "OK"
-)
 
 type ErrorMessage struct {
 	Description  string `json:"Description"`  // Provides additional context for what occurred; written by us.

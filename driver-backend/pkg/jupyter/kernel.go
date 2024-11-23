@@ -358,7 +358,7 @@ func (conn *BasicKernelConnection) SendDummyMessage(channel KernelSocketChannel,
 	}
 
 	if waitForResponse {
-		return conn.waitForResponseWithTimeout(responseChan, time.Second*15, DummyMessage)
+		return conn.waitForResponseWithTimeout(responseChan, time.Second*20, DummyMessage)
 	} else {
 		return nil, nil
 	}
@@ -375,7 +375,7 @@ func (conn *BasicKernelConnection) StopRunningTrainingCode(waitForResponse bool)
 	}
 
 	if waitForResponse {
-		_, err := conn.waitForResponseWithTimeout(responseChan, time.Second*15, StopRunningTrainingCode)
+		_, err := conn.waitForResponseWithTimeout(responseChan, time.Second*20, StopRunningTrainingCode)
 
 		if err != nil {
 			conn.logger.Warn("Sending 'dummy' control request to see if we receive a response, seeing as our 'stop_running_training_code_request' request timed-out...", zap.String("kernel_id", conn.kernelId))
@@ -1143,7 +1143,11 @@ func (conn *BasicKernelConnection) setupWebsocket(jupyterServerAddress string) e
 
 	st := time.Now()
 
-	ws, _, err := websocket.DefaultDialer.Dial(endpoint, nil)
+	dialer := &websocket.Dialer{
+		Proxy:            http.ProxyFromEnvironment,
+		HandshakeTimeout: 90 * time.Second,
+	}
+	ws, _, err := dialer.Dial(endpoint, nil)
 	if err != nil {
 		conn.logger.Error("Failed to dial kernel websocket.", zap.String("endpoint", endpoint), zap.String("kernel_id", conn.kernelId), zap.Error(err))
 		err = fmt.Errorf("ErrWebsocketCreationFailed %w : %s", ErrWebsocketCreationFailed, err.Error())

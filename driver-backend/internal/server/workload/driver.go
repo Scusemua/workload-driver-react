@@ -82,7 +82,6 @@ var (
 	ErrWorkloadAlreadyUnpaused             = errors.New("cannot unpause workload as workload is already unpause")
 	ErrWorkloadNil                         = errors.New("workload is nil; cannot process nil workload")
 
-	ErrUnknownSession      = errors.New("received 'training-started' or 'training-ended' event for unknown session")
 	ErrNoSessionConnection = errors.New("received 'training-started' or 'training-ended' event for session for which no session connection exists")
 	ErrNoKernelConnection  = errors.New("received 'training-started' or 'training-ended' event for session for which no kernel connection exists")
 
@@ -1326,12 +1325,12 @@ func (d *BasicWorkloadDriver) processEventsForTick(tick time.Time) {
 		}
 	}
 
-	// Process any 'session-ready' events.
+	// Process any 'session-ready' events that are ready at the beginning of the tick.
 	if len(sessionReadyEvents) > 0 {
 		var wg sync.WaitGroup
 		wg.Add(len(sessionReadyEvents))
 
-		d.logger.Debug("Processing \"session-ready\" event(s).",
+		d.logger.Debug("Processing \"session-ready\" event(s) at the very beginning of the tick.",
 			zap.String("workload_id", d.workload.GetId()),
 			zap.String("workload_name", d.workload.WorkloadName()),
 			zap.Time("tick", tick),
@@ -1343,7 +1342,7 @@ func (d *BasicWorkloadDriver) processEventsForTick(tick time.Time) {
 
 		wg.Wait()
 	} else {
-		d.logger.Debug("No \"session-ready\" events to process.",
+		d.logger.Debug("No \"session-ready\" events to process at the very beginning of the tick.",
 			zap.String("workload_id", d.workload.GetId()),
 			zap.String("workload_name", d.workload.WorkloadName()),
 			zap.Time("tick", tick))
@@ -1358,11 +1357,6 @@ func (d *BasicWorkloadDriver) processEventsForTick(tick time.Time) {
 			// If it doesn't, then in theory we could just ignore it, but it shouldn't happen, so there's probably a bug.
 			// Hence, we'll panic.
 			panic(fmt.Sprintf("Expected to find valid event for tick %v.", tick))
-		}
-
-		// Collect up all the "session-ready" events.
-		if evt.Name == domain.EventSessionReady {
-			panic(fmt.Sprintf("Discovered \"%s\" event while processing non-\"%s\" events: %v", domain.EventSessionReady, domain.EventSessionReady, evt))
 		}
 
 		// Get the list of events for the particular session, creating said list if it does not already exist.
@@ -1439,7 +1433,7 @@ func (d *BasicWorkloadDriver) processEventsForSession(sessionId string, events [
 
 			// If we're just sampling part of the trace, then we may get 'training-started' or 'training-ended'
 			// events for sessions that were never created. In this case, we'll just discard the events and continue.
-			if errors.Is(err, ErrUnknownSession) {
+			if errors.Is(err, domain.ErrUnknownSession) {
 				// This error is only really noteworthy if we're not using a preset workload, as it shouldn't happen
 				// for template-based workloads.
 				//
@@ -1596,7 +1590,7 @@ func (d *BasicWorkloadDriver) handleSessionReadyEvent(sessionReadyEvent *domain.
 
 		// We need to inspect the error here.
 		// Depending on what the error is, we'll treat it as a critical error or not.
-		d.handleFailureToCreateNewSession(err, sessionReadyEvent)
+		err = d.handleFailureToCreateNewSession(err, sessionReadyEvent)
 	} else {
 		d.logger.Debug("Successfully handled SessionStarted event.",
 			zap.String("workload_id", d.workload.GetId()),
@@ -1619,7 +1613,13 @@ func (d *BasicWorkloadDriver) delaySession(sessionId string, delayAmount time.Du
 	d.workload.SessionDelayed(sessionId, delayAmount)
 }
 
-func (d *BasicWorkloadDriver) handleFailureToCreateNewSession(err error, sessionReadyEvent *domain.Event) {
+// handleFailureToCreateNewSession processes an error in which we failed to create a kernel for some reason.
+//
+// Depending on why we failed, we will either try again later or abort the workload.
+//
+// The error returned by handleFailureToCreateNewSession is NOT a new error. We reformat the error about failing
+// to create a kernel depending on the reason.
+func (d *BasicWorkloadDriver) handleFailureToCreateNewSession(err error, sessionReadyEvent *domain.Event) error {
 	sessionId := sessionReadyEvent.SessionID()
 	if strings.Contains(err.Error(), "insufficient hosts available") {
 		//sessionReadyEvent.PushTimestampBack(d.targetTickDuration)
@@ -1639,7 +1639,8 @@ func (d *BasicWorkloadDriver) handleFailureToCreateNewSession(err error, session
 		// Put the event back in the queue.
 		d.eventQueue.EnqueueEvent(sessionReadyEvent)
 
-		return
+		// Return a less verbose error.
+		return fmt.Errorf("failed to create kernel \"%s\": insufficient resources available", sessionId)
 	}
 
 	d.logger.Error("Session creation failure is due to unexpected reason. Aborting workload.",
@@ -1652,6 +1653,9 @@ func (d *BasicWorkloadDriver) handleFailureToCreateNewSession(err error, session
 	if d.onCriticalErrorOccurred != nil {
 		go d.onCriticalErrorOccurred(d.workload.GetId(), err)
 	}
+
+	// Return the original error.
+	return err
 }
 
 // Schedule new Sessions onto Hosts.
@@ -1748,13 +1752,13 @@ func (d *BasicWorkloadDriver) handleTrainingStartedEvent(evt *domain.Event) erro
 		zap.String("internal-session-id", internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
 
 	if _, ok := d.seenSessions[internalSessionId]; !ok {
-		d.logger.Error("Received 'training-started' event for unknown session.",
+		d.logger.Warn("Received 'training-started' event for unknown session.",
 			zap.String("workload_id", d.workload.GetId()),
 			zap.String("workload_name", d.workload.WorkloadName()),
 			zap.String("event", evt.String()),
 			zap.String(ZapInternalSessionIDKey, internalSessionId),
 			zap.String(ZapTraceSessionIDKey, traceSessionId))
-		return fmt.Errorf("%w: session \"%s\"", ErrUnknownSession, internalSessionId)
+		return fmt.Errorf("%w: session \"%s\"", domain.ErrUnknownSession, internalSessionId)
 	}
 
 	sessionConnection, ok := d.sessionConnections[internalSessionId]
@@ -1800,17 +1804,17 @@ func (d *BasicWorkloadDriver) handleTrainingEndedEvent(evt *domain.Event) error 
 		zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
 
 	if _, ok := d.seenSessions[internalSessionId]; !ok {
-		d.logger.Error("Received 'training-stopped' event for unknown session.",
+		d.logger.Warn("Received 'training-stopped' event for unknown session.",
 			zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
 			zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
-		return fmt.Errorf("%w: session \"%s\"", ErrUnknownSession, internalSessionId)
+		return fmt.Errorf("%w: session \"%s\"", domain.ErrUnknownSession, internalSessionId)
 	}
 
 	if _, ok := d.seenSessions[internalSessionId]; !ok {
-		d.logger.Error("Received 'training-stopped' event for unknown session.",
+		d.logger.Warn("Received 'training-stopped' event for unknown session.",
 			zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
 			zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
-		return fmt.Errorf("%w: session \"%s\"", ErrUnknownSession, internalSessionId)
+		return fmt.Errorf("%w: session \"%s\"", domain.ErrUnknownSession, internalSessionId)
 	}
 
 	sessionConnection, ok := d.sessionConnections[internalSessionId]

@@ -1,6 +1,5 @@
-import React from 'react';
+import { Workload, WorkloadEvent } from '@Data/Workload';
 import { Card, CardBody, Label, Pagination, Tooltip } from '@patternfly/react-core';
-import { Table, Tbody, Td, Th, Thead, ThProps, Tr } from '@patternfly/react-table';
 import {
     CheckCircleIcon,
     CheckIcon,
@@ -12,8 +11,8 @@ import {
     PendingIcon,
     StarIcon,
 } from '@patternfly/react-icons';
-
-import { Workload, WorkloadEvent } from '@Data/Workload';
+import { Table, Tbody, Td, Th, ThProps, Thead, Tr } from '@patternfly/react-table';
+import React from 'react';
 
 export interface WorkloadEventTableProps {
     children?: React.ReactNode;
@@ -34,7 +33,7 @@ export const WorkloadEventTable: React.FunctionComponent<WorkloadEventTableProps
     // This example is trivial since our data objects just contain strings, but if the data was more complex
     // this would be a place to return simplified string or number versions of each column to sort by.
     const getSortableRowValues = (event: WorkloadEvent): (string | number | Date)[] => {
-        const { idx, id, name, session, timestamp, processed_at, processed_successfully, error_message } = event;
+        const { idx, name, session, timestamp, processed_at, processed_successfully } = event;
         const timestamp_adjusted: string = timestamp.substring(0, timestamp.length - 10);
         const processed_at_adjusted: string = processed_at.substring(0, 27);
 
@@ -197,7 +196,7 @@ export const WorkloadEventTable: React.FunctionComponent<WorkloadEventTableProps
                     content={`The event was NOT processed successfully. Reason: ${evt.error_message !== undefined ? evt.error_message : 'N/A'}`}
                 >
                     <Label color="red" icon={<ErrorCircleOIcon />}>
-                        Error
+                        {evt.status || 'Error'}
                     </Label>
                 </Tooltip>
             );

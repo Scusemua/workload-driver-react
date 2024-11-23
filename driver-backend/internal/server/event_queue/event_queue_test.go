@@ -247,7 +247,7 @@ var _ = Describe("EventQueue Tests", func() {
 
 		It("Will return an error when delaying an unknown session", func() {
 			err := queue.DelaySession("UnknownSession", time.Second*5)
-			Expect(errors.Is(err, event_queue.ErrUnknownSession)).To(BeTrue())
+			Expect(errors.Is(err, event_queue.ErrUnregisteredSession)).To(BeTrue())
 		})
 
 		It("Will correctly account for delay", func() {
