@@ -1,7 +1,6 @@
 package event_queue
 
 import (
-	"fmt"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
 )
 
@@ -18,22 +17,22 @@ func (h MainEventQueue) Len() int {
 func (h MainEventQueue) Less(i, j int) bool {
 	// If the i-th queue is non-empty while the j-th queue is empty, then the i-th queue should come first.
 	if h[i].IsNonEmpty() && h[j].IsEmpty() {
-		fmt.Printf("SessionEventQueue %d (\"%s\") is non-empty while SessionEventQueue %d (\"%s\") is empty.\n",
-			i, h[i].SessionId, j, h[j].SessionId)
+		//fmt.Printf("SessionEventQueue %d (\"%s\") is non-empty while SessionEventQueue %d (\"%s\") is empty.\n",
+		//	i, h[i].SessionId, j, h[j].SessionId)
 		return true
 	}
 
 	// If the i-th queue is empty while the j-th queue is non-empty, then the j-th queue should come first.
 	if h[i].IsEmpty() && h[j].IsNonEmpty() {
-		fmt.Printf("SessionEventQueue %d (\"%s\") is empty while SessionEventQueue %d (\"%s\") is non-empty.\n",
-			i, h[i].SessionId, j, h[j].SessionId)
+		//fmt.Printf("SessionEventQueue %d (\"%s\") is empty while SessionEventQueue %d (\"%s\") is non-empty.\n",
+		//	i, h[i].SessionId, j, h[j].SessionId)
 		return false
 	}
 
 	// If both queues are empty, then just treat them as if they're equal, so return false.
 	if h[i].IsEmpty() && h[j].IsEmpty() {
-		fmt.Printf("Both SessionEventQueue %d (\"%s\") and SessionEventQueue %d (\"%s\") are empty.\n",
-			i, h[i].SessionId, j, h[j].SessionId)
+		//fmt.Printf("Both SessionEventQueue %d (\"%s\") and SessionEventQueue %d (\"%s\") are empty.\n",
+		//	i, h[i].SessionId, j, h[j].SessionId)
 		return false
 	}
 
@@ -90,16 +89,16 @@ func (h MainEventQueue) Less(i, j int) bool {
 		return globalIndexI < globalIndexJ
 	}
 
-	fmt.Printf("Session \"%s\" [%v] < Session \"%s\" [%v]: %v\n", h[i].SessionId, timestampI, h[j].SessionId, timestampJ, timestampI.Before(timestampJ))
+	//fmt.Printf("Session \"%s\" [%v] < Session \"%s\" [%v]: %v\n", h[i].SessionId, timestampI, h[j].SessionId, timestampJ, timestampI.Before(timestampJ))
 	return timestampI.Before(timestampJ)
 }
 
 func (h MainEventQueue) Swap(i, j int) {
-	fmt.Printf("Swap %d, %d (%v, %v) of %d\n", i, j, h[i], h[j], len(h))
+	//fmt.Printf("Swap %d, %d (%v, %v) of %d\n", i, j, h[i], h[j], len(h))
 	h[i].SetIndex(j)
-	fmt.Printf("[SWAP 1/2] Set index of SessEvtQ \"%s\" to %d.\n", h[i].SessionId, j)
+	//fmt.Printf("[SWAP 1/2] Set index of SessEvtQ \"%s\" to %d.\n", h[i].SessionId, j)
 	h[j].SetIndex(i)
-	fmt.Printf("[SWAP 2/2] Set index of SessEvtQ \"%s\" to %d.\n", h[j].SessionId, i)
+	//fmt.Printf("[SWAP 2/2] Set index of SessEvtQ \"%s\" to %d.\n", h[j].SessionId, i)
 	h[i], h[j] = h[j], h[i]
 }
 

@@ -143,7 +143,7 @@ func (g *BasicWorkloadGenerator) generateWorkloadWithCsvPreset(consumer domain.E
 	}
 
 	maxUtilizationWrapper := domain.NewMaxUtilizationWrapper(cpuSessionMap, memSessionMap, gpuSessionMap, cpuTaskMap, memTaskMap, gpuTaskMap)
-	g.synthesizer = NewSynthesizer(g.opts, maxUtilizationWrapper)
+	g.synthesizer = NewSynthesizer(g.opts, maxUtilizationWrapper, g.atom)
 	// Set the cluster as the EventHandler for the Synthesizer.
 	g.synthesizer.SetEventConsumer(consumer)
 
@@ -239,7 +239,7 @@ func (g *BasicWorkloadGenerator) generateWorkloadWithXmlPreset(consumer domain.E
 	defer g.cancelFunction()
 
 	g.logger.Debug("Generating workload from XML preset.", zap.String("workload-preset-name", workloadPreset.Name), zap.String("workload-preset-key", workloadPreset.Key))
-	g.synthesizer = NewSynthesizer(g.opts, workloadPreset.MaxUtilization)
+	g.synthesizer = NewSynthesizer(g.opts, workloadPreset.MaxUtilization, g.atom)
 	g.synthesizer.SetEventConsumer(consumer)
 	xmlEventParser := NewXMLEventParser(g.opts.TraceStep, 0, workloadPreset.XmlFilePath, g.atom)
 	gpuRecords, cpuRecords, _ := xmlEventParser.Parse()

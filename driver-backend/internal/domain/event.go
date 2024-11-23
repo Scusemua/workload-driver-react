@@ -41,6 +41,7 @@ type EventName interface {
 
 type PodData interface {
 	GetPod() string
+	SetPod(string)
 }
 
 type EventSource interface {
