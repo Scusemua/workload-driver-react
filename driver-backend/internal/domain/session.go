@@ -3,6 +3,7 @@ package domain
 import (
 	"errors"
 	"fmt"
+	"github.com/goccy/go-json"
 	"github.com/mattn/go-colorable"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
@@ -285,6 +286,15 @@ type WorkloadTemplateSession struct {
 	StartTick int              `json:"start_tick"`
 	StopTick  int              `json:"stop_tick"`
 	Trainings []*TrainingEvent `json:"trainings"`
+}
+
+func (t *WorkloadTemplateSession) String() string {
+	m, err := json.Marshal(t)
+	if err != nil {
+		panic(err)
+	}
+
+	return string(m)
 }
 
 func (t WorkloadTemplateSession) GetStartTick() int {

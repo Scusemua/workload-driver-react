@@ -394,6 +394,8 @@ func (d *BasicWorkloadDriver) loadWorkloadTemplateFromFile(workloadRegistrationR
 		zap.String("workload_name", workloadRegistrationRequest.WorkloadName),
 		zap.String("template_file_path", workloadRegistrationRequest.TemplateFilePath))
 
+	st := time.Now()
+
 	// Read the file contents
 	templateJsonFileContents, err := io.ReadAll(templateJsonFile)
 	if err != nil {
@@ -403,6 +405,11 @@ func (d *BasicWorkloadDriver) loadWorkloadTemplateFromFile(workloadRegistrationR
 			zap.Error(err))
 		return err
 	}
+
+	d.logger.Debug("Successfully read workload from template file.",
+		zap.String("workload_name", workloadRegistrationRequest.WorkloadName),
+		zap.Duration("time_elapsed", time.Since(st)),
+		zap.String("template_file_path", workloadRegistrationRequest.TemplateFilePath))
 
 	// Unmarshal JSON into the struct
 	var unmarshalledRegistrationRequest *domain.WorkloadRegistrationRequest
@@ -415,8 +422,13 @@ func (d *BasicWorkloadDriver) loadWorkloadTemplateFromFile(workloadRegistrationR
 		return err
 	}
 
+	d.logger.Debug("Successfully loaded workload from template.",
+		zap.String("workload_name", workloadRegistrationRequest.WorkloadName),
+		zap.Duration("time_elapsed", time.Since(st)),
+		zap.String("template_file_path", workloadRegistrationRequest.TemplateFilePath),
+		zap.Int("num_sessions", len(unmarshalledRegistrationRequest.Sessions)))
+
 	workloadRegistrationRequest.Sessions = unmarshalledRegistrationRequest.Sessions
-	d.workloadSessions = workloadRegistrationRequest.Sessions
 
 	return nil
 }
@@ -443,6 +455,7 @@ func (d *BasicWorkloadDriver) createWorkloadFromTemplate(workloadRegistrationReq
 		zap.String("workload_name", workloadRegistrationRequest.WorkloadName))
 
 	d.workloadSessions = workloadRegistrationRequest.Sessions
+	d.workloadRegistrationRequest = workloadRegistrationRequest
 	basicWorkload := domain.NewWorkloadBuilder(d.atom).
 		SetID(d.id).
 		SetWorkloadName(workloadRegistrationRequest.WorkloadName).
@@ -452,7 +465,7 @@ func (d *BasicWorkloadDriver) createWorkloadFromTemplate(workloadRegistrationReq
 		SetRemoteStorageDefinition(workloadRegistrationRequest.RemoteStorageDefinition).
 		Build()
 
-	workloadFromTemplate, err := domain.NewWorkloadFromTemplate(basicWorkload, d.workloadRegistrationRequest.Sessions)
+	workloadFromTemplate, err := domain.NewWorkloadFromTemplate(basicWorkload, workloadRegistrationRequest.Sessions)
 	if err != nil {
 		return nil, err
 	}

@@ -145,7 +145,8 @@ func (w *WorkloadFromTemplate) SetSessions(sessions []*WorkloadTemplateSession) 
 			w.logger.Error("Session does not have a 'max' resource request.",
 				zap.String("session_id", session.GetId()),
 				zap.String("workload_id", w.Id),
-				zap.String("workload_name", w.Name))
+				zap.String("workload_name", w.Name),
+				zap.String("session", session.String()))
 
 			return ErrMissingMaxResourceRequest
 		}
