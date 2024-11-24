@@ -28,6 +28,7 @@ var _ = Describe("EventHeap Tests", func() {
 			Name:        name,
 			GlobalIndex: index,
 			LocalIndex:  int(index),
+			SessionId:   sessionId,
 			ID:          uuid.NewString(),
 			Timestamp:   timestamp,
 		}

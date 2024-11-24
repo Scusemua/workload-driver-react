@@ -24,18 +24,32 @@ interface WorkloadPreset {
     name: string; // Human-readable name for this particular workload preset.
     description: string; // Human-readable description of the workload.
     key: string; // Key for code-use only (i.e., we don't intend to display this to the user for the most part).
-    months: string[]; // The months of data used by the workload.
-    months_description: string; // Formatted, human-readable text of the form (StartMonth) - (EndMonth) or (Month) if there is only one month included in the trace.
-}
-
-interface WorkloadPreset {
-    name: string; // Human-readable name for this particular workload preset.
-    description: string; // Human-readable description of the workload.
-    key: string; // Key for code-use only (i.e., we don't intend to display this to the user for the most part).
     preset_type: string; // The type of preset ("XML" or "CSV").
     months: string[]; // The months of data used by the workload.
     months_description: string; // Formatted, human-readable text of the form (StartMonth) - (EndMonth) or (Month) if there is only one month included in the trace.
     svg_content: string[]; // For XML presets, their events can be rendered/displayed as an SVG.
+}
+
+interface PreloadedWorkloadTemplate {
+    // display_name is the display name of the preloaded workload template.
+    display_name: string;
+
+    // key uniquely identifies the PreloadedWorkloadTemplate.
+    key: string;
+
+    // filepath is the file path of the .JSON workload template file.
+    filepath: string;
+
+    // num_sessions is the number of sessions that will be created by/in the workload.
+    num_sessions: number;
+
+    // num_training_events is the total number of training events in the workload (for all sessions).
+    num_training_events: number;
+
+    // large indicates if the workload is "arbitrarily" large, as in it is up to the creator of the template
+    // (or whoever creates the configuration file with all the preloaded workload templates in it) to designate
+    // a workload as "large".
+    large: boolean;
 }
 
 // Return true if the workload is in the 'finished', 'erred', or 'terminated' states.
@@ -340,3 +354,4 @@ export type { ResourceRequest as ResourceRequest };
 export type { PatchedWorkload as PatchedWorkload };
 export type { ErrorResponse as ErrorResponse };
 export type { RemoteStorageDefinition as RemoteStorageDefinition };
+export type { PreloadedWorkloadTemplate as PreloadedWorkloadTemplate };

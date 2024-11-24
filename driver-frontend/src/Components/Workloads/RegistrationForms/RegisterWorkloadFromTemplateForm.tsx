@@ -5,6 +5,9 @@ import { Language } from '@patternfly/react-code-editor';
 import {
     Button,
     Divider,
+    Dropdown,
+    DropdownItem,
+    DropdownList,
     Flex,
     FlexItem,
     Form,
@@ -15,6 +18,8 @@ import {
     GridItem,
     HelperText,
     HelperTextItem,
+    MenuToggle,
+    MenuToggleElement,
     Modal,
     MultipleFileUpload,
     MultipleFileUploadMain,
@@ -23,14 +28,18 @@ import {
     NumberInput,
     Popover,
     Switch,
+    Text,
     TextInput,
+    ValidatedOptions,
 } from '@patternfly/react-core';
 import { DropEvent } from '@patternfly/react-core/src/helpers/typeUtils';
 import { CodeIcon, DownloadIcon, SaveAltIcon, TrashAltIcon, UploadIcon } from '@patternfly/react-icons';
 import HelpIcon from '@patternfly/react-icons/dist/esm/icons/help-icon';
 import styles from '@patternfly/react-styles/css/components/Form/form';
-import { RemoteStorageDefinition, Session, TrainingEvent, WorkloadTemplate } from '@src/Data';
+import { useWorkloadTemplates } from '@Providers/WorkloadTemplatesProvider';
+import { PreloadedWorkloadTemplate, RemoteStorageDefinition, Session, TrainingEvent } from '@src/Data';
 import { SessionTabsDataContext } from '@src/Providers';
+import { GetPathForFetch } from '@src/Utils';
 import { RoundToThreeDecimalPlaces } from '@src/Utils/utils';
 import {
     GetDefaultFormValues,
@@ -91,10 +100,15 @@ export const RegisterWorkloadFromTemplateForm: React.FunctionComponent<IRegister
     const [readFileData, setReadFileData] = React.useState<readFile[]>([]);
     const [showFileUploadStatus, setShowFileUploadStatus] = React.useState(false);
     const [fileUploadStatusIcon, setFileUploadStatusIcon] = React.useState('inProgress');
+    const [isWorkloadDataDropdownOpen, setIsWorkloadDataDropdownOpen] = React.useState<boolean>(false);
+    const [selectedPreloadedWorkloadTemplate, setSelectedPreloadedWorkloadTemplate] =
+        React.useState<PreloadedWorkloadTemplate | null>(null);
     const sessionFormRef = React.useRef<HTMLDivElement>(null);
 
     // Actively modified by the code editor.
     const [formAsJson, setFormAsJson] = React.useState<string>('');
+
+    const { preloadedWorkloadTemplates } = useWorkloadTemplates();
 
     const { activeSessionTab, setActiveSessionTab, setSessionTabs, setNewSessionTabNumber } =
         React.useContext(SessionTabsDataContext);
@@ -176,69 +190,75 @@ export const RegisterWorkloadFromTemplateForm: React.FunctionComponent<IRegister
 
         const remoteStorageDefinition: RemoteStorageDefinition = data.remoteStorageDefinition;
 
-        const sessions: Session[] = data.sessions;
+        let sessions: Session[] = data.sessions;
 
-        for (let i: number = 0; i < sessions.length; i++) {
-            const session: Session = sessions[i];
-            const trainings: TrainingEvent[] = session.trainings;
+        // Don't bother parsing if we have a large preloaded template selected.
+        // We won't be including any sessions in the request.
+        if (!selectedPreloadedWorkloadTemplate || !selectedPreloadedWorkloadTemplate.large) {
+            for (let i: number = 0; i < sessions.length; i++) {
+                const session: Session = sessions[i];
+                const trainings: TrainingEvent[] = session.trainings;
 
-            let max_millicpus: number = -1;
-            let max_mem_mb: number = -1;
-            let max_num_gpus: number = -1;
-            let max_vram_gb: number = -1;
-            for (let j: number = 0; j < trainings.length; j++) {
-                const training: TrainingEvent = trainings[j];
-                training.training_index = j; // Set the training index field.
+                let max_millicpus: number = -1;
+                let max_mem_mb: number = -1;
+                let max_num_gpus: number = -1;
+                let max_vram_gb: number = -1;
+                for (let j: number = 0; j < trainings.length; j++) {
+                    const training: TrainingEvent = trainings[j];
+                    training.training_index = j; // Set the training index field.
 
-                if (training.millicpus > max_millicpus) {
-                    max_millicpus = training.millicpus;
+                    if (training.millicpus > max_millicpus) {
+                        max_millicpus = training.millicpus;
+                    }
+
+                    if (training.mem_usage_mb > max_mem_mb) {
+                        max_mem_mb = training.mem_usage_mb;
+                    }
+
+                    if (training.vram_usage_gb > max_vram_gb) {
+                        max_vram_gb = training.vram_usage_gb;
+                    }
+
+                    if (training.gpu_utilizations.length > max_num_gpus) {
+                        max_num_gpus = training.gpu_utilizations.length;
+                    }
                 }
 
-                if (training.mem_usage_mb > max_mem_mb) {
-                    max_mem_mb = training.mem_usage_mb;
-                }
+                // Construct the resource request and update the session object.
+                session.max_resource_request = {
+                    cpus: max_millicpus,
+                    gpus: max_num_gpus,
+                    memory_mb: max_mem_mb,
+                    vram: max_vram_gb,
+                    gpu_type: 'ANY_GPU',
+                };
 
-                if (training.vram_usage_gb > max_vram_gb) {
-                    max_vram_gb = training.vram_usage_gb;
-                }
-
-                if (training.gpu_utilizations.length > max_num_gpus) {
-                    max_num_gpus = training.gpu_utilizations.length;
-                }
+                session.current_resource_request = {
+                    cpus: 0,
+                    gpus: 0,
+                    memory_mb: 0,
+                    vram: 0,
+                    gpu_type: 'ANY_GPU',
+                };
             }
-
-            // Construct the resource request and update the session object.
-            session.max_resource_request = {
-                cpus: max_millicpus,
-                gpus: max_num_gpus,
-                memory_mb: max_mem_mb,
-                vram: max_vram_gb,
-                gpu_type: 'ANY_GPU',
-            };
-
-            session.current_resource_request = {
-                cpus: 0,
-                gpus: 0,
-                memory_mb: 0,
-                vram: 0,
-                gpu_type: 'ANY_GPU',
-            };
         }
-
-        const workloadTemplate: WorkloadTemplate = {
-            sessions: data.sessions,
-        };
 
         let workloadSeed: number = 0;
         if (workloadSeedString != '') {
             workloadSeed = parseInt(workloadSeedString);
         }
 
+        // If we have a large, preloaded template selected, then make sure the sessions are empty
+        // so that the server knows to load the template from a file.
+        if (selectedPreloadedWorkloadTemplate && selectedPreloadedWorkloadTemplate.large) {
+            sessions = [];
+        }
+
         return JSON.stringify(
             {
                 op: 'register_workload',
                 msg_id: uuidv4(),
-                workloadRegistrationRequest: {
+                workload_registration_request: {
                     adjust_gpu_reservations: false,
                     seed: workloadSeed,
                     timescale_adjustment_factor: timescaleAdjustmentFactor,
@@ -246,8 +266,11 @@ export const RegisterWorkloadFromTemplateForm: React.FunctionComponent<IRegister
                     name: workloadTitle,
                     debug_logging: debugLoggingEnabled,
                     type: 'template',
-                    sessions: workloadTemplate.sessions,
+                    sessions: sessions,
                     remote_storage_definition: remoteStorageDefinition,
+                    template_file_path: selectedPreloadedWorkloadTemplate
+                        ? selectedPreloadedWorkloadTemplate.filepath
+                        : '',
                 },
             },
             null,
@@ -345,6 +368,23 @@ export const RegisterWorkloadFromTemplateForm: React.FunctionComponent<IRegister
         setJsonModeActive(false);
     };
 
+    const getWorkloadTemplateDropdownDescription = (template: PreloadedWorkloadTemplate) => {
+        return (
+            <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
+                <FlexItem>
+                    <Text component={'h6'}>
+                        <b>Number of Sessions: </b> {template.num_sessions}
+                    </Text>
+                </FlexItem>
+                <FlexItem>
+                    <Text component={'h6'}>
+                        <b>Number of Training Events: </b> {template.num_training_events}
+                    </Text>
+                </FlexItem>
+            </Flex>
+        );
+    };
+
     const getSubmitButton = () => {
         if (jsonModeActive) {
             return (
@@ -398,8 +438,10 @@ export const RegisterWorkloadFromTemplateForm: React.FunctionComponent<IRegister
 
     const onResetFormButtonClicked = () => {
         console.log('Resetting form to default values.');
+
         form.reset(GetDefaultFormValues());
 
+        setSelectedPreloadedWorkloadTemplate(null);
         setSessionTabs(['Session 1']);
     };
 
@@ -452,6 +494,53 @@ export const RegisterWorkloadFromTemplateForm: React.FunctionComponent<IRegister
                 </Flex>
             );
         }
+    };
+
+    const onWorkloadDataDropdownSelect = async (
+        _event: React.MouseEvent<Element, MouseEvent> | undefined,
+        value: string | number | undefined,
+    ) => {
+        if (value != undefined) {
+            const template: PreloadedWorkloadTemplate = preloadedWorkloadTemplates[value];
+            setSelectedPreloadedWorkloadTemplate(template);
+
+            try {
+                if (template) {
+                    const req: RequestInit = {
+                        method: 'GET',
+                        headers: {
+                            'Content-Type': 'application/json',
+                            Authorization: 'Bearer ' + localStorage.getItem('token'),
+                        },
+                    };
+
+                    const returnedTemplate: PreloadedWorkloadTemplate | any = await fetch(
+                        GetPathForFetch(`api/workload-templates?template=${template.key}`),
+                        req,
+                    ).then(async (resp: Response) => {
+                        console.log(`HTTP ${resp.status} ${resp.statusText}`);
+                        return await resp.json();
+                    });
+
+                    // Non-large templates are returned directly.
+                    if (!template.large) {
+                        console.log(`returnedTemplate: ${JSON.stringify(returnedTemplate.template, null, '  ')}`);
+                        applyJsonToForm(JSON.stringify(returnedTemplate.template));
+                    } else {
+                        console.log(
+                            `returnedPreloadedTemplate: ${JSON.stringify(returnedTemplate.preloaded_template, null, '  ')}`,
+                        );
+                    }
+                } else {
+                    console.warn(`Unknown template with index ${value}`);
+                }
+            } catch (err) {
+                console.error(err);
+            }
+        } else {
+            setSelectedPreloadedWorkloadTemplate(null);
+        }
+        setIsWorkloadDataDropdownOpen(false);
     };
 
     const handleFileUploadRejection = (fileRejections: FileRejection[]) => {
@@ -876,6 +965,98 @@ export const RegisterWorkloadFromTemplateForm: React.FunctionComponent<IRegister
         </FormGroup>
     );
 
+    const preloadedWorkloadTemplateSection = (
+        <FormSection title="Select 'Preloaded' Template" titleElement="h1">
+            <FormGroup
+                label="Preloaded workload template:"
+                labelIcon={
+                    <Popover
+                        aria-label="workload-preset-text-header"
+                        headerContent={<div>Workload Preset</div>}
+                        bodyContent={
+                            <div>
+                                Select the preprocessed data to use for driving the workload. This largely determines
+                                which subset of trace data will be used to generate the workload.
+                            </div>
+                        }
+                    >
+                        <button
+                            type="button"
+                            aria-label="Select the preprocessed data to use for driving the workload. This largely determines which subset of trace data will be used to generate the workload."
+                            onClick={(e) => e.preventDefault()}
+                            className={styles.formGroupLabelHelp}
+                        >
+                            <HelpIcon />
+                        </button>
+                    </Popover>
+                }
+            >
+                {preloadedWorkloadTemplates.length == 0 && (
+                    <TextInput
+                        label="workload-template-set-disabled-text"
+                        aria-label="workload-template-set-disabled-text"
+                        id="disabled-workload-template-select-text"
+                        isDisabled
+                        type="text"
+                        validated={ValidatedOptions.warning}
+                        value="No workload templates available..."
+                    />
+                )}
+                {preloadedWorkloadTemplates.length > 0 && (
+                    <Dropdown
+                        aria-label="workload-template-set-dropdown-menu"
+                        isScrollable
+                        isOpen={isWorkloadDataDropdownOpen}
+                        onSelect={onWorkloadDataDropdownSelect}
+                        onOpenChange={(isOpen: boolean) => setIsWorkloadDataDropdownOpen(isOpen)}
+                        toggle={(toggleRef: React.Ref<MenuToggleElement>) => (
+                            <MenuToggle
+                                ref={toggleRef}
+                                isFullWidth
+                                onClick={() => setIsWorkloadDataDropdownOpen(!isWorkloadDataDropdownOpen)}
+                                isExpanded={isWorkloadDataDropdownOpen}
+                            >
+                                {selectedPreloadedWorkloadTemplate?.display_name}
+                            </MenuToggle>
+                        )}
+                        shouldFocusToggleOnSelect
+                    >
+                        <DropdownList aria-label="workload-template-set-dropdown-list">
+                            {preloadedWorkloadTemplates.map((template: PreloadedWorkloadTemplate, index: number) => {
+                                return (
+                                    <DropdownItem
+                                        aria-label={'workload-template-set-dropdown-item' + index}
+                                        value={index}
+                                        key={index}
+                                        description={getWorkloadTemplateDropdownDescription(template)}
+                                    >
+                                        {template.display_name}
+                                    </DropdownItem>
+                                );
+                            })}
+                        </DropdownList>
+                    </Dropdown>
+                )}
+                <FormHelperText
+                    label="workload-template-dropdown-input-helper"
+                    aria-label="workload-template-dropdown-input-helper"
+                >
+                    <HelperText
+                        label="workload-template-dropdown-input-helper"
+                        aria-label="workload-template-dropdown-input-helper"
+                    >
+                        <HelperTextItem
+                            aria-label="workload-template-dropdown-input-helper"
+                            label="workload-template-dropdown-input-helper"
+                        >
+                            Select a configuration/data template for the workload.
+                        </HelperTextItem>
+                    </HelperText>
+                </FormHelperText>
+            </FormGroup>
+        </FormSection>
+    );
+
     const nonJsonForm = (
         <Form
             onSubmit={() => {
@@ -885,6 +1066,22 @@ export const RegisterWorkloadFromTemplateForm: React.FunctionComponent<IRegister
         >
             <Flex direction={{ default: 'column' }}>
                 <Flex direction={{ xl: 'row', default: 'column' }} spaceItems={{ default: 'spaceItemsXl' }}>
+                    <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsSm' }}>
+                        <FlexItem>{preloadedWorkloadTemplateSection}</FlexItem>
+                        {selectedPreloadedWorkloadTemplate && (
+                            <FlexItem>
+                                <Button
+                                    id={'clear-selected-preloaded-template'}
+                                    disabled={!selectedPreloadedWorkloadTemplate}
+                                    onClick={() => {
+                                        onResetFormButtonClicked();
+                                    }}
+                                >
+                                    Clear Selection
+                                </Button>
+                            </FlexItem>
+                        )}
+                    </Flex>
                     <FlexItem>
                         <FormSection title="Generic Workload Parameters" titleElement="h1">
                             <div ref={sessionFormRef}>

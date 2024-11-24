@@ -351,11 +351,11 @@ func (q *EventQueue) Pop(threshold time.Time) *domain.Event {
 	q.eventHeapMutex.Lock()
 	defer q.eventHeapMutex.Unlock()
 
-	if q.lenUnsafe() == 0 {
+	sessionQueue := q.events.Peek()
+	if sessionQueue == nil {
 		return nil
 	}
 
-	sessionQueue := q.events.Peek()
 	timestamp, ok := sessionQueue.NextEventTimestamp()
 	if !ok {
 		return nil

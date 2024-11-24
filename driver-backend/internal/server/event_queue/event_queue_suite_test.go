@@ -24,6 +24,7 @@ func createEvent(name domain.EventName, sessionId string, index uint64, timestam
 		LocalIndex:  int(index),
 		ID:          uuid.NewString(),
 		Timestamp:   timestamp,
+		SessionId:   sessionId,
 		Data:        data,
 	}
 }

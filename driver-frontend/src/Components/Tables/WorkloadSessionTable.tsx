@@ -157,7 +157,9 @@ export const WorkloadSessionTable: React.FunctionComponent<WorkloadSessionTableP
                                     <Td dataLabel={sessions_table_columns[4]}>{getRemainingTrainings(session)}</Td>
                                     <Td dataLabel={sessions_table_columns[5]}>
                                         <CpuIcon />{' '}
-                                        {session?.current_resource_request ? session?.current_resource_request.cpus : 0}
+                                        {session?.current_resource_request
+                                            ? RoundToThreeDecimalPlaces(session?.current_resource_request.cpus)
+                                            : 0}
                                         {'/'}
                                         {session?.max_resource_request.cpus}
                                     </Td>

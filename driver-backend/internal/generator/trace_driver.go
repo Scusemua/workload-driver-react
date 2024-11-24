@@ -255,6 +255,7 @@ func (d *BaseDriver) DriveWithSlice(ctx context.Context, records []Record, doneC
 		EventSource:         d,
 		OriginalEventSource: d,
 		Name:                EventNoMore,
+		SessionId:           "N/A",
 		ID:                  uuid.New().String(),
 	})
 	if err != nil {
@@ -364,6 +365,7 @@ func (d *BaseDriver) Drive(ctx context.Context, mfPaths ...string) {
 		OriginalEventSource: d,
 		Name:                EventNoMore,
 		ID:                  uuid.New().String(),
+		SessionId:           "N/A",
 	}); err != nil {
 		d.sugarLog.Warnf("Error while triggering events: %v", err)
 	}
@@ -390,6 +392,7 @@ func (d *BaseDriver) TriggerError(ctx context.Context, e error) error {
 		EventSource:         d.TraceDriver,
 		OriginalEventSource: d.TraceDriver,
 		Name:                EventError,
+		SessionId:           "N/A",
 		Data:                e,
 		ID:                  uuid.New().String(),
 	})
@@ -436,6 +439,7 @@ func (d *BaseDriver) FlushEvents(ctx context.Context, Timestamp time.Time) error
 			EventSource:         d.TraceDriver,
 			OriginalEventSource: d.TraceDriver,
 			Name:                EventTickHolder,
+			SessionId:           "N/A",
 			Timestamp:           Timestamp,
 			ID:                  uuid.New().String(),
 		})

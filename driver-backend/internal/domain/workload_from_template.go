@@ -1,19 +1,51 @@
 package domain
 
 import (
+	"encoding/json"
 	"go.uber.org/zap"
 	"time"
 )
+
+type PreloadedWorkloadTemplate struct {
+	// DisplayName is the display name of the preloaded workload template.
+	DisplayName string `json:"display_name" yaml:"display_name" name:"display_name" mapstructure:"display_name"`
+
+	// Key uniquely identifies the PreloadedWorkloadTemplate.
+	Key string `json:"key" yaml:"key" mapstructure:"key" name:"key"`
+
+	// Filepath is the file path of the .JSON workload template file.
+	Filepath string `json:"filepath" yaml:"filepath" name:"filepath" mapstructure:"filepath"`
+
+	// NumSessions is the number of sessions that will be created by/in the workload.
+	NumSessions int `json:"num_sessions" yaml:"num_sessions" name:"num_sessions" mapstructure:"num_sessions"`
+
+	// NumTrainings is the total number of training events in the workload (for all sessions).
+	NumTrainings int `json:"num_training_events" yaml:"num_training_events" name:"num_training_events" mapstructure:"num_training_events"`
+
+	// IsLarge indicates if the workload is "arbitrarily" large, as in it is up to the creator of the template
+	// (or whoever creates the configuration file with all the preloaded workload templates in it) to designate
+	// a workload as "large".
+	IsLarge bool `json:"large" yaml:"large" name:"large" mapstructure:"large"`
+}
+
+func (t *PreloadedWorkloadTemplate) String() string {
+	m, err := json.Marshal(t)
+	if err != nil {
+		panic(err)
+	}
+
+	return string(m)
+}
 
 // WorkloadFromTemplate is a struct representing a Workload that is generated using the "template" option
 // within the frontend dashboard.
 type WorkloadFromTemplate struct {
 	*BasicWorkload
 
-	Sessions []*WorkloadTemplateSession `json:"workload_template"`
+	Sessions []*WorkloadTemplateSession `json:"sessions"`
 }
 
-func NewWorkloadFromTemplate(baseWorkload Workload, sourceSessions []*WorkloadTemplateSession) *WorkloadFromTemplate {
+func NewWorkloadFromTemplate(baseWorkload Workload, sourceSessions []*WorkloadTemplateSession) (*WorkloadFromTemplate, error) {
 	if sourceSessions == nil {
 		panic("WorkloadSessions slice cannot be nil when creating a new workload from a template.")
 	}
@@ -32,13 +64,17 @@ func NewWorkloadFromTemplate(baseWorkload Workload, sourceSessions []*WorkloadTe
 
 	workloadFromTemplate := &WorkloadFromTemplate{
 		BasicWorkload: baseWorkloadImpl,
-		Sessions:      sourceSessions,
+	}
+
+	err := workloadFromTemplate.SetSource(sourceSessions)
+	if err != nil {
+		return nil, err
 	}
 
 	baseWorkloadImpl.WorkloadType = TemplateWorkload
 	baseWorkloadImpl.workloadInstance = workloadFromTemplate
 
-	return workloadFromTemplate
+	return workloadFromTemplate, nil
 }
 
 // SessionDelayed should be called when events for a particular Session are delayed for processing, such as
@@ -74,7 +110,15 @@ func (w *WorkloadFromTemplate) SetSource(source interface{}) error {
 	}
 
 	w.workloadSource = sourceSessions
-	return w.SetSessions(sourceSessions)
+	err := w.SetSessions(sourceSessions)
+	if err != nil {
+		w.logger.Error("Failed to assign source to WorkloadFromTemplate.", zap.Error(err))
+		return err
+	}
+
+	w.logger.Debug("Assigned source to WorkloadFromTemplate.", zap.Int("num_sessions", len(sourceSessions)))
+
+	return nil
 }
 
 // SetSessions sets the sessions that will be involved in this workload.

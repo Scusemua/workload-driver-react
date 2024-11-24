@@ -55,6 +55,10 @@ const (
 	// workload presets from the backend.
 	WorkloadPresetEndpoint = "workload-presets"
 
+	// WorkloadTemplatesEndpoint is used internally (by the frontend) to get the list of available
+	// workload templates from the backend.
+	WorkloadTemplatesEndpoint = "workload-templates"
+
 	// PanicEndpoint is used to cause the Cluster Gateway to panic. used for debugging/testing.
 	PanicEndpoint = "panic"
 

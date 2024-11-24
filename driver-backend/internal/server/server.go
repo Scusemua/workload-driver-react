@@ -499,6 +499,9 @@ func (s *serverImpl) setupRoutes() error {
 		// Used internally (by the frontend) to get the list of available workload presets from the backend.
 		apiGroup.GET(domain.WorkloadPresetEndpoint, handlers.NewWorkloadPresetHttpHandler(s.opts, &atom).HandleRequest)
 
+		// Used internally (by the frontend) to get the list of available preloaded workload templates from the backend.
+		apiGroup.GET(domain.WorkloadTemplatesEndpoint, handlers.NewWorkloadTemplateHttpHandler(s.opts, &atom).HandleRequest)
+
 		// Used internally (by the frontend) to trigger kernel replica migrations.
 		apiGroup.POST(domain.MigrationEndpoint, handlers.NewMigrationHttpHandler(s.opts, s.gatewayRpcClient, &atom).HandleRequest)
 

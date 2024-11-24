@@ -230,9 +230,6 @@ func (s *Synthesizer) handleEventStandard(evt *domain.Event, triggeredEventName 
 		newPod := uuid.NewString()
 		eventData.Pod = newPod
 		s.sessionIdMapping[originalPod] = newPod
-		//s.log.Debug("Renamed Session.",
-		//	zap.String("old_name", originalPod),
-		//	zap.String("new_name", newPod))
 	}
 
 	sessEvt := &domain.Event{
@@ -240,15 +237,11 @@ func (s *Synthesizer) handleEventStandard(evt *domain.Event, triggeredEventName 
 		EventSource:         evt.EventSource,
 		OriginalEventSource: evt.OriginalEventSource,
 		Data:                eventData,
-		Timestamp:           sess.Timestamp,
+		Timestamp:           eventData.Timestamp,
 		ID:                  uuid.New().String(),
-		OriginalTimestamp:   sess.Timestamp,
+		OriginalTimestamp:   eventData.Timestamp,
+		SessionId:           eventData.Pod,
 	}
-
-	s.log.Debug("Submitting session-level event.",
-		zap.String("session_id", eventData.Pod),
-		zap.String("event_name", triggeredEventName.String()),
-		zap.Time("event_timestamp", sess.Timestamp))
 
 	s.consumer.SubmitEvent(sessEvt)
 }

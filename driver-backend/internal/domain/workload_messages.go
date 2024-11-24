@@ -94,7 +94,7 @@ func (r *WorkloadResponse) String() string {
 // WorkloadRegistrationRequestWrapper contains the message ID and operation field.
 type WorkloadRegistrationRequestWrapper struct {
 	*BaseMessage
-	WorkloadRegistrationRequest *WorkloadRegistrationRequest `json:"workloadRegistrationRequest"`
+	WorkloadRegistrationRequest *WorkloadRegistrationRequest `json:"workload_registration_request"`
 }
 
 func (r *WorkloadRegistrationRequestWrapper) String() string {
@@ -174,6 +174,7 @@ type WorkloadRegistrationRequest struct {
 	WorkloadName              string                         `name:"name" json:"name" yaml:"name" description:"Non-unique identifier of the workload created/specified by the user when launching the workload."`
 	DebugLogging              bool                           `name:"debug_logging" json:"debug_logging" yaml:"debug_logging" description:"Flag indicating whether debug-level logging should be enabled."`
 	Sessions                  []*WorkloadTemplateSession     `name:"sessions" json:"sessions" yaml:"sessions" description:"The sessions defined by the template. These are used to construct the workload."`
+	TemplateFilePath          string                         `name:"template_file_path" json:"template_file_path" yaml:"template_file_path" description:"Path to .JSON file containing a large template that comes pre-loaded on the server."`
 	Type                      string                         `name:"type" json:"type"`
 	Key                       string                         `name:"key" yaml:"key" json:"key" description:"Key for code-use only (i.e., we don't intend to display this to the user for the most part)."` // Key for code-use only (i.e., we don't intend to display this to the user for the most part).
 	Seed                      int64                          `name:"seed" yaml:"seed" json:"seed" description:"RNG seed for the workload."`

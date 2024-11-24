@@ -14,7 +14,7 @@ ENV DASHBOARD_CONFIG_DIR=/etc/distributed-notebook-cluster
 
 COPY server-linux-amd64 ./server-linux-amd64
 COPY configs/custom_event_sequences $DASHBOARD_CONFIG_DIR/custom_event_sequences
-COPY configs/workload_templates $DASHBOARD_CONFIG_DIR/workload_templates
+# COPY configs/workload_templates $DASHBOARD_CONFIG_DIR/workload_templates
 COPY dist ./dist
 
 EXPOSE 8000

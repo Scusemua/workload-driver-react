@@ -278,33 +278,32 @@ type BasicWorkload struct {
 	// UnsampledSessions keeps track of the Sessions this workload has not selected for sampling/processing.
 	//
 	// UnsampledSessions is a sort of counterpart to the SampledSessions field.
-	UnsampledSessions         map[string]interface{}     `json:"unsampled_sessions"`
-	Id                        string                     `json:"id"`
-	Name                      string                     `json:"name"`
-	WorkloadState             WorkloadState              `json:"workload_state"`
-	CurrentTick               int64                      `json:"current_tick"`
-	DebugLoggingEnabled       bool                       `json:"debug_logging_enabled"`
-	ErrorMessage              string                     `json:"error_message"`
-	EventsProcessed           []*WorkloadEvent           `json:"events_processed"`
-	Sessions                  []*WorkloadTemplateSession `json:"sessions"`
-	Seed                      int64                      `json:"seed"`
-	RegisteredTime            time.Time                  `json:"registered_time"`
-	StartTime                 time.Time                  `json:"start_time"`
-	EndTime                   time.Time                  `json:"end_time"`
-	WorkloadDuration          time.Duration              `json:"workload_duration"` // The total time that the workload executed for. This is only set once the workload has completed.
-	TimeElapsed               time.Duration              `json:"time_elapsed"`      // Computed at the time that the data is requested by the user. This is the time elapsed SO far.
-	TimeElapsedStr            string                     `json:"time_elapsed_str"`
-	NumTasksExecuted          int64                      `json:"num_tasks_executed"`
-	NumEventsProcessed        int64                      `json:"num_events_processed"`
-	NumSessionsCreated        int64                      `json:"num_sessions_created"`
-	NumActiveSessions         int64                      `json:"num_active_sessions"`
-	NumActiveTrainings        int64                      `json:"num_active_trainings"`
-	TimescaleAdjustmentFactor float64                    `json:"timescale_adjustment_factor"`
-	SimulationClockTimeStr    string                     `json:"simulation_clock_time"`
-	WorkloadType              WorkloadType               `json:"workload_type"`
-	TickDurationsMillis       []int64                    `json:"tick_durations_milliseconds"`
-	SessionsSamplePercentage  float64                    `json:"sessions_sample_percentage"`
-	TimeSpentPausedMillis     int64                      `json:"time_spent_paused_milliseconds"`
+	UnsampledSessions         map[string]interface{} `json:"unsampled_sessions"`
+	Id                        string                 `json:"id"`
+	Name                      string                 `json:"name"`
+	WorkloadState             WorkloadState          `json:"workload_state"`
+	CurrentTick               int64                  `json:"current_tick"`
+	DebugLoggingEnabled       bool                   `json:"debug_logging_enabled"`
+	ErrorMessage              string                 `json:"error_message"`
+	EventsProcessed           []*WorkloadEvent       `json:"events_processed"`
+	Seed                      int64                  `json:"seed"`
+	RegisteredTime            time.Time              `json:"registered_time"`
+	StartTime                 time.Time              `json:"start_time"`
+	EndTime                   time.Time              `json:"end_time"`
+	WorkloadDuration          time.Duration          `json:"workload_duration"` // The total time that the workload executed for. This is only set once the workload has completed.
+	TimeElapsed               time.Duration          `json:"time_elapsed"`      // Computed at the time that the data is requested by the user. This is the time elapsed SO far.
+	TimeElapsedStr            string                 `json:"time_elapsed_str"`
+	NumTasksExecuted          int64                  `json:"num_tasks_executed"`
+	NumEventsProcessed        int64                  `json:"num_events_processed"`
+	NumSessionsCreated        int64                  `json:"num_sessions_created"`
+	NumActiveSessions         int64                  `json:"num_active_sessions"`
+	NumActiveTrainings        int64                  `json:"num_active_trainings"`
+	TimescaleAdjustmentFactor float64                `json:"timescale_adjustment_factor"`
+	SimulationClockTimeStr    string                 `json:"simulation_clock_time"`
+	WorkloadType              WorkloadType           `json:"workload_type"`
+	TickDurationsMillis       []int64                `json:"tick_durations_milliseconds"`
+	SessionsSamplePercentage  float64                `json:"sessions_sample_percentage"`
+	TimeSpentPausedMillis     int64                  `json:"time_spent_paused_milliseconds"`
 	timeSpentPaused           time.Duration
 	pauseWaitBegin            time.Time
 
@@ -421,7 +420,6 @@ func (b *WorkloadBuilder) Build() *BasicWorkload {
 		sessionsMap:               hashmap.New(32),
 		trainingStartedTimes:      hashmap.New(32),
 		CurrentTick:               0,
-		Sessions:                  make([]*WorkloadTemplateSession, 0), // For template workloads, this will be overwritten.
 		SumTickDurationsMillis:    0,
 		TickDurationsMillis:       make([]int64, 0),
 		RemoteStorageDefinition:   b.remoteStorageDefinition,
@@ -467,7 +465,6 @@ func NewWorkload(id string, workloadName string, seed int64, debugLoggingEnabled
 		sessionsMap:               hashmap.New(32),
 		trainingStartedTimes:      hashmap.New(32),
 		CurrentTick:               0,
-		Sessions:                  make([]*WorkloadTemplateSession, 0), // For template workloads, this will be overwritten.
 		SumTickDurationsMillis:    0,
 		TickDurationsMillis:       make([]int64, 0),
 		RemoteStorageDefinition:   remoteStorageDefinition,
@@ -629,13 +626,6 @@ func (w *BasicWorkload) SetSource(source interface{}) error {
 	defer w.mu.Unlock()
 
 	return w.workloadInstance.SetSource(source)
-}
-
-// GetSessions returns the sessions involved in this workload.
-func (w *BasicWorkload) GetSessions() []*WorkloadTemplateSession {
-	w.mu.RLock()
-	defer w.mu.RUnlock()
-	return w.Sessions
 }
 
 // GetWorkloadType gets the type of workload (TRACE, PRESET, or TEMPLATE).
@@ -1062,7 +1052,7 @@ func (w *BasicWorkload) TrainingStopped(sessionId string, evt *Event) {
 		trainingDuration := time.Since(val.(time.Time))
 
 		metrics.PrometheusMetricsWrapperInstance.WorkloadTrainingEventDurationMilliseconds.
-			With(prometheus.Labels{"workload_id": w.Id}).
+			With(prometheus.Labels{"workload_id": w.Id, "session_id": sessionId}).
 			Observe(float64(trainingDuration.Milliseconds()))
 	}
 
@@ -1215,10 +1205,10 @@ func (w *BasicWorkload) IsSessionBeingSampled(sessionId string) bool {
 	}
 
 	w.UnsampledSessions[sessionId] = struct{}{}
-	w.logger.Debug("Decided to discard events targeting session.",
-		zap.String("session_id", sessionId),
-		zap.Int("num_sampled_sessions", len(w.SampledSessions)),
-		zap.Int("num_discarded_sessions", len(w.UnsampledSessions)))
+	//w.logger.Debug("Decided to discard events targeting session.",
+	//	zap.String("session_id", sessionId),
+	//	zap.Int("num_sampled_sessions", len(w.SampledSessions)),
+	//	zap.Int("num_discarded_sessions", len(w.UnsampledSessions)))
 	return false
 }
 

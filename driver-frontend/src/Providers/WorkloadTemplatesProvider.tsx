@@ -1,4 +1,4 @@
-import { WorkloadPreset } from '@Data/Workload';
+import { PreloadedWorkloadTemplate } from '@src/Data';
 import { GetPathForFetch } from '@src/Utils/path_utils';
 import useSWR, { mutate } from 'swr';
 
@@ -24,16 +24,29 @@ const fetcher = async (input: RequestInfo | URL) => {
     return await response.json();
 };
 
-const api_endpoint: string = GetPathForFetch('api/workload-presets');
+const api_endpoint: string = GetPathForFetch('api/workload-templates');
 
-export function useWorkloadPresets() {
+export function useWorkloadTemplates() {
     const { data, error, isLoading } = useSWR(api_endpoint, fetcher, { refreshInterval: 120000 });
 
-    const workloadPresets: WorkloadPreset[] = data || [];
+    const preloadedWorkloadTemplates: PreloadedWorkloadTemplate[] = data || [];
+
+    const preloadedWorkloadTemplatesMap: Map<string, PreloadedWorkloadTemplate> = new Map<
+        string,
+        PreloadedWorkloadTemplate
+    >();
+
+    if (preloadedWorkloadTemplates) {
+        preloadedWorkloadTemplates.forEach((template: PreloadedWorkloadTemplate) => {
+            preloadedWorkloadTemplatesMap.set(template.display_name, template);
+            preloadedWorkloadTemplatesMap.set(template.key, template);
+        });
+    }
 
     return {
-        workloadPresets: workloadPresets,
-        workloadPresetsAreLoading: isLoading,
+        preloadedWorkloadTemplates: preloadedWorkloadTemplates,
+        preloadedWorkloadTemplatesMap: preloadedWorkloadTemplatesMap,
+        preloadedWorkloadTemplatesAreLoading: isLoading,
         refreshWorkloadPresets: async () => {
             await mutate(api_endpoint);
         },

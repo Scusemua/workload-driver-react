@@ -82,6 +82,7 @@ type Event struct {
 	EventSource         EventSource   `json:"-"`
 	OriginalEventSource EventSource   `json:"-"`
 	Data                interface{}   `json:"data"`
+	SessionId           string        `json:"session_id"`
 	Name                EventName     `json:"name"`
 	Timestamp           time.Time     `json:"timestamp"`
 	OriginalTimestamp   time.Time     `json:"originalTimestamp"`

@@ -493,7 +493,7 @@ function WorkloadProvider({ children }: { children: React.ReactNode }) {
             JSON.stringify({
                 op: 'register_workload',
                 msg_id: messageId,
-                workloadRegistrationRequest: {
+                workload_registration_request: {
                     adjust_gpu_reservations: false,
                     seed: workloadSeed,
                     timescale_adjustment_factor: timescaleAdjustmentFactor,
@@ -502,6 +502,7 @@ function WorkloadProvider({ children }: { children: React.ReactNode }) {
                     debug_logging: debugLoggingEnabled,
                     type: 'preset',
                     sessions_sample_percentage: workloadSessionSamplePercent,
+                    template_file_path: '',
                 },
             }),
         );

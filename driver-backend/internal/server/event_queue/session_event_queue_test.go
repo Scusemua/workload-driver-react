@@ -39,6 +39,7 @@ var _ = Describe("SessionEventQueue Tests", func() {
 			GlobalIndex: 0,
 			LocalIndex:  0,
 			ID:          uuid.NewString(),
+			SessionId:   sessionId,
 			Timestamp:   time.Now(),
 			Data:        data,
 		}

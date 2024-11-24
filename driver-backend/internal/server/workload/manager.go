@@ -295,7 +295,10 @@ func (m *BasicWorkloadManager) RegisterWorkload(request *domain.WorkloadRegistra
 	m.workloadsMap.Set(workloadId, workload)
 	m.workloadDrivers.Set(workloadId, workloadDriver)
 
-	m.sugaredLogger.Debugf("Successfully registered workload \"%s\" with Workload Manager.", workloadId)
+	m.logger.Debug("Successfully registered workload with Workload Manager.",
+		zap.String("workload_id", workloadId),
+		zap.String("workload_name", workload.WorkloadName()),
+		zap.String("workload", workload.String()))
 
 	return workload, err
 }
@@ -313,7 +316,7 @@ func (m *BasicWorkloadManager) pushWorkloadUpdate(payload []byte) error {
 }
 
 // Used to push updates about active workloads to the frontend.
-func (m *BasicWorkloadManager) serverPushRoutine( /* doneChan chan struct{} */) {
+func (m *BasicWorkloadManager) serverPushRoutine( /* doneChan chan struct{} */ ) {
 	activeWorkloads := m.GetActiveWorkloads()
 
 	// Function that continuously pulls workload IDs out of the 'workloadStartedChan' until there are none left.
