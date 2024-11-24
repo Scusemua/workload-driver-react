@@ -1102,9 +1102,11 @@ export const RegisterWorkloadFromTemplateForm: React.FunctionComponent<IRegister
                         <RemoteStorageDefinitionForm />
                     </FlexItem>
                 </Flex>
-                <FlexItem>
-                    <SessionConfigurationForm />
-                </FlexItem>
+                {(!selectedPreloadedWorkloadTemplate || !selectedPreloadedWorkloadTemplate.large) && (
+                    <FlexItem>
+                        <SessionConfigurationForm />
+                    </FlexItem>
+                )}
                 <FlexItem>{jsonFileUploadRegion}</FlexItem>
             </Flex>
         </Form>

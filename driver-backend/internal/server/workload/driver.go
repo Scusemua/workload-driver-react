@@ -10,7 +10,6 @@ import (
 	"github.com/scusemua/workload-driver-react/m/v2/pkg/statistics"
 	"github.com/shopspring/decimal"
 	"io"
-	"log"
 	"math"
 	"math/rand"
 	"net/http"
@@ -366,11 +365,11 @@ func (d *BasicWorkloadDriver) createWorkloadFromPreset(workloadRegistrationReque
 	return workloadFromPreset, nil
 }
 
-// createWorkloadFromTemplateFromFile is used for workload templates that come pre-defined
+// loadWorkloadTemplateFromFile is used for workload templates that come pre-defined
 // on the server because of how large they are.
-func (d *BasicWorkloadDriver) createWorkloadFromTemplateFromFile(workloadRegistrationRequest *domain.WorkloadRegistrationRequest) (*domain.WorkloadFromTemplate, error) {
+func (d *BasicWorkloadDriver) loadWorkloadTemplateFromFile(workloadRegistrationRequest *domain.WorkloadRegistrationRequest) error {
 	if workloadRegistrationRequest.TemplateFilePath == "" {
-		return nil, ErrTemplateFilePathNotSpecified
+		return ErrTemplateFilePathNotSpecified
 	}
 
 	d.logger.Debug("Registering workload from pre-loaded template.",
@@ -378,7 +377,7 @@ func (d *BasicWorkloadDriver) createWorkloadFromTemplateFromFile(workloadRegistr
 
 	templateJsonFile, err := os.Open(workloadRegistrationRequest.TemplateFilePath)
 	if err != nil {
-		return nil, fmt.Errorf("%w: %w: \"%s\"",
+		return fmt.Errorf("%w: %w: \"%s\"",
 			ErrInvalidTemplateFileSpecified, err, workloadRegistrationRequest.TemplateFilePath)
 	}
 	defer func() {
@@ -398,7 +397,11 @@ func (d *BasicWorkloadDriver) createWorkloadFromTemplateFromFile(workloadRegistr
 	// Read the file contents
 	templateJsonFileContents, err := io.ReadAll(templateJsonFile)
 	if err != nil {
-		log.Fatalf("failed to read file: %v", err)
+		d.logger.Error("Failed to read workload template file.",
+			zap.String("workload_name", workloadRegistrationRequest.WorkloadName),
+			zap.String("template_file_path", workloadRegistrationRequest.TemplateFilePath),
+			zap.Error(err))
+		return err
 	}
 
 	// Unmarshal JSON into the struct
@@ -409,29 +412,13 @@ func (d *BasicWorkloadDriver) createWorkloadFromTemplateFromFile(workloadRegistr
 			zap.String("workload_name", workloadRegistrationRequest.WorkloadName),
 			zap.String("template_file_path", workloadRegistrationRequest.TemplateFilePath),
 			zap.Error(err))
-		return nil, err
+		return err
 	}
 
-	d.workloadSessions = unmarshalledRegistrationRequest.Sessions
-	basicWorkload := domain.NewWorkloadBuilder(d.atom).
-		SetID(d.id).
-		SetWorkloadName(workloadRegistrationRequest.WorkloadName). // Use the name specified at runtime
-		SetSeed(unmarshalledRegistrationRequest.Seed).
-		EnableDebugLogging(unmarshalledRegistrationRequest.DebugLogging).
-		SetTimescaleAdjustmentFactor(unmarshalledRegistrationRequest.TimescaleAdjustmentFactor).
-		SetRemoteStorageDefinition(unmarshalledRegistrationRequest.RemoteStorageDefinition).
-		Build()
+	workloadRegistrationRequest.Sessions = unmarshalledRegistrationRequest.Sessions
+	d.workloadSessions = workloadRegistrationRequest.Sessions
 
-	workloadFromTemplate, err := domain.NewWorkloadFromTemplate(basicWorkload, d.workloadRegistrationRequest.Sessions)
-	if err != nil {
-		d.logger.Error("Error while creating workload from file-loaded template.",
-			zap.String("workload_name", workloadRegistrationRequest.WorkloadName),
-			zap.String("template_file_path", workloadRegistrationRequest.TemplateFilePath),
-			zap.Error(err))
-		return nil, err
-	}
-
-	return workloadFromTemplate, nil
+	return nil
 }
 
 // Create a workload that was created using a template.
@@ -439,16 +426,20 @@ func (d *BasicWorkloadDriver) createWorkloadFromTemplate(workloadRegistrationReq
 	// The workload request needs to have a workload template in it.
 	// If the registration request does not contain a workload template,
 	// then the request is invalid, and we'll return an error.
-	if (workloadRegistrationRequest.Sessions == nil || len(workloadRegistrationRequest.Sessions) == 0) && workloadRegistrationRequest.TemplateFilePath == "" {
-		d.logger.Error("Workload Registration Request for template-based workload is missing the sessions or template file path!")
-		return nil, ErrWorkloadRegistrationMissingTemplate
-	}
 
 	if workloadRegistrationRequest.Sessions == nil || len(workloadRegistrationRequest.Sessions) == 0 {
-		return d.createWorkloadFromTemplateFromFile(workloadRegistrationRequest)
+		if workloadRegistrationRequest.TemplateFilePath == "" {
+			d.logger.Error("Workload Registration Request for template-based workload is missing the sessions or template file path!")
+			return nil, ErrWorkloadRegistrationMissingTemplate
+		}
+
+		err := d.loadWorkloadTemplateFromFile(workloadRegistrationRequest)
+		if err != nil {
+			return nil, err
+		}
 	}
 
-	d.logger.Debug("Creating new workload from embedded template.",
+	d.logger.Debug("Creating new workload from template.",
 		zap.String("workload_name", workloadRegistrationRequest.WorkloadName))
 
 	d.workloadSessions = workloadRegistrationRequest.Sessions
