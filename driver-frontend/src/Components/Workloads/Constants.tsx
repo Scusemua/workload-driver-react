@@ -76,7 +76,7 @@ const GetDefaultFormValues = () => {
     return {
         workloadTitle: title,
         workloadSeed: WorkloadSeedDefault,
-        workloadSessionSamplePercent: WorkloadSessionSamplePercentDefault,
+        sessionsSamplePercentage: WorkloadSessionSamplePercentDefault,
         timescaleAdjustmentFactor: TimeAdjustmentFactorDefault,
         numberOfSessions: 1,
         debugLoggingEnabled: true,

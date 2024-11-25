@@ -41,7 +41,7 @@ export function useKernelSpecs() {
     const { authenticated, setAuthenticated } = React.useContext(AuthorizationContext);
 
     const { data, error, isLoading } = useSWR(
-        authenticated ? GetPathForFetch('jupyter/api/kernelspecs') : null,
+        authenticated ? GetPathForFetch('/jupyter/api/kernelspecs') : null,
         fetcher,
         {
             refreshInterval: () => {
@@ -64,7 +64,7 @@ export function useKernelSpecs() {
             },
         },
     );
-    const { trigger, isMutating } = useSWRMutation(GetPathForFetch('jupyter/api/kernelspecs'), fetcher);
+    const { trigger, isMutating } = useSWRMutation(GetPathForFetch('/jupyter/api/kernelspecs'), fetcher);
 
     const kernelSpecs: JupyterKernelSpecWrapper[] = [];
     let jsonParseError: boolean = false;

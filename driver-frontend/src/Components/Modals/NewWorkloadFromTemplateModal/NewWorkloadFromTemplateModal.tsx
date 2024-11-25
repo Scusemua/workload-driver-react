@@ -1,5 +1,5 @@
 import { RegisterWorkloadFromTemplateForm } from '@Components/Workloads/RegistrationForms/RegisterWorkloadFromTemplateForm';
-import { Button, Flex, FlexItem, Modal, ModalVariant, Popover } from '@patternfly/react-core';
+import { Button, Flex, FlexItem, Modal, Popover } from '@patternfly/react-core';
 import { PencilAltIcon } from '@patternfly/react-icons';
 import HelpIcon from '@patternfly/react-icons/dist/esm/icons/help-icon';
 import React from 'react';
@@ -8,7 +8,7 @@ export interface NewWorkloadFromTemplateModalProps {
     children?: React.ReactNode;
     isOpen: boolean;
     onClose: () => void;
-    onConfirm: (workloadName: string, workloadRegistrationRequestJson: string) => void;
+    onConfirm: (workloadName: string, workloadRegistrationRequestJson: string, messageId?: string) => void;
 }
 
 // Important: this component must be wrapped in a <SessionTabsDataProvider></SessionTabsDataProvider>!

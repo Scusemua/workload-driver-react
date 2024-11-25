@@ -9,6 +9,7 @@ import {
     WorkloadStateRunning,
 } from '@Data/Workload';
 import { Flex, FlexItem, Text, TextVariants } from '@patternfly/react-core';
+import { SpinnerIcon } from '@patternfly/react-icons';
 import { AuthorizationContext } from '@Providers/AuthProvider';
 import { JoinPaths } from '@src/Utils/path_utils';
 import { DefaultDismiss, GetToastContentWithHeaderAndBody } from '@src/Utils/toast_utils';
@@ -42,7 +43,11 @@ type WorkloadContextData = {
         msgId?: string | undefined,
         callback?: (resp?: WorkloadResponse, error?: ErrorResponse) => void,
     ) => string | void;
-    registerWorkloadFromTemplate: (workloadName: string, workloadRegistrationRequest: string) => void;
+    registerWorkloadFromTemplate: (
+        workloadName: string,
+        workloadRegistrationRequest: string,
+        messageId?: string,
+    ) => void;
     workloadsMap: Map<string, Workload>;
     startWorkload: (workload: Workload) => void;
     refreshWorkloads: () => void;
@@ -475,7 +480,7 @@ function WorkloadProvider({ children }: { children: React.ReactNode }) {
         workloadSeedString: string,
         debugLoggingEnabled: boolean,
         timescaleAdjustmentFactor: number,
-        workloadSessionSamplePercent: number,
+        sessionSamplePercent: number,
     ) => {
         const toastId: string = toast(`Registering preset-based workload ${workloadName} now.`, {
             style: { maxWidth: 650 },
@@ -501,7 +506,7 @@ function WorkloadProvider({ children }: { children: React.ReactNode }) {
                     name: workloadName,
                     debug_logging: debugLoggingEnabled,
                     type: 'preset',
-                    sessions_sample_percentage: workloadSessionSamplePercent,
+                    sessions_sample_percentage: sessionSamplePercent,
                     template_file_path: '',
                 },
             }),
@@ -537,12 +542,61 @@ function WorkloadProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
-    const registerWorkloadFromTemplate = (workloadName: string, workloadRegistrationRequest: string) => {
+    const registerWorkloadFromTemplate = (
+        workloadName: string,
+        workloadRegistrationRequest: string,
+        messageId?: string,
+    ) => {
         console.log(`Sending WorkloadRegistrationRequest: ${workloadRegistrationRequest}`);
-        const sendErrorMessage: string | void = sendJsonMessageDirectly(workloadRegistrationRequest);
+
+        const toastId: string = toast.custom(
+            GetToastContentWithHeaderAndBody(
+                `Registering Workload ${workloadName}`,
+                `Registering workload ${workloadName} with backend now...`,
+                'info',
+                DefaultDismiss,
+                undefined,
+                <SpinnerIcon className={'loading-icon-spin-pulse'} />,
+            ),
+        );
+
+        const sendErrorMessage: string | void = sendJsonMessageDirectly(
+            workloadRegistrationRequest,
+            messageId,
+            (resp?: WorkloadResponse, errResp?: ErrorResponse) => {
+                if (resp !== undefined) {
+                    toast.custom(
+                        (t: Toast) =>
+                            GetToastContentWithHeaderAndBody(
+                                `Registered Workload ${workloadName}`,
+                                `Workload "${workloadName}" has been registered successfully.`,
+                                'success',
+                                () => toast.dismiss(t.id),
+                            ),
+                        { id: toastId, style: { maxWidth: 650 }, duration: 10000 },
+                    );
+                } else {
+                    toast.custom(
+                        (t: Toast) =>
+                            GetToastContentWithHeaderAndBody(
+                                'Failed to Start Workload',
+                                [
+                                    `Workload "${workloadName}" could not be registered.`,
+                                    <p key={'toast-content-row-2'}>
+                                        <b>{errResp?.ErrorMessage}</b> {errResp?.Description}
+                                    </p>,
+                                ],
+                                'danger',
+                                () => toast.dismiss(t.id),
+                            ),
+                        { id: toastId, style: { maxWidth: 650 }, duration: 30000 },
+                    );
+                }
+            },
+        );
 
         if (sendErrorMessage) {
-            toast.custom((t: Toast) =>
+            toast.custom(
                 GetToastContentWithHeaderAndBody(
                     'Workload Registration Failed',
                     [
@@ -552,8 +606,9 @@ function WorkloadProvider({ children }: { children: React.ReactNode }) {
                         </p>,
                     ],
                     'danger',
-                    () => toast.dismiss(t.id),
+                    () => toast.dismiss(toastId),
                 ),
+                { id: toastId },
             );
         }
     };

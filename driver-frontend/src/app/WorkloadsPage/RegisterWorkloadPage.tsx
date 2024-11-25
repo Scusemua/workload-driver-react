@@ -47,8 +47,12 @@ const RegisterWorkloadPage: React.FunctionComponent = () => {
         navigate('workloads');
     };
 
-    const onConfirmRegisterWorkloadFromTemplate = (workloadName: string, workloadRegistrationRequest: string) => {
-        registerWorkloadFromTemplate(workloadName, workloadRegistrationRequest);
+    const onConfirmRegisterWorkloadFromTemplate = (
+        workloadName: string,
+        workloadRegistrationRequest: string,
+        messageId?: string,
+    ) => {
+        registerWorkloadFromTemplate(workloadName, workloadRegistrationRequest, messageId);
         navigate('workloads');
     };
 

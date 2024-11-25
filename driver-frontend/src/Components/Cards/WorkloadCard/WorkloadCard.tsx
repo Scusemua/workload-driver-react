@@ -82,10 +82,14 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
         }
     };
 
-    const onConfirmRegisterWorkloadFromTemplate = (workloadName: string, workloadRegistrationRequest: string) => {
+    const onConfirmRegisterWorkloadFromTemplate = (
+        workloadName: string,
+        workloadRegistrationRequest: string,
+        messageId?: string,
+    ) => {
         setIsRegisterWorkloadModalOpen(false);
         setIsRegisterNewWorkloadFromTemplateModalOpen(false);
-        registerWorkloadFromTemplate(workloadName, workloadRegistrationRequest);
+        registerWorkloadFromTemplate(workloadName, workloadRegistrationRequest, messageId);
     };
 
     const onRegisterWorkloadFromTemplateClicked = () => {

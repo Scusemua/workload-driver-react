@@ -43,7 +43,9 @@ import {
     RemoteStorageDefinition,
     Session,
     TrainingEvent,
+    WorkloadRegistrationRequest,
     WorkloadRegistrationRequestTemplateWrapper,
+    WorkloadRegistrationRequestWrapper,
 } from '@src/Data';
 import { SessionTabsDataContext } from '@src/Providers';
 import { GetPathForFetch, numberWithCommas } from '@src/Utils';
@@ -78,7 +80,7 @@ import { v4 as uuidv4 } from 'uuid';
 export interface IRegisterWorkloadFromTemplateFormProps {
     children?: React.ReactNode;
     onCancel: () => void;
-    onConfirm: (workloadName: string, workloadRegistrationRequestJson: string) => void;
+    onConfirm: (workloadName: string, workloadRegistrationRequestJson: string, messageId?: string) => void;
 }
 
 // Clamp a value between two extremes.
@@ -194,11 +196,25 @@ export const RegisterWorkloadFromTemplateForm: React.FunctionComponent<IRegister
         setReadFileData(newReadFiles);
     };
 
-    const parseData = (data, space: string | number | undefined = undefined) => {
+    const parseData = (data, space: string | number | undefined = undefined, message_id?: string) => {
         const workloadTitle: string = data.workloadTitle;
         const workloadSeedString: string = data.workloadSeed;
         const debugLoggingEnabled: boolean = data.debugLoggingEnabled;
         const timescaleAdjustmentFactor: number = data.timescaleAdjustmentFactor;
+        // const sessionsSamplePercentageVal: number | string = data.sessionsSamplePercentage;
+        const sessionsSamplePercentage: number = data.sessionsSamplePercentage;
+
+        // TODO: Fix this.
+        // let sessionsSamplePercentage: number;
+        // if (typeof sessionsSamplePercentageVal === 'string') {
+        //     console.log('sessionsSamplePercentage is a string:', sessionsSamplePercentageVal);
+        //     sessionsSamplePercentage = Number.parseInt(sessionsSamplePercentageVal as string);
+        // } else {
+        //     console.log('sessionsSamplePercentage is a number:', sessionsSamplePercentageVal);
+        //     sessionsSamplePercentage = sessionsSamplePercentageVal as number;
+        // }
+
+        // console.log(`sessionsSamplePercentage: ${sessionsSamplePercentageVal}`);
 
         const remoteStorageDefinition: RemoteStorageDefinition = data.remoteStorageDefinition;
 
@@ -266,41 +282,72 @@ export const RegisterWorkloadFromTemplateForm: React.FunctionComponent<IRegister
             sessions = [];
         }
 
-        return JSON.stringify(
-            {
-                op: 'register_workload',
-                msg_id: uuidv4(),
-                workload_registration_request: {
-                    adjust_gpu_reservations: false,
-                    seed: workloadSeed,
-                    timescale_adjustment_factor: timescaleAdjustmentFactor,
-                    key: 'workload_template_key',
-                    name: workloadTitle,
-                    debug_logging: debugLoggingEnabled,
-                    type: 'template',
-                    sessions: sessions,
-                    remote_storage_definition: remoteStorageDefinition,
-                    template_file_path: selectedPreloadedWorkloadTemplate
-                        ? selectedPreloadedWorkloadTemplate.filepath
-                        : '',
-                },
-            },
-            null,
-            space,
-        );
+        if (!message_id) {
+            message_id = uuidv4();
+        }
+
+        const request: WorkloadRegistrationRequest = {
+            adjust_gpu_reservations: false,
+            name: workloadTitle,
+            debug_logging: debugLoggingEnabled,
+            sessions: sessions,
+            template_file_path: selectedPreloadedWorkloadTemplate ? selectedPreloadedWorkloadTemplate.filepath : '',
+            type: 'template',
+            key: 'workload_template_key',
+            seed: workloadSeed,
+            timescale_adjustment_factor: timescaleAdjustmentFactor,
+            remote_storage_definition: remoteStorageDefinition,
+            sessions_sample_percentage: sessionsSamplePercentage,
+        };
+
+        console.log(`request: ${JSON.stringify(request, null, '  ')}`);
+
+        const requestWrapper: WorkloadRegistrationRequestWrapper = {
+            op: 'register_workload',
+            msg_id: message_id,
+            workload_registration_request: request,
+        };
+
+        return JSON.stringify(requestWrapper, null, space);
+
+        // return JSON.stringify(
+        //     {
+        //         op: 'register_workload',
+        //         msg_id: message_id,
+        //         workload_registration_request: {
+        //             adjust_gpu_reservations: false,
+        //             seed: workloadSeed,
+        //             timescale_adjustment_factor: timescaleAdjustmentFactor,
+        //             key: 'workload_template_key',
+        //             name: workloadTitle,
+        //             debug_logging: debugLoggingEnabled,
+        //             type: 'template',
+        //             sessions: sessions,
+        //             remote_storage_definition: remoteStorageDefinition,
+        //             sessions_sample_percentage: sessionsSamplePercentage,
+        //             template_file_path: selectedPreloadedWorkloadTemplate
+        //                 ? selectedPreloadedWorkloadTemplate.filepath
+        //                 : '',
+        //         },
+        //     },
+        //     null,
+        //     space,
+        // );
     };
 
     const onSubmitTemplate = (data) => {
+        const messageId: string = uuidv4();
+
         let workloadRegistrationRequest: string;
         try {
-            workloadRegistrationRequest = parseData(data);
+            workloadRegistrationRequest = parseData(data, undefined, messageId);
         } catch (err) {
             console.error(`Failed to parse template: ${err}`);
             toast.error(`Failed to parse template: ${err}`);
             return;
         }
-        console.log(`User submitted workload template data: ${JSON.stringify(data)}`);
-        props.onConfirm(data.workloadTitle, workloadRegistrationRequest);
+        console.log(`User submitted workload template data: ${JSON.stringify(workloadRegistrationRequest)}`);
+        props.onConfirm(data.workloadTitle, workloadRegistrationRequest, messageId);
     };
 
     const getWorkloadNameValidationState = () => {
@@ -960,7 +1007,7 @@ export const RegisterWorkloadFromTemplateForm: React.FunctionComponent<IRegister
     const sampleSessionsPercentFormGroup = (
         <FormGroup label={'Sample Sessions %'} labelIcon={<SampleSessionsPopover />}>
             <Controller
-                name="workloadSessionSamplePercent"
+                name="sessionsSamplePercentage"
                 control={form.control}
                 defaultValue={WorkloadSessionSamplePercentDefault}
                 rules={{ min: WorkloadSampleSessionPercentMin, max: WorkloadSampleSessionPercentMax }}
@@ -978,16 +1025,16 @@ export const RegisterWorkloadFromTemplateForm: React.FunctionComponent<IRegister
                         widthChars={10}
                         aria-label="Text input for the 'workload sample session percent'"
                         onPlus={() => {
-                            const curr: number = form.getValues('workloadSessionSamplePercent') || 0;
+                            const curr: number = form.getValues('sessionsSamplePercentage') || 0;
                             let next: number = curr + WorkloadSampleSessionPercentDelta;
                             next = clamp(next, WorkloadSampleSessionPercentMin, WorkloadSampleSessionPercentMax);
-                            form.setValue('workloadSessionSamplePercent', next);
+                            form.setValue('sessionsSamplePercentage', next);
                         }}
                         onMinus={() => {
-                            const curr: number = form.getValues('workloadSessionSamplePercent') || 0;
+                            const curr: number = form.getValues('sessionsSamplePercentage') || 0;
                             let next: number = curr - WorkloadSampleSessionPercentDelta;
                             next = clamp(next, WorkloadSampleSessionPercentMin, WorkloadSampleSessionPercentMax);
-                            form.setValue('workloadSessionSamplePercent', next);
+                            form.setValue('sessionsSamplePercentage', next);
                         }}
                     />
                 )}
@@ -1001,7 +1048,6 @@ export const RegisterWorkloadFromTemplateForm: React.FunctionComponent<IRegister
                 // inputName='number-of-sessions-in-template-workload-input'
                 id="number-of-training-events-in-template-workload-input"
                 key={'number-of-training-events-in-template-workload-input'}
-                type="number"
                 aria-label="Text display for the 'total number of training events'"
                 name={'total-num-training-events'}
                 value={
@@ -1137,16 +1183,8 @@ export const RegisterWorkloadFromTemplateForm: React.FunctionComponent<IRegister
         </FormSection>
     );
 
-    const getNumSessionsDisplaySpan = (): number => {
-        if (selectedPreloadedWorkloadTemplate && selectedPreloadedWorkloadTemplate.large) {
-            return 3;
-        }
-
-        return 6;
-    };
-
-    const getTotalNumTrainingEventsVisible = (): boolean => {
-        return selectedPreloadedWorkloadTemplate && selectedPreloadedWorkloadTemplate.large;
+    const sessionsAndTrainingEventsDisplaysVisible = (): boolean => {
+        return !!(selectedPreloadedWorkloadTemplate && selectedPreloadedWorkloadTemplate.large);
     };
 
     const nonJsonForm = (
@@ -1178,9 +1216,13 @@ export const RegisterWorkloadFromTemplateForm: React.FunctionComponent<IRegister
                         <FormSection title="Generic Workload Parameters" titleElement="h1">
                             <div ref={sessionFormRef}>
                                 <Grid hasGutter md={12}>
-                                    <GridItem span={6}>{workloadTitleForm}</GridItem>
-                                    <GridItem span={getNumSessionsDisplaySpan()}>{numSessionsDisplay}</GridItem>
-                                    {getTotalNumTrainingEventsVisible() && (
+                                    <GridItem span={sessionsAndTrainingEventsDisplaysVisible() ? 6 : 12}>
+                                        {workloadTitleForm}
+                                    </GridItem>
+                                    {sessionsAndTrainingEventsDisplaysVisible() && (
+                                        <GridItem span={3}>{numSessionsDisplay}</GridItem>
+                                    )}
+                                    {sessionsAndTrainingEventsDisplaysVisible() && (
                                         <GridItem span={3}>{numTrainingEventsDisplay}</GridItem>
                                     )}
                                     <GridItem span={3}>{verboseLoggingForm}</GridItem>

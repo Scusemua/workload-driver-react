@@ -12,6 +12,10 @@ export function numberWithCommas(x: number): string {
     return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
 }
 
+export function isNumber(value?: string | string[] | number): boolean {
+    return value != null && value !== '' && !Array.isArray(value) && !isNaN(Number(value.toString()));
+}
+
 export function numberArrayFromRange(start: number, end: number) {
     const nums: number[] = [];
     for (let i: number = start; i < end; i++) nums.push(i);

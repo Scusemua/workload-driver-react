@@ -34,9 +34,13 @@ interface WorkloadRegistrationRequestTemplateWrapper {
     template: WorkloadRegistrationRequest;
 }
 
-interface WorkloadRegistrationRequest {
+interface WorkloadRegistrationRequestWrapper {
     op: string;
     msg_id: string;
+    workload_registration_request: WorkloadRegistrationRequest;
+}
+
+interface WorkloadRegistrationRequest {
     adjust_gpu_reservations: boolean;
     name: string;
     debug_logging: boolean;
@@ -382,3 +386,4 @@ export type { PreloadedWorkloadTemplate as PreloadedWorkloadTemplate };
 export type { WorkloadRegistrationRequest as WorkloadRegistrationRequest };
 export type { WorkloadRegistrationRequestTemplateWrapper as WorkloadRegistrationRequestTemplateWrapper };
 export type { PreloadedWorkloadTemplateWrapper as PreloadedWorkloadTemplateWrapper };
+export type { WorkloadRegistrationRequestWrapper as WorkloadRegistrationRequestWrapper };
