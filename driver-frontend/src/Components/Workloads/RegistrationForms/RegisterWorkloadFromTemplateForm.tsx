@@ -201,20 +201,7 @@ export const RegisterWorkloadFromTemplateForm: React.FunctionComponent<IRegister
         const workloadSeedString: string = data.workloadSeed;
         const debugLoggingEnabled: boolean = data.debugLoggingEnabled;
         const timescaleAdjustmentFactor: number = data.timescaleAdjustmentFactor;
-        // const sessionsSamplePercentageVal: number | string = data.sessionsSamplePercentage;
         const sessionsSamplePercentage: number = data.sessionsSamplePercentage;
-
-        // TODO: Fix this.
-        // let sessionsSamplePercentage: number;
-        // if (typeof sessionsSamplePercentageVal === 'string') {
-        //     console.log('sessionsSamplePercentage is a string:', sessionsSamplePercentageVal);
-        //     sessionsSamplePercentage = Number.parseInt(sessionsSamplePercentageVal as string);
-        // } else {
-        //     console.log('sessionsSamplePercentage is a number:', sessionsSamplePercentageVal);
-        //     sessionsSamplePercentage = sessionsSamplePercentageVal as number;
-        // }
-
-        // console.log(`sessionsSamplePercentage: ${sessionsSamplePercentageVal}`);
 
         const remoteStorageDefinition: RemoteStorageDefinition = data.remoteStorageDefinition;
 
@@ -896,7 +883,9 @@ export const RegisterWorkloadFromTemplateForm: React.FunctionComponent<IRegister
                         min={WorkloadSeedMin}
                         max={WorkloadSeedMax}
                         onBlur={field.onBlur}
-                        onChange={field.onChange}
+                        onChange={(event: React.FormEvent<HTMLInputElement>) => {
+                            field.onChange(parseFloat((event.target as HTMLInputElement).value));
+                        }}
                         name={field.name}
                         value={field.value}
                         widthChars={10}
@@ -962,7 +951,9 @@ export const RegisterWorkloadFromTemplateForm: React.FunctionComponent<IRegister
                         type="number"
                         aria-label="Text input for the 'timescale adjustment factor'"
                         onBlur={field.onBlur}
-                        onChange={field.onChange}
+                        onChange={(event: React.FormEvent<HTMLInputElement>) => {
+                            field.onChange(parseFloat((event.target as HTMLInputElement).value));
+                        }}
                         name={field.name}
                         value={field.value}
                         min={TimescaleAdjustmentFactorMin}
@@ -1019,7 +1010,9 @@ export const RegisterWorkloadFromTemplateForm: React.FunctionComponent<IRegister
                         min={0}
                         max={1}
                         onBlur={field.onBlur}
-                        onChange={field.onChange}
+                        onChange={(event: React.FormEvent<HTMLInputElement>) => {
+                            field.onChange(parseFloat((event.target as HTMLInputElement).value));
+                        }}
                         name={field.name}
                         value={field.value}
                         widthChars={10}

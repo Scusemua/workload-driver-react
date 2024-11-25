@@ -248,9 +248,9 @@ export const SessionConfigurationFormTabContent: React.FunctionComponent<Session
                                     render={({ field }) => (
                                         <NumberInput
                                             value={field.value}
-                                            onChange={(event) =>
-                                                field.onChange(+(event.target as HTMLInputElement).value)
-                                            }
+                                            onChange={(event: React.FormEvent<HTMLInputElement>) => {
+                                                field.onChange(parseInt((event.target as HTMLInputElement).value));
+                                            }}
                                             onBlur={field.onBlur}
                                             name={field.name}
                                             onMinus={() => {
@@ -288,9 +288,9 @@ export const SessionConfigurationFormTabContent: React.FunctionComponent<Session
                                     render={({ field }) => (
                                         <NumberInput
                                             value={field.value}
-                                            onChange={(event) =>
-                                                field.onChange(+(event.target as HTMLInputElement).value)
-                                            }
+                                            onChange={(event: React.FormEvent<HTMLInputElement>) => {
+                                                field.onChange(parseInt((event.target as HTMLInputElement).value));
+                                            }}
                                             onBlur={field.onBlur}
                                             onMinus={() => {
                                                 const id: string = sessionStopTickFieldId;
@@ -444,9 +444,9 @@ export const SessionConfigurationFormTabContent: React.FunctionComponent<Session
                                         render={({ field }) => (
                                             <NumberInput
                                                 value={field.value}
-                                                onChange={(event) =>
-                                                    field.onChange(+(event.target as HTMLInputElement).value)
-                                                }
+                                                onChange={(event: React.FormEvent<HTMLInputElement>) => {
+                                                    field.onChange(parseInt((event.target as HTMLInputElement).value));
+                                                }}
                                                 onBlur={field.onBlur}
                                                 onMinus={() => {
                                                     const id: string = trainingStartTickFieldId;
@@ -496,9 +496,9 @@ export const SessionConfigurationFormTabContent: React.FunctionComponent<Session
                                         render={({ field }) => (
                                             <NumberInput
                                                 value={field.value}
-                                                onChange={(event) =>
-                                                    field.onChange(+(event.target as HTMLInputElement).value)
-                                                }
+                                                onChange={(event: React.FormEvent<HTMLInputElement>) => {
+                                                    field.onChange(parseInt((event.target as HTMLInputElement).value));
+                                                }}
                                                 onBlur={field.onBlur}
                                                 onMinus={() => {
                                                     const id: string = trainingDurationTicksFieldId;
@@ -661,9 +661,11 @@ export const SessionConfigurationFormTabContent: React.FunctionComponent<Session
                                                 <NumberInput
                                                     required
                                                     widthChars={ResourceNumberInputWidthChars}
-                                                    onChange={(event) =>
-                                                        field.onChange(+(event.target as HTMLInputElement).value)
-                                                    }
+                                                    onChange={(event: React.FormEvent<HTMLInputElement>) => {
+                                                        field.onChange(
+                                                            parseFloat((event.target as HTMLInputElement).value),
+                                                        );
+                                                    }}
                                                     onBlur={field.onBlur}
                                                     value={field.value}
                                                     onMinus={() => {
@@ -710,9 +712,11 @@ export const SessionConfigurationFormTabContent: React.FunctionComponent<Session
                                                 <NumberInput
                                                     widthChars={ResourceNumberInputWidthChars}
                                                     value={field.value}
-                                                    onChange={(event) =>
-                                                        field.onChange(+(event.target as HTMLInputElement).value)
-                                                    }
+                                                    onChange={(event: React.FormEvent<HTMLInputElement>) => {
+                                                        field.onChange(
+                                                            parseFloat((event.target as HTMLInputElement).value),
+                                                        );
+                                                    }}
                                                     onBlur={field.onBlur}
                                                     onMinus={() => {
                                                         const id: string = trainingMemUsageMbFieldId;
@@ -763,9 +767,11 @@ export const SessionConfigurationFormTabContent: React.FunctionComponent<Session
                                                 <NumberInput
                                                     widthChars={ResourceNumberInputWidthChars}
                                                     value={field.value}
-                                                    onChange={(event) =>
-                                                        field.onChange(+(event.target as HTMLInputElement).value)
-                                                    }
+                                                    onChange={(event: React.FormEvent<HTMLInputElement>) => {
+                                                        field.onChange(
+                                                            parseFloat((event.target as HTMLInputElement).value),
+                                                        );
+                                                    }}
                                                     onBlur={field.onBlur}
                                                     onMinus={() => {
                                                         const curr: number = getValues(
@@ -828,11 +834,13 @@ export const SessionConfigurationFormTabContent: React.FunctionComponent<Session
                                                         <NumberInput
                                                             widthChars={ResourceNumberInputWidthChars}
                                                             value={field.value}
-                                                            onChange={(event) =>
+                                                            onChange={(event: React.FormEvent<HTMLInputElement>) => {
                                                                 field.onChange(
-                                                                    +(event.target as HTMLInputElement).value,
-                                                                )
-                                                            }
+                                                                    parseFloat(
+                                                                        (event.target as HTMLInputElement).value,
+                                                                    ),
+                                                                );
+                                                            }}
                                                             onBlur={field.onBlur}
                                                             onMinus={() => {
                                                                 const id: string = getGpuInputFieldId(idx);
