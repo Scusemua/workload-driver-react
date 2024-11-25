@@ -131,16 +131,10 @@ func (w *WorkloadFromTemplate) SetSessions(sessions []*WorkloadTemplateSession) 
 
 	w.Sessions = sessions
 	w.sessionsSet = true
-
-	numSampled := 0
-	numDiscarded := 0
+	w.TotalNumSessions = len(sessions)
 
 	// Add each session to our internal mapping and initialize the session.
 	for _, session := range sessions {
-		if err := session.SetState(SessionAwaitingStart); err != nil {
-			w.logger.Error("Failed to set session state.", zap.String("session_id", session.GetId()), zap.Error(err))
-		}
-
 		if session.CurrentResourceRequest == nil {
 			session.SetCurrentResourceRequest(NewResourceRequest(0, 0, 0, 0, "ANY_GPU"))
 		}
@@ -159,21 +153,19 @@ func (w *WorkloadFromTemplate) SetSessions(sessions []*WorkloadTemplateSession) 
 		w.sessionsMap.Set(session.GetId(), session)
 
 		// Decide if the Session should be sampled or not.
-		sampled := w.unsafeIsSessionBeingSampled(session.Id)
-		if sampled {
-			numSampled += 1
-		} else {
-			numDiscarded += 1
+		_ = w.unsafeIsSessionBeingSampled(session.Id)
+		if err := session.SetState(SessionAwaitingStart); err != nil {
+			w.logger.Error("Failed to set session state.", zap.String("session_id", session.GetId()), zap.Error(err))
 		}
 	}
 
-	if numDiscarded > 0 {
+	if w.NumDiscardedSessions > 0 {
 		w.logger.Debug("Discarded unsampled sessions.",
 			zap.String("workload_id", w.Id),
 			zap.String("workload_name", w.Name),
 			zap.Int("total_num_sessions", len(sessions)),
-			zap.Int("sessions_sampled", numSampled),
-			zap.Int("sessions_discarded", numDiscarded))
+			zap.Int("sessions_sampled", w.NumSampledSessions),
+			zap.Int("sessions_discarded", w.NumDiscardedSessions))
 	}
 
 	return nil

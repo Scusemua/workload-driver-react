@@ -128,7 +128,7 @@ export const WorkloadInspectionView: React.FunctionComponent<IWorkloadInspection
     };
 
     return (
-        <Flex direction={{ default: 'column' }}>
+        <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsXl' }}>
             <Flex
                 direction={{ default: 'row' }}
                 spaceItems={{ default: 'spaceItemsNone' }}
@@ -241,39 +241,43 @@ export const WorkloadInspectionView: React.FunctionComponent<IWorkloadInspection
                     </FlexItem>
                 )}
             </Flex>
-            <Flex direction={{ default: 'row' }}>
-                <FlexItem align={{ default: 'alignLeft' }}>
-                    <ClipboardCheckIcon /> {<strong>Events Processed:</strong>} {props.workload?.num_events_processed}
-                </FlexItem>
-                <FlexItem align={{ default: 'alignRight' }}>
-                    <Checkbox
-                        label="Show Discarded Events"
-                        id={'show-discarded-events-checkbox'}
-                        isChecked={showDiscardedEvents}
-                        onChange={(_event: React.FormEvent<HTMLInputElement>, checked: boolean) =>
-                            setShowDiscardedEvents(checked)
-                        }
-                    />
-                </FlexItem>
-            </Flex>
             <FlexItem>
+                <Flex direction={{ default: 'row' }}>
+                    <FlexItem align={{ default: 'alignLeft' }}>
+                        <ClipboardCheckIcon /> {<strong>Events Processed:</strong>}{' '}
+                        {props.workload?.num_events_processed}
+                    </FlexItem>
+                    <FlexItem align={{ default: 'alignRight' }}>
+                        <Checkbox
+                            label="Show Discarded Events"
+                            id={'show-discarded-events-checkbox'}
+                            isChecked={showDiscardedEvents}
+                            onChange={(_event: React.FormEvent<HTMLInputElement>, checked: boolean) =>
+                                setShowDiscardedEvents(checked)
+                            }
+                        />
+                    </FlexItem>
+                </Flex>
                 <WorkloadEventTable workload={props.workload} showDiscardedEvents={showDiscardedEvents} />
             </FlexItem>
             <FlexItem>
-                <ClipboardCheckIcon /> {<strong>Sessions:</strong>} {props.workload?.num_sessions_created} /{' '}
-                {props.workload?.sessions.length} created, {props.workload?.num_active_trainings} actively training
-            </FlexItem>
-            <FlexItem align={{ default: 'alignRight' }}>
-                <Checkbox
-                    label="Show Discarded Sessions"
-                    id={'show-discarded-sessions-checkbox'}
-                    isChecked={showDiscardedSessions}
-                    onChange={(_event: React.FormEvent<HTMLInputElement>, checked: boolean) =>
-                        setShowDiscardedSessions(checked)
-                    }
-                />
-            </FlexItem>
-            <FlexItem>
+                <Flex direction={{ default: 'row' }}>
+                    <FlexItem align={{ default: 'alignLeft' }}>
+                        <ClipboardCheckIcon /> {<strong>Sessions:</strong>} {props.workload?.num_sessions_created} /{' '}
+                        {props.workload?.sessions.length - props.workload?.num_sessions_discarded} created,{' '}
+                        {props.workload?.num_active_trainings} actively training
+                    </FlexItem>
+                    <FlexItem align={{ default: 'alignRight' }}>
+                        <Checkbox
+                            label="Show Discarded Sessions"
+                            id={'show-discarded-sessions-checkbox'}
+                            isChecked={showDiscardedSessions}
+                            onChange={(_event: React.FormEvent<HTMLInputElement>, checked: boolean) =>
+                                setShowDiscardedSessions(checked)
+                            }
+                        />
+                    </FlexItem>
+                </Flex>
                 <WorkloadSessionTable workload={props.workload} showDiscardedSessions={showDiscardedSessions} />
             </FlexItem>
         </Flex>

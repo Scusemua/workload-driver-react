@@ -110,6 +110,8 @@ func (w *WorkloadFromPreset) SetSessions(sessions []*BasicWorkloadSession) error
 		w.sessionsMap.Set(session.GetId(), session)
 	}
 
+	w.TotalNumSessions = len(sessions)
+
 	return nil
 }
 
@@ -184,6 +186,8 @@ func (w *WorkloadFromPreset) SessionDiscarded(sessionId string) error {
 	if !loaded {
 		return fmt.Errorf("%w: \"%s\"", ErrUnknownSession, sessionId)
 	}
+
+	w.NumDiscardedSessions += 1
 
 	session := val.(*BasicWorkloadSession)
 	err := session.SetState(SessionDiscarded)

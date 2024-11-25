@@ -288,6 +288,9 @@ type BasicWorkload struct {
 	//
 	// UnsampledSessions is a sort of counterpart to the SampledSessions field.
 	UnsampledSessions         map[string]interface{} `json:"-"`
+	TotalNumSessions          int                    `json:"total_num_sessions"`
+	NumDiscardedSessions      int                    `json:"num_discarded_sessions"`
+	NumSampledSessions        int                    `json:"num_sampled_sessions"`
 	Id                        string                 `json:"id"`
 	Name                      string                 `json:"name"`
 	WorkloadState             WorkloadState          `json:"workload_state"`
@@ -1219,6 +1222,7 @@ func (w *BasicWorkload) SetSessionSampled(sessionId string) {
 		zap.String("session_id", sessionId),
 		zap.Int("num_sampled_sessions", len(w.SampledSessions)),
 		zap.Int("num_discarded_sessions", len(w.UnsampledSessions)))
+	w.NumSampledSessions += 1
 }
 
 func (w *BasicWorkload) SetSessionDiscarded(sessionId string) {

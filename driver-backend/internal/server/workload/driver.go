@@ -754,10 +754,13 @@ OUTER:
 				d.sugaredLogger.Debugf("\"%s\" event \"%s\" targeting session \"%s\" DOES occur before next tick [%v]. Enqueuing event now (timestamp=%v).",
 					evt.Name.String(), evt.ID, evt.SessionID(), nextTick, evt.Timestamp)
 
+				d.workload.SetNextEventTick(evt.Timestamp.Unix() / d.targetTickDurationSeconds)
+
 				d.eventQueue.EnqueueEvent(evt)
 			} else {
-				d.sugaredLogger.Debugf("\"%s\" event \"%s\" targeting session \"%s\" does NOT occur before next tick [%v]. Will have to issue clock ticks until we get to event's timestamp of [%v].",
-					evt.Name.String(), evt.ID, evt.SessionID(), nextTick, evt.Timestamp)
+				d.sugaredLogger.Debugf("\"%s\" event \"%s\" targeting session \"%s\" does NOT occur before next tick [%v] (i.e., tick #%d). Will have to issue clock ticks until we get to event's timestamp of [%v] (i.e., tick #%d).",
+					evt.Name.String(), evt.ID, evt.SessionID(), nextTick, nextTick.Unix()/d.targetTickDurationSeconds, evt.Timestamp, evt.Timestamp.Unix()/d.targetTickDurationSeconds)
+				d.workload.SetNextEventTick(evt.Timestamp.Unix() / d.targetTickDurationSeconds)
 
 				// The event occurs in the next tick. Update the current tick clock, issue/perform a tick-trigger, and then process the event.
 				err = d.issueClockTicks(evt.Timestamp)
@@ -1342,20 +1345,6 @@ func (d *BasicWorkloadDriver) doneServingTick(tickStart time.Time) {
 	tick := d.ticksHandled.Load()
 	numEventsEnqueued := d.eventQueue.Len()
 	d.workload.TickCompleted(tick, d.clockTime.GetClockTime())
-
-	nextEventExpectedAt, err := d.eventQueue.GetTimestampOfNextReadyEvent()
-	if err == nil {
-		nextEventExpectedAtTick := nextEventExpectedAt.Unix() / d.targetTickDurationSeconds
-		d.logger.Debug("Setting value of NextEventTick.",
-			zap.String("workload_id", d.workload.GetId()),
-			zap.String("workload_name", d.workload.WorkloadName()),
-			zap.Int64("next_event_tick", nextEventExpectedAtTick))
-		d.workload.SetNextEventTick(nextEventExpectedAtTick)
-	} else if errors.Is(err, event_queue.ErrNoMoreEvents) {
-		d.logger.Debug("Cannot set value of NextEventTick. There are no events in the queue.")
-	} else {
-		panic(err)
-	}
 
 	if d.sugaredLogger.Level() == zapcore.DebugLevel {
 		d.sugaredLogger.Debugf("[%v] Done serving tick #%d. "+

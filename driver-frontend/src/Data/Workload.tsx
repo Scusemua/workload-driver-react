@@ -113,6 +113,9 @@ interface Workload {
     sessions_sample_percentage: number;
     events_processed: WorkloadEvent[];
     sessions: Session[];
+    num_sampled_sessions: number;
+    num_discarded_sessions: number;
+    total_num_sessions: number;
     simulation_clock_time: string;
     current_tick: number;
     total_num_ticks: number | undefined;
