@@ -166,7 +166,16 @@ func (s *SessionMeta) GetCurrentTrainingMaxGPUs() int {
 
 // GetGPUs returns the number of GPUs that this Session is configured to use.
 func (s *SessionMeta) GetGPUs() int {
+	if s.GPU == nil {
+		return s.CurrentTrainingMaxGPUs
+	}
+
 	return s.GPU.GPUs
+}
+
+// HasGpus returns true if the GPUs are not nil.
+func (s *SessionMeta) HasGpus() bool {
+	return s.GPU != nil
 }
 
 // GetMaxSessionCPUs returns the maximum number of CPUs that this SessionMeta will ever use.

@@ -119,6 +119,8 @@ interface Workload {
     simulation_clock_time: string;
     current_tick: number;
     total_num_ticks: number;
+    next_expected_event_name: string;
+    next_expected_event_target: string;
     next_event_expected_tick: number;
     tick_durations_milliseconds: number[];
     sum_tick_durations_millis: number;

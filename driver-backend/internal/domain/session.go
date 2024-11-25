@@ -67,6 +67,9 @@ type SessionMetadata interface {
 
 	// GetGPUs returns the number of GPUs that this Session is configured to use.
 	GetGPUs() int
+
+	// HasGpus returns true if the GPUs are not nil.
+	HasGpus() bool
 }
 
 type SessionState string

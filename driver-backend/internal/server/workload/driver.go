@@ -513,11 +513,25 @@ func (d *BasicWorkloadDriver) RegisterWorkload(workloadRegistrationRequest *doma
 		{
 			// Preset-workload-specific workload creation and initialization steps.
 			workload, err = d.createWorkloadFromPreset(workloadRegistrationRequest)
+
+			if err != nil {
+				d.logger.Error("Failed to create workload from preset.",
+					zap.String("workload_name", workloadRegistrationRequest.WorkloadName),
+					zap.Error(err))
+				return nil, err
+			}
 		}
 	case "template":
 		{
 			// Template-workload-specific workload creation and initialization steps.
 			workload, err = d.createWorkloadFromTemplate(workloadRegistrationRequest)
+
+			if err != nil {
+				d.logger.Error("Failed to create workload from template.",
+					zap.String("workload_name", workloadRegistrationRequest.WorkloadName),
+					zap.Error(err))
+				return nil, err
+			}
 		}
 	default:
 		{
@@ -565,11 +579,6 @@ func (d *BasicWorkloadDriver) RegisterWorkload(workloadRegistrationRequest *doma
 		d.logger.Debug("Will use random seed for RNG.", zap.Int64("workload-seed", workloadRegistrationRequest.Seed))
 	} else {
 		d.logger.Debug("Will use user-specified seed for RNG.", zap.Int64("workload-seed", workloadRegistrationRequest.Seed))
-	}
-
-	if err != nil {
-		d.logger.Error("Failed to create and register workload.", zap.Error(err))
-		return nil, err
 	}
 
 	d.workload = workload
@@ -1800,7 +1809,7 @@ func (d *BasicWorkloadDriver) handleUpdateGpuUtilizationEvent(evt *domain.Event)
 // createExecuteRequestArguments creates the arguments for an "execute_request" from the given event.
 //
 // The event must be of type "training-started", or this will return nil.
-func (d *BasicWorkloadDriver) createExecuteRequestArguments(evt *domain.Event) *jupyter.RequestExecuteArgs {
+func (d *BasicWorkloadDriver) createExecuteRequestArguments(evt *domain.Event) (*jupyter.RequestExecuteArgs, error) {
 	if evt.Name != domain.EventSessionTrainingStarted {
 		d.logger.Error("Attempted to create \"execute_request\" arguments for event of invalid type.",
 			zap.String("event_type", evt.Name.String()),
@@ -1809,13 +1818,23 @@ func (d *BasicWorkloadDriver) createExecuteRequestArguments(evt *domain.Event) *
 			zap.String("workload_id", d.workload.GetId()),
 			zap.String("workload_name", d.workload.WorkloadName()))
 
-		return nil
+		return nil, fmt.Errorf("invalid event type: %s", evt.Name)
 	}
 
 	sessionMetadata := evt.Data.(domain.SessionMetadata)
 
+	if sessionMetadata == nil {
+		d.logger.Error("Event has nil data.",
+			zap.String("event_type", evt.Name.String()),
+			zap.String("event_id", evt.Id()),
+			zap.String("session_id", evt.SessionID()),
+			zap.String("workload_id", d.workload.GetId()),
+			zap.String("workload_name", d.workload.WorkloadName()))
+		return nil, fmt.Errorf("event has nil data")
+	}
+
 	gpus := sessionMetadata.GetCurrentTrainingMaxGPUs()
-	if gpus == 0 && sessionMetadata.GetGPUs() > 0 {
+	if gpus == 0 && sessionMetadata.HasGpus() && sessionMetadata.GetGPUs() > 0 {
 		gpus = sessionMetadata.GetGPUs()
 	}
 
@@ -1836,7 +1855,7 @@ func (d *BasicWorkloadDriver) createExecuteRequestArguments(evt *domain.Event) *
 		AwaitResponse(false).
 		AddMetadata("resource_request", resourceRequest)
 
-	return argsBuilder.Build()
+	return argsBuilder.Build(), nil
 }
 
 // handleTrainingStartedEvent handles a 'training-started' event.
@@ -1874,9 +1893,15 @@ func (d *BasicWorkloadDriver) handleTrainingStartedEvent(evt *domain.Event) erro
 		return ErrNoKernelConnection
 	}
 
-	args := d.createExecuteRequestArguments(evt)
-	err := kernelConnection.RequestExecute(args)
+	args, err := d.createExecuteRequestArguments(evt)
+	if args == nil {
+		d.logger.Error("Failed to create 'execute_request' arguments.",
+			zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId), zap.Error(err))
+		return err
+	}
 
+	err = kernelConnection.RequestExecute(args)
 	if err != nil {
 		d.logger.Error("Error while attempting to execute training code.",
 			zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),

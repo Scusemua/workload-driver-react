@@ -1,12 +1,12 @@
 import WorkloadTickDurationChart from '@Components/Workloads/WorkloadTickDurationChart';
 import {
-    Checkbox,
-    DescriptionList,
-    DescriptionListDescription,
-    DescriptionListGroup,
-    DescriptionListTerm,
-    Flex,
-    FlexItem,
+  Checkbox,
+  DescriptionList,
+  DescriptionListDescription,
+  DescriptionListGroup,
+  DescriptionListTerm,
+  Flex,
+  FlexItem, Label
 } from '@patternfly/react-core';
 import {
     BlueprintIcon,
@@ -15,6 +15,7 @@ import {
     CodeIcon,
     DiceIcon,
     MonitoringIcon,
+    RunningIcon,
     Stopwatch20Icon,
     StopwatchIcon,
     TaskIcon,
@@ -234,6 +235,18 @@ export const WorkloadInspectionView: React.FunctionComponent<IWorkloadInspection
                                     props.workload?.next_event_expected_tick - props.workload?.current_tick || 0,
                                 )}{' '}
                                 tick(s)
+                            </DescriptionListDescription>
+                        </DescriptionListGroup>
+                        <DescriptionListGroup>
+                            <DescriptionListTerm>
+                                Next Expected Event <RunningIcon />
+                            </DescriptionListTerm>
+                            <DescriptionListDescription>
+                                <Label>
+                                    {props.workload.next_expected_event_name !== ''
+                                        ? props.workload.next_expected_event_name
+                                        : 'N/A'}
+                                </Label>
                             </DescriptionListDescription>
                         </DescriptionListGroup>
                     </DescriptionList>
