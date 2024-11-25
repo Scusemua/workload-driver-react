@@ -39,7 +39,7 @@ import styles from '@patternfly/react-styles/css/components/Form/form';
 import { useWorkloadTemplates } from '@Providers/WorkloadTemplatesProvider';
 import { PreloadedWorkloadTemplate, RemoteStorageDefinition, Session, TrainingEvent } from '@src/Data';
 import { SessionTabsDataContext } from '@src/Providers';
-import { GetPathForFetch } from '@src/Utils';
+import { GetPathForFetch, numberWithCommas } from '@src/Utils';
 import { RoundToThreeDecimalPlaces } from '@src/Utils/utils';
 import {
     GetDefaultFormValues,
@@ -373,12 +373,12 @@ export const RegisterWorkloadFromTemplateForm: React.FunctionComponent<IRegister
             <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsNone' }}>
                 <FlexItem>
                     <Text component={'h6'}>
-                        <b>Number of Sessions: </b> {template.num_sessions}
+                        <b>Number of Sessions: </b> {numberWithCommas(template.num_sessions)}
                     </Text>
                 </FlexItem>
                 <FlexItem>
                     <Text component={'h6'}>
-                        <b>Number of Training Events: </b> {template.num_training_events}
+                        <b>Number of Training Events: </b> {numberWithCommas(template.num_training_events)}
                     </Text>
                 </FlexItem>
             </Flex>

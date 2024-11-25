@@ -8,6 +8,10 @@ export function GetRowspan(val: number) {
     }
 }
 
+export function numberWithCommas(x: number): string {
+    return x.toString().replace(/\B(?=(\d{3})+(?!\d))/g, ',');
+}
+
 export function numberArrayFromRange(start: number, end: number) {
     const nums: number[] = [];
     for (let i: number = start; i < end; i++) nums.push(i);
