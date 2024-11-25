@@ -1657,17 +1657,19 @@ func (d *BasicWorkloadDriver) handleSessionReadyEvent(sessionReadyEvent *domain.
 	provisionStart := time.Now()
 	_, err := d.provisionSession(sessionId, sessionMeta, sessionReadyEvent.Timestamp, resourceSpec)
 
-	// The event index will be populated automatically by the ProcessedEvent method.
-	workloadEvent := domain.NewEmptyWorkloadEvent().
-		WithEventId(sessionReadyEvent.Id()).
-		WithEventName(domain.EventSessionStarted).
-		WithSessionId(sessionReadyEvent.SessionID()).
-		WithEventTimestamp(sessionReadyEvent.Timestamp).
-		WithProcessedAtTime(time.Now()).
-		WithProcessedStatus(err == nil).
-		WithSimProcessedAtTime(d.clockTime.GetClockTime()).
-		WithError(err)
-	d.workload.ProcessedEvent(workloadEvent) // this is thread-safe
+	if err == nil || !strings.Contains(err.Error(), "insufficient hosts available") {
+		// The event index will be populated automatically by the ProcessedEvent method.
+		workloadEvent := domain.NewEmptyWorkloadEvent().
+			WithEventId(sessionReadyEvent.Id()).
+			WithEventName(domain.EventSessionStarted).
+			WithSessionId(sessionReadyEvent.SessionID()).
+			WithEventTimestamp(sessionReadyEvent.Timestamp).
+			WithProcessedAtTime(time.Now()).
+			WithProcessedStatus(err == nil).
+			WithSimProcessedAtTime(d.clockTime.GetClockTime()).
+			WithError(err)
+		d.workload.ProcessedEvent(workloadEvent) // this is thread-safe
+	}
 
 	// Handle the error from the above call to provisionSession.
 	if err != nil {
