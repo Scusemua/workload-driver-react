@@ -1226,7 +1226,7 @@ func (w *BasicWorkload) SetSessionSampled(sessionId string) {
 }
 
 func (w *BasicWorkload) SetSessionDiscarded(sessionId string) {
-	err := w.workloadInstance.SessionDiscarded(sessionId)
+	err := w.SessionDiscarded(sessionId)
 	if err != nil {
 		w.logger.Error("Failed to disable session.",
 			zap.String("workload_id", w.Id),

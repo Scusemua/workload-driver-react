@@ -227,10 +227,10 @@ export const WorkloadInspectionView: React.FunctionComponent<IWorkloadInspection
                         </DescriptionListGroup>
                         <DescriptionListGroup>
                             <DescriptionListTerm>
-                                Next Expected Event <ClockIcon />
+                                Next Expected Event In <ClockIcon />
                             </DescriptionListTerm>
                             <DescriptionListDescription>
-                                {props.workload?.next_event_expected_tick}
+                                {numberWithCommas(props.workload?.next_event_expected_tick || 0)} ticks
                             </DescriptionListDescription>
                         </DescriptionListGroup>
                     </DescriptionList>
@@ -264,8 +264,13 @@ export const WorkloadInspectionView: React.FunctionComponent<IWorkloadInspection
                 <Flex direction={{ default: 'row' }}>
                     <FlexItem align={{ default: 'alignLeft' }}>
                         <ClipboardCheckIcon /> {<strong>Sessions:</strong>} {props.workload?.num_sessions_created} /{' '}
-                        {props.workload?.sessions.length - props.workload?.num_discarded_sessions} created,{' '}
-                        {props.workload?.num_active_trainings} actively training
+                        {props.workload?.sessions.length - props.workload?.num_discarded_sessions} (
+                        {RoundToTwoDecimalPlaces(
+                            100 *
+                                (props.workload?.num_sessions_created /
+                                    (props.workload?.sessions.length - props.workload?.num_discarded_sessions)),
+                        ) + '%'}
+                        ) created, {props.workload?.num_active_trainings} actively training
                     </FlexItem>
                     <FlexItem align={{ default: 'alignRight' }}>
                         <Checkbox

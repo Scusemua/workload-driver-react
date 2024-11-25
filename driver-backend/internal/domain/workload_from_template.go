@@ -153,9 +153,12 @@ func (w *WorkloadFromTemplate) SetSessions(sessions []*WorkloadTemplateSession) 
 		w.sessionsMap.Set(session.GetId(), session)
 
 		// Decide if the Session should be sampled or not.
-		_ = w.unsafeIsSessionBeingSampled(session.Id)
-		if err := session.SetState(SessionAwaitingStart); err != nil {
-			w.logger.Error("Failed to set session state.", zap.String("session_id", session.GetId()), zap.Error(err))
+		isSampled := w.unsafeIsSessionBeingSampled(session.Id)
+		if isSampled {
+			err := session.SetState(SessionAwaitingStart)
+			if err != nil {
+				w.logger.Error("Failed to set session state.", zap.String("session_id", session.GetId()), zap.Error(err))
+			}
 		}
 	}
 
@@ -202,6 +205,8 @@ func (w *WorkloadFromTemplate) SessionDiscarded(sessionId string) error {
 	if !loaded {
 		return fmt.Errorf("%w: \"%s\"", ErrUnknownSession, sessionId)
 	}
+
+	w.NumDiscardedSessions += 1
 
 	session := val.(*WorkloadTemplateSession)
 	err := session.SetState(SessionDiscarded)
