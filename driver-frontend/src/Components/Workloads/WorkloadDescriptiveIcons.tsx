@@ -1,11 +1,12 @@
-import { Flex, FlexItem, Switch, Tooltip } from '@patternfly/react-core';
+import { Button, Flex, FlexItem, Switch, Tooltip } from '@patternfly/react-core';
 import {
-    BlueprintIcon,
-    ClockIcon,
-    CubeIcon,
-    DiceIcon,
-    OutlinedCalendarAltIcon,
-    TaskIcon,
+  BlueprintIcon,
+  ClockIcon,
+  CubeIcon,
+  DiceIcon,
+  OutlinedCalendarAltIcon,
+  Page4Icon, SearchIcon,
+  TaskIcon
 } from '@patternfly/react-icons';
 import { GetWorkloadStatusLabel, GetWorkloadStatusTooltip, IsWorkloadFinished, Workload } from '@src/Data';
 import { WorkloadContext } from '@src/Providers';
