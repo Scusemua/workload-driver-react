@@ -10,6 +10,7 @@ import {
     ResourcesEmptyIcon,
     RunningIcon,
     UnknownIcon,
+    WarningTriangleIcon,
 } from '@patternfly/react-icons';
 import { ExpandableRowContent, Table, Tbody, Td, Th, Thead, ThProps, Tr } from '@patternfly/react-table';
 import { GpuIcon, GpuIconAlt2 } from '@src/Assets/Icons';
@@ -55,6 +56,16 @@ function getRemainingTrainings(session: Session): string | number {
 }
 
 function getSessionStatusLabel(session: Session): ReactElement {
+    if (session.discarded) {
+        return (
+            <Tooltip position="right" content="This session was discarded and will not be sampled in this workload.">
+                <Label icon={<WarningTriangleIcon />} color="orange">
+                    discarded
+                </Label>
+            </Tooltip>
+        );
+    }
+
     const status: string = session.state;
     switch (status) {
         case 'awaiting start':
