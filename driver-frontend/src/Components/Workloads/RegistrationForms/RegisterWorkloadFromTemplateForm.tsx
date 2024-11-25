@@ -995,7 +995,26 @@ export const RegisterWorkloadFromTemplateForm: React.FunctionComponent<IRegister
         </FormGroup>
     );
 
-    const numSessionsForm = (
+    const numTrainingEventsDisplay = (
+        <FormGroup label={'Total Number of Training Events'}>
+            <TextInput
+                // inputName='number-of-sessions-in-template-workload-input'
+                id="number-of-training-events-in-template-workload-input"
+                key={'number-of-training-events-in-template-workload-input'}
+                type="number"
+                aria-label="Text display for the 'total number of training events'"
+                name={'total-num-training-events'}
+                value={
+                    selectedPreloadedWorkloadTemplate && selectedPreloadedWorkloadTemplate.large
+                        ? numberWithCommas(selectedPreloadedWorkloadTemplate.num_training_events)
+                        : 'N/A'
+                }
+                isDisabled={true}
+            />
+        </FormGroup>
+    );
+
+    const numSessionsDisplay = (
         <FormGroup label={'Number of Sessions'}>
             <Controller
                 name="numberOfSessions"
@@ -1012,7 +1031,11 @@ export const RegisterWorkloadFromTemplateForm: React.FunctionComponent<IRegister
                         onBlur={field.onBlur}
                         onChange={field.onChange}
                         name={field.name}
-                        value={field.value}
+                        value={
+                            selectedPreloadedWorkloadTemplate && selectedPreloadedWorkloadTemplate.large
+                                ? selectedPreloadedWorkloadTemplate.num_sessions
+                                : field.value
+                        }
                         isDisabled={true}
                         min={NumberOfSessionsMin}
                         max={NumberOfSessionsMax}
@@ -1114,6 +1137,18 @@ export const RegisterWorkloadFromTemplateForm: React.FunctionComponent<IRegister
         </FormSection>
     );
 
+    const getNumSessionsDisplaySpan = (): number => {
+        if (selectedPreloadedWorkloadTemplate && selectedPreloadedWorkloadTemplate.large) {
+            return 3;
+        }
+
+        return 6;
+    };
+
+    const getTotalNumTrainingEventsVisible = (): boolean => {
+        return selectedPreloadedWorkloadTemplate && selectedPreloadedWorkloadTemplate.large;
+    };
+
     const nonJsonForm = (
         <Form
             onSubmit={() => {
@@ -1143,8 +1178,11 @@ export const RegisterWorkloadFromTemplateForm: React.FunctionComponent<IRegister
                         <FormSection title="Generic Workload Parameters" titleElement="h1">
                             <div ref={sessionFormRef}>
                                 <Grid hasGutter md={12}>
-                                    <GridItem span={9}>{workloadTitleForm}</GridItem>
-                                    <GridItem span={3}>{numSessionsForm}</GridItem>
+                                    <GridItem span={6}>{workloadTitleForm}</GridItem>
+                                    <GridItem span={getNumSessionsDisplaySpan()}>{numSessionsDisplay}</GridItem>
+                                    {getTotalNumTrainingEventsVisible() && (
+                                        <GridItem span={3}>{numTrainingEventsDisplay}</GridItem>
+                                    )}
                                     <GridItem span={3}>{verboseLoggingForm}</GridItem>
                                     <GridItem span={3}>{workloadSeedForm}</GridItem>
                                     <GridItem span={3}>{timescaleAdjustmentFactorForm}</GridItem>
