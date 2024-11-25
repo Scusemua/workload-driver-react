@@ -37,7 +37,14 @@ import { CodeIcon, DownloadIcon, SaveAltIcon, TrashAltIcon, UploadIcon } from '@
 import HelpIcon from '@patternfly/react-icons/dist/esm/icons/help-icon';
 import styles from '@patternfly/react-styles/css/components/Form/form';
 import { useWorkloadTemplates } from '@Providers/WorkloadTemplatesProvider';
-import { PreloadedWorkloadTemplate, RemoteStorageDefinition, Session, TrainingEvent } from '@src/Data';
+import {
+    PreloadedWorkloadTemplate,
+    PreloadedWorkloadTemplateWrapper,
+    RemoteStorageDefinition,
+    Session,
+    TrainingEvent,
+    WorkloadRegistrationRequestTemplateWrapper,
+} from '@src/Data';
 import { SessionTabsDataContext } from '@src/Providers';
 import { GetPathForFetch, numberWithCommas } from '@src/Utils';
 import { RoundToThreeDecimalPlaces } from '@src/Utils/utils';
@@ -50,11 +57,16 @@ import {
     TimescaleAdjustmentFactorDelta,
     TimescaleAdjustmentFactorMax,
     TimescaleAdjustmentFactorMin,
+    WorkloadSampleSessionPercentDelta,
+    WorkloadSampleSessionPercentMax,
+    WorkloadSampleSessionPercentMin,
     WorkloadSeedDefault,
     WorkloadSeedDelta,
     WorkloadSeedMax,
     WorkloadSeedMin,
+    WorkloadSessionSamplePercentDefault,
 } from '@Workloads/Constants';
+import SampleSessionsPopover from '@Workloads/RegistrationForms/SampleSessionsPopover';
 import React from 'react';
 import { FileRejection } from 'react-dropzone';
 
@@ -514,7 +526,9 @@ export const RegisterWorkloadFromTemplateForm: React.FunctionComponent<IRegister
                         },
                     };
 
-                    const returnedTemplate: PreloadedWorkloadTemplate | any = await fetch(
+                    const returnedTemplateWrapper:
+                        | PreloadedWorkloadTemplateWrapper
+                        | WorkloadRegistrationRequestTemplateWrapper = await fetch(
                         GetPathForFetch(`api/workload-templates?template=${template.key}`),
                         req,
                     ).then(async (resp: Response) => {
@@ -524,11 +538,16 @@ export const RegisterWorkloadFromTemplateForm: React.FunctionComponent<IRegister
 
                     // Non-large templates are returned directly.
                     if (!template.large) {
-                        console.log(`returnedTemplate: ${JSON.stringify(returnedTemplate.template, null, '  ')}`);
-                        applyJsonToForm(JSON.stringify(returnedTemplate.template));
+                        const templateWrapper: WorkloadRegistrationRequestTemplateWrapper =
+                            returnedTemplateWrapper as WorkloadRegistrationRequestTemplateWrapper;
+                        console.log(`returnedTemplate: ${JSON.stringify(templateWrapper.template, null, '  ')}`);
+                        applyJsonToForm(JSON.stringify(templateWrapper.template));
                     } else {
+                        const templateWrapper: PreloadedWorkloadTemplateWrapper =
+                            returnedTemplateWrapper as PreloadedWorkloadTemplateWrapper;
+
                         console.log(
-                            `returnedPreloadedTemplate: ${JSON.stringify(returnedTemplate.preloaded_template, null, '  ')}`,
+                            `Preloaded Template: ${JSON.stringify(templateWrapper.preloaded_template, null, '  ')}`,
                         );
                     }
                 } else {
@@ -559,7 +578,7 @@ export const RegisterWorkloadFromTemplateForm: React.FunctionComponent<IRegister
         setFailedUploadModalOpen(true);
     };
 
-    const onFileUploadedNonJsonEditor = (event: DropEvent, uploadedFiles: File[]) => {
+    const onFileUploadedNonJsonEditor = (_event: DropEvent, uploadedFiles: File[]) => {
         // identify what, if any, files are re-uploads of already uploaded files
         const currentFileNames = currentFiles.map((file) => file.name);
         const reUploads = uploadedFiles.filter((uploadedFile) => currentFileNames.includes(uploadedFile.name));
@@ -938,6 +957,44 @@ export const RegisterWorkloadFromTemplateForm: React.FunctionComponent<IRegister
         </FormGroup>
     );
 
+    const sampleSessionsPercentFormGroup = (
+        <FormGroup label={'Sample Sessions %'} labelIcon={<SampleSessionsPopover />}>
+            <Controller
+                name="workloadSessionSamplePercent"
+                control={form.control}
+                defaultValue={WorkloadSessionSamplePercentDefault}
+                rules={{ min: WorkloadSampleSessionPercentMin, max: WorkloadSampleSessionPercentMax }}
+                render={({ field }) => (
+                    <NumberInput
+                        inputName="workload-sample-session-number-input"
+                        id="workload-sample-session-number-input"
+                        type="number"
+                        min={0}
+                        max={1}
+                        onBlur={field.onBlur}
+                        onChange={field.onChange}
+                        name={field.name}
+                        value={field.value}
+                        widthChars={10}
+                        aria-label="Text input for the 'workload sample session percent'"
+                        onPlus={() => {
+                            const curr: number = form.getValues('workloadSessionSamplePercent') || 0;
+                            let next: number = curr + WorkloadSampleSessionPercentDelta;
+                            next = clamp(next, WorkloadSampleSessionPercentMin, WorkloadSampleSessionPercentMax);
+                            form.setValue('workloadSessionSamplePercent', next);
+                        }}
+                        onMinus={() => {
+                            const curr: number = form.getValues('workloadSessionSamplePercent') || 0;
+                            let next: number = curr - WorkloadSampleSessionPercentDelta;
+                            next = clamp(next, WorkloadSampleSessionPercentMin, WorkloadSampleSessionPercentMax);
+                            form.setValue('workloadSessionSamplePercent', next);
+                        }}
+                    />
+                )}
+            />
+        </FormGroup>
+    );
+
     const numSessionsForm = (
         <FormGroup label={'Number of Sessions'}>
             <Controller
@@ -1086,11 +1143,12 @@ export const RegisterWorkloadFromTemplateForm: React.FunctionComponent<IRegister
                         <FormSection title="Generic Workload Parameters" titleElement="h1">
                             <div ref={sessionFormRef}>
                                 <Grid hasGutter md={12}>
-                                    <GridItem span={12}>{workloadTitleForm}</GridItem>
+                                    <GridItem span={9}>{workloadTitleForm}</GridItem>
+                                    <GridItem span={3}>{numSessionsForm}</GridItem>
                                     <GridItem span={3}>{verboseLoggingForm}</GridItem>
                                     <GridItem span={3}>{workloadSeedForm}</GridItem>
                                     <GridItem span={3}>{timescaleAdjustmentFactorForm}</GridItem>
-                                    <GridItem span={3}>{numSessionsForm}</GridItem>
+                                    <GridItem span={3}>{sampleSessionsPercentFormGroup}</GridItem>
                                 </Grid>
                             </div>
                         </FormSection>

@@ -30,6 +30,11 @@ const NumberOfGpusDefault: number = 1;
 const DefaultNumTrainingEvents: number = 1;
 const DefaultSelectedTrainingEvent: number = 0;
 
+const WorkloadSampleSessionPercentMin: number = 0.0;
+const WorkloadSampleSessionPercentMax: number = 1.0;
+const WorkloadSessionSamplePercentDefault: number = 1.0;
+const WorkloadSampleSessionPercentDelta: number = 0.01;
+
 const DefaultTrainingEventField = {
     start_tick: TrainingStartTickDefault,
     duration_in_ticks: TrainingDurationInTicksDefault,
@@ -71,6 +76,7 @@ const GetDefaultFormValues = () => {
     return {
         workloadTitle: title,
         workloadSeed: WorkloadSeedDefault,
+        workloadSessionSamplePercent: WorkloadSessionSamplePercentDefault,
         timescaleAdjustmentFactor: TimeAdjustmentFactorDefault,
         numberOfSessions: 1,
         debugLoggingEnabled: true,
@@ -105,6 +111,11 @@ export { TrainingMemUsageGbDefault as TrainingMemUsageGbDefault };
 export { NumberOfGpusDefault as NumberOfGpusDefault };
 export { DefaultNumTrainingEvents as DefaultNumTrainingEvents };
 export { DefaultSelectedTrainingEvent as DefaultSelectedTrainingEvent };
+
+export { WorkloadSampleSessionPercentDelta as WorkloadSampleSessionPercentDelta };
+export { WorkloadSampleSessionPercentMax as WorkloadSampleSessionPercentMax };
+export { WorkloadSampleSessionPercentMin as WorkloadSampleSessionPercentMin };
+export { WorkloadSessionSamplePercentDefault as WorkloadSessionSamplePercentDefault };
 
 export { DefaultTrainingEventField as DefaultTrainingEventField };
 export { GetDefaultSessionFieldValue as GetDefaultSessionFieldValue };

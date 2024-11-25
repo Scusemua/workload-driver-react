@@ -27,6 +27,7 @@ import useNavigation from '@Providers/NavigationProvider';
 import { useWorkloadPresets } from '@Providers/WorkloadPresetProvider';
 
 import { WorkloadPreset } from '@src/Data';
+import SampleSessionsPopover from '@Workloads/RegistrationForms/SampleSessionsPopover';
 import React from 'react';
 
 import { v4 as uuidv4 } from 'uuid';
@@ -213,6 +214,28 @@ export const RegisterWorkloadFromPresetForm: React.FunctionComponent<IRegisterWo
 
         return timescaleAdjustmentFactor <= 0 || timescaleAdjustmentFactor > 10 ? 'error' : 'success';
     };
+
+    const sampleSessionsPercentFormGroup = (
+        <FormGroup label={'Sample Sessions %'} labelIcon={<SampleSessionsPopover />}>
+            <NumberInput
+                value={workloadSessionSamplePercent}
+                onMinus={() => setWorkloadSessionSamplePercent((workloadSessionSamplePercent || 0) - 0.01)}
+                onChange={(event: React.FormEvent<HTMLInputElement>) => {
+                    const value = (event.target as HTMLInputElement).value;
+                    setWorkloadSessionSamplePercent(value === '' ? value : +value);
+                }}
+                onPlus={() => setWorkloadSessionSamplePercent((timescaleAdjustmentFactor || 0) + 0.01)}
+                inputName="sessions-sample-percentage-input"
+                inputAriaLabel="sessions-sample-percentage-input"
+                minusBtnAriaLabel="minus"
+                plusBtnAriaLabel="plus"
+                validated={validateSessionSamplePercentage()}
+                widthChars={4}
+                min={0}
+                max={1}
+            />
+        </FormGroup>
+    );
 
     return (
         <Flex direction={{ default: 'column' }} spaceItems={{ default: 'spaceItemsLg' }}>
@@ -481,56 +504,7 @@ export const RegisterWorkloadFromPresetForm: React.FunctionComponent<IRegisterWo
                                 />
                             </FormGroup>
                         </GridItem>
-                        <GridItem span={4}>
-                            <FormGroup
-                                label={'Sample Sessions %'}
-                                labelIcon={
-                                    <Popover
-                                        aria-label="sample-sessions-percentage-header"
-                                        headerContent={<div>Sample Sessions %</div>}
-                                        bodyContent={
-                                            <div>
-                                                SampleSessionsPercent is the percent of sessions from a CSV workload for
-                                                which we will actually process events. If SampleSessionsPercent is set
-                                                to 1.0, then all sessions will be processed. SampleSessionsPercent must
-                                                be strictly greater than 0.
-                                            </div>
-                                        }
-                                    >
-                                        <button
-                                            type="button"
-                                            aria-label="Set the Sample Sessions %."
-                                            onClick={(e) => e.preventDefault()}
-                                            className={styles.formGroupLabelHelp}
-                                        >
-                                            <HelpIcon />
-                                        </button>
-                                    </Popover>
-                                }
-                            >
-                                <NumberInput
-                                    value={workloadSessionSamplePercent}
-                                    onMinus={() =>
-                                        setWorkloadSessionSamplePercent((workloadSessionSamplePercent || 0) - 0.01)
-                                    }
-                                    onChange={(event: React.FormEvent<HTMLInputElement>) => {
-                                        const value = (event.target as HTMLInputElement).value;
-                                        setWorkloadSessionSamplePercent(value === '' ? value : +value);
-                                    }}
-                                    onPlus={() =>
-                                        setWorkloadSessionSamplePercent((timescaleAdjustmentFactor || 0) + 0.01)
-                                    }
-                                    inputName="sessions-sample-percentage-input"
-                                    inputAriaLabel="sessions-sample-percentage-input"
-                                    minusBtnAriaLabel="minus"
-                                    plusBtnAriaLabel="plus"
-                                    validated={validateSessionSamplePercentage()}
-                                    widthChars={4}
-                                    min={0}
-                                    max={1}
-                                />
-                            </FormGroup>
-                        </GridItem>
+                        <GridItem span={4}>{sampleSessionsPercentFormGroup}</GridItem>
                         <GridItem span={4}>
                             <FormGroup
                                 label={'Verbose Server-Side Log Output'}

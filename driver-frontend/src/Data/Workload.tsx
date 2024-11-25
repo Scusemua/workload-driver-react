@@ -30,6 +30,30 @@ interface WorkloadPreset {
     svg_content: string[]; // For XML presets, their events can be rendered/displayed as an SVG.
 }
 
+interface WorkloadRegistrationRequestTemplateWrapper {
+    template: WorkloadRegistrationRequest;
+}
+
+interface WorkloadRegistrationRequest {
+    op: string;
+    msg_id: string;
+    adjust_gpu_reservations: boolean;
+    name: string;
+    debug_logging: boolean;
+    sessions: (Session | undefined)[];
+    template_file_path: string;
+    type: string;
+    key: string;
+    seed: number;
+    timescale_adjustment_factor: number;
+    remote_storage_definition?: RemoteStorageDefinition;
+    sessions_sample_percentage: number;
+}
+
+interface PreloadedWorkloadTemplateWrapper {
+    preloaded_template: PreloadedWorkloadTemplate;
+}
+
 interface PreloadedWorkloadTemplate {
     // display_name is the display name of the preloaded workload template.
     display_name: string;
@@ -355,3 +379,6 @@ export type { PatchedWorkload as PatchedWorkload };
 export type { ErrorResponse as ErrorResponse };
 export type { RemoteStorageDefinition as RemoteStorageDefinition };
 export type { PreloadedWorkloadTemplate as PreloadedWorkloadTemplate };
+export type { WorkloadRegistrationRequest as WorkloadRegistrationRequest };
+export type { WorkloadRegistrationRequestTemplateWrapper as WorkloadRegistrationRequestTemplateWrapper };
+export type { PreloadedWorkloadTemplateWrapper as PreloadedWorkloadTemplateWrapper };
