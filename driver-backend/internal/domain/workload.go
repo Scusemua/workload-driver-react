@@ -240,6 +240,11 @@ type Workload interface {
 	GetNextEventTick() int64
 	// SetNextEventTick sets the tick at which the next event is expected to be processed (for visualization purposes).
 	SetNextEventTick(int64)
+	// SetNextExpectedEventName is used to register, for visualization purposes, the name of the next expected event.
+	SetNextExpectedEventName(EventName)
+	// SetNextExpectedEventSession is used to register, for visualization purposes, the target session of the next
+	// expected event.
+	SetNextExpectedEventSession(string)
 	// SessionDiscarded is used to record that a particular session is being discarded/not sampled.
 	SessionDiscarded(string) error
 }
@@ -297,6 +302,8 @@ type BasicWorkload struct {
 	CurrentTick               int64                  `json:"current_tick"`
 	TotalNumTicks             int64                  `json:"total_num_ticks"`
 	NextEventExpectedTick     int64                  `json:"next_event_expected_tick"`
+	NextExpectedEventName     EventName              `json:"next_expected_event_name"`
+	NextExpectedEventTarget   string                 `json:"next_expected_event_target"`
 	DebugLoggingEnabled       bool                   `json:"debug_logging_enabled"`
 	ErrorMessage              string                 `json:"error_message"`
 	EventsProcessed           []*WorkloadEvent       `json:"events_processed"`
@@ -1282,4 +1289,15 @@ func (w *BasicWorkload) unsafeIsSessionBeingSampled(sessionId string) bool {
 
 	w.SetSessionDiscarded(sessionId)
 	return false
+}
+
+// SetNextExpectedEventName is used to register, for visualization purposes, the name of the next expected event.
+func (w *BasicWorkload) SetNextExpectedEventName(name EventName) {
+	w.NextExpectedEventName = name
+}
+
+// SetNextExpectedEventSession is used to register, for visualization purposes, the target session of the next
+// expected event.
+func (w *BasicWorkload) SetNextExpectedEventSession(sessionId string) {
+	w.NextExpectedEventTarget = sessionId
 }

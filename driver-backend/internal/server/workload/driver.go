@@ -755,12 +755,17 @@ OUTER:
 					evt.Name.String(), evt.ID, evt.SessionID(), nextTick, evt.Timestamp)
 
 				d.workload.SetNextEventTick(evt.Timestamp.Unix() / d.targetTickDurationSeconds)
+				d.workload.SetNextExpectedEventName(evt.Name)
+				d.workload.SetNextExpectedEventSession(evt.SessionId)
 
 				d.eventQueue.EnqueueEvent(evt)
 			} else {
 				d.sugaredLogger.Debugf("\"%s\" event \"%s\" targeting session \"%s\" does NOT occur before next tick [%v] (i.e., tick #%d). Will have to issue clock ticks until we get to event's timestamp of [%v] (i.e., tick #%d).",
 					evt.Name.String(), evt.ID, evt.SessionID(), nextTick, nextTick.Unix()/d.targetTickDurationSeconds, evt.Timestamp, evt.Timestamp.Unix()/d.targetTickDurationSeconds)
+
 				d.workload.SetNextEventTick(evt.Timestamp.Unix() / d.targetTickDurationSeconds)
+				d.workload.SetNextExpectedEventName(evt.Name)
+				d.workload.SetNextExpectedEventSession(evt.SessionId)
 
 				// The event occurs in the next tick. Update the current tick clock, issue/perform a tick-trigger, and then process the event.
 				err = d.issueClockTicks(evt.Timestamp)

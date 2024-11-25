@@ -118,8 +118,8 @@ interface Workload {
     total_num_sessions: number;
     simulation_clock_time: string;
     current_tick: number;
-    total_num_ticks: number | undefined;
-    next_event_expected_tick: number | undefined;
+    total_num_ticks: number;
+    next_event_expected_tick: number;
     tick_durations_milliseconds: number[];
     sum_tick_durations_millis: number;
 }

@@ -230,7 +230,10 @@ export const WorkloadInspectionView: React.FunctionComponent<IWorkloadInspection
                                 Next Expected Event In <ClockIcon />
                             </DescriptionListTerm>
                             <DescriptionListDescription>
-                                {numberWithCommas(props.workload?.next_event_expected_tick || 0)} ticks
+                                {numberWithCommas(
+                                    props.workload?.next_event_expected_tick - props.workload?.current_tick || 0,
+                                )}{' '}
+                                tick(s)
                             </DescriptionListDescription>
                         </DescriptionListGroup>
                     </DescriptionList>
