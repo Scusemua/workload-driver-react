@@ -1,9 +1,39 @@
-- display_name: Adobe Sensei - Summer [Jun-Aug 2021]
-  filepath: configs/workload_templates/trace_summer.json
-  num_sessions: 1105
-  num_training_events: 193127
+#- display_name: Adobe Sensei - Summer 2021 (June, July, & August) v1
+#  filepath: configs/workload_templates/trace_summer_2021.json
+#  num_sessions: 3647
+#  num_training_events: 163152
+#  large: true
+#  key: adobe_sensei_summer
+- display_name: Adobe Sensei - Summer 2021 (June, July, & August) # v2
+  filepath: configs/workload_templates/trace_summer_2021_v2.json
+  num_sessions: 3502
+  num_training_events: 140005
   large: true
-  key: adobe_sensei_summer
+  key: adobe_sensei_summer_v2
+- display_name: Adobe Sensei - June 2021
+  filepath: configs/workload_templates/trace_july_2021.json
+  num_sessions: 860
+  num_training_events: 7827
+  large: true
+  key: adobe_sensei_june_2021
+- display_name: Adobe Sensei - July 2021 # v2
+  filepath: configs/workload_templates/trace_july_2021_v2_60sec.json
+  num_sessions: 525
+  num_training_events: 6371
+  large: true
+  key: adobe_sensei_july_v2_60sec_2021
+#- display_name: Adobe Sensei - July 2021
+#  filepath: configs/workload_templates/trace_july_2021.json
+#  num_sessions: 1105
+#  num_training_events: 193127
+#  large: true
+#  key: adobe_sensei_july_2021
+- display_name: Adobe Sensei - August 2021
+  filepath: configs/workload_templates/trace_august_2021.json
+  num_sessions: 1606
+  num_training_events: 28880
+  large: true
+  key: adobe_sensei_august_2021
 - display_name: 3 Concurrent Sessions - 8 Trainings Each
   filepath: configs/workload_templates/3-session-8-training-all-simultaneous.json
   num_sessions: 3
@@ -22,3 +52,9 @@
   num_training_events: 2
   large: false
   key: batch_fcfs_test
+- display_name: 4 Sessions Varied Training
+  filepath: configs/workload_templates/four-sessions-varied-training.json
+  num_sessions: 4
+  num_training_events: 16
+  large: false
+  key: 4_sessions_varied_training

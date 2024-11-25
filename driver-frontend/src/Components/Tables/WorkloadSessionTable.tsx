@@ -17,11 +17,6 @@ import { SessionTrainingEventTable } from '@src/Components';
 import { RoundToThreeDecimalPlaces } from '@src/Utils';
 import React, { ReactElement } from 'react';
 
-export interface WorkloadSessionTableProps {
-    children?: React.ReactNode;
-    workload: Workload | null;
-}
-
 const tableColumns = {
     id: 'ID',
     status: 'Status',
@@ -137,6 +132,12 @@ function getSortableRowValues(session: Session): (string | number | Date)[] {
     ];
 }
 
+export interface WorkloadSessionTableProps {
+    children?: React.ReactNode;
+    workload: Workload | null;
+    showDiscardedSessions?: boolean;
+}
+
 // Displays the Sessions from a workload in a table.
 export const WorkloadSessionTable: React.FunctionComponent<WorkloadSessionTableProps> = (props) => {
     const [page, setPage] = React.useState(1);
@@ -155,10 +156,13 @@ export const WorkloadSessionTable: React.FunctionComponent<WorkloadSessionTableP
     const [sortedSessions, setSortedSessions] = React.useState<Session[]>([]);
 
     React.useEffect(() => {
-        let sorted = props.workload?.sessions || [];
+        let sorted =
+            props.workload?.sessions.filter((session: Session) => {
+                return props.showDiscardedSessions || !session.discarded;
+            }) || [];
         if (activeSortIndex !== null) {
             sorted =
-                props.workload?.sessions.sort((a, b) => {
+                sorted.sort((a, b) => {
                     const aValue = getSortableRowValues(a)[activeSortIndex];
                     const bValue = getSortableRowValues(b)[activeSortIndex];
                     console.log(
@@ -182,7 +186,7 @@ export const WorkloadSessionTable: React.FunctionComponent<WorkloadSessionTableP
         }
 
         setSortedSessions(sorted);
-    }, [activeSortDirection, activeSortIndex, props.workload, props.workload?.sessions]);
+    }, [activeSortDirection, activeSortIndex, props.workload, props.workload?.sessions, props.showDiscardedSessions]);
 
     const copyText: string = 'Copy session ID to clipboard';
     const doneCopyText: string = 'Successfully copied session ID to clipboard!';
@@ -238,7 +242,7 @@ export const WorkloadSessionTable: React.FunctionComponent<WorkloadSessionTableP
 
     const pagination = (
         <Pagination
-            itemCount={props.workload?.sessions.length}
+            itemCount={sortedSessions.length}
             perPage={perPage}
             page={page}
             perPageOptions={[
@@ -263,8 +267,12 @@ export const WorkloadSessionTable: React.FunctionComponent<WorkloadSessionTableP
         />
     );
 
-    const getTableRow = (rowIndex: number) => {
+    const getTableRow = (rowIndex: number): ReactElement | undefined => {
         const session: Session = sortedSessions[rowIndex];
+
+        if (!props.showDiscardedSessions && session.discarded) {
+            return undefined;
+        }
 
         return (
             <Tbody key={`session-${session.id}-row-${rowIndex}`}>
@@ -358,8 +366,11 @@ export const WorkloadSessionTable: React.FunctionComponent<WorkloadSessionTableP
 
     const getTableRows = () => {
         const tableRows: ReactElement[] = [];
-        for (let i: number = startIndex; i < endIndex; i++) {
-            tableRows.push(getTableRow(i));
+        for (let i: number = startIndex; i < endIndex && i < sortedSessions.length; i++) {
+            const tableRow: ReactElement | undefined = getTableRow(i);
+            if (tableRow !== undefined) {
+                tableRows.push(tableRow);
+            }
         }
 
         return tableRows;

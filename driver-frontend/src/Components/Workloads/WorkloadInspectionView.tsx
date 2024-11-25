@@ -23,7 +23,7 @@ import {
 import { WorkloadEventTable, WorkloadSessionTable } from '@src/Components';
 import { Workload } from '@src/Data';
 import { GetToastContentWithHeaderAndBody } from '@src/Utils/toast_utils';
-import { RoundToThreeDecimalPlaces } from '@Utils/utils';
+import { numberWithCommas, RoundToThreeDecimalPlaces, RoundToTwoDecimalPlaces } from '@Utils/utils';
 import { uuidv4 } from 'lib0/random';
 import React from 'react';
 import toast, { Toast } from 'react-hot-toast';
@@ -45,6 +45,7 @@ export const WorkloadInspectionView: React.FunctionComponent<IWorkloadInspection
     const showedTickNotifications = React.useRef<Map<string, number>>(new Map<string, number>());
 
     const [showDiscardedEvents, setShowDiscardedEvents] = React.useState<boolean>(false);
+    const [showDiscardedSessions, setShowDiscardedSessions] = React.useState<boolean>(false);
 
     const shouldShowTickNotification = (workloadId: string, tick: number): boolean => {
         if (!showedTickNotifications || !showedTickNotifications.current) {
@@ -113,6 +114,17 @@ export const WorkloadInspectionView: React.FunctionComponent<IWorkloadInspection
         return RoundToThreeDecimalPlaces(
             props.workload.sum_tick_durations_millis / props.workload.tick_durations_milliseconds.length,
         );
+    };
+
+    const getCurrentTickField = () => {
+        const totalTicks: number | undefined = props.workload.total_num_ticks;
+        const currentTick: number | undefined = props.workload?.current_tick;
+
+        if (totalTicks !== undefined && totalTicks > 0) {
+            return `${numberWithCommas(currentTick)} / ${numberWithCommas(totalTicks)} (${RoundToTwoDecimalPlaces((currentTick / totalTicks) * 100)}%)`;
+        }
+
+        return currentTick;
     };
 
     return (
@@ -199,7 +211,7 @@ export const WorkloadInspectionView: React.FunctionComponent<IWorkloadInspection
                             <DescriptionListTerm>
                                 Current Tick <Stopwatch20Icon />
                             </DescriptionListTerm>
-                            <DescriptionListDescription>{props.workload?.current_tick}</DescriptionListDescription>
+                            <DescriptionListDescription>{getCurrentTickField()}</DescriptionListDescription>
                         </DescriptionListGroup>
                         <DescriptionListGroup>
                             <DescriptionListTerm>
@@ -212,6 +224,14 @@ export const WorkloadInspectionView: React.FunctionComponent<IWorkloadInspection
                                 Average Tick Duration (ms) <ClockIcon />
                             </DescriptionListTerm>
                             <DescriptionListDescription>{getAverageTickDuration()}</DescriptionListDescription>
+                        </DescriptionListGroup>
+                        <DescriptionListGroup>
+                            <DescriptionListTerm>
+                                Next Expected Event <ClockIcon />
+                            </DescriptionListTerm>
+                            <DescriptionListDescription>
+                                {props.workload?.next_event_expected_tick}
+                            </DescriptionListDescription>
                         </DescriptionListGroup>
                     </DescriptionList>
                 </FlexItem>
@@ -243,8 +263,18 @@ export const WorkloadInspectionView: React.FunctionComponent<IWorkloadInspection
                 <ClipboardCheckIcon /> {<strong>Sessions:</strong>} {props.workload?.num_sessions_created} /{' '}
                 {props.workload?.sessions.length} created, {props.workload?.num_active_trainings} actively training
             </FlexItem>
+            <FlexItem align={{ default: 'alignRight' }}>
+                <Checkbox
+                    label="Show Discarded Sessions"
+                    id={'show-discarded-sessions-checkbox'}
+                    isChecked={showDiscardedSessions}
+                    onChange={(_event: React.FormEvent<HTMLInputElement>, checked: boolean) =>
+                        setShowDiscardedSessions(checked)
+                    }
+                />
+            </FlexItem>
             <FlexItem>
-                <WorkloadSessionTable workload={props.workload} />
+                <WorkloadSessionTable workload={props.workload} showDiscardedSessions={showDiscardedSessions} />
             </FlexItem>
         </Flex>
     );

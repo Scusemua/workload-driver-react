@@ -141,12 +141,12 @@ func (q *EventQueue) EnqueueEvent(evt *domain.Event) {
 	if evt.Name == domain.EventSessionStarted { // Do nothing other than try to create the heap.
 		sessionEventQueue, loaded := q.eventsPerSession.GetOrInsert(sessionId, NewSessionEventQueue(sessionId))
 
-		q.logger.Debug("Creating new SessionEventQueue while enqueuing \"session-started\" event.",
-			zap.String("event_name", evt.Name.String()),
-			zap.String("event_id", evt.ID),
-			zap.String("session_id", evt.SessionID()),
-			zap.Time("event_timestamp", evt.Timestamp),
-			zap.Time("original_timestamp", evt.OriginalTimestamp))
+		//q.logger.Debug("Creating new SessionEventQueue while enqueuing \"session-started\" event.",
+		//	zap.String("event_name", evt.Name.String()),
+		//	zap.String("event_id", evt.ID),
+		//	zap.String("session_id", evt.SessionID()),
+		//	zap.Time("event_timestamp", evt.Timestamp),
+		//	zap.Time("original_timestamp", evt.OriginalTimestamp))
 
 		if loaded {
 			panic("we already have a SessionEventQueue for a session whose 'session-started' we just received")
@@ -159,12 +159,12 @@ func (q *EventQueue) EnqueueEvent(evt *domain.Event) {
 	var sessionEventQueue *SessionEventQueue
 	val, loaded := q.eventsPerSession.Get(sessionId)
 	if !loaded {
-		q.logger.Debug("Creating new SessionEventQueue while enqueuing event.",
-			zap.String("event_name", evt.Name.String()),
-			zap.String("event_id", evt.ID),
-			zap.String("session_id", evt.SessionID()),
-			zap.Time("event_timestamp", evt.Timestamp),
-			zap.Time("original_timestamp", evt.OriginalTimestamp))
+		//q.logger.Debug("Creating new SessionEventQueue while enqueuing event.",
+		//	zap.String("event_name", evt.Name.String()),
+		//	zap.String("event_id", evt.ID),
+		//	zap.String("session_id", evt.SessionID()),
+		//	zap.Time("event_timestamp", evt.Timestamp),
+		//	zap.Time("original_timestamp", evt.OriginalTimestamp))
 
 		sessionEventQueue = NewSessionEventQueue(sessionId)
 		q.eventsPerSession.Set(sessionId, sessionEventQueue)

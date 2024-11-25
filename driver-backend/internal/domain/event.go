@@ -76,6 +76,10 @@ type EventConsumer interface {
 
 	// WorkloadEventGeneratorCompleteChan returns the channel used to notify the EventConsumer that the generator(s) have finished generating events.
 	WorkloadEventGeneratorCompleteChan() chan interface{}
+
+	// RegisterApproximateFinalTick is used to register what is the approximate final tick of the workload
+	// after iterating over all sessions and all training events.
+	RegisterApproximateFinalTick(int64)
 }
 
 type Event struct {

@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"fmt"
 	"go.uber.org/zap"
 	"time"
 )
@@ -18,6 +19,37 @@ type WorkloadFromPreset struct {
 	MaxUtilizationWrapper *MaxUtilizationWrapper `json:"max_utilization_wrapper"`
 
 	Sessions []*BasicWorkloadSession `json:"sessions"`
+}
+
+func NewWorkloadFromPreset(baseWorkload Workload, workloadPreset *WorkloadPreset) *WorkloadFromPreset {
+	if workloadPreset == nil {
+		panic("Workload preset cannot be nil when creating a new workload from a preset.")
+	}
+
+	if baseWorkload == nil {
+		panic("Base workload cannot be nil when creating a new workload.")
+	}
+
+	var (
+		baseWorkloadImpl *BasicWorkload
+		ok               bool
+	)
+	if baseWorkloadImpl, ok = baseWorkload.(*BasicWorkload); !ok {
+		panic("The provided workload is not a base workload, or it is not a pointer type.")
+	}
+
+	workloadFromPreset := &WorkloadFromPreset{
+		BasicWorkload:      baseWorkloadImpl,
+		WorkloadPreset:     workloadPreset,
+		WorkloadPresetName: workloadPreset.GetName(),
+		WorkloadPresetKey:  workloadPreset.GetKey(),
+		Sessions:           make([]*BasicWorkloadSession, 0),
+	}
+
+	baseWorkloadImpl.WorkloadType = PresetWorkload
+	baseWorkloadImpl.workloadInstance = workloadFromPreset
+
+	return workloadFromPreset
 }
 
 func (w *WorkloadFromPreset) GetWorkloadSource() interface{} {
@@ -146,33 +178,15 @@ func (w *WorkloadFromPreset) SessionCreated(sessionId string, metadata SessionMe
 	w.sessionsMap.Set(sessionId, session)
 }
 
-func NewWorkloadFromPreset(baseWorkload Workload, workloadPreset *WorkloadPreset) *WorkloadFromPreset {
-	if workloadPreset == nil {
-		panic("Workload preset cannot be nil when creating a new workload from a preset.")
+// SessionDisabled is used to record that a particular session is being discarded/not sampled.
+func (w *WorkloadFromPreset) SessionDisabled(sessionId string) error {
+	val, loaded := w.sessionsMap.Get(sessionId)
+	if !loaded {
+		return fmt.Errorf("%w: \"%s\"", ErrUnknownSession, sessionId)
 	}
 
-	if baseWorkload == nil {
-		panic("Base workload cannot be nil when creating a new workload.")
-	}
+	session := val.(*BasicWorkloadSession)
+	session.Discarded = true
 
-	var (
-		baseWorkloadImpl *BasicWorkload
-		ok               bool
-	)
-	if baseWorkloadImpl, ok = baseWorkload.(*BasicWorkload); !ok {
-		panic("The provided workload is not a base workload, or it is not a pointer type.")
-	}
-
-	workloadFromPreset := &WorkloadFromPreset{
-		BasicWorkload:      baseWorkloadImpl,
-		WorkloadPreset:     workloadPreset,
-		WorkloadPresetName: workloadPreset.GetName(),
-		WorkloadPresetKey:  workloadPreset.GetKey(),
-		Sessions:           make([]*BasicWorkloadSession, 0),
-	}
-
-	baseWorkloadImpl.WorkloadType = PresetWorkload
-	baseWorkloadImpl.workloadInstance = workloadFromPreset
-
-	return workloadFromPreset
+	return nil
 }

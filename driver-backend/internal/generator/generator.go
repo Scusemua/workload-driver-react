@@ -344,7 +344,7 @@ func (g *BasicWorkloadGenerator) GenerateTemplateWorkload(consumer domain.EventC
 		}
 
 		if len(session.GetTrainings()) == 0 {
-			g.sugaredLogger.Warnf("Session %s has no trainings associated with it.", session.GetId())
+			// g.sugaredLogger.Warnf("Session %s has no trainings associated with it.", session.GetId())
 			continue
 		}
 

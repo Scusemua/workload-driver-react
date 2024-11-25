@@ -94,6 +94,7 @@ type BasicWorkloadSession struct {
 	StdoutIoPubMessages    []string         `json:"stdout_io_pub_messages"`
 	TotalDelayIncurred     time.Duration    `json:"total_delay"`
 	TotalDelayMilliseconds int64            `json:"total_delay_milliseconds"`
+	Discarded              bool             `json:"discarded"`
 }
 
 func newWorkloadSession(id string, meta SessionMetadata, maxResourceRequest *ResourceRequest, createdAtTime time.Time, atom *zap.AtomicLevel) *BasicWorkloadSession {
@@ -243,8 +244,11 @@ func (s *BasicWorkloadSession) SetState(targetState SessionState) error {
 	}
 
 	sourceState := s.State
-	s.getLogger().Debug("Transitioning session now.", zap.String("session_id", s.Id),
-		zap.String("source_state", sourceState.String()), zap.String("target_state", targetState.String()))
+	if sourceState != "" { // Don't bother printing when we're setting the Session's state for the first time.
+		s.getLogger().Debug("Transitioning session now.", zap.String("session_id", s.Id),
+			zap.String("source_state", sourceState.String()), zap.String("target_state", targetState.String()))
+	}
+
 	s.State = targetState
 
 	if sourceState == SessionTraining {

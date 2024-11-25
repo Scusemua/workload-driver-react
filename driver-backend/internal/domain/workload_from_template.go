@@ -2,6 +2,7 @@ package domain
 
 import (
 	"encoding/json"
+	"fmt"
 	"go.uber.org/zap"
 	"time"
 )
@@ -66,13 +67,13 @@ func NewWorkloadFromTemplate(baseWorkload Workload, sourceSessions []*WorkloadTe
 		BasicWorkload: baseWorkloadImpl,
 	}
 
+	baseWorkloadImpl.WorkloadType = TemplateWorkload
+	baseWorkloadImpl.workloadInstance = workloadFromTemplate
+
 	err := workloadFromTemplate.SetSource(sourceSessions)
 	if err != nil {
 		return nil, err
 	}
-
-	baseWorkloadImpl.WorkloadType = TemplateWorkload
-	baseWorkloadImpl.workloadInstance = workloadFromTemplate
 
 	return workloadFromTemplate, nil
 }
@@ -131,6 +132,9 @@ func (w *WorkloadFromTemplate) SetSessions(sessions []*WorkloadTemplateSession) 
 	w.Sessions = sessions
 	w.sessionsSet = true
 
+	numSampled := 0
+	numDiscarded := 0
+
 	// Add each session to our internal mapping and initialize the session.
 	for _, session := range sessions {
 		if err := session.SetState(SessionAwaitingStart); err != nil {
@@ -151,7 +155,25 @@ func (w *WorkloadFromTemplate) SetSessions(sessions []*WorkloadTemplateSession) 
 			return ErrMissingMaxResourceRequest
 		}
 
+		// Need to set this before calling unsafeIsSessionBeingSampled.
 		w.sessionsMap.Set(session.GetId(), session)
+
+		// Decide if the Session should be sampled or not.
+		sampled := w.unsafeIsSessionBeingSampled(session.Id)
+		if sampled {
+			numSampled += 1
+		} else {
+			numDiscarded += 1
+		}
+	}
+
+	if numDiscarded > 0 {
+		w.logger.Debug("Discarded unsampled sessions.",
+			zap.String("workload_id", w.Id),
+			zap.String("workload_name", w.Name),
+			zap.Int("total_num_sessions", len(sessions)),
+			zap.Int("sessions_sampled", numSampled),
+			zap.Int("sessions_discarded", numDiscarded))
 	}
 
 	return nil
@@ -180,4 +202,17 @@ func (w *WorkloadFromTemplate) SessionCreated(sessionId string, metadata Session
 		MemoryMB: metadata.GetMemoryUtilization(),
 		Gpus:     metadata.GetNumGPUs(),
 	})
+}
+
+// SessionDisabled is used to record that a particular session is being discarded/not sampled.
+func (w *WorkloadFromTemplate) SessionDisabled(sessionId string) error {
+	val, loaded := w.sessionsMap.Get(sessionId)
+	if !loaded {
+		return fmt.Errorf("%w: \"%s\"", ErrUnknownSession, sessionId)
+	}
+
+	session := val.(*WorkloadTemplateSession)
+	session.Discarded = true
+
+	return nil
 }

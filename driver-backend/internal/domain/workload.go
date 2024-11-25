@@ -233,6 +233,15 @@ type Workload interface {
 	IsSessionBeingSampled(string) bool
 	// GetSampleSessionsPercentage returns the configured SampleSessionsPercentage parameter for the Workload.
 	GetSampleSessionsPercentage() float64
+	// RegisterApproximateFinalTick is used to register what is the approximate final tick of the workload
+	// after iterating over all sessions and all training events.
+	RegisterApproximateFinalTick(approximateFinalTick int64)
+	// GetNextEventTick returns the tick at which the next event is expected to be processed.
+	GetNextEventTick() int64
+	// SetNextEventTick sets the tick at which the next event is expected to be processed (for visualization purposes).
+	SetNextEventTick(int64)
+	// SessionDisabled is used to record that a particular session is being discarded/not sampled.
+	SessionDisabled(string) error
 }
 
 // GetWorkloadStateAsString will panic if an invalid workload state is specified.
@@ -274,15 +283,17 @@ type BasicWorkload struct {
 	// The likelihood that a Session is selected for sampling is based on the SessionsSamplePercentage field.
 	//
 	// SampledSessions is a sort of counterpart to the UnsampledSessions field.
-	SampledSessions map[string]interface{} `json:"sampled_sessions"`
+	SampledSessions map[string]interface{} `json:"-"`
 	// UnsampledSessions keeps track of the Sessions this workload has not selected for sampling/processing.
 	//
 	// UnsampledSessions is a sort of counterpart to the SampledSessions field.
-	UnsampledSessions         map[string]interface{} `json:"unsampled_sessions"`
+	UnsampledSessions         map[string]interface{} `json:"-"`
 	Id                        string                 `json:"id"`
 	Name                      string                 `json:"name"`
 	WorkloadState             WorkloadState          `json:"workload_state"`
 	CurrentTick               int64                  `json:"current_tick"`
+	TotalNumTicks             int64                  `json:"total_num_ticks"`
+	NextEventExpectedTick     int64                  `json:"next_event_expected_tick"`
 	DebugLoggingEnabled       bool                   `json:"debug_logging_enabled"`
 	ErrorMessage              string                 `json:"error_message"`
 	EventsProcessed           []*WorkloadEvent       `json:"events_processed"`
@@ -905,8 +916,6 @@ func (w *BasicWorkload) GetNumEventsProcessed() int64 {
 // WorkloadName returns the name of the workload.
 // The name is not necessarily unique and is meant to be descriptive, whereas the ID is unique.
 func (w *BasicWorkload) WorkloadName() string {
-	w.mu.RLock()
-	defer w.mu.RUnlock()
 	return w.Name
 }
 
@@ -1176,11 +1185,78 @@ func (w *BasicWorkload) String() string {
 	return string(out)
 }
 
+// GetSampleSessionsPercentage returns the configured SampleSessionsPercentage parameter for the Workload.
+func (w *BasicWorkload) GetSampleSessionsPercentage() float64 {
+	return w.SessionsSamplePercentage
+}
+
+// RegisterApproximateFinalTick is used to register what is the approximate final tick of the workload
+// after iterating over all sessions and all training events.
+func (w *BasicWorkload) RegisterApproximateFinalTick(approximateFinalTick int64) {
+	w.TotalNumTicks = approximateFinalTick
+}
+
+// GetNextEventTick returns the tick at which the next event is expected to be processed.
+func (w *BasicWorkload) GetNextEventTick() int64 {
+	return w.NextEventExpectedTick
+}
+
+// SetNextEventTick sets the tick at which the next event is expected to be processed (for visualization purposes).
+func (w *BasicWorkload) SetNextEventTick(nextEventExpectedTick int64) {
+	w.NextEventExpectedTick = nextEventExpectedTick
+}
+
+// SessionDisabled is used to record that a particular session is being discarded/not sampled.
+func (w *BasicWorkload) SessionDisabled(sessionId string) error {
+	return w.workloadInstance.SessionDisabled(sessionId)
+}
+
+func (w *BasicWorkload) SetSessionSampled(sessionId string) {
+	w.SampledSessions[sessionId] = struct{}{}
+	w.logger.Debug("Decided to sample events targeting session.",
+		zap.String("workload_id", w.Id),
+		zap.String("workload_name", w.Name),
+		zap.String("session_id", sessionId),
+		zap.Int("num_sampled_sessions", len(w.SampledSessions)),
+		zap.Int("num_discarded_sessions", len(w.UnsampledSessions)))
+}
+
+func (w *BasicWorkload) SetSessionDiscarded(sessionId string) {
+	err := w.workloadInstance.SessionDisabled(sessionId)
+	if err != nil {
+		w.logger.Error("Failed to disable session.",
+			zap.String("workload_id", w.Id),
+			zap.String("workload_name", w.Name),
+			zap.Int("num_sampled_sessions", len(w.SampledSessions)),
+			zap.Int("num_discarded_sessions", len(w.UnsampledSessions)),
+			zap.String("session_id", sessionId),
+			zap.Error(err))
+	}
+
+	w.UnsampledSessions[sessionId] = struct{}{}
+	w.logger.Debug("Decided to discard events targeting session.",
+		zap.String("session_id", sessionId),
+		zap.Int("num_sampled_sessions", len(w.SampledSessions)),
+		zap.Int("num_discarded_sessions", len(w.UnsampledSessions)))
+}
+
 // IsSessionBeingSampled returns true if the specified session was selected for sampling.
+//
+// If a decision has not yet been made for the Session, then we make a decision before returning a verdict.
+//
+// For workloads created from a template, this is decided when the workload is created, as all the sessions
+// are already known at that point.
+//
+// For workloads created from a preset, it is decided as the workload runs (as the sessions are generated as
+// the preset data is being processed).
 func (w *BasicWorkload) IsSessionBeingSampled(sessionId string) bool {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
+	return w.unsafeIsSessionBeingSampled(sessionId)
+}
+
+func (w *BasicWorkload) unsafeIsSessionBeingSampled(sessionId string) bool {
 	// Check if we've already decided to discard events for this session.
 	_, discarded := w.UnsampledSessions[sessionId]
 	if discarded {
@@ -1196,23 +1272,10 @@ func (w *BasicWorkload) IsSessionBeingSampled(sessionId string) bool {
 	// Randomly decide if we're going to sample/process [events for] this session or not.
 	randomValue := rand.Float64()
 	if randomValue <= w.SessionsSamplePercentage {
-		w.SampledSessions[sessionId] = struct{}{}
-		w.logger.Debug("Decided to sample events targeting session.",
-			zap.String("session_id", sessionId),
-			zap.Int("num_sampled_sessions", len(w.SampledSessions)),
-			zap.Int("num_discarded_sessions", len(w.UnsampledSessions)))
+		w.SetSessionSampled(sessionId)
 		return true
 	}
 
-	w.UnsampledSessions[sessionId] = struct{}{}
-	//w.logger.Debug("Decided to discard events targeting session.",
-	//	zap.String("session_id", sessionId),
-	//	zap.Int("num_sampled_sessions", len(w.SampledSessions)),
-	//	zap.Int("num_discarded_sessions", len(w.UnsampledSessions)))
+	w.SetSessionDiscarded(sessionId)
 	return false
-}
-
-// GetSampleSessionsPercentage returns the configured SampleSessionsPercentage parameter for the Workload.
-func (w *BasicWorkload) GetSampleSessionsPercentage() float64 {
-	return w.SessionsSamplePercentage
 }

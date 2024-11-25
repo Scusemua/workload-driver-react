@@ -1126,6 +1126,8 @@ export const RegisterWorkloadFromTemplateForm: React.FunctionComponent<IRegister
                         aria-label="workload-template-set-dropdown-menu"
                         isScrollable
                         isOpen={isWorkloadDataDropdownOpen}
+                        maxMenuHeight={'600px'}
+                        menuHeight={'600px'}
                         onSelect={onWorkloadDataDropdownSelect}
                         onOpenChange={(isOpen: boolean) => setIsWorkloadDataDropdownOpen(isOpen)}
                         toggle={(toggleRef: React.Ref<MenuToggleElement>) => (

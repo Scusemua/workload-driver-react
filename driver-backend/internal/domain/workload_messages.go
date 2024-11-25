@@ -166,8 +166,6 @@ func (r *StartStopWorkloadsRequest) String() string {
 }
 
 type WorkloadRegistrationRequest struct {
-	*BaseMessage
-
 	// By default, sessions reserve 'NUM_GPUS' GPUs when being scheduled. If this property is enabled, then sessions will instead reserve 'NUM_GPUs' * 'MAX_GPU_UTIL'.
 	// This will lead to many sessions reserving fewer GPUs than when this property is disabled (default).
 	AdjustGpuReservations     bool                           `name:"adjust_gpu_reservations" json:"adjust_gpu_reservations" description:"By default, sessions reserve 'NUM_GPUS' GPUs when being scheduled. If this property is enabled, then sessions will instead reserve 'NUM_GPUs' * 'MAX_GPU_UTIL'. This will lead to many sessions reserving fewer GPUs than when this property is disabled (default)."`

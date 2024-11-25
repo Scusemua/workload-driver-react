@@ -3,6 +3,8 @@ package generator
 import (
 	"container/heap"
 	"fmt"
+	"github.com/mattn/go-colorable"
+	"go.uber.org/zap/zapcore"
 	"sync/atomic"
 	"time"
 
@@ -45,6 +47,7 @@ type CustomEventSequencer struct {
 }
 
 func NewCustomEventSequencer(eventConsumer domain.EventConsumer, startingSeconds int64, tickDurationSeconds int64, atom *zap.AtomicLevel) *CustomEventSequencer {
+
 	customEventSequencer := &CustomEventSequencer{
 		sessions:            make(map[string]*sessionMetaWrapper),
 		sessionEventIndexes: make(map[string]int),
@@ -56,13 +59,12 @@ func NewCustomEventSequencer(eventConsumer domain.EventConsumer, startingSeconds
 		tickDurationSeconds: tickDurationSeconds,
 	}
 
-	logger, err := zap.NewDevelopment()
-	if err != nil {
-		panic(err)
-	}
+	zapConfig := zap.NewDevelopmentEncoderConfig()
+	zapConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+	core := zapcore.NewCore(zapcore.NewConsoleEncoder(zapConfig), zapcore.AddSync(colorable.NewColorableStdout()), atom)
 
-	customEventSequencer.log = logger
-	customEventSequencer.sugarLog = logger.Sugar()
+	customEventSequencer.log = zap.New(core, zap.Development())
+	customEventSequencer.sugarLog = customEventSequencer.log.Sugar()
 
 	customEventSequencer.sugarLog.Debugf("Created new CustomEventSequencer with startingSeconds=%d and tickDurationSeconds=%d.", startingSeconds, tickDurationSeconds)
 
@@ -70,17 +72,18 @@ func NewCustomEventSequencer(eventConsumer domain.EventConsumer, startingSeconds
 }
 
 func (s *CustomEventSequencer) SubmitEvents(workloadGenerationCompleteChan chan interface{}) {
-	s.sugarLog.Debugf("Submitting events (in a separate goroutine) now.")
 	go func() {
+		s.log.Debug("Submitting events for workload.",
+			zap.Int("num_events", s.eventHeap.Len()))
 		for s.eventHeap.Len() > 0 {
 			e := heap.Pop(&s.eventHeap).(*domain.Event)
 			s.eventConsumer.SubmitEvent(e)
-			s.log.Debug("Submitted event.",
-				zap.Int("event_session_index", e.SessionSpecificEventIndex()),
-				zap.String("event_name", e.Name.String()),
-				zap.String("event_id", e.ID),
-				zap.String("session_id", e.Data.(*SessionMeta).Pod),
-				zap.Time("event_timestamp", e.Timestamp))
+			//s.log.Debug("Submitted event.",
+			//	zap.Int("event_session_index", e.SessionSpecificEventIndex()),
+			//	zap.String("event_name", e.Name.String()),
+			//	zap.String("event_id", e.ID),
+			//	zap.String("session_id", e.Data.(*SessionMeta).Pod),
+			//	zap.Time("event_timestamp", e.Timestamp))
 		}
 
 		workloadGenerationCompleteChan <- struct{}{}
@@ -108,7 +111,7 @@ func (s *CustomEventSequencer) RegisterSession(sessionId string, maxCPUs float64
 	s.sessions[sessionId] = wrappedSession
 	s.sessionEventIndexes[sessionId] = 0
 
-	s.sugarLog.Debugf("Registered session \"%s\". MaxCPUs: %.2f, MaxMemory: %.2f, MaxGPUs: %d, MaxVRAM: %.2f", sessionId, maxCPUs, maxMem, maxGPUs, maxVRAM)
+	//s.sugarLog.Debugf("Registered session \"%s\". MaxCPUs: %.2f, MaxMemory: %.2f, MaxGPUs: %d, MaxVRAM: %.2f", sessionId, maxCPUs, maxMem, maxGPUs, maxVRAM)
 }
 
 func (s *CustomEventSequencer) getSessionMeta(sessionId string) *SessionMeta {
@@ -286,14 +289,14 @@ func (s *CustomEventSequencer) AddSessionStartedEvent(sessionId string, tickNumb
 	}
 	s.waitingEvents[sessionId] = evt
 
-	s.log.Debug("Adding session event.",
-		zap.String("session_id", sessionId),
-		zap.String("event_name", domain.EventSessionReady.String()),
-		zap.Time("timestamp", timestamp),
-		zap.Int64("second", sec),
-		zap.Int("local_index", evt.LocalIndex),
-		zap.Uint64("global_index", evt.GlobalIndex),
-		zap.String("session_id", evt.ID))
+	//s.log.Debug("Adding session event.",
+	//	zap.String("session_id", sessionId),
+	//	zap.String("event_name", domain.EventSessionReady.String()),
+	//	zap.Time("timestamp", timestamp),
+	//	zap.Int64("second", sec),
+	//	zap.Int("local_index", evt.LocalIndex),
+	//	zap.Uint64("global_index", evt.GlobalIndex),
+	//	zap.String("session_id", evt.ID))
 }
 
 func (s *CustomEventSequencer) AddSessionTerminatedEvent(sessionId string, tickNumber int) {
@@ -330,17 +333,17 @@ func (s *CustomEventSequencer) AddSessionTerminatedEvent(sessionId string, tickN
 	}
 
 	heap.Push(&s.eventHeap, evt)
-	s.sugarLog.Debugf("Added 'stopped' event for Session %s with timestamp %v (sec=%d). EventID=%s.", sessionId, timestamp, sec, evt.ID)
+	//s.sugarLog.Debugf("Added 'stopped' event for Session %s with timestamp %v (sec=%d). EventID=%s.", sessionId, timestamp, sec, evt.ID)
 
-	s.log.Debug("Added session event.",
-		zap.String("session_id", sessionId),
-		zap.String("event_name", domain.EventSessionStopped.String()),
-		zap.Time("timestamp", timestamp),
-		zap.Int64("second", sec),
-		zap.Int("local_index", evt.LocalIndex),
-		zap.Uint64("global_index", evt.GlobalIndex),
-		zap.String("event_id", evt.ID),
-		zap.String("metadata", metadata.String()))
+	//s.log.Debug("Added session event.",
+	//	zap.String("session_id", sessionId),
+	//	zap.String("event_name", domain.EventSessionStopped.String()),
+	//	zap.Time("timestamp", timestamp),
+	//	zap.Int64("second", sec),
+	//	zap.Int("local_index", evt.LocalIndex),
+	//	zap.Uint64("global_index", evt.GlobalIndex),
+	//	zap.String("event_id", evt.ID),
+	//	zap.String("metadata", metadata.String()))
 }
 
 func (s *CustomEventSequencer) submitWaitingEvent(sessionMeta *SessionMeta) {
@@ -350,14 +353,14 @@ func (s *CustomEventSequencer) submitWaitingEvent(sessionMeta *SessionMeta) {
 	evt := s.waitingEvents[sessionId]
 	heap.Push(&s.eventHeap, evt)
 
-	s.log.Debug("Adding session event.",
-		zap.String("session_id", sessionId),
-		zap.String("event_name", evt.Name.String()),
-		zap.Time("timestamp", evt.Timestamp),
-		zap.Int64("order_seq", evt.OrderSeq),
-		zap.Int("local_index", evt.LocalIndex),
-		zap.Uint64("global_index", evt.GlobalIndex),
-		zap.String("session_id", evt.ID))
+	//s.log.Debug("Adding session event.",
+	//	zap.String("session_id", sessionId),
+	//	zap.String("event_name", evt.Name.String()),
+	//	zap.Time("timestamp", evt.Timestamp),
+	//	zap.Int64("order_seq", evt.OrderSeq),
+	//	zap.Int("local_index", evt.LocalIndex),
+	//	zap.Uint64("global_index", evt.GlobalIndex),
+	//	zap.String("session_id", evt.ID))
 
 	delete(s.waitingEvents, sessionId)
 }
@@ -419,15 +422,15 @@ func (s *CustomEventSequencer) AddTrainingEvent(sessionId string, tickNumber int
 		HeapIndex:           -1,
 	}
 	heap.Push(&s.eventHeap, trainingStartedEvent)
-	s.log.Debug("Added session event.",
-		zap.String("session_id", sessionId),
-		zap.String("event_name", domain.EventSessionTrainingStarted.String()),
-		zap.Time("timestamp", startTime),
-		zap.Int64("second", startSec),
-		zap.Int("local_index", trainingStartedEvent.LocalIndex),
-		zap.Uint64("global_index", trainingStartedEvent.GlobalIndex),
-		zap.String("event_id", trainingStartedEvent.ID),
-		zap.String("metadata", metadata.String()))
+	//s.log.Debug("Added session event.",
+	//	zap.String("session_id", sessionId),
+	//	zap.String("event_name", domain.EventSessionTrainingStarted.String()),
+	//	zap.Time("timestamp", startTime),
+	//	zap.Int64("second", startSec),
+	//	zap.Int("local_index", trainingStartedEvent.LocalIndex),
+	//	zap.Uint64("global_index", trainingStartedEvent.GlobalIndex),
+	//	zap.String("event_id", trainingStartedEvent.ID),
+	//	zap.String("metadata", metadata.String()))
 
 	trainingEndedEvent := &domain.Event{
 		Name:                domain.EventSessionTrainingEnded,

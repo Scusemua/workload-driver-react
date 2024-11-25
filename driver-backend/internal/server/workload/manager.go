@@ -207,7 +207,9 @@ func (m *BasicWorkloadManager) StartWorkload(workloadId string) (domain.Workload
 	workload := workloadDriver.GetWorkload()
 	workload.UpdateTimeElapsed()
 
-	m.logger.Debug("Started workload.", zap.String("workload_id", workloadId), zap.Any("workload-source", workload.GetWorkloadSource()))
+	m.logger.Debug("Started workload.",
+		zap.String("workload_id", workloadId),
+		zap.String("workload_name", workload.WorkloadName()))
 
 	return workload, nil
 }

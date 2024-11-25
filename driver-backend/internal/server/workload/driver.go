@@ -463,6 +463,7 @@ func (d *BasicWorkloadDriver) createWorkloadFromTemplate(workloadRegistrationReq
 		EnableDebugLogging(workloadRegistrationRequest.DebugLogging).
 		SetTimescaleAdjustmentFactor(workloadRegistrationRequest.TimescaleAdjustmentFactor).
 		SetRemoteStorageDefinition(workloadRegistrationRequest.RemoteStorageDefinition).
+		SetSessionsSamplePercentage(workloadRegistrationRequest.SessionsSamplePercentage).
 		Build()
 
 	workloadFromTemplate, err := domain.NewWorkloadFromTemplate(basicWorkload, workloadRegistrationRequest.Sessions)
@@ -497,8 +498,7 @@ func (d *BasicWorkloadDriver) RegisterWorkload(workloadRegistrationRequest *doma
 
 	d.logger.Debug("Registering workload.",
 		zap.String("workload_name", workloadRegistrationRequest.WorkloadName),
-		zap.String("workload-key", workloadRegistrationRequest.Key),
-		zap.String("workload_registration_request", workloadRegistrationRequest.String()))
+		zap.String("workload-key", workloadRegistrationRequest.Key))
 
 	// We create the workload a little differently depending on its type (either 'preset' or 'template').
 	// Workloads of type 'preset' are static in their definition, whereas workloads of type 'template'
@@ -1328,11 +1328,6 @@ func (d *BasicWorkloadDriver) handleTick(tick time.Time) error {
 		}
 	}
 
-	// TODO: Update this.
-
-	// Process "session ready" events.
-	//d.handleSessionReadyEvents(tick)
-
 	// Process "start/stop training" events.
 	d.processEventsForTick(tick)
 
@@ -1347,6 +1342,20 @@ func (d *BasicWorkloadDriver) doneServingTick(tickStart time.Time) {
 	tick := d.ticksHandled.Load()
 	numEventsEnqueued := d.eventQueue.Len()
 	d.workload.TickCompleted(tick, d.clockTime.GetClockTime())
+
+	nextEventExpectedAt, err := d.eventQueue.GetTimestampOfNextReadyEvent()
+	if err == nil {
+		nextEventExpectedAtTick := nextEventExpectedAt.Unix() / d.targetTickDurationSeconds
+		d.logger.Debug("Setting value of NextEventTick.",
+			zap.String("workload_id", d.workload.GetId()),
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.Int64("next_event_tick", nextEventExpectedAtTick))
+		d.workload.SetNextEventTick(nextEventExpectedAtTick)
+	} else if errors.Is(err, event_queue.ErrNoMoreEvents) {
+		d.logger.Debug("Cannot set value of NextEventTick. There are no events in the queue.")
+	} else {
+		panic(err)
+	}
 
 	if d.sugaredLogger.Level() == zapcore.DebugLevel {
 		d.sugaredLogger.Debugf("[%v] Done serving tick #%d. "+
@@ -1369,6 +1378,12 @@ func (d *BasicWorkloadDriver) WorkloadExecutionCompleteChan() chan interface{} {
 // Once all remaining, already-enqueued events have been processed, the workload will be complete.
 func (d *BasicWorkloadDriver) WorkloadEventGeneratorCompleteChan() chan interface{} {
 	return d.workloadEventGeneratorCompleteChan
+}
+
+// RegisterApproximateFinalTick is used to register what is the approximate final tick of the workload
+// after iterating over all sessions and all training events.
+func (d *BasicWorkloadDriver) RegisterApproximateFinalTick(approximateFinalTick int64) {
+	d.workload.RegisterApproximateFinalTick(approximateFinalTick)
 }
 
 // EventQueue returns the event queue for this workload.
@@ -1428,12 +1443,13 @@ func (d *BasicWorkloadDriver) processEventsForTick(tick time.Time) {
 		}
 
 		wg.Wait()
-	} else {
-		d.logger.Debug("No \"session-ready\" events to process at the very beginning of the tick.",
-			zap.String("workload_id", d.workload.GetId()),
-			zap.String("workload_name", d.workload.WorkloadName()),
-			zap.Time("tick", tick))
 	}
+	//else {
+	//	d.logger.Debug("No \"session-ready\" events to process at the very beginning of the tick.",
+	//		zap.String("workload_id", d.workload.GetId()),
+	//		zap.String("workload_name", d.workload.WorkloadName()),
+	//		zap.Time("tick", tick))
+	//}
 
 	// Extract all the "session-ready" events for this tick.
 	for d.eventQueue.HasEventsForTick(tick) {

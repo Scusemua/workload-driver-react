@@ -115,6 +115,8 @@ interface Workload {
     sessions: Session[];
     simulation_clock_time: string;
     current_tick: number;
+    total_num_ticks: number | undefined;
+    next_event_expected_tick: number | undefined;
     tick_durations_milliseconds: number[];
     sum_tick_durations_millis: number;
 }
@@ -284,6 +286,7 @@ interface Session {
     stop_tick: number;
     trainings: TrainingEvent[];
     trainings_completed: number;
+    discarded: boolean;
     state: string;
     error_message: string; // If the session encountered an error message, then we can store it here.
     stderr_io_pub_messages: string[];

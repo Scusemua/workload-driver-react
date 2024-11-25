@@ -226,6 +226,7 @@ func ManySessionsManyTrainingEvents(sessions []*domain.WorkloadTemplateSession) 
 		panic(fmt.Sprintf("Sessions has unexpected length: %d", len(sessions)))
 	}
 
+	var approximateFinalTick int64 = 0
 	for _, session := range sessions {
 		if err := validateSession(session); err != nil {
 			return nil, err
@@ -235,9 +236,22 @@ func ManySessionsManyTrainingEvents(sessions []*domain.WorkloadTemplateSession) 
 			return nil, err
 		}
 
+		if int64(session.StopTick) > approximateFinalTick {
+			approximateFinalTick = int64(session.StopTick)
+		}
+
+		if len(session.GetTrainings()) == 0 {
+			continue
+		}
+
 		trainingEvent := session.GetTrainings()[0]
 		if trainingEvent.DurationInTicks <= 0 {
 			return nil, fmt.Errorf("%w: invalid training duration specified: %d ticks. Must be strictly greater than 0", ErrInvalidConfiguration, trainingEvent.DurationInTicks)
+		}
+
+		finalTrainingEvent := session.GetTrainings()[len(session.GetTrainings())-1]
+		if int64(finalTrainingEvent.StartTick+finalTrainingEvent.DurationInTicks) > approximateFinalTick {
+			approximateFinalTick = int64(finalTrainingEvent.StartTick + finalTrainingEvent.DurationInTicks)
 		}
 	}
 
@@ -245,7 +259,6 @@ func ManySessionsManyTrainingEvents(sessions []*domain.WorkloadTemplateSession) 
 		seenSessions := make(map[string]struct{})
 
 		for _, session := range sessions {
-			log.Debug("Adding events for Session.", zap.String("session_id", session.Id))
 			if _, ok := seenSessions[session.GetId()]; ok {
 				log.Error("We've already added events for Session.", zap.String("session_id", session.Id))
 				panic("Duplicate Session.")
@@ -261,6 +274,8 @@ func ManySessionsManyTrainingEvents(sessions []*domain.WorkloadTemplateSession) 
 
 			sequencer.AddSessionTerminatedEvent(session.GetId(), session.GetStopTick())
 		}
+
+		sequencer.eventConsumer.RegisterApproximateFinalTick(approximateFinalTick)
 
 		sequencer.SubmitEvents(sequencer.eventConsumer.WorkloadEventGeneratorCompleteChan())
 		return nil
