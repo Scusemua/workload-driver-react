@@ -264,7 +264,7 @@ export const WorkloadInspectionView: React.FunctionComponent<IWorkloadInspection
                 <Flex direction={{ default: 'row' }}>
                     <FlexItem align={{ default: 'alignLeft' }}>
                         <ClipboardCheckIcon /> {<strong>Sessions:</strong>} {props.workload?.num_sessions_created} /{' '}
-                        {props.workload?.sessions.length - props.workload?.num_sessions_discarded} created,{' '}
+                        {props.workload?.sessions.length - props.workload?.num_discarded_sessions} created,{' '}
                         {props.workload?.num_active_trainings} actively training
                     </FlexItem>
                     <FlexItem align={{ default: 'alignRight' }}>
