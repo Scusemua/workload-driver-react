@@ -240,8 +240,8 @@ type Workload interface {
 	GetNextEventTick() int64
 	// SetNextEventTick sets the tick at which the next event is expected to be processed (for visualization purposes).
 	SetNextEventTick(int64)
-	// SessionDisabled is used to record that a particular session is being discarded/not sampled.
-	SessionDisabled(string) error
+	// SessionDiscarded is used to record that a particular session is being discarded/not sampled.
+	SessionDiscarded(string) error
 }
 
 // GetWorkloadStateAsString will panic if an invalid workload state is specified.
@@ -1206,9 +1206,9 @@ func (w *BasicWorkload) SetNextEventTick(nextEventExpectedTick int64) {
 	w.NextEventExpectedTick = nextEventExpectedTick
 }
 
-// SessionDisabled is used to record that a particular session is being discarded/not sampled.
-func (w *BasicWorkload) SessionDisabled(sessionId string) error {
-	return w.workloadInstance.SessionDisabled(sessionId)
+// SessionDiscarded is used to record that a particular session is being discarded/not sampled.
+func (w *BasicWorkload) SessionDiscarded(sessionId string) error {
+	return w.workloadInstance.SessionDiscarded(sessionId)
 }
 
 func (w *BasicWorkload) SetSessionSampled(sessionId string) {
@@ -1222,7 +1222,7 @@ func (w *BasicWorkload) SetSessionSampled(sessionId string) {
 }
 
 func (w *BasicWorkload) SetSessionDiscarded(sessionId string) {
-	err := w.workloadInstance.SessionDisabled(sessionId)
+	err := w.workloadInstance.SessionDiscarded(sessionId)
 	if err != nil {
 		w.logger.Error("Failed to disable session.",
 			zap.String("workload_id", w.Id),

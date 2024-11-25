@@ -16,6 +16,7 @@ const (
 	SessionTraining      SessionState = "training"       // The session is actively training.
 	SessionStopped       SessionState = "terminated"     // The session has been terminated (without an error).
 	SessionErred         SessionState = "erred"          // An error occurred, forcing the session to terminate.
+	SessionDiscarded     SessionState = "discarded"      // Session was not sampled for the workload.
 )
 
 var (
@@ -258,6 +259,10 @@ func (s *BasicWorkloadSession) SetState(targetState SessionState) error {
 
 	if targetState == SessionTraining {
 		s.TrainingStartedAt = time.Now()
+	}
+
+	if targetState == SessionDiscarded {
+		s.Discarded = true
 	}
 
 	return nil

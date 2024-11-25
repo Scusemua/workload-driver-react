@@ -178,15 +178,23 @@ func (w *WorkloadFromPreset) SessionCreated(sessionId string, metadata SessionMe
 	w.sessionsMap.Set(sessionId, session)
 }
 
-// SessionDisabled is used to record that a particular session is being discarded/not sampled.
-func (w *WorkloadFromPreset) SessionDisabled(sessionId string) error {
+// SessionDiscarded is used to record that a particular session is being discarded/not sampled.
+func (w *WorkloadFromPreset) SessionDiscarded(sessionId string) error {
 	val, loaded := w.sessionsMap.Get(sessionId)
 	if !loaded {
 		return fmt.Errorf("%w: \"%s\"", ErrUnknownSession, sessionId)
 	}
 
 	session := val.(*BasicWorkloadSession)
-	session.Discarded = true
+	err := session.SetState(SessionDiscarded)
+	if err != nil {
+		w.logger.Error("Could not transition session to the 'discarded' state.",
+			zap.String("workload_id", w.Id),
+			zap.String("workload_name", w.Name),
+			zap.String("session_id", sessionId),
+			zap.Error(err))
+		return err
+	}
 
 	return nil
 }

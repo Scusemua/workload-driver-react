@@ -130,9 +130,14 @@ function getSessionStatusLabel(session: Session): ReactElement {
 function getSortableRowValues(session: Session): (string | number | Date)[] {
     const { id, state, trainings, trainings_completed, current_resource_request, max_resource_request } = session;
 
+    let status: string = state;
+    if (session.discarded) {
+        status = 'discarded';
+    }
+
     return [
         id,
-        state,
+        status,
         trainings_completed,
         trainings.length - trainings_completed,
         current_resource_request.cpus,
