@@ -1719,6 +1719,14 @@ func (d *BasicWorkloadDriver) delaySession(sessionId string, delayAmount time.Du
 	}
 
 	d.workload.SessionDelayed(sessionId, delayAmount)
+
+	if metrics.PrometheusMetricsWrapperInstance != nil {
+		metrics.PrometheusMetricsWrapperInstance.SessionDelayedDueToResourceContention.
+			With(prometheus.Labels{
+				"workload_id": d.workload.GetId(),
+				"session_id":  sessionId,
+			}).Add(1)
+	}
 }
 
 // handleFailureToCreateNewSession processes an error in which we failed to create a kernel for some reason.

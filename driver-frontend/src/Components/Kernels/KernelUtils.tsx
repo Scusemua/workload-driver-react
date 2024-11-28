@@ -95,7 +95,7 @@ export function PingKernel(kernelId: string, socketType: 'control' | 'shell') {
                         onTimeout={() => toast.dismiss(toastId)}
                         actionClose={<AlertActionCloseButton onClose={() => toast.dismiss(toastId)} />}
                     >
-                        {response.requestTraces.length > 0 && (
+                        {response.requestTraces && response.requestTraces.length > 0 && (
                             <Flex direction={{ default: 'column' }}>
                                 <FlexItem>
                                     <Title headingLevel={'h3'}>Request Trace(s)</Title>

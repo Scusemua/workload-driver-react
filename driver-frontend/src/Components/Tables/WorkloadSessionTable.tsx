@@ -36,7 +36,7 @@ const sessions_table_columns: string[] = [
     'Completed Exec.',
     'Remaining Exec.',
     'milliCPUs',
-    'Memory (MB)',
+    'DRAM (MB)',
     'Current vGPUs',
     'Max vGPUs',
     'VRAM (GB)',

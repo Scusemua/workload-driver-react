@@ -10,8 +10,26 @@
   num_training_events: 140005
   large: true
   key: adobe_sensei_summer_v2
+- display_name: Adobe Sensei - 1st Wk June 2021
+  filepath: configs/workload_templates/trace_june_1st_week_2021.json
+  num_sessions: 214
+  num_training_events: 828
+  large: true
+  key: adobe_sensei_june_1st_wk_2021
+- display_name: Adobe Sensei - June 2021 Weeks 1 & 2
+  filepath: configs/workload_templates/trace_june_weeks_1_and_2_2021.json
+  num_sessions: 453
+  num_training_events: 1949
+  large: true
+  key: adobe_sensei_june_2021_wks_1_and_2
+- display_name: Adobe Sensei - 1st Wk July 2021 # v2
+  filepath: configs/workload_templates/trace_july_1st_week_2021.json
+  num_sessions: 71
+  num_training_events: 106
+  large: true
+  key: adobe_sensei_july_1st_wk_2021
 - display_name: Adobe Sensei - June 2021
-  filepath: configs/workload_templates/trace_july_2021.json
+  filepath: configs/workload_templates/trace_june_2021.json
   num_sessions: 860
   num_training_events: 7827
   large: true

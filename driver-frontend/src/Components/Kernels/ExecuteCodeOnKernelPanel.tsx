@@ -938,13 +938,14 @@ export const ExecuteCodeOnKernelPanel: React.FunctionComponent<IExecuteCodeOnKer
                 ouiaId="select-target-replica-menu"
             >
                 <FormSelectOption key={-1} value={'Any/Auto'} label={'Any/Auto'} />
-                {props.kernel?.replicas.map((replica: JupyterKernelReplica) => (
-                    <FormSelectOption
-                        key={replica.replicaId}
-                        value={replica.replicaId}
-                        label={`Replica ${replica.replicaId}`}
-                    />
-                ))}
+                {props.kernel?.replicas &&
+                    props.kernel?.replicas.map((replica: JupyterKernelReplica) => (
+                        <FormSelectOption
+                            key={replica.replicaId}
+                            value={replica.replicaId}
+                            label={`Replica ${replica.replicaId}`}
+                        />
+                    ))}
             </FormSelect>
         </Tooltip>
     );
@@ -984,9 +985,7 @@ export const ExecuteCodeOnKernelPanel: React.FunctionComponent<IExecuteCodeOnKer
                     </CodeContext.Provider>
                 </FlexItem>
             </Flex>
-            <Flex
-                direction={{ default: 'row' }}
-            >
+            <Flex direction={{ default: 'row' }}>
                 <FlexItem align={{ default: 'alignLeft' }}>{executeButton}</FlexItem>
                 <FlexItem align={{ default: 'alignLeft' }}>{enqueueButton}</FlexItem>
                 {props.onCancel !== undefined && <FlexItem align={{ default: 'alignLeft' }}>{cancelButton}</FlexItem>}

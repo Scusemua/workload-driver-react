@@ -27,6 +27,10 @@ type PrometheusMetricsWrapper struct {
 	WorkloadTrainingEventDurationMilliseconds *prometheus.HistogramVec
 	WorkloadSessionLifetimeSeconds            *prometheus.HistogramVec
 
+	// SessionDelayedDueToResourceContention counts the number of times a Session is delayed due to resource
+	// contention when attempting to create its container.
+	SessionDelayedDueToResourceContention *prometheus.CounterVec
+
 	// JupyterSessionCreationLatencyMilliseconds is a metric tracking the latency between when
 	// the network request to create a new Session is first sent and when the response
 	// is received, indicating that the new Session has been created successfully.
@@ -82,6 +86,12 @@ func NewPrometheusMetricsWrapper(atom *zap.AtomicLevel) (*PrometheusMetricsWrapp
 			Subsystem: "workload_driver",
 			Name:      "sessions_created_total",
 		}, []string{"workload_id"}),
+
+		SessionDelayedDueToResourceContention: prometheus.NewCounterVec(prometheus.CounterOpts{
+			Namespace: "distributed_cluster",
+			Subsystem: "workload_driver",
+			Name:      "session_delayed_resource_contention",
+		}, []string{"workload_id", "session_id"}),
 
 		// Histogram metrics.
 		WorkloadTrainingEventDurationMilliseconds: prometheus.NewHistogramVec(prometheus.HistogramOpts{

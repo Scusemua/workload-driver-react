@@ -15,6 +15,7 @@ import {
 } from '@patternfly/react-core';
 
 import { CodeIcon, EllipsisVIcon, InfoAltIcon, PauseCircleIcon, PauseIcon, TrashIcon } from '@patternfly/react-icons';
+import { useClusterSchedulingPolicy } from '@Providers/SchedulingPolicyProvider';
 import React from 'react';
 
 interface IKernelKernelOverflowMenuProps {
@@ -31,6 +32,20 @@ interface IKernelKernelOverflowMenuProps {
 export const KernelOverflowMenu: React.FunctionComponent<IKernelKernelOverflowMenuProps> = (
     props: IKernelKernelOverflowMenuProps,
 ) => {
+    const { schedulingPolicy } = useClusterSchedulingPolicy();
+
+    const executeButtonDisabled = () => {
+        if (schedulingPolicy == 'fcfs-batch') {
+            return props.kernel === undefined;
+        }
+
+        if (props.kernel?.replicas === undefined) {
+            return true;
+        }
+
+        return props.kernel !== undefined && props.kernel?.replicas?.length < 3;
+    };
+
     return (
         <OverflowMenu breakpoint="xl">
             <OverflowMenuContent>
@@ -47,10 +62,7 @@ export const KernelOverflowMenu: React.FunctionComponent<IKernelKernelOverflowMe
                                     variant={'link'}
                                     icon={<CodeIcon />}
                                     /* Disable the 'Execute' button if we have no replicas, or if we don't have at least 3. */
-                                    isDisabled={
-                                        props.kernel?.replicas === undefined ||
-                                        (props.kernel !== undefined && true && props.kernel?.replicas?.length < 3)
-                                    }
+                                    isDisabled={executeButtonDisabled()}
                                     onClick={() => props.onExecuteCodeClicked(props.kernel)}
                                 >
                                     Execute

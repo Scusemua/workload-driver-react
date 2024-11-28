@@ -187,7 +187,11 @@ func (m *BasicKernelSessionManager) GetMetadata(key string) (interface{}, bool) 
 // CreateSession creates a new session.
 //
 // This is thread-safe.
-func (m *BasicKernelSessionManager) CreateSession(sessionId string, sessionPath string, sessionType string, kernelSpecName string, resourceSpec *ResourceSpec) (*SessionConnection, error) {
+func (m *BasicKernelSessionManager) CreateSession(sessionId string, sessionPath string, sessionType string,
+	kernelSpecName string, resourceSpec *ResourceSpec) (*SessionConnection, error) {
+
+	workloadId, loadedWorkloadIdFromMetadata := m.GetMetadata(WorkloadIdMetadataKey)
+
 	if m.adjustSessionNames {
 		if len(sessionId) < 36 {
 			generatedUuid := uuid.NewString()
@@ -197,7 +201,12 @@ func (m *BasicKernelSessionManager) CreateSession(sessionId string, sessionPath 
 		}
 	}
 
-	requestBody := newJupyterSessionForRequest(sessionId, sessionPath, sessionType, kernelSpecName, resourceSpec)
+	var requestBody *jupyterSessionReq
+	if loadedWorkloadIdFromMetadata {
+		requestBody = newJupyterSessionForRequest(sessionId, sessionPath, sessionType, kernelSpecName, resourceSpec, workloadId.(string))
+	} else {
+		requestBody = newJupyterSessionForRequest(sessionId, sessionPath, sessionType, kernelSpecName, resourceSpec, "N/A")
+	}
 
 	requestBodyJson, err := json.Marshal(&requestBody)
 	if err != nil {
@@ -327,9 +336,7 @@ func (m *BasicKernelSessionManager) CreateSession(sessionId string, sessionPath 
 		return nil, err
 	}
 
-	workloadId, loaded := m.GetMetadata(WorkloadIdMetadataKey)
-
-	if loaded {
+	if loadedWorkloadIdFromMetadata {
 		m.mu.Lock()
 		m.kernelMetricsManager.SessionCreated(time.Since(sentAt), workloadId.(string))
 		m.mu.Unlock()
