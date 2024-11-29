@@ -130,7 +130,7 @@ func (q *SessionEventQueue) NextEventTimestamp() (time.Time, bool) {
 	// If there's a hold on events, then we'll add a huge constant amount to the timestamp so that the events
 	// are delayed more-or-less indefinitely.
 	if q.HoldActive {
-		timestampWithDelay = timestampWithDelay.Add(time.Hour * 8760000) // 8,760,000 hours is 1,000 years.
+		timestampWithDelay = timestampWithDelay.Add(time.Hour * 87660) // 87,660 hours is 10 years.
 	}
 
 	return timestampWithDelay, true
