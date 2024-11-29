@@ -18,6 +18,8 @@ var (
 	ErrNoEventQueue        = errors.New("no corresponding event queue for given Session")
 	ErrNoMoreEvents        = errors.New("there are no more events for the specified Session")
 	ErrUnregisteredSession = errors.New("specified session does not have an event queue registered")
+	ErrHoldAlreadyActive   = errors.New("there is already an active event hold on the specified session")
+	ErrNoHoldActive        = errors.New("there is no event hold on the specified session")
 )
 
 // EventQueue maintains a queue of events (sorted by timestamp) for each unique session.
@@ -281,6 +283,64 @@ func (q *EventQueue) Peek(threshold time.Time) *domain.Event {
 	if threshold == timestamp || timestamp.Before(threshold) {
 		return sessionQueue.Peek()
 	}
+
+	return nil
+}
+
+// HoldEventsForSession prevents the EventQueue from returning events for the specified session
+// until ReleaseEventHoldForSession is called.
+func (q *EventQueue) HoldEventsForSession(sessionId string) error {
+	val, loaded := q.eventsPerSession.Get(sessionId)
+	if !loaded {
+		return fmt.Errorf("%w: \"%s\"", ErrUnregisteredSession, sessionId)
+	}
+
+	sessionEventQueue := val.(*SessionEventQueue)
+
+	q.logger.Debug("Creating hold on events for session.",
+		zap.String("session_id", sessionId),
+		zap.Duration("current_delay", sessionEventQueue.Delay))
+
+	if sessionEventQueue.HoldActive {
+		q.logger.Error("There is already an active event hold for specified session.",
+			zap.String("session_id", sessionId),
+			zap.Duration("current_delay", sessionEventQueue.Delay))
+
+		return fmt.Errorf("%w: \"%s\"", ErrHoldAlreadyActive, sessionId)
+	}
+
+	sessionEventQueue.HoldActive = true
+
+	heap.Fix(&q.events, sessionEventQueue.HeapIndex)
+
+	return nil
+}
+
+// ReleaseEventHoldForSession instructs the EventQueue to stop "holding" events for the session (i.e., to
+// stop refusing to return events for the specified session).
+func (q *EventQueue) ReleaseEventHoldForSession(sessionId string) error {
+	val, loaded := q.eventsPerSession.Get(sessionId)
+	if !loaded {
+		return fmt.Errorf("%w: \"%s\"", ErrUnregisteredSession, sessionId)
+	}
+
+	sessionEventQueue := val.(*SessionEventQueue)
+
+	q.logger.Debug("Releasing hold on events for session.",
+		zap.String("session_id", sessionId),
+		zap.Duration("current_delay", sessionEventQueue.Delay))
+
+	if !sessionEventQueue.HoldActive {
+		q.logger.Error("There is not an active event hold for specified session.",
+			zap.String("session_id", sessionId),
+			zap.Duration("current_delay", sessionEventQueue.Delay))
+
+		return fmt.Errorf("%w: \"%s\"", ErrNoHoldActive, sessionId)
+	}
+
+	sessionEventQueue.HoldActive = false
+
+	heap.Fix(&q.events, sessionEventQueue.HeapIndex)
 
 	return nil
 }

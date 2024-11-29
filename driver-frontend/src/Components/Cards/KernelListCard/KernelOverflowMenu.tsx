@@ -78,7 +78,8 @@ export const KernelOverflowMenu: React.FunctionComponent<IKernelKernelOverflowMe
                                         props.kernel == null ||
                                         false ||
                                         props.kernel?.replicas === null ||
-                                        props.kernel?.replicas?.length < 3
+                                        (schedulingPolicy === 'fcfs-batch' && props.kernel?.replicas?.length < 1) ||
+                                        (schedulingPolicy !== 'fcfs-batch' && props.kernel?.replicas?.length < 3)
                                     }
                                     onClick={() => props.onPingKernelClicked(props.kernel!)}
                                 >
@@ -122,7 +123,8 @@ export const KernelOverflowMenu: React.FunctionComponent<IKernelKernelOverflowMe
                                     isDisabled={
                                         props.kernel == null ||
                                         props.kernel?.replicas === null ||
-                                        props.kernel?.replicas?.length < 3
+                                        (schedulingPolicy === 'fcfs-batch' && props.kernel?.replicas?.length < 1) ||
+                                        (schedulingPolicy !== 'fcfs-batch' && props.kernel?.replicas?.length < 3)
                                     }
                                     onClick={() => props.onInterruptKernelClicked(props.kernel!)}
                                 >
@@ -144,7 +146,8 @@ export const KernelOverflowMenu: React.FunctionComponent<IKernelKernelOverflowMe
                                     isDisabled={
                                         props.kernel == null ||
                                         props.kernel?.replicas === null ||
-                                        props.kernel?.replicas?.length < 3
+                                        (schedulingPolicy === 'fcfs-batch' && props.kernel?.replicas?.length < 1) ||
+                                        (schedulingPolicy !== 'fcfs-batch' && props.kernel?.replicas?.length < 3)
                                     }
                                     onClick={() => props.onStopTrainingClicked(props.kernel!)}
                                 >

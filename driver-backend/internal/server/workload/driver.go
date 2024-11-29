@@ -153,6 +153,7 @@ type BasicWorkloadDriver struct {
 	workloadRegistrationRequest        *domain.WorkloadRegistrationRequest   // The request that registered the workload that is being driven by this driver.
 	workloadSessions                   []*domain.WorkloadTemplateSession     // The template used by the associated workload. Will only be non-nil if the associated workload is a template-based workload, rather than a preset-based workload.
 	paused                             bool                                  // Paused indicates whether the workload has been paused.
+	trainingSubmittedTimes             *hashmap.HashMap                      // trainingSubmittedTimes keeps track of when "execute_request" messages were sent for different sessions. Keys are internal session IDs, values are unix millisecond timestamps.
 	pauseMutex                         sync.Mutex
 	pauseCond                          *sync.Cond
 
@@ -193,6 +194,7 @@ func NewBasicWorkloadDriver(opts *domain.Configuration, performClockTicks bool, 
 		sessionConnections:                 make(map[string]*jupyter.SessionConnection),
 		performClockTicks:                  performClockTicks,
 		eventQueue:                         event_queue.NewEventQueue(atom),
+		trainingSubmittedTimes:             hashmap.New(100),
 		stats:                              NewWorkloadStats(),
 		sessions:                           hashmap.New(100),
 		seenSessions:                       make(map[string]struct{}),
@@ -1584,7 +1586,23 @@ func (d *BasicWorkloadDriver) processEventsForSession(sessionId string, events [
 // The internal ID includes the unique ID of this workload driver, in case multiple
 // workloads from the same trace are being executed concurrently.
 func (d *BasicWorkloadDriver) getInternalSessionId(traceSessionId string) string {
-	return fmt.Sprintf("%s-%s", traceSessionId, d.id)
+	//return fmt.Sprintf("%s-%s", traceSessionId, d.id)
+	return traceSessionId
+}
+
+// Given a session ID, such as from the trace data, return the ID used internally.
+//
+// The internal ID includes the unique ID of this workload driver, in case multiple
+// workloads from the same trace are being executed concurrently.
+func (d *BasicWorkloadDriver) getTraceSessionId(internalSessionId string) string {
+	rindex := strings.LastIndex(internalSessionId, "-")
+
+	if rindex < 0 {
+		panic(fmt.Sprintf("could not extract trace session id from given internal session id: \"%s\" (rindex=%d)",
+			internalSessionId, rindex))
+	}
+
+	return internalSessionId[0:rindex]
 }
 
 func (d *BasicWorkloadDriver) getOriginalSessionIdFromInternalSessionId(internalSessionId string) string {
@@ -1875,7 +1893,8 @@ func (d *BasicWorkloadDriver) handleTrainingStartedEvent(evt *domain.Event) erro
 
 	d.logger.Debug("Received TrainingStarted event.",
 		zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
-		zap.String("internal-session-id", internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
+		zap.String("internal-session-id", internalSessionId),
+		zap.String(ZapTraceSessionIDKey, traceSessionId))
 
 	if _, ok := d.seenSessions[internalSessionId]; !ok {
 		d.logger.Warn("Received 'training-started' event for unknown session.",
@@ -1919,10 +1938,23 @@ func (d *BasicWorkloadDriver) handleTrainingStartedEvent(evt *domain.Event) erro
 		return err
 	}
 
-	d.workload.TrainingStarted(traceSessionId, evt)
+	d.trainingSubmittedTimes.Set(internalSessionId, time.Now().UnixMilli())
+	d.workload.TrainingSubmitted(traceSessionId, evt)
 	d.logger.Debug("Handled TrainingStarted event.",
 		zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
 		zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
+
+	// Hold events for the session until the training actually begins.
+	err = d.eventQueue.HoldEventsForSession(internalSessionId)
+	if err != nil {
+		d.logger.Error("Could not place hold on session events.",
+			zap.String("workload_id", d.workload.GetId()),
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String("kernel_id", internalSessionId),
+			zap.Error(err))
+
+		return nil
+	}
 
 	return nil
 }
@@ -2061,20 +2093,22 @@ func (d *BasicWorkloadDriver) stopSession(sessionId string) error {
 }
 
 func (d *BasicWorkloadDriver) provisionSession(sessionId string, meta domain.SessionMetadata, createdAtTime time.Time, resourceSpec *jupyter.ResourceSpec) (*jupyter.SessionConnection, error) {
-	d.logger.Debug("Creating new kernel.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String("kernel_id", sessionId))
+	internalSessionId := d.getInternalSessionId(sessionId)
+
+	d.logger.Debug("Creating new kernel.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String("ZapInternalSessionIDKey", internalSessionId))
 	st := time.Now()
 
 	// Create the kernel in Jupyter.
 	sessionConnection, err := d.kernelManager.CreateSession(
-		sessionId, /*strings.ToLower(sessionId) */
-		fmt.Sprintf("%s.ipynb", sessionId),
+		internalSessionId, /*strings.ToLower(sessionId) */
+		fmt.Sprintf("%s.ipynb", internalSessionId),
 		"notebook", "distributed", resourceSpec)
 
 	if err != nil {
 		d.logger.Warn("Failed to create session.",
 			zap.String("workload_id", d.workload.GetId()),
 			zap.String("workload_name", d.workload.WorkloadName()),
-			zap.String(ZapInternalSessionIDKey, sessionId),
+			zap.String(ZapInternalSessionIDKey, internalSessionId),
 			zap.Error(err))
 
 		// We call our OnError handlers after returning; no need to call them here.
@@ -2083,13 +2117,15 @@ func (d *BasicWorkloadDriver) provisionSession(sessionId string, meta domain.Ses
 
 	timeElapsed := time.Since(st)
 
-	internalSessionId := d.getInternalSessionId(sessionId)
-
 	d.mu.Lock()
 	d.sessionConnections[internalSessionId] = sessionConnection
 	d.mu.Unlock()
 
-	d.logger.Debug("Successfully created new kernel.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String("kernel_id", sessionId), zap.Duration("time-elapsed", timeElapsed), zap.String(ZapInternalSessionIDKey, internalSessionId))
+	d.logger.Debug("Successfully created new kernel.",
+		zap.String("workload_id", d.workload.GetId()),
+		zap.String("workload_name", d.workload.WorkloadName()),
+		zap.Duration("time-elapsed", timeElapsed),
+		zap.String(ZapInternalSessionIDKey, internalSessionId))
 
 	// Create a new workload session.
 	workloadSession := d.newSession(sessionId, meta, createdAtTime)
@@ -2115,7 +2151,10 @@ func (d *BasicWorkloadDriver) provisionSession(sessionId string, meta domain.Ses
 					workloadSession.AddStderrIoPubMessage(parsedIoPubMsg.Text)
 				}
 			default:
-				d.logger.Error("Unexpected stream specified by IOPub message.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String("stream", parsedIoPubMsg.Stream))
+				d.logger.Warn("Unexpected stream specified by IOPub message.",
+					zap.String("workload_id", d.workload.GetId()),
+					zap.String("workload_name", d.workload.WorkloadName()),
+					zap.String("stream", parsedIoPubMsg.Stream))
 				return false
 			}
 			return true
@@ -2126,7 +2165,9 @@ func (d *BasicWorkloadDriver) provisionSession(sessionId string, meta domain.Ses
 
 	if err := sessionConnection.RegisterIoPubHandler(d.id, ioPubHandler); err != nil {
 		d.logger.Warn("Failed to register IOPub message handler.",
-			zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String("id", d.id), zap.Error(err))
+			zap.String("workload_id", d.workload.GetId()),
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String("id", d.id), zap.Error(err))
 	}
 
 	return sessionConnection, nil
@@ -2145,10 +2186,85 @@ type parsedIoPubMessage struct {
 func (d *BasicWorkloadDriver) handleIOPubMessage(conn jupyter.KernelConnection, kernelMessage jupyter.KernelMessage) interface{} {
 	// We just want to extract the output from 'stream' IOPub messages.
 	// We don't care about non-stream-type IOPub messages here, so we'll just return.
-	if kernelMessage.GetHeader().MessageType != "stream" {
+	messageType := kernelMessage.GetHeader().MessageType
+	if messageType != "stream" && messageType != "smr_lead_task" {
 		return nil
 	}
 
+	if messageType == "stream" {
+		return d.handleIOPubStreamMessage(conn, kernelMessage)
+	}
+
+	return d.handleIOPubSmrLeadTaskMessage(conn, kernelMessage)
+}
+
+func (d *BasicWorkloadDriver) handleIOPubSmrLeadTaskMessage(conn jupyter.KernelConnection, kernelMessage jupyter.KernelMessage) interface{} {
+	d.logger.Debug("Received 'smr_lead_task' message from kernel.",
+		zap.String("workload_id", d.workload.GetId()),
+		zap.String("workload_name", d.workload.WorkloadName()),
+		zap.String("kernel_id", conn.KernelId()))
+
+	d.workload.TrainingStarted(conn.KernelId())
+	err := d.eventQueue.ReleaseEventHoldForSession(conn.KernelId())
+	if err != nil {
+		d.logger.Error("Could not release hold on session events.",
+			zap.String("workload_id", d.workload.GetId()),
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String("kernel_id", conn.KernelId()),
+			zap.Error(err))
+
+		panic(err)
+	}
+
+	// Use the timestamp encoded in the IOPub message to determine when the training actually began,
+	// and then delay the session by how long it took for training to begin.
+	content := kernelMessage.GetContent().(map[string]interface{})
+
+	var timestamp int64
+	val, loaded := content["unix_milliseconds"]
+	if !loaded {
+		d.logger.Warn("Could not recover unix millisecond timestamp from \"smr_lead_task\" IOPub message.",
+			zap.String("workload_id", d.workload.GetId()),
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String("kernel_id", conn.KernelId()),
+			zap.Any("message_content", content))
+
+		val, loaded = d.trainingSubmittedTimes.Get(conn.KernelId())
+		if !loaded {
+			d.logger.Error("Could not recover training-submitted-at-time either.",
+				zap.String("workload_id", d.workload.GetId()),
+				zap.String("workload_name", d.workload.WorkloadName()),
+				zap.String("kernel_id", conn.KernelId()),
+				zap.Any("message_content", content))
+
+			panic("cannot recover training submission timestamp from IOPub message or internal back-up map...")
+		}
+
+		timestamp = val.(int64)
+	} else {
+		timestamp = int64(val.(int))
+	}
+
+	now := time.Now()
+	delay := now.UnixMilli() - timestamp
+	if delay < 0 {
+		d.logger.Error("Computed invalid delay between training submission and training start...",
+			zap.String("workload_id", d.workload.GetId()),
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String("kernel_id", conn.KernelId()),
+			zap.Int64("training_submission_unix_milliseconds", timestamp),
+			zap.Int64("now_unix_milliseconds", now.UnixMilli()),
+			zap.Int64("computed_delay", delay))
+
+		panic(fmt.Sprintf("invalid training submission delay: %d milliseconds", delay))
+	}
+
+	d.delaySession(d.getTraceSessionId(conn.KernelId()), time.Millisecond*time.Duration(delay))
+
+	return conn.KernelId()
+}
+
+func (d *BasicWorkloadDriver) handleIOPubStreamMessage(conn jupyter.KernelConnection, kernelMessage jupyter.KernelMessage) interface{} {
 	content := kernelMessage.GetContent().(map[string]interface{})
 
 	var (
@@ -2159,7 +2275,11 @@ func (d *BasicWorkloadDriver) handleIOPubMessage(conn jupyter.KernelConnection, 
 
 	stream, ok = content["name"].(string)
 	if !ok {
-		d.logger.Warn("Content of IOPub message did not contain an entry with key \"name\" and value of type string.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.Any("content", content), zap.Any("message", kernelMessage), zap.String("kernel_id", conn.KernelId()))
+		d.logger.Warn("Content of IOPub message did not contain an entry with key \"name\" and value of type string.",
+			zap.String("workload_id", d.workload.GetId()),
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.Any("content", content), zap.Any("message", kernelMessage),
+			zap.String("kernel_id", conn.KernelId()))
 		return nil
 	}
 

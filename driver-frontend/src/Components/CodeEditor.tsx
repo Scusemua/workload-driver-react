@@ -14,7 +14,7 @@ import {
     TextInput,
     Tooltip,
 } from '@patternfly/react-core';
-import { AsleepIcon, DiceIcon } from '@patternfly/react-icons';
+import { AsleepIcon, DiceIcon, RunningIcon } from '@patternfly/react-icons';
 import { TemplateIcon } from '@src/Assets/Icons';
 import { DarkModeContext } from '@src/Providers';
 import { editor } from 'monaco-editor/esm/vs/editor/editor.api';
@@ -63,6 +63,11 @@ const codeTemplates: CodeTemplate[] = [
         code: `import time\ncounter: int = 0\nend: int = 10\n\nfor i in range(0, end, 1):\n\tprint(f"i = {i}, counter = {counter}")\n\tcounter = counter + 1\n\ttime.sleep(1)\n\nprint(f"counter={counter}")`,
         icon: <AsleepIcon />,
     },
+    {
+        name: 'Simulate DL Training',
+        code: `# This is the code we run in a notebook cell to simulate training.\nimport socket, os\nsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)\n\n# Connect to the kernel's TCP socket.\nsock.connect(("127.0.0.1", 5555))\nprint(f'Connected to local TCP server. Local addr: {sock.getsockname()}')\n\n# Blocking call.\n# When training ends, the kernel will be sent a notification.\n# It will then send us a message, unblocking us here and allowing to finish the cell execution.\nsock.recv(1024)\n\nprint("Received 'stop' notification. Done training.")\n\ndel sock`,
+        icon: <RunningIcon />,
+    },
 ];
 
 export const CodeEditorComponent: React.FunctionComponent<CodeEditorComponentProps> = (
@@ -71,6 +76,7 @@ export const CodeEditorComponent: React.FunctionComponent<CodeEditorComponentPro
     const { darkMode } = React.useContext(DarkModeContext);
     const { code, setCode } = React.useContext(props.targetContext);
 
+    const [isCodeTemplateDropdownOpen, setCodeTemplateDropdownOpen] = React.useState<boolean>(false);
     const [isEditorDarkMode, setIsEditorDarkMode] = React.useState(darkMode);
     const [filename, setFilename] = React.useState<string>('');
 
@@ -191,8 +197,6 @@ export const CodeEditorComponent: React.FunctionComponent<CodeEditorComponentPro
             </Button>
         </div>
     );
-
-    const [isCodeTemplateDropdownOpen, setCodeTemplateDropdownOpen] = React.useState<boolean>(false);
 
     const onToggleCodeTemplateDropdownClick = () => {
         setCodeTemplateDropdownOpen(!isCodeTemplateDropdownOpen);

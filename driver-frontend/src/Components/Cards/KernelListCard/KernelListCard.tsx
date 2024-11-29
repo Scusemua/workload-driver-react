@@ -341,6 +341,10 @@ export const KernelListCard: React.FunctionComponent<KernelListProps> = (props: 
             console.log(`New Kernel Status Update: ${status}`);
         });
 
+        kernel.iopubMessage.connect((_, message) => {
+            console.log(`New Kernel Status Update: ${JSON.stringify(message)}`);
+        });
+
         await fetch(GetPathForFetch('api/metrics'), {
             method: 'PATCH',
             headers: {

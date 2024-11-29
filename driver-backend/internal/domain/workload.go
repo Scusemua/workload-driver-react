@@ -166,7 +166,9 @@ type Workload interface {
 	SessionStopped(string, *Event)
 	// TrainingStarted is Called when a training starts during/in the workload.
 	// Just updates some internal metrics.
-	TrainingStarted(string, *Event)
+	TrainingStarted(string)
+	// TrainingSubmitted when an "execute_request" message is sent.
+	TrainingSubmitted(string, *Event)
 	// TrainingStopped is Called when a training stops during/in the workload.
 	// Just updates some internal metrics.
 	TrainingStopped(string, *Event)
@@ -319,6 +321,7 @@ type BasicWorkload struct {
 	NumSessionsCreated        int64                  `json:"num_sessions_created"`
 	NumActiveSessions         int64                  `json:"num_active_sessions"`
 	NumActiveTrainings        int64                  `json:"num_active_trainings"`
+	NumSubmittedTrainings     int64                  `json:"num_submitted_trainings"` // NumSubmittedTrainings is the number of trainings that have been submitted but not yet started.
 	TimescaleAdjustmentFactor float64                `json:"timescale_adjustment_factor"`
 	SimulationClockTimeStr    string                 `json:"simulation_clock_time"`
 	WorkloadType              WorkloadType           `json:"workload_type"`
@@ -1011,16 +1014,9 @@ func (w *BasicWorkload) SessionStopped(sessionId string, evt *Event) {
 	})
 }
 
-// TrainingStarted is called when a training starts during/in the workload.
-// Just updates some internal metrics.
-func (w *BasicWorkload) TrainingStarted(sessionId string, evt *Event) {
-	w.trainingStartedTimes.Set(sessionId, time.Now())
-
-	metrics.PrometheusMetricsWrapperInstance.WorkloadActiveTrainingSessions.
-		With(prometheus.Labels{"workload_id": w.Id}).
-		Add(1)
-
-	w.NumActiveTrainings += 1
+// TrainingSubmitted when an "execute_request" message is sent.
+func (w *BasicWorkload) TrainingSubmitted(sessionId string, evt *Event) {
+	w.NumSubmittedTrainings += 1
 
 	val, ok := w.sessionsMap.Get(sessionId)
 	if !ok {
@@ -1050,6 +1046,19 @@ func (w *BasicWorkload) TrainingStarted(sessionId string, evt *Event) {
 		MemoryMB: sessionMetadata.GetCurrentTrainingMaxMemory(),
 		Gpus:     sessionMetadata.GetCurrentTrainingMaxGPUs(),
 	})
+}
+
+// TrainingStarted is called when a training starts during/in the workload.
+// Just updates some internal metrics.
+func (w *BasicWorkload) TrainingStarted(sessionId string) {
+	w.NumSubmittedTrainings -= 1
+	w.NumActiveTrainings += 1
+
+	w.trainingStartedTimes.Set(sessionId, time.Now())
+
+	metrics.PrometheusMetricsWrapperInstance.WorkloadActiveTrainingSessions.
+		With(prometheus.Labels{"workload_id": w.Id}).
+		Add(1)
 }
 
 // TrainingStopped is called when a training stops during/in the workload.

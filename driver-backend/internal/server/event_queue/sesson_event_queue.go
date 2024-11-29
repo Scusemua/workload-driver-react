@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
 	"github.com/zhangjyr/hashmap"
+	"go.uber.org/zap"
 	"sync"
 	"time"
 )
@@ -25,6 +26,10 @@ type SessionEventQueue struct {
 
 	EventsMap *hashmap.HashMap
 
+	HoldActive bool
+
+	logger *zap.Logger
+
 	mu sync.Mutex
 }
 
@@ -36,6 +41,13 @@ func NewSessionEventQueue(sessionId string) *SessionEventQueue {
 		EventsMap:     hashmap.New(16),
 		HeapIndex:     -1,
 	}
+
+	logger, err := zap.NewDevelopment()
+	if err != nil {
+		panic(err)
+	}
+
+	queue.logger = logger
 
 	return queue
 }
@@ -69,7 +81,15 @@ func (q *SessionEventQueue) Pop() *domain.Event {
 		return nil
 	}
 
-	return heap.Pop(&q.InternalQueue).(*domain.Event)
+	evt := heap.Pop(&q.InternalQueue).(*domain.Event)
+
+	if q.HoldActive {
+		q.logger.Warn("Popping event off of SessionEventQueue despite a hold being active.",
+			zap.String("session_id", q.SessionId),
+			zap.String("event", evt.String()))
+	}
+
+	return evt
 }
 
 // Push pushes the specified *domain.Event into the InternalQueue of the SessionEventQueue.
@@ -105,7 +125,15 @@ func (q *SessionEventQueue) NextEventTimestamp() (time.Time, bool) {
 		return time.Time{}, false
 	}
 
-	return q.InternalQueue.Peek().Timestamp.Add(q.Delay), true
+	timestampWithDelay := q.InternalQueue.Peek().Timestamp.Add(q.Delay)
+
+	// If there's a hold on events, then we'll add a huge constant amount to the timestamp so that the events
+	// are delayed more-or-less indefinitely.
+	if q.HoldActive {
+		timestampWithDelay = timestampWithDelay.Add(time.Hour * 8760000) // 8,760,000 hours is 1,000 years.
+	}
+
+	return timestampWithDelay, true
 }
 
 // NextEventName returns the Name of the next domain.Event in this SessionEventQueue's InternalQueue.
