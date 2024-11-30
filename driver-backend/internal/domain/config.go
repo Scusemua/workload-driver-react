@@ -192,6 +192,7 @@ type Configuration struct {
 	TokenRefreshIntervalSec      int    `name:"token_refresh_interval_sec" yaml:"token_refresh_interval_sec" json:"token_refresh_interval_sec"`
 	BaseUrl                      string `name:"base-url" yaml:"base-url" json:"base-url" default:"/"`
 	PrometheusEndpoint           string `name:"prometheus-endpoint" yaml:"prometheus-endpoint" json:"prometheus-endpoint" default:"/metrics"`
+	WorkloadOutputDirectory      string `name:"workload_output_directory" json:"workload_output_directory" yaml:"workload_output_directory" default:"./workload_output_directory"`
 }
 
 func GetDefaultConfig() *Configuration {
@@ -221,6 +222,7 @@ func GetDefaultConfig() *Configuration {
 		ExpectedOriginPort:           9001,
 		ExpectedOriginAddresses:      "localhost,127.0.0.1",
 		TraceStep:                    60,
+		WorkloadOutputDirectory:      "./workload_output_directory",
 	}
 }
 

@@ -4,3 +4,6 @@ spoof-kernels: true
 spoof-specs: true
 server-port: 8000
 workload-presets-file: './configs/workload_presets.yaml'
+
+# Where the csv statistics are written for workloads
+workload_output_directory: "./workload-output"

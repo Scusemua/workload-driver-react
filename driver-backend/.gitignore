@@ -20,3 +20,4 @@ dist2
 /server-linux-amd64
 /server~
 /.env
+workload-output

@@ -32,3 +32,6 @@ token_valid_duration_sec: 3600
 
 # How long users have to refresh their tokens
 token_refresh_interval_sec: 5400
+
+# Where the csv statistics are written for workloads
+workload_output_directory: "./workload-output"

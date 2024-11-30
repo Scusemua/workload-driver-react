@@ -9,12 +9,14 @@ import (
 	"github.com/scusemua/workload-driver-react/m/v2/internal/server/metrics"
 	"github.com/scusemua/workload-driver-react/m/v2/pkg/statistics"
 	"github.com/shopspring/decimal"
+	"github.com/zhangjyr/gocsv"
 	"io"
 	"math"
 	"math/rand"
 	"net/http"
 	"os"
 	"path"
+	"path/filepath"
 	"reflect"
 	"strings"
 	"sync"
@@ -169,6 +171,10 @@ type BasicWorkloadDriver struct {
 	workloadSessions                   []*domain.WorkloadTemplateSession     // The template used by the associated workload. Will only be non-nil if the associated workload is a template-based workload, rather than a preset-based workload.
 	paused                             bool                                  // Paused indicates whether the workload has been paused.
 	trainingSubmittedTimes             *hashmap.HashMap                      // trainingSubmittedTimes keeps track of when "execute_request" messages were sent for different sessions. Keys are internal session IDs, values are unix millisecond timestamps.
+	outputFile                         io.WriteCloser                        // The opened .CSV output statistics file.
+	outputFileDirectory                string                                // outputFileDirectory is the directory where all the workload-specific output directories live
+	outputFilePath                     string                                // Path to the outputFile
+	appendToOutputFile                 bool                                  // Flag that is set to true after the first write
 	trainingStartedChannels            map[string]chan interface{}
 	pauseMutex                         sync.Mutex
 	pauseCond                          *sync.Cond
@@ -194,6 +200,7 @@ func NewBasicWorkloadDriver(opts *domain.Configuration, performClockTicks bool, 
 	driver := &BasicWorkloadDriver{
 		id:                                 GenerateWorkloadID(8),
 		eventChan:                          make(chan *domain.Event),
+		outputFileDirectory:                opts.WorkloadOutputDirectory,
 		clockTrigger:                       clock.NewTrigger(),
 		opts:                               opts,
 		workloadExecutionCompleteChan:      make(chan interface{}, 1),
@@ -731,15 +738,56 @@ func (d *BasicWorkloadDriver) bootstrapSimulation() error {
 	return nil
 }
 
+// publishStatisticsReport writes the current Statistics struct attached to the InternalWorkload to the CSV file.
+func (d *BasicWorkloadDriver) publishStatisticsReport() {
+	PatchCSVHeader(d.workload.GetStatistics())
+
+	var err error
+	if d.appendToOutputFile {
+		err = gocsv.MarshalWithoutHeaders([]*Statistics{d.workload.GetStatistics()}, d.outputFile)
+	} else {
+		err = gocsv.Marshal([]*Statistics{d.workload.GetStatistics()}, d.outputFile)
+		d.appendToOutputFile = true
+	}
+
+	if err != nil {
+		d.logger.Error("Failed to publish statistics report.", zap.Error(err))
+		if d.notifyCallback != nil {
+			go d.notifyCallback(&proto.Notification{
+				Id:    uuid.NewString(),
+				Title: "Failed to Publish Statistics Report",
+				Message: fmt.Sprintf("Failed to publish statistics report for workload %s (ID=%s)",
+					d.workload.WorkloadName(), d.workload.GetId()),
+				Panicked:         false,
+				NotificationType: domain.WarningNotification.Int32(),
+			})
+		}
+	}
+}
+
 // DriveWorkload accepts a *sync.WaitGroup that is used to notify the caller when the workload has completed.
 // This issues clock ticks as events are submitted.
 //
 // DriveWorkload should be called from its own goroutine.
 func (d *BasicWorkloadDriver) DriveWorkload(wg *sync.WaitGroup) {
+	var err error
+
+	outputSubdir := time.Now().Format("01-02-2006 15:04:05")
+	outputSubdir = strings.ReplaceAll(outputSubdir, ":", "-")
+	outputSubdir = fmt.Sprintf("%s - %s", outputSubdir, d.workload.GetId())
+	outputSubdirectoryPath := filepath.Join(d.outputFileDirectory, outputSubdir)
+	d.outputFilePath = filepath.Join(outputSubdirectoryPath, "workload_stats.csv")
+
+	d.outputFile, err = os.OpenFile(d.outputFilePath, os.O_RDWR|os.O_CREATE, os.ModePerm)
+	if err != nil {
+		panic(err)
+	}
+
 	d.logger.Info("Workload Simulator has started running. Bootstrapping simulation now.",
 		zap.String("workload_id", d.id),
 		zap.String("workload_name", d.workload.WorkloadName()))
-	err := d.bootstrapSimulation()
+
+	err = d.bootstrapSimulation()
 	if err != nil {
 		d.logger.Error("Failed to bootstrap simulation.",
 			zap.String("workload_id", d.id),
@@ -1361,6 +1409,10 @@ func (d *BasicWorkloadDriver) handleTick(tick time.Time) error {
 	d.processEventsForTick(tick)
 
 	d.doneServingTick(tickStart)
+
+	if d.outputFile != nil {
+		d.publishStatisticsReport()
+	}
 
 	return nil
 }
