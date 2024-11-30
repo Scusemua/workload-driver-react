@@ -1,0 +1,94 @@
+{
+    "workloadTitle": "Single Session, 3 Trainings",
+    "workloadSeed": 0,
+    "sessionsSamplePercentage": 1,
+    "timescaleAdjustmentFactor": 0.1,
+    "numberOfSessions": 1,
+    "debugLoggingEnabled": true,
+    "remoteStorageDefinition": {
+        "name": "AWS S3",
+        "downloadRate": 200000000,
+        "uploadRate": 125000000,
+        "downloadRateVariancePercentage": 5,
+        "uploadRateVariancePercentage": 5,
+        "readFailureChancePercentage": 0,
+        "writeFailureChancePercentage": 0
+    },
+    "sessions": [
+        {
+            "id": "83579297-0886-46ca-819f-d19505da6343",
+            "start_tick": 1,
+            "stop_tick": 12,
+            "num_training_events": 3,
+            "selected_training_event": "2",
+            "trainings": [
+                {
+                    "start_tick": 2,
+                    "duration_in_ticks": 2,
+                    "millicpus": 100,
+                    "mem_usage_mb": 0.25,
+                    "vram_usage_gb": 0.125,
+                    "num_gpus": 1,
+                    "gpu_utilizations": [
+                        {
+                            "utilization": 50
+                        }
+                    ]
+                },
+                {
+                    "DefaultTrainingEventField": {
+                        "start_tick": 2,
+                        "duration_in_ticks": 2,
+                        "millicpus": 100,
+                        "mem_usage_mb": 0.25,
+                        "vram_usage_gb": 0.125,
+                        "num_gpus": 1,
+                        "gpu_utilizations": [
+                            {
+                                "utilization": 50
+                            }
+                        ]
+                    },
+                    "start_tick": 6,
+                    "duration_in_ticks": 2,
+                    "num_gpus": 1,
+                    "millicpus": 100,
+                    "mem_usage_mb": 0.25,
+                    "vram_usage_gb": 0.125,
+                    "gpu_utilizations": [
+                        {
+                            "utilization": 50
+                        }
+                    ]
+                },
+                {
+                    "DefaultTrainingEventField": {
+                        "start_tick": 2,
+                        "duration_in_ticks": 2,
+                        "millicpus": 100,
+                        "mem_usage_mb": 0.25,
+                        "vram_usage_gb": 0.125,
+                        "num_gpus": 1,
+                        "gpu_utilizations": [
+                            {
+                                "utilization": 50
+                            }
+                        ]
+                    },
+                    "start_tick": 8,
+                    "duration_in_ticks": 2,
+                    "num_gpus": 1,
+                    "millicpus": 100,
+                    "mem_usage_mb": 0.25,
+                    "vram_usage_gb": 0.125,
+                    "gpu_utilizations": [
+                        {
+                            "utilization": 50
+                        }
+                    ]
+                }
+            ]
+        }
+    ],
+    "name": "AWS S3"
+}

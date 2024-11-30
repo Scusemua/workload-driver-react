@@ -154,6 +154,7 @@ type BasicWorkloadDriver struct {
 	workloadSessions                   []*domain.WorkloadTemplateSession     // The template used by the associated workload. Will only be non-nil if the associated workload is a template-based workload, rather than a preset-based workload.
 	paused                             bool                                  // Paused indicates whether the workload has been paused.
 	trainingSubmittedTimes             *hashmap.HashMap                      // trainingSubmittedTimes keeps track of when "execute_request" messages were sent for different sessions. Keys are internal session IDs, values are unix millisecond timestamps.
+	trainingStartedChannels            map[string]chan interface{}
 	pauseMutex                         sync.Mutex
 	pauseCond                          *sync.Cond
 
@@ -185,6 +186,7 @@ func NewBasicWorkloadDriver(opts *domain.Configuration, performClockTicks bool, 
 		stopChan:                           make(chan interface{}, 1),
 		errorChan:                          make(chan error, 2),
 		atom:                               atom,
+		trainingStartedChannels:            make(map[string]chan interface{}),
 		targetTickDuration:                 time.Second * time.Duration(opts.TraceStep),
 		targetTickDurationSeconds:          opts.TraceStep,
 		tickDurationsSecondsMovingWindow:   statistics.NewMovingStat(5),
@@ -1930,6 +1932,10 @@ func (d *BasicWorkloadDriver) handleTrainingStartedEvent(evt *domain.Event) erro
 		return err
 	}
 
+	trainingStartedChannel := make(chan interface{}, 1)
+	d.trainingStartedChannels[internalSessionId] = trainingStartedChannel
+
+	sentRequestAt := time.Now()
 	err = kernelConnection.RequestExecute(args)
 	if err != nil {
 		d.logger.Error("Error while attempting to execute training code.",
@@ -1955,6 +1961,19 @@ func (d *BasicWorkloadDriver) handleTrainingStartedEvent(evt *domain.Event) erro
 
 		return nil
 	}
+
+	d.logger.Debug("Waiting for session to start training before continuing...",
+		zap.String("workload_id", d.workload.GetId()),
+		zap.String("workload_name", d.workload.WorkloadName()),
+		zap.String("kernel_id", internalSessionId))
+
+	<-trainingStartedChannel
+
+	d.logger.Debug("Session started training",
+		zap.String("workload_id", d.workload.GetId()),
+		zap.String("workload_name", d.workload.WorkloadName()),
+		zap.String("kernel_id", internalSessionId),
+		zap.Duration("time_elapsed", time.Since(sentRequestAt)))
 
 	return nil
 }
@@ -2220,46 +2239,64 @@ func (d *BasicWorkloadDriver) handleIOPubSmrLeadTaskMessage(conn jupyter.KernelC
 	// and then delay the session by how long it took for training to begin.
 	content := kernelMessage.GetContent().(map[string]interface{})
 
-	var timestamp int64
-	val, loaded := content["unix_milliseconds"]
-	if !loaded {
-		d.logger.Warn("Could not recover unix millisecond timestamp from \"smr_lead_task\" IOPub message.",
+	var trainingStartedAt int64
+	val, ok := content["unix_milliseconds"]
+	if !ok {
+		d.logger.Error("Could not recover unix millisecond timestamp from \"smr_lead_task\" IOPub message.",
 			zap.String("workload_id", d.workload.GetId()),
 			zap.String("workload_name", d.workload.WorkloadName()),
 			zap.String("kernel_id", conn.KernelId()),
 			zap.Any("message_content", content))
 
-		val, loaded = d.trainingSubmittedTimes.Get(conn.KernelId())
-		if !loaded {
-			d.logger.Error("Could not recover training-submitted-at-time either.",
-				zap.String("workload_id", d.workload.GetId()),
-				zap.String("workload_name", d.workload.WorkloadName()),
-				zap.String("kernel_id", conn.KernelId()),
-				zap.Any("message_content", content))
-
-			panic("cannot recover training submission timestamp from IOPub message or internal back-up map...")
-		}
-
-		timestamp = val.(int64)
-	} else {
-		timestamp = int64(val.(int))
+		panic("Could not recover unix millisecond timestamp from \"smr_lead_task\" IOPub message.")
 	}
 
-	now := time.Now()
-	delay := now.UnixMilli() - timestamp
+	trainingStartedAt = int64(val.(float64))
+
+	val, ok = d.trainingSubmittedTimes.Get(conn.KernelId())
+	if !ok {
+		d.logger.Error("Could not recover training-submitted-at-time either.",
+			zap.String("workload_id", d.workload.GetId()),
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String("kernel_id", conn.KernelId()),
+			zap.Any("message_content", content))
+
+		panic("cannot recover training submission timestamp from IOPub message or internal back-up map...")
+	}
+
+	sentExecRequestAt := val.(int64)
+
+	delay := trainingStartedAt - sentExecRequestAt
 	if delay < 0 {
 		d.logger.Error("Computed invalid delay between training submission and training start...",
 			zap.String("workload_id", d.workload.GetId()),
 			zap.String("workload_name", d.workload.WorkloadName()),
 			zap.String("kernel_id", conn.KernelId()),
-			zap.Int64("training_submission_unix_milliseconds", timestamp),
-			zap.Int64("now_unix_milliseconds", now.UnixMilli()),
+			zap.Int64("sent_execute_request_at", sentExecRequestAt),
+			zap.Int64("training_started_at", trainingStartedAt),
 			zap.Int64("computed_delay", delay))
 
 		panic(fmt.Sprintf("invalid training submission delay: %d milliseconds", delay))
 	}
 
-	d.delaySession(d.getTraceSessionId(conn.KernelId()), time.Millisecond*time.Duration(delay))
+	d.logger.Debug("Computed training-started delay for session.",
+		zap.String("workload_id", d.workload.GetId()),
+		zap.String("workload_name", d.workload.WorkloadName()),
+		zap.String("kernel_id", conn.KernelId()),
+		zap.Int64("sent_execute_request_at", sentExecRequestAt),
+		zap.Int64("training_started_at", trainingStartedAt),
+		zap.Int64("computed_delay", delay))
+
+	d.delaySession(conn.KernelId(), time.Millisecond*time.Duration(delay))
+
+	channel, loadedChan := d.trainingStartedChannels[conn.KernelId()]
+	if !loadedChan {
+		panic(fmt.Sprintf("Could not find 'training started' channel for session \"%s\"", conn.KernelId()))
+	}
+
+	channel <- struct{}{}
+
+	delete(d.trainingStartedChannels, conn.KernelId()) // Clean up
 
 	return conn.KernelId()
 }
