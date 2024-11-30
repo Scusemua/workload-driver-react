@@ -27,8 +27,8 @@ type WorkloadDriver interface {
 	// Likewise, if the workload was previously running but has already stopped, then an error is returned.
 	StartWorkload() error
 
-	// GetWorkload Returns the workload that is associated with/managed by this workload driver.
-	GetWorkload() Workload
+	//// GetWorkload Returns the workload that is associated with/managed by this workload driver.
+	//GetWorkload() Workload
 
 	// GetWorkloadPreset gets the workload preset of the workload that is associated with/managed by this workload driver.
 	// If the workload associated with/managed by this workload driver does not have a preset

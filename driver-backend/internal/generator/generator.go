@@ -99,7 +99,7 @@ func (g *BasicWorkloadGenerator) StopGeneratingWorkload() {
 	}
 }
 
-func (g *BasicWorkloadGenerator) generateWorkloadWithCsvPreset(consumer domain.EventConsumer, workload *domain.WorkloadFromPreset,
+func (g *BasicWorkloadGenerator) generateWorkloadWithCsvPreset(consumer domain.EventConsumer, maxUtilizationConsumer MaxUtilizationConsumer,
 	workloadPreset *domain.CsvWorkloadPreset, workloadRegistrationRequest *domain.WorkloadRegistrationRequest) error {
 
 	var cpuSessionMap, memSessionMap map[string]float64 = nil, nil
@@ -145,7 +145,7 @@ func (g *BasicWorkloadGenerator) generateWorkloadWithCsvPreset(consumer domain.E
 	}
 
 	maxUtilizationWrapper := domain.NewMaxUtilizationWrapper(cpuSessionMap, memSessionMap, gpuSessionMap, cpuTaskMap, memTaskMap, gpuTaskMap)
-	workload.SetMaxUtilizationWrapper(maxUtilizationWrapper)
+	maxUtilizationConsumer.SetMaxUtilizationWrapper(maxUtilizationWrapper)
 
 	g.synthesizer = NewSynthesizer(g.opts, maxUtilizationWrapper, g.atom)
 	// Set the cluster as the EventHandler for the Synthesizer.
@@ -233,12 +233,12 @@ func (g *BasicWorkloadGenerator) generateWorkloadWithCsvPreset(consumer domain.E
 
 	g.synthesizer.Synthesize(g.ctx, g.opts, consumer.WorkloadEventGeneratorCompleteChan())
 
-	g.logger.Debug("Finished generating CSV workload.", zap.String("workload_id", workload.GetId()))
+	g.logger.Debug("Finished generating CSV workload.", zap.String("workload_id", maxUtilizationConsumer.GetId()))
 
 	return nil
 }
 
-func (g *BasicWorkloadGenerator) generateWorkloadWithXmlPreset(consumer domain.EventConsumer, workload *domain.WorkloadFromPreset,
+func (g *BasicWorkloadGenerator) generateWorkloadWithXmlPreset(consumer domain.EventConsumer, maxUtilizationConsumer MaxUtilizationConsumer,
 	workloadPreset *domain.XmlWorkloadPreset) error {
 
 	g.ctx, g.cancelFunction = context.WithCancel(context.Background())
@@ -263,7 +263,7 @@ func (g *BasicWorkloadGenerator) generateWorkloadWithXmlPreset(consumer domain.E
 		return err
 	}
 
-	g.logger.Debug("Finished generating XML workload.", zap.String("workload_id", workload.GetId()))
+	g.logger.Debug("Finished generating XML workload.", zap.String("workload_id", maxUtilizationConsumer.GetId()))
 	return nil
 }
 
@@ -289,7 +289,7 @@ func (g *BasicWorkloadGenerator) waitForCpuGpuDriversToFinish(gpuDoneChan chan s
 	return nil
 }
 
-func (g *BasicWorkloadGenerator) GeneratePresetWorkload(consumer domain.EventConsumer, workload *domain.WorkloadFromPreset,
+func (g *BasicWorkloadGenerator) GeneratePresetWorkload(consumer domain.EventConsumer, workload MaxUtilizationConsumer,
 	workloadPreset *domain.WorkloadPreset, workloadRegistrationRequest *domain.WorkloadRegistrationRequest) error {
 
 	if workload == nil {
@@ -311,12 +311,8 @@ func (g *BasicWorkloadGenerator) GeneratePresetWorkload(consumer domain.EventCon
 	}
 }
 
-func (g *BasicWorkloadGenerator) GenerateTemplateWorkload(consumer domain.EventConsumer, workload *domain.WorkloadFromTemplate,
-	workloadSessions []*domain.WorkloadTemplateSession, workloadRegistrationRequest *domain.WorkloadRegistrationRequest) error {
-
-	if workload == nil {
-		panic("Workload cannot be nil when the workload generator is running.")
-	}
+func (g *BasicWorkloadGenerator) GenerateTemplateWorkload(consumer domain.EventConsumer, workloadSessions []*domain.WorkloadTemplateSession,
+	workloadRegistrationRequest *domain.WorkloadRegistrationRequest) error {
 
 	if workloadSessions == nil {
 		panic("Workload sessions cannot be nil when the workload generator is running for a template-based workload.")

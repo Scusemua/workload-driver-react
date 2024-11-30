@@ -101,10 +101,10 @@ type BasicWorkloadSession struct {
 	Discarded              bool             `json:"discarded"`
 }
 
-func newWorkloadSession(id string, meta SessionMetadata, maxResourceRequest *ResourceRequest, createdAtTime time.Time, atom *zap.AtomicLevel) *BasicWorkloadSession {
+func NewWorkloadSession(id string, meta SessionMetadata, resourceRequest *ResourceRequest, createdAtTime time.Time, atom *zap.AtomicLevel) *BasicWorkloadSession {
 	session := &BasicWorkloadSession{
 		Id:                     id,
-		MaxResourceRequest:     maxResourceRequest,
+		MaxResourceRequest:     resourceRequest,
 		CurrentResourceRequest: NewZeroedResourceRequest("ANY_GPU"),
 		TrainingsCompleted:     0,
 		State:                  SessionAwaitingStart,
@@ -128,10 +128,6 @@ func newWorkloadSession(id string, meta SessionMetadata, maxResourceRequest *Res
 	session.sugaredLogger = logger.Sugar()
 
 	return session
-}
-
-func NewWorkloadSession(id string, meta SessionMetadata, resourceRequest *ResourceRequest, createdAtTime time.Time, atom *zap.AtomicLevel) *BasicWorkloadSession {
-	return newWorkloadSession(id, meta, resourceRequest, createdAtTime, atom)
 }
 
 // createLoggers instantiates the BasicWorkloadSession's zap.Logger and zap.SugaredLogger.

@@ -1,8 +1,9 @@
-package domain
+package workload
 
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
 	"go.uber.org/zap"
 	"time"
 )
@@ -38,15 +39,15 @@ func (t *PreloadedWorkloadTemplate) String() string {
 	return string(m)
 }
 
-// WorkloadFromTemplate is a struct representing a Workload that is generated using the "template" option
+// Template is a struct representing a Workload that is generated using the "template" option
 // within the frontend dashboard.
-type WorkloadFromTemplate struct {
+type Template struct {
 	*BasicWorkload
 
-	Sessions []*WorkloadTemplateSession `json:"sessions"`
+	Sessions []*domain.WorkloadTemplateSession `json:"sessions"`
 }
 
-func NewWorkloadFromTemplate(baseWorkload Workload, sourceSessions []*WorkloadTemplateSession) (*WorkloadFromTemplate, error) {
+func NewWorkloadFromTemplate(baseWorkload *BasicWorkload, sourceSessions []*domain.WorkloadTemplateSession) (*Template, error) {
 	if sourceSessions == nil {
 		panic("WorkloadSessions slice cannot be nil when creating a new workload from a template.")
 	}
@@ -55,20 +56,12 @@ func NewWorkloadFromTemplate(baseWorkload Workload, sourceSessions []*WorkloadTe
 		panic("Base workload cannot be nil when creating a new workload.")
 	}
 
-	var (
-		baseWorkloadImpl *BasicWorkload
-		ok               bool
-	)
-	if baseWorkloadImpl, ok = baseWorkload.(*BasicWorkload); !ok {
-		panic("The provided workload is not a base workload, or it is not a pointer type.")
+	workloadFromTemplate := &Template{
+		BasicWorkload: baseWorkload,
 	}
 
-	workloadFromTemplate := &WorkloadFromTemplate{
-		BasicWorkload: baseWorkloadImpl,
-	}
-
-	baseWorkloadImpl.WorkloadType = TemplateWorkload
-	baseWorkloadImpl.workloadInstance = workloadFromTemplate
+	baseWorkload.WorkloadType = TemplateWorkload
+	baseWorkload.workloadInstance = workloadFromTemplate
 
 	err := workloadFromTemplate.SetSource(sourceSessions)
 	if err != nil {
@@ -82,42 +75,42 @@ func NewWorkloadFromTemplate(baseWorkload Workload, sourceSessions []*WorkloadTe
 // due to there being too much resource contention.
 //
 // Multiple calls to SessionDelayed will treat each passed delay additively, as in they'll all be added together.
-func (w *WorkloadFromTemplate) SessionDelayed(sessionId string, delayAmount time.Duration) {
+func (w *Template) SessionDelayed(sessionId string, delayAmount time.Duration) {
 	val, loaded := w.sessionsMap.Get(sessionId)
 	if !loaded {
 		return
 	}
 
-	session := val.(*WorkloadTemplateSession)
+	session := val.(*domain.WorkloadTemplateSession)
 	session.TotalDelayMilliseconds += delayAmount.Milliseconds()
 	session.TotalDelayIncurred += delayAmount
 }
 
-func (w *WorkloadFromTemplate) GetWorkloadSource() interface{} {
+func (w *Template) GetWorkloadSource() interface{} {
 	return w.Sessions
 }
 
-func (w *WorkloadFromTemplate) SetSource(source interface{}) error {
+func (w *Template) SetSource(source interface{}) error {
 	if source == nil {
-		panic("Cannot use nil source for WorkloadFromTemplate")
+		panic("Cannot use nil source for Template")
 	}
 
 	var (
-		sourceSessions []*WorkloadTemplateSession
+		sourceSessions []*domain.WorkloadTemplateSession
 		ok             bool
 	)
-	if sourceSessions, ok = source.([]*WorkloadTemplateSession); !ok {
-		panic("Workload source is not correct type for WorkloadFromTemplate.")
+	if sourceSessions, ok = source.([]*domain.WorkloadTemplateSession); !ok {
+		panic("Workload source is not correct type for Template.")
 	}
 
 	w.workloadSource = sourceSessions
 	err := w.SetSessions(sourceSessions)
 	if err != nil {
-		w.logger.Error("Failed to assign source to WorkloadFromTemplate.", zap.Error(err))
+		w.logger.Error("Failed to assign source to Template.", zap.Error(err))
 		return err
 	}
 
-	w.logger.Debug("Assigned source to WorkloadFromTemplate.", zap.Int("num_sessions", len(sourceSessions)))
+	w.logger.Debug("Assigned source to Template.", zap.Int("num_sessions", len(sourceSessions)))
 
 	return nil
 }
@@ -125,7 +118,7 @@ func (w *WorkloadFromTemplate) SetSource(source interface{}) error {
 // SetSessions sets the sessions that will be involved in this workload.
 //
 // IMPORTANT: This can only be set once per workload. If it is called more than once, it will panic.
-func (w *WorkloadFromTemplate) SetSessions(sessions []*WorkloadTemplateSession) error {
+func (w *Template) SetSessions(sessions []*domain.WorkloadTemplateSession) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
@@ -136,7 +129,7 @@ func (w *WorkloadFromTemplate) SetSessions(sessions []*WorkloadTemplateSession) 
 	// Add each session to our internal mapping and initialize the session.
 	for _, session := range sessions {
 		if session.CurrentResourceRequest == nil {
-			session.SetCurrentResourceRequest(NewResourceRequest(0, 0, 0, 0, "ANY_GPU"))
+			session.SetCurrentResourceRequest(domain.NewResourceRequest(0, 0, 0, 0, "ANY_GPU"))
 		}
 
 		if session.MaxResourceRequest == nil {
@@ -146,7 +139,7 @@ func (w *WorkloadFromTemplate) SetSessions(sessions []*WorkloadTemplateSession) 
 				zap.String("workload_name", w.Name),
 				zap.String("session", session.String()))
 
-			return ErrMissingMaxResourceRequest
+			return domain.ErrMissingMaxResourceRequest
 		}
 
 		// Need to set this before calling unsafeIsSessionBeingSampled.
@@ -155,7 +148,7 @@ func (w *WorkloadFromTemplate) SetSessions(sessions []*WorkloadTemplateSession) 
 		// Decide if the Session should be sampled or not.
 		isSampled := w.unsafeIsSessionBeingSampled(session.Id)
 		if isSampled {
-			err := session.SetState(SessionAwaitingStart)
+			err := session.SetState(domain.SessionAwaitingStart)
 			if err != nil {
 				w.logger.Error("Failed to set session state.", zap.String("session_id", session.GetId()), zap.Error(err))
 			}
@@ -176,7 +169,7 @@ func (w *WorkloadFromTemplate) SetSessions(sessions []*WorkloadTemplateSession) 
 
 // SessionCreated is called when a Session is created for/in the Workload.
 // Just updates some internal metrics.
-func (w *WorkloadFromTemplate) SessionCreated(sessionId string, metadata SessionMetadata) {
+func (w *Template) SessionCreated(sessionId string, metadata domain.SessionMetadata) {
 	w.NumActiveSessions += 1
 	w.NumSessionsCreated += 1
 
@@ -186,12 +179,12 @@ func (w *WorkloadFromTemplate) SessionCreated(sessionId string, metadata Session
 		return
 	}
 
-	session := val.(*WorkloadTemplateSession)
-	if err := session.SetState(SessionIdle); err != nil {
+	session := val.(*domain.WorkloadTemplateSession)
+	if err := session.SetState(domain.SessionIdle); err != nil {
 		w.logger.Error("Failed to set session state.", zap.String("session_id", sessionId), zap.Error(err))
 	}
 
-	session.SetCurrentResourceRequest(&ResourceRequest{
+	session.SetCurrentResourceRequest(&domain.ResourceRequest{
 		VRAM:     metadata.GetVRAM(),
 		Cpus:     metadata.GetCpuUtilization(),
 		MemoryMB: metadata.GetMemoryUtilization(),
@@ -200,16 +193,16 @@ func (w *WorkloadFromTemplate) SessionCreated(sessionId string, metadata Session
 }
 
 // SessionDiscarded is used to record that a particular session is being discarded/not sampled.
-func (w *WorkloadFromTemplate) SessionDiscarded(sessionId string) error {
+func (w *Template) SessionDiscarded(sessionId string) error {
 	val, loaded := w.sessionsMap.Get(sessionId)
 	if !loaded {
-		return fmt.Errorf("%w: \"%s\"", ErrUnknownSession, sessionId)
+		return fmt.Errorf("%w: \"%s\"", domain.ErrUnknownSession, sessionId)
 	}
 
 	w.NumDiscardedSessions += 1
 
-	session := val.(*WorkloadTemplateSession)
-	err := session.SetState(SessionDiscarded)
+	session := val.(*domain.WorkloadTemplateSession)
+	err := session.SetState(domain.SessionDiscarded)
 	if err != nil {
 		w.logger.Error("Could not transition session to the 'discarded' state.",
 			zap.String("workload_id", w.Id),

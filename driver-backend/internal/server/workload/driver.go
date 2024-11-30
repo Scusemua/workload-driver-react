@@ -134,7 +134,7 @@ type BasicWorkloadDriver struct {
 	servingTicks                       atomic.Bool                           // The WorkloadDriver::ServeTicks() method will continue looping as long as this flag is set to true.
 	sessionConnections                 map[string]*jupyter.SessionConnection // Map from internal session ID to session connection.
 	sessions                           *hashmap.HashMap                      // Responsible for creating sessions and maintaining a collection of all the sessions active within the simulation.
-	stats                              *WorkloadStats                        // Metrics related to the workload's execution.
+	stats                              *Statistics                           // Metrics related to the workload's execution.
 	stopChan                           chan interface{}                      // Used to stop the workload early/prematurely (i.e., before all events have been processed).
 	targetTickDuration                 time.Duration                         // How long each tick is supposed to last. This is the tick interval/step rate of the simulation.
 	targetTickDurationSeconds          int64                                 // Cached total number of seconds of targetTickDuration
@@ -144,7 +144,7 @@ type BasicWorkloadDriver struct {
 	ticksHandled                       atomic.Int64                          // Incremented/accessed atomically.
 	timescaleAdjustmentFactor          float64                               // Adjusts the timescale of the simulation. Setting this to 1 means that each tick is simulated as a whole minute. Setting this to 0.5 means each tick will be simulated for half its real time. So, if ticks are 60 seconds, and this variable is set to 0.5, then each tick will be simulated for 30 seconds before continuing to the next tick.
 	websocket                          domain.ConcurrentWebSocket            // Shared Websocket used to communicate with frontend.
-	workload                           domain.Workload                       // The workload being driven by this driver.
+	workload                           InternalWorkload                      // The workload being driven by this driver.
 	workloadStartTime                  time.Time                             // The time at which the workload began.
 	workloadEndTime                    time.Time                             // The time at which the workload completed.
 	workloadGenerator                  domain.WorkloadGenerator              // The entity generating the workload (from trace data, a preset, or a template).
@@ -279,7 +279,7 @@ func (d *BasicWorkloadDriver) WebSocket() domain.ConcurrentWebSocket {
 }
 
 // Stats returns the stats of the workload.
-func (d *BasicWorkloadDriver) Stats() *WorkloadStats {
+func (d *BasicWorkloadDriver) Stats() *Statistics {
 	return d.stats
 }
 
@@ -322,7 +322,7 @@ func (d *BasicWorkloadDriver) ToggleDebugLogging(enabled bool) domain.Workload {
 	return d.workload
 }
 
-func (d *BasicWorkloadDriver) GetWorkload() domain.Workload {
+func (d *BasicWorkloadDriver) GetWorkload() InternalWorkload {
 	return d.workload
 }
 
@@ -335,7 +335,7 @@ func (d *BasicWorkloadDriver) GetWorkloadRegistrationRequest() *domain.WorkloadR
 }
 
 // Create a workload that was created using a preset.
-func (d *BasicWorkloadDriver) createWorkloadFromPreset(workloadRegistrationRequest *domain.WorkloadRegistrationRequest) (domain.Workload, error) {
+func (d *BasicWorkloadDriver) createWorkloadFromPreset(workloadRegistrationRequest *domain.WorkloadRegistrationRequest) (InternalWorkload, error) {
 	// The specified preset should be in our map of workload presets.
 	// If it isn't, then the registration request is invalid, and we'll return an error.
 	var ok bool
@@ -348,7 +348,7 @@ func (d *BasicWorkloadDriver) createWorkloadFromPreset(workloadRegistrationReque
 		zap.String("workload_name", workloadRegistrationRequest.WorkloadName),
 		zap.String("workload-preset-name", d.workloadPreset.GetName()))
 
-	basicWorkload := domain.NewWorkloadBuilder(d.atom).
+	basicWorkload := NewWorkloadBuilder(d.atom).
 		SetID(d.id).
 		SetWorkloadName(workloadRegistrationRequest.WorkloadName).
 		SetSeed(workloadRegistrationRequest.Seed).
@@ -358,7 +358,7 @@ func (d *BasicWorkloadDriver) createWorkloadFromPreset(workloadRegistrationReque
 		SetSessionsSamplePercentage(workloadRegistrationRequest.SessionsSamplePercentage).
 		Build()
 
-	workloadFromPreset := domain.NewWorkloadFromPreset(basicWorkload, d.workloadPreset)
+	workloadFromPreset := NewWorkloadFromPreset(basicWorkload, d.workloadPreset)
 
 	err := workloadFromPreset.SetSource(d.workloadPreset)
 
@@ -438,7 +438,7 @@ func (d *BasicWorkloadDriver) loadWorkloadTemplateFromFile(workloadRegistrationR
 }
 
 // Create a workload that was created using a template.
-func (d *BasicWorkloadDriver) createWorkloadFromTemplate(workloadRegistrationRequest *domain.WorkloadRegistrationRequest) (*domain.WorkloadFromTemplate, error) {
+func (d *BasicWorkloadDriver) createWorkloadFromTemplate(workloadRegistrationRequest *domain.WorkloadRegistrationRequest) (*Template, error) {
 	// The workload request needs to have a workload template in it.
 	// If the registration request does not contain a workload template,
 	// then the request is invalid, and we'll return an error.
@@ -460,7 +460,7 @@ func (d *BasicWorkloadDriver) createWorkloadFromTemplate(workloadRegistrationReq
 
 	d.workloadSessions = workloadRegistrationRequest.Sessions
 	d.workloadRegistrationRequest = workloadRegistrationRequest
-	basicWorkload := domain.NewWorkloadBuilder(d.atom).
+	basicWorkload := NewWorkloadBuilder(d.atom).
 		SetID(d.id).
 		SetWorkloadName(workloadRegistrationRequest.WorkloadName).
 		SetSeed(workloadRegistrationRequest.Seed).
@@ -470,7 +470,7 @@ func (d *BasicWorkloadDriver) createWorkloadFromTemplate(workloadRegistrationReq
 		SetSessionsSamplePercentage(workloadRegistrationRequest.SessionsSamplePercentage).
 		Build()
 
-	workloadFromTemplate, err := domain.NewWorkloadFromTemplate(basicWorkload, workloadRegistrationRequest.Sessions)
+	workloadFromTemplate, err := NewWorkloadFromTemplate(basicWorkload, workloadRegistrationRequest.Sessions)
 	if err != nil {
 		return nil, err
 	}
@@ -509,7 +509,7 @@ func (d *BasicWorkloadDriver) RegisterWorkload(workloadRegistrationRequest *doma
 	// have properties that the user can specify and change before submitting the workload for registration.
 	var (
 		// If this is created successfully, then d.workload will be assigned the value of this variable.
-		workload domain.Workload
+		workload InternalWorkload
 		err      error // If the workload is not created successfully, then we'll return this error.
 	)
 	switch strings.ToLower(workloadRegistrationRequest.Type) {
@@ -603,7 +603,7 @@ func (d *BasicWorkloadDriver) WriteError(ctx *gin.Context, errorMessage string) 
 
 // IsWorkloadComplete returns true if the workload has completed; otherwise, return false.
 func (d *BasicWorkloadDriver) IsWorkloadComplete() bool {
-	return d.workload.GetWorkloadState() == domain.WorkloadFinished
+	return d.workload.GetState() == WorkloadFinished
 }
 
 // ID returns the unique ID of this workload driver.
@@ -622,7 +622,7 @@ func (d *BasicWorkloadDriver) StopWorkload() error {
 		return domain.ErrWorkloadNotRunning
 	}
 
-	d.logger.Debug("Stopping workload.", zap.String("workload_id", d.id), zap.String("workload-state", string(d.workload.GetWorkloadState())))
+	d.logger.Debug("Stopping workload.", zap.String("workload_id", d.id), zap.String("workload-state", string(d.workload.GetState())))
 	d.stopChan <- struct{}{}
 	d.logger.Debug("Sent 'STOP' instruction via BasicWorkloadDriver::stopChan.", zap.String("workload_id", d.id))
 
@@ -655,7 +655,7 @@ func (d *BasicWorkloadDriver) handleCriticalError(err error) {
 	}
 
 	d.workload.UpdateTimeElapsed()
-	d.workload.SetWorkloadState(domain.WorkloadErred)
+	d.workload.SetState(domain.WorkloadErred)
 	d.workload.SetErrorMessage(err.Error())
 }
 
@@ -757,7 +757,7 @@ OUTER:
 				d.logger.Warn("Workload is no longer running. Aborting drive procedure.",
 					zap.String("workload_name", d.workload.WorkloadName()),
 					zap.String("workload_id", d.workload.GetId()),
-					zap.String("workload_state", d.workload.GetWorkloadState().String()))
+					zap.String("workload_state", d.workload.GetState().String()))
 
 				return
 			}
@@ -884,7 +884,7 @@ func (d *BasicWorkloadDriver) handlePause() error {
 				d.logger.Error("Failed to transition workload to 'paused' state.",
 					zap.String("workload_id", d.id),
 					zap.String("workload_name", d.workload.WorkloadName()),
-					zap.String("workload_state", d.workload.GetWorkloadState().String()),
+					zap.String("workload_state", d.workload.GetState().String()),
 					zap.Error(err))
 
 				// We failed to pause the workload, so unpause ourselves and just continue.
@@ -896,7 +896,7 @@ func (d *BasicWorkloadDriver) handlePause() error {
 					d.logger.Error("Workload is not actively running anymore. We're stuck.",
 						zap.String("workload_id", d.id),
 						zap.String("workload_name", d.workload.WorkloadName()),
-						zap.String("workload_state", d.workload.GetWorkloadState().String()),
+						zap.String("workload_state", d.workload.GetState().String()),
 						zap.Error(err))
 					return err
 				}
@@ -931,7 +931,7 @@ func (d *BasicWorkloadDriver) handlePause() error {
 				d.logger.Error("Workload is not actively running anymore. We're stuck.",
 					zap.String("workload_id", d.id),
 					zap.String("workload_name", d.workload.WorkloadName()),
-					zap.String("workload_state", d.workload.GetWorkloadState().String()),
+					zap.String("workload_state", d.workload.GetState().String()),
 					zap.Error(err))
 
 				// Return the error.
@@ -1022,7 +1022,7 @@ func (d *BasicWorkloadDriver) issueClockTicks(timestamp time.Time) error {
 			d.logger.Warn("Workload is no longer running. Aborting post-issue-clock-tick procedure early.",
 				zap.String("workload_name", d.workload.WorkloadName()),
 				zap.String("workload_id", d.workload.GetId()),
-				zap.String("workload_state", d.workload.GetWorkloadState().String()))
+				zap.String("workload_state", d.workload.GetState().String()))
 
 			return nil
 		}
@@ -1043,7 +1043,7 @@ func (d *BasicWorkloadDriver) issueClockTicks(timestamp time.Time) error {
 				zap.Float64("timescale_adjustment_factor", d.timescaleAdjustmentFactor),
 				zap.String("workload_id", d.id),
 				zap.String("workload_name", d.workload.WorkloadName()),
-				zap.String("workload_state", d.workload.GetWorkloadState().String()))
+				zap.String("workload_state", d.workload.GetState().String()))
 		} else {
 			// Simulate the remainder of the tick -- however much time is left.
 			d.logger.Debug("Sleeping to simulate remainder of tick.",
@@ -1055,7 +1055,7 @@ func (d *BasicWorkloadDriver) issueClockTicks(timestamp time.Time) error {
 				zap.Duration("sleep_time", tickRemaining),
 				zap.String("workload_id", d.id),
 				zap.String("workload_name", d.workload.WorkloadName()),
-				zap.String("workload_state", d.workload.GetWorkloadState().String()))
+				zap.String("workload_state", d.workload.GetState().String()))
 			time.Sleep(tickRemaining)
 		}
 
@@ -1171,7 +1171,7 @@ func (d *BasicWorkloadDriver) ProcessWorkload(wg *sync.WaitGroup) error {
 
 	if d.workload.IsPresetWorkload() {
 		go func() {
-			presetWorkload := d.workload.(*domain.WorkloadFromPreset)
+			presetWorkload := d.workload.(*Preset)
 			err := d.workloadGenerator.GeneratePresetWorkload(d, presetWorkload, presetWorkload.WorkloadPreset, d.workloadRegistrationRequest)
 			if err != nil {
 				d.logger.Error("Failed to drive/generate preset workload.",
@@ -1182,8 +1182,8 @@ func (d *BasicWorkloadDriver) ProcessWorkload(wg *sync.WaitGroup) error {
 		}()
 	} else if d.workload.IsTemplateWorkload() {
 		go func() {
-			templateWorkload := d.workload.(*domain.WorkloadFromTemplate)
-			err := d.workloadGenerator.GenerateTemplateWorkload(d, templateWorkload, d.workloadSessions, d.workloadRegistrationRequest)
+			templateWorkload := d.workload.(*Template)
+			err := d.workloadGenerator.GenerateTemplateWorkload(d, d.workloadSessions, d.workloadRegistrationRequest)
 			if err != nil {
 				d.logger.Error("Failed to drive/generate templated workload.",
 					zap.String("workload_id", d.id),
@@ -1192,7 +1192,7 @@ func (d *BasicWorkloadDriver) ProcessWorkload(wg *sync.WaitGroup) error {
 			}
 		}()
 	} else {
-		panic(fmt.Sprintf("Workload is of presently-unsuporrted type: \"%s\" -- cannot generate workload.", d.workload.GetWorkloadType()))
+		panic(fmt.Sprintf("Workload is of presently-unsuporrted type: \"%s\" -- cannot generate workload.", d.workload.GetKind()))
 	}
 
 	d.logger.Info("The Workload Driver has started running.",
@@ -1316,7 +1316,7 @@ func (d *BasicWorkloadDriver) workloadComplete(wg *sync.WaitGroup) {
 		}
 	}
 
-	// d.workload.WorkloadState = domain.WorkloadFinished
+	// d.workload.State = domain.WorkloadFinished
 	if wg != nil {
 		wg.Done()
 	}

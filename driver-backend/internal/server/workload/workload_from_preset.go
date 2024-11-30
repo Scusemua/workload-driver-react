@@ -1,27 +1,28 @@
-package domain
+package workload
 
 import (
 	"fmt"
+	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
 	"go.uber.org/zap"
 	"time"
 )
 
-// WorkloadFromPreset is a struct representing a workload that is generated using the "preset" option
+// Preset is a struct representing a workload that is generated using the "preset" option
 // within the frontend dashboard.
 //
 // Presets are how we run workloads from trace data (among other things).
-type WorkloadFromPreset struct {
+type Preset struct {
 	*BasicWorkload
 
-	WorkloadPreset        *WorkloadPreset        `json:"workload_preset"`
-	WorkloadPresetName    string                 `json:"workload_preset_name"`
-	WorkloadPresetKey     string                 `json:"workload_preset_key"`
-	MaxUtilizationWrapper *MaxUtilizationWrapper `json:"max_utilization_wrapper"`
+	WorkloadPreset        *domain.WorkloadPreset        `json:"workload_preset"`
+	WorkloadPresetName    string                        `json:"workload_preset_name"`
+	WorkloadPresetKey     string                        `json:"workload_preset_key"`
+	MaxUtilizationWrapper *domain.MaxUtilizationWrapper `json:"max_utilization_wrapper"`
 
-	Sessions []*BasicWorkloadSession `json:"sessions"`
+	Sessions []*domain.BasicWorkloadSession `json:"sessions"`
 }
 
-func NewWorkloadFromPreset(baseWorkload Workload, workloadPreset *WorkloadPreset) *WorkloadFromPreset {
+func NewWorkloadFromPreset(baseWorkload *BasicWorkload, workloadPreset *domain.WorkloadPreset) *Preset {
 	if workloadPreset == nil {
 		panic("Workload preset cannot be nil when creating a new workload from a preset.")
 	}
@@ -30,43 +31,35 @@ func NewWorkloadFromPreset(baseWorkload Workload, workloadPreset *WorkloadPreset
 		panic("Base workload cannot be nil when creating a new workload.")
 	}
 
-	var (
-		baseWorkloadImpl *BasicWorkload
-		ok               bool
-	)
-	if baseWorkloadImpl, ok = baseWorkload.(*BasicWorkload); !ok {
-		panic("The provided workload is not a base workload, or it is not a pointer type.")
-	}
-
-	workloadFromPreset := &WorkloadFromPreset{
-		BasicWorkload:      baseWorkloadImpl,
+	workloadFromPreset := &Preset{
+		BasicWorkload:      baseWorkload,
 		WorkloadPreset:     workloadPreset,
 		WorkloadPresetName: workloadPreset.GetName(),
 		WorkloadPresetKey:  workloadPreset.GetKey(),
-		Sessions:           make([]*BasicWorkloadSession, 0),
+		Sessions:           make([]*domain.BasicWorkloadSession, 0),
 	}
 
-	baseWorkloadImpl.WorkloadType = PresetWorkload
-	baseWorkloadImpl.workloadInstance = workloadFromPreset
+	baseWorkload.WorkloadType = PresetWorkload
+	baseWorkload.workloadInstance = workloadFromPreset
 
 	return workloadFromPreset
 }
 
-func (w *WorkloadFromPreset) GetWorkloadSource() interface{} {
+func (w *Preset) GetWorkloadSource() interface{} {
 	return w.WorkloadPreset
 }
 
-func (w *WorkloadFromPreset) SetSource(source interface{}) error {
+func (w *Preset) SetSource(source interface{}) error {
 	if source == nil {
-		panic("Cannot use nil source for WorkloadFromPreset")
+		panic("Cannot use nil source for Preset")
 	}
 
 	var (
-		preset *WorkloadPreset
+		preset *domain.WorkloadPreset
 		ok     bool
 	)
-	if preset, ok = source.(*WorkloadPreset); !ok {
-		panic("Workload source is not correct type for WorkloadFromPreset.")
+	if preset, ok = source.(*domain.WorkloadPreset); !ok {
+		panic("Workload source is not correct type for Preset.")
 	}
 
 	w.workloadSource = preset
@@ -74,14 +67,14 @@ func (w *WorkloadFromPreset) SetSource(source interface{}) error {
 	return nil
 }
 
-func (w *WorkloadFromPreset) SetMaxUtilizationWrapper(wrapper *MaxUtilizationWrapper) {
+func (w *Preset) SetMaxUtilizationWrapper(wrapper *domain.MaxUtilizationWrapper) {
 	w.MaxUtilizationWrapper = wrapper
 }
 
 // SetSessions sets the sessions that will be involved in this workload.
 //
 // IMPORTANT: This can only be set once per workload. If it is called more than once, it will panic.
-func (w *WorkloadFromPreset) SetSessions(sessions []*BasicWorkloadSession) error {
+func (w *Preset) SetSessions(sessions []*domain.BasicWorkloadSession) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
@@ -90,12 +83,12 @@ func (w *WorkloadFromPreset) SetSessions(sessions []*BasicWorkloadSession) error
 
 	// Add each session to our internal mapping and initialize the session.
 	for _, session := range sessions {
-		if err := session.SetState(SessionAwaitingStart); err != nil {
+		if err := session.SetState(domain.SessionAwaitingStart); err != nil {
 			w.logger.Error("Failed to set session state.", zap.String("session_id", session.GetId()), zap.Error(err))
 		}
 
 		if session.CurrentResourceRequest == nil {
-			session.SetCurrentResourceRequest(NewResourceRequest(0, 0, 0, 0, "ANY_GPU"))
+			session.SetCurrentResourceRequest(domain.NewResourceRequest(0, 0, 0, 0, "ANY_GPU"))
 		}
 
 		if session.MaxResourceRequest == nil {
@@ -104,7 +97,7 @@ func (w *WorkloadFromPreset) SetSessions(sessions []*BasicWorkloadSession) error
 				zap.String("workload_id", w.Id),
 				zap.String("workload_name", w.Name))
 
-			return ErrMissingMaxResourceRequest
+			return domain.ErrMissingMaxResourceRequest
 		}
 
 		w.sessionsMap.Set(session.GetId(), session)
@@ -119,20 +112,20 @@ func (w *WorkloadFromPreset) SetSessions(sessions []*BasicWorkloadSession) error
 // due to there being too much resource contention.
 //
 // Multiple calls to SessionDelayed will treat each passed delay additively, as in they'll all be added together.
-func (w *WorkloadFromPreset) SessionDelayed(sessionId string, delayAmount time.Duration) {
+func (w *Preset) SessionDelayed(sessionId string, delayAmount time.Duration) {
 	val, loaded := w.sessionsMap.Get(sessionId)
 	if !loaded {
 		return
 	}
 
-	session := val.(*WorkloadTemplateSession)
+	session := val.(*domain.WorkloadTemplateSession)
 	session.TotalDelayMilliseconds += delayAmount.Milliseconds()
 	session.TotalDelayIncurred += delayAmount
 }
 
 // SessionCreated is called when a Session is created for/in the Workload.
 // Just updates some internal metrics.
-func (w *WorkloadFromPreset) SessionCreated(sessionId string, metadata SessionMetadata) {
+func (w *Preset) SessionCreated(sessionId string, metadata domain.SessionMetadata) {
 	w.NumActiveSessions += 1
 	w.NumSessionsCreated += 1
 
@@ -164,12 +157,12 @@ func (w *WorkloadFromPreset) SessionCreated(sessionId string, metadata SessionMe
 		maxVram = 0
 	}
 
-	maxResourceRequest := NewResourceRequest(maxCpu, maxMemory, maxGpus, maxVram, "ANY_GPU")
+	maxResourceRequest := domain.NewResourceRequest(maxCpu, maxMemory, maxGpus, maxVram, "ANY_GPU")
 
 	// Haven't implemented logic to add/create WorkloadSessions for preset-based workloads.
-	session := newWorkloadSession(sessionId, metadata, maxResourceRequest, time.Now(), w.atom)
+	session := domain.NewWorkloadSession(sessionId, metadata, maxResourceRequest, time.Now(), w.atom)
 
-	session.SetCurrentResourceRequest(&ResourceRequest{
+	session.SetCurrentResourceRequest(&domain.ResourceRequest{
 		VRAM:     metadata.GetVRAM(),
 		Cpus:     metadata.GetCpuUtilization(),
 		MemoryMB: metadata.GetMemoryUtilization(),
@@ -181,16 +174,16 @@ func (w *WorkloadFromPreset) SessionCreated(sessionId string, metadata SessionMe
 }
 
 // SessionDiscarded is used to record that a particular session is being discarded/not sampled.
-func (w *WorkloadFromPreset) SessionDiscarded(sessionId string) error {
+func (w *Preset) SessionDiscarded(sessionId string) error {
 	val, loaded := w.sessionsMap.Get(sessionId)
 	if !loaded {
-		return fmt.Errorf("%w: \"%s\"", ErrUnknownSession, sessionId)
+		return fmt.Errorf("%w: \"%s\"", domain.ErrUnknownSession, sessionId)
 	}
 
 	w.NumDiscardedSessions += 1
 
-	session := val.(*BasicWorkloadSession)
-	err := session.SetState(SessionDiscarded)
+	session := val.(*domain.BasicWorkloadSession)
+	err := session.SetState(domain.SessionDiscarded)
 	if err != nil {
 		w.logger.Error("Could not transition session to the 'discarded' state.",
 			zap.String("workload_id", w.Id),
