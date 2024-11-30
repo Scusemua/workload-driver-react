@@ -33,6 +33,7 @@ var (
 	ErrCreateFileBadRequest    = errors.New("bad request when trying to create a file")
 	ErrCreateSessionBadRequest = errors.New("bad request when trying to create a new session")
 	ErrStopKernelBadRequest    = errors.New("bad request when trying to stop a kernel")
+	ErrStopKernelNotFound      = errors.New("jupyter server could not find specified kernel during stop-kernel operation")
 
 	ErrCreateFileUnknownFailure    = errors.New("the 'create file' operation failed for an unknown or unexpected reason")
 	ErrCreateSessionUnknownFailure = errors.New("the 'create session' operation failed for an unknown or unexpected reason")
@@ -523,7 +524,12 @@ func (m *BasicKernelSessionManager) StopKernel(id string) error {
 	case http.StatusBadRequest:
 		{
 			m.logger.Error("Received HTTP 400 'Bad Request'", zap.String("status", resp.Status), zap.Any("headers", resp.Header), zap.Any("body", string(body)))
-			return fmt.Errorf("ErrStopKernelBadRequest %w : %s", ErrStopKernelBadRequest, string(body))
+			return fmt.Errorf("%w : %s", ErrStopKernelBadRequest, string(body))
+		}
+	case http.StatusNotFound:
+		{
+			m.logger.Error("Received HTTP 404 'Bad Request'", zap.String("status", resp.Status), zap.Any("headers", resp.Header), zap.Any("body", string(body)))
+			return fmt.Errorf("%w: \"%s\" (%s)", ErrStopKernelNotFound, id, string(body))
 		}
 	default:
 		m.logger.Warn("Unexpected response status code when stopping session.", zap.Int("status-code", resp.StatusCode), zap.String("status", resp.Status), zap.Any("headers", resp.Header), zap.Any("body", string(body)))

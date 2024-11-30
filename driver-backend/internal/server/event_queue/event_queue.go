@@ -368,7 +368,7 @@ func (q *EventQueue) DelaySession(sessionId string, amount time.Duration) error 
 	q.logger.Debug("Increased delay of session.",
 		zap.String("session_id", sessionId),
 		zap.Duration("amount", amount),
-		zap.Duration("delay", sessionEventQueue.Delay))
+		zap.Duration("new_delay", sessionEventQueue.Delay))
 
 	heap.Fix(&q.events, sessionEventQueue.HeapIndex)
 

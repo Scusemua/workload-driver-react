@@ -1596,21 +1596,21 @@ func (d *BasicWorkloadDriver) getInternalSessionId(traceSessionId string) string
 //
 // The internal ID includes the unique ID of this workload driver, in case multiple
 // workloads from the same trace are being executed concurrently.
-func (d *BasicWorkloadDriver) getTraceSessionId(internalSessionId string) string {
-	rindex := strings.LastIndex(internalSessionId, "-")
+//func (d *BasicWorkloadDriver) getTraceSessionId(internalSessionId string) string {
+//	rindex := strings.LastIndex(internalSessionId, "-")
+//
+//	if rindex < 0 {
+//		panic(fmt.Sprintf("could not extract trace session id from given internal session id: \"%s\" (rindex=%d)",
+//			internalSessionId, rindex))
+//	}
+//
+//	return internalSessionId[0:rindex]
+//}
 
-	if rindex < 0 {
-		panic(fmt.Sprintf("could not extract trace session id from given internal session id: \"%s\" (rindex=%d)",
-			internalSessionId, rindex))
-	}
-
-	return internalSessionId[0:rindex]
-}
-
-func (d *BasicWorkloadDriver) getOriginalSessionIdFromInternalSessionId(internalSessionId string) string {
-	rightIndex := strings.LastIndex(internalSessionId, "-")
-	return internalSessionId[0:rightIndex]
-}
+//func (d *BasicWorkloadDriver) getOriginalSessionIdFromInternalSessionId(internalSessionId string) string {
+//	rightIndex := strings.LastIndex(internalSessionId, "-")
+//	return internalSessionId[0:rightIndex]
+//}
 
 // newSession create and return a new Session with the given ID.
 func (d *BasicWorkloadDriver) newSession(id string, meta domain.SessionMetadata, createdAtTime time.Time) Session {
@@ -2042,7 +2042,7 @@ func (d *BasicWorkloadDriver) handleSessionStoppedEvent(evt *domain.Event) error
 		zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
 
 	// TODO: Test that this actually works.
-	err := d.stopSession(d.getOriginalSessionIdFromInternalSessionId(internalSessionId))
+	err := d.stopSession(internalSessionId)
 	if err != nil {
 		return err
 	} else {
