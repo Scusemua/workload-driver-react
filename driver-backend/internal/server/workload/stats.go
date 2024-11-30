@@ -2,13 +2,14 @@ package workload
 
 import (
 	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
-	"github.com/shopspring/decimal"
 	"time"
 )
 
 // Statistics encapsulates runtime statistics and metrics about a workload that are maintained within the
 // dashboard backend (rather than within Prometheus).
 type Statistics struct {
+	*ClusterStatistics
+
 	RegisteredTime time.Time `json:"registered_time" csv:"-"`
 	StartTime      time.Time `json:"start_time" csv:"-"`
 	EndTime        time.Time `json:"end_time" csv:"-"`
@@ -42,7 +43,9 @@ type Statistics struct {
 	WorkloadDuration                    time.Duration           `json:"workload_duration"  csv:"workload_duration"` // The total time that the workload executed for. This is only set once the workload has completed.
 	WorkloadState                       State                   `json:"workload_state"  csv:"workload_state"`
 	WorkloadType                        Kind                    `json:"workload_type"  csv:"workload_type"`
+}
 
+type ClusterStatistics struct {
 	Rescheduled       int32   `csv:"Rescheduled"`
 	Resched2Ready     int32   `csv:"Resched2Ready"`
 	Migrated          int32   `csv:"Migrated"`
@@ -142,31 +145,31 @@ type Statistics struct {
 	AggregateActiveSessionTotalDelay float64 `csv:"AggregateSessionTotalDelaySec"`
 	// The average `totalDelay` of the currently-running Sessions.
 	AverageTotalDelay float64 `csv:"AverageSessionTotalDelaySec"`
-	// The running, cumulative provider-side cost of all of the requests so far.
-	CumulativeProviderCost decimal.Decimal `csv:"CumulativeProviderCost"`
-	// The running, cumulative tenant-side cost of all of the requests so far.
-	CumulativeTenantCost decimal.Decimal `csv:"CumulativeTenantCost"`
+	// The running, cumulative provider-side cost of all the requests so far.
+	CumulativeProviderCost float64 `csv:"CumulativeProviderCost"`
+	// The running, cumulative tenant-side cost of all the requests so far.
+	CumulativeTenantCost float64 `csv:"CumulativeTenantCost"`
 	// The average time that a Session spends alive. Only calculated once a Session stops permanently.
 	AverageSessionLifetime float64 `csv:"AverageSessionLifetimeSec"`
 	// The average time that a Session spends actively training. Only calculated once a Session stops permanently.
 	AverageSessionTrainingTime float64 `csv:"AverageSessionTrainingTimeSec"`
 	// Cumulative amount of money (in USD) spent by the provider, providing the checkpointing & recovery service to users.
-	CumulativeCheckpointCostProvider decimal.Decimal `csv:"CumulativeCheckpointCostProvider"`
+	CumulativeCheckpointCostProvider float64 `csv:"CumulativeCheckpointCostProvider"`
 	// Cumulative amount of money (in USD) spent by the users to utilize the checkpointing & recovery service.
-	CumulativeCheckpointCostUser decimal.Decimal `csv:"CumulativeCheckpointCostUser"`
+	CumulativeCheckpointCostUser float64 `csv:"CumulativeCheckpointCostUser"`
 	// The sum of all the session lifetimes.
 	SumSessionLifetimes float64 `csv:"SumSessionLifetimesSec"`
 	// The sum of all the session training times.
 	SumSessionTrainingTimes float64 `csv:"SumSessionTrainingTimesSec"`
 	// The cumulative tenant-side cost minus the cumulative provider-side cost.
 	// If negative, then that indicates that the notebook provider is losing money.
-	Profit decimal.Decimal `csv:"Profit"`
+	Profit float64 `csv:"Profit"`
 	// The change in cumulative user-side cost for the current tick. Should always be non-negative.
-	UserCostDelta decimal.Decimal `csv:"UserCostDelta"`
+	UserCostDelta float64 `csv:"UserCostDelta"`
 	// The change in cumulative provider-side cost for the current tick. Should always be non-negative.
-	ProviderCostDelta decimal.Decimal `csv:"ProviderCostDelta"`
+	ProviderCostDelta float64 `csv:"ProviderCostDelta"`
 	// The change in profit (maybe positive or negative) for the current tick.
-	ProfitDelta decimal.Decimal `csv:"ProfitDelta"`
+	ProfitDelta float64 `csv:"ProfitDelta"`
 	// Collect all the resource requests used during the simulation.
 	// ResourceRequests []ResourceRequest `csv:"-"`
 	// The total, cumulative number of training events successfully completed.
