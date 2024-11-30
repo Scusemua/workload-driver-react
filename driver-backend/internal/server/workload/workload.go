@@ -13,21 +13,19 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/mattn/go-colorable"
 	"go.uber.org/zap"
-	"go.uber.org/zap/zapcore"
 )
 
 const (
-	WorkloadReady      State = "WorkloadReady"      // BasicWorkload is registered and ready to be started.
-	WorkloadRunning    State = "WorkloadRunning"    // BasicWorkload is actively running/in-progress.
-	WorkloadPausing    State = "WorkloadPausing"    // BasicWorkload is actively running/in-progress.
-	WorkloadPaused     State = "WorkloadPaused"     // BasicWorkload is actively running/in-progress.
-	WorkloadFinished   State = "WorkloadFinished"   // BasicWorkload stopped naturally/successfully after processing all events.
-	WorkloadErred      State = "WorkloadErred"      // BasicWorkload stopped due to an error.
-	WorkloadTerminated State = "WorkloadTerminated" // BasicWorkload stopped because it was explicitly terminated early/premature.
+	Ready      State = "WorkloadReady"      // BasicWorkload is registered and ready to be started.
+	Running    State = "WorkloadRunning"    // BasicWorkload is actively running/in-progress.
+	Pausing    State = "WorkloadPausing"    // BasicWorkload is actively running/in-progress.
+	Paused     State = "WorkloadPaused"     // BasicWorkload is actively running/in-progress.
+	Finished   State = "WorkloadFinished"   // BasicWorkload stopped naturally/successfully after processing all events.
+	Erred      State = "WorkloadErred"      // BasicWorkload stopped due to an error.
+	Terminated State = "WorkloadTerminated" // BasicWorkload stopped because it was explicitly terminated early/premature.
 
-	WorkloadTerminatedEventName string = "workload-terminated"
+	TerminatedEventName string = "workload-terminated"
 
 	UnspecifiedWorkload Kind = "UnspecifiedWorkloadType" // Default value, before it is set.
 	PresetWorkload      Kind = "Preset"
@@ -54,39 +52,26 @@ func (state State) String() string {
 	return string(state)
 }
 
-type InternalWorkload interface {
-	domain.Workload
-
-	// GetState returns the current State of the InternalWorkload.
-	GetState() State
-
-	// SetState sets the State of the InternalWorkload.
-	SetState(State)
-
-	// GetKind gets the Kind of InternalWorkload (TRACE, PRESET, or TEMPLATE).
-	GetKind() Kind
-}
-
 // GetWorkloadStateAsString will panic if an invalid workload state is specified.
 func GetWorkloadStateAsString(state State) string {
 	switch state {
-	case WorkloadReady:
+	case Ready:
 		{
 			return "WorkloadReady"
 		}
-	case WorkloadRunning:
+	case Running:
 		{
 			return "WorkloadRunning"
 		}
-	case WorkloadFinished:
+	case Finished:
 		{
 			return "WorkloadFinished"
 		}
-	case WorkloadErred:
+	case Erred:
 		{
 			return "WorkloadErred"
 		}
-	case WorkloadTerminated:
+	case Terminated:
 		{
 			return "WorkloadTerminated"
 		}
@@ -100,6 +85,9 @@ type BasicWorkload struct {
 	sugaredLogger *zap.SugaredLogger
 	atom          *zap.AtomicLevel
 
+	// Statistics encapsulates a number of important statistics related to the workload.
+	Statistics *Statistics
+
 	// SampledSessions is a map (really, just a set; the values of the map are not used) that keeps track of the
 	// sessions that this BasicWorkload is actively sampling and processing from the workload.
 	//
@@ -110,43 +98,25 @@ type BasicWorkload struct {
 	// UnsampledSessions keeps track of the Sessions this workload has not selected for sampling/processing.
 	//
 	// UnsampledSessions is a sort of counterpart to the SampledSessions field.
-	UnsampledSessions           map[string]interface{}  `json:"-"`
-	TotalNumSessions            int                     `json:"total_num_sessions"`
-	NumDiscardedSessions        int                     `json:"num_discarded_sessions"`
-	NumSampledSessions          int                     `json:"num_sampled_sessions"`
-	AggregateSessionDelayMillis int64                   `json:"aggregate_session_delay_ms" csv:"aggregate_session_delay_ms"`
-	Id                          string                  `json:"id"`
-	Name                        string                  `json:"name"`
-	WorkloadState               State                   `json:"workload_state"`
-	CurrentTick                 int64                   `json:"current_tick"`
-	TotalNumTicks               int64                   `json:"total_num_ticks"`
-	NextEventExpectedTick       int64                   `json:"next_event_expected_tick"`
-	NextExpectedEventName       domain.EventName        `json:"next_expected_event_name"`
-	NextExpectedEventTarget     string                  `json:"next_expected_event_target"`
-	DebugLoggingEnabled         bool                    `json:"debug_logging_enabled"`
-	ErrorMessage                string                  `json:"error_message"`
-	EventsProcessed             []*domain.WorkloadEvent `json:"events_processed"`
-	Seed                        int64                   `json:"seed"`
-	RegisteredTime              time.Time               `json:"registered_time"`
-	StartTime                   time.Time               `json:"start_time"`
-	EndTime                     time.Time               `json:"end_time"`
-	WorkloadDuration            time.Duration           `json:"workload_duration"` // The total time that the workload executed for. This is only set once the workload has completed.
-	TimeElapsed                 time.Duration           `json:"time_elapsed"`      // Computed at the time that the data is requested by the user. This is the time elapsed SO far.
-	TimeElapsedStr              string                  `json:"time_elapsed_str"`
-	NumTasksExecuted            int64                   `json:"num_tasks_executed"`
-	NumEventsProcessed          int64                   `json:"num_events_processed"`
-	NumSessionsCreated          int64                   `json:"num_sessions_created"`
-	NumActiveSessions           int64                   `json:"num_active_sessions"`
-	NumActiveTrainings          int64                   `json:"num_active_trainings"`
-	NumSubmittedTrainings       int64                   `json:"num_submitted_trainings"` // NumSubmittedTrainings is the number of trainings that have been submitted but not yet started.
-	TimescaleAdjustmentFactor   float64                 `json:"timescale_adjustment_factor"`
-	SimulationClockTimeStr      string                  `json:"simulation_clock_time"`
-	WorkloadType                Kind                    `json:"workload_type"`
-	TickDurationsMillis         []int64                 `json:"tick_durations_milliseconds"`
-	SessionsSamplePercentage    float64                 `json:"sessions_sample_percentage"`
-	TimeSpentPausedMillis       int64                   `json:"time_spent_paused_milliseconds"`
-	timeSpentPaused             time.Duration
-	pauseWaitBegin              time.Time
+	UnsampledSessions map[string]interface{} `json:"-"`
+
+	//AggregateSessionDelayMillis int64  `json:"aggregate_session_delay_ms" csv:"aggregate_session_delay_ms"`
+	Id   string `json:"id"`
+	Name string `json:"name"`
+
+	Seed                      int64   `json:"seed"  csv:"seed"`
+	DebugLoggingEnabled       bool    `json:"debug_logging_enabled"`
+	TimescaleAdjustmentFactor float64 `json:"timescale_adjustment_factor"`
+
+	ErrorMessage           string  `json:"error_message"`
+	SimulationClockTimeStr string  `json:"simulation_clock_time"`
+	WorkloadType           Kind    `json:"workload_type"`
+	TickDurationsMillis    []int64 `json:"tick_durations_milliseconds"`
+
+	//SessionsSamplePercentage  float64 `json:"sessions_sample_percentage"`
+	//TimeSpentPausedMillis     int64   `json:"time_spent_paused_milliseconds"`
+	timeSpentPaused time.Duration
+	pauseWaitBegin  time.Time
 
 	// SumTickDurationsMillis is the sum of all tick durations in milliseconds, to make it easier
 	// to compute the average tick duration.
@@ -172,157 +142,6 @@ type BasicWorkload struct {
 	onNonCriticalError domain.WorkloadErrorHandler
 
 	RemoteStorageDefinition *proto.RemoteStorageDefinition
-}
-
-// WorkloadBuilder is the builder for the Workload struct.
-type WorkloadBuilder struct {
-	id                        string
-	workloadName              string
-	seed                      int64
-	debugLoggingEnabled       bool
-	timescaleAdjustmentFactor float64
-	sessionsSamplePercentage  float64
-	remoteStorageDefinition   *proto.RemoteStorageDefinition
-	atom                      *zap.AtomicLevel
-}
-
-// NewWorkloadBuilder creates a new WorkloadBuilder instance.
-func NewWorkloadBuilder(atom *zap.AtomicLevel) *WorkloadBuilder {
-	return &WorkloadBuilder{
-		atom:                      atom,
-		seed:                      -1,
-		debugLoggingEnabled:       true,
-		sessionsSamplePercentage:  1.0,
-		timescaleAdjustmentFactor: 1.0,
-	}
-}
-
-// SetID sets the ID for the workload.
-func (b *WorkloadBuilder) SetID(id string) *WorkloadBuilder {
-	b.id = id
-	return b
-}
-
-// SetWorkloadName sets the name for the workload.
-func (b *WorkloadBuilder) SetWorkloadName(workloadName string) *WorkloadBuilder {
-	b.workloadName = workloadName
-	return b
-}
-
-// SetSeed sets the seed value for the workload.
-func (b *WorkloadBuilder) SetSeed(seed int64) *WorkloadBuilder {
-	b.seed = seed
-	return b
-}
-
-// EnableDebugLogging enables or disables debug logging.
-func (b *WorkloadBuilder) EnableDebugLogging(enabled bool) *WorkloadBuilder {
-	b.debugLoggingEnabled = enabled
-	return b
-}
-
-// SetTimescaleAdjustmentFactor sets the timescale adjustment factor.
-func (b *WorkloadBuilder) SetTimescaleAdjustmentFactor(factor float64) *WorkloadBuilder {
-	b.timescaleAdjustmentFactor = factor
-	return b
-}
-
-// SetSessionsSamplePercentage sets the sessions sample percentage.
-func (b *WorkloadBuilder) SetSessionsSamplePercentage(percentage float64) *WorkloadBuilder {
-	b.sessionsSamplePercentage = percentage
-	return b
-}
-
-// SetRemoteStorageDefinition sets the remote storage definition.
-func (b *WorkloadBuilder) SetRemoteStorageDefinition(def *proto.RemoteStorageDefinition) *WorkloadBuilder {
-	b.remoteStorageDefinition = def
-	return b
-}
-
-// Build creates a Workload instance with the specified values.
-func (b *WorkloadBuilder) Build() *BasicWorkload {
-	workload := &BasicWorkload{
-		Id:                        b.id, // Same ID as the driver.
-		Name:                      b.workloadName,
-		WorkloadState:             WorkloadReady,
-		TimeElapsed:               time.Duration(0),
-		Seed:                      b.seed,
-		RegisteredTime:            time.Now(),
-		NumTasksExecuted:          0,
-		NumEventsProcessed:        0,
-		NumSessionsCreated:        0,
-		NumActiveSessions:         0,
-		NumActiveTrainings:        0,
-		DebugLoggingEnabled:       b.debugLoggingEnabled,
-		TimescaleAdjustmentFactor: b.timescaleAdjustmentFactor,
-		WorkloadType:              UnspecifiedWorkload,
-		EventsProcessed:           make([]*domain.WorkloadEvent, 0),
-		atom:                      b.atom,
-		sessionsMap:               hashmap.New(32),
-		trainingStartedTimes:      hashmap.New(32),
-		CurrentTick:               0,
-		SumTickDurationsMillis:    0,
-		TickDurationsMillis:       make([]int64, 0),
-		RemoteStorageDefinition:   b.remoteStorageDefinition,
-		SessionsSamplePercentage:  b.sessionsSamplePercentage,
-		SampledSessions:           make(map[string]interface{}),
-		UnsampledSessions:         make(map[string]interface{}),
-	}
-
-	zapConfig := zap.NewDevelopmentEncoderConfig()
-	zapConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
-	core := zapcore.NewCore(zapcore.NewConsoleEncoder(zapConfig), zapcore.AddSync(colorable.NewColorableStdout()), b.atom)
-	logger := zap.New(core, zap.Development())
-	if logger == nil {
-		panic("failed to create logger for workload driver")
-	}
-
-	workload.logger = logger
-	workload.sugaredLogger = logger.Sugar()
-
-	return workload
-}
-
-func NewWorkload(id string, workloadName string, seed int64, debugLoggingEnabled bool, timescaleAdjustmentFactor float64,
-	remoteStorageDefinition *proto.RemoteStorageDefinition, atom *zap.AtomicLevel) *BasicWorkload {
-
-	workload := &BasicWorkload{
-		Id:                        id, // Same ID as the driver.
-		Name:                      workloadName,
-		WorkloadState:             WorkloadReady,
-		TimeElapsed:               time.Duration(0),
-		Seed:                      seed,
-		RegisteredTime:            time.Now(),
-		NumTasksExecuted:          0,
-		NumEventsProcessed:        0,
-		NumSessionsCreated:        0,
-		NumActiveSessions:         0,
-		NumActiveTrainings:        0,
-		DebugLoggingEnabled:       debugLoggingEnabled,
-		TimescaleAdjustmentFactor: timescaleAdjustmentFactor,
-		WorkloadType:              UnspecifiedWorkload,
-		EventsProcessed:           make([]*domain.WorkloadEvent, 0),
-		atom:                      atom,
-		sessionsMap:               hashmap.New(32),
-		trainingStartedTimes:      hashmap.New(32),
-		CurrentTick:               0,
-		SumTickDurationsMillis:    0,
-		TickDurationsMillis:       make([]int64, 0),
-		RemoteStorageDefinition:   remoteStorageDefinition,
-	}
-
-	zapConfig := zap.NewDevelopmentEncoderConfig()
-	zapConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
-	core := zapcore.NewCore(zapcore.NewConsoleEncoder(zapConfig), zapcore.AddSync(colorable.NewColorableStdout()), atom)
-	logger := zap.New(core, zap.Development())
-	if logger == nil {
-		panic("failed to create logger for workload driver")
-	}
-
-	workload.logger = logger
-	workload.sugaredLogger = logger.Sugar()
-
-	return workload
 }
 
 // PauseWaitBeginning should be called by the WorkloadDriver if it finds that the workload is paused, and it
@@ -368,15 +187,15 @@ func (w *BasicWorkload) SetPausing() error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	if w.WorkloadState != WorkloadRunning {
+	if w.Statistics.WorkloadState != Running {
 		w.logger.Error("Cannot transition workload to 'pausing' state. Workload is not running.",
-			zap.String("workload_state", w.WorkloadState.String()),
+			zap.String("workload_state", w.Statistics.WorkloadState.String()),
 			zap.String("workload_id", w.Id),
-			zap.String("workload-state", string(w.WorkloadState)))
+			zap.String("workload-state", string(w.Statistics.WorkloadState)))
 		return domain.ErrWorkloadNotPaused
 	}
 
-	w.WorkloadState = WorkloadPausing
+	w.Statistics.WorkloadState = Pausing
 	return nil
 }
 
@@ -385,15 +204,15 @@ func (w *BasicWorkload) SetPaused() error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	if w.WorkloadState != WorkloadPausing {
+	if w.Statistics.WorkloadState != Pausing {
 		w.logger.Error("Cannot transition workload to 'paused' state. Workload is not in 'pausing' state.",
-			zap.String("workload_state", w.WorkloadState.String()),
+			zap.String("workload_state", w.Statistics.WorkloadState.String()),
 			zap.String("workload_id", w.Id),
-			zap.String("workload-state", string(w.WorkloadState)))
+			zap.String("workload-state", string(w.Statistics.WorkloadState)))
 		return domain.ErrWorkloadNotPaused
 	}
 
-	w.WorkloadState = WorkloadPaused
+	w.Statistics.WorkloadState = Paused
 	return nil
 }
 
@@ -402,15 +221,15 @@ func (w *BasicWorkload) Unpause() error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	if w.WorkloadState != WorkloadPaused && w.WorkloadState != WorkloadPausing {
+	if w.Statistics.WorkloadState != Paused && w.Statistics.WorkloadState != Pausing {
 		w.logger.Error("Cannot unpause workload. Workload is not paused.",
-			zap.String("workload_state", w.WorkloadState.String()),
+			zap.String("workload_state", w.Statistics.WorkloadState.String()),
 			zap.String("workload_id", w.Id),
-			zap.String("workload-state", string(w.WorkloadState)))
+			zap.String("workload-state", string(w.Statistics.WorkloadState)))
 		return domain.ErrWorkloadNotPaused
 	}
 
-	w.WorkloadState = WorkloadRunning
+	w.Statistics.WorkloadState = Running
 
 	// pauseWaitBegin is set to zero after being processed.
 	// So, if it is currently zero, then we're not paused, and we should do nothing.
@@ -421,7 +240,7 @@ func (w *BasicWorkload) Unpause() error {
 	// Compute how long we were paused, increment the counters, and then zero out the pauseWaitBegin field.
 	pauseDuration := time.Since(w.pauseWaitBegin)
 	w.timeSpentPaused += pauseDuration
-	w.TimeSpentPausedMillis = w.timeSpentPaused.Milliseconds()
+	w.Statistics.TimeSpentPausedMillis = w.timeSpentPaused.Milliseconds()
 
 	w.pauseWaitBegin = time.Time{} // Zero it out.
 	return nil
@@ -431,7 +250,7 @@ func (w *BasicWorkload) Unpause() error {
 // Updates the time elapsed, current tick, and simulation clock time.
 func (w *BasicWorkload) TickCompleted(tick int64, simClock time.Time) {
 	w.mu.Lock()
-	w.CurrentTick = tick
+	w.Statistics.CurrentTick = tick
 	w.SimulationClockTimeStr = simClock.String()
 	w.mu.Unlock()
 
@@ -450,7 +269,7 @@ func (w *BasicWorkload) AddFullTickDuration(timeElapsed time.Duration) {
 func (w *BasicWorkload) GetCurrentTick() int64 {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
-	return w.CurrentTick
+	return w.Statistics.CurrentTick
 }
 
 // GetSimulationClockTimeStr returns the simulation clock time.
@@ -511,13 +330,13 @@ func (w *BasicWorkload) GetWorkloadSource() interface{} {
 func (w *BasicWorkload) GetProcessedEvents() []*domain.WorkloadEvent {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
-	return w.EventsProcessed
+	return w.Statistics.EventsProcessed
 }
 
 // TerminateWorkloadPrematurely stops the workload.
 func (w *BasicWorkload) TerminateWorkloadPrematurely(simulationTimestamp time.Time) (time.Time, error) {
 	if !w.IsInProgress() {
-		w.logger.Error("Cannot stop as I am not running.", zap.String("workload_id", w.Id), zap.String("workload-state", string(w.WorkloadState)))
+		w.logger.Error("Cannot stop as I am not running.", zap.String("workload_id", w.Id), zap.String("workload-state", string(w.Statistics.WorkloadState)))
 		return time.Now(), domain.ErrWorkloadNotRunning
 	}
 
@@ -526,25 +345,25 @@ func (w *BasicWorkload) TerminateWorkloadPrematurely(simulationTimestamp time.Ti
 
 	now := time.Now()
 
-	w.EndTime = now
-	w.WorkloadState = WorkloadTerminated
-	w.NumEventsProcessed += 1
+	w.Statistics.EndTime = now
+	w.Statistics.WorkloadState = Terminated
+	w.Statistics.NumEventsProcessed += 1
 
-	// workloadEvent := NewWorkloadEvent(len(w.EventsProcessed), uuid.NewString(), "workload-terminated", "N/A", simulationTimestamp.String(), now.String(), true, nil)
+	// workloadEvent := NewWorkloadEvent(len(w.Statistics.EventsProcessed), uuid.NewString(), "workload-terminated", "N/A", simulationTimestamp.String(), now.String(), true, nil)
 	workloadEvent := domain.NewEmptyWorkloadEvent().
-		WithIndex(len(w.EventsProcessed)).
+		WithIndex(len(w.Statistics.EventsProcessed)).
 		WithEventId(uuid.NewString()).
-		WithEventNameString(WorkloadTerminatedEventName).
+		WithEventNameString(TerminatedEventName).
 		WithSessionId("N/A").
 		WithEventTimestamp(simulationTimestamp).
 		WithProcessedAtTime(now).
 		WithSimProcessedAtTime(simulationTimestamp).
 		WithProcessedStatus(true)
 
-	w.EventsProcessed = append(w.EventsProcessed, workloadEvent)
+	w.Statistics.EventsProcessed = append(w.Statistics.EventsProcessed, workloadEvent)
 
-	// w.EventsProcessed = append(w.EventsProcessed, &WorkloadEvent{
-	// 	Index:                 len(w.EventsProcessed),
+	// w.Statistics.EventsProcessed = append(w.Statistics.EventsProcessed, &WorkloadEvent{
+	// 	Index:                 len(w.Statistics.EventsProcessed),
 	// 	Id:                    uuid.NewString(),
 	// 	Name:                  "workload-terminated",
 	// 	Session:               "N/A",
@@ -554,7 +373,7 @@ func (w *BasicWorkload) TerminateWorkloadPrematurely(simulationTimestamp time.Ti
 	// })
 
 	w.logger.Debug("Stopped.", zap.String("workload_id", w.Id))
-	return w.EndTime, nil
+	return w.Statistics.EndTime, nil
 }
 
 // StartWorkload starts the Workload.
@@ -565,12 +384,12 @@ func (w *BasicWorkload) StartWorkload() error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	if w.WorkloadState != WorkloadReady {
-		return fmt.Errorf("%w: cannot start workload that is in state '%s'", domain.ErrInvalidState, GetWorkloadStateAsString(w.WorkloadState))
+	if w.Statistics.WorkloadState != Ready {
+		return fmt.Errorf("%w: cannot start workload that is in state '%s'", domain.ErrInvalidState, GetWorkloadStateAsString(w.Statistics.WorkloadState))
 	}
 
-	w.WorkloadState = WorkloadRunning
-	w.StartTime = time.Now()
+	w.Statistics.WorkloadState = Running
+	w.Statistics.StartTime = time.Now()
 
 	return nil
 }
@@ -587,9 +406,9 @@ func (w *BasicWorkload) SetWorkloadCompleted() {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	w.WorkloadState = WorkloadFinished
-	w.EndTime = time.Now()
-	w.WorkloadDuration = time.Since(w.StartTime)
+	w.Statistics.WorkloadState = Finished
+	w.Statistics.EndTime = time.Now()
+	w.Statistics.WorkloadDuration = time.Since(w.Statistics.StartTime)
 }
 
 // GetErrorMessage gets the error message associated with the workload.
@@ -599,7 +418,7 @@ func (w *BasicWorkload) GetErrorMessage() (string, bool) {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 
-	if w.WorkloadState == WorkloadErred {
+	if w.Statistics.WorkloadState == Erred {
 		return w.ErrorMessage, true
 	}
 
@@ -650,7 +469,7 @@ func (w *BasicWorkload) GetState() State {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	return w.WorkloadState
+	return w.Statistics.WorkloadState
 }
 
 // SetState sets the state of the workload.
@@ -658,7 +477,7 @@ func (w *BasicWorkload) SetState(state State) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	w.WorkloadState = state
+	w.Statistics.WorkloadState = state
 }
 
 // GetStartTime returns the time that the workload was started.
@@ -666,7 +485,7 @@ func (w *BasicWorkload) GetStartTime() time.Time {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	return w.StartTime
+	return w.Statistics.StartTime
 }
 
 // GetEndTime returns the time at which the workload finished.
@@ -677,7 +496,7 @@ func (w *BasicWorkload) GetEndTime() (time.Time, bool) {
 	defer w.mu.RUnlock()
 
 	if w.IsFinished() {
-		return w.EndTime, true
+		return w.Statistics.EndTime, true
 	}
 
 	return time.Time{}, false
@@ -685,20 +504,20 @@ func (w *BasicWorkload) GetEndTime() (time.Time, bool) {
 
 // GetRegisteredTime returns the time that the workload was registered.
 func (w *BasicWorkload) GetRegisteredTime() time.Time {
-	return w.RegisteredTime
+	return w.Statistics.RegisteredTime
 }
 
 // GetTimeElapsed returns the time elapsed, which is computed at the time that data is requested by the user.
 func (w *BasicWorkload) GetTimeElapsed() time.Duration {
-	return w.TimeElapsed
+	return w.Statistics.TimeElapsed
 }
 
 // GetTimeElapsedAsString returns the time elapsed as a string, which is computed at the time that data is requested by the user.
 //
-// IMPORTANT: This updates the w.TimeElapsedStr field (setting it to w.TimeElapsed.String()) before returning it.
+// IMPORTANT: This updates the w.Statistics.TimeElapsedStr field (setting it to w.Statistics.TimeElapsed.String()) before returning it.
 func (w *BasicWorkload) GetTimeElapsedAsString() string {
-	w.TimeElapsedStr = w.TimeElapsed.String()
-	return w.TimeElapsed.String()
+	w.Statistics.TimeElapsedStr = w.Statistics.TimeElapsed.String()
+	return w.Statistics.TimeElapsed.String()
 }
 
 // SetTimeElapsed updates the time elapsed.
@@ -706,8 +525,8 @@ func (w *BasicWorkload) SetTimeElapsed(timeElapsed time.Duration) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	w.TimeElapsed = timeElapsed
-	w.TimeElapsedStr = w.TimeElapsed.String()
+	w.Statistics.TimeElapsed = timeElapsed
+	w.Statistics.TimeElapsedStr = w.Statistics.TimeElapsed.String()
 }
 
 // UpdateTimeElapsed instructs the Workload to recompute its 'time elapsed' field.
@@ -721,11 +540,11 @@ func (w *BasicWorkload) UpdateTimeElapsed() {
 	}
 
 	// First, compute the total time elapsed.
-	timeElapsed := time.Since(w.StartTime)
+	timeElapsed := time.Since(w.Statistics.StartTime)
 
 	// Second, subtract the time we have spent paused.
-	w.TimeElapsed = timeElapsed - w.timeSpentPaused
-	w.TimeElapsedStr = w.TimeElapsed.String()
+	w.Statistics.TimeElapsed = timeElapsed - w.timeSpentPaused
+	w.Statistics.TimeElapsedStr = w.Statistics.TimeElapsed.String()
 }
 
 // SessionDelayed should be called when events for a particular Session are delayed for processing, such as
@@ -735,14 +554,14 @@ func (w *BasicWorkload) UpdateTimeElapsed() {
 func (w *BasicWorkload) SessionDelayed(sessionId string, delayAmount time.Duration) {
 	w.workloadInstance.SessionDelayed(sessionId, delayAmount)
 
-	w.AggregateSessionDelayMillis += delayAmount.Milliseconds()
+	w.Statistics.AggregateSessionDelayMillis += delayAmount.Milliseconds()
 }
 
 // GetNumEventsProcessed returns the number of events processed by the workload.
 func (w *BasicWorkload) GetNumEventsProcessed() int64 {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
-	return w.NumEventsProcessed
+	return w.Statistics.NumEventsProcessed
 }
 
 // WorkloadName returns the name of the workload.
@@ -766,9 +585,9 @@ func (w *BasicWorkload) ProcessedEvent(evt *domain.WorkloadEvent) {
 		return
 	}
 
-	w.NumEventsProcessed += 1
-	evt.Index = len(w.EventsProcessed)
-	w.EventsProcessed = append(w.EventsProcessed, evt)
+	w.Statistics.NumEventsProcessed += 1
+	evt.Index = len(w.Statistics.EventsProcessed)
+	w.Statistics.EventsProcessed = append(w.Statistics.EventsProcessed, evt)
 
 	if metrics.PrometheusMetricsWrapperInstance != nil && metrics.PrometheusMetricsWrapperInstance.WorkloadEventsProcessed != nil {
 		metrics.PrometheusMetricsWrapperInstance.WorkloadEventsProcessed.
@@ -788,8 +607,8 @@ func (w *BasicWorkload) ProcessedEvent(evt *domain.WorkloadEvent) {
 // Just updates some internal metrics.
 func (w *BasicWorkload) SessionCreated(sessionId string, metadata domain.SessionMetadata) {
 	w.mu.Lock()
-	w.NumActiveSessions += 1
-	w.NumSessionsCreated += 1
+	w.Statistics.NumActiveSessions += 1
+	w.Statistics.NumSessionsCreated += 1
 	w.mu.Unlock()
 
 	metrics.PrometheusMetricsWrapperInstance.WorkloadTotalNumSessions.
@@ -812,7 +631,7 @@ func (w *BasicWorkload) SessionStopped(sessionId string, evt *domain.Event) {
 
 	w.mu.Lock()
 	defer w.mu.Unlock()
-	w.NumActiveSessions -= 1
+	w.Statistics.NumActiveSessions -= 1
 
 	val, ok := w.sessionsMap.Get(sessionId)
 	if !ok {
@@ -835,7 +654,7 @@ func (w *BasicWorkload) SessionStopped(sessionId string, evt *domain.Event) {
 
 // TrainingSubmitted when an "execute_request" message is sent.
 func (w *BasicWorkload) TrainingSubmitted(sessionId string, evt *domain.Event) {
-	w.NumSubmittedTrainings += 1
+	w.Statistics.NumSubmittedTrainings += 1
 
 	val, ok := w.sessionsMap.Get(sessionId)
 	if !ok {
@@ -870,8 +689,8 @@ func (w *BasicWorkload) TrainingSubmitted(sessionId string, evt *domain.Event) {
 // TrainingStarted is called when a training starts during/in the workload.
 // Just updates some internal metrics.
 func (w *BasicWorkload) TrainingStarted(sessionId string) {
-	w.NumSubmittedTrainings -= 1
-	w.NumActiveTrainings += 1
+	w.Statistics.NumSubmittedTrainings -= 1
+	w.Statistics.NumActiveTrainings += 1
 
 	w.trainingStartedTimes.Set(sessionId, time.Now())
 
@@ -903,8 +722,8 @@ func (w *BasicWorkload) TrainingStopped(sessionId string, evt *domain.Event) {
 			Observe(float64(trainingDuration.Milliseconds()))
 	}
 
-	w.NumTasksExecuted += 1
-	w.NumActiveTrainings -= 1
+	w.Statistics.NumTasksExecuted += 1
+	w.Statistics.NumActiveTrainings -= 1
 
 	val, ok := w.sessionsMap.Get(sessionId)
 	if !ok {
@@ -948,28 +767,28 @@ func (w *BasicWorkload) GetId() string {
 func (w *BasicWorkload) IsTerminated() bool {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
-	return w.WorkloadState == WorkloadTerminated
+	return w.Statistics.WorkloadState == Terminated
 }
 
 // IsReady returns true if the workload is registered and ready to be started.
 func (w *BasicWorkload) IsReady() bool {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
-	return w.WorkloadState == WorkloadReady
+	return w.Statistics.WorkloadState == Ready
 }
 
 // IsErred returns true if the workload stopped due to an error.
 func (w *BasicWorkload) IsErred() bool {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
-	return w.WorkloadState == WorkloadErred
+	return w.Statistics.WorkloadState == Erred
 }
 
 // IsRunning returns true if the workload is actively running (i.e., not paused).
 func (w *BasicWorkload) IsRunning() bool {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
-	return w.WorkloadState == WorkloadRunning
+	return w.Statistics.WorkloadState == Running
 }
 
 // IsPausing returns true if the workload is pausing, meaning that it is finishing the processing
@@ -977,14 +796,14 @@ func (w *BasicWorkload) IsRunning() bool {
 func (w *BasicWorkload) IsPausing() bool {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
-	return w.WorkloadState == WorkloadPausing
+	return w.Statistics.WorkloadState == Pausing
 }
 
 // IsPaused returns true if the workload is paused.
 func (w *BasicWorkload) IsPaused() bool {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
-	return w.WorkloadState == WorkloadPaused
+	return w.Statistics.WorkloadState == Paused
 }
 
 // IsInProgress returns true if the workload is actively running, pausing, or paused.
@@ -1008,7 +827,7 @@ func (w *BasicWorkload) IsFinished() bool {
 func (w *BasicWorkload) DidCompleteSuccessfully() bool {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
-	return w.WorkloadState == WorkloadFinished
+	return w.Statistics.WorkloadState == Finished
 }
 
 func (w *BasicWorkload) String() string {
@@ -1025,23 +844,23 @@ func (w *BasicWorkload) String() string {
 
 // GetSampleSessionsPercentage returns the configured SampleSessionsPercentage parameter for the Workload.
 func (w *BasicWorkload) GetSampleSessionsPercentage() float64 {
-	return w.SessionsSamplePercentage
+	return w.Statistics.SessionsSamplePercentage
 }
 
 // RegisterApproximateFinalTick is used to register what is the approximate final tick of the workload
 // after iterating over all sessions and all training events.
 func (w *BasicWorkload) RegisterApproximateFinalTick(approximateFinalTick int64) {
-	w.TotalNumTicks = approximateFinalTick
+	w.Statistics.TotalNumTicks = approximateFinalTick
 }
 
 // GetNextEventTick returns the tick at which the next event is expected to be processed.
 func (w *BasicWorkload) GetNextEventTick() int64 {
-	return w.NextEventExpectedTick
+	return w.Statistics.NextEventExpectedTick
 }
 
 // SetNextEventTick sets the tick at which the next event is expected to be processed (for visualization purposes).
 func (w *BasicWorkload) SetNextEventTick(nextEventExpectedTick int64) {
-	w.NextEventExpectedTick = nextEventExpectedTick
+	w.Statistics.NextEventExpectedTick = nextEventExpectedTick
 }
 
 // SessionDiscarded is used to record that a particular session is being discarded/not sampled.
@@ -1057,7 +876,7 @@ func (w *BasicWorkload) SetSessionSampled(sessionId string) {
 		zap.String("session_id", sessionId),
 		zap.Int("num_sampled_sessions", len(w.SampledSessions)),
 		zap.Int("num_discarded_sessions", len(w.UnsampledSessions)))
-	w.NumSampledSessions += 1
+	w.Statistics.NumSampledSessions += 1
 }
 
 func (w *BasicWorkload) SetSessionDiscarded(sessionId string) {
@@ -1110,7 +929,7 @@ func (w *BasicWorkload) unsafeIsSessionBeingSampled(sessionId string) bool {
 
 	// Randomly decide if we're going to sample/process [events for] this session or not.
 	randomValue := rand.Float64()
-	if randomValue <= w.SessionsSamplePercentage {
+	if randomValue <= w.Statistics.SessionsSamplePercentage {
 		w.SetSessionSampled(sessionId)
 		return true
 	}
@@ -1121,11 +940,16 @@ func (w *BasicWorkload) unsafeIsSessionBeingSampled(sessionId string) bool {
 
 // SetNextExpectedEventName is used to register, for visualization purposes, the name of the next expected event.
 func (w *BasicWorkload) SetNextExpectedEventName(name domain.EventName) {
-	w.NextExpectedEventName = name
+	w.Statistics.NextExpectedEventName = name
 }
 
 // SetNextExpectedEventSession is used to register, for visualization purposes, the target session of the next
 // expected event.
 func (w *BasicWorkload) SetNextExpectedEventSession(sessionId string) {
-	w.NextExpectedEventTarget = sessionId
+	w.Statistics.NextExpectedEventTarget = sessionId
+}
+
+// GetStatistics returns the Statistics struct of the InternalWorkload.
+func (w *BasicWorkload) GetStatistics() *Statistics {
+	return w.Statistics
 }

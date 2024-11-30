@@ -110,6 +110,22 @@ func GenerateWorkloadID(n int) string {
 	return *(*string)(unsafe.Pointer(&b))
 }
 
+type InternalWorkload interface {
+	domain.Workload
+
+	// GetState returns the current State of the InternalWorkload.
+	GetState() State
+
+	// SetState sets the State of the InternalWorkload.
+	SetState(State)
+
+	// GetKind gets the Kind of InternalWorkload (TRACE, PRESET, or TEMPLATE).
+	GetKind() Kind
+
+	// GetStatistics returns the Statistics struct of the InternalWorkload.
+	GetStatistics() *Statistics
+}
+
 // BasicWorkloadDriver consumes events from the Workload Generator and takes action accordingly.
 type BasicWorkloadDriver struct {
 	logger        *zap.Logger
@@ -134,7 +150,6 @@ type BasicWorkloadDriver struct {
 	servingTicks                       atomic.Bool                           // The WorkloadDriver::ServeTicks() method will continue looping as long as this flag is set to true.
 	sessionConnections                 map[string]*jupyter.SessionConnection // Map from internal session ID to session connection.
 	sessions                           *hashmap.HashMap                      // Responsible for creating sessions and maintaining a collection of all the sessions active within the simulation.
-	stats                              *Statistics                           // Metrics related to the workload's execution.
 	stopChan                           chan interface{}                      // Used to stop the workload early/prematurely (i.e., before all events have been processed).
 	targetTickDuration                 time.Duration                         // How long each tick is supposed to last. This is the tick interval/step rate of the simulation.
 	targetTickDurationSeconds          int64                                 // Cached total number of seconds of targetTickDuration
@@ -197,7 +212,6 @@ func NewBasicWorkloadDriver(opts *domain.Configuration, performClockTicks bool, 
 		performClockTicks:                  performClockTicks,
 		eventQueue:                         event_queue.NewEventQueue(atom),
 		trainingSubmittedTimes:             hashmap.New(100),
-		stats:                              NewWorkloadStats(),
 		sessions:                           hashmap.New(100),
 		seenSessions:                       make(map[string]struct{}),
 		websocket:                          websocket,
@@ -278,11 +292,6 @@ func (d *BasicWorkloadDriver) WebSocket() domain.ConcurrentWebSocket {
 	return d.websocket
 }
 
-// Stats returns the stats of the workload.
-func (d *BasicWorkloadDriver) Stats() *Statistics {
-	return d.stats
-}
-
 // IsSessionBeingSampled returns true if the specified session was selected for sampling.
 func (d *BasicWorkloadDriver) IsSessionBeingSampled(sessionId string) bool {
 	return d.workload.IsSessionBeingSampled(sessionId)
@@ -348,7 +357,7 @@ func (d *BasicWorkloadDriver) createWorkloadFromPreset(workloadRegistrationReque
 		zap.String("workload_name", workloadRegistrationRequest.WorkloadName),
 		zap.String("workload-preset-name", d.workloadPreset.GetName()))
 
-	basicWorkload := NewWorkloadBuilder(d.atom).
+	basicWorkload := NewBuilder(d.atom).
 		SetID(d.id).
 		SetWorkloadName(workloadRegistrationRequest.WorkloadName).
 		SetSeed(workloadRegistrationRequest.Seed).
@@ -460,7 +469,7 @@ func (d *BasicWorkloadDriver) createWorkloadFromTemplate(workloadRegistrationReq
 
 	d.workloadSessions = workloadRegistrationRequest.Sessions
 	d.workloadRegistrationRequest = workloadRegistrationRequest
-	basicWorkload := NewWorkloadBuilder(d.atom).
+	basicWorkload := NewBuilder(d.atom).
 		SetID(d.id).
 		SetWorkloadName(workloadRegistrationRequest.WorkloadName).
 		SetSeed(workloadRegistrationRequest.Seed).
@@ -603,7 +612,7 @@ func (d *BasicWorkloadDriver) WriteError(ctx *gin.Context, errorMessage string) 
 
 // IsWorkloadComplete returns true if the workload has completed; otherwise, return false.
 func (d *BasicWorkloadDriver) IsWorkloadComplete() bool {
-	return d.workload.GetState() == WorkloadFinished
+	return d.workload.GetState() == Finished
 }
 
 // ID returns the unique ID of this workload driver.
@@ -655,7 +664,7 @@ func (d *BasicWorkloadDriver) handleCriticalError(err error) {
 	}
 
 	d.workload.UpdateTimeElapsed()
-	d.workload.SetState(domain.WorkloadErred)
+	d.workload.SetState(Erred)
 	d.workload.SetErrorMessage(err.Error())
 }
 
@@ -1182,7 +1191,6 @@ func (d *BasicWorkloadDriver) ProcessWorkload(wg *sync.WaitGroup) error {
 		}()
 	} else if d.workload.IsTemplateWorkload() {
 		go func() {
-			templateWorkload := d.workload.(*Template)
 			err := d.workloadGenerator.GenerateTemplateWorkload(d, d.workloadSessions, d.workloadRegistrationRequest)
 			if err != nil {
 				d.logger.Error("Failed to drive/generate templated workload.",
@@ -1633,7 +1641,7 @@ func (d *BasicWorkloadDriver) newSession(id string, meta domain.SessionMetadata,
 
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	d.Stats().TotalNumSessions += 1
+	d.workload.GetStatistics().TotalNumSessions += 1
 	d.seenSessions[internalSessionId] = struct{}{}
 	d.sessions.Set(internalSessionId, session)
 

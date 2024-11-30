@@ -124,7 +124,7 @@ func (w *Template) SetSessions(sessions []*domain.WorkloadTemplateSession) error
 
 	w.Sessions = sessions
 	w.sessionsSet = true
-	w.TotalNumSessions = len(sessions)
+	w.Statistics.TotalNumSessions = len(sessions)
 
 	// Add each session to our internal mapping and initialize the session.
 	for _, session := range sessions {
@@ -155,13 +155,13 @@ func (w *Template) SetSessions(sessions []*domain.WorkloadTemplateSession) error
 		}
 	}
 
-	if w.NumDiscardedSessions > 0 {
+	if w.Statistics.NumDiscardedSessions > 0 {
 		w.logger.Debug("Discarded unsampled sessions.",
 			zap.String("workload_id", w.Id),
 			zap.String("workload_name", w.Name),
 			zap.Int("total_num_sessions", len(sessions)),
-			zap.Int("sessions_sampled", w.NumSampledSessions),
-			zap.Int("sessions_discarded", w.NumDiscardedSessions))
+			zap.Int("sessions_sampled", w.Statistics.NumSampledSessions),
+			zap.Int("sessions_discarded", w.Statistics.NumDiscardedSessions))
 	}
 
 	return nil
@@ -170,8 +170,8 @@ func (w *Template) SetSessions(sessions []*domain.WorkloadTemplateSession) error
 // SessionCreated is called when a Session is created for/in the Workload.
 // Just updates some internal metrics.
 func (w *Template) SessionCreated(sessionId string, metadata domain.SessionMetadata) {
-	w.NumActiveSessions += 1
-	w.NumSessionsCreated += 1
+	w.Statistics.NumActiveSessions += 1
+	w.Statistics.NumSessionsCreated += 1
 
 	val, ok := w.sessionsMap.Get(sessionId)
 	if !ok {
@@ -199,7 +199,7 @@ func (w *Template) SessionDiscarded(sessionId string) error {
 		return fmt.Errorf("%w: \"%s\"", domain.ErrUnknownSession, sessionId)
 	}
 
-	w.NumDiscardedSessions += 1
+	w.Statistics.NumDiscardedSessions += 1
 
 	session := val.(*domain.WorkloadTemplateSession)
 	err := session.SetState(domain.SessionDiscarded)

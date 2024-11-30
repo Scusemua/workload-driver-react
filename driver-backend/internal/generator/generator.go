@@ -99,7 +99,7 @@ func (g *BasicWorkloadGenerator) StopGeneratingWorkload() {
 	}
 }
 
-func (g *BasicWorkloadGenerator) generateWorkloadWithCsvPreset(consumer domain.EventConsumer, maxUtilizationConsumer MaxUtilizationConsumer,
+func (g *BasicWorkloadGenerator) generateWorkloadWithCsvPreset(consumer domain.EventConsumer, maxUtilizationConsumer domain.MaxUtilizationConsumer,
 	workloadPreset *domain.CsvWorkloadPreset, workloadRegistrationRequest *domain.WorkloadRegistrationRequest) error {
 
 	var cpuSessionMap, memSessionMap map[string]float64 = nil, nil
@@ -238,7 +238,7 @@ func (g *BasicWorkloadGenerator) generateWorkloadWithCsvPreset(consumer domain.E
 	return nil
 }
 
-func (g *BasicWorkloadGenerator) generateWorkloadWithXmlPreset(consumer domain.EventConsumer, maxUtilizationConsumer MaxUtilizationConsumer,
+func (g *BasicWorkloadGenerator) generateWorkloadWithXmlPreset(consumer domain.EventConsumer, maxUtilizationConsumer domain.MaxUtilizationConsumer,
 	workloadPreset *domain.XmlWorkloadPreset) error {
 
 	g.ctx, g.cancelFunction = context.WithCancel(context.Background())
@@ -289,7 +289,7 @@ func (g *BasicWorkloadGenerator) waitForCpuGpuDriversToFinish(gpuDoneChan chan s
 	return nil
 }
 
-func (g *BasicWorkloadGenerator) GeneratePresetWorkload(consumer domain.EventConsumer, workload MaxUtilizationConsumer,
+func (g *BasicWorkloadGenerator) GeneratePresetWorkload(consumer domain.EventConsumer, workload domain.MaxUtilizationConsumer,
 	workloadPreset *domain.WorkloadPreset, workloadRegistrationRequest *domain.WorkloadRegistrationRequest) error {
 
 	if workload == nil {

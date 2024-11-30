@@ -3,6 +3,7 @@ package handlers
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/scusemua/workload-driver-react/m/v2/internal/server/workload"
 	"net/http"
 	"os"
 
@@ -15,19 +16,19 @@ import (
 type WorkloadTemplateHttpHandler struct {
 	*BaseHandler
 
-	WorkloadTemplatesMap map[string]*domain.PreloadedWorkloadTemplate
-	WorkloadTemplates    []*domain.PreloadedWorkloadTemplate
+	WorkloadTemplatesMap map[string]*workload.PreloadedWorkloadTemplate
+	WorkloadTemplates    []*workload.PreloadedWorkloadTemplate
 }
 
 // loadWorkloadTemplatesFromFile reads a yaml file containing one or more domain.PreloadedWorkloadTemplate definitions.
-func loadWorkloadTemplatesFromFile(filepath string) ([]*domain.PreloadedWorkloadTemplate, error) {
+func loadWorkloadTemplatesFromFile(filepath string) ([]*workload.PreloadedWorkloadTemplate, error) {
 	file, err := os.ReadFile(filepath)
 	if err != nil {
 		fmt.Printf("[ERROR] Failed to open or read workload templates file: %v\n", err)
 		return nil, err
 	}
 
-	workloadTemplates := make([]*domain.PreloadedWorkloadTemplate, 0)
+	workloadTemplates := make([]*workload.PreloadedWorkloadTemplate, 0)
 	err = yaml.Unmarshal(file, &workloadTemplates)
 
 	if err != nil {
@@ -51,11 +52,11 @@ func NewWorkloadTemplateHttpHandler(opts *domain.Configuration, atom *zap.Atomic
 	templates, err := loadWorkloadTemplatesFromFile(opts.WorkloadTemplatesFilepath)
 	if err != nil {
 		handler.logger.Error("Error encountered while loading workload templates from file now.", zap.String("filepath", opts.WorkloadTemplatesFilepath), zap.Error(err))
-		templates = make([]*domain.PreloadedWorkloadTemplate, 0)
+		templates = make([]*workload.PreloadedWorkloadTemplate, 0)
 	}
 
 	handler.WorkloadTemplates = templates
-	handler.WorkloadTemplatesMap = make(map[string]*domain.PreloadedWorkloadTemplate, len(templates))
+	handler.WorkloadTemplatesMap = make(map[string]*workload.PreloadedWorkloadTemplate, len(templates))
 	for _, template := range templates {
 		handler.WorkloadTemplatesMap[template.Key] = template
 

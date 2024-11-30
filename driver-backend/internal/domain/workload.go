@@ -22,9 +22,9 @@ type MaxUtilizationConsumer interface {
 type WorkloadErrorHandler func(workloadId string, err error)
 
 type WorkloadGenerator interface {
-	GeneratePresetWorkload(EventConsumer, MaxUtilizationConsumer, *WorkloadPreset, *WorkloadRegistrationRequest) error              // Start generating the workload.
-	GenerateTemplateWorkload(EventConsumer, MaxUtilizationConsumer, []*WorkloadTemplateSession, *WorkloadRegistrationRequest) error // Start generating the workload.
-	StopGeneratingWorkload()                                                                                                        // Stop generating the workload prematurely.
+	GeneratePresetWorkload(EventConsumer, MaxUtilizationConsumer, *WorkloadPreset, *WorkloadRegistrationRequest) error // Start generating the workload.
+	GenerateTemplateWorkload(EventConsumer, []*WorkloadTemplateSession, *WorkloadRegistrationRequest) error            // Start generating the workload.
+	StopGeneratingWorkload()                                                                                           // Stop generating the workload prematurely.
 }
 
 // NamedEvent is intended to cover SessionEvents and WorkloadEvents

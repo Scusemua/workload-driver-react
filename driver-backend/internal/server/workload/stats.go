@@ -9,6 +9,10 @@ import (
 // Statistics encapsulates runtime statistics and metrics about a workload that are maintained within the
 // dashboard backend (rather than within Prometheus).
 type Statistics struct {
+	RegisteredTime time.Time `json:"registered_time" csv:"-"`
+	StartTime      time.Time `json:"start_time" csv:"-"`
+	EndTime        time.Time `json:"end_time" csv:"-"`
+
 	Id                                  string                  `json:"id" csv:"id" `
 	Name                                string                  `json:"name" csv:"name" `
 	AggregateSessionDelayMillis         int64                   `json:"aggregate_session_delay_ms" csv:"aggregate_session_delay_ms"`
@@ -27,8 +31,6 @@ type Statistics struct {
 	NumSessionsCreated                  int64                   `json:"num_sessions_created"  csv:"num_sessions_created"`
 	NumSubmittedTrainings               int64                   `json:"num_submitted_trainings"  csv:"num_submitted_trainings"` // NumSubmittedTrainings is the number of trainings that have been submitted but not yet started.
 	NumTasksExecuted                    int64                   `json:"num_tasks_executed"  csv:"num_tasks_executed"`
-	RegisteredTime                      time.Time               `json:"registered_time"  csv:"registered_time"`
-	Seed                                int64                   `json:"seed"  csv:"seed"`
 	SessionsSamplePercentage            float64                 `json:"sessions_sample_percentage"  csv:"sessions_sample_percentage"`
 	SimulationClockTimeStr              string                  `json:"simulation_clock_time"  csv:"simulation_clock_time"`
 	TickDurationsMillis                 []int64                 `json:"tick_durations_milliseconds"  csv:"tick_durations_milliseconds"`
@@ -171,8 +173,4 @@ type Statistics struct {
 	CumulativeNumTrainingsCompleted     int `csv:"CumulativeNumTrainingsCompleted"`
 	CurrentNumTrainingSessionsFaaS      int `csv:"CurrentNumTrainingSessionsFaaS"`
 	CurrentNumTrainingSessionsServerful int `csv:"CurrentNumTrainingSessionsServerful"`
-}
-
-func NewWorkloadStats() *Statistics {
-	return &Statistics{}
 }

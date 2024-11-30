@@ -103,7 +103,7 @@ func (w *Preset) SetSessions(sessions []*domain.BasicWorkloadSession) error {
 		w.sessionsMap.Set(session.GetId(), session)
 	}
 
-	w.TotalNumSessions = len(sessions)
+	w.Statistics.TotalNumSessions = len(sessions)
 
 	return nil
 }
@@ -126,8 +126,8 @@ func (w *Preset) SessionDelayed(sessionId string, delayAmount time.Duration) {
 // SessionCreated is called when a Session is created for/in the Workload.
 // Just updates some internal metrics.
 func (w *Preset) SessionCreated(sessionId string, metadata domain.SessionMetadata) {
-	w.NumActiveSessions += 1
-	w.NumSessionsCreated += 1
+	w.Statistics.NumActiveSessions += 1
+	w.Statistics.NumSessionsCreated += 1
 
 	if w.MaxUtilizationWrapper == nil {
 		panic("max utilization wrapper not set by the time sessions are being created")
@@ -180,7 +180,7 @@ func (w *Preset) SessionDiscarded(sessionId string) error {
 		return fmt.Errorf("%w: \"%s\"", domain.ErrUnknownSession, sessionId)
 	}
 
-	w.NumDiscardedSessions += 1
+	w.Statistics.NumDiscardedSessions += 1
 
 	session := val.(*domain.BasicWorkloadSession)
 	err := session.SetState(domain.SessionDiscarded)
