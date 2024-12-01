@@ -83,63 +83,158 @@ interface PreloadedWorkloadTemplate {
 // Return true if the workload is in the 'finished', 'erred', or 'terminated' states.
 function IsWorkloadFinished(workload: Workload) {
     return (
-        workload.workload_state == WorkloadStateFinished ||
-        workload.workload_state == WorkloadStateErred ||
-        workload.workload_state == WorkloadStateTerminated
+        workload.statistics.workload_state == WorkloadStateFinished ||
+        workload.statistics.workload_state == WorkloadStateErred ||
+        workload.statistics.workload_state == WorkloadStateTerminated
     );
+}
+
+interface WorkloadStatistics {
+    registered_time: string;
+    start_time: string;
+    end_time: string;
+    id: string;
+    name: string;
+    aggregate_session_delay_ms: number;
+    cumulative_num_static_training_replicas: number;
+    current_tick: number;
+    events_processed: WorkloadEvent[];
+    next_event_expected_tick: number;
+    next_expected_event_name: string;
+    next_expected_event_target: string;
+    num_active_sessions: number;
+    num_active_trainings: number;
+    num_discarded_sessions: number;
+    num_events_processed: number;
+    num_sampled_sessions: number;
+    num_sessions_created: number;
+    num_submitted_trainings: number;
+    num_tasks_executed: number;
+    sessions_sample_percentage: number;
+    simulation_clock_time: string;
+    tick_durations_milliseconds: number[];
+    time_elapsed: string;
+    time_elapsed_str: string;
+    time_spent_paused_milliseconds: number;
+    total_num_sessions: number;
+    total_num_ticks: number;
+    workload_duration: string;
+    workload_state: string;
+    workload_type: string;
+    hosts: number;
+    num_disabled_hosts: number;
+    NumEmptyHosts: number;
+    CumulativeHostActiveTimeSec: number;
+    CumulativeHostIdleTimeSec: number;
+    AggregateHostLifetimeSec: number;
+    AggregateHostLifetimeOfRunningHostsSec: number;
+    CumulativeNumHostsProvisioned: number;
+    CumulativeTimeProvisioningHostsSec: number;
+    SpecCPUs: number;
+    SpecGPUs: number;
+    SpecMemory: number;
+    SpecVRAM: number;
+    IdleCPUs: number;
+    IdleGPUs: number;
+    IdleMemory: number;
+    IdleVRAM: number;
+    PendingCPUs: number;
+    PendingGPUs: number;
+    PendingMemory: number;
+    PendingVRAM: number;
+    CommittedCPUs: number;
+    CommittedGPUs: number;
+    CommittedMemory: number;
+    CommittedVRAM: number;
+    DemandCPUs: number;
+    DemandMemMb: number;
+    DemandGPUs: number;
+    DemandVRAMGb: number;
+    SubscriptionRatio: number;
+    Rescheduled: number;
+    Resched2Ready: number;
+    Migrated: number;
+    Preempted: number;
+    OnDemandContainers: number;
+    IdleHosts: number;
+    CompletedTrainings: number;
+    NumNonTerminatedSessions: number;
+    NumIdleSessions: number;
+    NumTrainingSessions: number;
+    NumStoppedSessions: number;
+    NumRunningSessions: number;
+    CumulativeSessionIdleTimeSec: number;
+    CumulativeSessionTrainingTimeSec: number;
+    AggregateSessionLifetimeSec: number;
 }
 
 interface Workload {
     id: string;
     name: string;
-    workload_state: string;
-    workload_preset: WorkloadPreset;
-    workload_preset_name: string;
-    workload_preset_key: string;
-    workload_template: WorkloadTemplate;
-    registered_time: string; // Timestamp of when the workload was registered.
-    start_time: string;
-    time_elapsed: number;
-    time_elapsed_str: string;
-    num_tasks_executed: number;
     seed: number;
-    num_active_sessions: number;
-    num_sessions_created: number;
-    num_events_processed: number;
-    num_active_trainings: number;
     debug_logging_enabled: boolean;
-    error_message: string;
     timescale_adjustment_factor: number;
-    sessions_sample_percentage: number;
-    events_processed: WorkloadEvent[];
-    sessions: Session[];
-    num_sampled_sessions: number;
-    num_discarded_sessions: number;
-    total_num_sessions: number;
+    error_message: string;
     simulation_clock_time: string;
-    current_tick: number;
-    total_num_ticks: number;
-    next_expected_event_name: string;
-    next_expected_event_target: string;
-    next_event_expected_tick: number;
+    workload_type: string;
     tick_durations_milliseconds: number[];
     sum_tick_durations_millis: number;
+    sessions: Session[];
+    remote_storage_definition: RemoteStorageDefinition;
+    statistics: WorkloadStatistics;
 }
 
+// interface Workload {
+//     id: string;
+//     name: string;
+//     workload_state: string;
+//     workload_preset: WorkloadPreset;
+//     workload_preset_name: string;
+//     workload_preset_key: string;
+//     workload_template: WorkloadTemplate;
+//     registered_time: string; // Timestamp of when the workload was registered.
+//     start_time: string;
+//     time_elapsed: number;
+//     time_elapsed_str: string;
+//     num_tasks_executed: number;
+//     seed: number;
+//     num_active_sessions: number;
+//     num_sessions_created: number;
+//     num_events_processed: number;
+//     num_active_trainings: number;
+//     debug_logging_enabled: boolean;
+//     error_message: string;
+//     timescale_adjustment_factor: number;
+//     sessions_sample_percentage: number;
+//     events_processed: WorkloadEvent[];
+//     sessions: Session[];
+//     num_sampled_sessions: number;
+//     num_discarded_sessions: number;
+//     total_num_sessions: number;
+//     simulation_clock_time: string;
+//     current_tick: number;
+//     total_num_ticks: number;
+//     next_expected_event_name: string;
+//     next_expected_event_target: string;
+//     next_event_expected_tick: number;
+//     tick_durations_milliseconds: number[];
+//     sum_tick_durations_millis: number;
+// }
+
 export function IsPaused(workload: Workload) {
-    return workload.workload_state == WorkloadStatePaused;
+    return workload.statistics.workload_state == WorkloadStatePaused;
 }
 
 export function IsPausing(workload: Workload) {
-    return workload.workload_state == WorkloadStatePausing;
+    return workload.statistics.workload_state == WorkloadStatePausing;
 }
 
 export function IsActivelyRunning(workload: Workload) {
-    return workload.workload_state == WorkloadStateRunning;
+    return workload.statistics.workload_state == WorkloadStateRunning;
 }
 
 export function IsTerminated(workload: Workload) {
-    return workload.workload_state == WorkloadStateTerminated;
+    return workload.statistics.workload_state == WorkloadStateTerminated;
 }
 
 /**
@@ -148,7 +243,7 @@ export function IsTerminated(workload: Workload) {
  * Returns true if the workload finished successfully.
  */
 export function IsComplete(workload: Workload) {
-    return workload.workload_state == WorkloadStateFinished;
+    return workload.statistics.workload_state == WorkloadStateFinished;
 }
 
 /**
@@ -157,15 +252,15 @@ export function IsComplete(workload: Workload) {
  * Returns true if the workload finished successfully.
  */
 export function IsFinished(workload: Workload) {
-    return workload.workload_state == WorkloadStateFinished;
+    return workload.statistics.workload_state == WorkloadStateFinished;
 }
 
 export function IsReadyAndWaiting(workload: Workload) {
-    return workload.workload_state == WorkloadStateReady;
+    return workload.statistics.workload_state == WorkloadStateReady;
 }
 
 export function IsErred(workload: Workload) {
-    return workload.workload_state == WorkloadStateErred;
+    return workload.statistics.workload_state == WorkloadStateErred;
 }
 
 export function IsInProgress(workload: Workload) {
@@ -355,7 +450,7 @@ function GetWorkloadStatusTooltip(workload: Workload | null) {
         return 'N/A';
     }
 
-    switch (workload.workload_state) {
+    switch (workload.statistics.workload_state) {
         case WorkloadStateReady:
             return 'The workload has been registered and is ready to begin.';
         case WorkloadStateRunning:
@@ -369,9 +464,9 @@ function GetWorkloadStatusTooltip(workload: Workload | null) {
     }
 
     console.error(
-        `Workload ${workload.name} (ID=${workload.id}) is in an unsupported/unknown state: "${workload.workload_state}"`,
+        `Workload ${workload.name} (ID=${workload.id}) is in an unsupported/unknown state: "${workload.statistics.workload_state}"`,
     );
-    return `The workload is currently in an unknown/unsupported state: "${workload.workload_state}"`;
+    return `The workload is currently in an unknown/unsupported state: "${workload.statistics.workload_state}"`;
 }
 
 export { IsWorkloadFinished as IsWorkloadFinished };
@@ -395,3 +490,4 @@ export type { WorkloadRegistrationRequest as WorkloadRegistrationRequest };
 export type { WorkloadRegistrationRequestTemplateWrapper as WorkloadRegistrationRequestTemplateWrapper };
 export type { PreloadedWorkloadTemplateWrapper as PreloadedWorkloadTemplateWrapper };
 export type { WorkloadRegistrationRequestWrapper as WorkloadRegistrationRequestWrapper };
+export type { WorkloadStatistics as WorkloadStatistics };

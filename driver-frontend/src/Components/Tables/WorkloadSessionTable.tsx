@@ -12,7 +12,7 @@ import {
     UnknownIcon,
     WarningTriangleIcon,
 } from '@patternfly/react-icons';
-import { ExpandableRowContent, Table, Tbody, Td, Th, Thead, ThProps, Tr } from '@patternfly/react-table';
+import { ExpandableRowContent, Table, Tbody, Td, Th, ThProps, Thead, Tr } from '@patternfly/react-table';
 import { GpuIcon, GpuIconAlt2 } from '@src/Assets/Icons';
 import { SessionTrainingEventTable } from '@src/Components';
 import { RoundToThreeDecimalPlaces } from '@src/Utils';
@@ -290,9 +290,10 @@ export const WorkloadSessionTable: React.FunctionComponent<WorkloadSessionTableP
             return undefined;
         }
 
+        // key={`workload_event_${props.workload?.events_processed[0]?.id}_row_${rowIndex}`}
         return (
             <Tbody key={`session-${session.id}-row-${rowIndex}`}>
-                <Tr key={`workload_event_${props.workload?.events_processed[0]?.id}_row_${rowIndex}`}>
+                <Tr>
                     <Td
                         expand={
                             session.trainings.length > 0

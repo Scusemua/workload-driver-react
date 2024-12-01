@@ -86,7 +86,7 @@ type BasicWorkload struct {
 	atom          *zap.AtomicLevel
 
 	// Statistics encapsulates a number of important statistics related to the workload.
-	Statistics *Statistics
+	Statistics *Statistics `json:"statistics"`
 
 	// SampledSessions is a map (really, just a set; the values of the map are not used) that keeps track of the
 	// sessions that this BasicWorkload is actively sampling and processing from the workload.
@@ -113,14 +113,14 @@ type BasicWorkload struct {
 	WorkloadType           Kind    `json:"workload_type"`
 	TickDurationsMillis    []int64 `json:"tick_durations_milliseconds"`
 
+	// SumTickDurationsMillis is the sum of all tick durations in milliseconds, to make it easier
+	// to compute the average tick duration.
+	SumTickDurationsMillis int64 `json:"sum_tick_durations_millis"`
+
 	//SessionsSamplePercentage  float64 `json:"sessions_sample_percentage"`
 	//TimeSpentPausedMillis     int64   `json:"time_spent_paused_milliseconds"`
 	timeSpentPaused time.Duration
 	pauseWaitBegin  time.Time
-
-	// SumTickDurationsMillis is the sum of all tick durations in milliseconds, to make it easier
-	// to compute the average tick duration.
-	SumTickDurationsMillis int64 `json:"sum_tick_durations_millis"`
 
 	// This is basically the child struct.
 	// So, if this is a preset workload, then this is the Preset struct.
@@ -141,7 +141,7 @@ type BasicWorkload struct {
 	// If a non-critical error occurs during the execution of the workload, then this handler is called.
 	onNonCriticalError domain.WorkloadErrorHandler
 
-	RemoteStorageDefinition *proto.RemoteStorageDefinition
+	RemoteStorageDefinition *proto.RemoteStorageDefinition `json:"remote_storage_definition"`
 }
 
 // PauseWaitBeginning should be called by the WorkloadDriver if it finds that the workload is paused, and it

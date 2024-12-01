@@ -24,7 +24,7 @@ export interface IWorkloadsDataListProps {
     perPageOption: PerPageOptions[];
 }
 
-let WorkloadsDataList: React.FunctionComponent<IWorkloadsDataListProps> = (props: IWorkloadsDataListProps) => {
+const WorkloadsDataList: React.FunctionComponent<IWorkloadsDataListProps> = (props: IWorkloadsDataListProps) => {
     const [page, setPage] = React.useState(1);
     const [perPage, setPerPage] = React.useState(props.workloadsPerPage || 3);
 

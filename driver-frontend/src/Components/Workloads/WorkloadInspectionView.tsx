@@ -24,7 +24,7 @@ import {
 import { WorkloadEventTable, WorkloadSessionTable } from '@src/Components';
 import { Workload } from '@src/Data';
 import { GetToastContentWithHeaderAndBody } from '@src/Utils/toast_utils';
-import { numberWithCommas, RoundToThreeDecimalPlaces, RoundToTwoDecimalPlaces } from '@Utils/utils';
+import { RoundToThreeDecimalPlaces, RoundToTwoDecimalPlaces, numberWithCommas } from '@Utils/utils';
 import { uuidv4 } from 'lib0/random';
 import React from 'react';
 import toast, { Toast } from 'react-hot-toast';
@@ -87,14 +87,14 @@ export const WorkloadInspectionView: React.FunctionComponent<IWorkloadInspection
                 showedTickNotifications.current.set(props.workload.id, tick);
             }
         }
-    }, [currentTick, props.workload, props.workload?.current_tick]);
+    }, [currentTick, props.workload, props.workload?.statistics.current_tick]);
 
     const getTimeElapsedString = () => {
-        if (props.workload?.workload_state === undefined || props.workload?.workload_state === '') {
+        if (props.workload?.statistics.workload_state === undefined || props.workload?.statistics.workload_state === '') {
             return 'N/A';
         }
 
-        return props.workload?.time_elapsed_str;
+        return props.workload?.statistics.time_elapsed_str;
     };
 
     const getLastTickDuration = () => {

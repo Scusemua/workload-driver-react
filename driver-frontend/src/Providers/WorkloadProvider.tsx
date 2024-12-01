@@ -1,12 +1,12 @@
 import {
-    ErrorResponse,
-    IsPaused,
-    IsPausing,
-    PatchedWorkload,
-    Workload,
-    WorkloadPreset,
-    WorkloadResponse,
-    WorkloadStateRunning,
+  ErrorResponse, IsActivelyRunning,
+  IsPaused,
+  IsPausing,
+  PatchedWorkload,
+  Workload,
+  WorkloadPreset,
+  WorkloadResponse,
+  WorkloadStateRunning
 } from '@Data/Workload';
 import { Flex, FlexItem, Text, TextVariants } from '@patternfly/react-core';
 import { SpinnerIcon } from '@patternfly/react-icons';
@@ -459,7 +459,7 @@ function WorkloadProvider({ children }: { children: React.ReactNode }) {
 
         const activeWorkloadsIDs: string[] = [];
         workloads.forEach((workload: Workload) => {
-            if (workload.workload_state == WorkloadStateRunning) {
+            if (IsActivelyRunning(workload)) {
                 activeWorkloadsIDs.push(workload.id);
             }
         });
