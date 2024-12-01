@@ -634,31 +634,19 @@ func (s *serverImpl) setupRoutes() error {
 }
 
 func (s *serverImpl) handleWorkloadStatisticsRequest(c *gin.Context) {
-	var request map[string]interface{}
+	workloadId := c.Query("workload_id")
 
-	err := c.BindJSON(&request)
-
-	if err != nil {
-		s.logger.Error("Failed to bind request to JSON for 'workload-statistics' request.",
-			zap.Error(err))
-		_ = c.AbortWithError(http.StatusBadRequest, err)
+	if workloadId == "" {
+		s.logger.Error("'api/workload-statistics' request did not have required \"workload_id\" query parameter.")
+		c.Status(http.StatusBadRequest)
 		return
 	}
 
-	val, loaded := request["workload_id"]
-	if !loaded {
-		s.logger.Error("Request did not contain \"workload_id\" field.",
-			zap.Any("request", request))
-		_ = c.AbortWithError(http.StatusBadRequest, err)
-		return
-	}
-
-	workloadId := val.(string)
 	driver := s.workloadManager.GetWorkloadDriver(workloadId)
 	if driver == nil {
 		s.logger.Error("Unknown workload specified.",
 			zap.Any("workload_id", workloadId))
-		_ = c.AbortWithError(http.StatusBadRequest, err)
+		c.Status(http.StatusBadRequest)
 		return
 	}
 

@@ -289,6 +289,13 @@ func (d *BasicWorkloadDriver) GetOutputFileContents() ([]byte, error) {
 	d.outputFileMutex.Lock()
 	defer d.outputFileMutex.Unlock()
 
+	if d.outputFile == nil {
+		d.logger.Warn("Cannot return contents of output file. It is nil (i.e., hasn't been created yet).",
+			zap.String("workload_id", d.workload.GetId()),
+			zap.String("workload_name", d.workload.WorkloadName()))
+		return []byte{}, nil
+	}
+
 	csvBuffer, err := io.ReadAll(d.outputFile)
 
 	if err != nil {

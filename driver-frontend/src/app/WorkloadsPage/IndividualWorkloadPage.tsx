@@ -1,6 +1,6 @@
 import { WorkloadInspectionView } from '@Components/Workloads/WorkloadInspectionView';
 import { Button, Card, CardBody, CardFooter, Divider, Flex, FlexItem, PageSection, Text } from '@patternfly/react-core';
-import { BackwardIcon } from '@patternfly/react-icons';
+import { BackwardIcon, ExportIcon } from '@patternfly/react-icons';
 import useNavigation from '@Providers/NavigationProvider';
 import { WorkloadDataListCell } from '@src/Components/Workloads/WorkloadDataListCell';
 import { Workload } from '@src/Data';
@@ -17,7 +17,7 @@ export const IndividualWorkloadPage: React.FunctionComponent<IndividualWorkloadP
 ) => {
     const params = useParams();
 
-    const { workloadsMap } = React.useContext(WorkloadContext);
+    const { workloadsMap, exportWorkload } = React.useContext(WorkloadContext);
 
     const { navigate } = useNavigation();
 
@@ -63,9 +63,28 @@ export const IndividualWorkloadPage: React.FunctionComponent<IndividualWorkloadP
                             </Flex>
                         </CardBody>
                         <CardFooter>
-                            <Button icon={<BackwardIcon />} onClick={() => navigate(-1)}>
-                                Go Back
-                            </Button>
+                            <Flex direction={{ default: 'row' }} spaceItems={{ default: 'spaceItemsSm' }}>
+                                <FlexItem>
+                                    <Button icon={<BackwardIcon />} onClick={() => navigate(-1)}>
+                                        Go Back
+                                    </Button>
+                                </FlexItem>
+                                <FlexItem>
+                                    <Button
+                                        key="export_workload_state_button"
+                                        aria-label={'Export workload state'}
+                                        variant="secondary"
+                                        icon={<ExportIcon />}
+                                        onClick={() => {
+                                            if (targetWorkload) {
+                                                exportWorkload(targetWorkload);
+                                            }
+                                        }}
+                                    >
+                                        Export
+                                    </Button>
+                                </FlexItem>
+                            </Flex>
                         </CardFooter>
                     </Card>
                 </PageSection>

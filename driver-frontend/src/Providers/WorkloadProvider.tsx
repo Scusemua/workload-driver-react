@@ -1,17 +1,17 @@
 import {
-  ErrorResponse, IsActivelyRunning,
-  IsPaused,
-  IsPausing,
-  PatchedWorkload,
-  Workload,
-  WorkloadPreset,
-  WorkloadResponse,
-  WorkloadStateRunning
+    ErrorResponse,
+    IsActivelyRunning,
+    IsPaused,
+    IsPausing,
+    PatchedWorkload,
+    Workload,
+    WorkloadPreset,
+    WorkloadResponse,
 } from '@Data/Workload';
 import { Flex, FlexItem, Text, TextVariants } from '@patternfly/react-core';
 import { SpinnerIcon } from '@patternfly/react-icons';
 import { AuthorizationContext } from '@Providers/AuthProvider';
-import { JoinPaths } from '@src/Utils/path_utils';
+import { GetPathForFetch, JoinPaths } from '@src/Utils/path_utils';
 import { DefaultDismiss, GetToastContentWithHeaderAndBody } from '@src/Utils/toast_utils';
 import { ExportWorkloadToJson } from '@src/Utils/utils';
 import jsonmergepatch from 'json-merge-patch';
@@ -642,7 +642,7 @@ function WorkloadProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
-    const exportWorkload = (currentLocalWorkload: Workload) => {
+    const exportWorkload = async (currentLocalWorkload: Workload) => {
         console.log(`Exporting workload ${currentLocalWorkload.name} (ID=${currentLocalWorkload.id}).`);
 
         const messageId: string = uuidv4();
@@ -745,6 +745,28 @@ function WorkloadProvider({ children }: { children: React.ReactNode }) {
 
             // Export the local copy.
             ExportWorkloadToJson(currentLocalWorkload, `workload_${currentLocalWorkload.id}_local.json`);
+        }
+
+        const req: RequestInit = {
+            method: 'GET',
+            headers: {
+                'Content-Type': 'application/json',
+                Authorization: 'Bearer ' + localStorage.getItem('token'),
+            },
+        };
+
+        const resp: Response = await fetch(
+            GetPathForFetch(`api/workload-statistics?workload_id=${currentLocalWorkload.id}`),
+            req,
+        );
+
+        if (!resp.ok || resp.status != 200) {
+            console.error(
+                `Received bad response to 'api/workload-statistics' request: HTTP ${resp.status} - ${resp.statusText}.`,
+            );
+        } else {
+            const text: string = await resp.text();
+            console.log(text);
         }
     };
 
