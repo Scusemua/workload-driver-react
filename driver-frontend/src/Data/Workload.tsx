@@ -182,6 +182,9 @@ interface Workload {
     sessions: Session[];
     remote_storage_definition: RemoteStorageDefinition;
     statistics: WorkloadStatistics;
+    workload_preset: WorkloadPreset;
+    workload_preset_name: string;
+    workload_preset_key: string;
 }
 
 // interface Workload {

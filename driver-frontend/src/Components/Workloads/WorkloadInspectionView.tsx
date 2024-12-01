@@ -1,12 +1,13 @@
 import WorkloadTickDurationChart from '@Components/Workloads/WorkloadTickDurationChart';
 import {
-  Checkbox,
-  DescriptionList,
-  DescriptionListDescription,
-  DescriptionListGroup,
-  DescriptionListTerm,
-  Flex,
-  FlexItem, Label
+    Checkbox,
+    DescriptionList,
+    DescriptionListDescription,
+    DescriptionListGroup,
+    DescriptionListTerm,
+    Flex,
+    FlexItem,
+    Label,
 } from '@patternfly/react-core';
 import {
     BlueprintIcon,
@@ -62,11 +63,11 @@ export const WorkloadInspectionView: React.FunctionComponent<IWorkloadInspection
     //       preview to when the next tick begins, it'll count that block as the duration of the first tick,
     //       which is wrong.
     React.useEffect(() => {
-        if (props.workload && props.workload?.current_tick > currentTick) {
-            setCurrentTick(props.workload.current_tick);
+        if (props.workload && props.workload?.statistics.current_tick > currentTick) {
+            setCurrentTick(props.workload.statistics.current_tick);
 
-            if (shouldShowTickNotification(props.workload.id, props.workload.current_tick)) {
-                const tick: number = props.workload?.current_tick;
+            if (shouldShowTickNotification(props.workload.id, props.workload.statistics.current_tick)) {
+                const tick: number = props.workload?.statistics.current_tick;
                 const toastId: string = toast.custom(
                     (t: Toast) =>
                         GetToastContentWithHeaderAndBody(
@@ -87,10 +88,13 @@ export const WorkloadInspectionView: React.FunctionComponent<IWorkloadInspection
                 showedTickNotifications.current.set(props.workload.id, tick);
             }
         }
-    }, [currentTick, props.workload, props.workload?.statistics.current_tick]);
+    }, [currentTick, props.workload, props.workload.statistics.current_tick, tickIdToastId]);
 
     const getTimeElapsedString = () => {
-        if (props.workload?.statistics.workload_state === undefined || props.workload?.statistics.workload_state === '') {
+        if (
+            props.workload?.statistics.workload_state === undefined ||
+            props.workload?.statistics.workload_state === ''
+        ) {
             return 'N/A';
         }
 
@@ -118,8 +122,8 @@ export const WorkloadInspectionView: React.FunctionComponent<IWorkloadInspection
     };
 
     const getCurrentTickField = () => {
-        const totalTicks: number | undefined = props.workload.total_num_ticks;
-        const currentTick: number | undefined = props.workload?.current_tick;
+        const totalTicks: number | undefined = props.workload.statistics.total_num_ticks;
+        const currentTick: number | undefined = props.workload?.statistics.current_tick;
 
         if (totalTicks !== undefined && totalTicks > 0) {
             return `${numberWithCommas(currentTick)} / ${numberWithCommas(totalTicks)} (${RoundToTwoDecimalPlaces((currentTick / totalTicks) * 100)}%)`;
@@ -173,7 +177,7 @@ export const WorkloadInspectionView: React.FunctionComponent<IWorkloadInspection
                                 Sessions Sample Percentage <TaskIcon />
                             </DescriptionListTerm>
                             <DescriptionListDescription>
-                                {props.workload.sessions_sample_percentage || 1.0}
+                                {props.workload.statistics.sessions_sample_percentage || 1.0}
                             </DescriptionListDescription>
                         </DescriptionListGroup>
                         <DescriptionListGroup>
@@ -181,7 +185,7 @@ export const WorkloadInspectionView: React.FunctionComponent<IWorkloadInspection
                                 Events Processed <MonitoringIcon />
                             </DescriptionListTerm>
                             <DescriptionListDescription>
-                                {props.workload?.num_events_processed}
+                                {props.workload?.statistics.num_events_processed}
                             </DescriptionListDescription>
                         </DescriptionListGroup>
                         <DescriptionListGroup>
@@ -189,7 +193,7 @@ export const WorkloadInspectionView: React.FunctionComponent<IWorkloadInspection
                                 Training Events Completed <CodeIcon />
                             </DescriptionListTerm>
                             <DescriptionListDescription>
-                                {props.workload?.num_tasks_executed}
+                                {props.workload?.statistics.num_tasks_executed}
                             </DescriptionListDescription>
                         </DescriptionListGroup>
                         <DescriptionListGroup>
@@ -232,7 +236,8 @@ export const WorkloadInspectionView: React.FunctionComponent<IWorkloadInspection
                             </DescriptionListTerm>
                             <DescriptionListDescription>
                                 {numberWithCommas(
-                                    props.workload?.next_event_expected_tick - props.workload?.current_tick || 0,
+                                    props.workload?.statistics.next_event_expected_tick -
+                                        props.workload?.statistics.current_tick || 0,
                                 )}{' '}
                                 tick(s)
                             </DescriptionListDescription>
@@ -243,8 +248,8 @@ export const WorkloadInspectionView: React.FunctionComponent<IWorkloadInspection
                             </DescriptionListTerm>
                             <DescriptionListDescription>
                                 <Label>
-                                    {props.workload.next_expected_event_name !== ''
-                                        ? props.workload.next_expected_event_name
+                                    {props.workload.statistics.next_expected_event_name !== ''
+                                        ? props.workload.statistics.next_expected_event_name
                                         : 'N/A'}
                                 </Label>
                             </DescriptionListDescription>
@@ -261,7 +266,7 @@ export const WorkloadInspectionView: React.FunctionComponent<IWorkloadInspection
                 <Flex direction={{ default: 'row' }}>
                     <FlexItem align={{ default: 'alignLeft' }}>
                         <ClipboardCheckIcon /> {<strong>Events Processed:</strong>}{' '}
-                        {props.workload?.num_events_processed}
+                        {props.workload?.statistics.num_events_processed}
                     </FlexItem>
                     <FlexItem align={{ default: 'alignRight' }}>
                         <Checkbox
@@ -279,14 +284,16 @@ export const WorkloadInspectionView: React.FunctionComponent<IWorkloadInspection
             <FlexItem>
                 <Flex direction={{ default: 'row' }}>
                     <FlexItem align={{ default: 'alignLeft' }}>
-                        <ClipboardCheckIcon /> {<strong>Sessions:</strong>} {props.workload?.num_sessions_created} /{' '}
-                        {props.workload?.sessions.length - props.workload?.num_discarded_sessions} (
+                        <ClipboardCheckIcon /> {<strong>Sessions:</strong>}{' '}
+                        {props.workload?.statistics.num_sessions_created} /{' '}
+                        {props.workload?.sessions.length - props.workload?.statistics.num_discarded_sessions} (
                         {RoundToTwoDecimalPlaces(
                             100 *
-                                (props.workload?.num_sessions_created /
-                                    (props.workload?.sessions.length - props.workload?.num_discarded_sessions)),
+                                (props.workload?.statistics.num_sessions_created /
+                                    (props.workload?.sessions.length -
+                                        props.workload?.statistics.num_discarded_sessions)),
                         ) + '%'}
-                        ) created, {props.workload?.num_active_trainings} actively training
+                        ) created, {props.workload?.statistics.num_active_trainings} actively training
                     </FlexItem>
                     <FlexItem align={{ default: 'alignRight' }}>
                         <Checkbox

@@ -51,6 +51,9 @@ const (
 	// ClusterStatisticsEndpoint is used to fetch the ClusterStatistics.
 	ClusterStatisticsEndpoint = "cluster-statistics"
 
+	// WorkloadStatisticsEndpoint returns the .CSV file associated with a particular workload, if it exists.
+	WorkloadStatisticsEndpoint = "workload-statistics"
+
 	// MetricsEndpoint is used by the frontend to post/share Prometheus metrics.
 	MetricsEndpoint = "metrics"
 

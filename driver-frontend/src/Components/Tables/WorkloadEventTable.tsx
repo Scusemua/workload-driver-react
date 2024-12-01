@@ -53,9 +53,9 @@ export const WorkloadEventTable: React.FunctionComponent<WorkloadEventTableProps
 
     // Note that we perform the sort as part of the component's render logic and not in onSort.
     // We shouldn't store the list of data in state because we don't want to have to sync that with props.
-    let sortedEvents = props.workload?.events_processed;
+    let sortedEvents = props.workload?.statistics.events_processed;
     if (activeSortIndex !== null) {
-        sortedEvents = props.workload?.events_processed.sort((a, b) => {
+        sortedEvents = props.workload?.statistics.events_processed.sort((a, b) => {
             const aValue = getSortableRowValues(a)[activeSortIndex];
             const bValue = getSortableRowValues(b)[activeSortIndex];
             console.log(

@@ -171,9 +171,10 @@ type BasicWorkloadDriver struct {
 	workloadSessions                   []*domain.WorkloadTemplateSession     // The template used by the associated workload. Will only be non-nil if the associated workload is a template-based workload, rather than a preset-based workload.
 	paused                             bool                                  // Paused indicates whether the workload has been paused.
 	trainingSubmittedTimes             *hashmap.HashMap                      // trainingSubmittedTimes keeps track of when "execute_request" messages were sent for different sessions. Keys are internal session IDs, values are unix millisecond timestamps.
-	outputFile                         io.WriteCloser                        // The opened .CSV output statistics file.
+	outputFile                         io.ReadWriteCloser                    // The opened .CSV output statistics file.
 	outputFileDirectory                string                                // outputFileDirectory is the directory where all the workload-specific output directories live
 	outputFilePath                     string                                // Path to the outputFile
+	outputFileMutex                    sync.Mutex                            // Atomic access to output file
 	appendToOutputFile                 bool                                  // Flag that is set to true after the first write
 	trainingStartedChannels            map[string]chan interface{}
 	pauseMutex                         sync.Mutex
@@ -273,6 +274,53 @@ func NewBasicWorkloadDriver(opts *domain.Configuration, performClockTicks bool, 
 	}
 
 	return driver
+}
+
+//// GetStatisticsFileOutputPath returns the path to the statistics CSV file.
+//func (d *BasicWorkloadDriver) GetStatisticsFileOutputPath() string {
+//	return d.outputFilePath
+//}
+//
+//func (d *BasicWorkloadDriver) GetOutputFile() io.ReadWriteCloser {
+//	return d.outputFile
+//}
+
+func (d *BasicWorkloadDriver) GetOutputFileContents() ([]byte, error) {
+	d.outputFileMutex.Lock()
+	defer d.outputFileMutex.Unlock()
+
+	csvBuffer, err := io.ReadAll(d.outputFile)
+
+	if err != nil {
+		d.logger.Error("Failed to read contents of workload statistics file. Will try opening the file explicitly.",
+			zap.String("workload_id", d.workload.GetId()),
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.Error(err))
+
+		outputFile, err := os.Open(d.outputFilePath)
+		if err != nil {
+			d.logger.Error("Failed to open workload statistics file explicitly.",
+				zap.String("workload_id", d.workload.GetId()),
+				zap.String("workload_name", d.workload.WorkloadName()),
+				zap.Error(err))
+
+			return nil, err
+		}
+
+		csvBuffer, err = io.ReadAll(outputFile)
+		if err != nil {
+			d.logger.Error("Failed to read contents of workload statistics file after opening it explicitly.",
+				zap.String("workload_id", d.workload.GetId()),
+				zap.String("workload_name", d.workload.WorkloadName()),
+				zap.Error(err))
+
+			return nil, err
+		}
+
+		_ = outputFile.Close()
+	}
+
+	return csvBuffer, nil
 }
 
 // StartWorkload starts the Workload that is associated with/managed by this workload driver.
@@ -765,12 +813,16 @@ func (d *BasicWorkloadDriver) publishStatisticsReport() {
 	stats.ClusterStatistics = clusterStatistics
 	PatchCSVHeader(stats)
 
+	d.outputFileMutex.Lock()
+
 	if d.appendToOutputFile {
 		err = gocsv.MarshalWithoutHeaders([]*Statistics{stats}, d.outputFile)
 	} else {
 		err = gocsv.Marshal([]*Statistics{stats}, d.outputFile)
 		d.appendToOutputFile = true
 	}
+
+	d.outputFileMutex.Unlock()
 
 	// If marshalError is not nil, then we'll either join it with the previous error, if the previous error is non-nil,
 	// or we'll just assign err to equal the
@@ -801,10 +853,29 @@ func (d *BasicWorkloadDriver) DriveWorkload(wg *sync.WaitGroup) {
 	outputSubdir = strings.ReplaceAll(outputSubdir, ":", "-")
 	outputSubdir = fmt.Sprintf("%s - %s", outputSubdir, d.workload.GetId())
 	outputSubdirectoryPath := filepath.Join(d.outputFileDirectory, outputSubdir)
+
+	err = os.MkdirAll(outputSubdirectoryPath, os.ModePerm)
+	if err != nil {
+		d.logger.Error("Failed to create parent directories for workload .CSV output.",
+			zap.String("workload_id", d.id),
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String("path", outputSubdirectoryPath),
+			zap.Error(err))
+		panic(err)
+	}
+
 	d.outputFilePath = filepath.Join(outputSubdirectoryPath, "workload_stats.csv")
 
+	d.outputFileMutex.Lock()
 	d.outputFile, err = os.OpenFile(d.outputFilePath, os.O_RDWR|os.O_CREATE, os.ModePerm)
+	d.outputFileMutex.Unlock()
+
 	if err != nil {
+		d.logger.Error("Failed to create .CSV output file for workload.",
+			zap.String("workload_id", d.id),
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String("path", outputSubdirectoryPath),
+			zap.Error(err))
 		panic(err)
 	}
 
@@ -820,6 +891,10 @@ func (d *BasicWorkloadDriver) DriveWorkload(wg *sync.WaitGroup) {
 			zap.String("reason", err.Error()))
 		d.handleCriticalError(err)
 		wg.Done()
+
+		d.outputFileMutex.Lock()
+		_ = d.outputFile.Close()
+		d.outputFileMutex.Unlock()
 		return
 	}
 
@@ -841,6 +916,9 @@ OUTER:
 					zap.String("workload_id", d.workload.GetId()),
 					zap.String("workload_state", d.workload.GetState().String()))
 
+				d.outputFileMutex.Lock()
+				_ = d.outputFile.Close()
+				d.outputFileMutex.Unlock()
 				return
 			}
 
@@ -906,6 +984,10 @@ OUTER:
 	if wg != nil {
 		wg.Done()
 	}
+
+	d.outputFileMutex.Lock()
+	_ = d.outputFile.Close()
+	d.outputFileMutex.Unlock()
 }
 
 func (d *BasicWorkloadDriver) PauseWorkload() error {

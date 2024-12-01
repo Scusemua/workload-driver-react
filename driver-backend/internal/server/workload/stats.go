@@ -41,7 +41,6 @@ type Statistics struct {
 	TotalNumTicks                       int64                   `json:"total_num_ticks"  csv:"total_num_ticks"`
 	WorkloadDuration                    time.Duration           `json:"workload_duration"  csv:"workload_duration"` // The total time that the workload executed for. This is only set once the workload has completed.
 	WorkloadState                       State                   `json:"workload_state"  csv:"workload_state"`
-	WorkloadType                        Kind                    `json:"workload_type"  csv:"workload_type"`
 }
 
 type ClusterStatistics struct {

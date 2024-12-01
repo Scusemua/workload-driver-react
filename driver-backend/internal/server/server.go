@@ -580,6 +580,8 @@ func (s *serverImpl) setupRoutes() error {
 		clusterStatisticsHttpHandler := handlers.NewClusterStatisticsHttpHandler(s.opts, s.gatewayRpcClient, s.atom)
 		apiGroup.DELETE(domain.ClusterStatisticsEndpoint, clusterStatisticsHttpHandler.HandleDeleteRequest)
 
+		apiGroup.GET(domain.WorkloadStatisticsEndpoint, s.handleWorkloadStatisticsRequest)
+
 		apiGroup.GET(domain.ClusterStatisticsEndpoint, clusterStatisticsHttpHandler.HandleRequest)
 
 		// Used by the frontend to upload/share Prometheus metrics.
@@ -631,23 +633,47 @@ func (s *serverImpl) setupRoutes() error {
 	return nil
 }
 
-func (s *serverImpl) HandleAuthenticateRequest(c *gin.Context) {
-	var login *auth.LoginRequest
-	err := c.BindJSON(&login)
+func (s *serverImpl) handleWorkloadStatisticsRequest(c *gin.Context) {
+	var request map[string]interface{}
+
+	err := c.BindJSON(&request)
+
 	if err != nil {
+		s.logger.Error("Failed to bind request to JSON for 'workload-statistics' request.",
+			zap.Error(err))
 		_ = c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
 
-	if login.Username == s.adminUsername && login.Password == s.adminPassword {
-		s.logger.Debug("Authenticated.")
-		c.Status(http.StatusOK)
-		return
-	} else {
-		s.logger.Warn("Received invalid authentication attempt.")
-		c.Status(http.StatusBadRequest)
+	val, loaded := request["workload_id"]
+	if !loaded {
+		s.logger.Error("Request did not contain \"workload_id\" field.",
+			zap.Any("request", request))
+		_ = c.AbortWithError(http.StatusBadRequest, err)
 		return
 	}
+
+	workloadId := val.(string)
+	driver := s.workloadManager.GetWorkloadDriver(workloadId)
+	if driver == nil {
+		s.logger.Error("Unknown workload specified.",
+			zap.Any("workload_id", workloadId))
+		_ = c.AbortWithError(http.StatusBadRequest, err)
+		return
+	}
+
+	outputFileContents, err := driver.GetOutputFileContents()
+
+	if err != nil {
+		_ = c.AbortWithError(http.StatusInternalServerError, err)
+		return
+	}
+
+	c.Header("Content-Type", "text/csv")
+	c.Header("Content-Disposition", fmt.Sprintf(`attachment; filename="workload_%s_stats.csv"`, workloadId))
+
+	// Write the CSV data to the response
+	c.String(http.StatusOK, string(outputFileContents))
 }
 
 func (s *serverImpl) handleWorkloadError(workloadId string, err error) {
