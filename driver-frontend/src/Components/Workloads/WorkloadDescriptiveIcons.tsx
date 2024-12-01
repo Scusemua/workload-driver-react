@@ -1,12 +1,11 @@
-import { Button, Flex, FlexItem, Switch, Tooltip } from '@patternfly/react-core';
+import { Flex, FlexItem, Switch, Tooltip } from '@patternfly/react-core';
 import {
-  BlueprintIcon,
-  ClockIcon,
-  CubeIcon,
-  DiceIcon,
-  OutlinedCalendarAltIcon,
-  Page4Icon, SearchIcon,
-  TaskIcon
+    BlueprintIcon,
+    ClockIcon,
+    CubeIcon,
+    DiceIcon,
+    OutlinedCalendarAltIcon,
+    TaskIcon,
 } from '@patternfly/react-icons';
 import { GetWorkloadStatusLabel, GetWorkloadStatusTooltip, IsWorkloadFinished, Workload } from '@src/Data';
 import { WorkloadContext } from '@src/Providers';
@@ -77,7 +76,7 @@ export const WorkloadDescriptiveIcons: React.FunctionComponent<IWorkloadDescript
             <FlexItem>
                 <Tooltip content={'Sessions Sample Percentage.'} position="bottom">
                     <React.Fragment>
-                        <TaskIcon /> {props.workload.sessions_sample_percentage || 1.0}
+                        <TaskIcon /> {props.workload.statistics.sessions_sample_percentage || 1.0}
                     </React.Fragment>
                 </Tooltip>
             </FlexItem>

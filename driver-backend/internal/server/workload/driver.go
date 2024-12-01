@@ -869,7 +869,9 @@ func (d *BasicWorkloadDriver) DriveWorkload(wg *sync.WaitGroup) {
 			zap.String("workload_name", d.workload.WorkloadName()),
 			zap.String("path", outputSubdirectoryPath),
 			zap.Error(err))
-		panic(err)
+		d.handleCriticalError(err)
+		wg.Done()
+		return
 	}
 
 	d.outputFilePath = filepath.Join(outputSubdirectoryPath, "workload_stats.csv")
@@ -884,8 +886,27 @@ func (d *BasicWorkloadDriver) DriveWorkload(wg *sync.WaitGroup) {
 			zap.String("workload_name", d.workload.WorkloadName()),
 			zap.String("path", outputSubdirectoryPath),
 			zap.Error(err))
-		panic(err)
+		d.handleCriticalError(err)
+		wg.Done()
+		return
 	}
+
+	clusterStats, err := d.refreshClusterStatistics(true, true)
+	if err != nil {
+		d.logger.Error("Failed to clear and/or retrieve Cluster Statistics before beginning workload.",
+			zap.String("workload_id", d.id),
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String("reason", err.Error()))
+		d.handleCriticalError(err)
+		wg.Done()
+
+		d.outputFileMutex.Lock()
+		_ = d.outputFile.Close()
+		d.outputFileMutex.Unlock()
+		return
+	}
+
+	d.workload.GetStatistics().ClusterStatistics = clusterStats
 
 	d.logger.Info("Workload Simulator has started running. Bootstrapping simulation now.",
 		zap.String("workload_id", d.id),
@@ -893,7 +914,7 @@ func (d *BasicWorkloadDriver) DriveWorkload(wg *sync.WaitGroup) {
 
 	err = d.bootstrapSimulation()
 	if err != nil {
-		d.logger.Error("Failed to bootstrap simulation.",
+		d.logger.Error("Failed to bootstrap workload.",
 			zap.String("workload_id", d.id),
 			zap.String("workload_name", d.workload.WorkloadName()),
 			zap.String("reason", err.Error()))
@@ -988,6 +1009,9 @@ OUTER:
 			break OUTER
 		}
 	}
+
+	// Publish one last statistics report, which will also fetch the Cluster Statistics one last time.
+	d.publishStatisticsReport()
 
 	if wg != nil {
 		wg.Done()

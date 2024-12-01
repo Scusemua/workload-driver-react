@@ -58,9 +58,9 @@ export const WorkloadEventTable: React.FunctionComponent<WorkloadEventTableProps
         sortedEvents = props.workload?.statistics.events_processed.sort((a, b) => {
             const aValue = getSortableRowValues(a)[activeSortIndex];
             const bValue = getSortableRowValues(b)[activeSortIndex];
-            console.log(
-                `Sorting ${aValue} and ${bValue} (activeSortIndex = ${activeSortIndex}, activeSortDirection = '${activeSortDirection}')`,
-            );
+            // console.log(
+            //     `Sorting ${aValue} and ${bValue} (activeSortIndex = ${activeSortIndex}, activeSortDirection = '${activeSortDirection}')`,
+            // );
             if (typeof aValue === 'number') {
                 // Numeric sort
                 if (activeSortDirection === 'asc') {

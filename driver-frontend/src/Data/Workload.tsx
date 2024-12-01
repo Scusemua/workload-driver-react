@@ -93,8 +93,14 @@ interface WorkloadStatistics {
     registered_time: string;
     start_time: string;
     end_time: string;
-    id: string;
-    name: string;
+    cumulative_execution_start_delay: number;
+    cumulative_jupyter_exec_request_time_millis: number;
+    jupyter_exec_request_times_millis: number[];
+    cumulative_jupyter_session_creation_latency_millis: number;
+    jupyter_session_creation_latencies_millis: number[];
+    cumulative_jupyter_session_termination_latency_millis: number;
+    jupyter_session_termination_latencies_millis: number[];
+    num_times_session_delayed_resource_contention: number;
     aggregate_session_delay_ms: number;
     cumulative_num_static_training_replicas: number;
     current_tick: number;
@@ -166,6 +172,9 @@ interface WorkloadStatistics {
     CumulativeSessionIdleTimeSec: number;
     CumulativeSessionTrainingTimeSec: number;
     AggregateSessionLifetimeSec: number;
+    AggregateSessionLifetimesSec: number[];
+    jupyter_training_start_latency_millis: number;
+    jupyter_training_start_latencies_millis: number[];
 }
 
 interface Workload {
@@ -185,6 +194,7 @@ interface Workload {
     workload_preset: WorkloadPreset;
     workload_preset_name: string;
     workload_preset_key: string;
+    workload_template: WorkloadTemplate;
 }
 
 // interface Workload {

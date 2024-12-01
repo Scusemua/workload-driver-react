@@ -181,10 +181,10 @@ export const WorkloadSessionTable: React.FunctionComponent<WorkloadSessionTableP
                 sorted.sort((a, b) => {
                     const aValue = getSortableRowValues(a)[activeSortIndex];
                     const bValue = getSortableRowValues(b)[activeSortIndex];
-                    console.log(
-                        `Sorting ${aValue} and ${bValue} (activeSortIndex = ${activeSortIndex}, activeSortDirection =
-                        '${activeSortDirection}', activeSortColumn='${sessions_table_columns[activeSortIndex]}')`,
-                    );
+                    // console.log(
+                    //     `Sorting ${aValue} and ${bValue} (activeSortIndex = ${activeSortIndex}, activeSortDirection =
+                    //     '${activeSortDirection}', activeSortColumn='${sessions_table_columns[activeSortIndex]}')`,
+                    // );
                     if (typeof aValue === 'number') {
                         // Numeric sort
                         if (activeSortDirection === 'asc') {
