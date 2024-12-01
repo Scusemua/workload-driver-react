@@ -14,8 +14,6 @@ type Statistics struct {
 	StartTime      time.Time `json:"start_time" csv:"-"`
 	EndTime        time.Time `json:"end_time" csv:"-"`
 
-	Id                                  string                  `json:"id" csv:"id" `
-	Name                                string                  `json:"name" csv:"name" `
 	AggregateSessionDelayMillis         int64                   `json:"aggregate_session_delay_ms" csv:"aggregate_session_delay_ms"`
 	CumulativeNumStaticTrainingReplicas int                     `json:"cumulative_num_static_training_replicas" csv:"cumulative_num_static_training_replicas"  csv:""`
 	CurrentTick                         int64                   `json:"current_tick" csv:"current_tick"`
