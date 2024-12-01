@@ -49,7 +49,9 @@ const TransferVarianceInput: React.FunctionComponent<ITransferVarianceInputProps
                         min={0}
                         max={100}
                         onBlur={field.onBlur}
-                        onChange={field.onChange}
+                        onChange={(event: React.FormEvent<HTMLInputElement>) => {
+                            field.onChange(parseFloat((event.target as HTMLInputElement).value));
+                        }}
                         name={field.name}
                         value={field.value}
                         widthChars={10}

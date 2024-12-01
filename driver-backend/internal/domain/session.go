@@ -291,9 +291,10 @@ func (s *BasicWorkloadSession) GetTrainings() []*TrainingEvent {
 type WorkloadTemplateSession struct {
 	*BasicWorkloadSession
 
-	StartTick int              `json:"start_tick"`
-	StopTick  int              `json:"stop_tick"`
-	Trainings []*TrainingEvent `json:"trainings"`
+	StartTick         int              `json:"start_tick"`
+	StopTick          int              `json:"stop_tick"`
+	Trainings         []*TrainingEvent `json:"trainings"`
+	NumTrainingEvents int              `json:"num_training_events"`
 }
 
 func (t *WorkloadTemplateSession) String() string {
@@ -305,15 +306,15 @@ func (t *WorkloadTemplateSession) String() string {
 	return string(m)
 }
 
-func (t WorkloadTemplateSession) GetStartTick() int {
+func (t *WorkloadTemplateSession) GetStartTick() int {
 	return t.StartTick
 }
 
-func (t WorkloadTemplateSession) GetStopTick() int {
+func (t *WorkloadTemplateSession) GetStopTick() int {
 	return t.StopTick
 }
 
-func (t WorkloadTemplateSession) GetTrainings() []*TrainingEvent {
+func (t *WorkloadTemplateSession) GetTrainings() []*TrainingEvent {
 	return t.Trainings
 }
 

@@ -142,6 +142,10 @@ func (w *Template) SetSessions(sessions []*domain.WorkloadTemplateSession) error
 			return domain.ErrMissingMaxResourceRequest
 		}
 
+		if session.NumTrainingEvents == 0 && len(session.Trainings) > 0 {
+			session.NumTrainingEvents = len(session.Trainings)
+		}
+
 		// Need to set this before calling unsafeIsSessionBeingSampled.
 		w.sessionsMap.Set(session.GetId(), session)
 

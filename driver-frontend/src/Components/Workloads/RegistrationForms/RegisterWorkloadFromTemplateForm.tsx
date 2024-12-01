@@ -214,6 +214,10 @@ export const RegisterWorkloadFromTemplateForm: React.FunctionComponent<IRegister
                 const session: Session = sessions[i];
                 const trainings: TrainingEvent[] = session.trainings;
 
+                if (session.num_training_events === 0 && trainings.length > 0) {
+                    session.num_training_events = trainings.length;
+                }
+
                 let max_millicpus: number = -1;
                 let max_mem_mb: number = -1;
                 let max_num_gpus: number = -1;
@@ -408,6 +412,11 @@ export const RegisterWorkloadFromTemplateForm: React.FunctionComponent<IRegister
 
         setJsonModeActive(false);
         form.reset(data);
+
+        for (let i: number = 0; i < data.sessions.length; i++) {
+            const session = data.sessions[i];
+            form.setValue(`sessions.${i}.num_training_events`, session.num_training_events);
+        }
     };
 
     const onDiscardJsonChangesButtonClicked = () => {
@@ -1087,7 +1096,7 @@ export const RegisterWorkloadFromTemplateForm: React.FunctionComponent<IRegister
     const preloadedWorkloadTemplateSection = (
         <FormSection title="Select 'Preloaded' Template" titleElement="h1">
             <FormGroup
-                label="Preloaded workload template:"
+                label="Preloaded workload template"
                 labelIcon={
                     <Popover
                         aria-label="workload-preset-text-header"

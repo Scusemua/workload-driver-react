@@ -325,7 +325,7 @@ export const SessionConfigurationFormTabContent: React.FunctionComponent<Session
                                 <Controller
                                     control={control}
                                     name={numTrainingEventsFieldId}
-                                    defaultValue={1}
+                                    defaultValue={(getValues(numTrainingEventsFieldId) as number) || 1}
                                     rules={{ min: 0 }}
                                     render={({ field }) => (
                                         <TextInput

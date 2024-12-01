@@ -399,6 +399,7 @@ interface Session {
     stop_tick: number;
     trainings: TrainingEvent[];
     trainings_completed: number;
+    num_training_events: number;
     discarded: boolean;
     state: string;
     error_message: string; // If the session encountered an error message, then we can store it here.

@@ -244,7 +244,7 @@ export const RegisterWorkloadFromPresetForm: React.FunctionComponent<IRegisterWo
                     <Grid hasGutter md={6}>
                         <GridItem span={12}>
                             <FormGroup
-                                label="Workload name:"
+                                label="Workload name"
                                 labelIcon={
                                     <Popover
                                         aria-label="workload-title-popover"
@@ -305,7 +305,7 @@ export const RegisterWorkloadFromPresetForm: React.FunctionComponent<IRegisterWo
                         </GridItem>
                         <GridItem span={6}>
                             <FormGroup
-                                label="Workload Seed:"
+                                label="Workload Seed"
                                 labelIcon={
                                     <Popover
                                         aria-label="workload-seed-popover"

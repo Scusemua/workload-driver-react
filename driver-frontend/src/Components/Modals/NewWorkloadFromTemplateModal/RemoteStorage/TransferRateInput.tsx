@@ -47,7 +47,9 @@ const TransferRateInput: React.FunctionComponent<ITransferRateInputProps> = (pro
                         type="number"
                         min={0}
                         onBlur={field.onBlur}
-                        onChange={field.onChange}
+                        onChange={(event: React.FormEvent<HTMLInputElement>) => {
+                            field.onChange(parseInt((event.target as HTMLInputElement).value));
+                        }}
                         name={field.name}
                         value={field.value}
                         widthChars={10}
