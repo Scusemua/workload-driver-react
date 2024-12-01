@@ -2,8 +2,10 @@ package server
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"crypto/rand"
+	"encoding/gob"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -120,7 +122,8 @@ func NewServer(opts *domain.Configuration) domain.Server {
 		prometheusEndpoint:      opts.PrometheusEndpoint,
 	}
 
-	s.workloadManager = workload.NewWorkloadManager(opts, &atom, s.handleCriticalWorkloadError, s.handleWorkloadError, s.notifyFrontend)
+	s.workloadManager = workload.NewWorkloadManager(opts, &atom, s.handleCriticalWorkloadError, s.handleWorkloadError,
+		s.notifyFrontend, s.refreshAndClearClusterStatistics)
 
 	// Default to "/"
 	if s.baseUrl == "" {
@@ -164,6 +167,65 @@ func NewServer(opts *domain.Configuration) domain.Server {
 	}
 
 	return s
+}
+
+func (s *serverImpl) clearClusterStatistics() (*workload.ClusterStatistics, error) {
+	requestId := uuid.NewString()
+	s.logger.Debug("Clearing cluster statistics.",
+		zap.String("request_id", requestId),
+		zap.Bool("update", true))
+
+	resp, err := s.gatewayRpcClient.ClearClusterStatistics(context.Background(), &gateway.Void{})
+	if err != nil {
+		s.logger.Error("Failed to clear Cluster Statistics.", zap.Error(err))
+		return nil, err
+	}
+
+	var clusterStatistics *workload.ClusterStatistics
+
+	buffer := bytes.NewBuffer(resp.SerializedClusterStatistics)
+	decoder := gob.NewDecoder(buffer)
+
+	err = decoder.Decode(&clusterStatistics)
+	if err != nil {
+		s.logger.Error("Failed to decode Cluster Statistics after clearing them.", zap.Error(err))
+		return nil, err
+	}
+
+	return clusterStatistics, nil
+}
+
+func (s *serverImpl) refreshAndClearClusterStatistics(update bool, clear bool) (*workload.ClusterStatistics, error) {
+	if clear {
+		return s.clearClusterStatistics()
+	}
+
+	requestId := uuid.NewString()
+	s.logger.Debug("Retrieving cluster statistics.",
+		zap.String("request_id", requestId),
+		zap.Bool("update", update))
+
+	resp, err := s.gatewayRpcClient.ClusterStatistics(context.Background(), &gateway.ClusterStatisticsRequest{
+		RequestId:   requestId,
+		UpdateFirst: update,
+	})
+	if err != nil {
+		s.logger.Error("Failed to retrieve Cluster Statistics.", zap.Error(err))
+		return nil, err
+	}
+
+	var clusterStatistics *workload.ClusterStatistics
+
+	buffer := bytes.NewBuffer(resp.SerializedClusterStatistics)
+	decoder := gob.NewDecoder(buffer)
+
+	err = decoder.Decode(&clusterStatistics)
+	if err != nil {
+		s.logger.Error("Failed to decode Cluster Statistics.", zap.Error(err))
+		return nil, err
+	}
+
+	return clusterStatistics, nil
 }
 
 // templateStaticFiles rewrites the __BASE_PATH__ string in the ./dist/index.html and ./dist/200.html files with
@@ -514,6 +576,11 @@ func (s *serverImpl) setupRoutes() error {
 
 		// Used by the frontend to tell a kernel to stop training.
 		apiGroup.POST(domain.StopTrainingEndpoint, handlers.NewStopTrainingHandler(s.opts, s.atom).HandleRequest)
+
+		clusterStatisticsHttpHandler := handlers.NewClusterStatisticsHttpHandler(s.opts, s.gatewayRpcClient, s.atom)
+		apiGroup.DELETE(domain.ClusterStatisticsEndpoint, clusterStatisticsHttpHandler.HandleDeleteRequest)
+
+		apiGroup.GET(domain.ClusterStatisticsEndpoint, clusterStatisticsHttpHandler.HandleRequest)
 
 		// Used by the frontend to upload/share Prometheus metrics.
 		apiGroup.PATCH(domain.MetricsEndpoint, handlers.NewMetricsHttpHandler(s.opts, &atom).HandlePatchRequest)

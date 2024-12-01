@@ -179,6 +179,9 @@ type BasicWorkloadDriver struct {
 	pauseMutex                         sync.Mutex
 	pauseCond                          *sync.Cond
 
+	// refreshClusterStatistics is used to fresh the ClusterStatistics from the Cluster Gateway.
+	refreshClusterStatistics ClusterStatisticsRefresher
+
 	// notifyCallback is a function used to send notifications related to this workload directly to the frontend.
 	notifyCallback func(notification *proto.Notification)
 
@@ -193,7 +196,8 @@ type BasicWorkloadDriver struct {
 
 func NewBasicWorkloadDriver(opts *domain.Configuration, performClockTicks bool, timescaleAdjustmentFactor float64,
 	websocket domain.ConcurrentWebSocket, atom *zap.AtomicLevel, criticalErrorHandler domain.WorkloadErrorHandler,
-	nonCriticalErrorHandler domain.WorkloadErrorHandler, notifyCallback func(notification *proto.Notification)) *BasicWorkloadDriver {
+	nonCriticalErrorHandler domain.WorkloadErrorHandler, notifyCallback func(notification *proto.Notification),
+	refreshClusterStatistics ClusterStatisticsRefresher) *BasicWorkloadDriver {
 
 	jupyterAddress := path.Join(opts.InternalJupyterServerAddress, opts.JupyterServerBasePath)
 
@@ -229,6 +233,7 @@ func NewBasicWorkloadDriver(opts *domain.Configuration, performClockTicks bool, 
 		onNonCriticalErrorOccurred:         nonCriticalErrorHandler,
 		notifyCallback:                     notifyCallback,
 		paused:                             false,
+		refreshClusterStatistics:           refreshClusterStatistics,
 	}
 
 	driver.pauseCond = sync.NewCond(&driver.pauseMutex)
@@ -740,18 +745,38 @@ func (d *BasicWorkloadDriver) bootstrapSimulation() error {
 
 // publishStatisticsReport writes the current Statistics struct attached to the InternalWorkload to the CSV file.
 func (d *BasicWorkloadDriver) publishStatisticsReport() {
-	PatchCSVHeader(d.workload.GetStatistics())
+	clusterStatistics, err := d.refreshClusterStatistics(true, false)
+	if err != nil {
+		d.logger.Error("Failed to refresh cluster statistics.", zap.Error(err))
 
-	var err error
+		if d.notifyCallback != nil {
+			go d.notifyCallback(&proto.Notification{
+				Id:    uuid.NewString(),
+				Title: "Failed to Refresh Cluster Statistics",
+				Message: fmt.Sprintf("Failed to refresh cluster statistics during workload %s (ID=%s)",
+					d.workload.WorkloadName(), d.workload.GetId()),
+				Panicked:         false,
+				NotificationType: domain.WarningNotification.Int32(),
+			})
+		}
+	}
+
+	stats := d.workload.GetStatistics()
+	stats.ClusterStatistics = clusterStatistics
+	PatchCSVHeader(stats)
+
 	if d.appendToOutputFile {
-		err = gocsv.MarshalWithoutHeaders([]*Statistics{d.workload.GetStatistics()}, d.outputFile)
+		err = gocsv.MarshalWithoutHeaders([]*Statistics{stats}, d.outputFile)
 	} else {
-		err = gocsv.Marshal([]*Statistics{d.workload.GetStatistics()}, d.outputFile)
+		err = gocsv.Marshal([]*Statistics{stats}, d.outputFile)
 		d.appendToOutputFile = true
 	}
 
+	// If marshalError is not nil, then we'll either join it with the previous error, if the previous error is non-nil,
+	// or we'll just assign err to equal the
 	if err != nil {
 		d.logger.Error("Failed to publish statistics report.", zap.Error(err))
+
 		if d.notifyCallback != nil {
 			go d.notifyCallback(&proto.Notification{
 				Id:    uuid.NewString(),

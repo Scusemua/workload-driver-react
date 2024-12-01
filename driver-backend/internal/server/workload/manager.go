@@ -20,6 +20,8 @@ import (
 	"go.uber.org/zap/zapcore"
 )
 
+type ClusterStatisticsRefresher func(update bool, clear bool) (*ClusterStatistics, error)
+
 type BasicWorkloadManager struct {
 	atom          *zap.AtomicLevel
 	logger        *zap.Logger
@@ -34,6 +36,9 @@ type BasicWorkloadManager struct {
 	workloads                []domain.Workload                                    // Slice of workloads. Same contents as the map, but in slice form.
 	mu                       sync.Mutex                                           // Synchronizes access to the workload drivers and the workloads themselves (both the map and the slice).
 	workloadStartedChan      chan string                                          // Channel of workload IDs. When a workload is started, its ID is submitted to this channel.
+
+	// refreshClusterStatistics is used to fresh the ClusterStatistics from the Cluster Gateway.
+	refreshClusterStatistics ClusterStatisticsRefresher
 
 	// OnError is a callback passed to WorkloadDrivers (via the WorkloadManager).
 	// If a critical error occurs during the execution of the workload, then this handler is called.
@@ -52,19 +57,21 @@ func init() {
 }
 
 func NewWorkloadManager(configuration *domain.Configuration, atom *zap.AtomicLevel, onCriticalError domain.WorkloadErrorHandler,
-	onNonCriticalError domain.WorkloadErrorHandler, notifyCallback func(notification *proto.Notification)) *BasicWorkloadManager {
+	onNonCriticalError domain.WorkloadErrorHandler, notifyCallback func(notification *proto.Notification),
+	refreshClusterStatistics ClusterStatisticsRefresher) *BasicWorkloadManager {
 
 	manager := &BasicWorkloadManager{
-		atom:                atom,
-		configuration:       configuration,
-		workloadDrivers:     orderedmap.NewOrderedMap[string, *BasicWorkloadDriver](),
-		workloadsMap:        orderedmap.NewOrderedMap[string, domain.Workload](),
-		workloads:           make([]domain.Workload, 0),
-		workloadStartedChan: make(chan string, 4),
-		pushUpdateInterval:  time.Second * time.Duration(configuration.PushUpdateInterval),
-		onCriticalError:     onCriticalError,
-		onNonCriticalError:  onNonCriticalError,
-		notifyCallback:      notifyCallback,
+		atom:                     atom,
+		configuration:            configuration,
+		workloadDrivers:          orderedmap.NewOrderedMap[string, *BasicWorkloadDriver](),
+		workloadsMap:             orderedmap.NewOrderedMap[string, domain.Workload](),
+		workloads:                make([]domain.Workload, 0),
+		workloadStartedChan:      make(chan string, 4),
+		pushUpdateInterval:       time.Second * time.Duration(configuration.PushUpdateInterval),
+		onCriticalError:          onCriticalError,
+		onNonCriticalError:       onNonCriticalError,
+		notifyCallback:           notifyCallback,
+		refreshClusterStatistics: refreshClusterStatistics,
 	}
 
 	zapConfig := zap.NewDevelopmentEncoderConfig()
@@ -282,7 +289,7 @@ func (m *BasicWorkloadManager) RegisterWorkload(request *domain.WorkloadRegistra
 
 	// Create a new workload driver.
 	workloadDriver := NewBasicWorkloadDriver(m.configuration, true, request.TimescaleAdjustmentFactor,
-		ws, m.atom, criticalErrorHandler, nonCriticalErrorHandler, m.notifyCallback)
+		ws, m.atom, criticalErrorHandler, nonCriticalErrorHandler, m.notifyCallback, m.refreshClusterStatistics)
 
 	// Register a new workload with the workload driver.
 	workload, err := workloadDriver.RegisterWorkload(request)

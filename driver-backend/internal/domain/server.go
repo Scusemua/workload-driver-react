@@ -48,6 +48,9 @@ const (
 	// PrometheusEndpoint is the default path on which Prometheus issues GET requests to scrape metrics.
 	PrometheusEndpoint = "prometheus"
 
+	// ClusterStatisticsEndpoint is used to fetch the ClusterStatistics.
+	ClusterStatisticsEndpoint = "cluster-statistics"
+
 	// MetricsEndpoint is used by the frontend to post/share Prometheus metrics.
 	MetricsEndpoint = "metrics"
 
