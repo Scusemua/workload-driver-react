@@ -642,6 +642,27 @@ function WorkloadProvider({ children }: { children: React.ReactNode }) {
         }
     };
 
+    /**
+     * Given the CSV text from the workload, download it as a .CSV file.
+     */
+    const downloadWorkloadCsv = (csvText: string, targetWorkload: Workload) => {
+        const downloadElement: HTMLAnchorElement = document.createElement('a');
+        downloadElement.setAttribute('href', 'data:text/csv;charset=utf-8,' + encodeURIComponent(csvText));
+
+        downloadElement.setAttribute('download', `workload_${targetWorkload.id}.csv`);
+
+        downloadElement.style.display = 'none';
+        document.body.appendChild(downloadElement);
+
+        downloadElement.click();
+
+        document.body.removeChild(downloadElement);
+    };
+
+    /**
+     * Retrieve the latest version of the Workload from the backend, including the workload and cluster statistics,
+     * and download it as a JSON file.
+     */
     const exportWorkload = async (currentLocalWorkload: Workload) => {
         console.log(`Exporting workload ${currentLocalWorkload.name} (ID=${currentLocalWorkload.id}).`);
 
@@ -766,7 +787,8 @@ function WorkloadProvider({ children }: { children: React.ReactNode }) {
             );
         } else {
             const text: string = await resp.text();
-            console.log(text);
+
+            downloadWorkloadCsv(text, currentLocalWorkload);
         }
     };
 

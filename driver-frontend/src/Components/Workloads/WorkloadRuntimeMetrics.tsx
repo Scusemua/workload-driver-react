@@ -35,24 +35,24 @@ export const WorkloadRuntimeMetrics: React.FunctionComponent<IWorkloadRuntimeMet
                         <FlexItem>
                             <Tooltip content={'Number of events processed.'} position="bottom">
                                 <React.Fragment>
-                                    <MonitoringIcon /> {props.workload.num_events_processed}
+                                    <MonitoringIcon /> {props.workload.statistics.num_events_processed}
                                 </React.Fragment>
                             </Tooltip>
                         </FlexItem>
                         <FlexItem>
                             <Tooltip content={'Number of training events completed.'} position="bottom">
                                 <React.Fragment>
-                                    <CodeIcon /> {props.workload.num_tasks_executed}
+                                    <CodeIcon /> {props.workload.statistics.num_tasks_executed}
                                 </React.Fragment>
                             </Tooltip>
                         </FlexItem>
                         {/* We only show the 'time elapsed' icon and field if the time elapsed
                                                                         string is non-empty, which indicates that the props.workload has started. */}
-                        {props.workload.time_elapsed_str !== '' && (
+                        {props.workload.statistics.time_elapsed_str !== '' && (
                             <FlexItem>
                                 <Tooltip content={'Time elapsed since the props.workload began.'} position="bottom">
                                     <React.Fragment>
-                                        <StopwatchIcon /> {props.workload.time_elapsed_str}
+                                        <StopwatchIcon /> {props.workload.statistics.time_elapsed_str}
                                     </React.Fragment>
                                 </Tooltip>
                             </FlexItem>
@@ -70,21 +70,21 @@ export const WorkloadRuntimeMetrics: React.FunctionComponent<IWorkloadRuntimeMet
                         <FlexItem>
                             <Tooltip content="The current tick of the props.workload.">
                                 <React.Fragment>
-                                    <Stopwatch20Icon /> {props.workload.current_tick}
+                                    <Stopwatch20Icon /> {props.workload.statistics.current_tick}
                                 </React.Fragment>
                             </Tooltip>
                         </FlexItem>
                         <FlexItem>
                             <Tooltip content="Number of active sessions right now.">
                                 <React.Fragment>
-                                    <CubeIcon /> {props.workload.num_active_sessions}
+                                    <CubeIcon /> {props.workload.statistics.num_active_sessions}
                                 </React.Fragment>
                             </Tooltip>
                         </FlexItem>
                         <FlexItem>
                             <Tooltip content="Number of actively-training sessions right now.">
                                 <React.Fragment>
-                                    <RunningIcon /> {props.workload.num_active_trainings}
+                                    <RunningIcon /> {props.workload.statistics.num_active_trainings}
                                 </React.Fragment>
                             </Tooltip>
                         </FlexItem>
@@ -94,5 +94,3 @@ export const WorkloadRuntimeMetrics: React.FunctionComponent<IWorkloadRuntimeMet
         </Flex>
     );
 };
-
-export default WorkloadRuntimeMetrics;
