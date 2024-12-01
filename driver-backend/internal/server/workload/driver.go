@@ -219,7 +219,6 @@ func NewBasicWorkloadDriver(opts *domain.Configuration, performClockTicks bool, 
 		tickDurationsSecondsMovingWindow:   statistics.NewMovingStat(5),
 		tickDurationsAll:                   make([]time.Duration, 0),
 		driverTimescale:                    opts.DriverTimescale,
-		kernelManager:                      jupyter.NewKernelSessionManager(jupyterAddress, true, atom, metrics.PrometheusMetricsWrapperInstance),
 		sessionConnections:                 make(map[string]*jupyter.SessionConnection),
 		performClockTicks:                  performClockTicks,
 		eventQueue:                         event_queue.NewEventQueue(atom),
@@ -266,6 +265,8 @@ func NewBasicWorkloadDriver(opts *domain.Configuration, performClockTicks bool, 
 		driver.workloadPresets[preset.GetKey()] = preset
 	}
 
+	driver.kernelManager = jupyter.NewKernelSessionManager(jupyterAddress, true, atom, driver)
+
 	if driver.onNonCriticalErrorOccurred != nil {
 		driver.kernelManager.RegisterOnErrorHandler(func(sessionId string, kernelId string, err error) {
 			err = fmt.Errorf("error occurred for kernel=%s,session=%s: %w", kernelId, sessionId, err)
@@ -299,7 +300,7 @@ func (d *BasicWorkloadDriver) GetOutputFileContents() ([]byte, error) {
 	csvBuffer, err := io.ReadAll(d.outputFile)
 
 	if err != nil {
-		d.logger.Error("Failed to read contents of workload statistics file. Will try opening the file explicitly.",
+		d.logger.Warn("Failed to read contents of workload statistics file. Will try opening the file explicitly.",
 			zap.String("workload_id", d.workload.GetId()),
 			zap.String("workload_name", d.workload.WorkloadName()),
 			zap.Error(err))
@@ -2503,5 +2504,55 @@ func (d *BasicWorkloadDriver) handleIOPubStreamMessage(conn jupyter.KernelConnec
 	return &parsedIoPubMessage{
 		Stream: stream,
 		Text:   text,
+	}
+}
+
+// ObserveJupyterSessionCreationLatency records the latency of creating a Jupyter session
+// during the execution of a particular workload, as identified by the given workload ID.
+func (d *BasicWorkloadDriver) ObserveJupyterSessionCreationLatency(latencyMilliseconds int64, workloadId string) {
+	stats := d.workload.GetStatistics()
+
+	stats.CumulativeJupyterSessionCreationLatencyMillis += latencyMilliseconds
+	stats.JupyterSessionCreationLatenciesMillis = append(
+		stats.JupyterSessionCreationLatenciesMillis, latencyMilliseconds)
+
+	if metrics.PrometheusMetricsWrapperInstance != nil {
+		metrics.PrometheusMetricsWrapperInstance.ObserveJupyterSessionCreationLatency(latencyMilliseconds, workloadId)
+	}
+}
+
+// ObserveJupyterSessionTerminationLatency records the latency of terminating a Jupyter session
+// during the execution of a particular workload, as identified by the given workload ID.
+func (d *BasicWorkloadDriver) ObserveJupyterSessionTerminationLatency(latencyMilliseconds int64, workloadId string) {
+	stats := d.workload.GetStatistics()
+
+	stats.CumulativeJupyterSessionTerminationLatencyMillis += latencyMilliseconds
+	stats.JupyterSessionTerminationLatenciesMillis = append(
+		stats.JupyterSessionTerminationLatenciesMillis, latencyMilliseconds)
+
+	if metrics.PrometheusMetricsWrapperInstance != nil {
+		metrics.PrometheusMetricsWrapperInstance.ObserveJupyterSessionTerminationLatency(latencyMilliseconds, workloadId)
+	}
+}
+
+// ObserveJupyterExecuteRequestE2ELatency records the end-to-end latency of an "execute_request" message
+// during the execution of a particular workload, as identified by the given workload ID.
+func (d *BasicWorkloadDriver) ObserveJupyterExecuteRequestE2ELatency(latencyMilliseconds int64, workloadId string) {
+	stats := d.workload.GetStatistics()
+
+	stats.CumulativeJupyterExecRequestTimeMillis += latencyMilliseconds
+	stats.JupyterExecRequestTimesMillis = append(
+		stats.JupyterExecRequestTimesMillis, latencyMilliseconds)
+
+	if metrics.PrometheusMetricsWrapperInstance != nil {
+		metrics.PrometheusMetricsWrapperInstance.ObserveJupyterExecuteRequestE2ELatency(latencyMilliseconds, workloadId)
+	}
+}
+
+// AddJupyterRequestExecuteTime records the time taken to process an "execute_request" for the total, aggregate,
+// cumulative time spent processing "execute_request" messages.
+func (d *BasicWorkloadDriver) AddJupyterRequestExecuteTime(latencyMilliseconds int64, kernelId string, workloadId string) {
+	if metrics.PrometheusMetricsWrapperInstance != nil {
+		metrics.PrometheusMetricsWrapperInstance.AddJupyterRequestExecuteTime(latencyMilliseconds, kernelId, workloadId)
 	}
 }

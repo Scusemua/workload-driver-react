@@ -14,10 +14,22 @@ type Statistics struct {
 	StartTime      time.Time `json:"start_time" csv:"-"`
 	EndTime        time.Time `json:"end_time" csv:"-"`
 
+	CumulativeExecutionStartDelay float64 `json:"cumulative_execution_start_delay" csv:"cumulative_execution_start_delay"`
+
+	CumulativeJupyterExecRequestTimeMillis int64   `json:"cumulative_jupyter_exec_request_time_millis" csv:"cumulative_jupyter_exec_request_time_millis"`
+	JupyterExecRequestTimesMillis          []int64 `json:"jupyter_exec_request_times_millis" csv:"jupyter_exec_request_times_millis"`
+
+	CumulativeJupyterSessionCreationLatencyMillis int64   `json:"cumulative_jupyter_session_creation_latency_millis" csv:"cumulative_jupyter_session_creation_latency_millis"`
+	JupyterSessionCreationLatenciesMillis         []int64 `json:"jupyter_session_creation_latencies_millis" csv:"-"`
+
+	CumulativeJupyterSessionTerminationLatencyMillis int64   `json:"cumulative_jupyter_session_termination_latency_millis" csv:"cumulative_jupyter_session_termination_latency_millis"`
+	JupyterSessionTerminationLatenciesMillis         []int64 `json:"jupyter_session_termination_latencies_millis" csv:"-"`
+
+	NumTimesSessionDelayedResourceContention int `json:"num_times_session_delayed_resource_contention" csv:"num_times_session_delayed_resource_contention"`
+
 	AggregateSessionDelayMillis         int64                   `json:"aggregate_session_delay_ms" csv:"aggregate_session_delay_ms"`
 	CumulativeNumStaticTrainingReplicas int                     `json:"cumulative_num_static_training_replicas" csv:"cumulative_num_static_training_replicas"  csv:""`
 	CurrentTick                         int64                   `json:"current_tick" csv:"current_tick"`
-	EventsProcessed                     []*domain.WorkloadEvent `json:"events_processed"  csv:"events_processed"`
 	NextEventExpectedTick               int64                   `json:"next_event_expected_tick"  csv:"next_event_expected_tick"`
 	NextExpectedEventName               domain.EventName        `json:"next_expected_event_name"  csv:"next_expected_event_name"`
 	NextExpectedEventTarget             string                  `json:"next_expected_event_target"  csv:"next_expected_event_target"`
@@ -31,7 +43,7 @@ type Statistics struct {
 	NumTasksExecuted                    int64                   `json:"num_tasks_executed"  csv:"num_tasks_executed"`
 	SessionsSamplePercentage            float64                 `json:"sessions_sample_percentage"  csv:"sessions_sample_percentage"`
 	SimulationClockTimeStr              string                  `json:"simulation_clock_time"  csv:"simulation_clock_time"`
-	TickDurationsMillis                 []int64                 `json:"tick_durations_milliseconds"  csv:"tick_durations_milliseconds"`
+	TickDurationsMillis                 []int64                 `json:"tick_durations_milliseconds"  csv:"-"`
 	TimeElapsed                         time.Duration           `json:"time_elapsed"  csv:"time_elapsed"` // Computed at the time that the data is requested by the user. This is the time elapsed SO far.
 	TimeElapsedStr                      string                  `json:"time_elapsed_str"  csv:"time_elapsed_str"`
 	TimeSpentPausedMillis               int64                   `json:"time_spent_paused_milliseconds"  csv:"time_spent_paused_milliseconds"`
@@ -39,6 +51,27 @@ type Statistics struct {
 	TotalNumTicks                       int64                   `json:"total_num_ticks"  csv:"total_num_ticks"`
 	WorkloadDuration                    time.Duration           `json:"workload_duration"  csv:"workload_duration"` // The total time that the workload executed for. This is only set once the workload has completed.
 	WorkloadState                       State                   `json:"workload_state"  csv:"workload_state"`
+	EventsProcessed                     []*domain.WorkloadEvent `json:"events_processed"  csv:"-"`
+}
+
+func NewStatistics(sessionsSamplePercentage float64) *Statistics {
+	return &Statistics{
+		RegisteredTime:                           time.Now(),
+		NumTasksExecuted:                         0,
+		NumEventsProcessed:                       0,
+		NumSessionsCreated:                       0,
+		NumActiveSessions:                        0,
+		NumActiveTrainings:                       0,
+		EventsProcessed:                          make([]*domain.WorkloadEvent, 0),
+		TickDurationsMillis:                      make([]int64, 0),
+		JupyterSessionCreationLatenciesMillis:    make([]int64, 0),
+		JupyterSessionTerminationLatenciesMillis: make([]int64, 0),
+		JupyterExecRequestTimesMillis:            make([]int64, 0),
+		SessionsSamplePercentage:                 sessionsSamplePercentage,
+		TimeElapsed:                              time.Duration(0),
+		CurrentTick:                              0,
+		WorkloadState:                            Ready,
+	}
 }
 
 type ClusterStatistics struct {
@@ -135,5 +168,16 @@ type ClusterStatistics struct {
 	// The amount of time that Sessions have spent training throughout the entire simulation. This does NOT include replaying events.
 	CumulativeSessionTrainingTime float64 `csv:"CumulativeSessionTrainingTimeSec" json:"CumulativeSessionTrainingTimeSec"`
 	// The aggregate lifetime of all sessions created during the simulation (before being suspended).
-	AggregateSessionLifetime float64 `csv:"AggregateSessionLifetimeSec" json:"AggregateSessionLifetimeSec"`
+	AggregateSessionLifetime     float64   `csv:"AggregateSessionLifetimeSec" json:"AggregateSessionLifetimeSec"`
+	AggregateSessionLifetimesSec []float64 `csv:"-" json:"AggregateSessionLifetimesSec"`
+	// Delay between when client submits "execute_request" and when kernel begins executing.
+	JupyterTrainingStartLatencyMillis   float64   `json:"jupyter_training_start_latency_millis" csv:"jupyter_training_start_latency_millis"`
+	JupyterTrainingStartLatenciesMillis []float64 `json:"jupyter_training_start_latencies_millis" csv:"-"`
+}
+
+func NewClusterStatistics() *ClusterStatistics {
+	return &ClusterStatistics{
+		JupyterTrainingStartLatenciesMillis: make([]float64, 0),
+		AggregateSessionLifetimesSec:        make([]float64, 0),
+	}
 }

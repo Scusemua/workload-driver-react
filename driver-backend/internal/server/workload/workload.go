@@ -552,9 +552,9 @@ func (w *BasicWorkload) UpdateTimeElapsed() {
 //
 // Multiple calls to SessionDelayed will treat each passed delay additively, as in they'll all be added together.
 func (w *BasicWorkload) SessionDelayed(sessionId string, delayAmount time.Duration) {
-	w.workloadInstance.SessionDelayed(sessionId, delayAmount)
-
 	w.Statistics.AggregateSessionDelayMillis += delayAmount.Milliseconds()
+
+	w.workloadInstance.SessionDelayed(sessionId, delayAmount)
 }
 
 // GetNumEventsProcessed returns the number of events processed by the workload.

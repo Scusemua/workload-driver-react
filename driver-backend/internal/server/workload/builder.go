@@ -2,12 +2,10 @@ package workload
 
 import (
 	"github.com/mattn/go-colorable"
-	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/server/api/proto"
 	"github.com/zhangjyr/hashmap"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
-	"time"
 )
 
 // Builder is the builder for the Workload struct.
@@ -92,19 +90,7 @@ func (b *Builder) Build() *BasicWorkload {
 		RemoteStorageDefinition:   b.remoteStorageDefinition,
 		SampledSessions:           make(map[string]interface{}),
 		UnsampledSessions:         make(map[string]interface{}),
-		Statistics: &Statistics{
-			RegisteredTime:           time.Now(),
-			NumTasksExecuted:         0,
-			NumEventsProcessed:       0,
-			NumSessionsCreated:       0,
-			NumActiveSessions:        0,
-			NumActiveTrainings:       0,
-			EventsProcessed:          make([]*domain.WorkloadEvent, 0),
-			SessionsSamplePercentage: b.sessionsSamplePercentage,
-			TimeElapsed:              time.Duration(0),
-			CurrentTick:              0,
-			WorkloadState:            Ready,
-		},
+		Statistics:                NewStatistics(b.sessionsSamplePercentage),
 	}
 
 	zapConfig := zap.NewDevelopmentEncoderConfig()
