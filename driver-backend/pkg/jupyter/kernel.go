@@ -497,7 +497,7 @@ func (conn *BasicKernelConnection) RequestExecute(args *RequestExecuteArgs) erro
 
 	conn.waitingForExecuteResponses.Add(1)
 
-	if args.AwaitResponse() {
+	handleResponse := func() {
 		// We'll populate this either in the ticker or when we get the response.
 		response := <-responseChan
 		latency := time.Since(sentAt)
@@ -526,6 +526,12 @@ func (conn *BasicKernelConnection) RequestExecute(args *RequestExecuteArgs) erro
 			conn.metricsConsumer.ObserveJupyterExecuteRequestE2ELatency(latencyMs, workloadId)
 			conn.metricsConsumer.AddJupyterRequestExecuteTime(latencyMs, conn.kernelId, workloadId)
 		}
+	}
+
+	if args.AwaitResponse() {
+		handleResponse() // blocking
+	} else {
+		go handleResponse() // non-blocking
 	}
 
 	return nil

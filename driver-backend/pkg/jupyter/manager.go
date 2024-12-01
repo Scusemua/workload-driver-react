@@ -20,7 +20,7 @@ import (
 
 const (
 	ZapSessionIDKey       = "session_id"
-	WorkloadIdMetadataKey = "workload-id"
+	WorkloadIdMetadataKey = "workload_id"
 
 	// RemoteStorageDefinitionMetadataKey is used to register a proto.RemoteStorageDefinition with a
 	// KernelSessionManager so that the proto.RemoteStorageDefinition can be embedded in the metadata

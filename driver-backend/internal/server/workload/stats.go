@@ -42,7 +42,6 @@ type Statistics struct {
 	NumSubmittedTrainings               int64                   `json:"num_submitted_trainings"  csv:"num_submitted_trainings"` // NumSubmittedTrainings is the number of trainings that have been submitted but not yet started.
 	NumTasksExecuted                    int64                   `json:"num_tasks_executed"  csv:"num_tasks_executed"`
 	SessionsSamplePercentage            float64                 `json:"sessions_sample_percentage"  csv:"sessions_sample_percentage"`
-	SimulationClockTimeStr              string                  `json:"simulation_clock_time"  csv:"simulation_clock_time"`
 	TickDurationsMillis                 []int64                 `json:"tick_durations_milliseconds"  csv:"-"`
 	TimeElapsed                         time.Duration           `json:"time_elapsed"  csv:"time_elapsed"` // Computed at the time that the data is requested by the user. This is the time elapsed SO far.
 	TimeElapsedStr                      string                  `json:"time_elapsed_str"  csv:"time_elapsed_str"`
