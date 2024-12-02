@@ -968,16 +968,6 @@ func (conn *BasicKernelConnection) createKernelMessage(messageType MessageType, 
 		content = make(map[string]interface{})
 	}
 
-	//workloadId, loaded := conn.GetMetadata(WorkloadIdMetadataKey)
-	//if loaded {
-	//	metadata["workload_id"] = workloadId
-	//} else {
-	//	conn.logger.Warn("Could not embed workload ID in kernel message.",
-	//		zap.String("message_id", messageId), zap.String("message_type", messageType.String()),
-	//		zap.String("channel", channel.String()), zap.String("client_id", conn.clientId),
-	//		zap.String("username", conn.username))
-	//}
-
 	metadata := make(map[string]interface{})
 	// Add all the registered metadata to the dictionary.
 	conn.RangeOverSerializedMetadata(func(key string, value interface{}) bool {
@@ -1407,6 +1397,9 @@ func (conn *BasicKernelConnection) sendMessage(message KernelMessage) error {
 	if conn.connectionStatus == KernelConnected {
 		conn.sugaredLogger.Debugf("Writing %s message (ID=%s) of type '%s' now to kernel %s.", message.GetChannel(), message.GetHeader().MessageId, message.GetHeader().MessageType, conn.kernelId)
 		conn.wlock.Lock()
+
+		message.AddMetadata("sent_at_unix_milliseconds", time.Now().UnixMilli())
+
 		err := conn.webSocket.WriteJSON(message)
 		conn.wlock.Unlock()
 		if err != nil {
