@@ -38,8 +38,8 @@ export interface CreateKernelsModalProps {
 
 const defaultCPUs: string = '100'; // milli-cpus
 const defaultGPUs: string = '1';
-const defaultVRAM: string = '4'; // GB
-const defaultMemory: string = '1250'; // Mb
+const defaultVRAM: string = '1'; // GB
+const defaultMemory: string = '1250'; // MB
 
 export const CreateKernelsModal: React.FunctionComponent<CreateKernelsModalProps> = (props) => {
     const [numKernelsText, setNumKernelsText] = React.useState('1');

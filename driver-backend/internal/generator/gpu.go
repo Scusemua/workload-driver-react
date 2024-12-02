@@ -59,7 +59,7 @@ type GPUUtil struct {
 	Max       float64   `json:"max_gpu_utilization"`
 	Status    GPUStatus `json:"status"`
 	GPUName   string    `json:"GPUName"` // TODO(Ben): Right now, we always use 'AnyGPU' for this. Eventually need a way to support a variety of different GPUs. Could do so randomly for now.
-	VRamGB    float64   `json:"vram_gb"`
+	VRamGB    float64   `json:"vram"`
 
 	// Repeat shows how many iterations the status holds.
 	Repeat       int       `json:"repeat"`

@@ -324,7 +324,7 @@ type TrainingEvent struct {
 	TrainingIndex   int              `json:"training_index"`
 	Millicpus       float64          `json:"millicpus"` // CPU usage in 1/1000th CPU core
 	MemUsageMB      float64          `json:"mem_usage_mb"`
-	VRamUsageGB     float64          `json:"vram_usage_gb"`
+	VRamUsageGB     float64          `json:"vram"`
 	GpuUtil         []GpuUtilization `json:"gpu_utilizations"`
 	StartTick       int              `json:"start_tick"`
 	DurationInTicks int              `json:"duration_in_ticks"`

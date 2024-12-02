@@ -23,6 +23,7 @@ class TrainingEvent(object):
         self.ending_tick: int = self.starting_tick + self.duration
         self.millicpus: float = millicpus
         self.mem_mb: float = mem_mb
+        self.vram_gb: float = vram_gb
         self.gpu_utilizations: list[dict[str, float]] = gpu_utilizations
 
     def to_dict(self) -> dict[str, Any]:
@@ -35,6 +36,7 @@ class TrainingEvent(object):
             "millicpus": self.millicpus,
             "mem_usage_mb": self.mem_mb,
             "num_gpus": len(self.gpu_utilizations),
+            "vram": self.vram_gb,
             "gpu_utilizations": self.gpu_utilizations,
         }
 

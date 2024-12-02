@@ -14,10 +14,10 @@ type Statistics struct {
 	StartTime      time.Time `json:"start_time" csv:"-"`
 	EndTime        time.Time `json:"end_time" csv:"-"`
 
-	CumulativeExecutionStartDelay float64 `json:"cumulative_execution_start_delay" csv:"cumulative_execution_start_delay"`
+	// CumulativeExecutionStartDelay float64 `json:"cumulative_execution_start_delay" csv:"cumulative_execution_start_delay"`
 
 	CumulativeJupyterExecRequestTimeMillis int64   `json:"cumulative_jupyter_exec_request_time_millis" csv:"cumulative_jupyter_exec_request_time_millis"`
-	JupyterExecRequestTimesMillis          []int64 `json:"jupyter_exec_request_times_millis" csv:"jupyter_exec_request_times_millis"`
+	JupyterExecRequestTimesMillis          []int64 `json:"jupyter_exec_request_times_millis" csv:"-"`
 
 	CumulativeJupyterSessionCreationLatencyMillis int64   `json:"cumulative_jupyter_session_creation_latency_millis" csv:"cumulative_jupyter_session_creation_latency_millis"`
 	JupyterSessionCreationLatenciesMillis         []int64 `json:"jupyter_session_creation_latencies_millis" csv:"-"`
