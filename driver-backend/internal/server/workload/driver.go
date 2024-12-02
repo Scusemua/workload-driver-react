@@ -177,6 +177,7 @@ type BasicWorkloadDriver struct {
 	outputFilePath                     string                                // Path to the outputFile
 	outputFileMutex                    sync.Mutex                            // Atomic access to output file
 	appendToOutputFile                 bool                                  // Flag that is set to true after the first write
+	misbehavingSessions                map[string]interface{}                // Map from session ID to sessions for sessions whose events we did not finish processing in a previous tick.
 	trainingStartedChannels            map[string]chan interface{}
 	pauseMutex                         sync.Mutex
 	pauseCond                          *sync.Cond
@@ -213,6 +214,7 @@ func NewBasicWorkloadDriver(opts *domain.Configuration, performClockTicks bool, 
 		workloadEventGeneratorCompleteChan: make(chan interface{}),
 		stopChan:                           make(chan interface{}, 1),
 		errorChan:                          make(chan error, 2),
+		misbehavingSessions:                make(map[string]interface{}),
 		atom:                               atom,
 		trainingStartedChannels:            make(map[string]chan interface{}),
 		targetTickDuration:                 time.Second * time.Duration(opts.TraceStep),
@@ -1610,9 +1612,6 @@ func (d *BasicWorkloadDriver) processEventsForTick(tick time.Time) {
 
 		// 'Session Ready' events.
 		sessionReadyEvents = make([]*domain.Event, 0)
-
-		// Used to wait until all goroutines finish processing events for the sessions.
-		waitGroup sync.WaitGroup
 	)
 
 	// Extract all the "session-ready" events for this tick.
@@ -1636,8 +1635,10 @@ func (d *BasicWorkloadDriver) processEventsForTick(tick time.Time) {
 
 	// Process any 'session-ready' events that are ready at the beginning of the tick.
 	if len(sessionReadyEvents) > 0 {
-		var wg sync.WaitGroup
-		wg.Add(len(sessionReadyEvents))
+		ctx, cancel := context.WithTimeout(context.Background(), time.Minute*5)
+		defer cancel()
+
+		sessionFinishedChannel := make(chan string, len(sessionReadyEvents))
 
 		d.logger.Debug("Processing \"session-ready\" event(s) at the very beginning of the tick.",
 			zap.String("workload_id", d.workload.GetId()),
@@ -1645,18 +1646,126 @@ func (d *BasicWorkloadDriver) processEventsForTick(tick time.Time) {
 			zap.Time("tick", tick),
 			zap.Int("num_events", len(sessionReadyEvents)))
 
+		// Keep track of which sessions have finished.
+		// The most important thing is the number of sessions that have finished,
+		// but knowing the session IDs could be useful for logging/debugging.
+		responsesReceived := map[string]struct{}{}
+		expectedNumResponses := len(sessionReadyEvents)
+		remainingSessions := make([]string, 0, len(sessionReadyEvents))
+		aborted := false
+
 		for idx, sessionReadyEvent := range sessionReadyEvents {
-			go d.handleSessionReadyEvent(sessionReadyEvent, idx, &wg)
+			remainingSessions = append(remainingSessions, sessionReadyEvent.SessionId)
+			go d.handleSessionReadyEvent(sessionReadyEvent, idx, sessionFinishedChannel)
 		}
 
-		wg.Wait()
+		startedWaitingAt := time.Now()
+		// Keep looping until we've either received all responses, or until the context's timeout expires and we give up.
+		for len(responsesReceived) < expectedNumResponses && !aborted {
+			d.logger.Debug("Waiting for goroutines to finish handling session-creation events.",
+				zap.Int("num_responses_received", len(responsesReceived)),
+				zap.Int("num_responses_expected", len(sessionEventMap)),
+				zap.Strings("remaining_sessions", remainingSessions),
+				zap.Time("tick", tick),
+				zap.Duration("time_elapsed", time.Since(startedWaitingAt)),
+				zap.String("workload_name", d.workload.WorkloadName()),
+				zap.String("workload_id", d.workload.GetId()))
+
+			select {
+			case sessionId := <-sessionFinishedChannel:
+				{
+					// Make note that we the session has finished.
+					responsesReceived[sessionId] = struct{}{}
+
+					// Let's remove the session ID from the slice of remaining sessions.
+					idx := indexOf(remainingSessions, sessionId)
+					if idx != -1 { // This should never be -1, but just in case, we'll check...
+						remainingSessions = removeIndex(remainingSessions, idx)
+					} else {
+						d.logger.Error("indexOf returned -1",
+							zap.String("session_id", sessionId),
+							zap.Int("num_responses_received", len(responsesReceived)),
+							zap.Int("num_responses_expected", len(sessionEventMap)),
+							zap.Strings("remaining_sessions", remainingSessions),
+							zap.Time("tick", tick),
+							zap.Duration("time_elapsed", time.Since(startedWaitingAt)),
+							zap.String("workload_name", d.workload.WorkloadName()),
+							zap.String("workload_id", d.workload.GetId()))
+					}
+
+					d.logger.Debug("Session was created successfully.",
+						zap.String("session_id", sessionId),
+						zap.Int("num_responses_received", len(responsesReceived)),
+						zap.Int("num_responses_expected", len(sessionEventMap)),
+						zap.Strings("remaining_sessions", remainingSessions),
+						zap.Time("tick", tick),
+						zap.Duration("time_elapsed", time.Since(startedWaitingAt)),
+						zap.String("workload_name", d.workload.WorkloadName()),
+						zap.String("workload_id", d.workload.GetId()))
+
+					d.workload.UpdateTimeElapsed()
+				}
+			case <-ctx.Done():
+				{
+					d.logger.Error("Timed-out waiting for sessions to finish processing their events.",
+						zap.Int("num_responses_received", len(responsesReceived)),
+						zap.Int("num_responses_expected", len(sessionEventMap)),
+						zap.Strings("remaining_sessions", remainingSessions),
+						zap.Time("tick", tick),
+						zap.Duration("time_elapsed", time.Since(startedWaitingAt)),
+						zap.String("workload_name", d.workload.WorkloadName()),
+						zap.String("workload_id", d.workload.GetId()))
+
+					if err := ctx.Err(); err != nil {
+						d.logger.Error("There was an error attached to the context when we timed-out.",
+							zap.Time("tick", tick),
+							zap.Duration("time_elapsed", time.Since(startedWaitingAt)),
+							zap.String("workload_name", d.workload.WorkloadName()),
+							zap.String("workload_id", d.workload.GetId()),
+							zap.Error(err))
+					}
+
+					// Take note of all the sessions that did not finish being created during their window.
+					// We'll just discard those sessions, ignoring any future events targeting those sessions.
+					for _, sessionId := range remainingSessions {
+						d.logger.Warn("Session timed-out during creation. Disabling session.",
+							zap.String("session_id", sessionId),
+							zap.String("workload_name", d.workload.WorkloadName()),
+							zap.String("workload_id", d.workload.GetId()))
+
+						err := d.workload.SessionDiscarded(sessionId)
+						if err != nil {
+							d.logger.Error("Failed to disable Session that timed-out during creation.",
+								zap.String("session_id", sessionId),
+								zap.String("workload_name", d.workload.WorkloadName()),
+								zap.String("workload_id", d.workload.GetId()),
+								zap.Error(err))
+						}
+
+						misbehavingSession := d.GetSession(sessionId)
+						if misbehavingSession == nil {
+							d.logger.Error("Failed to load (misbehaving) session from (regular) session map.",
+								zap.String("session_id", sessionId),
+								zap.String("workload_name", d.workload.WorkloadName()),
+								zap.String("workload_id", d.workload.GetId()))
+							continue
+						}
+
+						// Record that the session failed to process all of its events in this tick.
+						// This should never come up again, since we disabled the session, but nevertheless
+						// it should be recorded, as the session did fail to process its events.
+						misbehavingSession.TickFailed()
+						d.misbehavingSessions[sessionId] = misbehavingSession
+					}
+
+					// Give up.
+					aborted = true
+				}
+			}
+		}
 	}
-	//else {
-	//	d.logger.Debug("No \"session-ready\" events to process at the very beginning of the tick.",
-	//		zap.String("workload_id", d.workload.GetId()),
-	//		zap.String("workload_name", d.workload.WorkloadName()),
-	//		zap.Time("tick", tick))
-	//}
+
+	d.workload.UpdateTimeElapsed()
 
 	// Extract all the "session-ready" events for this tick.
 	for d.eventQueue.HasEventsForTick(tick) {
@@ -1690,28 +1799,150 @@ func (d *BasicWorkloadDriver) processEventsForTick(tick time.Time) {
 
 	// We'll create one goroutine per session that has events to be processed.
 	// We'll use the WaitGroup to block until all sessions have had their events processed.
-	waitGroup.Add(len(sessionEventMap))
+	//waitGroup.Add(len(sessionEventMap))
 	d.logger.Debug("Processing workload events.",
 		zap.Int("num_sessions", len(sessionEventMap)),
 		zap.Time("tick", tick),
 		zap.String("workload_name", d.workload.WorkloadName()),
 		zap.String("workload_id", d.workload.GetId()))
 
+	expectedNumResponses := len(sessionEventMap)
+
+	// Goroutines will send their assigned session ID via this channel to notify that they're done.
+	sessionFinishedChannel := make(chan string, expectedNumResponses)
+
+	// This is a slice of all the session IDs that have NOT yet finished. Mostly for logging/debugging purposes.
+	remainingSessions := make([]string, 0, len(sessionEventMap))
+
 	// Iterate over the session-event map, creating a goroutine to process each session's events.
 	for sessionId, events := range sessionEventMap {
 		// Create a go routine to process all the events for the particular session.
 		// This enables us to process events targeting multiple sessions in-parallel.
-		go d.processEventsForSession(sessionId, events, len(sessionEventMap), &waitGroup, tick)
+		go d.processEventsForSession(sessionId, events, expectedNumResponses, sessionFinishedChannel, tick)
+
+		remainingSessions = append(remainingSessions, sessionId)
+	}
+
+	// Keep track of which sessions have finished.
+	// The most important thing is the number of sessions that have finished,
+	// but knowing the session IDs could be useful for logging/debugging.
+	responsesReceived := map[string]struct{}{}
+
+	// We'll flip abort to "true" if and when the context expires so that we don't wait around forever.
+	aborted := false
+
+	// We'll wait up to 5-minutes before giving up.
+	ctx, cancel := context.WithTimeout(context.Background(), time.Minute*5)
+	defer cancel()
+
+	startedWaitingAt := time.Now()
+	// Keep looping until we've either received all responses, or until the context's timeout expires and we give up.
+	for len(responsesReceived) < expectedNumResponses && !aborted {
+		d.logger.Debug("Waiting for goroutines to finish handling session events.",
+			zap.Int("num_responses_received", len(responsesReceived)),
+			zap.Int("num_responses_expected", len(sessionEventMap)),
+			zap.Strings("remaining_sessions", remainingSessions),
+			zap.Time("tick", tick),
+			zap.Duration("time_elapsed", time.Since(startedWaitingAt)),
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String("workload_id", d.workload.GetId()))
+
+		select {
+		case sessionId := <-sessionFinishedChannel:
+			{
+				// Make note that we the session has finished.
+				responsesReceived[sessionId] = struct{}{}
+
+				// Let's remove the session ID from the slice of remaining sessions.
+				idx := indexOf(remainingSessions, sessionId)
+				if idx != -1 { // This should never be -1, but just in case, we'll check...
+					remainingSessions = removeIndex(remainingSessions, idx)
+				} else {
+					d.logger.Error("indexOf returned -1",
+						zap.String("session_id", sessionId),
+						zap.Int("num_responses_received", len(responsesReceived)),
+						zap.Int("num_responses_expected", len(sessionEventMap)),
+						zap.Strings("remaining_sessions", remainingSessions),
+						zap.Time("tick", tick),
+						zap.Duration("time_elapsed", time.Since(startedWaitingAt)),
+						zap.String("workload_name", d.workload.WorkloadName()),
+						zap.String("workload_id", d.workload.GetId()))
+				}
+
+				d.logger.Debug("Session finished processing events.",
+					zap.String("session_id", sessionId),
+					zap.Int("num_responses_received", len(responsesReceived)),
+					zap.Int("num_responses_expected", len(sessionEventMap)),
+					zap.Strings("remaining_sessions", remainingSessions),
+					zap.Time("tick", tick),
+					zap.Duration("time_elapsed", time.Since(startedWaitingAt)),
+					zap.String("workload_name", d.workload.WorkloadName()),
+					zap.String("workload_id", d.workload.GetId()))
+
+				// Wait for all the goroutines to complete before returning.
+				d.workload.UpdateTimeElapsed()
+			}
+		case <-ctx.Done():
+			{
+				d.logger.Error("Timed-out waiting for sessions to finish processing their events.",
+					zap.Int("num_responses_received", len(responsesReceived)),
+					zap.Int("num_responses_expected", len(sessionEventMap)),
+					zap.Strings("remaining_sessions", remainingSessions),
+					zap.Time("tick", tick),
+					zap.Duration("time_elapsed", time.Since(startedWaitingAt)),
+					zap.String("workload_name", d.workload.WorkloadName()),
+					zap.String("workload_id", d.workload.GetId()))
+
+				if err := ctx.Err(); err != nil {
+					d.logger.Error("There was an error attached to the context when we timed-out.",
+						zap.Time("tick", tick),
+						zap.Duration("time_elapsed", time.Since(startedWaitingAt)),
+						zap.String("workload_name", d.workload.WorkloadName()),
+						zap.String("workload_id", d.workload.GetId()),
+						zap.Error(err))
+				}
+
+				// Take note of all the sessions that did not finish processing their events during the 5-min window.
+				for _, sessionId := range remainingSessions {
+					misbehavingSession := d.GetSession(sessionId)
+					if misbehavingSession == nil {
+						d.logger.Error("Failed to load (misbehaving) session from (regular) session map.",
+							zap.String("session_id", sessionId),
+							zap.String("workload_name", d.workload.WorkloadName()),
+							zap.String("workload_id", d.workload.GetId()))
+						continue
+					}
+
+					// Record that the session failed to process all of its events in this tick.
+					numFailedTicks := misbehavingSession.TickFailed()
+
+					// Check if this session has a history of poor behavior. For now, we just log a message if so.
+					if _, loaded := d.misbehavingSessions[sessionId]; loaded {
+						d.logger.Warn("Identified session with a history of bad behavior.",
+							zap.String("session_id", sessionId),
+							zap.Int("num_failed_ticks", numFailedTicks),
+							zap.String("workload_name", d.workload.WorkloadName()),
+							zap.String("workload_id", d.workload.GetId()))
+					}
+
+					// Take note of this session's behavior.
+					d.misbehavingSessions[sessionId] = misbehavingSession
+				}
+
+				// Give up.
+				aborted = true
+			}
+		}
 	}
 
 	// Wait for all the goroutines to complete before returning.
-	waitGroup.Wait()
+	// waitGroup.Wait()
 	d.workload.UpdateTimeElapsed()
 }
 
 // Process the given events for the specified session during the specified tick.
 // This is intended to be called within its own goroutine so that events for multiple sessions within the same tick can be processed concurrently by the driver.
-func (d *BasicWorkloadDriver) processEventsForSession(sessionId string, events []*domain.Event, numSessionsWithEventsToProcess int, waitGroup *sync.WaitGroup, tick time.Time) {
+func (d *BasicWorkloadDriver) processEventsForSession(sessionId string, events []*domain.Event, numSessionsWithEventsToProcess int, doneChan chan<- string, tick time.Time) { // waitGroup *sync.WaitGroup
 	for idx, event := range events {
 		d.logger.Debug("Handling workload event.",
 			zap.Int("event_index", idx+1),
@@ -1780,7 +2011,7 @@ func (d *BasicWorkloadDriver) processEventsForSession(sessionId string, events [
 		zap.String("workload_name", d.workload.WorkloadName()),
 		zap.String("workload_id", d.workload.GetId()))
 
-	waitGroup.Done()
+	doneChan <- sessionId
 }
 
 // Given a session ID, such as from the trace data, return the ID used internally.
@@ -1860,7 +2091,7 @@ func (d *BasicWorkloadDriver) GetSession(id string) Session {
 
 // handleSessionReadyEvent handles a single EventSessionReady *domain.Event.
 // This function is thread-safe and may be called within its own goroutine.
-func (d *BasicWorkloadDriver) handleSessionReadyEvent(sessionReadyEvent *domain.Event, eventIndex int, wg *sync.WaitGroup) {
+func (d *BasicWorkloadDriver) handleSessionReadyEvent(sessionReadyEvent *domain.Event, eventIndex int, doneChan chan<- string) {
 	sessionMeta := sessionReadyEvent.Data.(domain.SessionMetadata)
 
 	sessionId := sessionMeta.GetPod()
@@ -1927,9 +2158,7 @@ func (d *BasicWorkloadDriver) handleSessionReadyEvent(sessionReadyEvent *domain.
 			zap.Duration("real-time-elapsed", time.Since(provisionStart)))
 	}
 
-	if wg != nil {
-		wg.Done()
-	}
+	doneChan <- sessionId
 }
 
 func (d *BasicWorkloadDriver) delaySession(sessionId string, delayAmount time.Duration) {

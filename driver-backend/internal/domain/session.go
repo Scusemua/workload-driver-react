@@ -99,6 +99,7 @@ type BasicWorkloadSession struct {
 	TotalDelayIncurred     time.Duration    `json:"total_delay"`
 	TotalDelayMilliseconds int64            `json:"total_delay_milliseconds"`
 	Discarded              bool             `json:"discarded"`
+	FailedTicks            int              `json:"failed_ticks"`
 }
 
 func NewWorkloadSession(id string, meta SessionMetadata, resourceRequest *ResourceRequest, createdAtTime time.Time, atom *zap.AtomicLevel) *BasicWorkloadSession {
@@ -202,6 +203,20 @@ func (s *BasicWorkloadSession) AddStderrIoPubMessage(message string) {
 
 func (s *BasicWorkloadSession) AddStdoutIoPubMessage(message string) {
 	s.StdoutIoPubMessages = append(s.StdoutIoPubMessages, message)
+}
+
+// NumFailedTicks returns the number of times that this Session failed to process all of its events during a tick
+// of a workload.
+func (s *BasicWorkloadSession) NumFailedTicks() int {
+	return s.FailedTicks
+}
+
+// TickFailed records that the target Session failed to process all of its events during a tick
+// of a workload. It returns the updated value (i.e., the same value that a subsequent call to NumFailedTicks
+// would return for the target Session).
+func (s *BasicWorkloadSession) TickFailed() int {
+	s.FailedTicks += 1
+	return s.FailedTicks
 }
 
 func (s *BasicWorkloadSession) GetId() string {

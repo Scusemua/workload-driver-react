@@ -10,6 +10,26 @@ var (
 	headerRegister sync.Map
 )
 
+// indexOf returns the index of the specified string in the specified string slice.
+//
+// If the specified string is not present within the string slice, then this will return -1.
+func indexOf(arr []string, target string) int {
+	for index, value := range arr {
+		if value == target {
+			return index
+		}
+	}
+
+	return -1
+}
+
+// removeIndex removes the value at the specified index from the specified slice.
+func removeIndex(s []string, index int) []string {
+	ret := make([]string, 0)
+	ret = append(ret, s[:index]...)
+	return append(ret, s[index+1:]...)
+}
+
 // Extract the values from a map with arbitrary key and value types.
 func getMapValues[K comparable, V any](m map[K]V) []V {
 	values := make([]V, len(m))
