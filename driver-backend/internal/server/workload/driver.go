@@ -1,6 +1,7 @@
 package workload
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -2166,13 +2167,39 @@ func (d *BasicWorkloadDriver) handleTrainingStartedEvent(evt *domain.Event) erro
 		zap.String("workload_name", d.workload.WorkloadName()),
 		zap.String("kernel_id", internalSessionId))
 
-	<-trainingStartedChannel
+	// In case the IO Pub message gets lost, we'll add a 2.5-minute timeout.
+	// This way the whole workload won't get stuck if a message is lost.
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*150)
+	defer cancel()
 
-	d.logger.Debug("Session started training",
-		zap.String("workload_id", d.workload.GetId()),
-		zap.String("workload_name", d.workload.WorkloadName()),
-		zap.String("kernel_id", internalSessionId),
-		zap.Duration("time_elapsed", time.Since(sentRequestAt)))
+	select {
+	case <-trainingStartedChannel:
+		{
+			d.logger.Debug("Session started training",
+				zap.String("workload_id", d.workload.GetId()),
+				zap.String("workload_name", d.workload.WorkloadName()),
+				zap.String("kernel_id", internalSessionId),
+				zap.Duration("time_elapsed", time.Since(sentRequestAt)))
+		}
+	case <-ctx.Done():
+		{
+			d.logger.Warn("Have not received 'training started' notification for over 2.5 minutes. Assuming message was lost.",
+				zap.String("workload_id", d.workload.GetId()),
+				zap.String("workload_name", d.workload.WorkloadName()),
+				zap.String("kernel_id", internalSessionId),
+				zap.Duration("time_elapsed", time.Since(sentRequestAt)))
+
+			d.notifyCallback(&proto.Notification{
+				Id:    uuid.NewString(),
+				Title: "Have Spent 2.5+ Minutes Waiting for 'Training Started' Notification",
+				Message: fmt.Sprintf("Submitted \"execute_request\" to kernel \"%s\" during workload \"%s\" (ID=\"%s\") "+
+					"over 2.5 minutes ago and have not yet received 'smr_lead_task' IOPub message. Time elapsed: %v.",
+					internalSessionId, d.workload.WorkloadName(), d.workload.GetId(), time.Since(sentRequestAt)),
+				Panicked:         false,
+				NotificationType: domain.WarningNotification.Int32(),
+			})
+		}
+	}
 
 	return nil
 }
