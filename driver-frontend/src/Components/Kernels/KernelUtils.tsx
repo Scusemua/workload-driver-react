@@ -17,7 +17,11 @@ export function PingKernel(kernelId: string, socketType: 'control' | 'shell') {
             'Content-Type': 'application/json',
             Authorization: 'Bearer ' + localStorage.getItem('token'),
         },
-        body: JSON.stringify({ socketType: socketType, kernelId: kernelId }),
+        body: JSON.stringify({
+            socketType: socketType,
+            kernelId: kernelId,
+            createdAtTimestamp: new Date(Date.now()).toISOString(),
+        }),
     };
 
     const toastId: string = toast.custom(

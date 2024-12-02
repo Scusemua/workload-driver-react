@@ -1398,7 +1398,7 @@ func (conn *BasicKernelConnection) sendMessage(message KernelMessage) error {
 		conn.sugaredLogger.Debugf("Writing %s message (ID=%s) of type '%s' now to kernel %s.", message.GetChannel(), message.GetHeader().MessageId, message.GetHeader().MessageType, conn.kernelId)
 		conn.wlock.Lock()
 
-		message.AddMetadata("sent_at_unix_milliseconds", time.Now().UnixMilli())
+		message.AddMetadata("sent_at_unix_micro", time.Now().UnixMicro())
 
 		err := conn.webSocket.WriteJSON(message)
 		conn.wlock.Unlock()
