@@ -82,3 +82,9 @@
   num_training_events: 3
   large: false
   key: single_session_3_trainings
+- display_name: 8 Sessions [39.53sec Avg. IAT, 22.95sec Avg. Duration]
+  filepath: configs/workload_templates/Template-8Session-39.53IAT-22.95Dur.json
+  num_sessions: 1
+  num_training_events: 3
+  large: false
+  key: template_8session_39.53iat_22.95duration

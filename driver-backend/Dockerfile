@@ -20,6 +20,7 @@ COPY configs/workload_templates/fcfs_test.json $DASHBOARD_CONFIG_DIR/workload_te
 COPY configs/workload_templates/four-sessions-varied-training.json $DASHBOARD_CONFIG_DIR/workload_templates/four-sessions-varied-training.json
 COPY configs/workload_templates/3-session-8-training-all-simultaneous.json $DASHBOARD_CONFIG_DIR/workload_templates/3-session-8-training-all-simultaneous.json
 COPY configs/workload_templates/5-session-8-training-all-simultaneous.json $DASHBOARD_CONFIG_DIR/workload_templates/5-session-8-training-all-simultaneous.json
+COPY configs/workload_templates/Template-8Session-39.53IAT-22.95Dur.json $DASHBOARD_CONFIG_DIR/workload_templates/Template-8Session-39.53IAT-22.95Dur.json
 
 COPY configs/workload-templates-file-docker.yaml $DASHBOARD_CONFIG_DIR/workload-templates-file.yaml
 
