@@ -27,7 +27,7 @@
                     "duration_in_ticks": 2,
                     "millicpus": 100,
                     "mem_usage_mb": 0.25,
-                    "vram_usage_gb": 0.125,
+                    "vram": 0.125,
                     "num_gpus": 1,
                     "gpu_utilizations": [
                         {
@@ -41,7 +41,7 @@
                         "duration_in_ticks": 2,
                         "millicpus": 100,
                         "mem_usage_mb": 0.25,
-                        "vram_usage_gb": 0.125,
+                        "vram": 0.125,
                         "num_gpus": 1,
                         "gpu_utilizations": [
                             {
@@ -54,7 +54,7 @@
                     "num_gpus": 1,
                     "millicpus": 100,
                     "mem_usage_mb": 0.25,
-                    "vram_usage_gb": 0.125,
+                    "vram": 0.125,
                     "gpu_utilizations": [
                         {
                             "utilization": 50
@@ -67,7 +67,7 @@
                         "duration_in_ticks": 2,
                         "millicpus": 100,
                         "mem_usage_mb": 0.25,
-                        "vram_usage_gb": 0.125,
+                        "vram": 0.125,
                         "num_gpus": 1,
                         "gpu_utilizations": [
                             {
@@ -80,7 +80,7 @@
                     "num_gpus": 1,
                     "millicpus": 100,
                     "mem_usage_mb": 0.25,
-                    "vram_usage_gb": 0.125,
+                    "vram": 0.125,
                     "gpu_utilizations": [
                         {
                             "utilization": 50

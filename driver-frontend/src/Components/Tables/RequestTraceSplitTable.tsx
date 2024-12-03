@@ -1,5 +1,3 @@
-import { AdjustedSplitNames, GetSplitsFromRequestTrace, RequestTrace, RequestTraceSplit } from '@src/Data';
-import { RoundToTwoDecimalPlaces } from '@Utils/utils';
 import {
     Card,
     CardBody,
@@ -14,6 +12,8 @@ import {
 } from '@patternfly/react-core';
 import { ClockIcon } from '@patternfly/react-icons';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
+import { AdjustedSplitNames, GetSplitsFromRequestTrace, RequestTrace, RequestTraceSplit } from '@src/Data';
+import { RoundToTwoDecimalPlaces } from '@Utils/utils';
 import React from 'react';
 
 export interface RequestTraceSplitTableProps {
@@ -46,6 +46,9 @@ export const RequestTraceSplitTable: React.FunctionComponent<RequestTraceSplitTa
 
     React.useEffect(() => {
         const _splits: RequestTraceSplit[][] = [];
+
+        console.log(`props.traces: ${JSON.stringify(props.traces, null, 2)}`);
+
         props.traces.forEach((trace: RequestTrace) => {
             const requestTraceSplits: RequestTraceSplit[] = GetSplitsFromRequestTrace(
                 props.receivedReplyAt,

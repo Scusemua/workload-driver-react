@@ -411,7 +411,7 @@ interface TrainingEvent {
     training_index: number;
     millicpus: number;
     mem_usage_mb: number;
-    vram_usage_gb: number;
+    vram: number;
     gpu_utilizations: GpuUtilization[];
     start_tick: number;
     duration_in_ticks: number;

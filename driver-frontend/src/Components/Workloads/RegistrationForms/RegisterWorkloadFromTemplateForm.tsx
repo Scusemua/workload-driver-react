@@ -234,8 +234,8 @@ export const RegisterWorkloadFromTemplateForm: React.FunctionComponent<IRegister
                         max_mem_mb = training.mem_usage_mb;
                     }
 
-                    if (training.vram_usage_gb > max_vram_gb) {
-                        max_vram_gb = training.vram_usage_gb;
+                    if (training.vram > max_vram_gb) {
+                        max_vram_gb = training.vram;
                     }
 
                     if (training.gpu_utilizations.length > max_num_gpus) {

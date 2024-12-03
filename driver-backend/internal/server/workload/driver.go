@@ -2695,7 +2695,7 @@ func (d *BasicWorkloadDriver) handleIOPubSmrLeadTaskMessage(conn jupyter.KernelC
 	content := kernelMessage.GetContent().(map[string]interface{})
 
 	var trainingStartedAt int64
-	val, ok := content["unix_milliseconds"]
+	val, ok := content["msg_created_at_unix_milliseconds"]
 	if !ok {
 		d.logger.Error("Could not recover unix millisecond timestamp from \"smr_lead_task\" IOPub message.",
 			zap.String("workload_id", d.workload.GetId()),

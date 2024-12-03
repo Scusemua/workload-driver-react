@@ -40,7 +40,7 @@ const DefaultTrainingEventField = {
     duration_in_ticks: TrainingDurationInTicksDefault,
     millicpus: TrainingCpuUsageDefault,
     mem_usage_mb: TrainingMemUsageGbDefault,
-    vram_usage_gb: TrainingVRamUsageGbDefault,
+    vram: TrainingVRamUsageGbDefault,
     num_gpus: NumberOfGpusDefault,
     gpu_utilizations: [
         {

@@ -161,7 +161,7 @@ export const SessionTrainingEventTable: React.FunctionComponent<ISessionTraining
                                 </Td>
                                 <Td dataLabel={columnNames.gpus}>{training.gpu_utilizations.length}</Td>
                                 <Td dataLabel={columnNames.vram}>
-                                    {RoundToThreeDecimalPlaces(training.vram_usage_gb)}
+                                    {RoundToThreeDecimalPlaces(training.vram)}
                                 </Td>
                             </Tr>
                         );
