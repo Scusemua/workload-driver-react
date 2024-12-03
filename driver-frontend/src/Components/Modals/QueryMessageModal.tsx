@@ -1,4 +1,3 @@
-import { RoundToThreeDecimalPlaces } from '@Utils/utils';
 import { QueryMessageResponse, RequestTrace } from '@Data/Message';
 import {
     Badge,
@@ -41,9 +40,11 @@ import { global_BackgroundColor_150 } from '@patternfly/react-tokens';
 import { AuthorizationContext } from '@Providers/AuthProvider';
 import { GetPathForFetch } from '@src/Utils/path_utils';
 import { GetToastContentWithHeaderAndBody } from '@src/Utils/toast_utils';
+import { RoundToThreeDecimalPlaces } from '@Utils/utils';
 import { MAX_SAFE_INTEGER } from 'lib0/number';
 import React from 'react';
 import toast from 'react-hot-toast';
+import { v4 as uuidv4 } from 'uuid';
 
 interface QueryMessageModalProps {
     isOpen: boolean;
@@ -239,6 +240,22 @@ export const QueryMessageModal: React.FunctionComponent<QueryMessageModalProps> 
                             replyReceivedByGateway: -1,
                             replySentByGateway: -1,
                             e2eLatencyMilliseconds: -1,
+                            cudaInitMicroseconds: -1,
+                            downloadDependencyMicroseconds: -1,
+                            downloadModelAndTrainingDataMicroseconds: -1,
+                            uploadModelAndTrainingDataMicroseconds: -1,
+                            executionTimeMicroseconds: -1,
+                            executionStartUnixMillis: -1,
+                            executionEndUnixMillis: -1,
+                            replayTimeMicroseconds: -1,
+                            copyFromCpuToGpuMicroseconds: -1,
+                            copyFromGpuToCpuMicroseconds: -1,
+                            leaderElectionTimeMicroseconds: -1,
+                            electionCreationTime: -1,
+                            electionProposalPhaseStartTime: -1,
+                            electionExecutionPhaseStartTime: -1,
+                            electionEndTime: -1,
+                            requestTraceUuid: uuidv4(),
                         };
 
                         const traceKey: string = getRequestTraceKey(requestTrace);
@@ -531,6 +548,7 @@ export const QueryMessageModal: React.FunctionComponent<QueryMessageModalProps> 
         let kernelIdFilterInput: RegExp;
         try {
             kernelIdFilterInput = new RegExp(kernelIdFilter, 'i');
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
         } catch (err) {
             kernelIdFilterInput = new RegExp(kernelIdFilter.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
         }
@@ -540,6 +558,7 @@ export const QueryMessageModal: React.FunctionComponent<QueryMessageModalProps> 
         let messageIdFilterInput: RegExp;
         try {
             messageIdFilterInput = new RegExp(messageIdFilter, 'i');
+            // eslint-disable-next-line @typescript-eslint/no-unused-vars
         } catch (err) {
             messageIdFilterInput = new RegExp(messageIdFilter.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'), 'i');
         }

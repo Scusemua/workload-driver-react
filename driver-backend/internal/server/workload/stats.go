@@ -5,6 +5,17 @@ import (
 	"time"
 )
 
+const (
+	KernelReplicaRegistered ClusterEventName = "kernel_replica_registered"
+	KernelCreationStarted   ClusterEventName = "kernel_creation_started"
+	KernelCreationComplete  ClusterEventName = "kernel_creation_complete"
+	KernelMigrationStarted  ClusterEventName = "kernel_migration_started"
+	KernelMigrationComplete ClusterEventName = "kernel_migration_complete"
+	KernelTrainingStarted   ClusterEventName = "kernel_training_started"
+	KernelTrainingEnded     ClusterEventName = "kernel_training_ended"
+	KernelStopped           ClusterEventName = "kernel_stopped"
+)
+
 // Statistics encapsulates runtime statistics and metrics about a workload that are maintained within the
 // dashboard backend (rather than within Prometheus).
 type Statistics struct {
@@ -73,6 +84,23 @@ func NewStatistics(sessionsSamplePercentage float64) *Statistics {
 	}
 }
 
+type ClusterEventName string
+
+func (n ClusterEventName) String() string {
+	return string(n)
+}
+
+type ClusterEvent struct {
+	Name                ClusterEventName       `json:"name" csv:"name"`
+	KernelId            string                 `json:"kernel_id" csv:"kernel_id"`
+	ReplicaId           int32                  `json:"replica_id" csv:"replica_id"`
+	Timestamp           time.Time              `json:"timestamp" csv:"timestamp"`
+	Duration            time.Duration          `json:"duration" csv:"duration"`
+	DurationMillis      int64                  `json:"duration_millis" csv:"duration_millis"`
+	TimestampUnixMillis int64                  `json:"timestamp_unix_millis" csv:"timestamp_unix_millis"`
+	Metadata            map[string]interface{} `json:"metadata" csv:"-"`
+}
+
 type ClusterStatistics struct {
 	///////////
 	// Hosts //
@@ -81,6 +109,8 @@ type ClusterStatistics struct {
 	Hosts            int `json:"hosts" csv:"hosts"`
 	NumDisabledHosts int `json:"num_disabled_hosts" csv:"num_disabled_hosts"`
 	NumEmptyHosts    int `csv:"NumEmptyHosts" json:"NumEmptyHosts"` // The number of Hosts with 0 sessions/containers scheduled on them.
+
+	ClusterEvents []*ClusterEvent `json:"cluster_events" csv:"-"`
 
 	// The amount of time hosts have spent not idling throughout the entire simulation
 	CumulativeHostActiveTime float64 `csv:"CumulativeHostActiveTimeSec" json:"CumulativeHostActiveTimeSec"`
@@ -95,6 +125,92 @@ type ClusterStatistics struct {
 	CumulativeNumHostsProvisioned int `csv:"CumulativeNumHostsProvisioned" json:"CumulativeNumHostsProvisioned"`
 	// The total amount of time spent provisioning hosts.
 	CumulativeTimeProvisioningHosts float64 `csv:"CumulativeTimeProvisioningHostsSec" json:"CumulativeTimeProvisioningHostsSec"`
+
+	///////////////
+	// Messaging //
+	///////////////
+
+	NumJupyterMessagesReceivedByClusterGateway int64 `json:"num_jupyter_messages_received_by_cluster_gateway" csv:"num_jupyter_messages_received_by_cluster_gateway"`
+	NumJupyterRepliesSentByClusterGateway      int64 `json:"num_jupyter_replies_sent_by_cluster_gateway" csv:"num_jupyter_replies_sent_by_cluster_gateway"`
+
+	// CumulativeRequestProcessingTimeClusterGateway is calculated using the RequestTrace proto message.
+	CumulativeRequestProcessingTimeClusterGateway int64 `json:"cumulative_request_processing_time_cluster_gateway" csv:"cumulative_request_processing_time_cluster_gateway"`
+	// CumulativeRequestProcessingTimeLocalDaemon is calculated using the RequestTrace proto message.
+	CumulativeRequestProcessingTimeLocalDaemon int64 `json:"cumulative_request_processing_time_local_daemon" csv:"cumulative_request_processing_time_local_daemon"`
+
+	// CumulativeRequestProcessingTimeKernel is calculated using the RequestTrace proto message.
+	CumulativeRequestProcessingTimeKernel int64
+
+	// CumulativeRequestProcessingTimeClusterGateway is calculated using the RequestTrace proto message.
+	CumulativeResponseProcessingTimeClusterGateway int64 `json:"cumulative_response_processing_time_cluster_gateway" csv:"cumulative_response_processing_time_cluster_gateway"`
+	// CumulativeRequestProcessingTimeLocalDaemon is calculated using the RequestTrace proto message.
+	CumulativeResponseProcessingTimeLocalDaemon int64 `json:"cumulative_response_processing_time_local_daemon" csv:"cumulative_response_processing_time_local_daemon"`
+	// CumulativeRequestProcessingTimeKernel is calculated using the RequestTrace proto message.
+
+	////////////////////////////////////////
+	// Execution/Kernel-Related Overheads //
+	////////////////////////////////////////
+
+	// CumulativeCudaInitMicroseconds is the cumulative, aggregate time spent initializing CUDA runtimes by all kernels.
+	CumulativeCudaInitMicroseconds float64 `json:"cumulative_cuda_init_microseconds" csv:"cumulative_cuda_init_microseconds"`
+	// NumCudaRuntimesInitialized is the number of times a CUDA runtime was initialized.
+	NumCudaRuntimesInitialized float64 `json:"num_cuda_runtimes_initialized" csv:"num_cuda_runtimes_initialized"`
+
+	// CumulativeTimeDownloadingDependenciesMicroseconds is the cumulative, aggregate time spent downloading
+	// runtime/library/module dependencies by all kernels.
+	CumulativeTimeDownloadingDependenciesMicroseconds float64 `json:"cumulative_time_downloading_dependencies_microseconds" csv:"cumulative_time_downloading_dependencies_microseconds"`
+	// NumTimesDownloadedDependencies is the total number of times that a kernel downloaded dependencies.
+	NumTimesDownloadedDependencies float64 `json:"num_times_downloaded_dependencies" csv:"num_times_downloaded_dependencies"`
+
+	// CumulativeTimeDownloadingDependenciesMicroseconds is the cumulative, aggregate time spent downloading the model
+	// and training data by all kernels.
+	CumulativeTimeDownloadModelAndTrainingDataMicroseconds float64 `json:"cumulative_time_download_model_and_training_data_microseconds" csv:"cumulative_time_download_model_and_training_data_microseconds"`
+	// NumTimesDownloadedDependencies is the total number of times that a kernel downloaded the model and training data.
+	NumTimesDownloadModelAndTrainingDataMicroseconds float64 `json:"num_times_download_model_and_training_data_microseconds" csv:"num_times_download_model_and_training_data_microseconds"`
+
+	// CumulativeTimeDownloadingDependenciesMicroseconds is the cumulative, aggregate time spent uploading the model
+	// and training data by all kernels.
+	CumulativeTimeUploadModelAndTrainingDataMicroseconds float64 `json:"cumulative_time_upload_model_and_training_data_microseconds" csv:"cumulative_time_upload_model_and_training_data_microseconds"`
+	// NumTimesDownloadedDependencies is the total number of times that a kernel uploaded the model and training data.
+	NumTimesUploadModelAndTrainingDataMicroseconds float64 `json:"num_times_upload_model_and_training_data_microseconds" csv:"num_times_upload_model_and_training_data_microseconds"`
+
+	// CumulativeTimeCopyDataHostToDeviceMicroseconds is the cumulative, aggregate time spent copying data from main
+	// memory (i.e., host memory) to the GPU (i.e., device memory) by all kernels.
+	CumulativeTimeCopyDataHostToDeviceMicroseconds float64 `json:"cumulative_time_copy_data_host_to_device_microseconds" csv:"cumulative_time_copy_data_host_to_device_microseconds"`
+	// NumTimesCopyDataHostToDeviceMicroseconds is the total number of times that a kernel copied data from main
+	// memory (i.e., host memory) to the GPU (i.e., device memory).
+	NumTimesCopyDataHostToDeviceMicroseconds float64 `json:"num_times_copy_data_host_to_device_microseconds" csv:"num_times_copy_data_host_to_device_microseconds"`
+
+	// CumulativeTimeCopyDataHostToDeviceMicroseconds is the cumulative, aggregate time spent copying data from the GPU
+	// (i.e., device memory) to main memory (i.e., host memory).
+	CumulativeTimeCopyDataDeviceToHostMicroseconds float64 `json:"cumulative_time_copy_data_device_to_host_microseconds" csv:"cumulative_time_copy_data_device_to_host_microseconds"`
+	// NumTimesCopyDataHostToDeviceMicroseconds is the total number of times that a kernel copied data from the GPU
+	// (i.e., device memory) to main memory (i.e., device memory).
+	NumTimesCopyDataDeviceToHostMicroseconds float64 `json:"num_times_copy_data_device_to_host_microseconds" csv:"num_times_copy_data_device_to_host_microseconds"`
+
+	// CumulativeExecutionTimeMicroseconds is the cumulative, aggregate time spent executing user code, excluding any
+	// related overheads, by all kernels.
+	CumulativeExecutionTimeMicroseconds float64 `json:"cumulative_execution_time_microseconds" csv:"cumulative_execution_time_microseconds"`
+
+	// CumulativeLeaderElectionTimeMicroseconds is the cumulative, aggregate time spent handling leader elections.
+	CumulativeLeaderElectionTimeMicroseconds float64 `json:"cumulative_leader_election_time_microseconds" csv:"cumulative_leader_election_time_microseconds"`
+
+	// CumulativeKernelPreprocessRequestMillis is the time between when a kernel receives a request and when it begins handling the leader election.
+	CumulativeKernelPreprocessRequestMillis float64 `json:"cumulative_kernel_preprocess_request_millis" csv:"cumulative_kernel_preprocess_request_millis"`
+	// CumulativeKernelCreateElectionMillis is the time the kernels spent creating an election.
+	CumulativeKernelCreateElectionMillis float64 `json:"cumulative_kernel_create_election_millis" csv:"cumulative_kernel_create_election_millis"`
+	// CumulativeKernelProposalVotePhaseMillis is the cumulative duration of the proposal + voting phase of elections.
+	CumulativeKernelProposalVotePhaseMillis float64 `json:"cumulative_kernel_proposal_vote_phase_millis" csv:"cumulative_kernel_proposal_vote_phase_millis"`
+	// CumulativeKernelPostprocessMillis is the cumulative time after the kernels finish executing code before they send their response to their Local Scheduler.
+	CumulativeKernelPostprocessMillis float64 `json:"cumulative_kernel_postprocess_millis" csv:"cumulative_kernel_postprocess_millis"`
+
+	// CumulativeReplayTimeMicroseconds is the cumulative, aggregate time spent replaying cells, excluding any
+	// related overheads, by all kernels.
+	CumulativeReplayTimeMicroseconds float64 `json:"cumulative_replay_time_microseconds" csv:"cumulative_replay_time_microseconds"`
+	// TotalNumReplays is the total number of times that one or more cells had to be replayed by a kernel.
+	TotalNumReplays int64 `json:"total_num_replays" csv:"total_num_replays"`
+	// TotalNumCellsReplayed is the total number of cells that were replayed by all kernels.
+	TotalNumCellsReplayed int64 `json:"total_num_cells_replayed" csv:"total_num_cells_replayed"`
 
 	///////////////
 	// Resources //
@@ -162,12 +278,15 @@ type ClusterStatistics struct {
 	// Does not include evicted, init, or stopped sessions.
 	NumRunningSessions int `csv:"NumRunningSessions" json:"NumRunningSessions"`
 
+	NumSuccessfulMigrations int `json:"num_successful_migrations" csv:"num_successful_migrations"`
+	NumFailedMigrations     int `json:"num_failed_migrations" csv:"num_failed_migrations"`
+
 	// The amount of time that Sessions have spent idling throughout the entire simulation.
 	CumulativeSessionIdleTime float64 `csv:"CumulativeSessionIdleTimeSec" json:"CumulativeSessionIdleTimeSec"`
 	// The amount of time that Sessions have spent training throughout the entire simulation. This does NOT include replaying events.
 	CumulativeSessionTrainingTime float64 `csv:"CumulativeSessionTrainingTimeSec" json:"CumulativeSessionTrainingTimeSec"`
 	// The aggregate lifetime of all sessions created during the simulation (before being suspended).
-	AggregateSessionLifetime     float64   `csv:"AggregateSessionLifetimeSec" json:"AggregateSessionLifetimeSec"`
+	AggregateSessionLifetimeSec  float64   `csv:"AggregateSessionLifetimeSec" json:"AggregateSessionLifetimeSec"`
 	AggregateSessionLifetimesSec []float64 `csv:"-" json:"AggregateSessionLifetimesSec"`
 	// Delay between when client submits "execute_request" and when kernel begins executing.
 	JupyterTrainingStartLatencyMillis   float64   `json:"jupyter_training_start_latency_millis" csv:"jupyter_training_start_latency_millis"`
