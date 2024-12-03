@@ -465,28 +465,31 @@ message RequestTrace {
 
   // CudaInitMicroseconds is the amount of time spent initializing the CUDA runtime, if applicable.
   // The units are microseconds.
-  int64 cudaInitMicroseconds = 16;
+  float cudaInitMicroseconds = 16;
   // DownloadDependencyMicroseconds is the amount of time spent downloading library dependencies, if applicable.
   // The units are microseconds.
-  int64 downloadDependencyMicroseconds = 17;
+  float downloadDependencyMicroseconds = 17;
   // DownloadModelAndTrainingDataMicroseconds is the amount of time spent downloading the model and training data,
   // if applicable. The units are microseconds.
-  int64 downloadModelAndTrainingDataMicroseconds = 18;
+  float downloadModelAndTrainingDataMicroseconds = 18;
   // UploadModelAndTrainingDataMicroseconds is the amount of time spent uploading the model and training data,
   // if applicable. The units are microseconds.
-  int64 uploadModelAndTrainingDataMicroseconds = 19;
+  float uploadModelAndTrainingDataMicroseconds = 19;
   // ExecutionTimeMicroseconds is the amount of time spent executing user-submitted code, excluding any other
   // overheads, if applicable. The units are microseconds.
-  int64 executionTimeMicroseconds = 20;
+  float executionTimeMicroseconds = 20;
   // ReplayTimeMicroseconds is the amount of time spent replaying previous cells, excluding any other overheads,
   // if applicable. The units are microseconds.
-  int64 replayTimeMicroseconds = 21;
+  float replayTimeMicroseconds = 21;
   // CopyFromCpuToGpuMicroseconds is the amount of time, in microseconds, that was spent copying data from the CPU
   // to the GPU by the kernel before executing the user-submitted code.
-  int64 copyFromCpuToGpuMicroseconds = 22;
+  float copyFromCpuToGpuMicroseconds = 22;
   // CopyFromCpuToGpuMicroseconds is the amount of time, in microseconds, that was spent copying data from the GPU
   // to the CPU by the kernel after executing the user-submitted code.
-  int64 copyFromGpuToCpuMicroseconds = 23;
+  float copyFromGpuToCpuMicroseconds = 23;
+  // LeaderElectionTimeMicroseconds is the amount of time, in microseconds, that the kernel spent handling the
+  // leader election prior to executing the user-submitted code, if applicable.
+  float leaderElectionTimeMicroseconds = 24;
 }
 
 message PingInstruction {

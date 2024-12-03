@@ -40,12 +40,12 @@
   num_training_events: 6371
   large: true
   key: adobe_sensei_july_v2_60sec_2021
-#- display_name: Adobe Sensei - July 2021
-#  filepath: configs/workload_templates/trace_july_2021.json
-#  num_sessions: 1105
-#  num_training_events: 193127
-#  large: true
-#  key: adobe_sensei_july_2021
+- display_name: Adobe Sensei - June 1st - 3rd, 2021 # v2
+  filepath: configs/workload_templates/trace_june1st_thru_3rd.json
+  num_sessions: 130
+  num_training_events: 237
+  large: true
+  key: adobe_sensei_june_1st_thru_3rd
 - display_name: Adobe Sensei - August 2021
   filepath: configs/workload_templates/trace_august_2021.json
   num_sessions: 1606
