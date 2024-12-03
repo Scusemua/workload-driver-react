@@ -1,7 +1,6 @@
 import {
     Card,
     CardBody,
-    Checkbox,
     Flex,
     FlexItem,
     ToggleGroup,
@@ -12,7 +11,7 @@ import {
 } from '@patternfly/react-core';
 import { ClockIcon } from '@patternfly/react-icons';
 import { Table, Tbody, Td, Th, Thead, Tr } from '@patternfly/react-table';
-import { AdjustedSplitNames, GetSplitsFromRequestTrace, RequestTrace, RequestTraceSplit } from '@src/Data';
+import { GetSplitsFromRequestTrace, RequestTrace, RequestTraceSplit } from '@src/Data';
 import { RoundToTwoDecimalPlaces } from '@Utils/utils';
 import React from 'react';
 
@@ -27,8 +26,6 @@ export interface RequestTraceSplitTableProps {
 // Displays the "splits" from a RequestTrace in a table, with the latency of each part of
 // the request trace shown in its own row.
 export const RequestTraceSplitTable: React.FunctionComponent<RequestTraceSplitTableProps> = (props) => {
-    const [useAlternativeSplitNames, setUseAlternativeSplitNames] = React.useState<boolean>(true);
-
     const table_columns: string[] = [
         'Index',
         'Split Name',
@@ -95,17 +92,6 @@ export const RequestTraceSplitTable: React.FunctionComponent<RequestTraceSplitTa
             <CardBody>
                 <Toolbar id={`request-${props.messageId}-trace-split-table-toolbar`}>
                     <ToolbarContent>
-                        <ToolbarItem variant={'label'}>
-                            <Checkbox
-                                id={`request-${props.messageId}-trace-split-table-alt-name-checkbox`}
-                                label={'Use Alternative Split Names'}
-                                isChecked={useAlternativeSplitNames}
-                                onChange={() => {
-                                    setUseAlternativeSplitNames((curr) => !curr);
-                                }}
-                                name={`request-${props.messageId}-trace-split-table-alt-name-checkbox`}
-                            />
-                        </ToolbarItem>
                         {/* We only display the ToggleGroup if there are 2 or more individual traces to display. */}
                         <ToolbarItem variant={'chip-group'} hidden={props.traces.length <= 1}>
                             <ToggleGroup aria-label={'Specify which request trace to view'}>
@@ -144,6 +130,7 @@ export const RequestTraceSplitTable: React.FunctionComponent<RequestTraceSplitTa
                                 try {
                                     startDate = new Date(split.start);
                                     startDateString = startDate.toISOString();
+                                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
                                 } catch (err) {
                                     startDate = null;
                                 }
@@ -152,6 +139,7 @@ export const RequestTraceSplitTable: React.FunctionComponent<RequestTraceSplitTa
                                 try {
                                     endDate = new Date(split.end);
                                     endDateString = endDate.toISOString();
+                                    // eslint-disable-next-line @typescript-eslint/no-unused-vars
                                 } catch (err) {
                                     endDate = null;
                                 }
@@ -159,9 +147,7 @@ export const RequestTraceSplitTable: React.FunctionComponent<RequestTraceSplitTa
                                 return (
                                     <Tr key={`request-${props.messageId}-split-table-${idx}}`}>
                                         <Td dataLabel={table_columns[0]}>{idx}</Td>
-                                        <Td dataLabel={table_columns[1]}>
-                                            {useAlternativeSplitNames ? AdjustedSplitNames[idx] : split.splitName}
-                                        </Td>
+                                        <Td dataLabel={table_columns[1]}>{split.splitName}</Td>
                                         <Td dataLabel={table_columns[2]}>{startDateString}</Td>
                                         <Td dataLabel={table_columns[3]}>{endDateString}</Td>
                                         <Td dataLabel={table_columns[4]}>{split.latencyMilliseconds}</Td>

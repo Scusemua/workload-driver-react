@@ -17,49 +17,84 @@ export interface RequestTrace {
     replySentByLocalDaemon: number;
     replyReceivedByGateway: number;
     replySentByGateway: number;
+    requestTraceUuid: string;
+    cudaInitMicroseconds: number;
+    downloadDependencyMicroseconds: number;
+    downloadModelAndTrainingDataMicroseconds: number;
+    uploadModelAndTrainingDataMicroseconds: number;
+    // executionTimeMicroseconds is the amount of time spent executing user-submitted code, excluding any other
+    // overheads, if applicable. The units are microseconds.
+    executionTimeMicroseconds: number;
+    executionStartUnixMillis: number;
+    executionEndUnixMillis: number;
+    replayTimeMicroseconds: number;
+    copyFromCpuToGpuMicroseconds: number;
+    copyFromGpuToCpuMicroseconds: number;
+    // leaderElectionTimeMicroseconds is the amount of time, in microseconds, that the kernel spent handling the
+    // leader election prior to executing the user-submitted code, if applicable.
+    leaderElectionTimeMicroseconds: number;
+    // electionCreationTime is the time at which the kernel created its Election object, if applicable.
+    electionCreationTime: number;
+    // electionProposalPhaseStartTime is the time at which the kernel started its Election, if applicable.
+    electionProposalPhaseStartTime: number;
+    // electionExecutionPhaseStartTime is when the leader was selected.
+    electionExecutionPhaseStartTime: number;
+    // electionEndTime is when the execution fully completed and/or the follower was notified by the leader that it
+    // finished executing.
+    electionEndTime: number;
     e2eLatencyMilliseconds: number;
 }
 
 export type SplitName =
-    | 'ClusterRequestToGateway'
-    | 'GatewayProcessRequest'
-    | 'GatewayRequestToLocalDaemon'
-    | 'LocalDaemonProcessRequest'
-    | 'LocalDaemonRequestToKernel'
-    | 'KernelProcessRequest'
-    | 'KernelReplyToLocalDaemon'
-    | 'LocalDaemonProcessReply'
-    | 'LocalDaemonReplyToGateway'
-    | 'GatewayProcessReply'
-    | 'GatewayReplyToClient';
+    | 'Client → Global Scheduler'
+    | 'Global Scheduler Processing Request'
+    | 'Global Scheduler → Local Scheduler'
+    | 'Local Scheduler Processing Request'
+    | 'Local Scheduler → Kernel'
+    | 'Kernel Processing Request'
+    | 'Kernel Preprocessing Request'
+    | 'Kernel Creating Election'
+    | 'Kernel Election Proposal/Vote Phase'
+    | 'Kernel Executing Code'
+    | 'Kernel Postprocessing Request'
+    | 'Kernel → Local Scheduler'
+    | 'Local Scheduler Processing Reply'
+    | 'Local Scheduler → Global Scheduler'
+    | 'Global Scheduler Processing Reply'
+    | 'Global Scheduler → Client';
+// | 'ClusterRequestToGateway'
+// | 'GatewayProcessRequest'
+// | 'GatewayRequestToLocalDaemon'
+// | 'LocalDaemonProcessRequest'
+// | 'LocalDaemonRequestToKernel'
+// | 'KernelProcessRequest'
+// | 'KernelPreprocessRequest'
+// | 'KernelElectionCreation'
+// | 'KernelProposalVotePhase'
+// | 'KernelExecuteCodePhase'
+// | 'KernelReplyToLocalDaemon'
+// | 'LocalDaemonProcessReply'
+// | 'LocalDaemonReplyToGateway'
+// | 'GatewayProcessReply'
+// | 'GatewayReplyToClient';
 
-export const SplitNames: SplitName[] = [
-    'ClusterRequestToGateway',
-    'GatewayProcessRequest',
-    'GatewayRequestToLocalDaemon',
-    'LocalDaemonProcessRequest',
-    'LocalDaemonRequestToKernel',
-    'KernelProcessRequest',
-    'KernelReplyToLocalDaemon',
-    'LocalDaemonProcessReply',
-    'LocalDaemonReplyToGateway',
-    'GatewayProcessReply',
-    'GatewayReplyToClient',
-];
-
-export const AdjustedSplitNames: string[] = [
-    'Client → Gateway',
-    'Gateway Processing Request',
-    'Gateway → Scheduler Daemon',
-    'Scheduler Daemon Processing Request',
-    'Scheduler Daemon → Kernel',
-    'Kernel Processing Request',
-    'Kernel → SchedulerDaemon',
-    'Scheduler Daemon Processing Reply',
-    'Scheduler Daemon → Gateway',
-    'Gateway Processing Reply',
-    'Gateway → Client',
-];
+// export const AdjustedSplitNames: string[] = [
+//     'Client → Gateway',
+//     'Gateway Processing Request',
+//     'Gateway → Scheduler Daemon',
+//     'Scheduler Daemon Processing Request',
+//     'Scheduler Daemon → Kernel',
+//     'Kernel Processing Request',
+//     'Kernel Pre-Processing Request',
+//     'Kernel Creating Election',
+//     'Kernel Election Proposal/Vote Phase',
+//     'Kernel Executing Code',
+//     'Kernel → SchedulerDaemon',
+//     'Scheduler Daemon Processing Reply',
+//     'Scheduler Daemon → Gateway',
+//     'Gateway Processing Reply',
+//     'Gateway → Client',
+// ];
 
 export interface RequestTraceSplit {
     messageId: string;
@@ -119,6 +154,8 @@ export function GetSplitsFromRequestTrace(
     trace: RequestTrace,
     initialRequestSentAt: number | undefined,
 ): RequestTraceSplit[] {
+    const requestTraceSplits: RequestTraceSplit[] = [];
+
     let splitClientToGateway: RequestTraceSplit;
 
     if (initialRequestSentAt !== undefined) {
@@ -126,7 +163,7 @@ export function GetSplitsFromRequestTrace(
             messageId: trace.messageId,
             messageType: trace.messageType,
             kernelId: trace.kernelId,
-            splitName: 'GatewayProcessRequest',
+            splitName: 'Client → Global Scheduler',
             start: initialRequestSentAt,
             end: trace.requestReceivedByGateway,
             latencyMilliseconds: trace.requestReceivedByGateway - initialRequestSentAt,
@@ -136,126 +173,195 @@ export function GetSplitsFromRequestTrace(
             messageId: trace.messageId,
             messageType: trace.messageType,
             kernelId: trace.kernelId,
-            splitName: 'GatewayProcessRequest',
+            splitName: 'Client → Global Scheduler',
             start: trace.requestReceivedByGateway,
             end: trace.requestReceivedByGateway,
             latencyMilliseconds: trace.requestReceivedByGateway - trace.requestReceivedByGateway,
         };
     }
+    requestTraceSplits.push(splitClientToGateway);
 
     const splitGatewayProcessRequest: RequestTraceSplit = {
         messageId: trace.messageId,
         messageType: trace.messageType,
         kernelId: trace.kernelId,
-        splitName: 'GatewayProcessRequest',
+        splitName: 'Global Scheduler Processing Request',
         start: trace.requestReceivedByGateway,
         end: trace.requestSentByGateway,
         latencyMilliseconds: trace.requestSentByGateway - trace.requestReceivedByGateway,
     };
+    requestTraceSplits.push(splitGatewayProcessRequest);
 
     const splitGatewayRequestToLocalDaemon: RequestTraceSplit = {
         messageId: trace.messageId,
         messageType: trace.messageType,
         kernelId: trace.kernelId,
-        splitName: 'GatewayRequestToLocalDaemon',
+        splitName: 'Global Scheduler → Local Scheduler',
         start: trace.requestSentByGateway,
         end: trace.requestReceivedByLocalDaemon,
         latencyMilliseconds: trace.requestReceivedByLocalDaemon - trace.requestSentByGateway,
     };
+    requestTraceSplits.push(splitGatewayRequestToLocalDaemon);
 
     const splitLocalDaemonProcessRequest: RequestTraceSplit = {
         messageId: trace.messageId,
         messageType: trace.messageType,
         kernelId: trace.kernelId,
-        splitName: 'LocalDaemonProcessRequest',
+        splitName: 'Local Scheduler Processing Request',
         start: trace.requestReceivedByLocalDaemon,
         end: trace.requestSentByLocalDaemon,
         latencyMilliseconds: trace.requestSentByLocalDaemon - trace.requestReceivedByLocalDaemon,
     };
+    requestTraceSplits.push(splitLocalDaemonProcessRequest);
 
     const splitLocalDaemonRequestToKernel: RequestTraceSplit = {
         messageId: trace.messageId,
         messageType: trace.messageType,
         kernelId: trace.kernelId,
-        splitName: 'LocalDaemonRequestToKernel',
+        splitName: 'Local Scheduler → Kernel',
         start: trace.requestSentByLocalDaemon,
         end: trace.requestReceivedByKernelReplica,
         latencyMilliseconds: trace.requestReceivedByKernelReplica - trace.requestSentByLocalDaemon,
     };
+    requestTraceSplits.push(splitLocalDaemonRequestToKernel);
 
-    const splitKernelProcessRequest: RequestTraceSplit = {
-        messageId: trace.messageId,
-        messageType: trace.messageType,
-        kernelId: trace.kernelId,
-        splitName: 'KernelProcessRequest',
-        start: trace.requestReceivedByKernelReplica,
-        end: trace.replySentByKernelReplica,
-        latencyMilliseconds: trace.replySentByKernelReplica - trace.requestReceivedByKernelReplica,
-    };
+    if (trace.messageType === 'execute_request' || trace.messageType === 'yield_request') {
+        const splitKernelPreprocessRequest: RequestTraceSplit = {
+            messageId: trace.messageId,
+            messageType: trace.messageType,
+            kernelId: trace.kernelId,
+            splitName: 'Kernel Preprocessing Request',
+            start: trace.requestReceivedByKernelReplica,
+            end: trace.electionCreationTime,
+            latencyMilliseconds: trace.electionCreationTime - trace.requestReceivedByKernelReplica,
+        };
+        requestTraceSplits.push(splitKernelPreprocessRequest);
+
+        const splitKernelCreateElection: RequestTraceSplit = {
+            messageId: trace.messageId,
+            messageType: trace.messageType,
+            kernelId: trace.kernelId,
+            splitName: 'Kernel Creating Election',
+            start: trace.electionCreationTime,
+            end: trace.electionProposalPhaseStartTime,
+            latencyMilliseconds: trace.electionProposalPhaseStartTime - trace.electionCreationTime,
+        };
+        requestTraceSplits.push(splitKernelCreateElection);
+
+        const splitKernelProposalVotingPhase: RequestTraceSplit = {
+            messageId: trace.messageId,
+            messageType: trace.messageType,
+            kernelId: trace.kernelId,
+            splitName: 'Kernel Election Proposal/Vote Phase',
+            start: trace.electionProposalPhaseStartTime,
+            end: trace.electionExecutionPhaseStartTime,
+            latencyMilliseconds: trace.electionExecutionPhaseStartTime - trace.electionProposalPhaseStartTime,
+        };
+        requestTraceSplits.push(splitKernelProposalVotingPhase);
+
+        const splitKernelExecuteCodePhase: RequestTraceSplit = {
+            messageId: trace.messageId,
+            messageType: trace.messageType,
+            kernelId: trace.kernelId,
+            splitName: 'Kernel Executing Code',
+            start: trace.executionStartUnixMillis,
+            end: trace.executionEndUnixMillis,
+            latencyMilliseconds: trace.executionEndUnixMillis - trace.executionStartUnixMillis,
+        };
+        requestTraceSplits.push(splitKernelExecuteCodePhase);
+
+        const splitKernelPostprocessRequest: RequestTraceSplit = {
+            messageId: trace.messageId,
+            messageType: trace.messageType,
+            kernelId: trace.kernelId,
+            splitName: 'Kernel Postprocessing Request',
+            start: trace.executionEndUnixMillis,
+            end: trace.replySentByKernelReplica,
+            latencyMilliseconds: trace.replySentByKernelReplica - trace.executionEndUnixMillis,
+        };
+        requestTraceSplits.push(splitKernelPostprocessRequest);
+    } else {
+        const splitKernelProcessRequest: RequestTraceSplit = {
+            messageId: trace.messageId,
+            messageType: trace.messageType,
+            kernelId: trace.kernelId,
+            splitName: 'Kernel Processing Request',
+            start: trace.requestReceivedByKernelReplica,
+            end: trace.replySentByKernelReplica,
+            latencyMilliseconds: trace.replySentByKernelReplica - trace.requestReceivedByKernelReplica,
+        };
+        requestTraceSplits.push(splitKernelProcessRequest);
+    }
 
     const splitKernelReplyToLocalDaemon: RequestTraceSplit = {
         messageId: trace.messageId,
         messageType: trace.messageType,
         kernelId: trace.kernelId,
-        splitName: 'KernelReplyToLocalDaemon',
+        splitName: 'Kernel → Local Scheduler',
         start: trace.replySentByKernelReplica,
         end: trace.replyReceivedByLocalDaemon,
         latencyMilliseconds: trace.replyReceivedByLocalDaemon - trace.replySentByKernelReplica,
     };
+    requestTraceSplits.push(splitKernelReplyToLocalDaemon);
 
     const splitLocalDaemonProcessReply: RequestTraceSplit = {
         messageId: trace.messageId,
         messageType: trace.messageType,
         kernelId: trace.kernelId,
-        splitName: 'LocalDaemonProcessReply',
+        splitName: 'Local Scheduler Processing Reply',
         start: trace.replyReceivedByLocalDaemon,
         end: trace.replySentByLocalDaemon,
         latencyMilliseconds: trace.replySentByLocalDaemon - trace.replyReceivedByLocalDaemon,
     };
+    requestTraceSplits.push(splitLocalDaemonProcessReply);
 
     const splitLocalDaemonReplyToGateway: RequestTraceSplit = {
         messageId: trace.messageId,
         messageType: trace.messageType,
         kernelId: trace.kernelId,
-        splitName: 'LocalDaemonReplyToGateway',
+        splitName: 'Local Scheduler → Global Scheduler',
         start: trace.replySentByLocalDaemon,
         end: trace.replyReceivedByGateway,
         latencyMilliseconds: trace.replyReceivedByGateway - trace.replySentByLocalDaemon,
     };
+    requestTraceSplits.push(splitLocalDaemonReplyToGateway);
 
     const splitGatewayProcessReply: RequestTraceSplit = {
         messageId: trace.messageId,
         messageType: trace.messageType,
         kernelId: trace.kernelId,
-        splitName: 'GatewayProcessReply',
+        splitName: 'Global Scheduler Processing Reply',
         start: trace.replyReceivedByGateway,
         end: trace.replySentByGateway,
         latencyMilliseconds: trace.replySentByGateway - trace.replyReceivedByGateway,
     };
+    requestTraceSplits.push(splitGatewayProcessReply);
 
     const splitGatewayReplyToClient: RequestTraceSplit = {
         messageId: trace.messageId,
         messageType: trace.messageType,
         kernelId: trace.kernelId,
-        splitName: 'GatewayReplyToClient',
+        splitName: 'Global Scheduler → Client',
         start: trace.replySentByGateway,
         end: replyReceived,
         latencyMilliseconds: replyReceived - trace.replySentByGateway,
     };
+    requestTraceSplits.push(splitGatewayReplyToClient);
 
-    return [
-        splitClientToGateway,
-        splitGatewayProcessRequest,
-        splitGatewayRequestToLocalDaemon,
-        splitLocalDaemonProcessRequest,
-        splitLocalDaemonRequestToKernel,
-        splitKernelProcessRequest,
-        splitKernelReplyToLocalDaemon,
-        splitLocalDaemonProcessReply,
-        splitLocalDaemonReplyToGateway,
-        splitGatewayProcessReply,
-        splitGatewayReplyToClient,
-    ];
+    return requestTraceSplits;
+    // return [
+    //     splitClientToGateway,
+    //     splitGatewayProcessRequest,
+    //     splitGatewayRequestToLocalDaemon,
+    //     splitLocalDaemonProcessRequest,
+    //     splitLocalDaemonRequestToKernel,
+    //     splitKernelProcessRequest,
+    //     splitKernelReplyToLocalDaemon,
+    //     splitLocalDaemonProcessReply,
+    //     splitLocalDaemonReplyToGateway,
+    //     splitGatewayProcessReply,
+    //     splitGatewayReplyToClient,
+    // ];
 }
 
 /**
