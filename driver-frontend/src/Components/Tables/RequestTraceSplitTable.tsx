@@ -137,14 +137,33 @@ export const RequestTraceSplitTable: React.FunctionComponent<RequestTraceSplitTa
                     <Tbody>
                         {splits.length > 0 &&
                             splits[selectedTrace].map((split: RequestTraceSplit, idx: number) => {
+                                let startDateString: string = 'N/A';
+                                let endDateString: string = 'N/A';
+
+                                let startDate: Date | null;
+                                try {
+                                    startDate = new Date(split.start);
+                                    startDateString = startDate.toISOString();
+                                } catch (err) {
+                                    startDate = null;
+                                }
+
+                                let endDate: Date | null;
+                                try {
+                                    endDate = new Date(split.end);
+                                    endDateString = endDate.toISOString();
+                                } catch (err) {
+                                    endDate = null;
+                                }
+
                                 return (
                                     <Tr key={`request-${props.messageId}-split-table-${idx}}`}>
                                         <Td dataLabel={table_columns[0]}>{idx}</Td>
                                         <Td dataLabel={table_columns[1]}>
                                             {useAlternativeSplitNames ? AdjustedSplitNames[idx] : split.splitName}
                                         </Td>
-                                        <Td dataLabel={table_columns[2]}>{new Date(split.start).toISOString()}</Td>
-                                        <Td dataLabel={table_columns[3]}>{new Date(split.end).toISOString()}</Td>
+                                        <Td dataLabel={table_columns[2]}>{startDateString}</Td>
+                                        <Td dataLabel={table_columns[3]}>{endDateString}</Td>
                                         <Td dataLabel={table_columns[4]}>{split.latencyMilliseconds}</Td>
                                         <Td dataLabel={table_columns[5]}>
                                             {RoundToTwoDecimalPlaces(getRelativePercent(selectedTrace, idx) * 100)}
