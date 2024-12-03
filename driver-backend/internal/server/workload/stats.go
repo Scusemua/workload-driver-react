@@ -297,5 +297,6 @@ func NewClusterStatistics() *ClusterStatistics {
 	return &ClusterStatistics{
 		JupyterTrainingStartLatenciesMillis: make([]float64, 0),
 		AggregateSessionLifetimesSec:        make([]float64, 0),
+		ClusterEvents:                       make([]*ClusterEvent, 0),
 	}
 }
