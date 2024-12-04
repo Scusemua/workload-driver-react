@@ -127,15 +127,13 @@ type Workload interface {
 	SessionStopped(string, *Event)
 	// TrainingStarted is Called when a training starts during/in the workload.
 	// Just updates some internal metrics.
-	TrainingStarted(string)
+	TrainingStarted(sessionId string, tickNumber int64)
 	// TrainingSubmitted when an "execute_request" message is sent.
 	TrainingSubmitted(string, *Event)
 	// TrainingStopped is Called when a training stops during/in the workload.
 	// Just updates some internal metrics.
-	TrainingStopped(string, *Event)
-	//// GetWorkloadType returns the type of workload (TRACE, PRESET, or TEMPLATE).
-	//GetWorkloadType() WorkloadType
-	// IsPresetWorkload Returns true if this workload was created using a preset.
+	TrainingStopped(sessionId string, evt *Event, tickNumber int64)
+	// IsPresetWorkload returns true if this workload was created using a preset.
 	IsPresetWorkload() bool
 	// IsTemplateWorkload Returns true if this workload was created using a template.
 	IsTemplateWorkload() bool

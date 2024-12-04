@@ -85,6 +85,7 @@ func (b *Builder) Build() *BasicWorkload {
 		atom:                      b.atom,
 		sessionsMap:               hashmap.New(32),
 		trainingStartedTimes:      hashmap.New(32),
+		trainingStartedTimesTicks: hashmap.New(32),
 		SumTickDurationsMillis:    0,
 		TickDurationsMillis:       make([]int64, 0),
 		RemoteStorageDefinition:   b.remoteStorageDefinition,

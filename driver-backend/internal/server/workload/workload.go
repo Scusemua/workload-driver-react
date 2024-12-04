@@ -125,13 +125,14 @@ type BasicWorkload struct {
 	// This is basically the child struct.
 	// So, if this is a preset workload, then this is the Preset struct.
 	// We use this so we can delegate certain method calls to the child/derived struct.
-	workloadInstance     domain.Workload
-	workloadSource       interface{}
-	mu                   sync.RWMutex
-	sessionsMap          *hashmap.HashMap // Internal mapping of session ID to session.
-	trainingStartedTimes *hashmap.HashMap // Internal mapping of session ID to the time at which it began training.
-	seedSet              bool             // Flag keeping track of whether we've already set the seed for this workload.
-	sessionsSet          bool             // Flag keeping track of whether we've already set the sessions for this workload.
+	workloadInstance          domain.Workload
+	workloadSource            interface{}
+	mu                        sync.RWMutex
+	sessionsMap               *hashmap.HashMap // Internal mapping of session ID to session.
+	trainingStartedTimes      *hashmap.HashMap // Internal mapping of session ID to the time at which it began training.
+	trainingStartedTimesTicks *hashmap.HashMap // Mapping from Session ID to the tick at which it began training.
+	seedSet                   bool             // Flag keeping track of whether we've already set the seed for this workload.
+	sessionsSet               bool             // Flag keeping track of whether we've already set the sessions for this workload.
 
 	// OnError is a callback passed to WorkloadDrivers (via the WorkloadManager).
 	// If a critical error occurs during the execution of the workload, then this handler is called.
@@ -624,7 +625,7 @@ func (w *BasicWorkload) SessionCreated(sessionId string, metadata domain.Session
 
 // SessionStopped is called when a Session is stopped for/in the Workload.
 // Just updates some internal metrics.
-func (w *BasicWorkload) SessionStopped(sessionId string, evt *domain.Event) {
+func (w *BasicWorkload) SessionStopped(sessionId string, _ *domain.Event) {
 	metrics.PrometheusMetricsWrapperInstance.WorkloadActiveNumSessions.
 		With(prometheus.Labels{"workload_id": w.Id}).
 		Sub(1)
@@ -688,11 +689,12 @@ func (w *BasicWorkload) TrainingSubmitted(sessionId string, evt *domain.Event) {
 
 // TrainingStarted is called when a training starts during/in the workload.
 // Just updates some internal metrics.
-func (w *BasicWorkload) TrainingStarted(sessionId string) {
+func (w *BasicWorkload) TrainingStarted(sessionId string, tickNumber int64) {
 	w.Statistics.NumSubmittedTrainings -= 1
 	w.Statistics.NumActiveTrainings += 1
 
 	w.trainingStartedTimes.Set(sessionId, time.Now())
+	w.trainingStartedTimesTicks.Set(sessionId, tickNumber)
 
 	metrics.PrometheusMetricsWrapperInstance.WorkloadActiveTrainingSessions.
 		With(prometheus.Labels{"workload_id": w.Id}).
@@ -701,7 +703,7 @@ func (w *BasicWorkload) TrainingStarted(sessionId string) {
 
 // TrainingStopped is called when a training stops during/in the workload.
 // Just updates some internal metrics.
-func (w *BasicWorkload) TrainingStopped(sessionId string, evt *domain.Event) {
+func (w *BasicWorkload) TrainingStopped(sessionId string, evt *domain.Event, tickNumber int64) {
 	metrics.PrometheusMetricsWrapperInstance.WorkloadTrainingEventsCompleted.
 		With(prometheus.Labels{"workload_id": w.Id}).
 		Add(1)
@@ -713,13 +715,26 @@ func (w *BasicWorkload) TrainingStopped(sessionId string, evt *domain.Event) {
 	val, loaded := w.trainingStartedTimes.Get(sessionId)
 	if !loaded {
 		w.logger.Error("Could not load 'training-started' time for Session upon training stopping.",
-			zap.String("session_id", sessionId))
+			zap.String("session_id", sessionId),
+			zap.String("workload_id", w.Id),
+			zap.String("workload_name", w.WorkloadName()))
 	} else {
 		trainingDuration := time.Since(val.(time.Time))
 
 		metrics.PrometheusMetricsWrapperInstance.WorkloadTrainingEventDurationMilliseconds.
 			With(prometheus.Labels{"workload_id": w.Id, "session_id": sessionId}).
 			Observe(float64(trainingDuration.Milliseconds()))
+	}
+
+	val, loaded = w.trainingStartedTimesTicks.Get(sessionId)
+	if !loaded {
+		w.logger.Error("Could not load 'training-started' tick number for Session upon training stopping.",
+			zap.String("session_id", sessionId),
+			zap.String("workload_id", w.Id),
+			zap.String("workload_name", w.WorkloadName()))
+	} else {
+		trainingDurationInTicks := tickNumber - val.(int64)
+		w.Statistics.CumulativeTrainingTimeTicks += trainingDurationInTicks
 	}
 
 	w.Statistics.NumTasksExecuted += 1

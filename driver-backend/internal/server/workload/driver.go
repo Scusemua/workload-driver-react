@@ -971,7 +971,7 @@ OUTER:
 				d.sugaredLogger.Debugf("\"%s\" event \"%s\" targeting session \"%s\" DOES occur before next tick [%v]. Enqueuing event now (timestamp=%v).",
 					evt.Name.String(), evt.ID, evt.SessionID(), nextTick, evt.Timestamp)
 
-				d.workload.SetNextEventTick(evt.Timestamp.Unix() / d.targetTickDurationSeconds)
+				d.workload.SetNextEventTick(d.convertTimestampToTickNumber(evt.Timestamp))
 				d.workload.SetNextExpectedEventName(evt.Name)
 				d.workload.SetNextExpectedEventSession(evt.SessionId)
 
@@ -980,7 +980,7 @@ OUTER:
 				d.sugaredLogger.Debugf("\"%s\" event \"%s\" targeting session \"%s\" does NOT occur before next tick [%v] (i.e., tick #%d). Will have to issue clock ticks until we get to event's timestamp of [%v] (i.e., tick #%d).",
 					evt.Name.String(), evt.ID, evt.SessionID(), nextTick, nextTick.Unix()/d.targetTickDurationSeconds, evt.Timestamp, evt.Timestamp.Unix()/d.targetTickDurationSeconds)
 
-				d.workload.SetNextEventTick(evt.Timestamp.Unix() / d.targetTickDurationSeconds)
+				d.workload.SetNextEventTick(d.convertTimestampToTickNumber(evt.Timestamp))
 				d.workload.SetNextExpectedEventName(evt.Name)
 				d.workload.SetNextExpectedEventSession(evt.SessionId)
 
@@ -1210,7 +1210,7 @@ func (d *BasicWorkloadDriver) issueClockTicks(timestamp time.Time) error {
 			return err
 		}
 
-		tickNumber := int(tick.Unix() / d.targetTickDurationSeconds)
+		tickNumber := int(d.convertTimestampToTickNumber(tick))
 		d.logger.Debug("Issuing tick.",
 			zap.Int("tick_number", tickNumber),
 			zap.Time("tick_timestamp", tick),
@@ -1507,6 +1507,15 @@ func (d *BasicWorkloadDriver) workloadComplete() {
 			d.sugaredLogger.Debugf(stderrMessage)
 		}
 	}
+}
+
+// convertTimestampToTickNumber converts the given tick, which is specified in the form of a time.Time,
+// and returns what "tick number" that tick is.
+//
+// Basically, you just convert the timestamp to its unix epoch timestamp (in seconds), and divide by the
+// trace step value (also in seconds).
+func (d *BasicWorkloadDriver) convertTimestampToTickNumber(tick time.Time) int64 {
+	return tick.Unix() / d.targetTickDurationSeconds
 }
 
 // Handle a tick during the execution of a workload.
@@ -1940,7 +1949,7 @@ func (d *BasicWorkloadDriver) processEventsForSession(sessionId string, events [
 			zap.String("event_name", event.Name.String()),
 			zap.String("workload_name", d.workload.WorkloadName()),
 			zap.String("workload_id", d.workload.GetId()))
-		err := d.handleEvent(event)
+		err := d.handleEvent(event, tick)
 
 		// Record it as processed even if there was an error when processing the event.
 		d.workload.ProcessedEvent(domain.NewEmptyWorkloadEvent().
@@ -2416,6 +2425,25 @@ func (d *BasicWorkloadDriver) handleTrainingStartedEvent(evt *domain.Event) erro
 				Panicked:         false,
 				NotificationType: domain.WarningNotification.Int32(),
 			})
+
+			errReleaseEventHold := d.eventQueue.ReleaseEventHoldForSession(internalSessionId)
+			if errReleaseEventHold != nil {
+				d.logger.Debug("Could not release hold on events for session after timing-out waiting for \"smr_lead_task\" message.",
+					zap.String("workload_id", d.workload.GetId()),
+					zap.String("workload_name", d.workload.WorkloadName()),
+					zap.String("kernel_id", internalSessionId),
+					zap.Duration("time_elapsed", time.Since(sentRequestAt)))
+
+				go d.notifyCallback(&proto.Notification{
+					Id:               uuid.NewString(),
+					Title:            fmt.Sprintf("Failed to Release Event Hold for Session \"%s\" After Timing-Out Waiting for \"smr_lead_task\" IOPub Message", internalSessionId),
+					Message:          errReleaseEventHold.Error(),
+					Panicked:         false,
+					NotificationType: domain.WarningNotification.Int32(),
+				})
+
+				// For now, don't return the error, as we don't want to kill the workload.
+			}
 		}
 	}
 
@@ -2423,7 +2451,7 @@ func (d *BasicWorkloadDriver) handleTrainingStartedEvent(evt *domain.Event) erro
 }
 
 // handleTrainingEndedEvent handles a 'training-stopped' event.
-func (d *BasicWorkloadDriver) handleTrainingEndedEvent(evt *domain.Event) error {
+func (d *BasicWorkloadDriver) handleTrainingEndedEvent(evt *domain.Event, tick time.Time) error {
 	traceSessionId := evt.Data.(domain.SessionMetadata).GetPod()
 	internalSessionId := d.getInternalSessionId(traceSessionId)
 	d.logger.Debug("Received TrainingEnded event.",
@@ -2467,7 +2495,7 @@ func (d *BasicWorkloadDriver) handleTrainingEndedEvent(evt *domain.Event) error 
 			zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId), zap.Error(err))
 		return err
 	} else {
-		d.workload.TrainingStopped(traceSessionId, evt)
+		d.workload.TrainingStopped(traceSessionId, evt, d.convertTimestampToTickNumber(tick))
 		d.logger.Debug("Successfully handled TrainingEnded event.",
 			zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
 			zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
@@ -2520,7 +2548,7 @@ func (d *BasicWorkloadDriver) handleSessionStoppedEvent(evt *domain.Event) error
 }
 
 // handleEvent processes a single *domain.Event.
-func (d *BasicWorkloadDriver) handleEvent(evt *domain.Event) error {
+func (d *BasicWorkloadDriver) handleEvent(evt *domain.Event, tick time.Time) error {
 	switch evt.Name {
 	case domain.EventSessionStarted:
 		panic("Received SessionStarted event.")
@@ -2529,7 +2557,7 @@ func (d *BasicWorkloadDriver) handleEvent(evt *domain.Event) error {
 	case domain.EventSessionUpdateGpuUtil:
 		return d.handleUpdateGpuUtilizationEvent(evt)
 	case domain.EventSessionTrainingEnded:
-		return d.handleTrainingEndedEvent(evt)
+		return d.handleTrainingEndedEvent(evt, tick)
 	case domain.EventSessionStopped:
 		return d.handleSessionStoppedEvent(evt)
 	default:
@@ -2667,7 +2695,7 @@ func (d *BasicWorkloadDriver) handleIOPubSmrLeadTaskMessage(conn jupyter.KernelC
 		zap.String("workload_name", d.workload.WorkloadName()),
 		zap.String("kernel_id", conn.KernelId()))
 
-	d.workload.TrainingStarted(conn.KernelId())
+	d.workload.TrainingStarted(conn.KernelId(), d.convertTimestampToTickNumber(d.currentTick.GetClockTime()))
 	err := d.eventQueue.ReleaseEventHoldForSession(conn.KernelId())
 	if err != nil {
 		d.logger.Error("Could not release hold on session events.",
@@ -2676,7 +2704,13 @@ func (d *BasicWorkloadDriver) handleIOPubSmrLeadTaskMessage(conn jupyter.KernelC
 			zap.String("kernel_id", conn.KernelId()),
 			zap.Error(err))
 
-		panic(err)
+		go d.notifyCallback(&proto.Notification{
+			Id:               uuid.NewString(),
+			Title:            fmt.Sprintf("Failed to Release Event Hold for Session \"%s\"", conn.KernelId()),
+			Message:          err.Error(),
+			NotificationType: int32(domain.WarningNotification),
+			Panicked:         false,
+		})
 	}
 
 	// Use the timestamp encoded in the IOPub message to determine when the training actually began,

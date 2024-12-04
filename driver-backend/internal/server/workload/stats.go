@@ -42,30 +42,33 @@ type Statistics struct {
 
 	NumTimesSessionDelayedResourceContention int `json:"num_times_session_delayed_resource_contention" csv:"num_times_session_delayed_resource_contention"`
 
-	AggregateSessionDelayMillis         int64                   `json:"aggregate_session_delay_ms" csv:"aggregate_session_delay_ms"`
-	CumulativeNumStaticTrainingReplicas int                     `json:"cumulative_num_static_training_replicas" csv:"cumulative_num_static_training_replicas"  csv:""`
-	CurrentTick                         int64                   `json:"current_tick" csv:"current_tick"`
-	NextEventExpectedTick               int64                   `json:"next_event_expected_tick"  csv:"next_event_expected_tick"`
-	NextExpectedEventName               domain.EventName        `json:"next_expected_event_name"  csv:"next_expected_event_name"`
-	NextExpectedEventTarget             string                  `json:"next_expected_event_target"  csv:"next_expected_event_target"`
-	NumActiveSessions                   int64                   `json:"num_active_sessions"  csv:"num_active_sessions"`
-	NumActiveTrainings                  int64                   `json:"num_active_trainings"  csv:"num_active_trainings"`
-	NumDiscardedSessions                int                     `json:"num_discarded_sessions"  csv:"num_discarded_sessions"`
-	NumEventsProcessed                  int64                   `json:"num_events_processed"  csv:"num_events_processed"`
-	NumSampledSessions                  int                     `json:"num_sampled_sessions"  csv:"num_sampled_sessions"`
-	NumSessionsCreated                  int64                   `json:"num_sessions_created"  csv:"num_sessions_created"`
-	NumSubmittedTrainings               int64                   `json:"num_submitted_trainings"  csv:"num_submitted_trainings"` // NumSubmittedTrainings is the number of trainings that have been submitted but not yet started.
-	NumTasksExecuted                    int64                   `json:"num_tasks_executed"  csv:"num_tasks_executed"`
-	SessionsSamplePercentage            float64                 `json:"sessions_sample_percentage"  csv:"sessions_sample_percentage"`
-	TickDurationsMillis                 []int64                 `json:"tick_durations_milliseconds"  csv:"-"`
-	TimeElapsed                         time.Duration           `json:"time_elapsed"  csv:"time_elapsed"` // Computed at the time that the data is requested by the user. This is the time elapsed SO far.
-	TimeElapsedStr                      string                  `json:"time_elapsed_str"  csv:"time_elapsed_str"`
-	TimeSpentPausedMillis               int64                   `json:"time_spent_paused_milliseconds"  csv:"time_spent_paused_milliseconds"`
-	TotalNumSessions                    int                     `json:"total_num_sessions" csv:"total_num_sessions"  csv:"total_num_sessions"`
-	TotalNumTicks                       int64                   `json:"total_num_ticks"  csv:"total_num_ticks"`
-	WorkloadDuration                    time.Duration           `json:"workload_duration"  csv:"workload_duration"` // The total time that the workload executed for. This is only set once the workload has completed.
-	WorkloadState                       State                   `json:"workload_state"  csv:"workload_state"`
-	EventsProcessed                     []*domain.WorkloadEvent `json:"events_processed"  csv:"-"`
+	// CumulativeTrainingTimeTicks is the cumulative, aggregate time spent training (in ticks),
+	// including any associated overheads.
+	CumulativeTrainingTimeTicks int64 `json:"cumulative_training_time_ticks" csv:"cumulative_training_time_ticks"`
+
+	AggregateSessionDelayMillis int64                   `json:"aggregate_session_delay_ms" csv:"aggregate_session_delay_ms"`
+	CurrentTick                 int64                   `json:"current_tick" csv:"current_tick"`
+	NextEventExpectedTick       int64                   `json:"next_event_expected_tick"  csv:"next_event_expected_tick"`
+	NextExpectedEventName       domain.EventName        `json:"next_expected_event_name"  csv:"next_expected_event_name"`
+	NextExpectedEventTarget     string                  `json:"next_expected_event_target"  csv:"next_expected_event_target"`
+	NumActiveSessions           int64                   `json:"num_active_sessions"  csv:"num_active_sessions"`
+	NumActiveTrainings          int64                   `json:"num_active_trainings"  csv:"num_active_trainings"`
+	NumDiscardedSessions        int                     `json:"num_discarded_sessions"  csv:"num_discarded_sessions"`
+	NumEventsProcessed          int64                   `json:"num_events_processed"  csv:"num_events_processed"`
+	NumSampledSessions          int                     `json:"num_sampled_sessions"  csv:"num_sampled_sessions"`
+	NumSessionsCreated          int64                   `json:"num_sessions_created"  csv:"num_sessions_created"`
+	NumSubmittedTrainings       int64                   `json:"num_submitted_trainings"  csv:"num_submitted_trainings"` // NumSubmittedTrainings is the number of trainings that have been submitted but not yet started.
+	NumTasksExecuted            int64                   `json:"num_tasks_executed"  csv:"num_tasks_executed"`
+	SessionsSamplePercentage    float64                 `json:"sessions_sample_percentage"  csv:"sessions_sample_percentage"`
+	TickDurationsMillis         []int64                 `json:"tick_durations_milliseconds"  csv:"-"`
+	TimeElapsed                 time.Duration           `json:"time_elapsed"  csv:"time_elapsed"` // Computed at the time that the data is requested by the user. This is the time elapsed SO far.
+	TimeElapsedStr              string                  `json:"time_elapsed_str"  csv:"time_elapsed_str"`
+	TimeSpentPausedMillis       int64                   `json:"time_spent_paused_milliseconds"  csv:"time_spent_paused_milliseconds"`
+	TotalNumSessions            int                     `json:"total_num_sessions" csv:"total_num_sessions"  csv:"total_num_sessions"`
+	TotalNumTicks               int64                   `json:"total_num_ticks"  csv:"total_num_ticks"`
+	WorkloadDuration            time.Duration           `json:"workload_duration"  csv:"-"` // The total time that the workload executed for. This is only set once the workload has completed.
+	WorkloadState               State                   `json:"workload_state"  csv:"workload_state"`
+	EventsProcessed             []*domain.WorkloadEvent `json:"events_processed"  csv:"-"`
 }
 
 func NewStatistics(sessionsSamplePercentage float64) *Statistics {
