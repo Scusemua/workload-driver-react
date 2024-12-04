@@ -857,7 +857,7 @@ func (d *BasicWorkloadDriver) publishStatisticsReport() {
 // This issues clock ticks as events are submitted.
 //
 // DriveWorkload should be called from its own goroutine.
-func (d *BasicWorkloadDriver) DriveWorkload(wg *sync.WaitGroup) {
+func (d *BasicWorkloadDriver) DriveWorkload() {
 	var err error
 
 	outputSubdir := time.Now().Format("01-02-2006 15:04:05")
@@ -873,7 +873,6 @@ func (d *BasicWorkloadDriver) DriveWorkload(wg *sync.WaitGroup) {
 			zap.String("path", outputSubdirectoryPath),
 			zap.Error(err))
 		d.handleCriticalError(err)
-		wg.Done()
 		return
 	}
 
@@ -890,18 +889,32 @@ func (d *BasicWorkloadDriver) DriveWorkload(wg *sync.WaitGroup) {
 			zap.String("path", outputSubdirectoryPath),
 			zap.Error(err))
 		d.handleCriticalError(err)
-		wg.Done()
 		return
 	}
 
-	clusterStats, err := d.refreshClusterStatistics(true, true)
+	// First, clear the cluster statistics. This will return whatever they were before we called clear.
+	_, err = d.refreshClusterStatistics(true, true)
 	if err != nil {
 		d.logger.Error("Failed to clear and/or retrieve Cluster Statistics before beginning workload.",
 			zap.String("workload_id", d.id),
 			zap.String("workload_name", d.workload.WorkloadName()),
 			zap.String("reason", err.Error()))
 		d.handleCriticalError(err)
-		wg.Done()
+
+		d.outputFileMutex.Lock()
+		_ = d.outputFile.Close()
+		d.outputFileMutex.Unlock()
+		return
+	}
+
+	// Fetch the freshly-cleared cluster statistics.
+	clusterStats, err := d.refreshClusterStatistics(true, false)
+	if err != nil {
+		d.logger.Error("Failed to clear and/or retrieve Cluster Statistics before beginning workload.",
+			zap.String("workload_id", d.id),
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String("reason", err.Error()))
+		d.handleCriticalError(err)
 
 		d.outputFileMutex.Lock()
 		_ = d.outputFile.Close()
@@ -922,7 +935,6 @@ func (d *BasicWorkloadDriver) DriveWorkload(wg *sync.WaitGroup) {
 			zap.String("workload_name", d.workload.WorkloadName()),
 			zap.String("reason", err.Error()))
 		d.handleCriticalError(err)
-		wg.Done()
 
 		d.outputFileMutex.Lock()
 		_ = d.outputFile.Close()
@@ -1015,10 +1027,6 @@ OUTER:
 
 	// Publish one last statistics report, which will also fetch the Cluster Statistics one last time.
 	d.publishStatisticsReport()
-
-	if wg != nil {
-		wg.Done()
-	}
 
 	d.outputFileMutex.Lock()
 	_ = d.outputFile.Close()
@@ -1332,12 +1340,12 @@ func (d *BasicWorkloadDriver) checkForLongTick(tickNumber int, tickDurationSec d
 // If the workload is able to complete successfully, then nil is returned.
 //
 // ProcessWorkload should be called from its own goroutine.
-func (d *BasicWorkloadDriver) ProcessWorkload(wg *sync.WaitGroup) error {
+func (d *BasicWorkloadDriver) ProcessWorkload() {
 	d.mu.Lock()
 
 	if d.workload == nil {
 		d.logger.Error("Workload is nil. Cannot process it.")
-		return ErrWorkloadNil
+		return
 	}
 
 	d.workloadStartTime = time.Now()
@@ -1416,12 +1424,7 @@ func (d *BasicWorkloadDriver) ProcessWorkload(wg *sync.WaitGroup) error {
 						zap.Error(err))
 					d.handleCriticalError(err)
 
-					// If this is non-nil, then call Done() to signal to the caller that the workload has finished (in this case, because of a critical error).
-					if wg != nil {
-						wg.Done()
-					}
-
-					return err
+					return
 				}
 
 				numTicksServed += 1
@@ -1433,10 +1436,7 @@ func (d *BasicWorkloadDriver) ProcessWorkload(wg *sync.WaitGroup) error {
 					zap.String("workload_name", d.workload.WorkloadName()),
 					zap.Error(err))
 				d.handleCriticalError(err)
-				if wg != nil {
-					wg.Done()
-				}
-				return err // We're done, so we can return.
+				return // We're done, so we can return.
 			}
 		case <-d.stopChan:
 			{
@@ -1452,28 +1452,22 @@ func (d *BasicWorkloadDriver) ProcessWorkload(wg *sync.WaitGroup) error {
 						zap.Error(abortError))
 				}
 
-				if wg != nil {
-					wg.Done()
-				}
-
-				return abortError // We're done, so we can return.
+				return // We're done, so we can return.
 			}
 		case <-d.workloadExecutionCompleteChan: // This is placed after eventChan so that all events are processed first.
 			{
-				d.workloadComplete(wg)
-				return nil
+				d.workloadComplete()
+				return
 			}
 		}
 	}
-
-	return nil
 }
 
 // workloadComplete is called when the BasicWorkloadDriver receives a signal on its workloadExecutionCompleteChan
 // field informing it that the workload has completed successfully.
 //
 // workloadComplete accepts a *sync.WaitGroup that is used to notify the caller when the workload has completed.
-func (d *BasicWorkloadDriver) workloadComplete(wg *sync.WaitGroup) {
+func (d *BasicWorkloadDriver) workloadComplete() {
 	d.workload.SetWorkloadCompleted()
 
 	var ok bool
@@ -1512,11 +1506,6 @@ func (d *BasicWorkloadDriver) workloadComplete(wg *sync.WaitGroup) {
 		for _, stderrMessage := range stderr {
 			d.sugaredLogger.Debugf(stderrMessage)
 		}
-	}
-
-	// d.workload.State = domain.WorkloadFinished
-	if wg != nil {
-		wg.Done()
 	}
 }
 

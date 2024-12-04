@@ -1,7 +1,6 @@
 package workload
 
 import (
-	"github.com/zhangjyr/gocsv"
 	"reflect"
 	"sync"
 )
@@ -54,17 +53,6 @@ func maxInt(a, b int) int {
 
 type CSVHeaderProvider interface {
 	MarshalCSVHeader(tag string) string
-}
-
-func init() {
-	gocsv.SetHeaderNormalizer(func(s string) string {
-		if v, ok := headerRegister.Load(s); ok {
-			if v, ok := v.(CSVHeaderProvider); ok {
-				return v.MarshalCSVHeader(s)
-			}
-		}
-		return s
-	})
 }
 
 func PatchCSVHeader(s interface{}) {

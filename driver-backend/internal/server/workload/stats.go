@@ -14,6 +14,10 @@ const (
 	KernelTrainingStarted   ClusterEventName = "kernel_training_started"
 	KernelTrainingEnded     ClusterEventName = "kernel_training_ended"
 	KernelStopped           ClusterEventName = "kernel_stopped"
+	ScaleOutStarted         ClusterEventName = "scale_out_started"
+	ScaleOutEnded           ClusterEventName = "scale_out_ended"
+	ScaleInStarted          ClusterEventName = "scale_in_started"
+	ScaleInEnded            ClusterEventName = "scale_in_ended"
 )
 
 // Statistics encapsulates runtime statistics and metrics about a workload that are maintained within the

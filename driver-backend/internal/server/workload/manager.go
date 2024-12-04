@@ -7,6 +7,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/gorilla/websocket"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/server/api/proto"
+	"github.com/zhangjyr/gocsv"
 	"sync"
 	"sync/atomic"
 	"time"
@@ -54,6 +55,15 @@ type BasicWorkloadManager struct {
 
 func init() {
 	jsonpatch.SupportNegativeIndices = false
+
+	gocsv.SetHeaderNormalizer(func(s string) string {
+		if v, ok := headerRegister.Load(s); ok {
+			if v, ok := v.(CSVHeaderProvider); ok {
+				return v.MarshalCSVHeader(s)
+			}
+		}
+		return s
+	})
 }
 
 func NewWorkloadManager(configuration *domain.Configuration, atom *zap.AtomicLevel, onCriticalError domain.WorkloadErrorHandler,
@@ -208,8 +218,8 @@ func (m *BasicWorkloadManager) StartWorkload(workloadId string) (domain.Workload
 		return nil, err
 	}
 
-	go workloadDriver.ProcessWorkload(nil) // &wg
-	go workloadDriver.DriveWorkload(nil)   // &wg
+	go workloadDriver.ProcessWorkload() // &wg
+	go workloadDriver.DriveWorkload()   // &wg
 
 	workload := workloadDriver.GetWorkload()
 	workload.UpdateTimeElapsed()

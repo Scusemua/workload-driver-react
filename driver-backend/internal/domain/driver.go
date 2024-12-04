@@ -1,8 +1,6 @@
 package domain
 
 import (
-	"sync"
-
 	"github.com/gin-gonic/gin"
 )
 
@@ -61,17 +59,14 @@ type WorkloadDriver interface {
 	StopChan() chan<- interface{}
 
 	// DriveWorkload should be called from its own goroutine.
-	// Accepts a waitgroup that is used to notify the caller when the workload has entered the 'WorkloadRunning' state.
 	// This issues clock ticks as events are submitted.
-	DriveWorkload(wg *sync.WaitGroup)
+	DriveWorkload()
 
 	// ProcessWorkload should be called from its own goroutine.
-	// Accepts a waitgroup that is used to notify the caller when the workload has entered the 'WorkloadRunning' state.
-	// This processes events in response to clock ticks.
 	//
 	// If there is a critical error that causes the workload to be terminated prematurely/aborted, then that error is returned.
 	// If the workload is able to complete successfully, then nil is returned.
-	ProcessWorkload(wg *sync.WaitGroup) error
+	ProcessWorkload()
 
 	// WebSocket returns the WebSocket connection on which this workload was registered by a remote client and on/through which updates about the workload are reported.
 	WebSocket() ConcurrentWebSocket

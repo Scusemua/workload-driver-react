@@ -380,7 +380,7 @@ function WorkloadProvider({ children }: { children: React.ReactNode }) {
     };
 
     const stopWorkload = (workload: Workload) => {
-        const toastId: string = toast(
+        const toastId: string = toast.custom(
             (t: Toast) =>
                 GetToastContentWithHeaderAndBody(
                     `Stopping workload ${workload.name} (ID = ${workload.id}).`,

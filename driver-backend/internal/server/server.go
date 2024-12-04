@@ -39,6 +39,14 @@ import (
 	"time"
 )
 
+func init() {
+	gob.Register(workload.ClusterStatistics{})
+	gob.Register(workload.ClusterEvent{})
+	gob.Register(map[string]interface{}{})
+	gob.Register(time.Duration(0))
+	gob.Register(time.Time{})
+}
+
 var upgrader = websocket.Upgrader{
 	ReadBufferSize:  1024,
 	WriteBufferSize: 1024,
