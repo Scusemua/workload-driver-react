@@ -56,6 +56,10 @@ class Session(object):
             for idx in range(0, len(gpu_util_vals)):
                 vram_util: float = samples[idx]
                 vram_gb: float = num_gpus * 4 * vram_util
+
+                # Round to nearest eighth.
+                vram_gb = round(vram_gb * 8.0) / 8
+
                 vram_gb_vals.append(vram_gb)
 
                 if vram_gb > max_vram_usage_gb:

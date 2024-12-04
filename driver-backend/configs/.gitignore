@@ -1,4 +1,6 @@
 workload-presets-file.yaml
 workload-presets-file-docker.yaml
+workload-templates-file.yaml
+workload-templates-file-docker.yaml
 custom_event_sequences
 custom_event_sequences/*

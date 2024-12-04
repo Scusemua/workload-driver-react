@@ -357,9 +357,9 @@ export const WorkloadSessionTable: React.FunctionComponent<WorkloadSessionTableP
                     </Td>
                     <Td dataLabel={tableColumns.vram}>
                         <GpuIconAlt2 />
-                        {session?.current_resource_request.vram ? session?.current_resource_request.vram : 0}
+                        {session?.current_resource_request.vram ? RoundToThreeDecimalPlaces(session?.current_resource_request.vram) : 0}
                         {'/'}
-                        {session?.max_resource_request.vram}
+                        {RoundToThreeDecimalPlaces(session?.max_resource_request.vram)}
                     </Td>
                 </Tr>
                 <Tr isExpanded={isSessionExpanded(session)}>
