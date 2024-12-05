@@ -1,10 +1,10 @@
 import { v4 as uuidv4 } from 'uuid';
 
 // How much to adjust the timescale adjustment factor when using the 'plus' and 'minus' buttons to adjust the field's value.
-const TimescaleAdjustmentFactorDelta: number = 0.1;
+const TimescaleAdjustmentFactorDelta: number = 0.025;
 const TimescaleAdjustmentFactorMax: number = 10;
 const TimescaleAdjustmentFactorMin: number = 1.0e-3;
-const TimeAdjustmentFactorDefault: number = 0.1;
+const TimeAdjustmentFactorDefault: number = 0.01;
 
 // The number of Sessions in the workload.
 const NumberOfSessionsDefault: number = 1;
