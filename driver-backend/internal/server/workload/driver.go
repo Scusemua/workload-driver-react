@@ -2488,7 +2488,7 @@ func (d *BasicWorkloadDriver) handleTrainingEndedEvent(evt *domain.Event, tick t
 		return ErrNoKernelConnection
 	}
 
-	err := d.issueStopTrainingRequest(kernelConnection, true)
+	err := d.issueStopTrainingRequest(kernelConnection, true, 30*time.Second)
 	if err != nil {
 		d.logger.Error("Error while attempting to stop training.",
 			zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
@@ -2505,8 +2505,8 @@ func (d *BasicWorkloadDriver) handleTrainingEndedEvent(evt *domain.Event, tick t
 }
 
 // issueStopTrainingRequest sends a 'StopRunningTrainingCode' request to a kernel with a configurable timeout.
-func (d *BasicWorkloadDriver) issueStopTrainingRequest(kernelConnection jupyter.KernelConnection, waitForResponse bool) error {
-	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+func (d *BasicWorkloadDriver) issueStopTrainingRequest(kernelConnection jupyter.KernelConnection, waitForResponse bool, timeout time.Duration) error {
+	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
 	doneChan := make(chan interface{}, 1)
