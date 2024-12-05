@@ -2488,7 +2488,7 @@ func (d *BasicWorkloadDriver) handleTrainingEndedEvent(evt *domain.Event, tick t
 		return ErrNoKernelConnection
 	}
 
-	err := kernelConnection.StopRunningTrainingCode(true)
+	err := d.issueStopTrainingRequest(kernelConnection, true)
 	if err != nil {
 		d.logger.Error("Error while attempting to stop training.",
 			zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
@@ -2504,14 +2504,77 @@ func (d *BasicWorkloadDriver) handleTrainingEndedEvent(evt *domain.Event, tick t
 	return nil
 }
 
+// issueStopTrainingRequest sends a 'StopRunningTrainingCode' request to a kernel with a configurable timeout.
+func (d *BasicWorkloadDriver) issueStopTrainingRequest(kernelConnection jupyter.KernelConnection, waitForResponse bool) error {
+	ctx, cancel := context.WithTimeout(context.Background(), 60*time.Second)
+	defer cancel()
+
+	doneChan := make(chan interface{}, 1)
+
+	// Issue request using a separate goroutine.
+	go func() {
+		err := kernelConnection.StopRunningTrainingCode(waitForResponse)
+		if err != nil {
+			doneChan <- err
+		} else {
+			doneChan <- struct{}{}
+		}
+	}()
+
+	select {
+	case <-ctx.Done():
+		{
+			// If there's an error, we'll log and return it.
+			err := ctx.Err()
+			if err != nil {
+				d.logger.Error("Timed-out waiting for response to 'stop-training' request.",
+					zap.String("workload_id", d.workload.GetId()),
+					zap.String("workload_name", d.workload.WorkloadName()),
+					zap.String("kernel_id", kernelConnection.KernelId()),
+					zap.String("connection_status", kernelConnection.ConnectionStatus().String()),
+					zap.Error(err))
+
+				return errors.Join(jupyter.ErrRequestTimedOut, err)
+			}
+
+			// No error attached to the context. Just log an error message without the error struct
+			// and return an error of our own.
+			d.logger.Error("Timed-out waiting for response to 'stop-training' request.",
+				zap.String("workload_id", d.workload.GetId()),
+				zap.String("workload_name", d.workload.WorkloadName()),
+				zap.String("kernel_id", kernelConnection.KernelId()),
+				zap.String("connection_status", kernelConnection.ConnectionStatus().String()))
+
+			return jupyter.ErrRequestTimedOut
+		}
+	case val := <-doneChan:
+		{
+			if err, ok := val.(error); ok {
+				d.logger.Error("Error encountered while sending 'stop-training' request.",
+					zap.String("workload_id", d.workload.GetId()),
+					zap.String("workload_name", d.workload.WorkloadName()),
+					zap.String("kernel_id", kernelConnection.KernelId()),
+					zap.String("connection_status", kernelConnection.ConnectionStatus().String()),
+					zap.Error(err))
+
+				return err
+			}
+
+			return nil
+		}
+	}
+}
+
 // handleSessionStoppedEvent handles a 'session-stopped' event.
 func (d *BasicWorkloadDriver) handleSessionStoppedEvent(evt *domain.Event) error {
 	traceSessionId := evt.Data.(domain.SessionMetadata).GetPod()
 	internalSessionId := d.getInternalSessionId(traceSessionId)
 
 	d.logger.Debug("Received SessionStopped event.",
-		zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
-		zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
+		zap.String("workload_id", d.workload.GetId()),
+		zap.String("workload_name", d.workload.WorkloadName()),
+		zap.String(ZapInternalSessionIDKey, internalSessionId),
+		zap.String(ZapTraceSessionIDKey, traceSessionId))
 
 	// TODO: Test that this actually works.
 	err := d.stopSession(internalSessionId)
