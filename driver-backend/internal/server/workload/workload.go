@@ -496,7 +496,7 @@ func (w *BasicWorkload) GetEndTime() (time.Time, bool) {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 
-	if w.IsFinished() {
+	if w.Statistics.WorkloadState == Erred || w.Statistics.WorkloadState == Finished {
 		return w.Statistics.EndTime, true
 	}
 
@@ -826,7 +826,7 @@ func (w *BasicWorkload) IsInProgress() bool {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 
-	return w.IsRunning() || w.IsPausing() || w.IsPausing()
+	return w.Statistics.WorkloadState == Running || w.Statistics.WorkloadState == Pausing || w.Statistics.WorkloadState == Paused
 }
 
 // IsFinished returns true if the workload stopped naturally/successfully after processing all events.
@@ -834,7 +834,7 @@ func (w *BasicWorkload) IsFinished() bool {
 	w.mu.RLock()
 	defer w.mu.RUnlock()
 
-	return w.IsErred() || w.DidCompleteSuccessfully()
+	return w.Statistics.WorkloadState == Erred || w.Statistics.WorkloadState == Finished
 }
 
 // DidCompleteSuccessfully returns true if the workload stopped naturally/successfully
