@@ -12,12 +12,74 @@ import {
     StarIcon,
 } from '@patternfly/react-icons';
 import { Table, Tbody, Td, Th, ThProps, Thead, Tr } from '@patternfly/react-table';
-import React from 'react';
+import React, { ReactElement } from 'react';
 
 export interface WorkloadEventTableProps {
     children?: React.ReactNode;
     workload: Workload | null;
     showDiscardedEvents?: boolean;
+}
+
+export function GetEventLabel(event_name: string): ReactElement {
+    switch (event_name) {
+        case 'workload-started':
+            return (
+                <Label color="gold" icon={<StarIcon />}>
+                    {event_name}
+                </Label>
+            );
+        case 'workload-complete':
+            return (
+                <Label color="purple" icon={<CheckCircleIcon />}>
+                    {event_name}
+                </Label>
+            );
+        case 'session-started':
+            return (
+                <Label color="cyan" icon={<MigrationIcon />}>
+                    {event_name}
+                </Label>
+            );
+        case 'session-ready':
+            return (
+                <Label color="grey" icon={<PendingIcon />}>
+                    {event_name}
+                </Label>
+            );
+        case 'training-started':
+            return (
+                <Label color="green" icon={<MonitoringIcon />}>
+                    {event_name}
+                </Label>
+            );
+        case 'training-ended':
+            return (
+                <Label color="blue" icon={<CheckIcon />}>
+                    {event_name}
+                </Label>
+            );
+        case 'session-stopped':
+            return (
+                <Label color="orange" icon={<OffIcon />}>
+                    {event_name}
+                </Label>
+            );
+        case 'update-gpu-util':
+            return <Label color="grey">{event_name}</Label>;
+        case 'workload-terminated':
+            return (
+                <Label color="orange" icon={<ExclamationCircleIcon />}>
+                    {event_name}
+                </Label>
+            );
+        default:
+            console.error(`Unexpected event name: "${event_name}"`);
+            return (
+                <Label color="red" icon={<ErrorCircleOIcon />}>
+                    {event_name}
+                </Label>
+            );
+    }
 }
 
 export const WorkloadEventTable: React.FunctionComponent<WorkloadEventTableProps> = (props) => {
@@ -119,68 +181,6 @@ export const WorkloadEventTable: React.FunctionComponent<WorkloadEventTableProps
         'Status',
     ];
 
-    const getEventLabel = (event_name: string) => {
-        switch (event_name) {
-            case 'workload-started':
-                return (
-                    <Label color="gold" icon={<StarIcon />}>
-                        {event_name}
-                    </Label>
-                );
-            case 'workload-complete':
-                return (
-                    <Label color="purple" icon={<CheckCircleIcon />}>
-                        {event_name}
-                    </Label>
-                );
-            case 'session-started':
-                return (
-                    <Label color="cyan" icon={<MigrationIcon />}>
-                        {event_name}
-                    </Label>
-                );
-            case 'session-ready':
-                return (
-                    <Label color="grey" icon={<PendingIcon />}>
-                        {event_name}
-                    </Label>
-                );
-            case 'training-started':
-                return (
-                    <Label color="green" icon={<MonitoringIcon />}>
-                        {event_name}
-                    </Label>
-                );
-            case 'training-ended':
-                return (
-                    <Label color="blue" icon={<CheckIcon />}>
-                        {event_name}
-                    </Label>
-                );
-            case 'session-stopped':
-                return (
-                    <Label color="orange" icon={<OffIcon />}>
-                        {event_name}
-                    </Label>
-                );
-            case 'update-gpu-util':
-                return <Label color="grey">{event_name}</Label>;
-            case 'workload-terminated':
-                return (
-                    <Label color="orange" icon={<ExclamationCircleIcon />}>
-                        {event_name}
-                    </Label>
-                );
-            default:
-                console.error(`Unexpected event name: "${event_name}"`);
-                return (
-                    <Label color="red" icon={<ErrorCircleOIcon />}>
-                        {event_name}
-                    </Label>
-                );
-        }
-    };
-
     const getStatusLabel = (evt: WorkloadEvent) => {
         if (evt.processed_successfully) {
             return (
@@ -235,7 +235,7 @@ export const WorkloadEventTable: React.FunctionComponent<WorkloadEventTableProps
                             return (
                                 <Tr key={`workload-${props.workload?.id}-event-${evt?.idx}`}>
                                     <Td dataLabel={events_table_columns[0]}>{evt?.idx}</Td>
-                                    <Td dataLabel={events_table_columns[1]}>{getEventLabel(evt?.name)}</Td>
+                                    <Td dataLabel={events_table_columns[1]}>{GetEventLabel(evt?.name)}</Td>
                                     <Td dataLabel={events_table_columns[2]}>{evt?.session}</Td>
                                     <Td dataLabel={events_table_columns[3]}>
                                         {evt?.timestamp.substring(0, evt?.timestamp.length - 10)}

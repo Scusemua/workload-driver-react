@@ -7,7 +7,8 @@ import {
     DescriptionListTerm,
     Flex,
     FlexItem,
-    Label,
+    Text,
+    Tooltip,
 } from '@patternfly/react-core';
 import {
     BlueprintIcon,
@@ -22,10 +23,10 @@ import {
     TaskIcon,
     UserClockIcon,
 } from '@patternfly/react-icons';
-import { WorkloadEventTable, WorkloadSessionTable } from '@src/Components';
+import { GetEventLabel, WorkloadEventTable, WorkloadSessionTable } from '@src/Components';
 import { Workload } from '@src/Data';
 import { GetToastContentWithHeaderAndBody } from '@src/Utils/toast_utils';
-import { RoundToThreeDecimalPlaces, RoundToTwoDecimalPlaces, numberWithCommas } from '@Utils/utils';
+import { numberWithCommas, RoundToThreeDecimalPlaces, RoundToTwoDecimalPlaces } from '@Utils/utils';
 import { uuidv4 } from 'lib0/random';
 import React from 'react';
 import toast, { Toast } from 'react-hot-toast';
@@ -232,6 +233,22 @@ export const WorkloadInspectionView: React.FunctionComponent<IWorkloadInspection
                         </DescriptionListGroup>
                         <DescriptionListGroup>
                             <DescriptionListTerm>
+                                Next Expected Event <RunningIcon />
+                            </DescriptionListTerm>
+                            <DescriptionListDescription>
+                                <Tooltip
+                                    content={`Event will target Session ${props.workload.statistics.next_expected_event_target}`}
+                                >
+                                    {props.workload.statistics.next_expected_event_name !== '' ? (
+                                        GetEventLabel(props.workload.statistics.next_expected_event_name)
+                                    ) : (
+                                        <Text component={'p'}>N/A</Text>
+                                    )}
+                                </Tooltip>
+                            </DescriptionListDescription>
+                        </DescriptionListGroup>
+                        <DescriptionListGroup>
+                            <DescriptionListTerm>
                                 Next Expected Event In <ClockIcon />
                             </DescriptionListTerm>
                             <DescriptionListDescription>
@@ -240,18 +257,6 @@ export const WorkloadInspectionView: React.FunctionComponent<IWorkloadInspection
                                         props.workload?.statistics.current_tick || 0,
                                 )}{' '}
                                 tick(s)
-                            </DescriptionListDescription>
-                        </DescriptionListGroup>
-                        <DescriptionListGroup>
-                            <DescriptionListTerm>
-                                Next Expected Event <RunningIcon />
-                            </DescriptionListTerm>
-                            <DescriptionListDescription>
-                                <Label>
-                                    {props.workload.statistics.next_expected_event_name !== ''
-                                        ? props.workload.statistics.next_expected_event_name
-                                        : 'N/A'}
-                                </Label>
                             </DescriptionListDescription>
                         </DescriptionListGroup>
                     </DescriptionList>
