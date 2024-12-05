@@ -76,7 +76,7 @@ func NewWorkloadFromTemplate(baseWorkload *BasicWorkload, sourceSessions []*doma
 //
 // Multiple calls to SessionDelayed will treat each passed delay additively, as in they'll all be added together.
 func (w *Template) SessionDelayed(sessionId string, delayAmount time.Duration) {
-	val, loaded := w.sessionsMap.Get(sessionId)
+	val, loaded := w.sessionsMap[sessionId]
 	if !loaded {
 		return
 	}
@@ -147,7 +147,7 @@ func (w *Template) SetSessions(sessions []*domain.WorkloadTemplateSession) error
 		}
 
 		// Need to set this before calling unsafeIsSessionBeingSampled.
-		w.sessionsMap.Set(session.GetId(), session)
+		w.sessionsMap[session.GetId()] = session
 
 		// Decide if the Session should be sampled or not.
 		isSampled := w.unsafeIsSessionBeingSampled(session.Id)
@@ -177,7 +177,7 @@ func (w *Template) SessionCreated(sessionId string, metadata domain.SessionMetad
 	w.Statistics.NumActiveSessions += 1
 	w.Statistics.NumSessionsCreated += 1
 
-	val, ok := w.sessionsMap.Get(sessionId)
+	val, ok := w.sessionsMap[sessionId]
 	if !ok {
 		w.logger.Error("Failed to find newly-created session in session map.", zap.String("session_id", sessionId))
 		return
@@ -198,7 +198,7 @@ func (w *Template) SessionCreated(sessionId string, metadata domain.SessionMetad
 
 // SessionDiscarded is used to record that a particular session is being discarded/not sampled.
 func (w *Template) SessionDiscarded(sessionId string) error {
-	val, loaded := w.sessionsMap.Get(sessionId)
+	val, loaded := w.sessionsMap[sessionId]
 	if !loaded {
 		return fmt.Errorf("%w: \"%s\"", domain.ErrUnknownSession, sessionId)
 	}

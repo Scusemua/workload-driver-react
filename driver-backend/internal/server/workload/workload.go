@@ -7,7 +7,6 @@ import (
 	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/server/api/proto"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/server/metrics"
-	"github.com/zhangjyr/hashmap"
 	"math/rand"
 	"sync"
 	"time"
@@ -128,11 +127,11 @@ type BasicWorkload struct {
 	workloadInstance          domain.Workload
 	workloadSource            interface{}
 	mu                        sync.RWMutex
-	sessionsMap               *hashmap.HashMap // Internal mapping of session ID to session.
-	trainingStartedTimes      *hashmap.HashMap // Internal mapping of session ID to the time at which it began training.
-	trainingStartedTimesTicks *hashmap.HashMap // Mapping from Session ID to the tick at which it began training.
-	seedSet                   bool             // Flag keeping track of whether we've already set the seed for this workload.
-	sessionsSet               bool             // Flag keeping track of whether we've already set the sessions for this workload.
+	sessionsMap               map[string]interface{} // Internal mapping of session ID to session.
+	trainingStartedTimes      map[string]time.Time   // Internal mapping of session ID to the time at which it began training.
+	trainingStartedTimesTicks map[string]int64       // Mapping from Session ID to the tick at which it began training.
+	seedSet                   bool                   // Flag keeping track of whether we've already set the seed for this workload.
+	sessionsSet               bool                   // Flag keeping track of whether we've already set the sessions for this workload.
 
 	// OnError is a callback passed to WorkloadDrivers (via the WorkloadManager).
 	// If a critical error occurs during the execution of the workload, then this handler is called.
@@ -634,7 +633,7 @@ func (w *BasicWorkload) SessionStopped(sessionId string, _ *domain.Event) {
 	defer w.mu.Unlock()
 	w.Statistics.NumActiveSessions -= 1
 
-	val, ok := w.sessionsMap.Get(sessionId)
+	val, ok := w.sessionsMap[sessionId]
 	if !ok {
 		w.logger.Error("Failed to find freshly-terminated session in session map.", zap.String("session_id", sessionId))
 		return
@@ -655,9 +654,12 @@ func (w *BasicWorkload) SessionStopped(sessionId string, _ *domain.Event) {
 
 // TrainingSubmitted when an "execute_request" message is sent.
 func (w *BasicWorkload) TrainingSubmitted(sessionId string, evt *domain.Event) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	w.Statistics.NumSubmittedTrainings += 1
 
-	val, ok := w.sessionsMap.Get(sessionId)
+	val, ok := w.sessionsMap[sessionId]
 	if !ok {
 		w.logger.Error("Failed to find now-training session in session map.", zap.String("session_id", sessionId))
 		return
@@ -690,11 +692,14 @@ func (w *BasicWorkload) TrainingSubmitted(sessionId string, evt *domain.Event) {
 // TrainingStarted is called when a training starts during/in the workload.
 // Just updates some internal metrics.
 func (w *BasicWorkload) TrainingStarted(sessionId string, tickNumber int64) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	w.Statistics.NumSubmittedTrainings -= 1
 	w.Statistics.NumActiveTrainings += 1
 
-	w.trainingStartedTimes.Set(sessionId, time.Now())
-	w.trainingStartedTimesTicks.Set(sessionId, tickNumber)
+	w.trainingStartedTimes[sessionId] = time.Now()
+	w.trainingStartedTimesTicks[sessionId] = tickNumber
 
 	metrics.PrometheusMetricsWrapperInstance.WorkloadActiveTrainingSessions.
 		With(prometheus.Labels{"workload_id": w.Id}).
@@ -704,6 +709,9 @@ func (w *BasicWorkload) TrainingStarted(sessionId string, tickNumber int64) {
 // TrainingStopped is called when a training stops during/in the workload.
 // Just updates some internal metrics.
 func (w *BasicWorkload) TrainingStopped(sessionId string, evt *domain.Event, tickNumber int64) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	metrics.PrometheusMetricsWrapperInstance.WorkloadTrainingEventsCompleted.
 		With(prometheus.Labels{"workload_id": w.Id}).
 		Add(1)
@@ -712,35 +720,36 @@ func (w *BasicWorkload) TrainingStopped(sessionId string, evt *domain.Event, tic
 		With(prometheus.Labels{"workload_id": w.Id}).
 		Sub(1)
 
-	val, loaded := w.trainingStartedTimes.Get(sessionId)
+	trainingStartedAt, loaded := w.trainingStartedTimes[sessionId]
 	if !loaded {
 		w.logger.Error("Could not load 'training-started' time for Session upon training stopping.",
 			zap.String("session_id", sessionId),
 			zap.String("workload_id", w.Id),
 			zap.String("workload_name", w.WorkloadName()))
 	} else {
-		trainingDuration := time.Since(val.(time.Time))
+		trainingDuration := time.Since(trainingStartedAt)
 
 		metrics.PrometheusMetricsWrapperInstance.WorkloadTrainingEventDurationMilliseconds.
 			With(prometheus.Labels{"workload_id": w.Id, "session_id": sessionId}).
 			Observe(float64(trainingDuration.Milliseconds()))
 	}
 
-	val, loaded = w.trainingStartedTimesTicks.Get(sessionId)
+	trainingStartedAtTick, loaded := w.trainingStartedTimesTicks[sessionId]
 	if !loaded {
 		w.logger.Error("Could not load 'training-started' tick number for Session upon training stopping.",
 			zap.String("session_id", sessionId),
 			zap.String("workload_id", w.Id),
 			zap.String("workload_name", w.WorkloadName()))
 	} else {
-		trainingDurationInTicks := tickNumber - val.(int64)
+		trainingDurationInTicks := tickNumber - trainingStartedAtTick
 		w.Statistics.CumulativeTrainingTimeTicks += trainingDurationInTicks
 	}
 
 	w.Statistics.NumTasksExecuted += 1
 	w.Statistics.NumActiveTrainings -= 1
 
-	val, ok := w.sessionsMap.Get(sessionId)
+	val, ok := w.sessionsMap[sessionId]
+
 	if !ok {
 		w.logger.Error("Failed to find now-idle session in session map.", zap.String("session_id", sessionId))
 		return
@@ -880,10 +889,16 @@ func (w *BasicWorkload) SetNextEventTick(nextEventExpectedTick int64) {
 
 // SessionDiscarded is used to record that a particular session is being discarded/not sampled.
 func (w *BasicWorkload) SessionDiscarded(sessionId string) error {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	return w.workloadInstance.SessionDiscarded(sessionId)
 }
 
 func (w *BasicWorkload) SetSessionSampled(sessionId string) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
 	w.SampledSessions[sessionId] = struct{}{}
 	w.logger.Debug("Decided to sample events targeting session.",
 		zap.String("workload_id", w.Id),

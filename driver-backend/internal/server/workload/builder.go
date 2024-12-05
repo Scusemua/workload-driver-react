@@ -3,9 +3,9 @@ package workload
 import (
 	"github.com/mattn/go-colorable"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/server/api/proto"
-	"github.com/zhangjyr/hashmap"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"time"
 )
 
 // Builder is the builder for the Workload struct.
@@ -83,9 +83,9 @@ func (b *Builder) Build() *BasicWorkload {
 		TimescaleAdjustmentFactor: b.timescaleAdjustmentFactor,
 		WorkloadType:              UnspecifiedWorkload,
 		atom:                      b.atom,
-		sessionsMap:               hashmap.New(32),
-		trainingStartedTimes:      hashmap.New(32),
-		trainingStartedTimesTicks: hashmap.New(32),
+		sessionsMap:               make(map[string]interface{}),
+		trainingStartedTimes:      make(map[string]time.Time),
+		trainingStartedTimesTicks: make(map[string]int64),
 		SumTickDurationsMillis:    0,
 		TickDurationsMillis:       make([]int64, 0),
 		RemoteStorageDefinition:   b.remoteStorageDefinition,

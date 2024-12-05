@@ -100,7 +100,7 @@ func (w *Preset) SetSessions(sessions []*domain.BasicWorkloadSession) error {
 			return domain.ErrMissingMaxResourceRequest
 		}
 
-		w.sessionsMap.Set(session.GetId(), session)
+		w.sessionsMap[session.GetId()] = session
 	}
 
 	w.Statistics.TotalNumSessions = len(sessions)
@@ -113,7 +113,7 @@ func (w *Preset) SetSessions(sessions []*domain.BasicWorkloadSession) error {
 //
 // Multiple calls to SessionDelayed will treat each passed delay additively, as in they'll all be added together.
 func (w *Preset) SessionDelayed(sessionId string, delayAmount time.Duration) {
-	val, loaded := w.sessionsMap.Get(sessionId)
+	val, loaded := w.sessionsMap[sessionId]
 	if !loaded {
 		return
 	}
@@ -170,12 +170,12 @@ func (w *Preset) SessionCreated(sessionId string, metadata domain.SessionMetadat
 	})
 
 	w.Sessions = append(w.Sessions, session)
-	w.sessionsMap.Set(sessionId, session)
+	w.sessionsMap[sessionId] = session
 }
 
 // SessionDiscarded is used to record that a particular session is being discarded/not sampled.
 func (w *Preset) SessionDiscarded(sessionId string) error {
-	val, loaded := w.sessionsMap.Get(sessionId)
+	val, loaded := w.sessionsMap[sessionId]
 	if !loaded {
 		return fmt.Errorf("%w: \"%s\"", domain.ErrUnknownSession, sessionId)
 	}
