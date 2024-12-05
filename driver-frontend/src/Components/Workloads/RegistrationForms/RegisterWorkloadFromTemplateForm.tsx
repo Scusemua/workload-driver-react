@@ -55,7 +55,7 @@ import {
     NumberOfSessionsDefault,
     NumberOfSessionsMax,
     NumberOfSessionsMin,
-    TimeAdjustmentFactorDefault,
+    TimescaleAdjustmentFactorDefault,
     TimescaleAdjustmentFactorDelta,
     TimescaleAdjustmentFactorMax,
     TimescaleAdjustmentFactorMin,
@@ -948,7 +948,7 @@ export const RegisterWorkloadFromTemplateForm: React.FunctionComponent<IRegister
             <Controller
                 name="timescaleAdjustmentFactor"
                 control={form.control}
-                defaultValue={TimeAdjustmentFactorDefault}
+                defaultValue={TimescaleAdjustmentFactorDefault}
                 rules={{
                     max: TimescaleAdjustmentFactorMax,
                     min: TimescaleAdjustmentFactorMin,

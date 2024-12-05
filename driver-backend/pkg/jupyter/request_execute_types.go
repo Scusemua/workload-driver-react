@@ -25,6 +25,9 @@ type RequestExecuteArgsAdditionalArguments struct {
 	// occur when the attempt is made to embed the contents of RequestMetadata in the "metadata" frame of
 	// the "execute_request" message.
 	RequestMetadata map[string]interface{} `json:"request_metadata"`
+
+	// ResponseCallback defines a function that should be called when the result ("execute_reply") is received.
+	ResponseCallback func(response KernelMessage) `json:"-"`
 }
 
 // RequestExecuteArgs defines the arguments that can be passed to the KernelConnection.RequestExecute method (i.e., the
@@ -200,6 +203,19 @@ func (b *RequestExecuteArgsBuilder) AllowStdin(allowStdin bool) *RequestExecuteA
 
 func (b *RequestExecuteArgsBuilder) StopOnError(stopOnError bool) *RequestExecuteArgsBuilder {
 	b.args.StopOnError = stopOnError
+	return b
+}
+
+func (b *RequestExecuteArgsBuilder) OnResponseCallback(callback func(response KernelMessage)) *RequestExecuteArgsBuilder {
+	if b.args.ExtraArguments == nil {
+		b.args.ExtraArguments = &RequestExecuteArgsAdditionalArguments{
+			AwaitResponse:    true,
+			RequestMetadata:  make(map[string]interface{}),
+			ResponseCallback: callback,
+		}
+	}
+
+	b.args.ExtraArguments.ResponseCallback = callback
 	return b
 }
 

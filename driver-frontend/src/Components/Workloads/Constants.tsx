@@ -1,10 +1,10 @@
 import { v4 as uuidv4 } from 'uuid';
 
 // How much to adjust the timescale adjustment factor when using the 'plus' and 'minus' buttons to adjust the field's value.
-const TimescaleAdjustmentFactorDelta: number = 0.025;
+const TimescaleAdjustmentFactorDelta: number = 0.01;
 const TimescaleAdjustmentFactorMax: number = 10;
-const TimescaleAdjustmentFactorMin: number = 1.0e-3;
-const TimeAdjustmentFactorDefault: number = 0.01;
+const TimescaleAdjustmentFactorMin: number = 0;
+const TimescaleAdjustmentFactorDefault: number = 0.01;
 
 // The number of Sessions in the workload.
 const NumberOfSessionsDefault: number = 1;
@@ -77,7 +77,7 @@ const GetDefaultFormValues = () => {
         workloadTitle: title,
         workloadSeed: WorkloadSeedDefault,
         sessionsSamplePercentage: WorkloadSessionSamplePercentDefault,
-        timescaleAdjustmentFactor: TimeAdjustmentFactorDefault,
+        timescaleAdjustmentFactor: TimescaleAdjustmentFactorDefault,
         numberOfSessions: 1,
         debugLoggingEnabled: true,
         remoteStorageDefinition: DefaultRemoteStorageDefinition,
@@ -88,7 +88,7 @@ const GetDefaultFormValues = () => {
 export { TimescaleAdjustmentFactorDelta as TimescaleAdjustmentFactorDelta };
 export { TimescaleAdjustmentFactorMax as TimescaleAdjustmentFactorMax };
 export { TimescaleAdjustmentFactorMin as TimescaleAdjustmentFactorMin };
-export { TimeAdjustmentFactorDefault as TimeAdjustmentFactorDefault };
+export { TimescaleAdjustmentFactorDefault as TimescaleAdjustmentFactorDefault };
 
 export { WorkloadSeedDelta as WorkloadSeedDelta };
 export { WorkloadSeedMax as WorkloadSeedMax };

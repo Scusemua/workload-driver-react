@@ -468,7 +468,7 @@ func (conn *BasicKernelConnection) KernelId() string {
 // - allowStdin (bool): Whether to allow stdin requests. The default is `true`.
 // - stopOnError (bool): Whether to the abort execution queue on an error. The default is `false`.
 // - waitForResponse (bool): Whether to wait for a response from the kernel, or just return immediately.
-func (conn *BasicKernelConnection) RequestExecute(args *RequestExecuteArgs) error {
+func (conn *BasicKernelConnection) RequestExecute(args *RequestExecuteArgs) (KernelMessage, error) {
 	content := args.StripNonstandardArguments()
 
 	message, responseChan := conn.createKernelMessage(ExecuteRequest, ShellChannel, content)
@@ -492,12 +492,12 @@ func (conn *BasicKernelConnection) RequestExecute(args *RequestExecuteArgs) erro
 			zap.String("kernel_id", conn.kernelId),
 			zap.Error(err))
 
-		return err
+		return nil, err
 	}
 
 	conn.waitingForExecuteResponses.Add(1)
 
-	handleResponse := func() {
+	handleResponse := func() KernelMessage {
 		// We'll populate this either in the ticker or when we get the response.
 		response := <-responseChan
 		latency := time.Since(sentAt)
@@ -526,15 +526,27 @@ func (conn *BasicKernelConnection) RequestExecute(args *RequestExecuteArgs) erro
 			conn.metricsConsumer.ObserveJupyterExecuteRequestE2ELatency(latencyMs, workloadId)
 			conn.metricsConsumer.AddJupyterRequestExecuteTime(latencyMs, conn.kernelId, workloadId)
 		}
+
+		if args.ExtraArguments != nil && args.ExtraArguments.ResponseCallback != nil {
+			conn.logger.Debug("Calling ResponseCallback for \"execute_reply\" message.",
+				zap.String("kernel_id", conn.kernelId),
+				zap.String("request_id", message.GetHeader().MessageId),
+				zap.String("reply_id", response.GetHeader().MessageId),
+				zap.Duration("latency", latency),
+				zap.Any("response", response))
+			args.ExtraArguments.ResponseCallback(response)
+		}
+
+		return response
 	}
 
 	if args.AwaitResponse() {
-		handleResponse() // blocking
+		return handleResponse(), nil // blocking
 	} else {
 		go handleResponse() // non-blocking
 	}
 
-	return nil
+	return nil, nil
 }
 
 func (conn *BasicKernelConnection) RequestKernelInfo() (KernelMessage, error) {

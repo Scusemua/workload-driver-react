@@ -88,6 +88,8 @@ var (
 	ErrWorkloadNil                         = errors.New("workload is nil; cannot process nil workload")
 	ErrTemplateFilePathNotSpecified        = errors.New("template file path was not specified")
 	ErrInvalidTemplateFileSpecified        = errors.New("invalid template file path specified")
+	ErrTrainingFailed                      = errors.New("training event could not be processed")
+	ErrKernelCreationFailed                = errors.New("failed to create kernel")
 
 	ErrNoSessionConnection = errors.New("received 'training-started' or 'training-ended' event for session for which no session connection exists")
 	ErrNoKernelConnection  = errors.New("received 'training-started' or 'training-ended' event for session for which no kernel connection exists")
@@ -1242,7 +1244,7 @@ func (d *BasicWorkloadDriver) issueClockTicks(timestamp time.Time) error {
 		// Verify that the issuing of the tick did not exceed the specified real-clock-time that a tick should last.
 		// TODO: Handle this more elegantly, such as by decreasing the length of subsequent ticks or something?
 		if tickRemaining < 0 {
-			d.logger.Error("Issuing clock tick lasted too long.",
+			d.logger.Warn("Issuing clock tick lasted too long.",
 				zap.Int("tick_number", tickNumber),
 				zap.Time("tick_timestamp", tick),
 				zap.Duration("time_elapsed", tickElapsedBase),
@@ -1320,16 +1322,16 @@ func (d *BasicWorkloadDriver) checkForLongTick(tickNumber int, tickDurationSec d
 			zap.String("sample_std_dev_tick_dur_sec", stdDevTickDuration.StringFixed(4)),
 			zap.Int64("moving_avg_window_size", d.tickDurationsSecondsMovingWindow.Window()))
 
-		if d.notifyCallback != nil {
-			d.notifyCallback(&proto.Notification{
-				Id:    uuid.NewString(),
-				Title: fmt.Sprintf("Tick #%d of Workload %s Took a Long Time", tickNumber, d.workload.GetId()),
-				Message: fmt.Sprintf("Tick duration: %s seconds. Average tick duration: %s seconds. Standard deviation (of tick duration in seconds): %s seconds.",
-					tickDurationSec.StringFixed(3), avgTickDurationSec.StringFixed(3), stdDevTickDuration.StringFixed(3)),
-				Panicked:         false,
-				NotificationType: domain.WarningNotification.Int32(),
-			})
-		}
+		//if d.notifyCallback != nil {
+		//	d.notifyCallback(&proto.Notification{
+		//		Id:    uuid.NewString(),
+		//		Title: fmt.Sprintf("Tick #%d of Workload %s Took a Long Time", tickNumber, d.workload.GetId()),
+		//		Message: fmt.Sprintf("Tick duration: %s seconds. Average tick duration: %s seconds. Standard deviation (of tick duration in seconds): %s seconds.",
+		//			tickDurationSec.StringFixed(3), avgTickDurationSec.StringFixed(3), stdDevTickDuration.StringFixed(3)),
+		//		Panicked:         false,
+		//		NotificationType: domain.WarningNotification.Int32(),
+		//	})
+		//}
 	}
 }
 
@@ -2148,6 +2150,12 @@ func (d *BasicWorkloadDriver) handleSessionReadyEvent(sessionReadyEvent *domain.
 		// We need to inspect the error here.
 		// Depending on what the error is, we'll treat it as a critical error or not.
 		err = d.handleFailureToCreateNewSession(err, sessionReadyEvent)
+
+		if err != nil && !strings.Contains(err.Error(), "insufficient hosts available") {
+			d.handleCriticalError(err)
+			doneChan <- sessionId // Could probably just skip this, but it'll unblock the waiting goroutine, I guess?
+			return
+		}
 	} else {
 		d.logger.Debug("Successfully handled SessionStarted event.",
 			zap.String("workload_id", d.workload.GetId()),
@@ -2203,7 +2211,7 @@ func (d *BasicWorkloadDriver) handleFailureToCreateNewSession(err error, session
 		d.eventQueue.EnqueueEvent(sessionReadyEvent)
 
 		// Return a less verbose error.
-		return fmt.Errorf("failed to create kernel \"%s\": insufficient hosts available", sessionId)
+		return fmt.Errorf("%w \"%s\": insufficient hosts available", ErrKernelCreationFailed, sessionId)
 	}
 
 	d.logger.Error("Session creation failure is due to unexpected reason. Aborting workload.",
@@ -2218,7 +2226,7 @@ func (d *BasicWorkloadDriver) handleFailureToCreateNewSession(err error, session
 	}
 
 	// Return the original error.
-	return err
+	return errors.Join(ErrKernelCreationFailed, err)
 }
 
 // Schedule new Sessions onto Hosts.
@@ -2266,7 +2274,7 @@ func (d *BasicWorkloadDriver) handleUpdateGpuUtilizationEvent(evt *domain.Event)
 // createExecuteRequestArguments creates the arguments for an "execute_request" from the given event.
 //
 // The event must be of type "training-started", or this will return nil.
-func (d *BasicWorkloadDriver) createExecuteRequestArguments(evt *domain.Event) (*jupyter.RequestExecuteArgs, error) {
+func (d *BasicWorkloadDriver) createExecuteRequestArguments(evt *domain.Event, callback func(response jupyter.KernelMessage)) (*jupyter.RequestExecuteArgs, error) {
 	if evt.Name != domain.EventSessionTrainingStarted {
 		d.logger.Error("Attempted to create \"execute_request\" arguments for event of invalid type.",
 			zap.String("event_type", evt.Name.String()),
@@ -2310,6 +2318,7 @@ func (d *BasicWorkloadDriver) createExecuteRequestArguments(evt *domain.Event) (
 		AllowStdin(true).
 		StopOnError(false).
 		AwaitResponse(false).
+		OnResponseCallback(callback).
 		AddMetadata("resource_request", resourceRequest)
 
 	return argsBuilder.Build(), nil
@@ -2317,6 +2326,7 @@ func (d *BasicWorkloadDriver) createExecuteRequestArguments(evt *domain.Event) (
 
 // handleTrainingStartedEvent handles a 'training-started' event.
 func (d *BasicWorkloadDriver) handleTrainingStartedEvent(evt *domain.Event) error {
+	startedHandlingAt := time.Now()
 	traceSessionId := evt.Data.(domain.SessionMetadata).GetPod()
 	internalSessionId := d.getInternalSessionId(traceSessionId)
 
@@ -2351,7 +2361,49 @@ func (d *BasicWorkloadDriver) handleTrainingStartedEvent(evt *domain.Event) erro
 		return ErrNoKernelConnection
 	}
 
-	args, err := d.createExecuteRequestArguments(evt)
+	trainingStartedChannel := make(chan interface{}, 1)
+	d.trainingStartedChannels[internalSessionId] = trainingStartedChannel
+
+	onResponseCallback := func(response jupyter.KernelMessage) {
+		responseContent := response.GetContent().(map[string]interface{})
+		if responseContent == nil {
+			d.logger.Error("\"execute_reply\" message does not have any content...",
+				zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
+				zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId),
+				zap.String("response", response.String()))
+			return
+		}
+
+		val, ok := responseContent["status"]
+		if !ok {
+			d.logger.Error("\"execute_reply\" message does not contain a \"status\" field in its content.",
+				zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
+				zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId),
+				zap.String("response", response.String()))
+			return
+		}
+
+		status := val.(string)
+
+		if status == "error" {
+			errorName := responseContent["ename"].(string)
+			errorValue := responseContent["evalue"].(string)
+
+			d.logger.Warn("Received \"execute_reply\" message with error status.",
+				zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
+				zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId),
+				zap.String("ename", errorName), zap.String("evalue", errorValue), zap.String("response", response.String()))
+
+			trainingStartedChannel <- fmt.Errorf("%s: %s", errorName, errorValue)
+		} else {
+			d.logger.Debug("Received \"execute_reply\" message with non-error status.",
+				zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
+				zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId),
+				zap.String("response", response.String()))
+		}
+	}
+
+	args, err := d.createExecuteRequestArguments(evt, onResponseCallback)
 	if args == nil {
 		d.logger.Error("Failed to create 'execute_request' arguments.",
 			zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
@@ -2359,11 +2411,8 @@ func (d *BasicWorkloadDriver) handleTrainingStartedEvent(evt *domain.Event) erro
 		return err
 	}
 
-	trainingStartedChannel := make(chan interface{}, 1)
-	d.trainingStartedChannels[internalSessionId] = trainingStartedChannel
-
 	sentRequestAt := time.Now()
-	err = kernelConnection.RequestExecute(args)
+	_, err = kernelConnection.RequestExecute(args)
 	if err != nil {
 		d.logger.Error("Error while attempting to execute training code.",
 			zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
@@ -2394,23 +2443,44 @@ func (d *BasicWorkloadDriver) handleTrainingStartedEvent(evt *domain.Event) erro
 		zap.String("workload_name", d.workload.WorkloadName()),
 		zap.String("kernel_id", internalSessionId))
 
-	// In case the IO Pub message gets lost, we'll add a 2.5-minute timeout.
+	// In case the IO Pub message gets lost, we'll add a timeout.
 	// This way the whole workload won't get stuck if a message is lost.
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*150)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
 	defer cancel()
 
 	select {
-	case <-trainingStartedChannel:
+	case v := <-trainingStartedChannel:
 		{
-			d.logger.Debug("Session started training",
-				zap.String("workload_id", d.workload.GetId()),
-				zap.String("workload_name", d.workload.WorkloadName()),
-				zap.String("kernel_id", internalSessionId),
-				zap.Duration("time_elapsed", time.Since(sentRequestAt)))
+			switch v.(type) {
+			case error:
+				{
+					err := v.(error)
+					d.logger.Warn("Session failed to start training",
+						zap.String("workload_id", d.workload.GetId()),
+						zap.String("workload_name", d.workload.WorkloadName()),
+						zap.String("kernel_id", internalSessionId),
+						zap.Duration("time_elapsed", time.Since(sentRequestAt)),
+						zap.Error(err))
+
+					// If we fail to start training for some reason, then we'll just try again later.
+					d.delaySession(internalSessionId, time.Since(startedHandlingAt)+d.targetTickDuration*2)
+
+					// Put the event back in the queue.
+					d.eventQueue.EnqueueEvent(evt)
+				}
+			default:
+				{
+					d.logger.Debug("Session started training",
+						zap.String("workload_id", d.workload.GetId()),
+						zap.String("workload_name", d.workload.WorkloadName()),
+						zap.String("kernel_id", internalSessionId),
+						zap.Duration("time_elapsed", time.Since(sentRequestAt)))
+				}
+			}
 		}
 	case <-ctx.Done():
 		{
-			d.logger.Warn("Have not received 'training started' notification for over 2.5 minutes. Assuming message was lost.",
+			d.logger.Warn("Have not received 'training started' notification for over 2 minutes. Assuming message was lost.",
 				zap.String("workload_id", d.workload.GetId()),
 				zap.String("workload_name", d.workload.WorkloadName()),
 				zap.String("kernel_id", internalSessionId),
@@ -2418,9 +2488,9 @@ func (d *BasicWorkloadDriver) handleTrainingStartedEvent(evt *domain.Event) erro
 
 			d.notifyCallback(&proto.Notification{
 				Id:    uuid.NewString(),
-				Title: "Have Spent 2.5+ Minutes Waiting for 'Training Started' Notification",
+				Title: "Have Spent 2+ Minutes Waiting for 'Training Started' Notification",
 				Message: fmt.Sprintf("Submitted \"execute_request\" to kernel \"%s\" during workload \"%s\" (ID=\"%s\") "+
-					"over 2.5 minutes ago and have not yet received 'smr_lead_task' IOPub message. Time elapsed: %v.",
+					"over 2 minutes ago and have not yet received 'smr_lead_task' IOPub message. Time elapsed: %v.",
 					internalSessionId, d.workload.WorkloadName(), d.workload.GetId(), time.Since(sentRequestAt)),
 				Panicked:         false,
 				NotificationType: domain.WarningNotification.Int32(),
@@ -2488,7 +2558,7 @@ func (d *BasicWorkloadDriver) handleTrainingEndedEvent(evt *domain.Event, tick t
 		return ErrNoKernelConnection
 	}
 
-	err := d.issueStopTrainingRequest(kernelConnection, true, 30*time.Second)
+	err := d.issueStopTrainingRequest(kernelConnection, 30*time.Second)
 	if err != nil {
 		d.logger.Error("Error while attempting to stop training.",
 			zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
@@ -2505,7 +2575,7 @@ func (d *BasicWorkloadDriver) handleTrainingEndedEvent(evt *domain.Event, tick t
 }
 
 // issueStopTrainingRequest sends a 'StopRunningTrainingCode' request to a kernel with a configurable timeout.
-func (d *BasicWorkloadDriver) issueStopTrainingRequest(kernelConnection jupyter.KernelConnection, waitForResponse bool, timeout time.Duration) error {
+func (d *BasicWorkloadDriver) issueStopTrainingRequest(kernelConnection jupyter.KernelConnection, timeout time.Duration) error {
 	ctx, cancel := context.WithTimeout(context.Background(), timeout)
 	defer cancel()
 
@@ -2513,7 +2583,7 @@ func (d *BasicWorkloadDriver) issueStopTrainingRequest(kernelConnection jupyter.
 
 	// Issue request using a separate goroutine.
 	go func() {
-		err := kernelConnection.StopRunningTrainingCode(waitForResponse)
+		err := kernelConnection.StopRunningTrainingCode(true)
 		if err != nil {
 			doneChan <- err
 		} else {
