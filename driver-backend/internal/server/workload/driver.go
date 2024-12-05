@@ -1312,7 +1312,7 @@ func (d *BasicWorkloadDriver) checkForLongTick(tickNumber int, tickDurationSec d
 	avgTickDurationSec := d.tickDurationsSecondsMovingWindow.Avg()
 	stdDevTickDuration := d.tickDurationsSecondsMovingWindow.SampleStandardDeviation()
 
-	if tickDurationSec.GreaterThanOrEqual(avgTickDurationSec.Mul(decimal.NewFromFloat(2))) {
+	if tickDurationSec.GreaterThanOrEqual(avgTickDurationSec.Mul(decimal.NewFromFloat(3))) {
 		d.logger.Warn("Last tick took longer than expected.",
 			zap.Int("tick_number", tickNumber),
 			zap.String("tick_duration_sec", tickDurationSec.StringFixed(4)),
