@@ -991,3 +991,11 @@ func (w *BasicWorkload) SetNextExpectedEventSession(sessionId string) {
 func (w *BasicWorkload) GetStatistics() *Statistics {
 	return w.Statistics
 }
+
+// UpdateStatistics provides an atomic mechanism to update the InternalWorkload's Statistics.
+func (w *BasicWorkload) UpdateStatistics(f func(stats *Statistics)) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	f(w.Statistics)
+}

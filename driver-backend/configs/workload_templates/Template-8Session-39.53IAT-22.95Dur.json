@@ -67,7 +67,7 @@
           "duration_in_ticks": 19,
           "millicpus": 484,
           "mem_usage_mb": 661.9878,
-          "vram": 6.5040000000000004,
+          "vram": 3.5040000000000004,
           "num_gpus": 1,
           "gpu_utilizations": [
             {
@@ -94,7 +94,7 @@
           "millicpus": 514,
           "mem_usage_mb": 997.0999,
           "num_gpus": 1,
-          "vram": 10.776,
+          "vram": 3.776,
           "gpu_utilizations": [
             {
               "utilization": 69.15
@@ -126,7 +126,7 @@
           "start_tick": 9,
           "duration_in_ticks": 30,
           "millicpus": 708,
-          "vram": 10.92,
+          "vram": 3.92,
           "mem_usage_mb": 1095.7029,
           "num_gpus": 1,
           "gpu_utilizations": [

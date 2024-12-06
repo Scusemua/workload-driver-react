@@ -129,6 +129,9 @@ type InternalWorkload interface {
 
 	// GetStatistics returns the Statistics struct of the InternalWorkload.
 	GetStatistics() *Statistics
+
+	// UpdateStatistics provides an atomic mechanism to update the InternalWorkload's Statistics.
+	UpdateStatistics(func(stats *Statistics))
 }
 
 // BasicWorkloadDriver consumes events from the Workload Generator and takes action accordingly.
@@ -152,8 +155,10 @@ type BasicWorkloadDriver struct {
 	opts                               *domain.Configuration                 // The system's configuration, read from a file.
 	performClockTicks                  bool                                  // If true, then we'll issue clock ticks. Otherwise, don't issue them. Mostly used for testing/debugging.
 	seenSessions                       map[string]struct{}                   // All sessions that we've ever seen before.
+	seenSessionsMutex                  sync.Mutex                            // seenSessionsMutex ensures atomic access to the seenSessions
 	servingTicks                       atomic.Bool                           // The WorkloadDriver::ServeTicks() method will continue looping as long as this flag is set to true.
 	sessionConnections                 map[string]*jupyter.SessionConnection // Map from internal session ID to session connection.
+	sessionConnectionsMutex            sync.Mutex                            // sessionConnections ensures atomic access to the sessionConnections map
 	sessions                           *hashmap.HashMap                      // Responsible for creating sessions and maintaining a collection of all the sessions active within the simulation.
 	stopChan                           chan interface{}                      // Used to stop the workload early/prematurely (i.e., before all events have been processed).
 	targetTickDuration                 time.Duration                         // How long each tick is supposed to last. This is the tick interval/step rate of the simulation.
@@ -180,9 +185,12 @@ type BasicWorkloadDriver struct {
 	outputFileMutex                    sync.Mutex                            // Atomic access to output file
 	appendToOutputFile                 bool                                  // Flag that is set to true after the first write
 	misbehavingSessions                map[string]interface{}                // Map from session ID to sessions for sessions whose events we did not finish processing in a previous tick.
-	trainingStartedChannels            map[string]chan interface{}
-	pauseMutex                         sync.Mutex
-	pauseCond                          *sync.Cond
+	misbehavingSessionsMutex           sync.Mutex                            // misbehavingSessionsMutex ensures atomic access to the misbehavingSessions
+	trainingStartedChannels            map[string]chan interface{}           // trainingStartedChannels are channels used to notify that training has started
+	trainingStartedChannelMutex        sync.Mutex                            // trainingStartedChannelMutex ensures atomic access to the trainingStartedChannels
+
+	pauseMutex sync.Mutex
+	pauseCond  *sync.Cond
 
 	// refreshClusterStatistics is used to fresh the ClusterStatistics from the Cluster Gateway.
 	refreshClusterStatistics ClusterStatisticsRefresher
@@ -1489,6 +1497,9 @@ func (d *BasicWorkloadDriver) workloadComplete() {
 	d.logger.Info("The Workload Generator has finished generating events.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()))
 	d.logger.Info("The Workload has ended.", zap.Any("workload-duration", time.Since(d.workload.GetStartTime())), zap.Any("workload-start-time", d.workload.GetStartTime()), zap.Any("workload-end-time", d.workloadEndTime), zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()))
 
+	d.sessionConnectionsMutex.Lock()
+	defer d.sessionConnectionsMutex.Unlock()
+
 	d.sugaredLogger.Debugf("There is/are %d sessions.", len(d.sessionConnections))
 	for sessionId, sessionConnection := range d.sessionConnections {
 		kernel := sessionConnection.Kernel()
@@ -1600,6 +1611,134 @@ func (d *BasicWorkloadDriver) EventQueue() *event_queue.EventQueue {
 	return d.eventQueue
 }
 
+func (d *BasicWorkloadDriver) processSessionReadyEvents(sessionReadyEvents []*domain.Event, tick time.Time, timeoutInterval time.Duration) {
+	ctx, cancel := context.WithTimeout(context.Background(), timeoutInterval)
+	defer cancel()
+
+	sessionFinishedChannel := make(chan string, len(sessionReadyEvents))
+
+	// Keep track of which sessions have finished.
+	// The most important thing is the number of sessions that have finished,
+	// but knowing the session IDs could be useful for logging/debugging.
+	responsesReceived := map[string]struct{}{}
+	expectedNumResponses := len(sessionReadyEvents)
+	remainingSessions := make([]string, 0, len(sessionReadyEvents))
+	aborted := false
+
+	for idx, sessionReadyEvent := range sessionReadyEvents {
+		remainingSessions = append(remainingSessions, sessionReadyEvent.SessionId)
+		go d.handleSessionReadyEvent(sessionReadyEvent, idx, sessionFinishedChannel)
+	}
+
+	startedWaitingAt := time.Now()
+	// Keep looping until we've either received all responses, or until the context's timeout expires and we give up.
+	for len(responsesReceived) < expectedNumResponses && !aborted {
+		d.logger.Debug("Waiting for goroutines to finish handling session-creation events.",
+			zap.Int("num_responses_received", len(responsesReceived)),
+			zap.Int("num_responses_expected", expectedNumResponses),
+			zap.Strings("remaining_sessions", remainingSessions),
+			zap.Time("tick", tick),
+			zap.Duration("time_elapsed", time.Since(startedWaitingAt)),
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String("workload_id", d.workload.GetId()))
+
+		select {
+		case sessionId := <-sessionFinishedChannel:
+			{
+				// Make note that we the session has finished.
+				responsesReceived[sessionId] = struct{}{}
+
+				// Let's remove the session ID from the slice of remaining sessions.
+				idx := indexOf(remainingSessions, sessionId)
+				if idx != -1 { // This should never be -1, but just in case, we'll check...
+					remainingSessions = removeIndex(remainingSessions, idx)
+				} else {
+					d.logger.Error("indexOf returned -1",
+						zap.String("session_id", sessionId),
+						zap.Int("num_responses_received", len(responsesReceived)),
+						zap.Int("num_responses_expected", expectedNumResponses),
+						zap.Strings("remaining_sessions", remainingSessions),
+						zap.Time("tick", tick),
+						zap.Duration("time_elapsed", time.Since(startedWaitingAt)),
+						zap.String("workload_name", d.workload.WorkloadName()),
+						zap.String("workload_id", d.workload.GetId()))
+				}
+
+				d.logger.Debug("Session was created successfully.",
+					zap.String("session_id", sessionId),
+					zap.Int("num_responses_received", len(responsesReceived)),
+					zap.Int("num_responses_expected", expectedNumResponses),
+					zap.Strings("remaining_sessions", remainingSessions),
+					zap.Time("tick", tick),
+					zap.Duration("time_elapsed", time.Since(startedWaitingAt)),
+					zap.String("workload_name", d.workload.WorkloadName()),
+					zap.String("workload_id", d.workload.GetId()))
+
+				d.workload.UpdateTimeElapsed()
+			}
+		case <-ctx.Done():
+			{
+				d.logger.Error("Timed-out waiting for sessions to finish processing their events.",
+					zap.Int("num_responses_received", len(responsesReceived)),
+					zap.Int("num_responses_expected", expectedNumResponses),
+					zap.Strings("remaining_sessions", remainingSessions),
+					zap.Time("tick", tick),
+					zap.Duration("time_elapsed", time.Since(startedWaitingAt)),
+					zap.String("workload_name", d.workload.WorkloadName()),
+					zap.String("workload_id", d.workload.GetId()))
+
+				if err := ctx.Err(); err != nil {
+					d.logger.Error("There was an error attached to the context when we timed-out.",
+						zap.Time("tick", tick),
+						zap.Duration("time_elapsed", time.Since(startedWaitingAt)),
+						zap.String("workload_name", d.workload.WorkloadName()),
+						zap.String("workload_id", d.workload.GetId()),
+						zap.Error(err))
+				}
+
+				// Take note of all the sessions that did not finish being created during their window.
+				// We'll just discard those sessions, ignoring any future events targeting those sessions.
+				for _, sessionId := range remainingSessions {
+					d.logger.Warn("Session timed-out during creation. Disabling session.",
+						zap.String("session_id", sessionId),
+						zap.String("workload_name", d.workload.WorkloadName()),
+						zap.String("workload_id", d.workload.GetId()))
+
+					err := d.workload.SessionDiscarded(sessionId)
+					if err != nil {
+						d.logger.Error("Failed to disable Session that timed-out during creation.",
+							zap.String("session_id", sessionId),
+							zap.String("workload_name", d.workload.WorkloadName()),
+							zap.String("workload_id", d.workload.GetId()),
+							zap.Error(err))
+					}
+
+					misbehavingSession := d.GetSession(sessionId)
+					if misbehavingSession == nil {
+						d.logger.Error("Failed to load (misbehaving) session from (regular) session map.",
+							zap.String("session_id", sessionId),
+							zap.String("workload_name", d.workload.WorkloadName()),
+							zap.String("workload_id", d.workload.GetId()))
+						continue
+					}
+
+					// Record that the session failed to process all of its events in this tick.
+					// This should never come up again, since we disabled the session, but nevertheless
+					// it should be recorded, as the session did fail to process its events.
+					misbehavingSession.TickFailed()
+
+					d.misbehavingSessionsMutex.Lock()
+					d.misbehavingSessions[sessionId] = misbehavingSession
+					d.misbehavingSessionsMutex.Unlock()
+				}
+
+				// Give up.
+				aborted = true
+			}
+		}
+	}
+}
+
 // processEventsForTick processes events in chronological/simulation order.
 // This accepts the "current tick" as an argument. The current tick is basically an upper-bound on the times for
 // which we'll process an event. For example, if `tick` is 19:05:00, then we will process all cluster and session
@@ -1635,134 +1774,13 @@ func (d *BasicWorkloadDriver) processEventsForTick(tick time.Time) {
 
 	// Process any 'session-ready' events that are ready at the beginning of the tick.
 	if len(sessionReadyEvents) > 0 {
-		ctx, cancel := context.WithTimeout(context.Background(), time.Minute*5)
-		defer cancel()
-
-		sessionFinishedChannel := make(chan string, len(sessionReadyEvents))
-
 		d.logger.Debug("Processing \"session-ready\" event(s) at the very beginning of the tick.",
 			zap.String("workload_id", d.workload.GetId()),
 			zap.String("workload_name", d.workload.WorkloadName()),
 			zap.Time("tick", tick),
 			zap.Int("num_events", len(sessionReadyEvents)))
 
-		// Keep track of which sessions have finished.
-		// The most important thing is the number of sessions that have finished,
-		// but knowing the session IDs could be useful for logging/debugging.
-		responsesReceived := map[string]struct{}{}
-		expectedNumResponses := len(sessionReadyEvents)
-		remainingSessions := make([]string, 0, len(sessionReadyEvents))
-		aborted := false
-
-		for idx, sessionReadyEvent := range sessionReadyEvents {
-			remainingSessions = append(remainingSessions, sessionReadyEvent.SessionId)
-			go d.handleSessionReadyEvent(sessionReadyEvent, idx, sessionFinishedChannel)
-		}
-
-		startedWaitingAt := time.Now()
-		// Keep looping until we've either received all responses, or until the context's timeout expires and we give up.
-		for len(responsesReceived) < expectedNumResponses && !aborted {
-			d.logger.Debug("Waiting for goroutines to finish handling session-creation events.",
-				zap.Int("num_responses_received", len(responsesReceived)),
-				zap.Int("num_responses_expected", len(sessionEventMap)),
-				zap.Strings("remaining_sessions", remainingSessions),
-				zap.Time("tick", tick),
-				zap.Duration("time_elapsed", time.Since(startedWaitingAt)),
-				zap.String("workload_name", d.workload.WorkloadName()),
-				zap.String("workload_id", d.workload.GetId()))
-
-			select {
-			case sessionId := <-sessionFinishedChannel:
-				{
-					// Make note that we the session has finished.
-					responsesReceived[sessionId] = struct{}{}
-
-					// Let's remove the session ID from the slice of remaining sessions.
-					idx := indexOf(remainingSessions, sessionId)
-					if idx != -1 { // This should never be -1, but just in case, we'll check...
-						remainingSessions = removeIndex(remainingSessions, idx)
-					} else {
-						d.logger.Error("indexOf returned -1",
-							zap.String("session_id", sessionId),
-							zap.Int("num_responses_received", len(responsesReceived)),
-							zap.Int("num_responses_expected", len(sessionEventMap)),
-							zap.Strings("remaining_sessions", remainingSessions),
-							zap.Time("tick", tick),
-							zap.Duration("time_elapsed", time.Since(startedWaitingAt)),
-							zap.String("workload_name", d.workload.WorkloadName()),
-							zap.String("workload_id", d.workload.GetId()))
-					}
-
-					d.logger.Debug("Session was created successfully.",
-						zap.String("session_id", sessionId),
-						zap.Int("num_responses_received", len(responsesReceived)),
-						zap.Int("num_responses_expected", len(sessionEventMap)),
-						zap.Strings("remaining_sessions", remainingSessions),
-						zap.Time("tick", tick),
-						zap.Duration("time_elapsed", time.Since(startedWaitingAt)),
-						zap.String("workload_name", d.workload.WorkloadName()),
-						zap.String("workload_id", d.workload.GetId()))
-
-					d.workload.UpdateTimeElapsed()
-				}
-			case <-ctx.Done():
-				{
-					d.logger.Error("Timed-out waiting for sessions to finish processing their events.",
-						zap.Int("num_responses_received", len(responsesReceived)),
-						zap.Int("num_responses_expected", len(sessionEventMap)),
-						zap.Strings("remaining_sessions", remainingSessions),
-						zap.Time("tick", tick),
-						zap.Duration("time_elapsed", time.Since(startedWaitingAt)),
-						zap.String("workload_name", d.workload.WorkloadName()),
-						zap.String("workload_id", d.workload.GetId()))
-
-					if err := ctx.Err(); err != nil {
-						d.logger.Error("There was an error attached to the context when we timed-out.",
-							zap.Time("tick", tick),
-							zap.Duration("time_elapsed", time.Since(startedWaitingAt)),
-							zap.String("workload_name", d.workload.WorkloadName()),
-							zap.String("workload_id", d.workload.GetId()),
-							zap.Error(err))
-					}
-
-					// Take note of all the sessions that did not finish being created during their window.
-					// We'll just discard those sessions, ignoring any future events targeting those sessions.
-					for _, sessionId := range remainingSessions {
-						d.logger.Warn("Session timed-out during creation. Disabling session.",
-							zap.String("session_id", sessionId),
-							zap.String("workload_name", d.workload.WorkloadName()),
-							zap.String("workload_id", d.workload.GetId()))
-
-						err := d.workload.SessionDiscarded(sessionId)
-						if err != nil {
-							d.logger.Error("Failed to disable Session that timed-out during creation.",
-								zap.String("session_id", sessionId),
-								zap.String("workload_name", d.workload.WorkloadName()),
-								zap.String("workload_id", d.workload.GetId()),
-								zap.Error(err))
-						}
-
-						misbehavingSession := d.GetSession(sessionId)
-						if misbehavingSession == nil {
-							d.logger.Error("Failed to load (misbehaving) session from (regular) session map.",
-								zap.String("session_id", sessionId),
-								zap.String("workload_name", d.workload.WorkloadName()),
-								zap.String("workload_id", d.workload.GetId()))
-							continue
-						}
-
-						// Record that the session failed to process all of its events in this tick.
-						// This should never come up again, since we disabled the session, but nevertheless
-						// it should be recorded, as the session did fail to process its events.
-						misbehavingSession.TickFailed()
-						d.misbehavingSessions[sessionId] = misbehavingSession
-					}
-
-					// Give up.
-					aborted = true
-				}
-			}
-		}
+		d.processSessionReadyEvents(sessionReadyEvents, tick, time.Minute*3)
 	}
 
 	d.workload.UpdateTimeElapsed()
@@ -1916,6 +1934,7 @@ func (d *BasicWorkloadDriver) processEventsForTick(tick time.Time) {
 					// Record that the session failed to process all of its events in this tick.
 					numFailedTicks := misbehavingSession.TickFailed()
 
+					d.misbehavingSessionsMutex.Lock()
 					// Check if this session has a history of poor behavior. For now, we just log a message if so.
 					if _, loaded := d.misbehavingSessions[sessionId]; loaded {
 						d.logger.Warn("Identified session with a history of bad behavior.",
@@ -1927,6 +1946,7 @@ func (d *BasicWorkloadDriver) processEventsForTick(tick time.Time) {
 
 					// Take note of this session's behavior.
 					d.misbehavingSessions[sessionId] = misbehavingSession
+					d.misbehavingSessionsMutex.Unlock()
 				}
 
 				// Give up.
@@ -2064,9 +2084,15 @@ func (d *BasicWorkloadDriver) newSession(id string, meta domain.SessionMetadata,
 
 	d.mu.Lock()
 	defer d.mu.Unlock()
-	d.workload.GetStatistics().TotalNumSessions += 1
+
+	d.workload.UpdateStatistics(func(stats *Statistics) {
+		stats.TotalNumSessions += 1
+	})
+
+	d.seenSessionsMutex.Lock()
 	d.seenSessions[internalSessionId] = struct{}{}
 	d.sessions.Set(internalSessionId, session)
+	d.seenSessionsMutex.Unlock()
 
 	return session
 }
@@ -2229,32 +2255,6 @@ func (d *BasicWorkloadDriver) handleFailureToCreateNewSession(err error, session
 	return errors.Join(ErrKernelCreationFailed, err)
 }
 
-// Schedule new Sessions onto Hosts.
-//func (d *BasicWorkloadDriver) handleSessionReadyEvents(latestTick time.Time) {
-//	sessionReadyEvents := d.eventQueue.GetAllSessionStartEventsForTick(latestTick, -1 /* return all ready events */)
-//	if len(sessionReadyEvents) == 0 {
-//		return // No events to process, so just return immediately.
-//	}
-//
-//	if d.sugaredLogger.Level() == zapcore.DebugLevel {
-//		d.sugaredLogger.Debugf("[%v] Handling %d EventSessionReady events now.",
-//			d.clockTime.GetClockTime(), len(sessionReadyEvents))
-//	}
-//
-//	var wg sync.WaitGroup
-//	wg.Add(len(sessionReadyEvents))
-//
-//	// We'll process the 'session-ready' events in-parallel.
-//	st := time.Now()
-//	for idx, sessionReadyEvent := range sessionReadyEvents {
-//		go d.handleSessionReadyEvent(sessionReadyEvent, idx, &wg)
-//	}
-//
-//	wg.Wait()
-//
-//	d.sugaredLogger.Debugf("Finished processing %d events in %v.", len(sessionReadyEvents), time.Since(st))
-//}
-
 // handleUpdateGpuUtilizationEvent handles a 'update-gpu-util' event.
 func (d *BasicWorkloadDriver) handleUpdateGpuUtilizationEvent(evt *domain.Event) error {
 	traceSessionId := evt.Data.(domain.SessionMetadata).GetPod()
@@ -2335,7 +2335,11 @@ func (d *BasicWorkloadDriver) handleTrainingStartedEvent(evt *domain.Event) erro
 		zap.String("internal-session-id", internalSessionId),
 		zap.String(ZapTraceSessionIDKey, traceSessionId))
 
-	if _, ok := d.seenSessions[internalSessionId]; !ok {
+	d.seenSessionsMutex.Lock()
+	_, ok := d.seenSessions[internalSessionId]
+	d.seenSessionsMutex.Unlock()
+
+	if !ok {
 		d.logger.Warn("Received 'training-started' event for unknown session.",
 			zap.String("workload_id", d.workload.GetId()),
 			zap.String("workload_name", d.workload.WorkloadName()),
@@ -2345,7 +2349,10 @@ func (d *BasicWorkloadDriver) handleTrainingStartedEvent(evt *domain.Event) erro
 		return fmt.Errorf("%w: session \"%s\"", domain.ErrUnknownSession, internalSessionId)
 	}
 
+	d.sessionConnectionsMutex.Lock()
 	sessionConnection, ok := d.sessionConnections[internalSessionId]
+	d.sessionConnectionsMutex.Unlock()
+
 	if !ok {
 		d.logger.Error("No session connection found for session upon receiving 'training-started' event.",
 			zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
@@ -2362,7 +2369,9 @@ func (d *BasicWorkloadDriver) handleTrainingStartedEvent(evt *domain.Event) erro
 	}
 
 	trainingStartedChannel := make(chan interface{}, 1)
+	d.trainingStartedChannelMutex.Lock()
 	d.trainingStartedChannels[internalSessionId] = trainingStartedChannel
+	d.trainingStartedChannelMutex.Unlock()
 
 	onResponseCallback := func(response jupyter.KernelMessage) {
 		responseContent := response.GetContent().(map[string]interface{})
@@ -2470,11 +2479,12 @@ func (d *BasicWorkloadDriver) handleTrainingStartedEvent(evt *domain.Event) erro
 				}
 			default:
 				{
+					startLatency := time.Since(sentRequestAt)
 					d.logger.Debug("Session started training",
 						zap.String("workload_id", d.workload.GetId()),
 						zap.String("workload_name", d.workload.WorkloadName()),
 						zap.String("kernel_id", internalSessionId),
-						zap.Duration("time_elapsed", time.Since(sentRequestAt)))
+						zap.Duration("start_latency", startLatency))
 				}
 			}
 		}
@@ -2528,21 +2538,21 @@ func (d *BasicWorkloadDriver) handleTrainingEndedEvent(evt *domain.Event, tick t
 		zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
 		zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
 
-	if _, ok := d.seenSessions[internalSessionId]; !ok {
+	d.seenSessionsMutex.Lock()
+	_, ok := d.seenSessions[internalSessionId]
+	d.seenSessionsMutex.Unlock()
+
+	if !ok {
 		d.logger.Warn("Received 'training-stopped' event for unknown session.",
 			zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
 			zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
 		return fmt.Errorf("%w: session \"%s\"", domain.ErrUnknownSession, internalSessionId)
 	}
 
-	if _, ok := d.seenSessions[internalSessionId]; !ok {
-		d.logger.Warn("Received 'training-stopped' event for unknown session.",
-			zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
-			zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
-		return fmt.Errorf("%w: session \"%s\"", domain.ErrUnknownSession, internalSessionId)
-	}
-
+	d.sessionConnectionsMutex.Lock()
 	sessionConnection, ok := d.sessionConnections[internalSessionId]
+	d.sessionConnectionsMutex.Unlock()
+
 	if !ok {
 		d.logger.Error("No session connection found for session upon receiving 'training-stopped' event.",
 			zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
@@ -2693,6 +2703,8 @@ func (d *BasicWorkloadDriver) handleEvent(evt *domain.Event, tick time.Time) err
 		return d.handleTrainingEndedEvent(evt, tick)
 	case domain.EventSessionStopped:
 		return d.handleSessionStoppedEvent(evt)
+	case domain.EventSessionReady:
+		d.processSessionReadyEvents([]*domain.Event{evt}, tick, time.Minute*3)
 	default:
 		traceSessionId := evt.Data.(domain.SessionMetadata).GetPod()
 		internalSessionId := d.getInternalSessionId(traceSessionId)
@@ -2741,9 +2753,9 @@ func (d *BasicWorkloadDriver) provisionSession(sessionId string, meta domain.Ses
 
 	timeElapsed := time.Since(st)
 
-	d.mu.Lock()
+	d.sessionConnectionsMutex.Lock()
 	d.sessionConnections[internalSessionId] = sessionConnection
-	d.mu.Unlock()
+	d.sessionConnectionsMutex.Unlock()
 
 	d.logger.Debug("Successfully created new kernel.",
 		zap.String("workload_id", d.workload.GetId()),
@@ -2877,18 +2889,25 @@ func (d *BasicWorkloadDriver) handleIOPubSmrLeadTaskMessage(conn jupyter.KernelC
 
 	sentExecRequestAt := val.(int64)
 
-	delay := trainingStartedAt - sentExecRequestAt
-	if delay < 0 {
+	delayMilliseconds := trainingStartedAt - sentExecRequestAt
+	if delayMilliseconds < 0 {
 		d.logger.Error("Computed invalid delay between training submission and training start...",
 			zap.String("workload_id", d.workload.GetId()),
 			zap.String("workload_name", d.workload.WorkloadName()),
 			zap.String("kernel_id", conn.KernelId()),
 			zap.Int64("sent_execute_request_at", sentExecRequestAt),
 			zap.Int64("training_started_at", trainingStartedAt),
-			zap.Int64("computed_delay", delay))
+			zap.Int64("computed_delay_millis", delayMilliseconds))
 
-		panic(fmt.Sprintf("invalid training submission delay: %d milliseconds", delay))
+		delayMilliseconds = 0
 	}
+
+	d.workload.UpdateStatistics(func(stats *Statistics) {
+		stats.JupyterTrainingStartLatenciesDashboardMillis = append(
+			stats.JupyterTrainingStartLatenciesDashboardMillis, float64(delayMilliseconds))
+
+		stats.JupyterTrainingStartLatencyDashboardMillis += float64(delayMilliseconds)
+	})
 
 	d.logger.Debug("Computed training-started delay for session.",
 		zap.String("workload_id", d.workload.GetId()),
@@ -2896,18 +2915,31 @@ func (d *BasicWorkloadDriver) handleIOPubSmrLeadTaskMessage(conn jupyter.KernelC
 		zap.String("kernel_id", conn.KernelId()),
 		zap.Int64("sent_execute_request_at", sentExecRequestAt),
 		zap.Int64("training_started_at", trainingStartedAt),
-		zap.Int64("computed_delay", delay))
+		zap.Int64("computed_delay", delayMilliseconds))
 
-	d.delaySession(conn.KernelId(), time.Millisecond*time.Duration(delay))
+	d.delaySession(conn.KernelId(), time.Millisecond*time.Duration(delayMilliseconds))
 
+	d.trainingStartedChannelMutex.Lock()
 	channel, loadedChan := d.trainingStartedChannels[conn.KernelId()]
+	d.trainingStartedChannelMutex.Unlock()
+
 	if !loadedChan {
-		panic(fmt.Sprintf("Could not find 'training started' channel for session \"%s\"", conn.KernelId()))
+		d.logger.Error("Could not find 'training started' channel for session.",
+			zap.String("workload_id", d.workload.GetId()),
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String("kernel_id", conn.KernelId()),
+			zap.Int64("sent_execute_request_at", sentExecRequestAt),
+			zap.Int64("training_started_at", trainingStartedAt),
+			zap.Int64("computed_delay", delayMilliseconds))
+
+		return conn.KernelId()
 	}
 
 	channel <- struct{}{}
 
+	d.trainingStartedChannelMutex.Lock()
 	delete(d.trainingStartedChannels, conn.KernelId()) // Clean up
+	d.trainingStartedChannelMutex.Unlock()
 
 	return conn.KernelId()
 }

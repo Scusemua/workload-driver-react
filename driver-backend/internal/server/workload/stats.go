@@ -40,6 +40,14 @@ type Statistics struct {
 	CumulativeJupyterSessionTerminationLatencyMillis int64   `json:"cumulative_jupyter_session_termination_latency_millis" csv:"cumulative_jupyter_session_termination_latency_millis"`
 	JupyterSessionTerminationLatenciesMillis         []int64 `json:"jupyter_session_termination_latencies_millis" csv:"-"`
 
+	// JupyterTrainingStartLatencyDashboardMillis tracks the delay between when client submits "execute_request" and
+	// when kernel begins executing. This field tracks the exact same information as the JupyterTrainingStartLatencyMillis
+	// field of ClustStatistics; however, it is measured from the dashboard directly.
+	JupyterTrainingStartLatencyDashboardMillis float64 `json:"jupyter_training_start_latency_dashboard_millis" csv:"jupyter_training_start_latency_dashboard_millis"`
+	// JupyterTrainingStartLatenciesDashboardMillis tracks the exact same information as the
+	// JupyterTrainingStartLatenciesDashboardMillis field of ClustStatistics; however, it is measured from the dashboard directly.
+	JupyterTrainingStartLatenciesDashboardMillis []float64 `json:"jupyter_training_start_latencies_dashboard_millis" csv:"-"`
+
 	NumTimesSessionDelayedResourceContention int `json:"num_times_session_delayed_resource_contention" csv:"num_times_session_delayed_resource_contention"`
 
 	// CumulativeTrainingTimeTicks is the cumulative, aggregate time spent training (in ticks),
