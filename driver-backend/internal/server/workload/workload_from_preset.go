@@ -49,7 +49,7 @@ func (w *Preset) GetWorkloadSource() interface{} {
 	return w.WorkloadPreset
 }
 
-func (w *Preset) SetSource(source interface{}) error {
+func (w *Preset) unsafeSetSource(source interface{}) error {
 	if source == nil {
 		panic("Cannot use nil source for Preset")
 	}
@@ -71,13 +71,7 @@ func (w *Preset) SetMaxUtilizationWrapper(wrapper *domain.MaxUtilizationWrapper)
 	w.MaxUtilizationWrapper = wrapper
 }
 
-// SetSessions sets the sessions that will be involved in this workload.
-//
-// IMPORTANT: This can only be set once per workload. If it is called more than once, it will panic.
-func (w *Preset) SetSessions(sessions []*domain.BasicWorkloadSession) error {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-
+func (w *Preset) unsafeSetSessions(sessions []*domain.BasicWorkloadSession) error {
 	w.Sessions = sessions
 	w.sessionsSet = true
 

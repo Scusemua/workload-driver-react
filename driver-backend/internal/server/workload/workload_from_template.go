@@ -90,7 +90,7 @@ func (w *Template) GetWorkloadSource() interface{} {
 	return w.Sessions
 }
 
-func (w *Template) SetSource(source interface{}) error {
+func (w *Template) unsafeSetSource(source interface{}) error {
 	if source == nil {
 		panic("Cannot use nil source for Template")
 	}
@@ -104,7 +104,7 @@ func (w *Template) SetSource(source interface{}) error {
 	}
 
 	w.workloadSource = sourceSessions
-	err := w.SetSessions(sourceSessions)
+	err := w.unsafeSetSessions(sourceSessions)
 	if err != nil {
 		w.logger.Error("Failed to assign source to Template.", zap.Error(err))
 		return err
@@ -115,13 +115,7 @@ func (w *Template) SetSource(source interface{}) error {
 	return nil
 }
 
-// SetSessions sets the sessions that will be involved in this workload.
-//
-// IMPORTANT: This can only be set once per workload. If it is called more than once, it will panic.
-func (w *Template) SetSessions(sessions []*domain.WorkloadTemplateSession) error {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-
+func (w *Template) unsafeSetSessions(sessions []*domain.WorkloadTemplateSession) error {
 	w.Sessions = sessions
 	w.sessionsSet = true
 	w.Statistics.TotalNumSessions = len(sessions)

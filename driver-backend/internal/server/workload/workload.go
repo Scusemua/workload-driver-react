@@ -79,6 +79,13 @@ func GetWorkloadStateAsString(state State) string {
 	}
 }
 
+type workloadInternal interface {
+	domain.Workload
+
+	unsafeSessionDiscarded(sessionId string) error
+	unsafeSetSource(source interface{}) error
+}
+
 type BasicWorkload struct {
 	logger        *zap.Logger
 	sugaredLogger *zap.SugaredLogger
@@ -124,7 +131,7 @@ type BasicWorkload struct {
 	// This is basically the child struct.
 	// So, if this is a preset workload, then this is the Preset struct.
 	// We use this so we can delegate certain method calls to the child/derived struct.
-	workloadInstance          domain.Workload
+	workloadInstance          workloadInternal
 	workloadSource            interface{}
 	mu                        sync.RWMutex
 	sessionsMap               map[string]interface{} // Internal mapping of session ID to session.
@@ -285,7 +292,7 @@ func (w *BasicWorkload) SetSource(source interface{}) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
-	return w.workloadInstance.SetSource(source)
+	return w.workloadInstance.unsafeSetSource(source)
 }
 
 // GetKind gets the type of workload (TRACE, PRESET, or TEMPLATE).
@@ -892,13 +899,14 @@ func (w *BasicWorkload) SessionDiscarded(sessionId string) error {
 	w.mu.Lock()
 	defer w.mu.Unlock()
 
+	return w.unsafeSessionDiscarded(sessionId)
+}
+
+func (w *BasicWorkload) unsafeSessionDiscarded(sessionId string) error {
 	return w.workloadInstance.SessionDiscarded(sessionId)
 }
 
-func (w *BasicWorkload) SetSessionSampled(sessionId string) {
-	w.mu.Lock()
-	defer w.mu.Unlock()
-
+func (w *BasicWorkload) unsafeSetSessionSampled(sessionId string) {
 	w.SampledSessions[sessionId] = struct{}{}
 	w.logger.Debug("Decided to sample events targeting session.",
 		zap.String("workload_id", w.Id),
@@ -909,7 +917,7 @@ func (w *BasicWorkload) SetSessionSampled(sessionId string) {
 	w.Statistics.NumSampledSessions += 1
 }
 
-func (w *BasicWorkload) SetSessionDiscarded(sessionId string) {
+func (w *BasicWorkload) unsafeSetSessionDiscarded(sessionId string) {
 	err := w.SessionDiscarded(sessionId)
 	if err != nil {
 		w.logger.Error("Failed to disable session.",
@@ -960,11 +968,11 @@ func (w *BasicWorkload) unsafeIsSessionBeingSampled(sessionId string) bool {
 	// Randomly decide if we're going to sample/process [events for] this session or not.
 	randomValue := rand.Float64()
 	if randomValue <= w.Statistics.SessionsSamplePercentage {
-		w.SetSessionSampled(sessionId)
+		w.unsafeSetSessionSampled(sessionId)
 		return true
 	}
 
-	w.SetSessionDiscarded(sessionId)
+	w.unsafeSetSessionDiscarded(sessionId)
 	return false
 }
 
