@@ -310,6 +310,8 @@ type WorkloadTemplateSession struct {
 	StopTick          int              `json:"stop_tick"`
 	Trainings         []*TrainingEvent `json:"trainings"`
 	NumTrainingEvents int              `json:"num_training_events"`
+	TotalExecTime     int64            `json:"total_exec_time"`
+	ExecutionTimes    []int64          `json:"-"`
 }
 
 func (t *WorkloadTemplateSession) String() string {

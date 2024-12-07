@@ -20,7 +20,7 @@ import (
 	"github.com/mattn/go-colorable"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
-	gateway "github.com/scusemua/workload-driver-react/m/v2/internal/server/api/proto"
+	"github.com/scusemua/workload-driver-react/m/v2/internal/server/api/proto"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/server/auth"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/server/concurrent_websocket"
 	"github.com/scusemua/workload-driver-react/m/v2/internal/server/handlers"
@@ -130,8 +130,7 @@ func NewServer(opts *domain.Configuration) domain.Server {
 		prometheusEndpoint:      opts.PrometheusEndpoint,
 	}
 
-	s.workloadManager = workload.NewWorkloadManager(opts, &atom, s.handleCriticalWorkloadError, s.handleWorkloadError,
-		s.notifyFrontend, s.refreshAndClearClusterStatistics)
+	s.workloadManager = workload.NewWorkloadManager(opts, &atom, s)
 
 	// Default to "/"
 	if s.baseUrl == "" {
@@ -166,6 +165,9 @@ func NewServer(opts *domain.Configuration) domain.Server {
 		s.expectedOriginAddresses = append(s.expectedOriginAddresses, expectedOrigin)
 	}
 
+	// TODO: Getting nil pointer exception because the callback occurs in the constructor, so s.gatewayRpcClient is still nil.
+	s.gatewayRpcClient = handlers.NewClusterDashboardHandler(s.opts, true, true, s.SendNotification, s.handleRpcRegistrationComplete)
+
 	if err := s.setupRoutes(); err != nil {
 		panic(err)
 	}
@@ -183,7 +185,7 @@ func (s *serverImpl) clearClusterStatistics() (*workload.ClusterStatistics, erro
 		zap.String("request_id", requestId),
 		zap.Bool("update", true))
 
-	resp, err := s.gatewayRpcClient.ClearClusterStatistics(context.Background(), &gateway.Void{})
+	resp, err := s.gatewayRpcClient.ClearClusterStatistics(context.Background(), &proto.Void{})
 	if err != nil {
 		s.logger.Error("Failed to clear Cluster Statistics.", zap.Error(err))
 		return nil, err
@@ -203,7 +205,22 @@ func (s *serverImpl) clearClusterStatistics() (*workload.ClusterStatistics, erro
 	return clusterStatistics, nil
 }
 
-func (s *serverImpl) refreshAndClearClusterStatistics(update bool, clear bool) (*workload.ClusterStatistics, error) {
+// GetSchedulingPolicy returns the configured scheduling policy along with a flag indicating whether the returned
+// policy name is valid.
+func (s *serverImpl) GetSchedulingPolicy() (string, bool) {
+	if s.gatewayRpcClient == nil {
+		return "", false
+	}
+
+	policy := s.gatewayRpcClient.SchedulingPolicy()
+	if policy == "" {
+		return "", false
+	}
+
+	return policy, true
+}
+
+func (s *serverImpl) RefreshAndClearClusterStatistics(update bool, clear bool) (*workload.ClusterStatistics, error) {
 	if clear {
 		return s.clearClusterStatistics()
 	}
@@ -213,7 +230,7 @@ func (s *serverImpl) refreshAndClearClusterStatistics(update bool, clear bool) (
 		zap.String("request_id", requestId),
 		zap.Bool("update", update))
 
-	resp, err := s.gatewayRpcClient.ClusterStatistics(context.Background(), &gateway.ClusterStatisticsRequest{
+	resp, err := s.gatewayRpcClient.ClusterStatistics(context.Background(), &proto.ClusterStatisticsRequest{
 		RequestId:   requestId,
 		UpdateFirst: update,
 	})
@@ -514,9 +531,6 @@ func (s *serverImpl) setupRoutes() error {
 		webSocketGroup.GET(domain.GeneralWebsocketEndpoint, s.serveGeneralWebsocket)
 	}
 
-	// TODO: Getting nil pointer exception because the callback occurs in the constructor, so s.gatewayRpcClient is still nil.
-	s.gatewayRpcClient = handlers.NewClusterDashboardHandler(s.opts, true, s.notifyFrontend, s.handleRpcRegistrationComplete)
-
 	s.sugaredLogger.Debugf("Creating route groups now. (gatewayRpcClient == nil: %v)", s.gatewayRpcClient == nil)
 
 	pprof.Register(s.app, s.getPath("dev/pprof"))
@@ -672,7 +686,7 @@ func (s *serverImpl) handleWorkloadStatisticsRequest(c *gin.Context) {
 	c.String(http.StatusOK, string(outputFileContents))
 }
 
-func (s *serverImpl) handleWorkloadError(workloadId string, err error) {
+func (s *serverImpl) HandleWorkloadError(workloadId string, err error) {
 	if err == nil {
 		s.logger.Warn("Workload non-critical error handler called with nil error...",
 			zap.String("workload_id", workloadId))
@@ -683,7 +697,7 @@ func (s *serverImpl) handleWorkloadError(workloadId string, err error) {
 		zap.String("workload_id", workloadId),
 		zap.Error(err))
 
-	s.notifyFrontend(&gateway.Notification{
+	s.SendNotification(&proto.Notification{
 		Title:            fmt.Sprintf("Non-Critical Error Occurred in Workload \"%s\"", workloadId),
 		Message:          err.Error(),
 		NotificationType: int32(domain.WarningNotification),
@@ -691,7 +705,7 @@ func (s *serverImpl) handleWorkloadError(workloadId string, err error) {
 	})
 }
 
-func (s *serverImpl) handleCriticalWorkloadError(workloadId string, err error) {
+func (s *serverImpl) HandleCriticalWorkloadError(workloadId string, err error) {
 	if err == nil {
 		s.logger.Warn("Workload critical error handler called with nil error...",
 			zap.String("workload_id", workloadId))
@@ -702,7 +716,7 @@ func (s *serverImpl) handleCriticalWorkloadError(workloadId string, err error) {
 		zap.String("workload_id", workloadId),
 		zap.Error(err))
 
-	s.notifyFrontend(&gateway.Notification{
+	s.SendNotification(&proto.Notification{
 		Title:            fmt.Sprintf("Critical Error Occurred in Workload \"%s\"", workloadId),
 		Message:          err.Error(),
 		NotificationType: int32(domain.ErrorNotification),
@@ -715,7 +729,7 @@ func (s *serverImpl) HandlePrometheusRequest(c *gin.Context) {
 	s.prometheusHandler.ServeHTTP(c.Writer, c.Request)
 }
 
-func (s *serverImpl) notifyFrontend(notification *gateway.Notification) {
+func (s *serverImpl) SendNotification(notification *proto.Notification) {
 	message := &domain.GeneralWebSocketResponse{
 		Op:      "notification",
 		Payload: notification,
@@ -753,19 +767,19 @@ func (s *serverImpl) notifyFrontend(notification *gateway.Notification) {
 }
 
 func (s *serverImpl) handleSpoofedNotifications(ctx *gin.Context) {
-	_, err := s.gatewayRpcClient.SpoofNotifications(context.Background(), &gateway.Void{})
+	_, err := s.gatewayRpcClient.SpoofNotifications(context.Background(), &proto.Void{})
 
 	if err != nil {
 		s.logger.Error("Failed to issue `SpoofNotifications` RPC to Cluster Gateway.", zap.Error(err))
 
-		notification := &gateway.Notification{
+		notification := &proto.Notification{
 			Title:            "SpoofedError",
 			Message:          fmt.Sprintf("This is a spoofed/fake error message with UUID=%s.", uuid.NewString()),
 			NotificationType: int32(domain.ErrorNotification),
 			Panicked:         false,
 		}
 
-		s.notifyFrontend(notification) // Might be redundant given we're responding with an erroneous status code.
+		s.SendNotification(notification) // Might be redundant given we're responding with an erroneous status code.
 		_ = ctx.AbortWithError(http.StatusInternalServerError, err)
 	}
 
@@ -773,7 +787,7 @@ func (s *serverImpl) handleSpoofedNotifications(ctx *gin.Context) {
 }
 
 func (s *serverImpl) handleSpoofedError(ctx *gin.Context) {
-	errorMessage := &gateway.Notification{
+	errorMessage := &proto.Notification{
 		Title:            "SpoofedError",
 		Message:          fmt.Sprintf("This is a spoofed/fake error message with UUID=%s.", uuid.NewString()),
 		NotificationType: int32(domain.ErrorNotification),
@@ -781,7 +795,7 @@ func (s *serverImpl) handleSpoofedError(ctx *gin.Context) {
 	}
 
 	s.logger.Debug("Broadcasting spoofed error message.", zap.Int("num-recipients", len(s.generalWebsockets)))
-	s.notifyFrontend(errorMessage)
+	s.SendNotification(errorMessage)
 
 	ctx.Status(http.StatusOK)
 }

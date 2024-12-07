@@ -103,6 +103,7 @@ type ClusterDashboardHandler struct {
 func NewClusterDashboardHandler(
 	opts *domain.Configuration,
 	shouldConnect bool,
+	connectInBackground bool,
 	notificationCallback notificationCallback,
 	postRegistrationCallback RegistrationCompleteCallback) *ClusterDashboardHandler {
 
@@ -136,13 +137,21 @@ func NewClusterDashboardHandler(
 	handler.sugaredLogger = handler.logger.Sugar()
 
 	if shouldConnect {
-		go func() {
+		if connectInBackground {
+			go func() {
+				err = handler.setupRpcResources(opts.GatewayAddress)
+				if err != nil {
+					handler.logger.Error("Failed to dial gRPC Cluster Gateway.", zap.Error(err))
+					panic(err)
+				}
+			}()
+		} else {
 			err = handler.setupRpcResources(opts.GatewayAddress)
 			if err != nil {
 				handler.logger.Error("Failed to dial gRPC Cluster Gateway.", zap.Error(err))
 				panic(err)
 			}
-		}()
+		}
 	}
 
 	return handler
@@ -188,8 +197,8 @@ func (h *ClusterDashboardHandler) HandleConnectionError() {
 	}()
 }
 
-// SendNotification is called by the Cluster Gateway targeting us. It is used to publish notifications that should
-// ultimately be pushed to the frontend to be displayed to the user.
+// SendNotification is an RPC handler that is called by the Cluster Scheduler to send notifications to the frontend.
+// We also call it directly to send our own notifications to the frontend.
 func (h *ClusterDashboardHandler) SendNotification(_ context.Context, notification *gateway.Notification) (*gateway.Void, error) {
 	if notification.NotificationType == int32(domain.ErrorNotification) {
 		h.logger.Debug("Notified of error that occurred within Cluster.",

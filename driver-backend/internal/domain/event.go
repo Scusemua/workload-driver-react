@@ -1,6 +1,7 @@
 package domain
 
 import (
+	"encoding/json"
 	"fmt"
 	"sync/atomic"
 	"time"
@@ -176,4 +177,13 @@ func (e *Event) Id() string { return e.ID }
 func (e *Event) String() string {
 	return fmt.Sprintf("generator.Event[Name=%s,OriginalTimestamp=%v,Timestamp=%v,LocalIndex=%d,GlobalIndex=%d,,src=%v,orgSrc=%v,orderSeq=%d,data=%v]",
 		e.Name, e.Timestamp, e.OriginalTimestamp, e.LocalIndex, e.GlobalIndex, e.EventSource, e.OriginalEventSource, e.OrderSeq, e.Data)
+}
+
+func (e *Event) StringJson() string {
+	m, err := json.Marshal(e)
+	if err != nil {
+		panic(err)
+	}
+
+	return string(m)
 }

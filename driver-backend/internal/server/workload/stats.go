@@ -49,6 +49,9 @@ type Statistics struct {
 	// JupyterTrainingStartLatenciesDashboardMillis field of ClustStatistics; however, it is measured from the dashboard directly.
 	JupyterTrainingStartLatenciesDashboardMillis []float64 `json:"jupyter_training_start_latencies_dashboard_millis" csv:"-"`
 
+	TotalReplyLatencyMillis   int64   `json:"total_reply_latency_millis" csv:"total_reply_latency_millis"`
+	TotalReplyLatenciesMillis []int64 `json:"total_reply_latencies_millis" csv:"total_reply_latencies_millis"`
+
 	NumTimesSessionDelayedResourceContention int `json:"num_times_session_delayed_resource_contention" csv:"num_times_session_delayed_resource_contention"`
 
 	// CumulativeTrainingTimeTicks is the cumulative, aggregate time spent training (in ticks),
@@ -93,6 +96,7 @@ func NewStatistics(sessionsSamplePercentage float64) *Statistics {
 		JupyterSessionCreationLatenciesMillis:    make([]int64, 0),
 		JupyterSessionTerminationLatenciesMillis: make([]int64, 0),
 		JupyterExecRequestTimesMillis:            make([]int64, 0),
+		TotalReplyLatenciesMillis:                make([]int64, 0),
 		SessionsSamplePercentage:                 sessionsSamplePercentage,
 		TimeElapsed:                              time.Duration(0),
 		CurrentTick:                              0,

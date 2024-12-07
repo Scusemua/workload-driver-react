@@ -62,19 +62,10 @@ type WebsocketHandler struct {
 	expectedOriginAddresses []string
 
 	numActiveWsConnections atomic.Int32
-
-	// OnError is a callback passed to WorkloadDrivers (via the WorkloadManager).
-	// If a critical error occurs during the execution of the workload, then this handler is called.
-	onCriticalError domain.WorkloadErrorHandler
-
-	// OnError is a callback passed to WorkloadDrivers (via the WorkloadManager).
-	// If a non-critical error occurs during the execution of the workload, then this handler is called.
-	onNonCriticalError domain.WorkloadErrorHandler
 }
 
 func NewWebsocketHandler(configuration *domain.Configuration, workloadManager *BasicWorkloadManager,
-	workloadStartedChan chan<- string, atom *zap.AtomicLevel, onCriticalError domain.WorkloadErrorHandler,
-	onNonCriticalError domain.WorkloadErrorHandler) *WebsocketHandler {
+	workloadStartedChan chan<- string, atom *zap.AtomicLevel) *WebsocketHandler {
 
 	handler := &WebsocketHandler{
 		configuration:           configuration,
@@ -85,8 +76,6 @@ func NewWebsocketHandler(configuration *domain.Configuration, workloadManager *B
 		workloadStartedChan:     workloadStartedChan,
 		expectedOriginPort:      configuration.ExpectedOriginPort,
 		expectedOriginAddresses: make([]string, 0, len(configuration.ExpectedOriginAddresses)),
-		onCriticalError:         onCriticalError,
-		onNonCriticalError:      onNonCriticalError,
 	}
 
 	zapConfig := zap.NewDevelopmentEncoderConfig()
@@ -540,7 +529,7 @@ func (h *WebsocketHandler) handleRegisterWorkload(msgId string, message []byte, 
 
 	h.logger.Debug("Received WorkloadRegistrationRequest", zap.Any("wrapper-request", req))
 
-	workload, err := h.workloadManager.RegisterWorkload(req.WorkloadRegistrationRequest, ws, h.onCriticalError, h.onNonCriticalError)
+	workload, err := h.workloadManager.RegisterWorkload(req.WorkloadRegistrationRequest, ws)
 	if err != nil {
 		h.logger.Error("Failed to register new workload.", zap.Any("workload-registration-request", req.WorkloadRegistrationRequest), zap.Error(err))
 		return nil, err

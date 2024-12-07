@@ -452,6 +452,50 @@ func (conn *BasicKernelConnection) KernelId() string {
 	return conn.kernelId
 }
 
+// handleExecuteRequestResponse handles the response received from an "execute_request" message.
+func (conn *BasicKernelConnection) handleExecuteRequestResponse(request KernelMessage, requestArgs *RequestExecuteArgs, responseChan chan KernelMessage, sentAt time.Time) (response KernelMessage) {
+	// We'll populate this either in the ticker or when we get the response.
+	response = <-responseChan
+	latency := time.Since(sentAt)
+	conn.logger.Debug("Received response to `execute_request` message.",
+		zap.String("kernel_id", conn.kernelId),
+		zap.String("message_id", request.GetHeader().MessageId),
+		zap.Duration("latency", latency),
+		zap.Any("response", response))
+
+	conn.waitingForExecuteResponses.Add(-1)
+
+	// If we haven't populated the workloadId variable with a value yet, then attempt to do so.
+	var workloadId string
+	val, loaded := conn.GetMetadata(WorkloadIdMetadataKey)
+
+	if loaded {
+		workloadId = val.(string)
+	} else {
+		conn.logger.Warn("Could not load WorkloadId metadata from KernelConnection.",
+			zap.String("kernel_id", conn.kernelId),
+			zap.Int("num_metadata_entries", len(conn.metadata)))
+	}
+
+	if conn.metricsConsumer != nil && workloadId != "" {
+		latencyMs := latency.Milliseconds()
+		conn.metricsConsumer.ObserveJupyterExecuteRequestE2ELatency(latencyMs, workloadId)
+		conn.metricsConsumer.AddJupyterRequestExecuteTime(latencyMs, conn.kernelId, workloadId)
+	}
+
+	if requestArgs.ExtraArguments != nil && requestArgs.ExtraArguments.ResponseCallback != nil {
+		conn.logger.Debug("Calling ResponseCallback for \"execute_reply\" message.",
+			zap.String("kernel_id", conn.kernelId),
+			zap.String("request_id", request.GetHeader().MessageId),
+			zap.String("reply_id", response.GetHeader().MessageId),
+			zap.Duration("latency", latency),
+			zap.Any("response", response))
+		requestArgs.ExtraArguments.ResponseCallback(response)
+	}
+
+	return response
+}
+
 // RequestExecute sends an `execute_request` message.
 //
 // #### Notes
@@ -497,53 +541,10 @@ func (conn *BasicKernelConnection) RequestExecute(args *RequestExecuteArgs) (Ker
 
 	conn.waitingForExecuteResponses.Add(1)
 
-	handleResponse := func() KernelMessage {
-		// We'll populate this either in the ticker or when we get the response.
-		response := <-responseChan
-		latency := time.Since(sentAt)
-		conn.logger.Debug("Received response to `execute_request` message.",
-			zap.String("kernel_id", conn.kernelId),
-			zap.String("message_id", message.GetHeader().MessageId),
-			zap.Duration("latency", latency),
-			zap.Any("response", response))
-
-		conn.waitingForExecuteResponses.Add(-1)
-
-		// If we haven't populated the workloadId variable with a value yet, then attempt to do so.
-		var workloadId string
-		val, loaded := conn.GetMetadata(WorkloadIdMetadataKey)
-
-		if loaded {
-			workloadId = val.(string)
-		} else {
-			conn.logger.Warn("Could not load WorkloadId metadata from KernelConnection.",
-				zap.String("kernel_id", conn.kernelId),
-				zap.Int("num_metadata_entries", len(conn.metadata)))
-		}
-
-		if conn.metricsConsumer != nil && workloadId != "" {
-			latencyMs := latency.Milliseconds()
-			conn.metricsConsumer.ObserveJupyterExecuteRequestE2ELatency(latencyMs, workloadId)
-			conn.metricsConsumer.AddJupyterRequestExecuteTime(latencyMs, conn.kernelId, workloadId)
-		}
-
-		if args.ExtraArguments != nil && args.ExtraArguments.ResponseCallback != nil {
-			conn.logger.Debug("Calling ResponseCallback for \"execute_reply\" message.",
-				zap.String("kernel_id", conn.kernelId),
-				zap.String("request_id", message.GetHeader().MessageId),
-				zap.String("reply_id", response.GetHeader().MessageId),
-				zap.Duration("latency", latency),
-				zap.Any("response", response))
-			args.ExtraArguments.ResponseCallback(response)
-		}
-
-		return response
-	}
-
 	if args.AwaitResponse() {
-		return handleResponse(), nil // blocking
+		return conn.handleExecuteRequestResponse(message, args, responseChan, sentAt), nil // blocking
 	} else {
-		go handleResponse() // non-blocking
+		go conn.handleExecuteRequestResponse(message, args, responseChan, sentAt) // non-blocking
 	}
 
 	return nil, nil

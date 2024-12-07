@@ -37,20 +37,7 @@ type BasicWorkloadManager struct {
 	workloads                []domain.Workload                                    // Slice of workloads. Same contents as the map, but in slice form.
 	mu                       sync.Mutex                                           // Synchronizes access to the workload drivers and the workloads themselves (both the map and the slice).
 	workloadStartedChan      chan string                                          // Channel of workload IDs. When a workload is started, its ID is submitted to this channel.
-
-	// refreshClusterStatistics is used to fresh the ClusterStatistics from the Cluster Gateway.
-	refreshClusterStatistics ClusterStatisticsRefresher
-
-	// OnError is a callback passed to WorkloadDrivers (via the WorkloadManager).
-	// If a critical error occurs during the execution of the workload, then this handler is called.
-	onCriticalError domain.WorkloadErrorHandler
-
-	// OnError is a callback passed to WorkloadDrivers (via the WorkloadManager).
-	// If a non-critical error occurs during the execution of the workload, then this handler is called.
-	onNonCriticalError domain.WorkloadErrorHandler
-
-	// notifyCallback is a thread-safe function used to send notifications directly to the frontend.
-	notifyCallback func(notification *proto.Notification)
+	callbackProvider         CallbackProvider                                     // callbackProvider provides a number of functions required by the WorkloadManager, WorkloadDriver instances, or Workload instances themselves.
 }
 
 func init() {
@@ -66,22 +53,43 @@ func init() {
 	})
 }
 
-func NewWorkloadManager(configuration *domain.Configuration, atom *zap.AtomicLevel, onCriticalError domain.WorkloadErrorHandler,
-	onNonCriticalError domain.WorkloadErrorHandler, notifyCallback func(notification *proto.Notification),
-	refreshClusterStatistics ClusterStatisticsRefresher) *BasicWorkloadManager {
+// CallbackProvider provides a number of functions required by the WorkloadManager, WorkloadDriver instances,
+// or Workload instances themselves.
+type CallbackProvider interface {
+	RefreshAndClearClusterStatistics(update bool, clear bool) (*ClusterStatistics, error)
 
+	// HandleCriticalWorkloadError is a callback passed to WorkloadDrivers (via the WorkloadManager).
+	// If a critical error occurs during the execution of the workload, then this handler is called.
+	HandleCriticalWorkloadError(workloadId string, err error)
+
+	// HandleWorkloadError is a callback passed to WorkloadDrivers (via the WorkloadManager).
+	// If a non-critical error occurs during the execution of the workload, then this handler is called.
+	HandleWorkloadError(workloadId string, err error)
+
+	// SendNotification is an RPC handler that is called by the Cluster Scheduler to send notifications to the frontend.
+	// We also call it directly to send our own notifications to the frontend.
+	SendNotification(notification *proto.Notification)
+
+	// GetSchedulingPolicy returns the configured scheduling policy along with a flag indicating whether the returned
+	// policy name is valid.
+	GetSchedulingPolicy() (string, bool)
+}
+
+func NewWorkloadManager(configuration *domain.Configuration, atom *zap.AtomicLevel, callbackProvider CallbackProvider) *BasicWorkloadManager {
 	manager := &BasicWorkloadManager{
-		atom:                     atom,
-		configuration:            configuration,
-		workloadDrivers:          orderedmap.NewOrderedMap[string, *BasicWorkloadDriver](),
-		workloadsMap:             orderedmap.NewOrderedMap[string, domain.Workload](),
-		workloads:                make([]domain.Workload, 0),
-		workloadStartedChan:      make(chan string, 4),
-		pushUpdateInterval:       time.Second * time.Duration(configuration.PushUpdateInterval),
-		onCriticalError:          onCriticalError,
-		onNonCriticalError:       onNonCriticalError,
-		notifyCallback:           notifyCallback,
-		refreshClusterStatistics: refreshClusterStatistics,
+		atom:                atom,
+		configuration:       configuration,
+		workloadDrivers:     orderedmap.NewOrderedMap[string, *BasicWorkloadDriver](),
+		workloadsMap:        orderedmap.NewOrderedMap[string, domain.Workload](),
+		workloads:           make([]domain.Workload, 0),
+		workloadStartedChan: make(chan string, 4),
+		pushUpdateInterval:  time.Second * time.Duration(configuration.PushUpdateInterval),
+		//onCriticalError:          provider.HandleCriticalWorkloadError,
+		//onNonCriticalError:       provider.HandleWorkloadError,
+		//notifyCallback:           provider.SendNotification,
+		//refreshClusterStatistics: provider.RefreshAndClearClusterStatistics,
+		//getSchedulingPolicy:      provider.GetSchedulingPolicy,
+		callbackProvider: callbackProvider,
 	}
 
 	zapConfig := zap.NewDevelopmentEncoderConfig()
@@ -95,8 +103,7 @@ func NewWorkloadManager(configuration *domain.Configuration, atom *zap.AtomicLev
 	manager.logger = logger
 	manager.sugaredLogger = logger.Sugar()
 
-	manager.workloadWebsocketHandler = NewWebsocketHandler(configuration, manager, manager.workloadStartedChan, atom,
-		manager.onCriticalError, manager.onNonCriticalError)
+	manager.workloadWebsocketHandler = NewWebsocketHandler(configuration, manager, manager.workloadStartedChan, atom)
 	manager.pushGoroutineActive.Store(0)
 
 	return manager
@@ -290,16 +297,13 @@ func (m *BasicWorkloadManager) UnpauseWorkload(workloadId string) (domain.Worklo
 }
 
 // RegisterWorkload registers a new workload.
-func (m *BasicWorkloadManager) RegisterWorkload(request *domain.WorkloadRegistrationRequest,
-	ws domain.ConcurrentWebSocket, criticalErrorHandler domain.WorkloadErrorHandler,
-	nonCriticalErrorHandler domain.WorkloadErrorHandler) (domain.Workload, error) {
-
+func (m *BasicWorkloadManager) RegisterWorkload(request *domain.WorkloadRegistrationRequest, ws domain.ConcurrentWebSocket) (domain.Workload, error) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 
 	// Create a new workload driver.
 	workloadDriver := NewBasicWorkloadDriver(m.configuration, true, request.TimescaleAdjustmentFactor,
-		ws, m.atom, criticalErrorHandler, nonCriticalErrorHandler, m.notifyCallback, m.refreshClusterStatistics)
+		ws, m.atom, m.callbackProvider)
 
 	// Register a new workload with the workload driver.
 	workload, err := workloadDriver.RegisterWorkload(request)

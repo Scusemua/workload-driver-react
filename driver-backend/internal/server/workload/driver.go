@@ -132,6 +132,8 @@ type InternalWorkload interface {
 
 	// UpdateStatistics provides an atomic mechanism to update the InternalWorkload's Statistics.
 	UpdateStatistics(func(stats *Statistics))
+
+	RecordSessionExecutionTime(sessionId string, execTimeMillis int64)
 }
 
 // BasicWorkloadDriver consumes events from the Workload Generator and takes action accordingly.
@@ -149,13 +151,12 @@ type BasicWorkloadDriver struct {
 	errorChan                          chan error                            // Used to stop the workload due to a critical error.
 	eventChan                          chan *domain.Event                    // Receives events from the Synthesizer.
 	eventQueue                         *event_queue.EventQueue               // Maintains a queue of events to be processed for each session.
+	getSchedulingPolicy                func() (string, bool)                 // getSchedulingPolicy is a callback to retrieve the configured scheduling policy of the cluster.
 	id                                 string                                // Unique ID (relative to other drivers). The workload registered with this driver will be assigned this ID.
 	kernelManager                      jupyter.KernelSessionManager          // Simplified Go implementation of the Jupyter JavaScript API.
 	mu                                 sync.Mutex                            // Synchronizes access to internal data structures. Can be locked externally using the Lock/Unlock API exposed by the WorkloadDriver.
 	opts                               *domain.Configuration                 // The system's configuration, read from a file.
 	performClockTicks                  bool                                  // If true, then we'll issue clock ticks. Otherwise, don't issue them. Mostly used for testing/debugging.
-	seenSessions                       map[string]struct{}                   // All sessions that we've ever seen before.
-	seenSessionsMutex                  sync.Mutex                            // seenSessionsMutex ensures atomic access to the seenSessions
 	servingTicks                       atomic.Bool                           // The WorkloadDriver::ServeTicks() method will continue looping as long as this flag is set to true.
 	sessionConnections                 map[string]*jupyter.SessionConnection // Map from internal session ID to session connection.
 	sessionConnectionsMutex            sync.Mutex                            // sessionConnections ensures atomic access to the sessionConnections map
@@ -210,9 +211,7 @@ type BasicWorkloadDriver struct {
 }
 
 func NewBasicWorkloadDriver(opts *domain.Configuration, performClockTicks bool, timescaleAdjustmentFactor float64,
-	websocket domain.ConcurrentWebSocket, atom *zap.AtomicLevel, criticalErrorHandler domain.WorkloadErrorHandler,
-	nonCriticalErrorHandler domain.WorkloadErrorHandler, notifyCallback func(notification *proto.Notification),
-	refreshClusterStatistics ClusterStatisticsRefresher) *BasicWorkloadDriver {
+	websocket domain.ConcurrentWebSocket, atom *zap.AtomicLevel, callbackProvider CallbackProvider) *BasicWorkloadDriver {
 
 	jupyterAddress := path.Join(opts.InternalJupyterServerAddress, opts.JupyterServerBasePath)
 
@@ -240,16 +239,16 @@ func NewBasicWorkloadDriver(opts *domain.Configuration, performClockTicks bool, 
 		eventQueue:                         event_queue.NewEventQueue(atom),
 		trainingSubmittedTimes:             hashmap.New(100),
 		sessions:                           hashmap.New(100),
-		seenSessions:                       make(map[string]struct{}),
 		websocket:                          websocket,
 		timescaleAdjustmentFactor:          timescaleAdjustmentFactor,
 		currentTick:                        clock.NewSimulationClock(),
 		clockTime:                          clock.NewSimulationClock(),
-		onCriticalErrorOccurred:            criticalErrorHandler,
-		onNonCriticalErrorOccurred:         nonCriticalErrorHandler,
-		notifyCallback:                     notifyCallback,
+		onCriticalErrorOccurred:            callbackProvider.HandleCriticalWorkloadError,
+		onNonCriticalErrorOccurred:         callbackProvider.HandleWorkloadError,
+		notifyCallback:                     callbackProvider.SendNotification,
+		refreshClusterStatistics:           callbackProvider.RefreshAndClearClusterStatistics,
+		getSchedulingPolicy:                callbackProvider.GetSchedulingPolicy,
 		paused:                             false,
-		refreshClusterStatistics:           refreshClusterStatistics,
 	}
 
 	driver.pauseCond = sync.NewCond(&driver.pauseMutex)
@@ -2009,6 +2008,15 @@ func (d *BasicWorkloadDriver) processEventsForSession(sessionId string, events [
 				continue
 			}
 
+			if errors.Is(err, ErrUnknownEventType) {
+				// We can just ignore this error.
+				if d.workload.IsTemplateWorkload() && d.onNonCriticalErrorOccurred != nil {
+					go d.onNonCriticalErrorOccurred(d.workload.GetId(), err)
+				}
+
+				continue
+			}
+
 			d.errorChan <- err
 
 			if d.onCriticalErrorOccurred != nil {
@@ -2092,10 +2100,7 @@ func (d *BasicWorkloadDriver) newSession(id string, meta domain.SessionMetadata,
 		stats.TotalNumSessions += 1
 	})
 
-	d.seenSessionsMutex.Lock()
-	d.seenSessions[internalSessionId] = struct{}{}
 	d.sessions.Set(internalSessionId, session)
-	d.seenSessionsMutex.Unlock()
 
 	return session
 }
@@ -2327,88 +2332,91 @@ func (d *BasicWorkloadDriver) createExecuteRequestArguments(evt *domain.Event, c
 	return argsBuilder.Build(), nil
 }
 
-// handleTrainingStartedEvent handles a 'training-started' event.
-func (d *BasicWorkloadDriver) handleTrainingStartedEvent(evt *domain.Event) error {
-	startedHandlingAt := time.Now()
-	traceSessionId := evt.Data.(domain.SessionMetadata).GetPod()
-	internalSessionId := d.getInternalSessionId(traceSessionId)
+// submitTrainingToKernel submits a training event to be processed/executed by the kernel.
+func (d *BasicWorkloadDriver) submitTrainingToKernel(evt *domain.Event,
+	internalSessionId string) (sentRequestAt time.Time, trainingStartedChannel chan interface{}, err error) {
 
 	d.logger.Debug("Received TrainingStarted event.",
 		zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
-		zap.String("internal-session-id", internalSessionId),
-		zap.String(ZapTraceSessionIDKey, traceSessionId))
+		zap.String("internal-session-id", internalSessionId))
 
-	d.seenSessionsMutex.Lock()
-	_, ok := d.seenSessions[internalSessionId]
-	d.seenSessionsMutex.Unlock()
-
-	if !ok {
+	if _, ok := d.sessions.Get(internalSessionId); !ok {
 		d.logger.Warn("Received 'training-started' event for unknown session.",
 			zap.String("workload_id", d.workload.GetId()),
 			zap.String("workload_name", d.workload.WorkloadName()),
 			zap.String("event", evt.String()),
-			zap.String(ZapInternalSessionIDKey, internalSessionId),
-			zap.String(ZapTraceSessionIDKey, traceSessionId))
-		return fmt.Errorf("%w: session \"%s\"", domain.ErrUnknownSession, internalSessionId)
+			zap.String(ZapInternalSessionIDKey, internalSessionId))
+
+		err = fmt.Errorf("%w: session \"%s\"", domain.ErrUnknownSession, internalSessionId)
+		return
 	}
 
 	d.sessionConnectionsMutex.Lock()
-	sessionConnection, ok := d.sessionConnections[internalSessionId]
+	sessionConnection, loadedSessionConnection := d.sessionConnections[internalSessionId]
 	d.sessionConnectionsMutex.Unlock()
 
-	if !ok {
+	if !loadedSessionConnection {
 		d.logger.Error("No session connection found for session upon receiving 'training-started' event.",
-			zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
-			zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
-		return ErrNoSessionConnection
+			zap.String("workload_id", d.workload.GetId()),
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String(ZapInternalSessionIDKey, internalSessionId))
+		err = ErrNoSessionConnection
+		return
 	}
 
 	kernelConnection := sessionConnection.Kernel()
 	if kernelConnection == nil {
 		d.logger.Error("No kernel connection found for session connection.",
-			zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
-			zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
-		return ErrNoKernelConnection
+			zap.String("workload_id", d.workload.GetId()),
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String(ZapInternalSessionIDKey, internalSessionId))
+		err = ErrNoKernelConnection
+		return
 	}
 
-	trainingStoppedChannel := make(chan interface{}, 1) // We could conceivably reuse the 'started' channel
-	trainingStartedChannel := make(chan interface{}, 1)
 	d.trainingStartedChannelMutex.Lock()
+	trainingStartedChannel = make(chan interface{}, 1)
 	d.trainingStartedChannels[internalSessionId] = trainingStartedChannel
 	d.trainingStartedChannelMutex.Unlock()
 
 	d.trainingStoppedChannelsMutex.Lock()
+	trainingStoppedChannel := make(chan interface{}, 1) // We could conceivably reuse the 'started' channel
 	d.trainingStoppedChannels[internalSessionId] = trainingStoppedChannel
 	d.trainingStoppedChannelsMutex.Unlock()
 
-	// Create a wrapper so that we can pass more arguments to our 'handleExecuteReply' method than
+	// Create a wrapper so that we can pass more arguments to our 'onReceiveExecuteReply' method than
 	// just the kernel's response.
 	handleExecuteReplyWrapper := func(response jupyter.KernelMessage) {
-		d.handleExecuteReply(response, internalSessionId, trainingStartedChannel, trainingStoppedChannel)
+		d.onReceiveExecuteReply(response, internalSessionId, trainingStartedChannel, trainingStoppedChannel)
 	}
 
-	args, err := d.createExecuteRequestArguments(evt, handleExecuteReplyWrapper)
-	if args == nil {
+	var executeRequestArgs *jupyter.RequestExecuteArgs
+	executeRequestArgs, err = d.createExecuteRequestArguments(evt, handleExecuteReplyWrapper)
+	if executeRequestArgs == nil || err != nil {
 		d.logger.Error("Failed to create 'execute_request' arguments.",
-			zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
-			zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId), zap.Error(err))
-		return err
+			zap.String("workload_id", d.workload.GetId()),
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String(ZapInternalSessionIDKey, internalSessionId),
+			zap.Error(err))
+		return time.Time{}, nil, err
 	}
 
-	sentRequestAt := time.Now()
-	_, err = kernelConnection.RequestExecute(args)
+	sentRequestAt = time.Now()
+	_, err = kernelConnection.RequestExecute(executeRequestArgs)
 	if err != nil {
-		d.logger.Error("Error while attempting to execute training code.",
-			zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
-			zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId), zap.Error(err))
-		return err
+		d.logger.Error("Error while submitting training event to kernel.",
+			zap.String("workload_id", d.workload.GetId()),
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String(ZapInternalSessionIDKey, internalSessionId))
+		return time.Time{}, nil, err
 	}
 
 	d.trainingSubmittedTimes.Set(internalSessionId, time.Now().UnixMilli())
-	d.workload.TrainingSubmitted(traceSessionId, evt)
+	d.workload.TrainingSubmitted(internalSessionId, evt)
 	d.logger.Debug("Handled TrainingStarted event.",
-		zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
-		zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
+		zap.String("workload_id", d.workload.GetId()),
+		zap.String("workload_name", d.workload.WorkloadName()),
+		zap.String(ZapInternalSessionIDKey, internalSessionId))
 
 	// Hold events for the session until the training actually begins.
 	err = d.eventQueue.HoldEventsForSession(internalSessionId)
@@ -2419,8 +2427,17 @@ func (d *BasicWorkloadDriver) handleTrainingStartedEvent(evt *domain.Event) erro
 			zap.String("kernel_id", internalSessionId),
 			zap.Error(err))
 
-		return nil
+		return time.Time{}, nil, err
 	}
+
+	return sentRequestAt, trainingStartedChannel, nil
+}
+
+// waitForTrainingToStart waits for a training to begin being processed by a kernel replica.
+//
+// waitForTrainingToStart is called by handleTrainingStartedEvent after submitTrainingToKernel is called.
+func (d *BasicWorkloadDriver) waitForTrainingToStart(evt *domain.Event, internalSessionId string,
+	startedHandlingAt time.Time, sentRequestAt time.Time, trainingStartedChannel chan interface{}) error {
 
 	d.logger.Debug("Waiting for session to start training before continuing...",
 		zap.String("workload_id", d.workload.GetId()),
@@ -2465,44 +2482,72 @@ func (d *BasicWorkloadDriver) handleTrainingStartedEvent(evt *domain.Event) erro
 		}
 	case <-ctx.Done():
 		{
-			d.logger.Warn("Have not received 'training started' notification for over 1 minute. Assuming message was lost.",
-				zap.String("workload_id", d.workload.GetId()),
-				zap.String("workload_name", d.workload.WorkloadName()),
-				zap.String("kernel_id", internalSessionId),
-				zap.Duration("time_elapsed", time.Since(sentRequestAt)))
-
-			d.notifyCallback(&proto.Notification{
-				Id:    uuid.NewString(),
-				Title: "Have Spent 1+ Minute(s) Waiting for 'Training Started' Notification",
-				Message: fmt.Sprintf("Submitted \"execute_request\" to kernel \"%s\" during workload \"%s\" (ID=\"%s\") "+
-					"over 1 minute ago and have not yet received 'smr_lead_task' IOPub message. Time elapsed: %v.",
-					internalSessionId, d.workload.WorkloadName(), d.workload.GetId(), time.Since(sentRequestAt)),
-				Panicked:         false,
-				NotificationType: domain.WarningNotification.Int32(),
-			})
-
-			errReleaseEventHold := d.eventQueue.ReleaseEventHoldForSession(internalSessionId)
-			if errReleaseEventHold != nil {
-				d.logger.Debug("Could not release hold on events for session after timing-out waiting for \"smr_lead_task\" message.",
-					zap.String("workload_id", d.workload.GetId()),
-					zap.String("workload_name", d.workload.WorkloadName()),
-					zap.String("kernel_id", internalSessionId),
-					zap.Duration("time_elapsed", time.Since(sentRequestAt)))
-
-				go d.notifyCallback(&proto.Notification{
-					Id:               uuid.NewString(),
-					Title:            fmt.Sprintf("Failed to Release Event Hold for Session \"%s\" After Timing-Out Waiting for \"smr_lead_task\" IOPub Message", internalSessionId),
-					Message:          errReleaseEventHold.Error(),
-					Panicked:         false,
-					NotificationType: domain.WarningNotification.Int32(),
-				})
-
-				// For now, don't return the error, as we don't want to kill the workload.
-			}
+			d.trainingStartTimedOut(internalSessionId, sentRequestAt, startedHandlingAt)
 		}
 	}
 
 	return nil
+}
+
+// trainingStartTimedOut is called by waitForTrainingToStart when we don't receive a notification that the submitted
+// training event started being processed after the timeout interval elapses.
+func (d *BasicWorkloadDriver) trainingStartTimedOut(internalSessionId string, sentRequestAt time.Time, startedHandlingAt time.Time) {
+	d.logger.Warn("Have not received 'training started' notification for over 1 minute. Assuming message was lost.",
+		zap.String("workload_id", d.workload.GetId()),
+		zap.String("workload_name", d.workload.WorkloadName()),
+		zap.String("kernel_id", internalSessionId),
+		zap.Duration("time_elapsed", time.Since(sentRequestAt)))
+
+	d.notifyCallback(&proto.Notification{
+		Id:    uuid.NewString(),
+		Title: "Have Spent 1+ Minute(s) Waiting for 'Training Started' Notification",
+		Message: fmt.Sprintf("Submitted \"execute_request\" to kernel \"%s\" during workload \"%s\" (ID=\"%s\") "+
+			"over 1 minute ago and have not yet received 'smr_lead_task' IOPub message. Time elapsed: %v.",
+			internalSessionId, d.workload.WorkloadName(), d.workload.GetId(), time.Since(sentRequestAt)),
+		Panicked:         false,
+		NotificationType: domain.WarningNotification.Int32(),
+	})
+
+	// TODO: Resubmit the event?
+
+	// We won't return this error (if it is non-nil), as we don't want to kill the workload.
+	errReleaseEventHold := d.eventQueue.ReleaseEventHoldForSession(internalSessionId)
+	if errReleaseEventHold != nil {
+		d.logger.Debug("Could not release hold on events for session after timing-out waiting for \"smr_lead_task\" message.",
+			zap.String("workload_id", d.workload.GetId()),
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String("kernel_id", internalSessionId),
+			zap.Duration("time_elapsed", time.Since(sentRequestAt)))
+
+		go d.notifyCallback(&proto.Notification{
+			Id:               uuid.NewString(),
+			Title:            fmt.Sprintf("Failed to Release Event Hold for Session \"%s\" After Timing-Out Waiting for \"smr_lead_task\" IOPub Message", internalSessionId),
+			Message:          errReleaseEventHold.Error(),
+			Panicked:         false,
+			NotificationType: domain.WarningNotification.Int32(),
+		})
+	}
+}
+
+// handleTrainingStartedEvent handles a 'training-started' event.
+func (d *BasicWorkloadDriver) handleTrainingStartedEvent(evt *domain.Event) error {
+	startedHandlingAt := time.Now()
+
+	traceSessionId := evt.Data.(domain.SessionMetadata).GetPod()
+	internalSessionId := d.getInternalSessionId(traceSessionId)
+
+	sentRequestAt, trainingStartedChannel, err := d.submitTrainingToKernel(evt, internalSessionId)
+	if err != nil {
+		d.logger.Error("Failed to submit training to kernel.",
+			zap.String("workload_id", d.workload.GetId()),
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String("kernel_id", internalSessionId),
+			zap.String("event", evt.StringJson()),
+			zap.Error(err))
+		return err
+	}
+
+	return d.waitForTrainingToStart(evt, internalSessionId, startedHandlingAt, sentRequestAt, trainingStartedChannel)
 }
 
 // handleTrainingEndedEvent handles a 'training-stopped' event.
@@ -2510,28 +2555,33 @@ func (d *BasicWorkloadDriver) handleTrainingEndedEvent(evt *domain.Event, tick t
 	traceSessionId := evt.Data.(domain.SessionMetadata).GetPod()
 	internalSessionId := d.getInternalSessionId(traceSessionId)
 	d.logger.Debug("Received TrainingEnded event.",
-		zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
-		zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
+		zap.String("workload_id", d.workload.GetId()),
+		zap.String("workload_name", d.workload.WorkloadName()),
+		zap.String("event_id", evt.ID),
+		zap.Time("event_timestamp", evt.Timestamp),
+		zap.String(ZapInternalSessionIDKey, internalSessionId),
+		zap.String(ZapTraceSessionIDKey, traceSessionId))
 
-	d.seenSessionsMutex.Lock()
-	_, ok := d.seenSessions[internalSessionId]
-	d.seenSessionsMutex.Unlock()
-
-	if !ok {
+	if _, ok := d.sessions.Get(internalSessionId); !ok {
 		d.logger.Warn("Received 'training-stopped' event for unknown session.",
-			zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
-			zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
+			zap.String("workload_id", d.workload.GetId()),
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String(ZapInternalSessionIDKey, internalSessionId),
+			zap.String(ZapTraceSessionIDKey, traceSessionId))
 		return fmt.Errorf("%w: session \"%s\"", domain.ErrUnknownSession, internalSessionId)
 	}
 
 	d.trainingStoppedChannelsMutex.Lock()
-	var stoppedTrainingChannel chan interface{}
-	stoppedTrainingChannel, ok = d.trainingStoppedChannels[internalSessionId]
+	trainingStoppedChannel, foundStoppedTrainingChannel := d.trainingStoppedChannels[internalSessionId]
 	d.trainingStoppedChannelsMutex.Unlock()
 
-	if !ok {
+	if !foundStoppedTrainingChannel {
 		// TODO: We don't have a 'training stopped' channel. How do we proceed?
 		//	     We can probably just send the 'stop-training' request and call it a day, right?
+		d.logger.Warn("Failed to load a 'stop-training' channel while handling 'training-ended' event.",
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String(ZapInternalSessionIDKey, internalSessionId),
+			zap.String(ZapTraceSessionIDKey, traceSessionId))
 	}
 
 	d.sessionConnectionsMutex.Lock()
@@ -2540,35 +2590,232 @@ func (d *BasicWorkloadDriver) handleTrainingEndedEvent(evt *domain.Event, tick t
 
 	if !ok {
 		d.logger.Error("No session connection found for session upon receiving 'training-stopped' event.",
-			zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
-			zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
+			zap.String("workload_id", d.workload.GetId()),
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String(ZapInternalSessionIDKey, internalSessionId),
+			zap.String(ZapTraceSessionIDKey, traceSessionId))
 		return ErrNoSessionConnection
 	}
 
 	kernelConnection := sessionConnection.Kernel()
 	if kernelConnection == nil {
 		d.logger.Error("No kernel connection found for session connection.",
-			zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
-			zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
+			zap.String("workload_id", d.workload.GetId()),
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String(ZapInternalSessionIDKey, internalSessionId),
+			zap.String(ZapTraceSessionIDKey, traceSessionId))
 		return ErrNoKernelConnection
 	}
 
 	err := d.issueStopTrainingRequest(kernelConnection, 30*time.Second)
 	if err != nil {
 		d.logger.Error("Error while attempting to stop training.",
-			zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
-			zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId), zap.Error(err))
+			zap.String("workload_id", d.workload.GetId()),
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String(ZapInternalSessionIDKey, internalSessionId),
+			zap.String(ZapTraceSessionIDKey, traceSessionId), zap.Error(err))
 		return err
 	} else {
 		d.workload.TrainingStopped(traceSessionId, evt, d.convertTimestampToTickNumber(tick))
 		d.logger.Debug("Successfully sent 'stop-training' message'.",
-			zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
-			zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
+			zap.String("workload_id", d.workload.GetId()),
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String(ZapInternalSessionIDKey, internalSessionId),
+			zap.String(ZapTraceSessionIDKey, traceSessionId))
 	}
 
 	// TODO: Retrieve the 'training-stopped' channel and listen for a response.
 	//		 Wait for response from stoppedTrainingChannel variable.
+	if trainingStoppedChannel == nil {
+		d.logger.Warn("Returning from 'training-ended' handler early because we failed to load a 'stopped-training' channel.",
+			zap.String("workload_id", d.workload.GetId()),
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String(ZapInternalSessionIDKey, internalSessionId),
+			zap.String(ZapTraceSessionIDKey, traceSessionId))
 
+		return nil
+	}
+
+	return d.waitForTrainingToEnd(internalSessionId, evt, trainingStoppedChannel)
+}
+
+func (d *BasicWorkloadDriver) getTimeoutInterval(internalSessionId string, evt *domain.Event) time.Duration {
+	// Load the scheduling policy.
+	schedulingPolicy, schedulingPolicyIsValid := d.getSchedulingPolicy()
+	if !schedulingPolicyIsValid {
+		d.logger.Warn("Could not compute meaningful timeout interval because scheduling policy is invalid.",
+			zap.String("workload_id", d.workload.GetId()),
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String(ZapInternalSessionIDKey, internalSessionId),
+			zap.String("event", evt.Name.String()))
+		return time.Minute
+	}
+
+	if schedulingPolicy == "static" || schedulingPolicy == "dynamic-v3" || schedulingPolicy == "dynamic-v4" {
+		// There's no network I/O on the critical path, so stopping the training should be quick.
+		return time.Second * 30
+	}
+
+	// Get the remote storage definition of the workload.
+	remoteStorageDefinition := d.workload.GetRemoteStorageDefinition()
+	if remoteStorageDefinition == nil {
+		d.logger.Warn("Could not compute meaningful timeout interval because scheduling policy is invalid.",
+			zap.String("workload_id", d.workload.GetId()),
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String(ZapInternalSessionIDKey, internalSessionId),
+			zap.String("event", evt.Name.String()))
+		return time.Minute * 2 // We make it a bit higher since we know I/O is on the critical path.
+	}
+
+	// Load the session and subsequently its current resource request.
+	// We already checked that this existed in handleTrainingEventEnded.
+	val, _ := d.sessions.Get(internalSessionId)
+	resourceRequest := val.(Session).GetCurrentResourceRequest()
+	if resourceRequest == nil {
+		d.logger.Warn("Could not compute meaningful timeout interval because scheduling policy is invalid.",
+			zap.String("workload_id", d.workload.GetId()),
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String(ZapInternalSessionIDKey, internalSessionId),
+			zap.String("event", evt.Name.String()))
+		return time.Minute * 2 // We make it a bit higher since we know I/O is on the critical path.
+	}
+
+	var expectedLatencySec float64
+	vramBytes := resourceRequest.VRAM * 1000000000
+	if evt.Name == domain.EventSessionTrainingStarted || evt.Name == domain.EventSessionStarted {
+		expectedLatencySec = (vramBytes / float64(remoteStorageDefinition.DownloadRate)) * (1 + float64(remoteStorageDefinition.DownloadRateVariancePercentage))
+	} else if evt.Name == domain.EventSessionTrainingEnded {
+		expectedLatencySec = (vramBytes / float64(remoteStorageDefinition.UploadRate)) * (1 + float64(remoteStorageDefinition.UploadRateVariancePercentage))
+	} else {
+		d.logger.Warn("Unexpected event name while computing timeout interval.",
+			zap.String("workload_id", d.workload.GetId()),
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String(ZapInternalSessionIDKey, internalSessionId),
+			zap.String("event", evt.Name.String()))
+	}
+
+	interval := (time.Second * 30) + (time.Second * time.Duration(expectedLatencySec))
+
+	d.logger.Debug("Computed timeout interval.",
+		zap.String("workload_id", d.workload.GetId()),
+		zap.String("workload_name", d.workload.WorkloadName()),
+		zap.String(ZapInternalSessionIDKey, internalSessionId),
+		zap.Float64("vram_gb", resourceRequest.VRAM),
+		zap.Float64("vram_bytes", vramBytes),
+		zap.String("remote_storage_definition", remoteStorageDefinition.String()),
+		zap.String("event", evt.Name.String()))
+
+	return interval
+}
+
+func (d *BasicWorkloadDriver) waitForTrainingToEnd(internalSessionId string, evt *domain.Event, trainingStoppedChannel chan interface{}) error {
+	timeoutInterval := d.getTimeoutInterval(internalSessionId, evt)
+	ctx, cancel := context.WithTimeout(context.Background(), timeoutInterval)
+	defer cancel()
+
+	select {
+	case v := <-trainingStoppedChannel:
+		{
+			receivedResp := time.Now().UnixMilli()
+
+			var sentRequestAt time.Time
+			val, ok := d.trainingSubmittedTimes.Get(internalSessionId)
+			if ok {
+				sentRequestAt = val.(time.Time)
+			}
+			e2eLatency := time.Since(sentRequestAt)
+
+			switch v.(type) {
+			case error:
+				{
+					err := v.(error)
+					d.logger.Warn("Session failed to stop training...",
+						zap.String("workload_id", d.workload.GetId()),
+						zap.String("workload_name", d.workload.WorkloadName()),
+						zap.String("kernel_id", internalSessionId),
+						zap.Duration("time_elapsed", time.Since(sentRequestAt)),
+						zap.Duration("e2e_latency", e2eLatency),
+						zap.Error(err))
+
+					return nil // to prevent workload from ending outright
+				}
+			case jupyter.KernelMessage:
+				{
+					d.logger.Debug("Session stopped training",
+						zap.String("workload_id", d.workload.GetId()),
+						zap.String("workload_name", d.workload.WorkloadName()),
+						zap.String("kernel_id", internalSessionId),
+						zap.Duration("e2e_latency", e2eLatency))
+
+					reply := v.(jupyter.KernelMessage)
+					content := reply.GetContent().(map[string]interface{})
+
+					val = content["execution_start_unix_millis"]
+					execStartedTimeUnixMillis := int64(val.(float64))
+
+					val = content["execution_finished_unix_millis"]
+					execEndedTimeUnixMillis := int64(val.(float64))
+
+					execTimeMillis := execEndedTimeUnixMillis - execStartedTimeUnixMillis
+
+					d.workload.RecordSessionExecutionTime(internalSessionId, execTimeMillis)
+
+					if ok {
+						delay := receivedResp - execEndedTimeUnixMillis
+
+						d.workload.UpdateStatistics(func(stats *Statistics) {
+							stats.TotalReplyLatenciesMillis = append(stats.TotalReplyLatenciesMillis, delay)
+							stats.TotalReplyLatencyMillis += delay
+						})
+					} else {
+						d.logger.Warn("\"execute_reply\" message content did not include an \"execution_finished_unix_millis\" entry...",
+							zap.String("workload_id", d.workload.GetId()),
+							zap.String("workload_name", d.workload.WorkloadName()),
+							zap.String("kernel_id", internalSessionId),
+							zap.Duration("time_elapsed", time.Since(sentRequestAt)),
+							zap.Duration("e2e_latency", e2eLatency),
+							zap.Any("content", content))
+					}
+
+					return nil
+				}
+			default:
+				{
+					d.logger.Error("Received unexpected response via 'training-stopped' channel.",
+						zap.String("workload_id", d.workload.GetId()),
+						zap.String("workload_name", d.workload.WorkloadName()),
+						zap.String("kernel_id", internalSessionId),
+						zap.Duration("e2e_latency", e2eLatency),
+						zap.Any("response", v))
+
+					return fmt.Errorf("unexpected response via 'training-stopped' channel")
+				}
+			}
+		}
+	case <-ctx.Done():
+		{
+			err := ctx.Err()
+			if err != nil {
+				d.logger.Error("Timed-out waiting for \"execute_reply\" message while stopping training.",
+					zap.String("workload_id", d.workload.GetId()),
+					zap.String("workload_name", d.workload.WorkloadName()),
+					zap.String("kernel_id", internalSessionId),
+					zap.Error(err))
+
+				// We'll just return (nothing) so that the workload doesn't end.
+				return nil
+			}
+
+			// No error attached to the context. Just log an error message without the error struct
+			// and return an error of our own.
+			d.logger.Error("Timed-out waiting for \"execute_reply\" message while stopping training.",
+				zap.String("workload_id", d.workload.GetId()),
+				zap.String("workload_name", d.workload.WorkloadName()),
+				zap.String("kernel_id", internalSessionId))
+		}
+	}
+
+	// We'll just return (nothing) so that the workload doesn't end.
 	return nil
 }
 
@@ -2644,17 +2891,36 @@ func (d *BasicWorkloadDriver) handleSessionStoppedEvent(evt *domain.Event) error
 		zap.String(ZapInternalSessionIDKey, internalSessionId),
 		zap.String(ZapTraceSessionIDKey, traceSessionId))
 
-	// TODO: Test that this actually works.
-	err := d.stopSession(internalSessionId)
-	if err != nil {
-		return err
-	} else {
-		d.logger.Debug("Successfully stopped session.",
+	if _, ok := d.sessions.Get(internalSessionId); !ok {
+		d.logger.Warn("Received 'session-stopped' event for unknown session.",
 			zap.String("workload_id", d.workload.GetId()),
 			zap.String("workload_name", d.workload.WorkloadName()),
 			zap.String(ZapInternalSessionIDKey, internalSessionId),
 			zap.String(ZapTraceSessionIDKey, traceSessionId))
+		return fmt.Errorf("%w: session \"%s\"", domain.ErrUnknownSession, internalSessionId)
 	}
+
+	d.logger.Debug("Stopping session.",
+		zap.String("workload_id", d.workload.GetId()),
+		zap.String("workload_name", d.workload.WorkloadName()),
+		zap.String("kernel_id", internalSessionId))
+
+	err := d.kernelManager.StopKernel(internalSessionId)
+	if err != nil {
+		d.logger.Error("Error encountered while stopping session.",
+			zap.String("workload_id", d.workload.GetId()),
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String(ZapInternalSessionIDKey, internalSessionId),
+			zap.String(ZapTraceSessionIDKey, traceSessionId),
+			zap.Error(err))
+		return err
+	}
+
+	d.logger.Debug("Successfully stopped session.",
+		zap.String("workload_id", d.workload.GetId()),
+		zap.String("workload_name", d.workload.WorkloadName()),
+		zap.String(ZapInternalSessionIDKey, internalSessionId),
+		zap.String(ZapTraceSessionIDKey, traceSessionId))
 
 	// Attempt to update the Prometheus metrics for Session lifetime duration (in seconds).
 	session := d.GetSession(internalSessionId)
@@ -2681,12 +2947,8 @@ func (d *BasicWorkloadDriver) handleSessionStoppedEvent(evt *domain.Event) error
 // handleEvent processes a single *domain.Event.
 func (d *BasicWorkloadDriver) handleEvent(evt *domain.Event, tick time.Time) error {
 	switch evt.Name {
-	case domain.EventSessionStarted:
-		panic("Received SessionStarted event.")
 	case domain.EventSessionTrainingStarted:
 		return d.handleTrainingStartedEvent(evt)
-	case domain.EventSessionUpdateGpuUtil:
-		return d.handleUpdateGpuUtilizationEvent(evt)
 	case domain.EventSessionTrainingEnded:
 		return d.handleTrainingEndedEvent(evt, tick)
 	case domain.EventSessionStopped:
@@ -2697,7 +2959,7 @@ func (d *BasicWorkloadDriver) handleEvent(evt *domain.Event, tick time.Time) err
 		traceSessionId := evt.Data.(domain.SessionMetadata).GetPod()
 		internalSessionId := d.getInternalSessionId(traceSessionId)
 
-		d.logger.Error("Received event of unknown type.",
+		d.logger.Error("Received event of unknown or unexpected type.",
 			zap.String("workload_id", d.workload.GetId()),
 			zap.String("workload_name", d.workload.WorkloadName()),
 			zap.String("event_name", evt.Name.String()),
@@ -2714,6 +2976,10 @@ func (d *BasicWorkloadDriver) handleEvent(evt *domain.Event, tick time.Time) err
 func (d *BasicWorkloadDriver) stopSession(sessionId string) error {
 	d.logger.Debug("Stopping session.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String("kernel_id", sessionId))
 	return d.kernelManager.StopKernel(sessionId)
+}
+
+func (d *BasicWorkloadDriver) handleIoPubMessage() {
+
 }
 
 func (d *BasicWorkloadDriver) provisionSession(sessionId string, meta domain.SessionMetadata, createdAtTime time.Time, resourceSpec *jupyter.ResourceSpec) (*jupyter.SessionConnection, error) {
@@ -2822,7 +3088,7 @@ func (d *BasicWorkloadDriver) handleIOPubMessage(conn jupyter.KernelConnection, 
 	return d.handleIOPubSmrLeadTaskMessage(conn, kernelMessage)
 }
 
-func (d *BasicWorkloadDriver) handleExecuteReply(response jupyter.KernelMessage, sessionId string, trainingStartedChannel chan interface{}, trainingStoppedChannel chan interface{}) {
+func (d *BasicWorkloadDriver) onReceiveExecuteReply(response jupyter.KernelMessage, sessionId string, trainingStartedChannel chan interface{}, trainingStoppedChannel chan interface{}) {
 	responseContent := response.GetContent().(map[string]interface{})
 	if responseContent == nil {
 		d.logger.Error("\"execute_reply\" message does not have any content...",
@@ -2857,10 +3123,9 @@ func (d *BasicWorkloadDriver) handleExecuteReply(response jupyter.KernelMessage,
 			zap.String("evalue", errorValue),
 			zap.String("response", response.String()))
 
+		// Notify the training started channel. There will not be a smr_lead_task sent at this point, since
+		// there was an error, so we'll send the notification to the training_started channel.
 		trainingStartedChannel <- fmt.Errorf("%s: %s", errorName, errorValue)
-
-		// TODO: Do I need to send this? Probably not, right?
-		// trainingStoppedChannel <- fmt.Errorf("%s: %s", errorName, errorValue)
 	} else {
 		d.logger.Debug("Received \"execute_reply\" message with non-error status.",
 			zap.String("workload_id", d.workload.GetId()),
@@ -2868,7 +3133,7 @@ func (d *BasicWorkloadDriver) handleExecuteReply(response jupyter.KernelMessage,
 			zap.String("session_id", sessionId),
 			zap.String("response", response.String()))
 
-		trainingStoppedChannel <- struct{}{}
+		trainingStoppedChannel <- response
 	}
 }
 

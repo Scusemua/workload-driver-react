@@ -999,3 +999,26 @@ func (w *BasicWorkload) UpdateStatistics(f func(stats *Statistics)) {
 
 	f(w.Statistics)
 }
+
+// RecordSessionExecutionTime records that the specified session trained for the specified amount of time.
+func (w *BasicWorkload) RecordSessionExecutionTime(sessionId string, execTimeMillis int64) {
+	w.mu.Lock()
+	defer w.mu.Unlock()
+
+	val, ok := w.sessionsMap[sessionId]
+	if !ok {
+		w.logger.Error("Could not find specified session. Cannot record execution time.",
+			zap.String("workload_id", w.Id),
+			zap.String("workload_name", w.Name),
+			zap.String("session_id", sessionId),
+			zap.Int64("execution_time_millis", execTimeMillis))
+		return
+	}
+
+	session := val.(*domain.WorkloadTemplateSession)
+	if session.ExecutionTimes == nil {
+		session.ExecutionTimes = make([]int64, 0, 1)
+	}
+
+	session.ExecutionTimes = append(session.ExecutionTimes, execTimeMillis)
+}
