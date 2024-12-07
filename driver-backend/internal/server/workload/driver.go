@@ -188,6 +188,8 @@ type BasicWorkloadDriver struct {
 	misbehavingSessionsMutex           sync.Mutex                            // misbehavingSessionsMutex ensures atomic access to the misbehavingSessions
 	trainingStartedChannels            map[string]chan interface{}           // trainingStartedChannels are channels used to notify that training has started
 	trainingStartedChannelMutex        sync.Mutex                            // trainingStartedChannelMutex ensures atomic access to the trainingStartedChannels
+	trainingStoppedChannels            map[string]chan interface{}           // trainingStartedChannels are channels used to notify that training has ended
+	trainingStoppedChannelsMutex       sync.Mutex                            // trainingStoppedChannelsMutex ensures atomic access to the trainingStoppedChannels
 
 	pauseMutex sync.Mutex
 	pauseCond  *sync.Cond
@@ -227,6 +229,7 @@ func NewBasicWorkloadDriver(opts *domain.Configuration, performClockTicks bool, 
 		misbehavingSessions:                make(map[string]interface{}),
 		atom:                               atom,
 		trainingStartedChannels:            make(map[string]chan interface{}),
+		trainingStoppedChannels:            make(map[string]chan interface{}),
 		targetTickDuration:                 time.Second * time.Duration(opts.TraceStep),
 		targetTickDurationSeconds:          opts.TraceStep,
 		tickDurationsSecondsMovingWindow:   statistics.NewMovingStat(5),
@@ -2274,7 +2277,7 @@ func (d *BasicWorkloadDriver) handleUpdateGpuUtilizationEvent(evt *domain.Event)
 // createExecuteRequestArguments creates the arguments for an "execute_request" from the given event.
 //
 // The event must be of type "training-started", or this will return nil.
-func (d *BasicWorkloadDriver) createExecuteRequestArguments(evt *domain.Event, callback func(response jupyter.KernelMessage)) (*jupyter.RequestExecuteArgs, error) {
+func (d *BasicWorkloadDriver) createExecuteRequestArguments(evt *domain.Event, callback func(resp jupyter.KernelMessage)) (*jupyter.RequestExecuteArgs, error) {
 	if evt.Name != domain.EventSessionTrainingStarted {
 		d.logger.Error("Attempted to create \"execute_request\" arguments for event of invalid type.",
 			zap.String("event_type", evt.Name.String()),
@@ -2368,51 +2371,23 @@ func (d *BasicWorkloadDriver) handleTrainingStartedEvent(evt *domain.Event) erro
 		return ErrNoKernelConnection
 	}
 
+	trainingStoppedChannel := make(chan interface{}, 1) // We could conceivably reuse the 'started' channel
 	trainingStartedChannel := make(chan interface{}, 1)
 	d.trainingStartedChannelMutex.Lock()
 	d.trainingStartedChannels[internalSessionId] = trainingStartedChannel
 	d.trainingStartedChannelMutex.Unlock()
 
-	onResponseCallback := func(response jupyter.KernelMessage) {
-		responseContent := response.GetContent().(map[string]interface{})
-		if responseContent == nil {
-			d.logger.Error("\"execute_reply\" message does not have any content...",
-				zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
-				zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId),
-				zap.String("response", response.String()))
-			return
-		}
+	d.trainingStoppedChannelsMutex.Lock()
+	d.trainingStoppedChannels[internalSessionId] = trainingStoppedChannel
+	d.trainingStoppedChannelsMutex.Unlock()
 
-		val, ok := responseContent["status"]
-		if !ok {
-			d.logger.Error("\"execute_reply\" message does not contain a \"status\" field in its content.",
-				zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
-				zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId),
-				zap.String("response", response.String()))
-			return
-		}
-
-		status := val.(string)
-
-		if status == "error" {
-			errorName := responseContent["ename"].(string)
-			errorValue := responseContent["evalue"].(string)
-
-			d.logger.Warn("Received \"execute_reply\" message with error status.",
-				zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
-				zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId),
-				zap.String("ename", errorName), zap.String("evalue", errorValue), zap.String("response", response.String()))
-
-			trainingStartedChannel <- fmt.Errorf("%s: %s", errorName, errorValue)
-		} else {
-			d.logger.Debug("Received \"execute_reply\" message with non-error status.",
-				zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
-				zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId),
-				zap.String("response", response.String()))
-		}
+	// Create a wrapper so that we can pass more arguments to our 'handleExecuteReply' method than
+	// just the kernel's response.
+	handleExecuteReplyWrapper := func(response jupyter.KernelMessage) {
+		d.handleExecuteReply(response, internalSessionId, trainingStartedChannel, trainingStoppedChannel)
 	}
 
-	args, err := d.createExecuteRequestArguments(evt, onResponseCallback)
+	args, err := d.createExecuteRequestArguments(evt, handleExecuteReplyWrapper)
 	if args == nil {
 		d.logger.Error("Failed to create 'execute_request' arguments.",
 			zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
@@ -2549,6 +2524,16 @@ func (d *BasicWorkloadDriver) handleTrainingEndedEvent(evt *domain.Event, tick t
 		return fmt.Errorf("%w: session \"%s\"", domain.ErrUnknownSession, internalSessionId)
 	}
 
+	d.trainingStoppedChannelsMutex.Lock()
+	var stoppedTrainingChannel chan interface{}
+	stoppedTrainingChannel, ok = d.trainingStoppedChannels[internalSessionId]
+	d.trainingStoppedChannelsMutex.Unlock()
+
+	if !ok {
+		// TODO: We don't have a 'training stopped' channel. How do we proceed?
+		//	     We can probably just send the 'stop-training' request and call it a day, right?
+	}
+
 	d.sessionConnectionsMutex.Lock()
 	sessionConnection, ok := d.sessionConnections[internalSessionId]
 	d.sessionConnectionsMutex.Unlock()
@@ -2576,10 +2561,13 @@ func (d *BasicWorkloadDriver) handleTrainingEndedEvent(evt *domain.Event, tick t
 		return err
 	} else {
 		d.workload.TrainingStopped(traceSessionId, evt, d.convertTimestampToTickNumber(tick))
-		d.logger.Debug("Successfully handled TrainingEnded event.",
+		d.logger.Debug("Successfully sent 'stop-training' message'.",
 			zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()),
 			zap.String(ZapInternalSessionIDKey, internalSessionId), zap.String(ZapTraceSessionIDKey, traceSessionId))
 	}
+
+	// TODO: Retrieve the 'training-stopped' channel and listen for a response.
+	//		 Wait for response from stoppedTrainingChannel variable.
 
 	return nil
 }
@@ -2832,6 +2820,56 @@ func (d *BasicWorkloadDriver) handleIOPubMessage(conn jupyter.KernelConnection, 
 	}
 
 	return d.handleIOPubSmrLeadTaskMessage(conn, kernelMessage)
+}
+
+func (d *BasicWorkloadDriver) handleExecuteReply(response jupyter.KernelMessage, sessionId string, trainingStartedChannel chan interface{}, trainingStoppedChannel chan interface{}) {
+	responseContent := response.GetContent().(map[string]interface{})
+	if responseContent == nil {
+		d.logger.Error("\"execute_reply\" message does not have any content...",
+			zap.String("workload_id", d.workload.GetId()),
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String("session_id", sessionId),
+			zap.String("response", response.String()))
+		return
+	}
+
+	val, ok := responseContent["status"]
+	if !ok {
+		d.logger.Error("\"execute_reply\" message does not contain a \"status\" field in its content.",
+			zap.String("workload_id", d.workload.GetId()),
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String("session_id", sessionId),
+			zap.String("response", response.String()))
+		return
+	}
+
+	status := val.(string)
+
+	if status == "error" {
+		errorName := responseContent["ename"].(string)
+		errorValue := responseContent["evalue"].(string)
+
+		d.logger.Warn("Received \"execute_reply\" message with error status.",
+			zap.String("workload_id", d.workload.GetId()),
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String("session_id", sessionId),
+			zap.String("ename", errorName),
+			zap.String("evalue", errorValue),
+			zap.String("response", response.String()))
+
+		trainingStartedChannel <- fmt.Errorf("%s: %s", errorName, errorValue)
+
+		// TODO: Do I need to send this? Probably not, right?
+		// trainingStoppedChannel <- fmt.Errorf("%s: %s", errorName, errorValue)
+	} else {
+		d.logger.Debug("Received \"execute_reply\" message with non-error status.",
+			zap.String("workload_id", d.workload.GetId()),
+			zap.String("workload_name", d.workload.WorkloadName()),
+			zap.String("session_id", sessionId),
+			zap.String("response", response.String()))
+
+		trainingStoppedChannel <- struct{}{}
+	}
 }
 
 func (d *BasicWorkloadDriver) handleIOPubSmrLeadTaskMessage(conn jupyter.KernelConnection, kernelMessage jupyter.KernelMessage) interface{} {
