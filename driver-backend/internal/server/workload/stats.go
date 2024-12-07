@@ -2,6 +2,7 @@ package workload
 
 import (
 	"github.com/scusemua/workload-driver-react/m/v2/internal/domain"
+	"github.com/scusemua/workload-driver-react/m/v2/internal/server/api/proto"
 	"time"
 )
 
@@ -126,6 +127,8 @@ type ClusterStatistics struct {
 	NumEmptyHosts    int `csv:"NumEmptyHosts" json:"NumEmptyHosts"` // The number of Hosts with 0 sessions/containers scheduled on them.
 
 	ClusterEvents []*ClusterEvent `json:"cluster_events" csv:"-"`
+
+	ExecuteRequestTraces []*proto.RequestTrace `json:"execute_request_traces" csv:"-"`
 
 	// The amount of time hosts have spent not idling throughout the entire simulation
 	CumulativeHostActiveTime float64 `csv:"CumulativeHostActiveTimeSec" json:"CumulativeHostActiveTimeSec"`
@@ -313,5 +316,6 @@ func NewClusterStatistics() *ClusterStatistics {
 		JupyterTrainingStartLatenciesMillis: make([]float64, 0),
 		AggregateSessionLifetimesSec:        make([]float64, 0),
 		ClusterEvents:                       make([]*ClusterEvent, 0),
+		ExecuteRequestTraces:                make([]*proto.RequestTrace, 0),
 	}
 }

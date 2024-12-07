@@ -2454,7 +2454,7 @@ func (d *BasicWorkloadDriver) handleTrainingStartedEvent(evt *domain.Event) erro
 
 	// In case the IO Pub message gets lost, we'll add a timeout.
 	// This way the whole workload won't get stuck if a message is lost.
-	ctx, cancel := context.WithTimeout(context.Background(), time.Second*120)
+	ctx, cancel := context.WithTimeout(context.Background(), time.Second*60)
 	defer cancel()
 
 	select {
@@ -2490,7 +2490,7 @@ func (d *BasicWorkloadDriver) handleTrainingStartedEvent(evt *domain.Event) erro
 		}
 	case <-ctx.Done():
 		{
-			d.logger.Warn("Have not received 'training started' notification for over 2 minutes. Assuming message was lost.",
+			d.logger.Warn("Have not received 'training started' notification for over 1 minute. Assuming message was lost.",
 				zap.String("workload_id", d.workload.GetId()),
 				zap.String("workload_name", d.workload.WorkloadName()),
 				zap.String("kernel_id", internalSessionId),
@@ -2498,9 +2498,9 @@ func (d *BasicWorkloadDriver) handleTrainingStartedEvent(evt *domain.Event) erro
 
 			d.notifyCallback(&proto.Notification{
 				Id:    uuid.NewString(),
-				Title: "Have Spent 2+ Minutes Waiting for 'Training Started' Notification",
+				Title: "Have Spent 1+ Minute(s) Waiting for 'Training Started' Notification",
 				Message: fmt.Sprintf("Submitted \"execute_request\" to kernel \"%s\" during workload \"%s\" (ID=\"%s\") "+
-					"over 2 minutes ago and have not yet received 'smr_lead_task' IOPub message. Time elapsed: %v.",
+					"over 1 minute ago and have not yet received 'smr_lead_task' IOPub message. Time elapsed: %v.",
 					internalSessionId, d.workload.WorkloadName(), d.workload.GetId(), time.Since(sentRequestAt)),
 				Panicked:         false,
 				NotificationType: domain.WarningNotification.Int32(),
