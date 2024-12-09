@@ -157,7 +157,7 @@ export const SessionTrainingEventTable: React.FunctionComponent<ISessionTraining
                                 <Td dataLabel={columnNames.duration}>{training.duration_in_ticks}</Td>
                                 <Td dataLabel={columnNames.cpus}>{RoundToThreeDecimalPlaces(training.millicpus)}</Td>
                                 <Td dataLabel={columnNames.memory}>
-                                    {RoundToThreeDecimalPlaces(training.mem_usage_mb)}
+                                    {RoundToThreeDecimalPlaces(training.memory)}
                                 </Td>
                                 <Td dataLabel={columnNames.gpus}>{training.gpu_utilizations.length}</Td>
                                 <Td dataLabel={columnNames.vram}>

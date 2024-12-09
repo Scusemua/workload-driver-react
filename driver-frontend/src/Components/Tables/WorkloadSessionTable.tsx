@@ -141,7 +141,7 @@ function getSortableRowValues(session: Session): (string | number | Date)[] {
         trainings_completed,
         trainings.length - trainings_completed,
         current_resource_request.cpus,
-        current_resource_request.memory_mb,
+        current_resource_request.memory,
         current_resource_request.gpus,
         max_resource_request.gpus,
         current_resource_request.vram,
@@ -340,11 +340,11 @@ export const WorkloadSessionTable: React.FunctionComponent<WorkloadSessionTableP
                     </Td>
                     <Td dataLabel={tableColumns.memory}>
                         <MemoryIcon />
-                        {session?.current_resource_request.memory_mb
-                            ? RoundToThreeDecimalPlaces(session?.current_resource_request.memory_mb)
+                        {session?.current_resource_request.memory
+                            ? RoundToThreeDecimalPlaces(session?.current_resource_request.memory)
                             : 0}
                         {'/'}
-                        {RoundToThreeDecimalPlaces(session?.max_resource_request.memory_mb)}
+                        {RoundToThreeDecimalPlaces(session?.max_resource_request.memory)}
                     </Td>
                     <Td dataLabel={tableColumns.currentGpus}>
                         <GpuIcon />

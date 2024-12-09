@@ -230,8 +230,8 @@ export const RegisterWorkloadFromTemplateForm: React.FunctionComponent<IRegister
                         max_millicpus = training.millicpus;
                     }
 
-                    if (training.mem_usage_mb > max_mem_mb) {
-                        max_mem_mb = training.mem_usage_mb;
+                    if (training.memory > max_mem_mb) {
+                        max_mem_mb = training.memory;
                     }
 
                     if (training.vram > max_vram_gb) {
@@ -247,7 +247,7 @@ export const RegisterWorkloadFromTemplateForm: React.FunctionComponent<IRegister
                 session.max_resource_request = {
                     cpus: max_millicpus,
                     gpus: max_num_gpus,
-                    memory_mb: max_mem_mb,
+                    memory: max_mem_mb,
                     vram: max_vram_gb,
                     gpu_type: 'ANY_GPU',
                 };
@@ -255,7 +255,7 @@ export const RegisterWorkloadFromTemplateForm: React.FunctionComponent<IRegister
                 session.current_resource_request = {
                     cpus: 0,
                     gpus: 0,
-                    memory_mb: 0,
+                    memory: 0,
                     vram: 0,
                     gpu_type: 'ANY_GPU',
                 };

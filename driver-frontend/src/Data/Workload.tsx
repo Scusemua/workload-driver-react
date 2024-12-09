@@ -376,7 +376,7 @@ interface ResourceRequest {
     cpus: number; // millicpus (1/1000 CPU cores)
     gpus: number;
     vram: number; // GPU memory in gigabytes (GB)
-    memory_mb: number; // megabytes (MB)
+    memory: number; // megabytes (MB)
     gpu_type: string;
 }
 
@@ -410,7 +410,7 @@ interface Session {
 interface TrainingEvent {
     training_index: number;
     millicpus: number;
-    mem_usage_mb: number;
+    memory: number;
     vram: number;
     gpu_utilizations: GpuUtilization[];
     start_tick: number;

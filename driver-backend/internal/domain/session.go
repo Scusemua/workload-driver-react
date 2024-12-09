@@ -339,8 +339,8 @@ func (t *WorkloadTemplateSession) GetTrainings() []*TrainingEvent {
 // Used by the frontend when submitting workloads created from templates (as opposed to presets).
 type TrainingEvent struct {
 	TrainingIndex   int              `json:"training_index"`
-	Millicpus       float64          `json:"millicpus"` // CPU usage in 1/1000th CPU core
-	MemUsageMB      float64          `json:"mem_usage_mb"`
+	Millicpus       float64          `json:"cpus"` // CPU usage in 1/1000th CPU core
+	MemUsageMB      float64          `json:"memory"`
 	VRamUsageGB     float64          `json:"vram"`
 	GpuUtil         []GpuUtilization `json:"gpu_utilizations"`
 	StartTick       int              `json:"start_tick"`

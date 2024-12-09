@@ -5,7 +5,7 @@ import (
 )
 
 type ResourceRequest struct {
-	MemoryMB         float64 `json:"memory_mb"`          // The amount of memory (in MB) required by the session.
+	MemoryMB         float64 `json:"memory"`             // The amount of memory (in MB) required by the session.
 	Cpus             float64 `json:"cpus"`               // The number of vCPUs required by the session.
 	Gpus             int     `json:"gpus"`               // The number of GPUs required by the session.
 	VRAM             float64 `json:"vram"`               // The amount of VRAM (i.e., GPU memory) required in GB.

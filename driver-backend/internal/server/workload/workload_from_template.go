@@ -44,6 +44,8 @@ func (t *PreloadedWorkloadTemplate) String() string {
 type Template struct {
 	*BasicWorkload
 
+	// Sessions come from the domain.WorkloadRegistrationRequest used to register the workload.
+	// They're static. They exist from the very beginning of the workload as they're just derived from the template.
 	Sessions []*domain.WorkloadTemplateSession `json:"sessions"`
 }
 
@@ -211,4 +213,22 @@ func (w *Template) SessionDiscarded(sessionId string) error {
 	}
 
 	return nil
+}
+
+func (w *Template) getSessionTrainingEvent(sessionId string, trainingIndex int) *domain.TrainingEvent {
+	if trainingIndex < 0 {
+		return nil
+	}
+
+	val := w.sessionsMap[sessionId]
+	if val == nil {
+		return nil
+	}
+
+	session := val.(*domain.WorkloadTemplateSession)
+	if trainingIndex > len(session.Trainings) {
+		return nil
+	}
+
+	return session.Trainings[trainingIndex]
 }

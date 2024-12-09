@@ -36,9 +36,10 @@ type KernelMessage interface {
 
 // ResourceSpec can be passed within a jupyterSessionReq when creating a new Session or Kernel.
 type ResourceSpec struct {
-	Cpu int     `json:"cpu"`    // In millicpus (1/1000th CPU core)
-	Mem float64 `json:"memory"` // In MB
-	Gpu int     `json:"gpu"`
+	Cpu  int     `json:"cpu"`    // In millicpus (1/1000th CPU core)
+	Mem  float64 `json:"memory"` // In MB
+	Gpu  int     `json:"gpu"`
+	Vram float64 `json:"vram"` // In GB
 }
 
 type BaseKernelMessage struct {

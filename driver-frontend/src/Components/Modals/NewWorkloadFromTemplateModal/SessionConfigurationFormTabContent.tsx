@@ -72,10 +72,10 @@ export const SessionConfigurationFormTabContent: React.FunctionComponent<Session
     );
     const trainingStartTickFieldId: string = `sessions.${sessionIndex}.trainings.${selectedTrainingEventIndex}.start_tick`;
     const trainingDurationTicksFieldId: string = `sessions.${sessionIndex}.trainings.${selectedTrainingEventIndex}.duration_in_ticks`;
-    const trainingCpuUsageFieldId: string = `sessions.${sessionIndex}.trainings.${selectedTrainingEventIndex}.millicpus`;
-    const trainingMemUsageMbFieldId: string = `sessions.${sessionIndex}.trainings.${selectedTrainingEventIndex}.mem_usage_mb`;
+    const trainingCpuUsageFieldId: string = `sessions.${sessionIndex}.trainings.${selectedTrainingEventIndex}.cpus`;
+    const trainingMemUsageMbFieldId: string = `sessions.${sessionIndex}.trainings.${selectedTrainingEventIndex}.memory`;
     const trainingVramUsageGbFieldId: string = `sessions.${sessionIndex}.trainings.${selectedTrainingEventIndex}.vram`;
-    const numGpusFieldId: string = `sessions.${sessionIndex}.trainings.${selectedTrainingEventIndex}.num_gpus`;
+    const numGpusFieldId: string = `sessions.${sessionIndex}.trainings.${selectedTrainingEventIndex}.gpus`;
 
     // const defaultSessionId = React.useRef<string>(props.defaultSessionId);
     // console.log(`Default session ID for tab ${props.sessionIndex} is "${defaultSessionId.current}"`);

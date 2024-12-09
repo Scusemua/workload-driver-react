@@ -38,10 +38,10 @@ const WorkloadSampleSessionPercentDelta: number = 0.01;
 const DefaultTrainingEventField = {
     start_tick: TrainingStartTickDefault,
     duration_in_ticks: TrainingDurationInTicksDefault,
-    millicpus: TrainingCpuUsageDefault,
-    mem_usage_mb: TrainingMemUsageGbDefault,
+    cpus: TrainingCpuUsageDefault,
+    memory: TrainingMemUsageGbDefault,
     vram: TrainingVRamUsageGbDefault,
-    num_gpus: NumberOfGpusDefault,
+    gpus: NumberOfGpusDefault,
     gpu_utilizations: [
         {
             utilization: TrainingGpuPercentUtilDefault,

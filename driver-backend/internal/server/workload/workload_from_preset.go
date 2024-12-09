@@ -189,3 +189,7 @@ func (w *Preset) SessionDiscarded(sessionId string) error {
 
 	return nil
 }
+
+func (w *Preset) getSessionTrainingEvent(_ string, _ int) *domain.TrainingEvent {
+	return nil
+}

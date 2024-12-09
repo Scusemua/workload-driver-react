@@ -134,6 +134,8 @@ type InternalWorkload interface {
 	UpdateStatistics(func(stats *Statistics))
 
 	RecordSessionExecutionTime(sessionId string, execTimeMillis int64)
+
+	getSessionTrainingEvent(sessionId string, trainingIndex int) *domain.TrainingEvent
 }
 
 // BasicWorkloadDriver consumes events from the Workload Generator and takes action accordingly.
@@ -151,7 +153,8 @@ type BasicWorkloadDriver struct {
 	errorChan                          chan error                            // Used to stop the workload due to a critical error.
 	eventChan                          chan *domain.Event                    // Receives events from the Synthesizer.
 	eventQueue                         *event_queue.EventQueue               // Maintains a queue of events to be processed for each session.
-	getSchedulingPolicy                func() (string, bool)                 // getSchedulingPolicy is a callback to retrieve the configured scheduling policy of the cluster.
+	getSchedulingPolicyCallback        func() (string, bool)                 // getSchedulingPolicyCallback is a callback to retrieve the configured scheduling policy of the cluster.
+	schedulingPolicy                   string                                // Cached scheduling policy value
 	id                                 string                                // Unique ID (relative to other drivers). The workload registered with this driver will be assigned this ID.
 	kernelManager                      jupyter.KernelSessionManager          // Simplified Go implementation of the Jupyter JavaScript API.
 	mu                                 sync.Mutex                            // Synchronizes access to internal data structures. Can be locked externally using the Lock/Unlock API exposed by the WorkloadDriver.
@@ -247,7 +250,7 @@ func NewBasicWorkloadDriver(opts *domain.Configuration, performClockTicks bool, 
 		onNonCriticalErrorOccurred:         callbackProvider.HandleWorkloadError,
 		notifyCallback:                     callbackProvider.SendNotification,
 		refreshClusterStatistics:           callbackProvider.RefreshAndClearClusterStatistics,
-		getSchedulingPolicy:                callbackProvider.GetSchedulingPolicy,
+		getSchedulingPolicyCallback:        callbackProvider.GetSchedulingPolicy,
 		paused:                             false,
 	}
 
@@ -2123,6 +2126,19 @@ func (d *BasicWorkloadDriver) GetSession(id string) Session {
 	return nil
 }
 
+func (d *BasicWorkloadDriver) getSchedulingPolicy() string {
+	if d.schedulingPolicy != "" {
+		return d.schedulingPolicy
+	}
+
+	policy, ok := d.getSchedulingPolicyCallback()
+	if ok {
+		d.schedulingPolicy = policy
+	}
+
+	return policy
+}
+
 // handleSessionReadyEvent handles a single EventSessionReady *domain.Event.
 // This function is thread-safe and may be called within its own goroutine.
 func (d *BasicWorkloadDriver) handleSessionReadyEvent(sessionReadyEvent *domain.Event, eventIndex int, doneChan chan<- string) {
@@ -2133,14 +2149,8 @@ func (d *BasicWorkloadDriver) handleSessionReadyEvent(sessionReadyEvent *domain.
 		d.sugaredLogger.Debugf("Handling EventSessionReady %d targeting Session %s [ts: %v].", eventIndex+1, sessionId, sessionReadyEvent.Timestamp)
 	}
 
-	resourceSpec := &jupyter.ResourceSpec{
-		Cpu: int(sessionMeta.GetMaxSessionCPUs()),
-		Mem: sessionMeta.GetMaxSessionMemory(),
-		Gpu: sessionMeta.GetMaxSessionGPUs(),
-	}
-
 	provisionStart := time.Now()
-	_, err := d.provisionSession(sessionId, sessionMeta, sessionReadyEvent.Timestamp, resourceSpec)
+	_, err := d.provisionSession(sessionId, sessionMeta, sessionReadyEvent.Timestamp)
 
 	if err == nil || !strings.Contains(err.Error(), "insufficient hosts available") {
 		// The event index will be populated automatically by the ProcessedEvent method.
@@ -2641,8 +2651,8 @@ func (d *BasicWorkloadDriver) handleTrainingEndedEvent(evt *domain.Event, tick t
 
 func (d *BasicWorkloadDriver) getTimeoutInterval(internalSessionId string, evt *domain.Event) time.Duration {
 	// Load the scheduling policy.
-	schedulingPolicy, schedulingPolicyIsValid := d.getSchedulingPolicy()
-	if !schedulingPolicyIsValid {
+	schedulingPolicy := d.getSchedulingPolicy()
+	if schedulingPolicy == "" {
 		d.logger.Warn("Could not compute meaningful timeout interval because scheduling policy is invalid.",
 			zap.String("workload_id", d.workload.GetId()),
 			zap.String("workload_name", d.workload.WorkloadName()),
@@ -2718,12 +2728,12 @@ func (d *BasicWorkloadDriver) waitForTrainingToEnd(internalSessionId string, evt
 		{
 			receivedResp := time.Now().UnixMilli()
 
-			var sentRequestAt time.Time
+			var sentRequestAt int64
 			val, ok := d.trainingSubmittedTimes.Get(internalSessionId)
 			if ok {
-				sentRequestAt = val.(time.Time)
+				sentRequestAt = val.(int64)
 			}
-			e2eLatency := time.Since(sentRequestAt)
+			e2eLatency := time.Since(time.UnixMilli(sentRequestAt))
 
 			switch v.(type) {
 			case error:
@@ -2733,7 +2743,6 @@ func (d *BasicWorkloadDriver) waitForTrainingToEnd(internalSessionId string, evt
 						zap.String("workload_id", d.workload.GetId()),
 						zap.String("workload_name", d.workload.WorkloadName()),
 						zap.String("kernel_id", internalSessionId),
-						zap.Duration("time_elapsed", time.Since(sentRequestAt)),
 						zap.Duration("e2e_latency", e2eLatency),
 						zap.Error(err))
 
@@ -2741,12 +2750,6 @@ func (d *BasicWorkloadDriver) waitForTrainingToEnd(internalSessionId string, evt
 				}
 			case jupyter.KernelMessage:
 				{
-					d.logger.Debug("Session stopped training",
-						zap.String("workload_id", d.workload.GetId()),
-						zap.String("workload_name", d.workload.WorkloadName()),
-						zap.String("kernel_id", internalSessionId),
-						zap.Duration("e2e_latency", e2eLatency))
-
 					reply := v.(jupyter.KernelMessage)
 					content := reply.GetContent().(map[string]interface{})
 
@@ -2760,22 +2763,19 @@ func (d *BasicWorkloadDriver) waitForTrainingToEnd(internalSessionId string, evt
 
 					d.workload.RecordSessionExecutionTime(internalSessionId, execTimeMillis)
 
-					if ok {
-						delay := receivedResp - execEndedTimeUnixMillis
+					delay := receivedResp - execEndedTimeUnixMillis
 
-						d.workload.UpdateStatistics(func(stats *Statistics) {
-							stats.TotalReplyLatenciesMillis = append(stats.TotalReplyLatenciesMillis, delay)
-							stats.TotalReplyLatencyMillis += delay
-						})
-					} else {
-						d.logger.Warn("\"execute_reply\" message content did not include an \"execution_finished_unix_millis\" entry...",
-							zap.String("workload_id", d.workload.GetId()),
-							zap.String("workload_name", d.workload.WorkloadName()),
-							zap.String("kernel_id", internalSessionId),
-							zap.Duration("time_elapsed", time.Since(sentRequestAt)),
-							zap.Duration("e2e_latency", e2eLatency),
-							zap.Any("content", content))
-					}
+					d.workload.UpdateStatistics(func(stats *Statistics) {
+						stats.TotalReplyLatenciesMillis = append(stats.TotalReplyLatenciesMillis, delay)
+						stats.TotalReplyLatencyMillis += delay
+					})
+
+					d.logger.Debug("Session stopped training",
+						zap.String("workload_id", d.workload.GetId()),
+						zap.String("workload_name", d.workload.WorkloadName()),
+						zap.String("kernel_id", internalSessionId),
+						zap.Int64("exec_time_millis", execTimeMillis),
+						zap.Duration("e2e_latency", e2eLatency))
 
 					return nil
 				}
@@ -2982,11 +2982,46 @@ func (d *BasicWorkloadDriver) handleIoPubMessage() {
 
 }
 
-func (d *BasicWorkloadDriver) provisionSession(sessionId string, meta domain.SessionMetadata, createdAtTime time.Time, resourceSpec *jupyter.ResourceSpec) (*jupyter.SessionConnection, error) {
+func (d *BasicWorkloadDriver) provisionSession(sessionId string, meta domain.SessionMetadata, createdAtTime time.Time) (*jupyter.SessionConnection, error) {
 	internalSessionId := d.getInternalSessionId(sessionId)
 
-	d.logger.Debug("Creating new kernel.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String("ZapInternalSessionIDKey", internalSessionId))
+	d.logger.Debug("Creating new kernel.",
+		zap.String("workload_id", d.workload.GetId()),
+		zap.String("workload_name", d.workload.WorkloadName()),
+		zap.String("ZapInternalSessionIDKey", internalSessionId))
 	st := time.Now()
+
+	var resourceSpec *jupyter.ResourceSpec
+	schedulingPolicy := d.getSchedulingPolicy()
+	if schedulingPolicy == "static" || schedulingPolicy == "dynamic-v3" || schedulingPolicy == "dynamic-v4" {
+		// Try to get the first training event of the session, and just reserve those resources.
+		firstTrainingEvent := d.workload.getSessionTrainingEvent(sessionId, 0)
+
+		if firstTrainingEvent != nil {
+			resourceSpec = &jupyter.ResourceSpec{
+				Cpu:  int(firstTrainingEvent.Millicpus),
+				Mem:  firstTrainingEvent.MemUsageMB,
+				Gpu:  firstTrainingEvent.NumGPUs(),
+				Vram: firstTrainingEvent.VRamUsageGB,
+			}
+		} else {
+			d.logger.Warn("Could not find first training event of session.",
+				zap.String("workload_id", d.workload.GetId()),
+				zap.String("workload_name", d.workload.WorkloadName()),
+				zap.String("ZapInternalSessionIDKey", internalSessionId))
+		}
+	}
+
+	// If we're either not using static/dynamic scheduling or we couldn't find the first training event for some
+	// reason, then we'll create the resource request using the maximum values of the session's resource usage.
+	if resourceSpec == nil {
+		resourceSpec = &jupyter.ResourceSpec{
+			Cpu:  int(meta.GetMaxSessionCPUs()),
+			Mem:  meta.GetMaxSessionMemory(),
+			Gpu:  meta.GetMaxSessionGPUs(),
+			Vram: meta.GetMaxSessionVRAM(),
+		}
+	}
 
 	// Create the kernel in Jupyter.
 	sessionConnection, err := d.kernelManager.CreateSession(

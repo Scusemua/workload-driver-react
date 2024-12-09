@@ -34,7 +34,7 @@ class TrainingEvent(object):
             "start_tick": self.starting_tick,
             "duration_in_ticks": self.duration,
             "millicpus": self.millicpus,
-            "mem_usage_mb": self.mem_mb,
+            "memory": self.mem_mb,
             "num_gpus": len(self.gpu_utilizations),
             "vram": self.vram_gb,
             "gpu_utilizations": self.gpu_utilizations,

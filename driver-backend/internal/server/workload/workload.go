@@ -84,6 +84,7 @@ type workloadInternal interface {
 
 	unsafeSessionDiscarded(sessionId string) error
 	unsafeSetSource(source interface{}) error
+	getSessionTrainingEvent(sessionId string, trainingIndex int) *domain.TrainingEvent
 }
 
 type BasicWorkload struct {
@@ -1021,4 +1022,8 @@ func (w *BasicWorkload) RecordSessionExecutionTime(sessionId string, execTimeMil
 	}
 
 	session.ExecutionTimes = append(session.ExecutionTimes, execTimeMillis)
+}
+
+func (w *BasicWorkload) GetSessionTrainingEvent(sessionId string, trainingIndex int) *domain.TrainingEvent {
+	return w.workloadInstance.getSessionTrainingEvent(sessionId, trainingIndex)
 }
