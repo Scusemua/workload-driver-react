@@ -3008,7 +3008,7 @@ func (d *BasicWorkloadDriver) provisionSession(sessionId string, meta domain.Ses
 			d.logger.Warn("Could not find first training event of session.",
 				zap.String("workload_id", d.workload.GetId()),
 				zap.String("workload_name", d.workload.WorkloadName()),
-				zap.String("ZapInternalSessionIDKey", internalSessionId))
+				zap.String("session_id", internalSessionId))
 		}
 	}
 
