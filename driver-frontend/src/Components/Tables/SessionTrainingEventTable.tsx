@@ -155,14 +155,10 @@ export const SessionTrainingEventTable: React.FunctionComponent<ISessionTraining
                                     {training.start_tick + training.duration_in_ticks}
                                 </Td>
                                 <Td dataLabel={columnNames.duration}>{training.duration_in_ticks}</Td>
-                                <Td dataLabel={columnNames.cpus}>{RoundToThreeDecimalPlaces(training.millicpus)}</Td>
-                                <Td dataLabel={columnNames.memory}>
-                                    {RoundToThreeDecimalPlaces(training.memory)}
-                                </Td>
+                                <Td dataLabel={columnNames.cpus}>{RoundToThreeDecimalPlaces(training.cpus)}</Td>
+                                <Td dataLabel={columnNames.memory}>{RoundToThreeDecimalPlaces(training.memory)}</Td>
                                 <Td dataLabel={columnNames.gpus}>{training.gpu_utilizations.length}</Td>
-                                <Td dataLabel={columnNames.vram}>
-                                    {RoundToThreeDecimalPlaces(training.vram)}
-                                </Td>
+                                <Td dataLabel={columnNames.vram}>{RoundToThreeDecimalPlaces(training.vram)}</Td>
                             </Tr>
                         );
                     })}

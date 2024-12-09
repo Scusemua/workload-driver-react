@@ -9,6 +9,7 @@ import {
     MonitoringIcon,
     OffIcon,
     PendingIcon,
+    QuestionCircleIcon,
     StarIcon,
 } from '@patternfly/react-icons';
 import { Table, Tbody, Td, Th, ThProps, Thead, Tr } from '@patternfly/react-table';
@@ -72,10 +73,16 @@ export function GetEventLabel(event_name: string): ReactElement {
                     {event_name}
                 </Label>
             );
-        default:
-            console.error(`Unexpected event name: "${event_name}"`);
+        case null:
             return (
-                <Label color="red" icon={<ErrorCircleOIcon />}>
+                <Label color="gold" icon={<QuestionCircleIcon />}>
+                    Unknown
+                </Label>
+            );
+        default:
+            // console.error(`Unexpected event name: "${event_name}"`);
+            return (
+                <Label color="gold" icon={<QuestionCircleIcon />}>
                     {event_name}
                 </Label>
             );

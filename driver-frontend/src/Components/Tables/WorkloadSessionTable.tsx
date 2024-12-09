@@ -12,7 +12,7 @@ import {
     UnknownIcon,
     WarningTriangleIcon,
 } from '@patternfly/react-icons';
-import { ExpandableRowContent, Table, Tbody, Td, Th, ThProps, Thead, Tr } from '@patternfly/react-table';
+import { ExpandableRowContent, Table, Tbody, Td, Th, Thead, ThProps, Tr } from '@patternfly/react-table';
 import { GpuIcon, GpuIconAlt2 } from '@src/Assets/Icons';
 import { SessionTrainingEventTable } from '@src/Components';
 import { RoundToThreeDecimalPlaces } from '@src/Utils';
@@ -23,7 +23,7 @@ const tableColumns = {
     status: 'Status',
     completedExecutions: 'Completed Executions',
     remainingExecutions: 'RemainingExecutions',
-    millicpus: 'milliCPUs',
+    millicpus: 'Millicpus',
     memory: 'Memory (MB)',
     currentGpus: 'Current vGPUs',
     maxGpus: 'Max vGPUs',
@@ -35,7 +35,7 @@ const sessions_table_columns: string[] = [
     'Status',
     'Completed Exec.',
     'Remaining Exec.',
-    'milliCPUs',
+    'Millicpus',
     'DRAM (MB)',
     'Current vGPUs',
     'Max vGPUs',
@@ -357,7 +357,9 @@ export const WorkloadSessionTable: React.FunctionComponent<WorkloadSessionTableP
                     </Td>
                     <Td dataLabel={tableColumns.vram}>
                         <GpuIconAlt2 />
-                        {session?.current_resource_request.vram ? RoundToThreeDecimalPlaces(session?.current_resource_request.vram) : 0}
+                        {session?.current_resource_request.vram
+                            ? RoundToThreeDecimalPlaces(session?.current_resource_request.vram)
+                            : 0}
                         {'/'}
                         {RoundToThreeDecimalPlaces(session?.max_resource_request.vram)}
                     </Td>

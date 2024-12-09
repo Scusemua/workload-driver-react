@@ -409,7 +409,7 @@ interface Session {
 
 interface TrainingEvent {
     training_index: number;
-    millicpus: number;
+    cpus: number;
     memory: number;
     vram: number;
     gpu_utilizations: GpuUtilization[];

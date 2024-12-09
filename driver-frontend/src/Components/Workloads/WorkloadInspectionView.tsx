@@ -144,7 +144,7 @@ export const WorkloadInspectionView: React.FunctionComponent<IWorkloadInspection
                 }}
             >
                 <FlexItem>
-                    <DescriptionList columnModifier={{ lg: '3Col' }}>
+                    <DescriptionList columnModifier={{ lg: '3Col' }} displaySize={'lg'}>
                         {props.workload?.workload_preset && (
                             <DescriptionListGroup>
                                 <DescriptionListTerm>

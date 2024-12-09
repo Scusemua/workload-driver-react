@@ -226,8 +226,8 @@ export const RegisterWorkloadFromTemplateForm: React.FunctionComponent<IRegister
                     const training: TrainingEvent = trainings[j];
                     training.training_index = j; // Set the training index field.
 
-                    if (training.millicpus > max_millicpus) {
-                        max_millicpus = training.millicpus;
+                    if (training.cpus > max_millicpus) {
+                        max_millicpus = training.cpus;
                     }
 
                     if (training.memory > max_mem_mb) {

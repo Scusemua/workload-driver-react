@@ -40,7 +40,11 @@ export const WorkloadTickDurationChart: React.FunctionComponent<IWorkloadTickDur
             props.workload.sum_tick_durations_millis / props.workload.tick_durations_milliseconds.length;
         console.log(`averageDuration * 1.5: ${averageDuration * 1.5}`);
         setThreshold(averageDuration * 1.5);
-    }, [props.workload.sum_tick_durations_millis, props.workload.tick_durations_milliseconds.length]);
+    }, [
+        props.workload.sum_tick_durations_millis,
+        props.workload.tick_durations_milliseconds,
+        props.workload.tick_durations_milliseconds.length,
+    ]);
 
     React.useEffect(() => {
         const datapoints: Datapoint[] = [];
