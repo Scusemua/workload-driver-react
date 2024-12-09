@@ -1,9 +1,4 @@
-import {
-    InspectWorkloadModal,
-    NewWorkloadFromTemplateModal,
-    RegisterWorkloadModal,
-    VisualizeWorkloadModal,
-} from '@Components/Modals';
+import { InspectWorkloadModal, NewWorkloadFromTemplateModal, VisualizeWorkloadModal } from '@Components/Modals';
 import { WorkloadsDataList } from '@Components/Workloads/WorkloadsDataList';
 import {
     Button,
@@ -24,7 +19,7 @@ import useNavigation from '@Providers/NavigationProvider';
 
 import { WorkloadContext } from '@Providers/WorkloadProvider';
 
-import { IsInProgress, Workload, WorkloadPreset } from '@src/Data/Workload';
+import { IsInProgress, Workload } from '@src/Data/Workload';
 import React, { useEffect } from 'react';
 
 export interface WorkloadCardProps {
@@ -35,7 +30,7 @@ export interface WorkloadCardProps {
 }
 
 export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: WorkloadCardProps) => {
-    const [isRegisterWorkloadModalOpen, setIsRegisterWorkloadModalOpen] = React.useState(false);
+    // const [isRegisterWorkloadModalOpen, setIsRegisterWorkloadModalOpen] = React.useState(false);
     const [isRegisterNewWorkloadFromTemplateModalOpen, setIsRegisterNewWorkloadFromTemplateModalOpen] =
         React.useState(false);
     const [selectedWorkloadListId, setSelectedWorkloadListId] = React.useState('');
@@ -87,45 +82,45 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
         workloadRegistrationRequest: string,
         messageId?: string,
     ) => {
-        setIsRegisterWorkloadModalOpen(false);
+        // setIsRegisterWorkloadModalOpen(false);
         setIsRegisterNewWorkloadFromTemplateModalOpen(false);
         registerWorkloadFromTemplate(workloadName, workloadRegistrationRequest, messageId);
     };
 
-    const onRegisterWorkloadFromTemplateClicked = () => {
-        setIsRegisterNewWorkloadFromTemplateModalOpen(true);
-    };
+    // const onRegisterWorkloadFromTemplateClicked = () => {
+    //     setIsRegisterNewWorkloadFromTemplateModalOpen(true);
+    // };
 
-    const onConfirmRegisterWorkload = (
-        workloadName: string,
-        selectedPreset: WorkloadPreset,
-        workloadSeedString: string,
-        debugLoggingEnabled: boolean,
-        timescaleAdjustmentFactor: number,
-        workloadSessionSamplePercent: number,
-    ) => {
-        setIsRegisterWorkloadModalOpen(false);
-        setIsRegisterNewWorkloadFromTemplateModalOpen(false);
+    // const onConfirmRegisterWorkload = (
+    //     workloadName: string,
+    //     selectedPreset: WorkloadPreset,
+    //     workloadSeedString: string,
+    //     debugLoggingEnabled: boolean,
+    //     timescaleAdjustmentFactor: number,
+    //     workloadSessionSamplePercent: number,
+    // ) => {
+    //     // setIsRegisterWorkloadModalOpen(false);
+    //     setIsRegisterNewWorkloadFromTemplateModalOpen(false);
+    //
+    //     registerWorkloadFromPreset(
+    //         workloadName,
+    //         selectedPreset,
+    //         workloadSeedString,
+    //         debugLoggingEnabled,
+    //         timescaleAdjustmentFactor,
+    //         workloadSessionSamplePercent,
+    //     );
+    // };
 
-        registerWorkloadFromPreset(
-            workloadName,
-            selectedPreset,
-            workloadSeedString,
-            debugLoggingEnabled,
-            timescaleAdjustmentFactor,
-            workloadSessionSamplePercent,
-        );
-    };
-
-    const onCancelStartWorkload = () => {
-        console.log('New workload cancelled by user before starting.');
-        setIsRegisterWorkloadModalOpen(false);
-    };
+    // const onCancelStartWorkload = () => {
+    //     console.log('New workload cancelled by user before starting.');
+    //     setIsRegisterWorkloadModalOpen(false);
+    // };
 
     const onCancelStartWorkloadFromTemplate = () => {
         console.log('New workload from template cancelled by user before starting.');
         setIsRegisterNewWorkloadFromTemplateModalOpen(false);
-        setIsRegisterWorkloadModalOpen(true);
+        // setIsRegisterWorkloadModalOpen(true);
     };
 
     const onStopAllWorkloadsClicked = () => {
@@ -163,7 +158,8 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                             variant="plain"
                             onClick={() => {
                                 if (props.useCreationModal) {
-                                    setIsRegisterWorkloadModalOpen(true);
+                                    // setIsRegisterWorkloadModalOpen(true);
+                                    setIsRegisterNewWorkloadFromTemplateModalOpen(true);
                                 } else {
                                     navigate('/register_workload');
                                 }
@@ -219,12 +215,12 @@ export const WorkloadCard: React.FunctionComponent<WorkloadCardProps> = (props: 
                     )}
                 </CardBody>
             </Card>
-            <RegisterWorkloadModal
-                isOpen={isRegisterWorkloadModalOpen}
-                onClose={onCancelStartWorkload}
-                onConfirm={onConfirmRegisterWorkload}
-                onRegisterWorkloadFromTemplateClicked={onRegisterWorkloadFromTemplateClicked}
-            />
+            {/*<RegisterWorkloadModal*/}
+            {/*    isOpen={isRegisterWorkloadModalOpen}*/}
+            {/*    onClose={onCancelStartWorkload}*/}
+            {/*    onConfirm={onConfirmRegisterWorkload}*/}
+            {/*    onRegisterWorkloadFromTemplateClicked={onRegisterWorkloadFromTemplateClicked}*/}
+            {/*/>*/}
             <NewWorkloadFromTemplateModal
                 isOpen={isRegisterNewWorkloadFromTemplateModalOpen}
                 onClose={onCancelStartWorkloadFromTemplate}

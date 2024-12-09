@@ -47,13 +47,13 @@ class Session(object):
                                    bounds_error=False, fill_value="extrapolate")
 
             # Generate uniform random samples
-            u_samples = np.random.uniform(0, 1, len(gpu_util_vals))
+            u_samples = np.random.uniform(0, 1, num_events)
 
             # Transform uniform samples to the target distribution
             samples = inverse_cdf(u_samples)
 
             vram_gb_vals: list[float] = []
-            for idx in range(0, len(gpu_util_vals)):
+            for idx in range(0, num_events):
                 vram_util: float = samples[idx]
                 vram_gb: float = num_gpus * 4 * vram_util
 
@@ -67,7 +67,7 @@ class Session(object):
         else:
             # Generate a uniform random utilization value from 0 to NumGpus * 4GB VRAM/ea.
             vram_gb_vals: list[float] = []
-            for idx in range(0, len(gpu_util_vals)):
+            for _ in range(0, len(gpu_util_vals)):
                 vram_gb: float = num_gpus * 4 * random.random()
                 vram_gb_vals.append(vram_gb)
 
