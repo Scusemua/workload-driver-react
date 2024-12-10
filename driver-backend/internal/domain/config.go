@@ -193,6 +193,7 @@ type Configuration struct {
 	BaseUrl                      string `name:"base-url" yaml:"base-url" json:"base-url" default:"/"`
 	PrometheusEndpoint           string `name:"prometheus-endpoint" yaml:"prometheus-endpoint" json:"prometheus-endpoint" default:"/metrics"`
 	WorkloadOutputDirectory      string `name:"workload_output_directory" json:"workload_output_directory" yaml:"workload_output_directory" default:"./workload_output_directory"`
+	WorkloadOutputIntervalSec    int    `name:"workload-output-interval-seconds" json:"workload-output-interval-seconds" yaml"workload-output-interval-seconds"`
 }
 
 func GetDefaultConfig() *Configuration {
@@ -223,6 +224,7 @@ func GetDefaultConfig() *Configuration {
 		ExpectedOriginAddresses:      "localhost,127.0.0.1",
 		TraceStep:                    60,
 		WorkloadOutputDirectory:      "./workload_output_directory",
+		WorkloadOutputIntervalSec:    2,
 	}
 }
 

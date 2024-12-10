@@ -17,6 +17,7 @@ import (
 	"go.uber.org/zap/zapcore"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 )
@@ -37,7 +38,9 @@ type ClientBuilder struct {
 	errorChan                 chan<- error
 	session                   *domain.WorkloadTemplateSession
 	workload                  internalWorkload
+	kernelSessionManager      jupyter.KernelSessionManager
 	notifyCallback            func(notification *proto.Notification)
+	waitGroup                 *sync.WaitGroup
 }
 
 // NewClientBuilder initializes a new ClientBuilder.
@@ -70,6 +73,11 @@ func (b *ClientBuilder) WithAtom(atom *zap.AtomicLevel) *ClientBuilder {
 	return b
 }
 
+func (b *ClientBuilder) WithKernelManager(kernelSessionManager jupyter.KernelSessionManager) *ClientBuilder {
+	b.kernelSessionManager = kernelSessionManager
+	return b
+}
+
 func (b *ClientBuilder) WithTargetTickDurationSeconds(seconds int64) *ClientBuilder {
 	b.targetTickDurationSeconds = seconds
 	return b
@@ -92,6 +100,11 @@ func (b *ClientBuilder) WithSession(session *domain.WorkloadTemplateSession) *Cl
 
 func (b *ClientBuilder) WithNotifyCallback(notifyCallback func(notification *proto.Notification)) *ClientBuilder {
 	b.notifyCallback = notifyCallback
+	return b
+}
+
+func (b *ClientBuilder) WithWaitGroup(waitGroup *sync.WaitGroup) *ClientBuilder {
+	b.waitGroup = waitGroup
 	return b
 }
 
@@ -119,7 +132,9 @@ func (b *ClientBuilder) Build() *Client {
 		trainingStartedChannel:    make(chan interface{}, 1),
 		trainingStoppedChannel:    make(chan interface{}, 1),
 		Session:                   b.session,
+		kernelSessionManager:      b.kernelSessionManager,
 		notifyCallback:            b.notifyCallback,
+		waitGroup:                 b.waitGroup,
 	}
 
 	zapConfig := zap.NewDevelopmentEncoderConfig()
@@ -148,7 +163,7 @@ type Client struct {
 	errorChan                 chan<- error                           // errorChan is used to notify the WorkloadDriver that an error has occurred.
 	kernelConnection          jupyter.KernelConnection               // kernelConnection is the Client's Jupyter kernel connection. The Client uses this to send messages to its kernel.
 	sessionConnection         *jupyter.SessionConnection             // sessionConnection is the Client's Jupyter session connection.
-	kernelManager             jupyter.KernelSessionManager           // kernelManager is used by the Client to create its sessionConnection and subsequently its kernelConnection.
+	kernelSessionManager      jupyter.KernelSessionManager           // kernelSessionManager is used by the Client to create its sessionConnection and subsequently its kernelConnection.
 	schedulingPolicy          string                                 // schedulingPolicy is the name of the scheduling policy that the cluster is configured to use.
 	EventQueue                *event_queue.SessionEventQueue         // EventQueue contains events to be processed by this Client.
 	maximumResourceSpec       *domain.ResourceRequest                // maximumResourceSpec is the maximum amount of resources this Client may use at any point in its lifetime.
@@ -165,6 +180,7 @@ type Client struct {
 	trainingStartedChannel    chan interface{}                       // trainingStartedChannel is used to notify that the last/current training has started.
 	trainingStoppedChannel    chan interface{}                       // trainingStoppedChannel is used to notify that the last/current training has ended.
 	notifyCallback            func(notification *proto.Notification) // notifyCallback is used to send notifications directly to the frontend.
+	waitGroup                 *sync.WaitGroup                        // waitGroup is used to alert the WorkloadDriver that the Client has finished.
 }
 
 // Run starts the Client and instructs the Client to begin processing its events in a loop.
@@ -226,7 +242,7 @@ func (c *Client) createKernel(evt *domain.Event) (sessionConnection *jupyter.Ses
 	}
 
 	for sessionConnection == nil {
-		sessionConnection, err = c.kernelManager.CreateSession(
+		sessionConnection, err = c.kernelSessionManager.CreateSession(
 			c.SessionId, fmt.Sprintf("%s.ipynb", c.SessionId),
 			"notebook", "distributed", initialResourceRequest)
 		if err != nil {
@@ -1076,7 +1092,7 @@ func (c *Client) handleSessionStoppedEvent(evt *domain.Event) error {
 		zap.String("workload_name", c.Workload.WorkloadName()),
 		zap.String("kernel_id", c.SessionId))
 
-	err := c.kernelManager.StopKernel(c.SessionId)
+	err := c.kernelSessionManager.StopKernel(c.SessionId)
 	if err != nil {
 		c.logger.Error("Error encountered while stopping session.",
 			zap.String("workload_id", c.Workload.GetId()),
@@ -1102,6 +1118,8 @@ func (c *Client) handleSessionStoppedEvent(evt *domain.Event) error {
 		zap.String("workload_id", c.Workload.GetId()),
 		zap.String("workload_name", c.Workload.WorkloadName()),
 		zap.String("session_id", c.SessionId))
+
+	c.waitGroup.Done()
 
 	return nil
 }

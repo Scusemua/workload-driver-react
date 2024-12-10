@@ -192,7 +192,9 @@ type BasicWorkloadDriver struct {
 	trainingStartedChannelMutex        sync.Mutex                                 // trainingStartedChannelMutex ensures atomic access to the trainingStartedChannels
 	trainingStoppedChannels            map[string]chan interface{}                // trainingStartedChannels are channels used to notify that training has ended
 	trainingStoppedChannelsMutex       sync.Mutex                                 // trainingStoppedChannelsMutex ensures atomic access to the trainingStoppedChannels
+	workloadOutputInterval             time.Duration                              // workloadOutputInterval defines how often we should collect and write workload output statistics to the CSV file
 	clients                            map[string]*Client
+	clientsWaitGroup                   sync.WaitGroup
 
 	pauseMutex sync.Mutex
 	pauseCond  *sync.Cond
@@ -252,6 +254,7 @@ func NewBasicWorkloadDriver(opts *domain.Configuration, performClockTicks bool, 
 		getSchedulingPolicyCallback:        callbackProvider.GetSchedulingPolicy,
 		paused:                             false,
 		clients:                            make(map[string]*Client),
+		workloadOutputInterval:             time.Second * time.Duration(opts.WorkloadOutputIntervalSec),
 	}
 
 	driver.pauseCond = sync.NewCond(&driver.pauseMutex)
@@ -417,7 +420,7 @@ func (d *BasicWorkloadDriver) ToggleDebugLogging(enabled bool) domain.Workload {
 	return d.workload
 }
 
-func (d *BasicWorkloadDriver) GetWorkload() internalWorkload {
+func (d *BasicWorkloadDriver) GetWorkload() domain.Workload {
 	return d.workload
 }
 
@@ -951,6 +954,22 @@ func (d *BasicWorkloadDriver) DriveWorkload() {
 		zap.String("workload_id", d.id),
 		zap.String("workload_name", d.workload.WorkloadName()))
 
+	var statsPublisherWg sync.WaitGroup
+	statsPublisherWg.Add(1)
+
+	go func(wg *sync.WaitGroup) {
+		for d.workload.IsInProgress() {
+			d.publishStatisticsReport()
+
+			time.Sleep(d.workloadOutputInterval)
+		}
+
+		// Publish one last statistics report, which will also fetch the Cluster Statistics one last time.
+		d.publishStatisticsReport()
+
+		statsPublisherWg.Done()
+	}(&statsPublisherWg)
+
 	err = d.bootstrapSimulation()
 	if err != nil {
 		d.logger.Error("Failed to bootstrap workload.",
@@ -1048,8 +1067,7 @@ OUTER:
 		}
 	}
 
-	// Publish one last statistics report, which will also fetch the Cluster Statistics one last time.
-	d.publishStatisticsReport()
+	statsPublisherWg.Wait()
 
 	d.outputFileMutex.Lock()
 	_ = d.outputFile.Close()
@@ -1320,7 +1338,7 @@ func (d *BasicWorkloadDriver) issueClockTicks(timestamp time.Time) error {
 	return nil
 }
 
-// ProcessWorkload accepts a *sync.WaitGroup that is used to notify the caller when the workload has completed.
+// ProcessWorkloadEvents accepts a *sync.WaitGroup that is used to notify the caller when the workload has completed.
 // This processes events in response to clock ticks.
 //
 // If there is a critical error that causes the workload to be terminated prematurely/aborted, then that error is returned.
@@ -1444,6 +1462,16 @@ func (d *BasicWorkloadDriver) ProcessWorkloadEvents() {
 			}
 		case <-d.workloadExecutionCompleteChan: // This is placed after eventChan so that all events are processed first.
 			{
+				d.logger.Debug("All events have been enqueued with their respective Clients.",
+					zap.String("workload_id", d.id))
+
+				startWait := time.Now()
+				d.clientsWaitGroup.Wait()
+
+				d.logger.Debug("All Clients have finished processing their events.",
+					zap.String("workload_id", d.id),
+					zap.Duration("wait_duration", time.Since(startWait)))
+
 				d.workloadComplete()
 				return
 			}
@@ -1540,10 +1568,6 @@ func (d *BasicWorkloadDriver) handleTick(tick time.Time) error {
 
 	d.ticker.Done()
 
-	if d.outputFile != nil {
-		d.publishStatisticsReport()
-	}
-
 	return nil
 }
 
@@ -1589,14 +1613,17 @@ func (d *BasicWorkloadDriver) enqueueEventsForTick(tick time.Time) {
 				WithSessionReadyEvent(evt).
 				WithStartingTick(tick).
 				WithAtom(d.atom).
+				WithKernelManager(d.kernelManager).
 				WithTargetTickDurationSeconds(d.targetTickDurationSeconds).
 				WithErrorChan(d.errorChan).
 				WithWorkload(d.workload).
 				WithSession(d.workloadSessionsMap[sessionId]).
 				WithNotifyCallback(d.notifyCallback).
+				WithWaitGroup(&d.clientsWaitGroup).
 				Build()
 
 			d.clients[sessionId] = client
+			d.clientsWaitGroup.Add(1)
 			go client.Run()
 		} else {
 			client, loaded := d.clients[sessionId]
