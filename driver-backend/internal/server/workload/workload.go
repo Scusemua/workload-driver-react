@@ -107,14 +107,15 @@ type BasicWorkload struct {
 	DebugLoggingEnabled       bool    `json:"debug_logging_enabled"`
 	TimescaleAdjustmentFactor float64 `json:"timescale_adjustment_factor"`
 
-	ErrorMessage           string  `json:"error_message"`
-	SimulationClockTimeStr string  `json:"simulation_clock_time"`
-	WorkloadType           Kind    `json:"workload_type"`
-	TickDurationsMillis    []int64 `json:"tick_durations_milliseconds"`
+	ErrorMessage           string `json:"error_message"`
+	SimulationClockTimeStr string `json:"simulation_clock_time"`
+	WorkloadType           Kind   `json:"workload_type"`
+
+	//TickDurationsMillis    []int64 `json:"tick_durations_milliseconds"`
 
 	// SumTickDurationsMillis is the sum of all tick durations in milliseconds, to make it easier
 	// to compute the average tick duration.
-	SumTickDurationsMillis int64 `json:"sum_tick_durations_millis"`
+	//SumTickDurationsMillis int64 `json:"sum_tick_durations_millis"`
 
 	//SessionsSamplePercentage  float64 `json:"sessions_sample_percentage"`
 	//TimeSpentPausedMillis     int64   `json:"time_spent_paused_milliseconds"`
@@ -177,9 +178,9 @@ func (w *BasicWorkload) RegisterOnNonCriticalErrorHandler(handler domain.Workloa
 
 // GetTickDurationsMillis returns a slice containing the clock time that elapsed for each tick
 // of the workload in order, in milliseconds.
-func (w *BasicWorkload) GetTickDurationsMillis() []int64 {
-	return w.TickDurationsMillis
-}
+//func (w *BasicWorkload) GetTickDurationsMillis() []int64 {
+//	return w.TickDurationsMillis
+//}
 
 // SetPausing will set the workload to the pausing state, which means that it is finishing
 // the processing of its current tick before halting until being unpaused.
@@ -248,11 +249,11 @@ func (w *BasicWorkload) Unpause() error {
 
 // AddFullTickDuration is called to record how long a tick lasted, including the "artificial" sleep that is performed
 // by the WorkloadDriver in order to fully simulate ticks that otherwise have no work/events to be processed.
-func (w *BasicWorkload) AddFullTickDuration(timeElapsed time.Duration) {
-	timeElapsedMs := timeElapsed.Milliseconds()
-	w.TickDurationsMillis = append(w.TickDurationsMillis, timeElapsedMs)
-	w.SumTickDurationsMillis += timeElapsedMs
-}
+//func (w *BasicWorkload) AddFullTickDuration(timeElapsed time.Duration) {
+//	timeElapsedMs := timeElapsed.Milliseconds()
+//	w.TickDurationsMillis = append(w.TickDurationsMillis, timeElapsedMs)
+//	w.SumTickDurationsMillis += timeElapsedMs
+//}
 
 // GetCurrentTick returns the current tick.
 func (w *BasicWorkload) GetCurrentTick() int64 {

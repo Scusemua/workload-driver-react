@@ -1313,7 +1313,7 @@ func (d *BasicWorkloadDriver) issueClockTicks(timestamp time.Time) error {
 		// Update the average now, after we check if the tick was too long.
 		d.tickDurationsSecondsMovingWindow.Add(tickDurationSec)
 		d.tickDurationsAll = append(d.tickDurationsAll, tickDuration)
-		d.workload.AddFullTickDuration(tickDuration)
+		// d.workload.AddFullTickDuration(tickDuration)
 	}
 
 	// Sanity check to ensure that we issued the correct/expected number of ticks.

@@ -24,6 +24,7 @@ import (
 
 var (
 	// ErrClientNotRunning  = errors.New("cannot stop client as it is not running")
+
 	ErrInvalidFirstEvent = errors.New("client received invalid first event")
 )
 
@@ -202,6 +203,14 @@ func (c *Client) Run() {
 		c.running.Store(0)
 		return
 	}
+
+	var wg sync.WaitGroup
+	wg.Add(2)
+
+	go c.issueClockTicks(&wg)
+	c.run(&wg)
+
+	wg.Wait()
 }
 
 // createKernel attempts to create the kernel for the Client, possibly handling any errors that are encountered
@@ -355,14 +364,31 @@ func (c *Client) initialize() error {
 	return nil
 }
 
-// driveTicks should be run in its own goroutine.
-func (c *Client) driveTicks() {
-	// TODO: Implement me
-	panic("Not implemented")
+// issueClockTicks issues clock ticks for this Client, driving this Client's execution.
+//
+// issueClockTicks should be executed in its own goroutine.
+func (c *Client) issueClockTicks(wg *sync.WaitGroup) {
+	for c.Workload.IsInProgress() {
+		// Increment the clock.
+		tick, err := c.currentTick.IncrementClockBy(c.targetTickDuration)
+		if err != nil {
+			c.logger.Error("Error while incrementing clock time.",
+				zap.Duration("tick-duration", c.targetTickDuration),
+				zap.String("workload_id", c.WorkloadId),
+				zap.String("workload_name", c.Workload.WorkloadName()),
+				zap.Error(err))
+			c.errorChan <- err
+			break
+		}
+
+		c.clockTrigger.Trigger(tick)
+	}
+
+	wg.Done()
 }
 
 // run is the private, core implementation of Run.
-func (c *Client) run() {
+func (c *Client) run(wg *sync.WaitGroup) {
 	for c.Workload.IsInProgress() {
 		select {
 		case tick := <-c.ticker.TickDelivery:
@@ -379,6 +405,8 @@ func (c *Client) run() {
 			zap.String("workload_id", c.WorkloadId),
 			zap.String("session_id", c.SessionId))
 	}
+
+	wg.Done()
 }
 
 func (c *Client) handleTick(tick time.Time) error {
