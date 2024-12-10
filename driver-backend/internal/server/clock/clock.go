@@ -27,6 +27,12 @@ func NewSimulationClock() *BasicSimulationClock {
 	}
 }
 
+func NewSimulationClockFromTime(startTick time.Time) *BasicSimulationClock {
+	return &BasicSimulationClock{
+		clockTime: startTick,
+	}
+}
+
 // GetClockTime returns the current clock time.
 func (sc *BasicSimulationClock) GetClockTime() time.Time {
 	sc.clockMutex.RLock()

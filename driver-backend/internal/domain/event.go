@@ -12,6 +12,7 @@ const (
 	EventSessionStarted SessionEventName = "session-started"
 	// EventSessionReady triggered when we have had sufficient info on resource specification and the session is ready to launch.
 	EventSessionReady           SessionEventName = "session-ready"
+	EventSessionTraining        SessionEventName = "training"
 	EventSessionTrainingStarted SessionEventName = "training-started"
 	EventSessionTrainingEnded   SessionEventName = "training-ended"
 	EventSessionStopped         SessionEventName = "session-stopped"
@@ -91,6 +92,7 @@ type Event struct {
 	Name                EventName     `json:"name"`
 	Timestamp           time.Time     `json:"timestamp"`
 	OriginalTimestamp   time.Time     `json:"originalTimestamp"`
+	Duration            time.Duration `json:"duration"`
 	Delay               time.Duration `json:"delay"`
 	ID                  string        `json:"id"`
 	OrderSeq            int64         `json:"order_seq"` // OrderSeq is essentially Timestamp of event, but randomized to make behavior stochastic.

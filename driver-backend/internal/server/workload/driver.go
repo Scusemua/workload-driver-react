@@ -771,8 +771,11 @@ func (d *BasicWorkloadDriver) abortWorkload() error {
 	return nil
 }
 
-// Set the d.clockTime clock to the given timestamp, verifying that the new timestamp is either equal to or occurs after the old one.
-// Return a tuple where the first element is the new time, and the second element is the difference between the new time and the old time.
+// incrementClockTime sets the d.clockTime clock to the given timestamp, verifying that the new timestamp is either
+// equal to or occurs after the old one.
+//
+// incrementClockTime returns a tuple where the first element is the new time, and the second element is the difference
+// between the new time and the old time.
 func (d *BasicWorkloadDriver) incrementClockTime(time time.Time) (time.Time, time.Duration, error) {
 	newTime, timeDifference, err := d.clockTime.IncreaseClockTimeTo(time)
 
@@ -2976,10 +2979,6 @@ func (d *BasicWorkloadDriver) handleEvent(evt *domain.Event, tick time.Time) err
 func (d *BasicWorkloadDriver) stopSession(sessionId string) error {
 	d.logger.Debug("Stopping session.", zap.String("workload_id", d.workload.GetId()), zap.String("workload_name", d.workload.WorkloadName()), zap.String("kernel_id", sessionId))
 	return d.kernelManager.StopKernel(sessionId)
-}
-
-func (d *BasicWorkloadDriver) handleIoPubMessage() {
-
 }
 
 func (d *BasicWorkloadDriver) provisionSession(sessionId string, meta domain.SessionMetadata, createdAtTime time.Time) (*jupyter.SessionConnection, error) {

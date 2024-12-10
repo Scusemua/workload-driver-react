@@ -52,6 +52,13 @@ func NewSessionEventQueue(sessionId string) *SessionEventQueue {
 	return queue
 }
 
+func (q *SessionEventQueue) IncurDelay(amount time.Duration) {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+
+	q.Delay += amount
+}
+
 // Len returns the length of the InternalQueue of the target SessionEventQueue.
 func (q *SessionEventQueue) Len() int {
 	return len(q.InternalQueue)
@@ -114,12 +121,19 @@ func (q *SessionEventQueue) Peek() *domain.Event {
 }
 
 // NextEventTimestamp returns the Timestamp of the next domain.Event in this SessionEventQueue's InternalQueue.
-//
 // The SessionEventQueue's Delay field is added to the domain.Event's Timestamp field before the Timestamp is returned.
+//
+// NextEventTimestamp is thread-safe.
 func (q *SessionEventQueue) NextEventTimestamp() (time.Time, bool) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
 
+	return q.unsafeNextEventTimestamp()
+}
+
+// unsafeNextEventTimestamp returns the Timestamp of the next domain.Event in this SessionEventQueue's InternalQueue.
+// The SessionEventQueue's Delay field is added to the domain.Event's Timestamp field before the Timestamp is returned.
+func (q *SessionEventQueue) unsafeNextEventTimestamp() (time.Time, bool) {
 	// What do we do if the queue is empty?
 	if len(q.InternalQueue) == 0 {
 		return time.Time{}, false
@@ -137,6 +151,8 @@ func (q *SessionEventQueue) NextEventTimestamp() (time.Time, bool) {
 }
 
 // NextEventName returns the Name of the next domain.Event in this SessionEventQueue's InternalQueue.
+//
+// NextEventName is thread-safe.
 func (q *SessionEventQueue) NextEventName() (domain.EventName, bool) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
@@ -151,6 +167,8 @@ func (q *SessionEventQueue) NextEventName() (domain.EventName, bool) {
 
 // NextEventGlobalEventIndex returns the GlobalEventIndex of the next domain.Event
 // in this SessionEventQueue's InternalQueue.
+//
+// NextEventGlobalEventIndex is thread-safe.
 func (q *SessionEventQueue) NextEventGlobalEventIndex() (uint64, bool) {
 	q.mu.Lock()
 	defer q.mu.Unlock()
@@ -161,4 +179,20 @@ func (q *SessionEventQueue) NextEventGlobalEventIndex() (uint64, bool) {
 	}
 
 	return q.InternalQueue.Peek().GlobalIndex, true
+}
+
+// HasEventsForTick returns true if there are events available for the specified tick; otherwise return false.
+//
+// HasEventsForTick is thread-safe.
+func (q *SessionEventQueue) HasEventsForTick(tick time.Time) bool {
+	q.mu.Lock()
+	defer q.mu.Unlock()
+
+	length := q.InternalQueue.Len()
+	if length == 0 {
+		return false
+	}
+
+	timestamp, _ := q.unsafeNextEventTimestamp()
+	return tick == timestamp || timestamp.Before(tick)
 }
