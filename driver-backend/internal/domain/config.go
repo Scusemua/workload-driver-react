@@ -175,25 +175,26 @@ type Configuration struct {
 	// SpoofKubeNodes          bool   `name:"spoof-nodes" yaml:"spoof-nodes" json:"spoof-nodes" description:"If true, spoof the Kubernetes nodes."`
 	// SpoofKernels            bool   `name:"spoof-kernels" yaml:"spoof-kernels" json:"spoof-kernels" description:"If true, spoof the kernels."`
 	// SpoofKernelSpecs        bool   `name:"spoof-specs" yaml:"spoof-specs" json:"spoof-specs" description:"If true, spoof the kernel specs."`
-	InCluster                    bool   `name:"in-cluster" yaml:"in-cluster" json:"in-cluster" description:"Should be true if running from within the kubernetes cluster."`
-	KernelQueryInterval          string `name:"kernel-query-interval" yaml:"kernel-query-interval" json:"kernel-query-interval" default:"5s" description:"How frequently to query the Cluster for updated kernel information."`
-	NodeQueryInterval            string `name:"node-query-interval" yaml:"node-query-interval" json:"node-query-interval" default:"10s" description:"How frequently to query the Cluster for updated Kubernetes node information."`
-	KernelSpecQueryInterval      string `name:"kernel-spec-query-interval" yaml:"kernel-spec-query-interval" json:"kernel-spec-query-interval" default:"600s" description:"How frequently to query the Cluster for updated Jupyter kernel spec information."`
-	KubeConfig                   string `name:"kubeconfig" yaml:"kubeconfig" json:"kubeconfig" description:"Absolute path to the kubeconfig file."`
-	GatewayAddress               string `name:"gateway-address" yaml:"gateway-address" json:"gateway-address" description:"The IP address that the front-end should use to connect to the Gateway."`
-	FrontendJupyterServerAddress string `name:"frontend-jupyter-server-address" yaml:"frontend-jupyter-server-address" json:"frontend-jupyter-server-address" description:"The IP address of the Jupyter Server to return to the frontend."`
-	InternalJupyterServerAddress string `name:"internal-jupyter-server-address" yaml:"internal-jupyter-server-address" json:"internal-jupyter-server-address" description:"The IP address of the Jupyter Server to use internally within the backend."`
-	JupyterServerBasePath        string `name:"jupyter-server-base-path" json:"jupyter-server-base-path" yaml:"jupyter-server-base-path" description:"The base path on which the Jupyter Server is listening."`
-	ServerPort                   int    `name:"server-port" yaml:"server-port" json:"server-port" description:"Port of the backend server."`
-	WebsocketProxyPort           int    `name:"websocket-proxy-port" yaml:"websocket-proxy-port" json:"websocket-proxy-port" description:"Port of the backend websocket proxy server, which reverse-proxies websocket connections to the Jupyter server."`
-	AdminUser                    string `name:"admin_username" yaml:"admin_username" json:"admin_username"`
-	AdminPassword                string `name:"admin_password" yaml:"admin_password" json:"admin_password"`
-	TokenValidDurationSec        int    `name:"token_valid_duration_sec" yaml:"token_valid_duration_sec" json:"token_valid_duration_sec"`
-	TokenRefreshIntervalSec      int    `name:"token_refresh_interval_sec" yaml:"token_refresh_interval_sec" json:"token_refresh_interval_sec"`
-	BaseUrl                      string `name:"base-url" yaml:"base-url" json:"base-url" default:"/"`
-	PrometheusEndpoint           string `name:"prometheus-endpoint" yaml:"prometheus-endpoint" json:"prometheus-endpoint" default:"/metrics"`
-	WorkloadOutputDirectory      string `name:"workload_output_directory" json:"workload_output_directory" yaml:"workload_output_directory" default:"./workload_output_directory"`
-	WorkloadOutputIntervalSec    int    `name:"workload-output-interval-seconds" json:"workload-output-interval-seconds" yaml"workload-output-interval-seconds"`
+	InCluster                     bool   `name:"in-cluster" yaml:"in-cluster" json:"in-cluster" description:"Should be true if running from within the kubernetes cluster."`
+	KernelQueryInterval           string `name:"kernel-query-interval" yaml:"kernel-query-interval" json:"kernel-query-interval" default:"5s" description:"How frequently to query the Cluster for updated kernel information."`
+	NodeQueryInterval             string `name:"node-query-interval" yaml:"node-query-interval" json:"node-query-interval" default:"10s" description:"How frequently to query the Cluster for updated Kubernetes node information."`
+	KernelSpecQueryInterval       string `name:"kernel-spec-query-interval" yaml:"kernel-spec-query-interval" json:"kernel-spec-query-interval" default:"600s" description:"How frequently to query the Cluster for updated Jupyter kernel spec information."`
+	KubeConfig                    string `name:"kubeconfig" yaml:"kubeconfig" json:"kubeconfig" description:"Absolute path to the kubeconfig file."`
+	GatewayAddress                string `name:"gateway-address" yaml:"gateway-address" json:"gateway-address" description:"The IP address that the front-end should use to connect to the Gateway."`
+	FrontendJupyterServerAddress  string `name:"frontend-jupyter-server-address" yaml:"frontend-jupyter-server-address" json:"frontend-jupyter-server-address" description:"The IP address of the Jupyter Server to return to the frontend."`
+	InternalJupyterServerAddress  string `name:"internal-jupyter-server-address" yaml:"internal-jupyter-server-address" json:"internal-jupyter-server-address" description:"The IP address of the Jupyter Server to use internally within the backend."`
+	JupyterServerBasePath         string `name:"jupyter-server-base-path" json:"jupyter-server-base-path" yaml:"jupyter-server-base-path" description:"The base path on which the Jupyter Server is listening."`
+	ServerPort                    int    `name:"server-port" yaml:"server-port" json:"server-port" description:"Port of the backend server."`
+	WebsocketProxyPort            int    `name:"websocket-proxy-port" yaml:"websocket-proxy-port" json:"websocket-proxy-port" description:"Port of the backend websocket proxy server, which reverse-proxies websocket connections to the Jupyter server."`
+	AdminUser                     string `name:"admin_username" yaml:"admin_username" json:"admin_username"`
+	AdminPassword                 string `name:"admin_password" yaml:"admin_password" json:"admin_password"`
+	TokenValidDurationSec         int    `name:"token_valid_duration_sec" yaml:"token_valid_duration_sec" json:"token_valid_duration_sec"`
+	TokenRefreshIntervalSec       int    `name:"token_refresh_interval_sec" yaml:"token_refresh_interval_sec" json:"token_refresh_interval_sec"`
+	BaseUrl                       string `name:"base-url" yaml:"base-url" json:"base-url" default:"/"`
+	PrometheusEndpoint            string `name:"prometheus-endpoint" yaml:"prometheus-endpoint" json:"prometheus-endpoint" default:"/metrics"`
+	WorkloadOutputDirectory       string `name:"workload_output_directory" json:"workload_output_directory" yaml:"workload_output_directory" default:"./workload_output_directory"`
+	WorkloadOutputIntervalSec     int    `name:"workload-output-interval-seconds" json:"workload-output-interval-seconds" yaml:"workload-output-interval-seconds"`
+	TimeCompressTrainingDurations bool   `name:"apply-time-compression-to-training-durations" json:"apply-time-compression-to-training-durations" yaml:"apply-time-compression-to-training-durations"`
 }
 
 func GetDefaultConfig() *Configuration {
@@ -205,26 +206,27 @@ func GetDefaultConfig() *Configuration {
 	}
 
 	return &Configuration{
-		InCluster:                    false,
-		KernelQueryInterval:          "60s",
-		NodeQueryInterval:            "120s",
-		KubeConfig:                   kubeconfigDefaultValue,
-		GatewayAddress:               "localhost:8079",
-		KernelSpecQueryInterval:      "600s",
-		FrontendJupyterServerAddress: "localhost:8888",
-		InternalJupyterServerAddress: "localhost:8888",
-		JupyterServerBasePath:        "/",
-		ServerPort:                   8000,
-		WorkloadDriverKernelSpec:     "distributed",
-		PushUpdateInterval:           1,
-		ConnectToKernelTimeoutMillis: 60000,
-		WebsocketProxyPort:           8001,
-		ClusterDashboardHandlerPort:  8078,
-		ExpectedOriginPort:           9001,
-		ExpectedOriginAddresses:      "localhost,127.0.0.1",
-		TraceStep:                    60,
-		WorkloadOutputDirectory:      "./workload_output_directory",
-		WorkloadOutputIntervalSec:    2,
+		InCluster:                     false,
+		KernelQueryInterval:           "60s",
+		NodeQueryInterval:             "120s",
+		KubeConfig:                    kubeconfigDefaultValue,
+		GatewayAddress:                "localhost:8079",
+		KernelSpecQueryInterval:       "600s",
+		FrontendJupyterServerAddress:  "localhost:8888",
+		InternalJupyterServerAddress:  "localhost:8888",
+		JupyterServerBasePath:         "/",
+		ServerPort:                    8000,
+		WorkloadDriverKernelSpec:      "distributed",
+		PushUpdateInterval:            1,
+		ConnectToKernelTimeoutMillis:  60000,
+		WebsocketProxyPort:            8001,
+		ClusterDashboardHandlerPort:   8078,
+		ExpectedOriginPort:            9001,
+		ExpectedOriginAddresses:       "localhost,127.0.0.1",
+		TraceStep:                     60,
+		WorkloadOutputDirectory:       "./workload_output_directory",
+		WorkloadOutputIntervalSec:     2,
+		TimeCompressTrainingDurations: true,
 	}
 }
 

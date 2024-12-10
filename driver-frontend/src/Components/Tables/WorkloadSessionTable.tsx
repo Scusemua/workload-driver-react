@@ -15,7 +15,7 @@ import {
 import { ExpandableRowContent, Table, Tbody, Td, Th, Thead, ThProps, Tr } from '@patternfly/react-table';
 import { GpuIcon, GpuIconAlt2 } from '@src/Assets/Icons';
 import { SessionTrainingEventTable } from '@src/Components';
-import { RoundToThreeDecimalPlaces } from '@src/Utils';
+import { RoundToThreeDecimalPlaces, RoundToTwoDecimalPlaces } from '@src/Utils';
 import React, { ReactElement } from 'react';
 
 const tableColumns = {
@@ -25,8 +25,9 @@ const tableColumns = {
     remainingExecutions: 'RemainingExecutions',
     millicpus: 'Millicpus',
     memory: 'Memory (MB)',
-    currentGpus: 'Current vGPUs',
-    maxGpus: 'Max vGPUs',
+    gpus: 'GPUs',
+    // currentGpus: 'Current vGPUs',
+    // maxGpus: 'Max vGPUs',
     vram: 'VRAM (GB)',
 };
 
@@ -346,15 +347,23 @@ export const WorkloadSessionTable: React.FunctionComponent<WorkloadSessionTableP
                         {'/'}
                         {RoundToThreeDecimalPlaces(session?.max_resource_request.memory)}
                     </Td>
-                    <Td dataLabel={tableColumns.currentGpus}>
+                    <Td dataLabel={tableColumns.gpus}>
                         <GpuIcon />
-                        {session?.current_resource_request.gpus ? session?.current_resource_request.gpus : 0}
-                    </Td>
-
-                    <Td dataLabel={tableColumns.maxGpus}>
-                        <GpuIcon />
+                        {session?.current_resource_request.memory
+                            ? RoundToTwoDecimalPlaces(session?.current_resource_request.gpus)
+                            : 0}
+                        {'/'}
                         {RoundToThreeDecimalPlaces(session?.max_resource_request.gpus)}
                     </Td>
+                    {/*<Td dataLabel={tableColumns.currentGpus}>*/}
+                    {/*    <GpuIcon />*/}
+                    {/*    {session?.current_resource_request.gpus ? session?.current_resource_request.gpus : 0}*/}
+                    {/*</Td>*/}
+
+                    {/*<Td dataLabel={tableColumns.maxGpus}>*/}
+                    {/*    <GpuIcon />*/}
+                    {/*    {RoundToThreeDecimalPlaces(session?.max_resource_request.gpus)}*/}
+                    {/*</Td>*/}
                     <Td dataLabel={tableColumns.vram}>
                         <GpuIconAlt2 />
                         {session?.current_resource_request.vram

@@ -231,41 +231,41 @@ export const WorkloadInspectionView: React.FunctionComponent<IWorkloadInspection
                         {/*    </DescriptionListTerm>*/}
                         {/*    <DescriptionListDescription>{getAverageTickDuration()}</DescriptionListDescription>*/}
                         {/*</DescriptionListGroup>*/}
-                        <DescriptionListGroup>
-                            <DescriptionListTerm>
-                                Next Expected Event <RunningIcon />
-                            </DescriptionListTerm>
-                            <DescriptionListDescription>
-                                <Tooltip
-                                    content={`Event will target Session ${props.workload.statistics.next_expected_event_target}`}
-                                >
-                                    {props.workload.statistics.next_expected_event_name !== '' ? (
-                                        GetEventLabel(props.workload.statistics.next_expected_event_name)
-                                    ) : (
-                                        <Text component={'p'}>N/A</Text>
-                                    )}
-                                </Tooltip>
-                            </DescriptionListDescription>
-                        </DescriptionListGroup>
-                        <DescriptionListGroup>
-                            <DescriptionListTerm>
-                                Next Expected Event In <ClockIcon />
-                            </DescriptionListTerm>
-                            <DescriptionListDescription>
-                                {numberWithCommas(
-                                    props.workload?.statistics.next_event_expected_tick -
-                                        props.workload?.statistics.current_tick || 0,
-                                )}{' '}
-                                tick(s)
-                            </DescriptionListDescription>
-                        </DescriptionListGroup>
+                        {/*<DescriptionListGroup>*/}
+                        {/*    <DescriptionListTerm>*/}
+                        {/*        Next Expected Event <RunningIcon />*/}
+                        {/*    </DescriptionListTerm>*/}
+                        {/*    <DescriptionListDescription>*/}
+                        {/*        <Tooltip*/}
+                        {/*            content={`Event will target Session ${props.workload.statistics.next_expected_event_target}`}*/}
+                        {/*        >*/}
+                        {/*            {props.workload.statistics.next_expected_event_name !== '' ? (*/}
+                        {/*                GetEventLabel(props.workload.statistics.next_expected_event_name)*/}
+                        {/*            ) : (*/}
+                        {/*                <Text component={'p'}>N/A</Text>*/}
+                        {/*            )}*/}
+                        {/*        </Tooltip>*/}
+                        {/*    </DescriptionListDescription>*/}
+                        {/*</DescriptionListGroup>*/}
+                        {/*<DescriptionListGroup>*/}
+                        {/*    <DescriptionListTerm>*/}
+                        {/*        Next Expected Event In <ClockIcon />*/}
+                        {/*    </DescriptionListTerm>*/}
+                        {/*    <DescriptionListDescription>*/}
+                        {/*        {numberWithCommas(*/}
+                        {/*            props.workload?.statistics.next_event_expected_tick -*/}
+                        {/*                props.workload?.statistics.current_tick || 0,*/}
+                        {/*        )}{' '}*/}
+                        {/*        tick(s)*/}
+                        {/*    </DescriptionListDescription>*/}
+                        {/*</DescriptionListGroup>*/}
                     </DescriptionList>
                 </FlexItem>
-                {props.showTickDurationChart && (
-                    <FlexItem>
-                        <WorkloadTickDurationChart workload={props.workload} />
-                    </FlexItem>
-                )}
+                {/*{props.showTickDurationChart && (*/}
+                {/*    <FlexItem>*/}
+                {/*        <WorkloadTickDurationChart workload={props.workload} />*/}
+                {/*    </FlexItem>*/}
+                {/*)}*/}
             </Flex>
             <FlexItem>
                 <Flex direction={{ default: 'row' }}>

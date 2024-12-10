@@ -87,6 +87,10 @@ type BasicWorkload struct {
 	// Statistics encapsulates a number of important statistics related to the workload.
 	Statistics *Statistics `json:"statistics"`
 
+	// TimeCompressTrainingDurations indicates whether the TimescaleAdjustmentFactor should be used to compress
+	// (or potentially extend, if the value of TimescaleAdjustmentFactor is > 1) the duration of training events.
+	TimeCompressTrainingDurations bool `json:"time_compress_training_durations"`
+
 	// SampledSessions is a map (really, just a set; the values of the map are not used) that keeps track of the
 	// sessions that this BasicWorkload is actively sampling and processing from the workload.
 	//
@@ -1008,4 +1012,12 @@ func (w *BasicWorkload) RecordSessionExecutionTime(sessionId string, execTimeMil
 
 func (w *BasicWorkload) GetSessionTrainingEvent(sessionId string, trainingIndex int) *domain.TrainingEvent {
 	return w.workloadInstance.getSessionTrainingEvent(sessionId, trainingIndex)
+}
+
+// ShouldTimeCompressTrainingDurations returns the value of the TimeCompressTrainingDurations flag.
+//
+// TimeCompressTrainingDurations indicates whether the TimescaleAdjustmentFactor should be used to compress
+// (or potentially extend, if the value of TimescaleAdjustmentFactor is > 1) the duration of training events.
+func (w *BasicWorkload) ShouldTimeCompressTrainingDurations() bool {
+	return w.TimeCompressTrainingDurations
 }

@@ -130,6 +130,12 @@ type internalWorkload interface {
 
 	RecordSessionExecutionTime(sessionId string, execTimeMillis int64)
 
+	// ShouldTimeCompressTrainingDurations returns the value of the TimeCompressTrainingDurations flag.
+	//
+	// TimeCompressTrainingDurations indicates whether the TimescaleAdjustmentFactor should be used to compress
+	// (or potentially extend, if the value of TimescaleAdjustmentFactor is > 1) the duration of training events.
+	ShouldTimeCompressTrainingDurations() bool
+
 	getSessionTrainingEvent(sessionId string, trainingIndex int) *domain.TrainingEvent
 	unsafeSessionDiscarded(sessionId string) error
 	unsafeSetSource(source interface{}) error
@@ -193,6 +199,7 @@ type BasicWorkloadDriver struct {
 	trainingStoppedChannels            map[string]chan interface{}                // trainingStartedChannels are channels used to notify that training has ended
 	trainingStoppedChannelsMutex       sync.Mutex                                 // trainingStoppedChannelsMutex ensures atomic access to the trainingStoppedChannels
 	workloadOutputInterval             time.Duration                              // workloadOutputInterval defines how often we should collect and write workload output statistics to the CSV file
+	timeCompressTrainingDurations      bool                                       // timeCompressTrainingDurations indicates whether the Workload's TimescaleAdjustmentFactor should be used to compress the duration of training events.
 	clients                            map[string]*Client
 	clientsWaitGroup                   sync.WaitGroup
 
@@ -255,6 +262,7 @@ func NewBasicWorkloadDriver(opts *domain.Configuration, performClockTicks bool, 
 		paused:                             false,
 		clients:                            make(map[string]*Client),
 		workloadOutputInterval:             time.Second * time.Duration(opts.WorkloadOutputIntervalSec),
+		timeCompressTrainingDurations:      opts.TimeCompressTrainingDurations,
 	}
 
 	driver.pauseCond = sync.NewCond(&driver.pauseMutex)
@@ -454,6 +462,7 @@ func (d *BasicWorkloadDriver) createWorkloadFromPreset(workloadRegistrationReque
 		SetTimescaleAdjustmentFactor(workloadRegistrationRequest.TimescaleAdjustmentFactor).
 		SetRemoteStorageDefinition(workloadRegistrationRequest.RemoteStorageDefinition).
 		SetSessionsSamplePercentage(workloadRegistrationRequest.SessionsSamplePercentage).
+		SetTimeCompressTrainingDurations(d.timeCompressTrainingDurations).
 		Build()
 
 	workloadFromPreset := NewWorkloadFromPreset(basicWorkload, d.workloadPreset)

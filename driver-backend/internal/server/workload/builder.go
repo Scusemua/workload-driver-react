@@ -10,14 +10,15 @@ import (
 
 // Builder is the builder for the Workload struct.
 type Builder struct {
-	id                        string
-	workloadName              string
-	seed                      int64
-	debugLoggingEnabled       bool
-	timescaleAdjustmentFactor float64
-	sessionsSamplePercentage  float64
-	remoteStorageDefinition   *proto.RemoteStorageDefinition
-	atom                      *zap.AtomicLevel
+	id                            string
+	workloadName                  string
+	seed                          int64
+	debugLoggingEnabled           bool
+	timescaleAdjustmentFactor     float64
+	sessionsSamplePercentage      float64
+	timeCompressTrainingDurations bool
+	remoteStorageDefinition       *proto.RemoteStorageDefinition
+	atom                          *zap.AtomicLevel
 }
 
 // NewBuilder creates a new Builder instance.
@@ -67,6 +68,12 @@ func (b *Builder) SetSessionsSamplePercentage(percentage float64) *Builder {
 	return b
 }
 
+// SetTimeCompressTrainingDurations sets the timeCompressTrainingDurations flag.
+func (b *Builder) SetTimeCompressTrainingDurations(timeCompressTrainingDurations bool) *Builder {
+	b.timeCompressTrainingDurations = timeCompressTrainingDurations
+	return b
+}
+
 // SetRemoteStorageDefinition sets the remote storage definition.
 func (b *Builder) SetRemoteStorageDefinition(def *proto.RemoteStorageDefinition) *Builder {
 	b.remoteStorageDefinition = def
@@ -76,20 +83,21 @@ func (b *Builder) SetRemoteStorageDefinition(def *proto.RemoteStorageDefinition)
 // Build creates a Workload instance with the specified values.
 func (b *Builder) Build() *BasicWorkload {
 	workload := &BasicWorkload{
-		Id:                        b.id, // Same ID as the driver.
-		Name:                      b.workloadName,
-		Seed:                      b.seed,
-		DebugLoggingEnabled:       b.debugLoggingEnabled,
-		TimescaleAdjustmentFactor: b.timescaleAdjustmentFactor,
-		WorkloadType:              UnspecifiedWorkload,
-		atom:                      b.atom,
-		sessionsMap:               make(map[string]interface{}),
-		trainingStartedTimes:      make(map[string]time.Time),
-		trainingStartedTimesTicks: make(map[string]int64),
-		RemoteStorageDefinition:   b.remoteStorageDefinition,
-		SampledSessions:           make(map[string]interface{}),
-		UnsampledSessions:         make(map[string]interface{}),
-		Statistics:                NewStatistics(b.sessionsSamplePercentage),
+		Id:                            b.id, // Same ID as the driver.
+		Name:                          b.workloadName,
+		Seed:                          b.seed,
+		DebugLoggingEnabled:           b.debugLoggingEnabled,
+		TimescaleAdjustmentFactor:     b.timescaleAdjustmentFactor,
+		WorkloadType:                  UnspecifiedWorkload,
+		atom:                          b.atom,
+		sessionsMap:                   make(map[string]interface{}),
+		trainingStartedTimes:          make(map[string]time.Time),
+		trainingStartedTimesTicks:     make(map[string]int64),
+		RemoteStorageDefinition:       b.remoteStorageDefinition,
+		SampledSessions:               make(map[string]interface{}),
+		UnsampledSessions:             make(map[string]interface{}),
+		Statistics:                    NewStatistics(b.sessionsSamplePercentage),
+		TimeCompressTrainingDurations: b.timeCompressTrainingDurations,
 		//SumTickDurationsMillis:    0,
 		//TickDurationsMillis:       make([]int64, 0),
 	}

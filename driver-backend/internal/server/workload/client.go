@@ -551,15 +551,6 @@ func (c *Client) processEventsForTick(tick time.Time) error {
 
 		err := c.handleEvent(event, tick)
 
-		// Record it as processed even if there was an error when processing the event.
-		c.Workload.ProcessedEvent(domain.NewEmptyWorkloadEvent().
-			WithEventId(event.Id()).
-			WithSessionId(event.SessionID()).
-			WithEventName(event.Name).
-			WithEventTimestamp(event.Timestamp).
-			WithProcessedAtTime(time.Now()).
-			WithError(err))
-
 		if err != nil {
 			workloadWillAbort := c.handleError(event, err, tick)
 			if workloadWillAbort {
@@ -602,39 +593,60 @@ func (c *Client) handleError(event *domain.Event, err error, tick time.Time) boo
 }
 
 // handleEvent handles a single *domain.Event.
-func (c *Client) handleEvent(evt *domain.Event, tick time.Time) error {
-	switch evt.Name {
+func (c *Client) handleEvent(event *domain.Event, tick time.Time) error {
+	var err error
+	switch event.Name {
 	case domain.EventSessionTraining:
-		return c.handleTrainingEvent(evt, tick)
+		err = c.handleTrainingEvent(event, tick)
 	case domain.EventSessionStopped:
-		return c.handleSessionStoppedEvent(evt)
+		err = c.handleSessionStoppedEvent(event)
+
+		// Record it as processed even if there was an error when processing the event.
+		c.Workload.ProcessedEvent(domain.NewEmptyWorkloadEvent().
+			WithEventId(event.Id()).
+			WithSessionId(event.SessionID()).
+			WithEventName(event.Name).
+			WithEventTimestamp(event.Timestamp).
+			WithProcessedAtTime(time.Now()).
+			WithError(err))
 	default:
 		c.logger.Error("Received event of unknown or unexpected type.",
 			zap.String("session_id", c.SessionId),
-			zap.String("event_name", evt.Name.String()),
+			zap.String("event_name", event.Name.String()),
 			zap.String("workload_id", c.Workload.GetId()),
 			zap.String("workload_name", c.Workload.WorkloadName()),
-			zap.String("event", evt.String()))
+			zap.String("event", event.String()))
 
-		return fmt.Errorf("%w: \"%s\"", ErrUnknownEventType, evt.Name.String())
+		err = fmt.Errorf("%w: \"%s\"", ErrUnknownEventType, event.Name.String())
 	}
+
+	return err // Will be nil on success
 }
 
 // handleTrainingEvent handles a domain.EventSessionTraining *domain.Event.
-func (c *Client) handleTrainingEvent(evt *domain.Event, tick time.Time) error {
+func (c *Client) handleTrainingEvent(event *domain.Event, tick time.Time) error {
 	startedHandlingAt := time.Now()
 
-	timeoutInterval := c.getTimeoutInterval(evt)
+	timeoutInterval := c.getTimeoutInterval(event)
 	ctx, cancel := context.WithTimeout(context.Background(), timeoutInterval)
 	defer cancel()
 
-	sentRequestAt, err := c.submitTrainingToKernel(evt)
+	sentRequestAt, err := c.submitTrainingToKernel(event)
+	// Record it as processed even if there was an error when processing the event.
+	c.Workload.ProcessedEvent(domain.NewEmptyWorkloadEvent().
+		WithEventId(event.Id()).
+		WithSessionId(event.SessionID()).
+		WithEventName(domain.EventSessionTrainingStarted).
+		WithEventTimestamp(event.Timestamp).
+		WithProcessedAtTime(time.Now()).
+		WithError(err)) // Will be nil on success
+
 	if err != nil {
 		c.logger.Error("Failed to submit training to kernel.",
 			zap.String("workload_id", c.Workload.GetId()),
 			zap.String("workload_name", c.Workload.WorkloadName()),
 			zap.String("session_id", c.SessionId),
-			zap.String("event", evt.StringJson()),
+			zap.String("event", event.StringJson()),
 			zap.Error(err))
 		return err
 	}
@@ -645,18 +657,27 @@ func (c *Client) handleTrainingEvent(evt *domain.Event, tick time.Time) error {
 		zap.String("session_id", c.SessionId),
 		zap.Time("tick", tick))
 
-	err = c.waitForTrainingToStart(ctx, evt, startedHandlingAt, sentRequestAt)
+	err = c.waitForTrainingToStart(ctx, event, startedHandlingAt, sentRequestAt)
 	if err != nil {
 		c.logger.Error("Failed to wait for training to start.",
 			zap.String("workload_id", c.Workload.GetId()),
 			zap.String("workload_name", c.Workload.WorkloadName()),
 			zap.String("session_id", c.SessionId),
-			zap.String("event", evt.StringJson()),
+			zap.String("event", event.StringJson()),
 			zap.Error(err))
 		return err
 	}
 
-	return c.waitForTrainingToEnd(ctx)
+	err = c.waitForTrainingToEnd(ctx)
+	c.Workload.ProcessedEvent(domain.NewEmptyWorkloadEvent().
+		WithEventId(event.Id()).
+		WithSessionId(event.SessionID()).
+		WithEventName(domain.EventSessionTrainingEnded).
+		WithEventTimestamp(event.Timestamp).
+		WithProcessedAtTime(time.Now()).
+		WithError(err)) // Will be nil on success
+
+	return nil // Will be nil on success
 }
 
 // submitTrainingToKernel submits a training event to be processed/executed by the kernel.
@@ -1000,6 +1021,12 @@ func (c *Client) createExecuteRequestArguments(evt *domain.Event) (*jupyter.Requ
 		Gpus:     gpus,
 	}
 
+	seconds := evt.Duration.Milliseconds()
+	milliseconds := float64(seconds * 1.0e3)
+	if c.Workload.ShouldTimeCompressTrainingDurations() {
+		milliseconds = milliseconds * c.Workload.GetTimescaleAdjustmentFactor()
+	}
+
 	argsBuilder := jupyter.NewRequestExecuteArgsBuilder().
 		Code(TrainingCode).
 		Silent(false).
@@ -1009,7 +1036,8 @@ func (c *Client) createExecuteRequestArguments(evt *domain.Event) (*jupyter.Requ
 		StopOnError(false).
 		AwaitResponse(false).
 		OnResponseCallback(c.onReceiveExecuteReply).
-		AddMetadata("resource_request", resourceRequest)
+		AddMetadata("resource_request", resourceRequest).
+		AddMetadata("training_duration_millis", milliseconds)
 
 	return argsBuilder.Build(), nil
 }
@@ -1104,7 +1132,7 @@ func (c *Client) waitForTrainingToEnd(ctx context.Context) error {
 					c.logger.Warn("Session failed to stop training...",
 						zap.String("workload_id", c.Workload.GetId()),
 						zap.String("workload_name", c.Workload.WorkloadName()),
-						zap.String("kernel_id", c.SessionId),
+						zap.String("session_id", c.SessionId),
 						zap.Duration("e2e_latency", e2eLatency),
 						zap.Error(err))
 
@@ -1133,9 +1161,9 @@ func (c *Client) waitForTrainingToEnd(ctx context.Context) error {
 					})
 
 					c.logger.Debug("Session stopped training",
+						zap.String("session_id", c.SessionId),
 						zap.String("workload_id", c.Workload.GetId()),
 						zap.String("workload_name", c.Workload.WorkloadName()),
-						zap.String("kernel_id", c.SessionId),
 						zap.Int64("exec_time_millis", execTimeMillis),
 						zap.Duration("e2e_latency", e2eLatency))
 
@@ -1146,7 +1174,7 @@ func (c *Client) waitForTrainingToEnd(ctx context.Context) error {
 					c.logger.Error("Received unexpected response via 'training-stopped' channel.",
 						zap.String("workload_id", c.Workload.GetId()),
 						zap.String("workload_name", c.Workload.WorkloadName()),
-						zap.String("kernel_id", c.SessionId),
+						zap.String("session_id", c.SessionId),
 						zap.Duration("e2e_latency", e2eLatency),
 						zap.Any("response", v))
 
@@ -1159,26 +1187,27 @@ func (c *Client) waitForTrainingToEnd(ctx context.Context) error {
 			err := ctx.Err()
 			if err != nil {
 				c.logger.Error("Timed-out waiting for \"execute_reply\" message while stopping training.",
+					zap.String("session_id", c.SessionId),
 					zap.String("workload_id", c.Workload.GetId()),
 					zap.String("workload_name", c.Workload.WorkloadName()),
-					zap.String("kernel_id", c.SessionId),
+					zap.Duration("time_elapsed", time.Since(c.lastTrainingSubmittedAt)),
 					zap.Error(err))
 
 				// We'll just return (nothing) so that the workload doesn't end.
-				return nil
+				return err
 			}
 
 			// No error attached to the context. Just log an error message without the error struct
 			// and return an error of our own.
 			c.logger.Error("Timed-out waiting for \"execute_reply\" message while stopping training.",
+				zap.String("session_id", c.SessionId),
 				zap.String("workload_id", c.Workload.GetId()),
 				zap.String("workload_name", c.Workload.WorkloadName()),
-				zap.String("kernel_id", c.SessionId))
+				zap.Duration("time_elapsed", time.Since(c.lastTrainingSubmittedAt)))
+
+			return jupyter.ErrRequestTimedOut
 		}
 	}
-
-	// We'll just return (nothing) so that the workload doesn't end.
-	return nil
 }
 
 // handleSessionStoppedEvent handles a domain.EventSessionStopped *domain.Event.
@@ -1186,7 +1215,7 @@ func (c *Client) handleSessionStoppedEvent(evt *domain.Event) error {
 	c.logger.Debug("Stopping session.",
 		zap.String("workload_id", c.Workload.GetId()),
 		zap.String("workload_name", c.Workload.WorkloadName()),
-		zap.String("kernel_id", c.SessionId))
+		zap.String("session_id", c.SessionId))
 
 	err := c.kernelSessionManager.StopKernel(c.SessionId)
 	if err != nil {

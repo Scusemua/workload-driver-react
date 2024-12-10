@@ -12,7 +12,7 @@ import {
     QuestionCircleIcon,
     StarIcon,
 } from '@patternfly/react-icons';
-import { Table, Tbody, Td, Th, ThProps, Thead, Tr } from '@patternfly/react-table';
+import { Table, Tbody, Td, Th, Thead, ThProps, Tr } from '@patternfly/react-table';
 import React, { ReactElement } from 'react';
 
 export interface WorkloadEventTableProps {
@@ -44,6 +44,12 @@ export function GetEventLabel(event_name: string): ReactElement {
         case 'session-ready':
             return (
                 <Label color="grey" icon={<PendingIcon />}>
+                    {event_name}
+                </Label>
+            );
+        case 'training':
+            return (
+                <Label color="green" icon={<MonitoringIcon />}>
                     {event_name}
                 </Label>
             );
