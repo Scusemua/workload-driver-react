@@ -215,7 +215,7 @@ func (c *Client) Run() {
 
 // createKernel attempts to create the kernel for the Client, possibly handling any errors that are encountered
 // if the errors are something we can deal with. If not, they're returned, and the workload explodes.
-func (c *Client) createKernel(evt *domain.Event) (sessionConnection *jupyter.SessionConnection, err error) {
+func (c *Client) createKernel(evt *domain.Event) (*jupyter.SessionConnection, error) {
 	var initialResourceRequest *jupyter.ResourceSpec
 	if c.schedulingPolicy == "static" || c.schedulingPolicy == "dynamic-v3" || c.schedulingPolicy == "dynamic-v4" {
 		// Try to get the first training event of the session, and just reserve those resources.
@@ -250,7 +250,12 @@ func (c *Client) createKernel(evt *domain.Event) (sessionConnection *jupyter.Ses
 		Cap:      time.Second * 120,
 	}
 
-	for sessionConnection == nil {
+	var (
+		sessionConnection *jupyter.SessionConnection
+		err               error
+	)
+
+	for sessionConnection == nil && backoff.Steps > 0 {
 		sessionConnection, err = c.kernelSessionManager.CreateSession(
 			c.SessionId, fmt.Sprintf("%s.ipynb", c.SessionId),
 			"notebook", "distributed", initialResourceRequest)
@@ -284,11 +289,17 @@ func (c *Client) createKernel(evt *domain.Event) (sessionConnection *jupyter.Ses
 			}
 
 			// Will return nil and a non-nil error.
-			return
+			return nil, err
 		}
 	}
 
-	return
+	if sessionConnection != nil {
+		c.logger.Debug("Successfully created kernel.",
+			zap.String("session_id", c.SessionId),
+			zap.String("workload_id", c.WorkloadId))
+	}
+
+	return sessionConnection, err
 }
 
 type parsedIoPubMessage struct {
@@ -310,8 +321,16 @@ func (c *Client) initialize() error {
 		return fmt.Errorf("%w: \"%s\"", ErrInvalidFirstEvent, evt.Name.String())
 	}
 
+	c.logger.Debug("Initializing client.",
+		zap.String("session_id", c.SessionId),
+		zap.String("workload_id", c.WorkloadId))
+
 	sessionConnection, err := c.createKernel(evt)
 	if err != nil {
+		c.logger.Error("Completely failed to create kernel.",
+			zap.String("session_id", c.SessionId),
+			zap.String("workload_id", c.WorkloadId),
+			zap.Error(err))
 		return err
 	}
 
@@ -368,6 +387,12 @@ func (c *Client) initialize() error {
 //
 // issueClockTicks should be executed in its own goroutine.
 func (c *Client) issueClockTicks(wg *sync.WaitGroup) {
+	defer wg.Done()
+
+	c.logger.Debug("Client is preparing to begin incrementing client-level ticker.",
+		zap.String("session_id", c.SessionId),
+		zap.String("workload_id", c.WorkloadId))
+
 	for c.Workload.IsInProgress() {
 		// Increment the clock.
 		tick, err := c.currentTick.IncrementClockBy(c.targetTickDuration)
@@ -381,32 +406,51 @@ func (c *Client) issueClockTicks(wg *sync.WaitGroup) {
 			break
 		}
 
+		c.logger.Debug("Client incremented client-level ticker. Triggering events now.",
+			zap.String("session_id", c.SessionId),
+			zap.String("workload_id", c.WorkloadId),
+			zap.Time("tick", tick))
 		c.clockTrigger.Trigger(tick)
 	}
 
-	wg.Done()
+	c.logger.Debug("Client has finished issuing clock ticks.",
+		zap.String("session_id", c.SessionId),
+		zap.String("workload_id", c.WorkloadId),
+		zap.Time("final_tick", c.currentTick.GetClockTime()))
 }
 
 // run is the private, core implementation of Run.
 func (c *Client) run(wg *sync.WaitGroup) {
+	defer wg.Done()
+	defer func() {
+		c.logger.Debug("Client is done running.",
+			zap.String("session_id", c.SessionId),
+			zap.String("workload_id", c.WorkloadId))
+
+		if swapped := c.running.CompareAndSwap(1, 0); !swapped {
+			c.logger.Error("Running was not set to 1.",
+				zap.String("session_id", c.SessionId),
+				zap.String("workload_id", c.WorkloadId))
+		}
+	}()
+
 	for c.Workload.IsInProgress() {
 		select {
 		case tick := <-c.ticker.TickDelivery:
+			c.logger.Debug("Client received tick.",
+				zap.String("session_id", c.SessionId),
+				zap.String("workload_id", c.WorkloadId),
+				zap.String("workload_name", c.Workload.WorkloadName()),
+				zap.Time("tick", tick))
+
 			err := c.handleTick(tick)
+
 			if err != nil {
 				c.errorChan <- err
+				return
 			}
-
 		}
 	}
-
-	if swapped := c.running.CompareAndSwap(1, 0); !swapped {
-		c.logger.Error("Running was not set to 1.",
-			zap.String("workload_id", c.WorkloadId),
-			zap.String("session_id", c.SessionId))
-	}
-
-	wg.Done()
 }
 
 func (c *Client) handleTick(tick time.Time) error {
@@ -475,7 +519,8 @@ func (c *Client) incrementClockTime(time time.Time) (time.Time, time.Duration, e
 // events with timestamps that are (a) equal to 19:05:00 or (b) come before 19:05:00. Any events with timestamps
 // that come after 19:05:00 will not be processed until the next tick.
 func (c *Client) processEventsForTick(tick time.Time) error {
-	// Extract all the "session-ready" events for this tick.
+	numEventsProcessed := 0
+
 	for c.EventQueue.HasEventsForTick(tick) {
 		event := c.EventQueue.Pop()
 
@@ -504,7 +549,15 @@ func (c *Client) processEventsForTick(tick time.Time) error {
 				return err
 			}
 		}
+
+		numEventsProcessed += 1
 	}
+
+	c.logger.Debug("Client finished processing events for tick.",
+		zap.String("session_id", c.SessionId),
+		zap.String("workload_id", c.Workload.GetId()),
+		zap.Time("tick", tick),
+		zap.Int("num_events_processed", numEventsProcessed))
 
 	return nil
 }

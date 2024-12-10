@@ -1,0 +1,99 @@
+{
+    "workloadTitle": "cb3862da-bf54-46dd-84b1-da9f293ecca9",
+    "workloadSeed": 0,
+    "sessionsSamplePercentage": 1,
+    "timescaleAdjustmentFactor": 0.01,
+    "numberOfSessions": 1,
+    "debugLoggingEnabled": true,
+    "remoteStorageDefinition": {
+        "name": "AWS S3",
+        "downloadRate": 200000000,
+        "uploadRate": 125000000,
+        "downloadRateVariancePercentage": 5,
+        "uploadRateVariancePercentage": 5,
+        "readFailureChancePercentage": 0,
+        "writeFailureChancePercentage": 0
+    },
+    "sessions": [
+        {
+            "id": "11515a10-df7e-4b8b-918e-07205e1a1302",
+            "start_tick": 1,
+            "stop_tick": 18,
+            "num_training_events": 4,
+            "selected_training_event": "3",
+            "trainings": [
+                {
+                    "start_tick": 2,
+                    "duration_in_ticks": 2,
+                    "cpus": 100,
+                    "memory": 100,
+                    "vram": 1,
+                    "gpus": 1,
+                    "gpu_utilizations": [
+                        {
+                            "utilization": 10
+                        }
+                    ]
+                },
+                {
+                    "start_tick": 6,
+                    "duration_in_ticks": 2,
+                    "gpus": 2,
+                    "cpus": 200,
+                    "memory": 200,
+                    "vram": 2,
+                    "gpu_utilizations": [
+                        {
+                            "utilization": 20
+                        },
+                        {
+                            "utilization": 20
+                        }
+                    ]
+                },
+                {
+                    "start_tick": 10,
+                    "duration_in_ticks": 2,
+                    "gpus": 3,
+                    "cpus": 300,
+                    "memory": 300,
+                    "vram": 3,
+                    "gpu_utilizations": [
+                        {
+                            "utilization": 30
+                        },
+                        {
+                            "utilization": 30
+                        },
+                        {
+                            "utilization": 30
+                        }
+                    ]
+                },
+                {
+                    "start_tick": 14,
+                    "duration_in_ticks": 2,
+                    "gpus": 4,
+                    "cpus": 400,
+                    "memory": 400,
+                    "vram": 4,
+                    "gpu_utilizations": [
+                        {
+                            "utilization": 40
+                        },
+                        {
+                            "utilization": 40
+                        },
+                        {
+                            "utilization": 40
+                        },
+                        {
+                            "utilization": 40
+                        }
+                    ]
+                }
+            ]
+        }
+    ],
+    "name": "AWS S3"
+}

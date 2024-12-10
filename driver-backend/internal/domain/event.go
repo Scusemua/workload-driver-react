@@ -93,6 +93,7 @@ type Event struct {
 	Timestamp           time.Time     `json:"timestamp"`
 	OriginalTimestamp   time.Time     `json:"originalTimestamp"`
 	Duration            time.Duration `json:"duration"`
+	EndTime             time.Time     `json:"end_time"`
 	Delay               time.Duration `json:"delay"`
 	ID                  string        `json:"id"`
 	OrderSeq            int64         `json:"order_seq"` // OrderSeq is essentially Timestamp of event, but randomized to make behavior stochastic.
