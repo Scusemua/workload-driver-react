@@ -645,7 +645,7 @@ func (c *Client) handleTrainingEvent(evt *domain.Event, tick time.Time) error {
 // submitTrainingToKernel submits a training event to be processed/executed by the kernel.
 func (c *Client) submitTrainingToKernel(evt *domain.Event) (sentRequestAt time.Time, err error) {
 
-	c.logger.Debug("Received TrainingStarted event.",
+	c.logger.Debug("Received training event.",
 		zap.String("workload_id", c.Workload.GetId()), zap.String("workload_name", c.Workload.WorkloadName()),
 		zap.String("session_id", c.SessionId))
 
@@ -878,15 +878,13 @@ func (c *Client) handleIOPubSmrLeadTaskMessage(conn jupyter.KernelConnection, ke
 
 	trainingStartedAt = int64(val.(float64))
 
-	sentExecRequestAt := val.(int64)
-
-	delayMilliseconds := trainingStartedAt - sentExecRequestAt
+	delayMilliseconds := trainingStartedAt - c.lastTrainingSubmittedAt.UnixMilli()
 	if delayMilliseconds < 0 {
 		c.logger.Error("Computed invalid delay between training submission and training start...",
 			zap.String("workload_id", c.Workload.GetId()),
 			zap.String("workload_name", c.Workload.WorkloadName()),
 			zap.String("session_id", conn.KernelId()),
-			zap.Int64("sent_execute_request_at", sentExecRequestAt),
+			zap.Time("sent_execute_request_at", c.lastTrainingSubmittedAt),
 			zap.Int64("training_started_at", trainingStartedAt),
 			zap.Int64("computed_delay_millis", delayMilliseconds))
 
@@ -904,7 +902,7 @@ func (c *Client) handleIOPubSmrLeadTaskMessage(conn jupyter.KernelConnection, ke
 		zap.String("workload_id", c.Workload.GetId()),
 		zap.String("workload_name", c.Workload.WorkloadName()),
 		zap.String("session_id", conn.KernelId()),
-		zap.Int64("sent_execute_request_at", sentExecRequestAt),
+		zap.Time("sent_execute_request_at", c.lastTrainingSubmittedAt),
 		zap.Int64("training_started_at", trainingStartedAt),
 		zap.Int64("computed_delay", delayMilliseconds))
 
@@ -950,7 +948,7 @@ func (c *Client) handleIOPubStreamMessage(conn jupyter.KernelConnection, kernelM
 //
 // The event must be of type "training-started", or this will return nil.
 func (c *Client) createExecuteRequestArguments(evt *domain.Event) (*jupyter.RequestExecuteArgs, error) {
-	if evt.Name != domain.EventSessionTrainingStarted {
+	if evt.Name != domain.EventSessionTraining {
 		c.logger.Error("Attempted to create \"execute_request\" arguments for event of invalid type.",
 			zap.String("event_type", evt.Name.String()),
 			zap.String("event_id", evt.Id()),
