@@ -682,10 +682,13 @@ func (c *Client) handleTrainingEvent(event *domain.Event, tick time.Time) error 
 
 // submitTrainingToKernel submits a training event to be processed/executed by the kernel.
 func (c *Client) submitTrainingToKernel(evt *domain.Event) (sentRequestAt time.Time, err error) {
-
-	c.logger.Debug("Received training event.",
-		zap.String("workload_id", c.Workload.GetId()), zap.String("workload_name", c.Workload.WorkloadName()),
-		zap.String("session_id", c.SessionId))
+	c.logger.Debug("Client received training event.",
+		zap.String("session_id", c.SessionId),
+		zap.String("workload_id", c.Workload.GetId()),
+		zap.String("workload_name", c.Workload.WorkloadName()),
+		zap.Duration("training_duration", evt.Duration),
+		zap.String("event_id", evt.ID),
+		zap.Float64("training_duration_sec", evt.Duration.Seconds()))
 
 	kernelConnection := c.sessionConnection.Kernel()
 	if kernelConnection == nil {
@@ -707,6 +710,15 @@ func (c *Client) submitTrainingToKernel(evt *domain.Event) (sentRequestAt time.T
 			zap.Error(err))
 		return time.Time{}, err
 	}
+
+	c.logger.Debug("Submitting \"execute_request\" now.",
+		zap.String("session_id", c.SessionId),
+		zap.String("workload_id", c.Workload.GetId()),
+		zap.String("workload_name", c.Workload.WorkloadName()),
+		zap.Duration("original_training_duration", evt.Duration),
+		zap.String("event_id", evt.ID),
+		zap.Float64("training_duration_sec", evt.Duration.Seconds()),
+		zap.String("execute_request_args", executeRequestArgs.String()))
 
 	sentRequestAt = time.Now()
 	_, err = kernelConnection.RequestExecute(executeRequestArgs)
@@ -1021,10 +1033,16 @@ func (c *Client) createExecuteRequestArguments(evt *domain.Event) (*jupyter.Requ
 		Gpus:     gpus,
 	}
 
-	seconds := evt.Duration.Milliseconds()
-	milliseconds := float64(seconds * 1.0e3)
+	milliseconds := float64(evt.Duration.Milliseconds())
 	if c.Workload.ShouldTimeCompressTrainingDurations() {
 		milliseconds = milliseconds * c.Workload.GetTimescaleAdjustmentFactor()
+		c.logger.Debug("Applied time-compression to training duration.",
+			zap.String("session_id", evt.SessionID()),
+			zap.Duration("original_duration", evt.Duration),
+			zap.Float64("updated_duration", milliseconds),
+			zap.String("event_id", evt.Id()),
+			zap.String("workload_id", c.Workload.GetId()),
+			zap.String("workload_name", c.Workload.WorkloadName()))
 	}
 
 	argsBuilder := jupyter.NewRequestExecuteArgsBuilder().

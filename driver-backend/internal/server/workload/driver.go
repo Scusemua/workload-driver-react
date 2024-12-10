@@ -578,6 +578,7 @@ func (d *BasicWorkloadDriver) createWorkloadFromTemplate(workloadRegistrationReq
 		SetSeed(workloadRegistrationRequest.Seed).
 		EnableDebugLogging(workloadRegistrationRequest.DebugLogging).
 		SetTimescaleAdjustmentFactor(workloadRegistrationRequest.TimescaleAdjustmentFactor).
+		SetTimeCompressTrainingDurations(d.timeCompressTrainingDurations).
 		SetRemoteStorageDefinition(workloadRegistrationRequest.RemoteStorageDefinition).
 		SetSessionsSamplePercentage(workloadRegistrationRequest.SessionsSamplePercentage).
 		Build()

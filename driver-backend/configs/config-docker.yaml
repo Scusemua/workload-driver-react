@@ -10,6 +10,8 @@ websocket-proxy-port: 8077
 admin_username: "scusemua"
 admin_password: "123456"
 base-url: "/"
+workload-output-interval-seconds: 2
+apply-time-compression-to-training-durations: true
 
 # The address of the Jupyter Server.
 frontend-jupyter-server-address: jupyter:8888

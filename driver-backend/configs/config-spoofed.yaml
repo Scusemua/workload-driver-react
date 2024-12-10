@@ -7,3 +7,5 @@ workload-presets-file: './configs/workload_presets.yaml'
 
 # Where the csv statistics are written for workloads
 workload_output_directory: "./workload-output"
+workload-output-interval-seconds: 2
+apply-time-compression-to-training-durations: true

@@ -38,8 +38,9 @@ const sessions_table_columns: string[] = [
     'Remaining Exec.',
     'Millicpus',
     'DRAM (MB)',
-    'Current vGPUs',
-    'Max vGPUs',
+    'GPUs',
+    // 'Current vGPUs',
+    // 'Max vGPUs',
     'VRAM (GB)',
 ];
 

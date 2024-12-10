@@ -10,6 +10,8 @@ websocket-proxy-port: 8077
 admin_username: "admin"
 admin_password: "12345"
 base-url: "/notebook-dashboard"
+workload-output-interval-seconds: 2
+apply-time-compression-to-training-durations: true
 
 # The address of the Jupyter Server.
 frontend-jupyter-server-address: host.docker.internal:8888
