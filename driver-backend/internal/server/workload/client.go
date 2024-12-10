@@ -41,6 +41,7 @@ type ClientBuilder struct {
 	workload                  internalWorkload
 	kernelSessionManager      jupyter.KernelSessionManager
 	notifyCallback            func(notification *proto.Notification)
+	schedulingPolicy          string
 	waitGroup                 *sync.WaitGroup
 }
 
@@ -71,6 +72,15 @@ func (b *ClientBuilder) WithStartingTick(startingTick time.Time) *ClientBuilder 
 
 func (b *ClientBuilder) WithAtom(atom *zap.AtomicLevel) *ClientBuilder {
 	b.atom = atom
+	return b
+}
+
+func (b *ClientBuilder) WithSchedulingPolicy(schedulingPolicy string) *ClientBuilder {
+	if schedulingPolicy == "" {
+		panic("Cannot use the empty string as a scheduling policy when creating a Client")
+	}
+
+	b.schedulingPolicy = schedulingPolicy
 	return b
 }
 
@@ -136,6 +146,7 @@ func (b *ClientBuilder) Build() *Client {
 		kernelSessionManager:      b.kernelSessionManager,
 		notifyCallback:            b.notifyCallback,
 		waitGroup:                 b.waitGroup,
+		schedulingPolicy:          b.schedulingPolicy,
 	}
 
 	zapConfig := zap.NewDevelopmentEncoderConfig()
@@ -233,7 +244,9 @@ func (c *Client) createKernel(evt *domain.Event) (*jupyter.SessionConnection, er
 				zap.String("workload_id", c.WorkloadId),
 				zap.String("session_id", c.SessionId))
 		}
-	} else {
+	}
+
+	if initialResourceRequest == nil {
 		initialResourceRequest = &jupyter.ResourceSpec{
 			Cpu:  int(c.maximumResourceSpec.Cpus),
 			Mem:  c.maximumResourceSpec.MemoryMB,
@@ -256,6 +269,10 @@ func (c *Client) createKernel(evt *domain.Event) (*jupyter.SessionConnection, er
 	)
 
 	for sessionConnection == nil && backoff.Steps > 0 {
+		c.logger.Debug("Issuing create-session request now.",
+			zap.String("session_id", c.SessionId),
+			zap.String("workload_id", c.WorkloadId),
+			zap.String("resource_request", initialResourceRequest.String()))
 		sessionConnection, err = c.kernelSessionManager.CreateSession(
 			c.SessionId, fmt.Sprintf("%s.ipynb", c.SessionId),
 			"notebook", "distributed", initialResourceRequest)

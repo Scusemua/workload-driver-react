@@ -1594,6 +1594,19 @@ func (d *BasicWorkloadDriver) EventQueue() *event_queue.EventQueue {
 	return d.eventQueue
 }
 
+func (d *BasicWorkloadDriver) getSchedulingPolicy() string {
+	if d.schedulingPolicy != "" {
+		return d.schedulingPolicy
+	}
+
+	policy, ok := d.getSchedulingPolicyCallback()
+	if ok {
+		d.schedulingPolicy = policy
+	}
+
+	return policy
+}
+
 // enqueueEventsForTick processes events in chronological/simulation order.
 // This accepts the "current tick" as an argument. The current tick is basically an upper-bound on the times for
 // which we'll process an event. For example, if `tick` is 19:05:00, then we will process all cluster and session
@@ -1613,6 +1626,7 @@ func (d *BasicWorkloadDriver) enqueueEventsForTick(tick time.Time) {
 				WithSessionReadyEvent(evt).
 				WithStartingTick(tick).
 				WithAtom(d.atom).
+				WithSchedulingPolicy(d.getSchedulingPolicy()).
 				WithKernelManager(d.kernelManager).
 				WithTargetTickDurationSeconds(d.targetTickDurationSeconds).
 				WithErrorChan(d.errorChan).

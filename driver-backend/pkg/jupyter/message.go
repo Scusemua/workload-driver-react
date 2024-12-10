@@ -42,6 +42,15 @@ type ResourceSpec struct {
 	Vram float64 `json:"vram"` // In GB
 }
 
+func (s *ResourceSpec) String() string {
+	m, err := json.Marshal(s)
+	if err != nil {
+		panic(err)
+	}
+
+	return string(m)
+}
+
 type BaseKernelMessage struct {
 	Channel      KernelSocketChannel    `json:"channel"`
 	Header       *KernelMessageHeader   `json:"header"`
