@@ -155,9 +155,6 @@ type Workload interface {
 	GetCurrentTick() int64
 	// GetSimulationClockTimeStr Returns the simulation clock time.
 	GetSimulationClockTimeStr() string
-	// TickCompleted is Called by the driver after each tick.
-	// Updates the time elapsed, current tick, and the simulation clock time.
-	TickCompleted(int64, time.Time)
 	// RegisterOnNonCriticalErrorHandler registers a non-critical error handler for the target workload.
 	//
 	// If there is already a non-critical handler error registered for the target workload, then the existing

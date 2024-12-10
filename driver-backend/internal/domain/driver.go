@@ -66,7 +66,7 @@ type WorkloadDriver interface {
 	//
 	// If there is a critical error that causes the workload to be terminated prematurely/aborted, then that error is returned.
 	// If the workload is able to complete successfully, then nil is returned.
-	ProcessWorkload()
+	ProcessWorkloadEvents()
 
 	// WebSocket returns the WebSocket connection on which this workload was registered by a remote client and on/through which updates about the workload are reported.
 	WebSocket() ConcurrentWebSocket

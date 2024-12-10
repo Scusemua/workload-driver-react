@@ -225,8 +225,8 @@ func (m *BasicWorkloadManager) StartWorkload(workloadId string) (domain.Workload
 		return nil, err
 	}
 
-	go workloadDriver.ProcessWorkload() // &wg
-	go workloadDriver.DriveWorkload()   // &wg
+	go workloadDriver.ProcessWorkloadEvents() // &wg
+	go workloadDriver.DriveWorkload()         // &wg
 
 	workload := workloadDriver.GetWorkload()
 	workload.UpdateTimeElapsed()

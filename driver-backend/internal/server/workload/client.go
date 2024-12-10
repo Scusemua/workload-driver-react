@@ -15,34 +15,133 @@ import (
 	"github.com/scusemua/workload-driver-react/m/v2/pkg/jupyter"
 	"go.uber.org/zap"
 	"go.uber.org/zap/zapcore"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"strings"
 	"sync/atomic"
 	"time"
 )
 
 var (
-	ErrClientNotRunning  = errors.New("cannot stop client as it is not running")
+	// ErrClientNotRunning  = errors.New("cannot stop client as it is not running")
 	ErrInvalidFirstEvent = errors.New("client received invalid first event")
 )
 
+// ClientBuilder constructs a Client instance step-by-step.
 type ClientBuilder struct {
-	workload            domain.Workload
-	sessionId           string
-	workloadId          string
-	sessionMeta         domain.SessionMetadata
-	workloadSession     *domain.WorkloadTemplateSession
-	kernelConnection    jupyter.KernelConnection
-	sessionConnection   *jupyter.SessionConnection
-	schedulingPolicy    string
-	eventQueue          *event_queue.SessionEventQueue
-	maximumResourceSpec *domain.ResourceRequest
-	localClock          domain.SimulationClock
+	sessionId                 string
+	workloadId                string
+	sessionReadyEvent         *domain.Event
+	startingTick              time.Time
+	atom                      *zap.AtomicLevel
+	targetTickDurationSeconds int64
+	errorChan                 chan<- error
+	session                   *domain.WorkloadTemplateSession
+	workload                  internalWorkload
+	notifyCallback            func(notification *proto.Notification)
+}
+
+// NewClientBuilder initializes a new ClientBuilder.
+func NewClientBuilder() *ClientBuilder {
+	return &ClientBuilder{}
+}
+
+func (b *ClientBuilder) WithSessionId(sessionId string) *ClientBuilder {
+	b.sessionId = sessionId
+	return b
+}
+
+func (b *ClientBuilder) WithWorkloadId(workloadId string) *ClientBuilder {
+	b.workloadId = workloadId
+	return b
+}
+
+func (b *ClientBuilder) WithSessionReadyEvent(event *domain.Event) *ClientBuilder {
+	b.sessionReadyEvent = event
+	return b
+}
+
+func (b *ClientBuilder) WithStartingTick(startingTick time.Time) *ClientBuilder {
+	b.startingTick = startingTick
+	return b
+}
+
+func (b *ClientBuilder) WithAtom(atom *zap.AtomicLevel) *ClientBuilder {
+	b.atom = atom
+	return b
+}
+
+func (b *ClientBuilder) WithTargetTickDurationSeconds(seconds int64) *ClientBuilder {
+	b.targetTickDurationSeconds = seconds
+	return b
+}
+
+func (b *ClientBuilder) WithErrorChan(errorChan chan<- error) *ClientBuilder {
+	b.errorChan = errorChan
+	return b
+}
+
+func (b *ClientBuilder) WithWorkload(workload internalWorkload) *ClientBuilder {
+	b.workload = workload
+	return b
+}
+
+func (b *ClientBuilder) WithSession(session *domain.WorkloadTemplateSession) *ClientBuilder {
+	b.session = session
+	return b
+}
+
+func (b *ClientBuilder) WithNotifyCallback(notifyCallback func(notification *proto.Notification)) *ClientBuilder {
+	b.notifyCallback = notifyCallback
+	return b
+}
+
+// Build constructs the Client instance.
+func (b *ClientBuilder) Build() *Client {
+	sessionMeta := b.sessionReadyEvent.Data.(domain.SessionMetadata)
+
+	client := &Client{
+		SessionId:  b.sessionId,
+		EventQueue: event_queue.NewSessionEventQueue(b.sessionId),
+		WorkloadId: b.workloadId,
+		Workload:   b.workload,
+		maximumResourceSpec: &domain.ResourceRequest{
+			Cpus:     sessionMeta.GetMaxSessionCPUs(),
+			MemoryMB: sessionMeta.GetMaxSessionMemory(),
+			Gpus:     sessionMeta.GetMaxSessionGPUs(),
+			VRAM:     sessionMeta.GetMaxSessionVRAM(),
+		},
+		currentTick:               clock.NewSimulationClockFromTime(b.startingTick),
+		currentTime:               clock.NewSimulationClockFromTime(b.startingTick),
+		targetTickDurationSeconds: b.targetTickDurationSeconds,
+		targetTickDuration:        time.Second * time.Duration(b.targetTickDurationSeconds),
+		clockTrigger:              clock.NewTrigger(),
+		errorChan:                 b.errorChan,
+		trainingStartedChannel:    make(chan interface{}, 1),
+		trainingStoppedChannel:    make(chan interface{}, 1),
+		Session:                   b.session,
+		notifyCallback:            b.notifyCallback,
+	}
+
+	zapConfig := zap.NewDevelopmentEncoderConfig()
+	zapConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
+	core := zapcore.NewCore(zapcore.NewConsoleEncoder(zapConfig), zapcore.AddSync(colorable.NewColorableStdout()), b.atom)
+	logger := zap.New(core, zap.Development())
+	if logger == nil {
+		panic("failed to create logger for workload driver")
+	}
+	client.logger = logger
+
+	client.ticker = client.clockTrigger.NewSyncTicker(time.Second*time.Duration(client.targetTickDurationSeconds), fmt.Sprintf("Client-%s", client.SessionId), client.currentTick)
+
+	client.EventQueue.Push(b.sessionReadyEvent)
+
+	return client
 }
 
 // Client encapsulates a Session and runs as a dedicated goroutine, processing events for that Session.
 type Client struct {
-	Workload        InternalWorkload
-	SessionMeta     domain.SessionMetadata
-	WorkloadSession *domain.WorkloadTemplateSession
+	Workload internalWorkload
+	Session  *domain.WorkloadTemplateSession
 
 	SessionId                 string                                 // SessionId is the Jupyter kernel/session ID of this Client
 	WorkloadId                string                                 // WorkloadId is the ID of the workload that the Client is a part of.
@@ -68,45 +167,6 @@ type Client struct {
 	notifyCallback            func(notification *proto.Notification) // notifyCallback is used to send notifications directly to the frontend.
 }
 
-// NewClient creates a new Client struct and returns a pointer to it.
-func NewClient(sessionId string, workloadId string, sessionReadyEvent *domain.Event, sessionMeta domain.SessionMetadata, startingTick time.Time, atom *zap.AtomicLevel, targetTickDurationSeconds int64, errorChan chan<- error) *Client {
-	client := &Client{
-		SessionId:   sessionId,
-		WorkloadId:  workloadId,
-		EventQueue:  event_queue.NewSessionEventQueue(sessionId),
-		SessionMeta: sessionMeta,
-		maximumResourceSpec: &domain.ResourceRequest{
-			Cpus:     sessionMeta.GetMaxSessionCPUs(),
-			MemoryMB: sessionMeta.GetMaxSessionMemory(),
-			Gpus:     sessionMeta.GetMaxSessionGPUs(),
-			VRAM:     sessionMeta.GetMaxSessionVRAM(),
-		},
-		currentTick:               clock.NewSimulationClockFromTime(startingTick),
-		currentTime:               clock.NewSimulationClockFromTime(startingTick),
-		targetTickDurationSeconds: targetTickDurationSeconds,
-		targetTickDuration:        time.Second * time.Duration(targetTickDurationSeconds),
-		clockTrigger:              clock.NewTrigger(),
-		errorChan:                 errorChan,
-		trainingStartedChannel:    make(chan interface{}, 1),
-		trainingStoppedChannel:    make(chan interface{}, 1),
-	}
-
-	zapConfig := zap.NewDevelopmentEncoderConfig()
-	zapConfig.EncodeLevel = zapcore.CapitalColorLevelEncoder
-	core := zapcore.NewCore(zapcore.NewConsoleEncoder(zapConfig), zapcore.AddSync(colorable.NewColorableStdout()), atom)
-	logger := zap.New(core, zap.Development())
-	if logger == nil {
-		panic("failed to create logger for workload driver")
-	}
-	client.logger = logger
-
-	client.ticker = client.clockTrigger.NewSyncTicker(time.Second*time.Duration(client.targetTickDurationSeconds), fmt.Sprintf("Client-%s", client.SessionId), client.currentTick)
-
-	client.EventQueue.Push(sessionReadyEvent)
-
-	return client
-}
-
 // Run starts the Client and instructs the Client to begin processing its events in a loop.
 func (c *Client) Run() {
 	if !c.running.CompareAndSwap(0, 1) {
@@ -128,24 +188,13 @@ func (c *Client) Run() {
 	}
 }
 
-// initialize creates the associated kernel and connects to it.
-func (c *Client) initialize() error {
-	evt := c.EventQueue.Pop()
-
-	if evt.Name != domain.EventSessionReady {
-		c.logger.Error("Received unexpected event for first event.",
-			zap.String("session_id", c.SessionId),
-			zap.String("event_name", evt.Name.String()),
-			zap.String("event", evt.String()),
-			zap.String("workload_id", c.WorkloadId))
-
-		return fmt.Errorf("%w: \"%s\"", ErrInvalidFirstEvent, evt.Name.String())
-	}
-
+// createKernel attempts to create the kernel for the Client, possibly handling any errors that are encountered
+// if the errors are something we can deal with. If not, they're returned, and the workload explodes.
+func (c *Client) createKernel(evt *domain.Event) (sessionConnection *jupyter.SessionConnection, err error) {
 	var initialResourceRequest *jupyter.ResourceSpec
 	if c.schedulingPolicy == "static" || c.schedulingPolicy == "dynamic-v3" || c.schedulingPolicy == "dynamic-v4" {
 		// Try to get the first training event of the session, and just reserve those resources.
-		firstTrainingEvent := c.WorkloadSession.Trainings[0]
+		firstTrainingEvent := c.Session.Trainings[0]
 
 		if firstTrainingEvent != nil {
 			initialResourceRequest = &jupyter.ResourceSpec{
@@ -168,17 +217,80 @@ func (c *Client) initialize() error {
 		}
 	}
 
-	sessionConnection, err := c.kernelManager.CreateSession(
-		c.SessionId, fmt.Sprintf("%s.ipynb", c.SessionId),
-		"notebook", "distributed", initialResourceRequest)
-	if err != nil {
-		c.logger.Warn("Failed to create session.",
-			zap.String("workload_id", c.WorkloadId),
-			zap.String("session_id", c.SessionId),
-			zap.Error(err))
+	backoff := wait.Backoff{
+		Duration: time.Second * 5,
+		Factor:   2,
+		Jitter:   float64(time.Millisecond * 250),
+		Steps:    10,
+		Cap:      time.Second * 120,
+	}
 
+	for sessionConnection == nil {
+		sessionConnection, err = c.kernelManager.CreateSession(
+			c.SessionId, fmt.Sprintf("%s.ipynb", c.SessionId),
+			"notebook", "distributed", initialResourceRequest)
+		if err != nil {
+			c.logger.Warn("Failed to create session.",
+				zap.String("workload_id", c.WorkloadId),
+				zap.String("session_id", c.SessionId),
+				zap.Error(err))
+
+			if strings.Contains(err.Error(), "insufficient hosts available") {
+				sleepInterval := backoff.Step()
+
+				c.logger.Warn("Failed to create session due to insufficient hosts available. Will requeue event and try again later.",
+					zap.String("workload_id", c.Workload.GetId()),
+					zap.String("workload_name", c.Workload.WorkloadName()),
+					zap.String("session_id", c.SessionId),
+					zap.Time("original_timestamp", evt.OriginalTimestamp),
+					zap.Time("current_timestamp", evt.Timestamp),
+					zap.Time("current_tick", c.currentTick.GetClockTime()),
+					zap.Int32("num_times_enqueued", evt.GetNumTimesEnqueued()),
+					zap.Duration("total_delay", evt.TotalDelay()),
+					zap.Int("attempt_number", backoff.Steps-10+1),
+					zap.Duration("sleep_interval", sleepInterval))
+
+				// TODO: How to accurately compute the delay here? Since we're using ticks, so one minute is the
+				// 		 minimum meaningful delay, really, but we're also using big time compression factors?
+				c.incurDelay(sleepInterval)
+
+				time.Sleep(sleepInterval)
+				continue
+			}
+
+			// Will return nil and a non-nil error.
+			return
+		}
+	}
+
+	return
+}
+
+type parsedIoPubMessage struct {
+	Stream string
+	Text   string
+}
+
+// initialize creates the associated kernel and connects to it.
+func (c *Client) initialize() error {
+	evt := c.EventQueue.Pop()
+
+	if evt.Name != domain.EventSessionReady {
+		c.logger.Error("Received unexpected event for first event.",
+			zap.String("session_id", c.SessionId),
+			zap.String("event_name", evt.Name.String()),
+			zap.String("event", evt.String()),
+			zap.String("workload_id", c.WorkloadId))
+
+		return fmt.Errorf("%w: \"%s\"", ErrInvalidFirstEvent, evt.Name.String())
+	}
+
+	sessionConnection, err := c.createKernel(evt)
+	if err != nil {
 		return err
 	}
+
+	c.sessionConnection = sessionConnection
 
 	// ioPubHandler is a session-specific wrapper around the standard BasicWorkloadDriver::handleIOPubMessage method.
 	// This returns true if the received IOPub message is a "stream" message and is parsed successfully.
@@ -194,11 +306,11 @@ func (c *Client) initialize() error {
 			switch parsedIoPubMsg.Stream {
 			case "stdout":
 				{
-					c.WorkloadSession.AddStdoutIoPubMessage(parsedIoPubMsg.Text)
+					c.Session.AddStdoutIoPubMessage(parsedIoPubMsg.Text)
 				}
 			case "stderr":
 				{
-					c.WorkloadSession.AddStderrIoPubMessage(parsedIoPubMsg.Text)
+					c.Session.AddStderrIoPubMessage(parsedIoPubMsg.Text)
 				}
 			default:
 				c.logger.Warn("Unexpected stream specified by IOPub message.",
@@ -430,7 +542,7 @@ func (c *Client) handleTrainingEvent(evt *domain.Event, tick time.Time) error {
 		return err
 	}
 
-	return c.waitForTrainingToEnd(ctx, evt)
+	return c.waitForTrainingToEnd(ctx)
 }
 
 // submitTrainingToKernel submits a training event to be processed/executed by the kernel.
@@ -835,7 +947,7 @@ func (c *Client) getTimeoutInterval(evt *domain.Event) time.Duration {
 
 	// Load the session and subsequently its current resource request.
 	// We already checked that this existed in handleTrainingEventEnded.
-	resourceRequest := c.WorkloadSession.GetCurrentResourceRequest()
+	resourceRequest := c.Session.GetCurrentResourceRequest()
 	if resourceRequest == nil {
 		c.logger.Warn("Could not compute meaningful timeout interval because scheduling policy is invalid.",
 			zap.String("workload_id", c.Workload.GetId()),
@@ -866,7 +978,7 @@ func (c *Client) getTimeoutInterval(evt *domain.Event) time.Duration {
 }
 
 // waitForTrainingToEnd waits until we receive an "execute_request" from the kernel.
-func (c *Client) waitForTrainingToEnd(ctx context.Context, evt *domain.Event) error {
+func (c *Client) waitForTrainingToEnd(ctx context.Context) error {
 	select {
 	case v := <-c.trainingStoppedChannel:
 		{
@@ -980,7 +1092,7 @@ func (c *Client) handleSessionStoppedEvent(evt *domain.Event) error {
 		zap.String("session_id", c.SessionId))
 
 	// Attempt to update the Prometheus metrics for Session lifetime duration (in seconds).
-	sessionLifetimeDuration := time.Since(c.WorkloadSession.GetCreatedAt())
+	sessionLifetimeDuration := time.Since(c.Session.GetCreatedAt())
 	metrics.PrometheusMetricsWrapperInstance.WorkloadSessionLifetimeSeconds.
 		With(prometheus.Labels{"workload_id": c.Workload.GetId()}).
 		Observe(sessionLifetimeDuration.Seconds())

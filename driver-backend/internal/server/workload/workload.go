@@ -79,14 +79,6 @@ func GetWorkloadStateAsString(state State) string {
 	}
 }
 
-type workloadInternal interface {
-	domain.Workload
-
-	unsafeSessionDiscarded(sessionId string) error
-	unsafeSetSource(source interface{}) error
-	getSessionTrainingEvent(sessionId string, trainingIndex int) *domain.TrainingEvent
-}
-
 type BasicWorkload struct {
 	logger        *zap.Logger
 	sugaredLogger *zap.SugaredLogger
@@ -132,7 +124,7 @@ type BasicWorkload struct {
 	// This is basically the child struct.
 	// So, if this is a preset workload, then this is the Preset struct.
 	// We use this so we can delegate certain method calls to the child/derived struct.
-	workloadInstance          workloadInternal
+	workloadInstance          internalWorkload
 	workloadSource            interface{}
 	mu                        sync.RWMutex
 	sessionsMap               map[string]interface{} // Internal mapping of session ID to session.
@@ -252,17 +244,6 @@ func (w *BasicWorkload) Unpause() error {
 
 	w.pauseWaitBegin = time.Time{} // Zero it out.
 	return nil
-}
-
-// TickCompleted is called by the driver after each tick.
-// Updates the time elapsed, current tick, and simulation clock time.
-func (w *BasicWorkload) TickCompleted(tick int64, simClock time.Time) {
-	w.mu.Lock()
-	w.Statistics.CurrentTick = tick
-	w.SimulationClockTimeStr = simClock.String()
-	w.mu.Unlock()
-
-	w.UpdateTimeElapsed()
 }
 
 // AddFullTickDuration is called to record how long a tick lasted, including the "artificial" sleep that is performed
@@ -988,12 +969,12 @@ func (w *BasicWorkload) SetNextExpectedEventSession(sessionId string) {
 	w.Statistics.NextExpectedEventTarget = sessionId
 }
 
-// GetStatistics returns the Statistics struct of the InternalWorkload.
+// GetStatistics returns the Statistics struct of the internalWorkload.
 func (w *BasicWorkload) GetStatistics() *Statistics {
 	return w.Statistics
 }
 
-// UpdateStatistics provides an atomic mechanism to update the InternalWorkload's Statistics.
+// UpdateStatistics provides an atomic mechanism to update the internalWorkload's Statistics.
 func (w *BasicWorkload) UpdateStatistics(f func(stats *Statistics)) {
 	w.mu.Lock()
 	defer w.mu.Unlock()
