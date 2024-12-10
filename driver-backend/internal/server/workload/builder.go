@@ -86,12 +86,12 @@ func (b *Builder) Build() *BasicWorkload {
 		sessionsMap:               make(map[string]interface{}),
 		trainingStartedTimes:      make(map[string]time.Time),
 		trainingStartedTimesTicks: make(map[string]int64),
-		SumTickDurationsMillis:    0,
-		TickDurationsMillis:       make([]int64, 0),
 		RemoteStorageDefinition:   b.remoteStorageDefinition,
 		SampledSessions:           make(map[string]interface{}),
 		UnsampledSessions:         make(map[string]interface{}),
 		Statistics:                NewStatistics(b.sessionsSamplePercentage),
+		//SumTickDurationsMillis:    0,
+		//TickDurationsMillis:       make([]int64, 0),
 	}
 
 	zapConfig := zap.NewDevelopmentEncoderConfig()
