@@ -15,7 +15,7 @@ import {
     Tooltip,
 } from '@patternfly/react-core';
 import { AsleepIcon, DiceIcon, RunningIcon } from '@patternfly/react-icons';
-import { TemplateIcon } from '@src/Assets/Icons';
+import { GpuIcon, TemplateIcon } from '@src/Assets/Icons';
 import { DarkModeContext } from '@src/Providers';
 import { editor } from 'monaco-editor/esm/vs/editor/editor.api';
 import React, { ReactElement } from 'react';
@@ -67,6 +67,11 @@ const codeTemplates: CodeTemplate[] = [
         name: 'Simulate DL Training',
         code: `# This is the code we run in a notebook cell to simulate training.\nimport socket, os\nsock = socket.socket(socket.AF_INET, socket.SOCK_STREAM)\n\n# Connect to the kernel's TCP socket.\nsock.connect(("127.0.0.1", 5555))\nprint(f'Connected to local TCP server. Local addr: {sock.getsockname()}')\n\n# Blocking call.\n# When training ends, the kernel will be sent a notification.\n# It will then send us a message, unblocking us here and allowing to finish the cell execution.\nsock.recv(1024)\n\nprint("Received 'stop' notification. Done training.")\n\ndel sock`,
         icon: <RunningIcon />,
+    },
+    {
+        name: 'Actual DL Training',
+        code: 'training_duration_millis = 1500',
+        icon: <GpuIcon />,
     },
 ];
 
